@@ -18,7 +18,9 @@
 --   uuid-ossp          extensions   1.1
 --   vector             public       0.8.2
 --
--- plpgsql e supabase_vault ja vem prontos em qualquer projeto Supabase novo.
+-- plpgsql ja vem pronto em qualquer projeto Supabase novo.
+-- supabase_vault e criado explicitamente abaixo porque 001 depende dele
+-- (public.cron_secret() / public.set_cron_secret() usam vault.*).
 -- =============================================================================
 
 CREATE SCHEMA IF NOT EXISTS extensions;
@@ -27,11 +29,16 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto      WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp"   WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA extensions;
 
+-- Vault: necessario para o segredo do cron (public.cron_secret()).
+CREATE EXTENSION IF NOT EXISTS supabase_vault WITH SCHEMA vault;
+
 -- pgvector instalado em public no banco de origem: o 001 referencia
 -- public.vector e public.vector_cosine_ops, logo o schema NAO pode mudar.
 CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
 
--- pg_net em public (usado pelos cron jobs de 002_bootstrap_cron.sql).
+-- pg_net registrado com schema public no banco de origem, mas a propria extensao
+-- cria o schema "net": as funcoes ficam em net.http_post/net.http_get, que e como
+-- 002_bootstrap_cron.sql as chama.
 CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA public;
 
 -- pg_cron sempre em pg_catalog no Supabase.

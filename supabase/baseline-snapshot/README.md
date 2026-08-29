@@ -1,93 +1,107 @@
-# Baseline snapshot (estrutural) — staging, NADA aplicado
+# Baseline do Unitos — instalação nova (staging, nada aplicado)
 
-Etapa: gerar `001_initial_schema.sql` a partir do **estado real atual** do banco
-(`tkjbhttylouamqxnbfgv`), sem replay das 250 migrations históricas.
+Conjunto autocontido para levantar uma instalação nova do Unitos em um Supabase
+**vazio**, gerado a partir do **estado real** do banco atual (`tkjbhttylouamqxnbfgv`),
+sem replay das 250 migrations históricas — que continuam preservadas em
+`supabase/migrations/` e no Git.
 
-Nada nesta pasta é aplicado automaticamente. `supabase/migrations/` permanece
-intacto (250 arquivos, preservados no Git). Produção não foi alterada nesta etapa:
-todas as consultas ao banco foram `SELECT` em `pg_catalog`, `information_schema`,
-`storage.buckets` e `cron.job`.
+Nada nesta pasta é aplicado automaticamente. Produção não foi alterada: só
+`pg_dump --schema-only` e `SELECT` em catálogos.
 
-## Arquivos
+## Ordem definitiva de execução
 
-Ordem de aplicação: **000 → 001 → 005 → 003 → 002** (004 apenas ponteiros).
+```
+000_extensions.sql        -- extensões (inclui vault, pgvector, pg_net, pg_cron)
+001_initial_schema.sql    -- schema public completo (estrutura, RLS, funções)
+005_auth_trigger.sql      -- trigger on_auth_user_created em auth.users
+003_storage_buckets.sql    -- os 5 buckets privados
+006_storage_policies.sql   -- as 12 policies de storage.objects
+004_seeds.sql             -- catálogos (agent_prompts, feature_catalog, installation)
+002_bootstrap_cron.sql    -- os 14 cron jobs (por último: dependem de tudo acima)
+```
 
-| Arquivo | Conteúdo | Status |
+`006` é obrigatório: `001` foi dumpado com `--schema=public` e por isso **não
+contém nada do schema `storage`** — sem ele a instalação fica sem acesso a
+arquivos (ou sem isolamento por workspace/cliente).
+
+## Conteúdo por arquivo
+
+| Arquivo | Conteúdo | Origem |
 |---|---|---|
-| `000_extensions.sql` | extensões reais (`vector` em `public`, `pg_net`, `pgcrypto`, `uuid-ossp`, `pg_stat_statements`, `pg_cron`) | gerado a partir de `pg_extension` — necessário porque `pg_dump --schema=public` não emite `CREATE EXTENSION` |
-| `001_initial_schema.sql` | enums, tabelas/colunas, PK/FK/UNIQUE/CHECK, 203 índices + 114 constraints, 133 funções/RPCs, 96 triggers, RLS + 200 policies, matview, GRANTs | **gerado** (2026-08-29, 530 KB, 15.780 linhas, `pg_dump --schema-only --schema=public`) |
-| `005_auth_trigger.sql` | `on_auth_user_created` em `auth.users` → `public.handle_new_user()` | gerado a partir de `pg_get_triggerdef` — schema reservado, fora de `--schema=public` |
-| `002_bootstrap_cron.sql` | os 14 cron jobs reais (9 via `net.http_post` + 5 SQL diretos) | gerado a partir de `cron.job` |
-| `003_storage_buckets.sql` | os 5 buckets reais | gerado a partir de `storage.buckets` |
-| `004_seeds.sql` | seeds/configurações dependentes de dados | gerado (apenas ponteiros, sem dados de produção) |
-| `tools/dump_schema.sh` | comando exato de dump estrutural que produz `001_initial_schema.sql` | gerado |
+| `000_extensions.sql` | `pgcrypto`, `uuid-ossp`, `pg_stat_statements` (schema `extensions`), `supabase_vault`, `vector` e `pg_net` (schema `public`), `pg_cron` | `pg_extension` |
+| `001_initial_schema.sql` | 89 tabelas, 10 enums, 133 funções/RPCs, 200 policies, 96 triggers, 203 índices + 114 constraints, 1 matview, GRANTs | `pg_dump --schema-only --schema=public` |
+| `005_auth_trigger.sql` | `on_auth_user_created` → `public.handle_new_user()` | `pg_get_triggerdef` |
+| `003_storage_buckets.sql` | `brand-assets`, `brand-documents`, `brand-media`, `avatars`, `chat-attachments` (privados) | `storage.buckets` |
+| `006_storage_policies.sql` | 12 policies de `storage.objects` + RLS | `pg_policies` |
+| `004_seeds.sql` | apenas ponteiros de catálogo, sem dados de produção | — |
+| `002_bootstrap_cron.sql` | 14 jobs (7 via `net.http_post`, 7 SQL diretos) | `cron.job` |
+| `tools/dump_schema.sh` | regenera o `001` | — |
 
-## Limitações conhecidas (não contornadas silenciosamente)
+## Dependências externas obrigatórias (fornecidas pelo Supabase)
 
-1. **`CREATE EXTENSION` não sai no dump.** `pg_dump --schema=public` omite as
-   extensões (inclusive `vector`, instalado em `public`). Coberto por
-   `000_extensions.sql`, copiado literalmente de `pg_extension`.
-2. **Trigger em `auth.users` não sai no dump** (schema reservado). Coberto por
-   `005_auth_trigger.sql`, copiado de `pg_get_triggerdef`.
-3. **Validação por reconstrução ainda não executada.** Não é possível provisionar
-   um projeto Supabase descartável a partir deste ambiente; o diff
-   banco atual × banco reconstruído é a etapa seguinte.
+O conjunto **não** cria — e depende de — objetos gerenciados pela plataforma:
 
-O snapshot é fiel por construção (dump estrutural, sem replay das migrations) —
-inclusive quanto aos labels `editor`/`designer` do enum `app_role`, que **não**
-foram removidos.
+- schema `auth` com `auth.users` (FKs e `auth.uid()` / `auth.jwt()`);
+- schema `storage` com `storage.objects`, `storage.buckets`, `storage.foldername()`
+  e os triggers nativos (`protect_delete`, `update_objects_updated_at`, etc.);
+- roles `anon`, `authenticated`, `service_role`, `postgres` (alvos de GRANT);
+- schema `vault` (a extensão é criada em `000`);
+- Realtime não é usado pelo baseline (nenhuma tabela publicada).
 
-## Investigação `user_profiles` / `handle_new_user` (estado real hoje)
+Ou seja: **projeto Supabase novo, não Postgres puro.**
 
-`public.user_profiles` — 16 colunas, criada fora do versionamento; as 250
-migrations só a alteram. Estado atual:
+## Variáveis / segredos necessários na instalação nova
 
-- `id uuid PK` → FK `auth.users(id) ON DELETE CASCADE`
-- `full_name text NOT NULL`
-- `role text NOT NULL DEFAULT 'user'` + CHECK `('admin','manager','user','super_admin')`
-  (o `DEFAULT 'editor'` histórico **não existe mais** — já corrigido)
-- `avatar_url`, `phone`, `job_title`, `bio`, `whatsapp`
-- `timezone NOT NULL DEFAULT 'America/Sao_Paulo'`, `locale NOT NULL DEFAULT 'pt-BR'`
-- `requires_password_change`, `is_super_admin`, `notify_whatsapp` (boolean NOT NULL DEFAULT false)
-- `notification_prefs jsonb NOT NULL DEFAULT '{"ai_jobs":true,"comments":true,"approvals":true,"deadlines":true,"assignments":true}'`
-- `created_at`/`updated_at timestamptz NOT NULL DEFAULT timezone('utc', now())`
-- RLS ativo, 4 policies: `Users see own profile` (SELECT),
-  `Users see profiles of shared brand members` (SELECT),
-  `Usuários atualizam próprio perfil` (UPDATE), `super_admin_full_access` (ALL)
-- 3 triggers: `update_user_profiles_modtime`, `trg_guard_super_admin_flag`,
-  `trg_guard_super_admin_flag_insert`
+No banco:
 
-`public.handle_new_user()` — `SECURITY DEFINER`, `SET search_path = public`,
-normaliza papel desconhecido para `'user'` (sem `member`/`editor`), monta
-`full_name` a partir de metadata/e-mail, faz `INSERT ... ON CONFLICT (id) DO NOTHING`
-e nunca aborta o signup (captura exceção como `WARNING`). Trigger
-`on_auth_user_created AFTER INSERT ON auth.users`.
+```sql
+SELECT public.set_cron_secret('<CRON_SECRET>');            -- >= 16 chars, Vault
+INSERT INTO public.installation (id) VALUES (true)          -- singleton, se ausente
+  ON CONFLICT DO NOTHING;
+```
 
-Ambos são cobertos pelo dump estrutural, com a única exceção do trigger em
-`auth.users` (schema reservado): `pg_dump --schema=public` não o inclui — ver
-nota em `tools/dump_schema.sh`.
+Em `002_bootstrap_cron.sql`: substituir `APP_URL_AQUI` pela URL **da própria**
+instalação.
 
-## Roteiro de validação (executar com suas credenciais)
+Na aplicação (env):
 
-1. Criar projeto Supabase descartável.
-2. `bash supabase/baseline-snapshot/tools/dump_schema.sh "<DB_URL_PRODUCAO>"` →
-   gera `001_initial_schema.sql` (somente estrutura, sem dados).
-3. Em um clone separado do repo, aplicar **apenas** `001_initial_schema.sql` no
-   descartável, depois `003_storage_buckets.sql` e, por último,
-   `002_bootstrap_cron.sql` com URL/segredo do descartável.
-4. Comparar estrutura (contagens esperadas hoje):
+```
+VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY / VITE_SUPABASE_PROJECT_ID
+SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY / SUPABASE_SERVICE_ROLE_KEY
+CRON_SECRET                (idêntico ao gravado no Vault)
+BRAND_CREDENTIALS_SECRET
+PUBLIC_APP_URL
+META_APP_ID / META_APP_SECRET / META_REDIRECT_URI /
+META_WEBHOOK_VERIFY_TOKEN / META_STATE_SECRET     (opcionais: Meta)
+```
 
-| Objeto | Produção |
-|---|---|
-| Tabelas `public` | 89 |
-| Enums | 10 |
-| Funções `public` (com extensões) | 251 · sem extensões: **133** |
-| Policies | 200 |
-| Triggers (não internos) | 103 |
-| Índices | 317 |
-| FKs | 194 |
-| Matviews / Views | 1 / 0 |
-| Buckets | 5 |
-| Cron jobs | 14 |
+Nenhum valor de domínio, ID, usuário ou marca desta instalação está no SQL
+(verificado: zero URLs, zero `INSERT`/`COPY`).
 
-5. Divergência encontrada → **relatar**, não corrigir em silêncio.
+## Correções já aplicadas nesta etapa
+
+1. `CREATE SCHEMA public;` → `CREATE SCHEMA IF NOT EXISTS public;` (o `public`
+   sempre existe em projeto Supabase novo; o comando original abortaria o `001`).
+2. `supabase_vault` passou a ser criado explicitamente em `000` — `001` define
+   `public.cron_secret()` / `set_cron_secret()` sobre `vault.*`.
+3. `pg_net`: documentado que as funções ficam em `net.*` (como `002` chama),
+   apesar de `extnamespace = public`.
+4. `006_storage_policies.sql` criado (lacuna real: `storage` fora do dump).
+5. `002` passou a exigir explicitamente `set_cron_secret` antes dos jobs HTTP.
+
+## Pendências antes do primeiro teste real
+
+1. **Execução real ainda não feita.** Toda a validação desta etapa é estática
+   (dependências, ordem, catálogos). O diff banco atual × banco reconstruído
+   exige um projeto Supabase descartável.
+2. **Catálogos de `004` não promovidos.** `agent_prompts` e `feature_catalog`
+   continuam apenas apontados; sem eles a instalação sobe sem agentes de IA e
+   sem features padrão. Decidir quais entram e copiar os `INSERT` idempotentes.
+3. **`brain_stats_mv`** nasce vazia; o job `refresh-brain-stats-mv` a popula.
+4. Divergências de contagem esperadas (não são erro): 96 triggers no `001`
+   (os 103 do banco incluem `auth`/`cron`/`realtime`/`storage`) e 203
+   `CREATE INDEX` (os 317 do catálogo incluem índices de constraints).
+
+O baseline **não** está aprovado como final: está autocontido e sem dependência
+oculta das 250 migrations, mas falta a reconstrução real (item 1) e a decisão de
+seeds (item 2).
