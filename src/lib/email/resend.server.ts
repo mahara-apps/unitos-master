@@ -134,15 +134,33 @@ export async function resolveResendConfig(
 
   const envKey = process.env.RESEND_API_KEY?.trim();
   if (envKey) {
+    // Fallback de INSTALAÇÃO: o remetente vem do singleton `installation`
+    // (configurável por Super Admin) e só depois do env, para que nenhuma
+    // instalação herde o remetente de outra via `.env` copiado.
+    let installationFrom: string | null = null;
+    let installationName: string | null = null;
+    try {
+      const { getInstallationSettings } = await import("@/lib/installation-settings.server");
+      const s = await getInstallationSettings();
+      installationFrom = s.emailFrom;
+      installationName = s.emailFromName;
+    } catch {
+      /* sem banco disponível: usa apenas o env desta instância */
+    }
     return {
       apiKey: envKey,
-      from: normalizeFrom(process.env.INVITE_FROM_EMAIL, DEFAULT_FROM, displayName),
+      from: normalizeFrom(
+        installationFrom ?? process.env.INVITE_FROM_EMAIL,
+        DEFAULT_FROM,
+        displayName ?? installationName,
+      ),
       source: "installation",
       masked: null,
     };
   }
   return null;
 }
+
 
 /** Estado consumido pela UI — derivado do MESMO resolvedor do envio. */
 export async function resolveResendStatus(
