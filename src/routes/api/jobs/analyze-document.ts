@@ -57,14 +57,8 @@ const AiSummarySchema = z.object({
 
 export type DocumentAiSummary = z.infer<typeof AiSummarySchema>;
 
-function uint8ToBase64(bytes: Uint8Array): string {
-  let bin = "";
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
-  }
-  return btoa(bin);
-}
+
+
 
 async function runAnalysis(params: {
   token: string;
