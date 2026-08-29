@@ -408,6 +408,13 @@ export type Database = {
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "brain_embeddings_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "brain_events"
+            referencedColumns: ["id"]
+          },
         ]
       }
       brain_events: {
@@ -583,7 +590,15 @@ export type Database = {
           status?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "brain_learning_queue_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "brain_events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       brain_memory: {
         Row: {
