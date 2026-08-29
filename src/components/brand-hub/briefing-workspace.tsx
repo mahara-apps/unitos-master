@@ -462,34 +462,43 @@ export function BriefingWorkspace({
   }
 
   return (
-    <StackedBrainLayout
-      brandId={brandId}
-      clientId={clientId}
-      client={hubQ.data}
-      form={form}
-      setForm={setForm}
-      completion={completion}
-      onSave={() => save.mutate()}
-      saving={save.isPending}
-      savedAt={savedAt}
-      onGenerateStrategy={() => setRegenOpen(true)}
-      onGenerateIdeas={() => setIdeasOpen(true)}
-      onImportText={importFromText}
-      strategyReady={strategyReady}
-      generating={generating}
-      genIdeas={genIdeas}
-      appendSlot={appendSlot}
-      regenOpen={regenOpen}
-      setRegenOpen={setRegenOpen}
-      runStrategy={runStrategy}
-      ideasOpen={ideasOpen}
-      setIdeasOpen={setIdeasOpen}
-      ideasTheme={ideasTheme}
-      setIdeasTheme={setIdeasTheme}
-      runIdeas={runIdeas}
-    />
+    <>
+      <StackedBrainLayout
+        brandId={brandId}
+        clientId={clientId}
+        client={hubQ.data}
+        form={form}
+        setForm={setForm}
+        completion={completion}
+        onSave={() => save.mutate()}
+        saving={save.isPending}
+        savedAt={savedAt}
+        onGenerateStrategy={() => setRegenOpen(true)}
+        onGenerateIdeas={() => setIdeasOpen(true)}
+        onImportAi={() => setImportOpen(true)}
+        strategyReady={strategyReady}
+        generating={generating}
+        genIdeas={genIdeas}
+        appendSlot={appendSlot}
+        regenOpen={regenOpen}
+        setRegenOpen={setRegenOpen}
+        runStrategy={runStrategy}
+        ideasOpen={ideasOpen}
+        setIdeasOpen={setIdeasOpen}
+        ideasTheme={ideasTheme}
+        setIdeasTheme={setIdeasTheme}
+        runIdeas={runIdeas}
+      />
+      <BriefingImportDialog
+        brandId={brandId}
+        clientId={clientId}
+        open={importOpen}
+        onOpenChange={setImportOpen}
+      />
+    </>
   );
 }
+
 
 /* ------------------------------ Shared blocks ------------------------------ */
 
