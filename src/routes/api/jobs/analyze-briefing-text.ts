@@ -228,9 +228,16 @@ export const Route = createFileRoute("/api/jobs/analyze-briefing-text")({
         }
 
         const supabase = buildUserClient(token);
-        const { data: claims } = await supabase.auth.getClaims(token);
-        const userId = claims?.claims?.sub;
+        // Mesmo padrão do middleware: getClaims pode falhar por cache de JWKS;
+        // nesse caso validamos o token direto antes de recusar.
+        const { data: claims } = await supabase.auth.getClaims(token).catch(() => ({ data: null }));
+        let userId = claims?.claims?.sub as string | undefined;
+        if (!userId) {
+          const { data: userData } = await supabase.auth.getUser(token);
+          userId = userData?.user?.id;
+        }
         if (!userId) return new Response("Unauthorized", { status: 401 });
+
 
         const denied = await guardClientScope(supabase, userId, parsed.data.clientId);
         if (denied) return denied;
