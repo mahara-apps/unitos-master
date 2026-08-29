@@ -14,9 +14,12 @@ const BodySchema = z.object({
   brandId: z.string().uuid(),
   clientId: z.string().uuid(),
   documentId: z.string().uuid(),
+  /** Origem informada pela UI — preservada em `briefing_import_runs.source_kind`. */
+  sourceKind: z.enum(["document", "transcript"]).optional(),
   /** Reanálise explícita: ignora o reuso por fingerprint. */
   force: z.boolean().optional(),
 });
+
 
 
 function buildUserClient(token: string) {
