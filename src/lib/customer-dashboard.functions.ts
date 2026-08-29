@@ -6,6 +6,7 @@ import { normalizePortalTheme, portalThemeSchema } from "@/lib/portal-theme";
 import { assertClientInBrand } from "@/lib/access-guard";
 import { resolveInclusiveRange } from "@/lib/date-range";
 import { computeBriefingCompletion } from "@/lib/briefing-progress";
+import { buildBriefingAlert } from "@/lib/briefing-alert";
 import type { BrandHubData } from "@/lib/brand-hub.functions";
 
 const scope = z.object({
@@ -127,11 +128,6 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
       (brandHub ?? {}) as BrandHubData,
       { tone_of_voice: (client.data as { tone_of_voice?: string | null } | null)?.tone_of_voice ?? null },
     );
-    const briefingConcluded =
-      briefingStatus === "submitted" ||
-      briefingStatus === "in_review" ||
-      briefingStatus === "approved" ||
-      briefingCompletion >= 100;
 
     const defaultPipeline = (pipelinesRes.data ?? [])[0] ?? null;
 
@@ -314,25 +310,12 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
       count?: number;
     }> = [];
     const briefingUpdated = briefingUpdatedAt;
-    // O alerta de briefing usa o estado REAL de conclusão (clients.briefing_status
-    // + completude do brand_hub), nunca a data da última atualização. Briefing
-    // concluído não gera alerta, independente de quando foi atualizado.
-    if (briefingStatus === "requested") {
-      alerts.push({
-        severity: "warning",
-        title: "Atualização de briefing pendente",
-        description: "Foi solicitada uma atualização do briefing ao cliente",
-      });
-    } else if (!briefingConcluded) {
-      alerts.push({
-        severity: briefingCompletion === 0 ? "critical" : "warning",
-        title: briefingCompletion === 0 ? "Briefing não preenchido" : "Briefing incompleto",
-        description:
-          briefingCompletion === 0
-            ? "Cérebro da marca ainda sem informações"
-            : `Cérebro da marca ${briefingCompletion}% preenchido`,
-      });
-    }
+    void briefingUpdated;
+    const briefingAlert = buildBriefingAlert({
+      status: briefingStatus,
+      completion: briefingCompletion,
+    });
+    if (briefingAlert) alerts.push(briefingAlert);
     const stalePending = approvalRows.filter(
       (a) =>
         a.status === "pending" &&
