@@ -31,9 +31,17 @@ export function useAccessRole(): Result {
 
   const q = useQuery({
     queryKey: ["my-access", brandId],
-    queryFn: () => fetchAccess({ data: { brandId } }),
+    // A server fn exige bearer token: sem sessão (ex.: /login) não chamamos,
+    // senão o middleware lança "No authorization header provided".
+    queryFn: async () => {
+      const user = await getCachedUser();
+      if (!user) return null;
+      return fetchAccess({ data: { brandId } });
+    },
     staleTime: 60_000,
+    retry: false,
   });
+
 
   return useMemo<Result>(() => {
     const a = q.data;
