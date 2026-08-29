@@ -5,6 +5,9 @@ import { computeClientHealthScore } from "@/lib/client-health";
 import { normalizePortalTheme, portalThemeSchema } from "@/lib/portal-theme";
 import { assertClientInBrand } from "@/lib/access-guard";
 import { resolveInclusiveRange } from "@/lib/date-range";
+import { computeBriefingCompletion } from "@/lib/briefing-progress";
+import { buildBriefingAlert } from "@/lib/briefing-alert";
+import type { BrandHubData } from "@/lib/brand-hub.functions";
 
 const scope = z.object({
   brandId: z.string().uuid(),
@@ -52,7 +55,7 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
       context.supabase
         .from("clients")
         .select(
-          "id,name,niche,color,socials,contact_name,contact_email,tone_of_voice,is_active,created_at,updated_at,brand_hub",
+          "id,name,niche,color,socials,contact_name,contact_email,tone_of_voice,is_active,created_at,updated_at,brand_hub,briefing_status",
         )
         .eq("id", data.clientId)
         .maybeSingle(),
@@ -115,6 +118,16 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
     const briefingUpdatedAt: string | null = brandHubFilled
       ? ((client.data as { updated_at?: string } | null)?.updated_at ?? null)
       : ((briefingRes?.data?.updated_at as string | null) ?? null);
+
+    // Estado real de conclusão do briefing (fonte: clients.briefing_status +
+    // completude canônica do brand_hub). Usado apenas para os alertas.
+    const briefingStatus =
+      ((client.data as { briefing_status?: string } | null)?.briefing_status as string | null) ??
+      "draft";
+    const briefingCompletion = computeBriefingCompletion(
+      (brandHub ?? {}) as BrandHubData,
+      { tone_of_voice: (client.data as { tone_of_voice?: string | null } | null)?.tone_of_voice ?? null },
+    );
 
     const defaultPipeline = (pipelinesRes.data ?? [])[0] ?? null;
 
@@ -297,13 +310,12 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
       count?: number;
     }> = [];
     const briefingUpdated = briefingUpdatedAt;
-    if (!briefingUpdated || now - new Date(briefingUpdated).getTime() > 7 * 86_400_000) {
-      alerts.push({
-        severity: "critical",
-        title: briefingUpdated ? "Briefing desatualizado" : "Briefing não preenchido",
-        description: "Cérebro da marca sem atualização há mais de 7 dias",
-      });
-    }
+    void briefingUpdated;
+    const briefingAlert = buildBriefingAlert({
+      status: briefingStatus,
+      completion: briefingCompletion,
+    });
+    if (briefingAlert) alerts.push(briefingAlert);
     const stalePending = approvalRows.filter(
       (a) =>
         a.status === "pending" &&
