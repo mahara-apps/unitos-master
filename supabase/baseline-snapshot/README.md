@@ -16,7 +16,7 @@ Nada nesta pasta é aplicado automaticamente. Produção não foi alterada: só
 005_auth_trigger.sql      -- trigger on_auth_user_created em auth.users
 003_storage_buckets.sql    -- os 5 buckets privados
 006_storage_policies.sql   -- as 12 policies de storage.objects
-004_seeds.sql             -- catálogos (agent_prompts, feature_catalog, installation)
+004_seeds.sql             -- seeds de catálogo (9 agentes, 14 features, 7 TTLs, installation)
 002_bootstrap_cron.sql    -- os 14 cron jobs (por último: dependem de tudo acima)
 ```
 
@@ -33,7 +33,7 @@ arquivos (ou sem isolamento por workspace/cliente).
 | `005_auth_trigger.sql` | `on_auth_user_created` → `public.handle_new_user()` | `pg_get_triggerdef` |
 | `003_storage_buckets.sql` | `brand-assets`, `brand-documents`, `brand-media`, `avatars`, `chat-attachments` (privados) | `storage.buckets` |
 | `006_storage_policies.sql` | 12 policies de `storage.objects` + RLS | `pg_policies` |
-| `004_seeds.sql` | apenas ponteiros de catálogo, sem dados de produção | — |
+| `004_seeds.sql` | 9 `agent_prompts` + 14 `feature_catalog` + 7 `brain_retention_config` + singleton vazio de `installation`; zero dados de negócio/cliente/credencial | catálogos do Master (somente leitura) |
 | `002_bootstrap_cron.sql` | 14 jobs (7 via `net.http_post`, 7 SQL diretos) | `cron.job` |
 | `tools/dump_schema.sh` | regenera o `001` | — |
 
@@ -94,9 +94,10 @@ Nenhum valor de domínio, ID, usuário ou marca desta instalação está no SQL
 1. **Execução real ainda não feita.** Toda a validação desta etapa é estática
    (dependências, ordem, catálogos). O diff banco atual × banco reconstruído
    exige um projeto Supabase descartável.
-2. **Catálogos de `004` não promovidos.** `agent_prompts` e `feature_catalog`
-   continuam apenas apontados; sem eles a instalação sobe sem agentes de IA e
-   sem features padrão. Decidir quais entram e copiar os `INSERT` idempotentes.
+2. ~~Catálogos de `004` não promovidos.~~ **RESOLVIDO:** `004_seeds.sql` agora
+   contém os seeds reais e idempotentes — 9 `agent_prompts`, 14 `feature_catalog`,
+   7 `brain_retention_config` e o singleton vazio de `installation`.
+   Validado por execução real dentro de transação com `ROLLBACK` (zero erros).
 3. **`brain_stats_mv`** nasce vazia; o job `refresh-brain-stats-mv` a popula.
 4. Divergências de contagem esperadas (não são erro): 96 triggers no `001`
    (os 103 do banco incluem `auth`/`cron`/`realtime`/`storage`) e 203
