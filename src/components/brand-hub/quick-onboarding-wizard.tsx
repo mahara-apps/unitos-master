@@ -112,6 +112,7 @@ export function QuickOnboardingWizard({
   const [step, setStep] = useState(1);
   const [state, setState] = useState<State>(EMPTY);
   const [genLoading, setGenLoading] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   // Seed state from current hub once loaded / whenever wizard opens.
   useEffect(() => {
@@ -122,7 +123,9 @@ export function QuickOnboardingWizard({
 
   useEffect(() => {
     if (open) setStep(1);
+    if (!open) setAiOpen(false);
   }, [open, clientId]);
+
 
   const save = useMutation({
     mutationFn: async (patch: Partial<BrandHubData>) => {
