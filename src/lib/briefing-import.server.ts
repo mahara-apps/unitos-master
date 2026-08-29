@@ -102,6 +102,15 @@ export type ImportCounts = {
   discarded: number;
 };
 
+/** Valor serializável em JSON (compatível com o RPC das server functions). */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
 export type ImportChangeInput = {
   field: string;
   proposedValue: unknown;
@@ -116,14 +125,15 @@ export type ImportChangeRow = {
   run_id: string;
   field: string;
   action: ImportChangeAction;
-  current_value: unknown;
-  proposed_value: unknown;
+  current_value: JsonValue;
+  proposed_value: JsonValue;
   confidence: number | null;
-  evidence: Record<string, unknown>;
+  evidence: Record<string, JsonValue>;
   decision: ImportChangeDecision;
   decided_by: string | null;
   decided_at: string | null;
 };
+
 
 type Db = SupabaseClient;
 
