@@ -173,3 +173,60 @@ describe("erros do fluxo", () => {
     expect(importErrorMessage(null)).toBe("Falha na importação.");
   });
 });
+
+describe("entrada de material (texto + arquivos)", () => {
+  it("aceita os formatos de documento pedidos e classifica a leitura", async () => {
+    const { fileHandling } = await import("@/lib/briefing-import-ui");
+    expect(fileHandling("brief.pdf")).toBe("native");
+    expect(fileHandling("foto.PNG")).toBe("native");
+    expect(fileHandling("brief.docx")).toBe("extract");
+    expect(fileHandling("planilha.xlsx")).toBe("extract");
+    expect(fileHandling("planilha.xls")).toBe("extract");
+    expect(fileHandling("dados.csv")).toBe("extract");
+    expect(fileHandling("notas.txt")).toBe("extract");
+    expect(fileHandling("video.mp4")).toBe("unsupported");
+  });
+
+  it("rejeita .doc legado com orientação clara", () => {
+    const r = validateImportFile({ name: "antigo.doc", size: 1000 });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toMatch(/\.docx|PDF/);
+  });
+
+  it("aceita docx e planilhas dentro do limite", () => {
+    expect(validateImportFile({ name: "brief.docx", size: 5000 }).ok).toBe(true);
+    expect(validateImportFile({ name: "plan.xlsx", size: 5000 }).ok).toBe(true);
+    expect(validateImportFile({ name: "grande.pdf", size: MAX_IMPORT_FILE_BYTES + 1 }).ok).toBe(false);
+  });
+
+  it("detecta transcrição de reunião no texto colado", async () => {
+    const { looksLikeTranscript, inferPasteSourceKind } = await import("@/lib/briefing-import-ui");
+    const transcript = [
+      "Ana: bom dia, vamos falar do posicionamento",
+      "Carlos: nosso público é B2B",
+      "Ana: e o tom de voz?",
+      "Carlos: mais técnico",
+    ].join("\n");
+    expect(looksLikeTranscript(transcript)).toBe(true);
+    expect(inferPasteSourceKind(transcript)).toBe("transcript");
+
+    const vtt = "00:00:01.000 --> 00:00:04.000\nfalamos sobre a marca";
+    expect(looksLikeTranscript(vtt)).toBe(true);
+
+    const plain = "A marca atua no varejo de moda com foco em conforto e preço acessível.";
+    expect(looksLikeTranscript(plain)).toBe(false);
+    expect(inferPasteSourceKind(plain)).toBe("paste");
+  });
+
+  it("compõe material de texto rotulado ignorando blocos vazios", async () => {
+    const { composeTextMaterial } = await import("@/lib/briefing-import-extract");
+    const out = composeTextMaterial([
+      { label: "Texto colado", text: "conteúdo" },
+      { label: "vazio.txt", text: "   " },
+      { label: "brief.docx", text: "outro" },
+    ]);
+    expect(out).toContain("### Texto colado");
+    expect(out).toContain("### brief.docx");
+    expect(out).not.toContain("vazio.txt");
+  });
+});
