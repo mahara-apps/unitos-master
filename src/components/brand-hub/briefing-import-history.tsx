@@ -233,7 +233,9 @@ export function BriefingImportHistory({
             ))}
           </ul>
         )}
-      </CardContent>
+        </CardContent>
+      ) : null}
+
 
       <ImportRunDetail
         brandId={brandId}
