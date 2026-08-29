@@ -64,14 +64,28 @@ const attachSupabaseAuth = createMiddleware({ type: "function" }).client(async (
     return await next({ headers });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    // Token rejeitado pelo servidor (ex.: sessão de outro projeto no
-    // localStorage, token revogado). Limpa e força re-login.
-    if (AUTH_ERROR_RE.test(msg)) {
-      await clearInvalidSession();
-      redirectToLoginWithoutThrowing();
-      if (typeof window !== "undefined") {
-        return await new Promise<never>(() => undefined);
+    if (!AUTH_ERROR_RE.test(msg)) throw err;
+
+    // Antes de derrubar a sessão: o servidor pode ter recusado um token que
+    // acabou de expirar (ou uma corrida com o refresh em outra aba). Tenta
+    // UMA vez com um token novo — só então força re-login.
+    const refreshed = await supabase.auth.refreshSession().catch(() => null);
+    const freshToken = refreshed?.data.session?.access_token ?? null;
+    if (freshToken && freshToken !== token) {
+      try {
+        return await next({ headers: { Authorization: `Bearer ${freshToken}` } });
+      } catch (retryErr) {
+        const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+        if (!AUTH_ERROR_RE.test(retryMsg)) throw retryErr;
       }
+    }
+
+    // Token rejeitado de fato (ex.: sessão de outro projeto no localStorage,
+    // token revogado). Limpa e força re-login.
+    await clearInvalidSession();
+    redirectToLoginWithoutThrowing();
+    if (typeof window !== "undefined") {
+      return await new Promise<never>(() => undefined);
     }
     throw err;
   }
