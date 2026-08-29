@@ -881,66 +881,6 @@ export type Database = {
         }
         Relationships: []
       }
-      brain_events_archive: {
-        Row: {
-          action: string | null
-          actor_id: string | null
-          archived_at: string
-          brand_id: string | null
-          client_id: string | null
-          confidence: number | null
-          correlation_id: string | null
-          created_at: string
-          entity_id: string | null
-          entity_type: string | null
-          event_type: string
-          id: string
-          outcome_score: number | null
-          payload: Json
-          processed_at: string | null
-          project_id: string | null
-          source_module: string
-        }
-        Insert: {
-          action?: string | null
-          actor_id?: string | null
-          archived_at?: string
-          brand_id?: string | null
-          client_id?: string | null
-          confidence?: number | null
-          correlation_id?: string | null
-          created_at: string
-          entity_id?: string | null
-          entity_type?: string | null
-          event_type: string
-          id: string
-          outcome_score?: number | null
-          payload: Json
-          processed_at?: string | null
-          project_id?: string | null
-          source_module: string
-        }
-        Update: {
-          action?: string | null
-          actor_id?: string | null
-          archived_at?: string
-          brand_id?: string | null
-          client_id?: string | null
-          confidence?: number | null
-          correlation_id?: string | null
-          created_at?: string
-          entity_id?: string | null
-          entity_type?: string | null
-          event_type?: string
-          id?: string
-          outcome_score?: number | null
-          payload?: Json
-          processed_at?: string | null
-          project_id?: string | null
-          source_module?: string
-        }
-        Relationships: []
-      }
       brain_events_default: {
         Row: {
           action: string | null
