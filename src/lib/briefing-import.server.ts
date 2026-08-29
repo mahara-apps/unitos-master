@@ -216,7 +216,11 @@ export async function startImportRun(
     if (existing) return { run: existing, reused: true };
   }
 
-  const key = `${args.brandId}:${args.clientId}:${args.sourceKind}:${args.inputFingerprint}`;
+  // Reanálise explícita: fingerprint sufixado libera o índice único parcial.
+  const fingerprint = args.force
+    ? `${args.inputFingerprint}:${Date.now()}`
+    : args.inputFingerprint;
+  const key = `${args.brandId}:${args.clientId}:${args.sourceKind}:${fingerprint}`;
   const { data, error } = await table(supabase, "briefing_import_runs")
     .insert({
       brand_id: args.brandId,
@@ -228,9 +232,10 @@ export async function startImportRun(
       ai_job_id: args.aiJobId ?? null,
       status: "queued",
       idempotency_key: key,
-      input_fingerprint: args.force ? `${args.inputFingerprint}:${Date.now()}` : args.inputFingerprint,
+      input_fingerprint: fingerprint,
       base_version_id: args.baseVersionId ?? null,
     })
+
     .select(RUN_COLUMNS)
     .maybeSingle();
 
