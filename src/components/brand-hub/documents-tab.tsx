@@ -378,9 +378,10 @@ export function DocumentsTab({
         />
       </PageKpiGrid>
 
+      {/* Central de contexto: dropzone compacta + CTA principal de importação */}
       <section
         className={
-          "flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 transition " +
+          "rounded-xl border border-dashed p-4 transition " +
           (dragging ? "border-primary bg-primary/5" : "border-border bg-card")
         }
         onDragOver={(e) => {
@@ -394,30 +395,45 @@ export function DocumentsTab({
           if (e.dataTransfer.files?.length) void handleFiles(e.dataTransfer.files);
         }}
       >
-        {busy ? (
-          <Loader2 className="mb-2 h-6 w-6 animate-spin text-muted-foreground" />
-        ) : (
-          <Upload className="mb-2 h-6 w-6 text-muted-foreground" />
-        )}
-        <div className="text-sm font-medium">Central de documentos & contexto</div>
-        <p className="mt-1 max-w-md text-center text-xs text-muted-foreground">
-          Envie brandbooks, manuais de marca, pesquisas ou decks. A IA lê cada documento, interpreta
-          em nível sênior e sugere melhorias para o briefing. Máx. 25 MB por arquivo.
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:flex-wrap sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-muted/60">
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              ) : (
+                <Upload className="h-4 w-4 text-muted-foreground" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">
+                Arraste materiais aqui ou envie arquivos
+              </p>
+              <p className="truncate text-[11px] text-muted-foreground">
+                Brandbooks, pesquisas e decks que alimentam o briefing · máx. 25 MB
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => inputRef.current?.click()}
+              disabled={busy}
+            >
+              <Upload className="h-3.5 w-3.5" /> Enviar arquivos
+            </Button>
+            {onImportAi ? (
+              <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={onImportAi}>
+                <Sparkles className="h-3.5 w-3.5" /> Importar com IA
+              </Button>
+            ) : null}
+          </div>
+        </div>
+        <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <EyeOff className="h-3 w-3 shrink-0" /> Documentos novos entram como não visíveis ao
+          cliente.
         </p>
-        <p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-          <EyeOff className="h-3 w-3" /> Todo documento novo entra como{" "}
-          <span className="underline">não visível</span> ao cliente. Libere manualmente na lista
-          abaixo.
-        </p>
-        <Button
-          size="sm"
-          variant="outline"
-          className="mt-4 gap-1.5"
-          onClick={() => inputRef.current?.click()}
-          disabled={busy}
-        >
-          <Upload className="h-3.5 w-3.5" /> Enviar arquivos
-        </Button>
         <input
           ref={inputRef}
           type="file"
@@ -429,6 +445,7 @@ export function DocumentsTab({
           }}
         />
       </section>
+
 
       <section className="overflow-hidden rounded-xl border border-border bg-card">
         {docsQ.isError ? (
