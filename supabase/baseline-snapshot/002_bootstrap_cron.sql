@@ -8,10 +8,13 @@
 --   7 jobs que chamam funcoes SQL diretamente
 --
 -- Dependencias obrigatorias antes de rodar este arquivo:
---   1. extensoes pg_cron e pg_net instaladas (vem no 001_initial_schema.sql)
+--   1. extensoes pg_cron e pg_net instaladas (000_extensions.sql — NAO vem no 001)
 --   2. funcoes referenciadas existentes (001_initial_schema.sql)
---   3. segredo do cron disponivel para public.cron_secret()
---   4. :app_url apontando para a URL da PROPRIA instalacao (nunca de outra)
+--   3. segredo do cron gravado no Vault, senao public.cron_secret() retorna NULL
+--      e os 7 jobs HTTP batem nos endpoints sem header valido:
+--        SELECT public.set_cron_secret('<CRON_SECRET da instalacao, >=16 chars>');
+--      O valor DEVE ser o mesmo do env CRON_SECRET da aplicacao.
+--   4. v_app_url apontando para a URL da PROPRIA instalacao (nunca de outra)
 --
 -- Substitua APP_URL_AQUI pela URL da instalacao alvo. Em ambiente descartavel,
 -- prefira criar os jobs inativos (SELECT cron.unschedule(...) ou desative-os)
