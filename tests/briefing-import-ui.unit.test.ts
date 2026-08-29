@@ -45,14 +45,15 @@ describe("validação de arquivo", () => {
     }
   });
 
-  it("rejeita .docx, arquivo vazio e acima do limite", () => {
-    expect(validateImportFile({ name: "brief.docx", size: 10 }).ok).toBe(false);
+  it("rejeita .doc legado, arquivo vazio e acima do limite", () => {
+    expect(validateImportFile({ name: "brief.doc", size: 10 }).ok).toBe(false);
     expect(validateImportFile({ name: "brief.pdf", size: 0 }).ok).toBe(false);
     expect(validateImportFile({ name: "brief.pdf", size: MAX_IMPORT_FILE_BYTES + 1 }).ok).toBe(
       false,
     );
-    expect(ACCEPT_ATTRIBUTE).not.toContain(".docx");
+    expect(ACCEPT_ATTRIBUTE).toContain(".docx");
   });
+
 
   it("formata tamanhos", () => {
     expect(formatBytes(0)).toBe("—");
