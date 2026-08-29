@@ -1455,7 +1455,7 @@ type StackedProps = {
   savedAt: string | null;
   onGenerateStrategy: () => void;
   onGenerateIdeas: () => void;
-  onImportText: () => void;
+  onImportAi: () => void;
   strategyReady: boolean;
   generating: boolean;
   genIdeas: boolean;
@@ -1483,7 +1483,7 @@ function StackedBrainLayout(props: StackedProps) {
     savedAt,
     onGenerateStrategy,
     onGenerateIdeas,
-    onImportText,
+    onImportAi,
     strategyReady,
     generating,
     appendSlot,
@@ -1548,8 +1548,8 @@ function StackedBrainLayout(props: StackedProps) {
               </span>
             ) : null}
           </div>
-          <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-xs" onClick={onImportText}>
-            <FileUp className="h-3.5 w-3.5" /> Importar .docx / texto
+          <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-xs" onClick={onImportAi}>
+            <Sparkles className="h-3.5 w-3.5" /> Importar Briefing via IA
           </Button>
           <Button
             size="sm"
