@@ -796,9 +796,48 @@ export function BriefingImportDialog({
           </div>
         ) : null}
       </div>
+    </>
+  );
+
+  // Embutido em outro modal (onboarding): mesmo fluxo, sem abrir um segundo modal.
+  if (embedded) {
+    if (!open) return null;
+    return (
+      <div className="space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
+        {queue.length > 1 ? (
+          <div className="flex justify-end">
+            <Badge variant="outline" className="text-[11px]">
+              {index + 1} de {queue.length}
+            </Badge>
+          </div>
+        ) : null}
+        {body}
+        <div className="border-t border-border/60 pt-3">{footer}</div>
+      </div>
+    );
+  }
+
+  return (
+    <ExpandedModal
+      open={open}
+      onOpenChange={(v) => (v ? onOpenChange(true) : close())}
+      size="lg"
+      title="Importar Briefing via IA"
+      description="Cole texto e/ou anexe arquivos. A IA lê o material, cruza com o briefing atual e propõe alterações campo a campo para sua revisão."
+      headerExtra={
+        queue.length > 1 ? (
+          <Badge variant="outline" className="text-[11px]">
+            {index + 1} de {queue.length}
+          </Badge>
+        ) : null
+      }
+      footer={footer}
+    >
+      {body}
     </ExpandedModal>
   );
 }
+
 
 /** 3. Contexto da análise — o que a IA vai fazer, antes de executar. */
 function ContextExplainer() {
