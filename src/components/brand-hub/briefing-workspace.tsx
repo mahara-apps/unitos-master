@@ -1564,15 +1564,23 @@ function StackedBrainLayout(props: StackedProps) {
           <div className="flex shrink-0 items-center gap-2">
             <Button
               size="sm"
+              className="h-9 gap-1.5 px-4 text-sm font-medium shadow-sm"
+              onClick={onImportAi}
+            >
+              <Sparkles className="h-4 w-4" />
+              Importar com IA
+            </Button>
+            <Button
+              size="sm"
               variant="outline"
-              className="h-8 gap-1.5 text-xs"
+              className="h-9 gap-1.5 px-3.5 text-sm"
               onClick={onSave}
               disabled={saving}
             >
               {saving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Save className="h-3.5 w-3.5" />
+                <Save className="h-4 w-4" />
               )}
               Salvar
             </Button>
