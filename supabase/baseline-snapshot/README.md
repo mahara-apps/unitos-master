@@ -29,7 +29,7 @@ arquivos (ou sem isolamento por workspace/cliente).
 | Arquivo | Conteúdo | Origem |
 |---|---|---|
 | `000_extensions.sql` | `pgcrypto`, `uuid-ossp`, `pg_stat_statements` (schema `extensions`), `supabase_vault`, `vector` e `pg_net` (schema `public`), `pg_cron` | `pg_extension` |
-| `001_initial_schema.sql` | 89 tabelas, 10 enums, 133 funções/RPCs, 200 policies, 96 triggers, 203 índices + 114 constraints, 1 matview, GRANTs | `pg_dump --schema-only --schema=public` |
+| `001_initial_schema.sql` | **reordenado por dependencia** (`tools/reorder_schema.py`), sem diretivas `\restrict`/`\unrestrict`: 89 tabelas, 10 enums, 133 funções/RPCs, 200 policies, 96 triggers, 203 índices + 114 constraints, 1 matview, GRANTs | `pg_dump --schema-only --schema=public` |
 | `005_auth_trigger.sql` | `on_auth_user_created` → `public.handle_new_user()` | `pg_get_triggerdef` |
 | `003_storage_buckets.sql` | `brand-assets`, `brand-documents`, `brand-media`, `avatars`, `chat-attachments` (privados) | `storage.buckets` |
 | `006_storage_policies.sql` | 12 policies de `storage.objects` + RLS | `pg_policies` |
@@ -89,11 +89,55 @@ Nenhum valor de domínio, ID, usuário ou marca desta instalação está no SQL
 4. `006_storage_policies.sql` criado (lacuna real: `storage` fora do dump).
 5. `002` passou a exigir explicitamente `set_cron_secret` antes dos jobs HTTP.
 
+## Ordem interna do `001_initial_schema.sql`
+
+`pg_dump` emite as funções antes das tabelas que elas referenciam, o que torna o
+dump cru inexecutável em banco vazio (`supabase db query --linked` falhava em
+`public.brain_retention_config`, `portal_tokens`, `clients`, etc.). O arquivo é
+agora reordenado por `tools/reorder_schema.py` para:
+
+```
+schema → enums/types → tabelas → funções → matview → defaults →
+constraints (PK/UNIQUE/CHECK) → FKs → índices → triggers → RLS →
+policies → comments → grants
+```
+
+Nenhuma DDL é alterada, removida ou adicionada — só a ordem. `\restrict` e
+`\unrestrict` (meta-comandos do psql) foram removidos; um único
+`SET check_function_bodies = false;` no topo cobre funções que chamam outras
+funções (ordem topológica não garantida pelo dump). Objetos que exigem validação
+real — defaults, CHECK, índices e policies — são criados depois das funções e
+continuam sendo verificados pelo Postgres.
+
+### Validação por execução real (banco vazio)
+
+Executado em cluster PostgreSQL descartável com stubs de `auth`/`storage`/`vault`
+e roles `anon`/`authenticated`/`service_role`. Resultado idêntico ao Master:
+
+| Objeto | Master | Reconstruído |
+|---|---|---|
+| tabelas | 89 | 89 |
+| funções próprias | 133 | 133 |
+| triggers | 96 | 96 |
+| policies | 200 | 200 |
+| enums | 10 | 10 |
+| FKs | 194 | 194 |
+| índices | 317 | 317 |
+| materialized view | 1 | 1 |
+| tabelas com RLS | 89 | 89 |
+
+Zero erros de dependência; as 133 funções SQL foram revalidadas com
+`check_function_bodies = true` sem nenhuma falha, e `004_seeds.sql` e
+`006_storage_policies.sql` aplicaram em seguida sem erro. Observação: o cluster
+de teste era PG16 e recusou o privilégio `MAINTAIN` (PG17+) em 89 GRANTs; em
+projeto Supabase novo (PG17.6, igual ao Master) isso não ocorre.
+
 ## Pendências antes do primeiro teste real
 
-1. **Execução real ainda não feita.** Toda a validação desta etapa é estática
-   (dependências, ordem, catálogos). O diff banco atual × banco reconstruído
-   exige um projeto Supabase descartável.
+1. ~~Execução real ainda não feita.~~ **RESOLVIDO:** `000`+`001`+`004`+`006`
+   foram aplicados em cluster PostgreSQL vazio e as contagens conferem com o
+   Master (ver tabela acima). Falta apenas o teste em projeto Supabase real
+   descartável para cobrir `003` (buckets) e `002` (cron).
 2. ~~Catálogos de `004` não promovidos.~~ **RESOLVIDO:** `004_seeds.sql` agora
    contém os seeds reais e idempotentes — 9 `agent_prompts`, 14 `feature_catalog`,
    7 `brain_retention_config` e o singleton vazio de `installation`.

@@ -1,40 +1,33 @@
 -- =============================================================================
 -- 001_initial_schema.sql — SNAPSHOT ESTRUTURAL DO ESTADO ATUAL APROVADO
--- Gerado por pg_dump --schema-only. NAO e replay das 250 migrations historicas,
--- que permanecem preservadas em supabase/migrations/ (e no Git).
 --
--- Contem: extensoes (inclui vector/pgvector, pg_cron, pg_net, supabase_vault),
--- enums atuais (app_role preserva os labels reais, incluindo editor/designer),
--- tabelas e colunas, PK/FK/UNIQUE/CHECK, indices, funcoes/RPCs, triggers,
--- RLS + policies atuais, matview brain_stats_mv, GRANTs.
+-- Gerado por pg_dump --schema-only (estado real do banco) e REORDENADO por
+-- tools/reorder_schema.py para ordem de dependencia executavel em um projeto
+-- Supabase NOVO e vazio, via psql OU `supabase db query --linked`.
 --
--- NAO contem: DML de seed/backfill, dados de producao, objetos removidos
--- (brain_events_archive, particoes do Brain, brain_knowledge, meta_connections,
--- meta_oauth_states, CRM), cron jobs, buckets de Storage.
--- Esses itens ficam em 002_bootstrap_cron.sql, 003_storage_buckets.sql e
--- 004_seeds.sql.
+-- Ordem interna: schema -> enums/types -> tabelas -> funcoes -> matviews ->
+-- defaults -> constraints (PK/UNIQUE/CHECK) -> FKs -> indices -> triggers ->
+-- RLS -> policies -> comments -> grants.
 --
--- ATENCAO: pg_dump --schema=public NAO inclui o trigger on_auth_user_created
--- em auth.users (schema reservado). Aplique-o manualmente apos o snapshot:
---   CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users
---     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+-- Nenhuma DDL foi alterada, removida ou adicionada: apenas a ordem dos
+-- statements. Meta-comandos do psql (\restrict/\unrestrict) e SETs de sessao
+-- foram removidos por incompatibilidade com `supabase db query`.
+--
+-- NAO contem: DML de seed/backfill, dados de producao, cron jobs, buckets e
+-- policies de Storage, trigger em auth.users. Ver 000/002/003/004/005/006.
 -- =============================================================================
---
--- PostgreSQL database dump
---
-
-\restrict yXwfeDXdbcd2GkJQzrs4tN5NWe1Pwy7RDfmvC2TkEuUXmdNDKiftPob5NdW0psA
-
--- Dumped from database version 17.6
--- Dumped by pg_dump version 17.9
 
 
---
--- Name: public; Type: SCHEMA; Schema: -; Owner: -
---
+-- Bodies de funcoes nao sao validados: o dump nao garante ordem
+-- topologica entre funcoes que chamam outras funcoes. Objetos que
+-- exigem validacao real (defaults, CHECK, indices, policies) sao
+-- criados DEPOIS das funcoes, portanto continuam sendo verificados.
+SET check_function_bodies = false;
+
+
+-- ============================ SCHEMA / EXTENSIONS (2) ============================
 
 CREATE SCHEMA IF NOT EXISTS public;
-
 
 --
 -- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: -
@@ -42,6 +35,8 @@ CREATE SCHEMA IF NOT EXISTS public;
 
 COMMENT ON SCHEMA public IS 'standard public schema';
 
+
+-- ============================ TYPES / ENUMS (10) ============================
 
 --
 -- Name: alert_severity; Type: TYPE; Schema: public; Owner: -
@@ -52,7 +47,6 @@ CREATE TYPE public.alert_severity AS ENUM (
     'warning',
     'critical'
 );
-
 
 --
 -- Name: app_role; Type: TYPE; Schema: public; Owner: -
@@ -68,7 +62,6 @@ CREATE TYPE public.app_role AS ENUM (
     'admin'
 );
 
-
 --
 -- Name: approval_status; Type: TYPE; Schema: public; Owner: -
 --
@@ -81,7 +74,6 @@ CREATE TYPE public.approval_status AS ENUM (
     'rejected'
 );
 
-
 --
 -- Name: calendar_event_type; Type: TYPE; Schema: public; Owner: -
 --
@@ -90,7 +82,6 @@ CREATE TYPE public.calendar_event_type AS ENUM (
     'appointment',
     'seasonal'
 );
-
 
 --
 -- Name: notification_kind; Type: TYPE; Schema: public; Owner: -
@@ -107,7 +98,6 @@ CREATE TYPE public.notification_kind AS ENUM (
     'sla_overdue_manager'
 );
 
-
 --
 -- Name: post_channel; Type: TYPE; Schema: public; Owner: -
 --
@@ -120,7 +110,6 @@ CREATE TYPE public.post_channel AS ENUM (
     'youtube',
     'blog'
 );
-
 
 --
 -- Name: post_stage; Type: TYPE; Schema: public; Owner: -
@@ -135,7 +124,6 @@ CREATE TYPE public.post_stage AS ENUM (
     'published'
 );
 
-
 --
 -- Name: project_status; Type: TYPE; Schema: public; Owner: -
 --
@@ -149,7 +137,6 @@ CREATE TYPE public.project_status AS ENUM (
     'archived'
 );
 
-
 --
 -- Name: task_priority; Type: TYPE; Schema: public; Owner: -
 --
@@ -160,7 +147,6 @@ CREATE TYPE public.task_priority AS ENUM (
     'high',
     'urgent'
 );
-
 
 --
 -- Name: task_status; Type: TYPE; Schema: public; Owner: -
@@ -174,6 +160,1840 @@ CREATE TYPE public.task_status AS ENUM (
 );
 
 
+-- ============================ TABLES / SEQUENCES (89) ============================
+
+--
+-- Name: activity_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.activity_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid,
+    actor_id uuid,
+    entity_type text NOT NULL,
+    entity_id uuid,
+    verb text NOT NULL,
+    payload jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: agent_prompt_overrides; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.agent_prompt_overrides (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    agent_id text NOT NULL,
+    system_prompt text NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: agent_prompts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.agent_prompts (
+    agent_id text NOT NULL,
+    agent_name text NOT NULL,
+    system_prompt text NOT NULL,
+    required_fields jsonb DEFAULT '[]'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    default_prompt text NOT NULL,
+    brain_enabled boolean DEFAULT true NOT NULL
+);
+
+--
+-- Name: ai_jobs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ai_jobs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid,
+    user_id uuid NOT NULL,
+    kind text NOT NULL,
+    title text NOT NULL,
+    subtitle text,
+    status text DEFAULT 'queued'::text NOT NULL,
+    progress smallint DEFAULT 0 NOT NULL,
+    step_label text,
+    input jsonb DEFAULT '{}'::jsonb NOT NULL,
+    result jsonb,
+    error text,
+    target_route text,
+    started_at timestamp with time zone,
+    finished_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: ai_model_catalog_overrides; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ai_model_catalog_overrides (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    provider text NOT NULL,
+    role text NOT NULL,
+    model_id text NOT NULL,
+    replaced_model_id text,
+    reason text,
+    source text DEFAULT 'auto_health_check'::text NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: ai_model_health; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ai_model_health (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    provider text NOT NULL,
+    model_id text NOT NULL,
+    status text NOT NULL,
+    error_message text,
+    checked_at timestamp with time zone DEFAULT now() NOT NULL,
+    role text DEFAULT 'operational'::text NOT NULL,
+    CONSTRAINT ai_model_health_status_check CHECK ((status = ANY (ARRAY['ok'::text, 'failed'::text])))
+);
+
+--
+-- Name: ai_usage_limits; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ai_usage_limits (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    scope text NOT NULL,
+    client_id uuid,
+    user_id uuid,
+    period text DEFAULT 'monthly'::text NOT NULL,
+    limit_usd numeric(12,4) NOT NULL,
+    hard_stop boolean DEFAULT true NOT NULL,
+    notify_at_pct integer DEFAULT 80 NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT ai_usage_limits_limit_usd_check CHECK ((limit_usd >= (0)::numeric)),
+    CONSTRAINT ai_usage_limits_notify_at_pct_check CHECK (((notify_at_pct >= 1) AND (notify_at_pct <= 100))),
+    CONSTRAINT ai_usage_limits_period_check CHECK ((period = 'monthly'::text)),
+    CONSTRAINT ai_usage_limits_scope_check CHECK ((scope = ANY (ARRAY['brand'::text, 'client'::text, 'user'::text]))),
+    CONSTRAINT ai_usage_limits_scope_shape CHECK ((((scope = 'brand'::text) AND (client_id IS NULL) AND (user_id IS NULL)) OR ((scope = 'client'::text) AND (client_id IS NOT NULL) AND (user_id IS NULL)) OR ((scope = 'user'::text) AND (user_id IS NOT NULL))))
+);
+
+--
+-- Name: brain_embeddings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brain_embeddings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid,
+    event_id uuid,
+    content_summary text NOT NULL,
+    embedding public.vector(1536),
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: brain_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brain_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid,
+    event_type text NOT NULL,
+    source_module text NOT NULL,
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    outcome_score numeric,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    actor_id uuid,
+    entity_type text,
+    entity_id uuid,
+    action text,
+    client_id uuid,
+    project_id uuid,
+    confidence numeric,
+    correlation_id uuid,
+    processed_at timestamp with time zone
+);
+
+--
+-- Name: brain_insights; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brain_insights (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid,
+    insight_type text NOT NULL,
+    description text NOT NULL,
+    confidence numeric,
+    based_on_events integer DEFAULT 0,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    expires_at timestamp with time zone,
+    client_id uuid,
+    scope text DEFAULT 'brand'::text NOT NULL,
+    CONSTRAINT brain_insights_scope_check CHECK ((scope = ANY (ARRAY['global'::text, 'brand'::text, 'client'::text])))
+);
+
+--
+-- Name: brain_learning_queue; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brain_learning_queue (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    event_id uuid NOT NULL,
+    brand_id uuid,
+    status text DEFAULT 'queued'::text NOT NULL,
+    attempts integer DEFAULT 0 NOT NULL,
+    error text,
+    enqueued_at timestamp with time zone DEFAULT now() NOT NULL,
+    started_at timestamp with time zone,
+    processed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: brain_memory; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brain_memory (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid,
+    subject_type text,
+    subject_id uuid,
+    memory_type text NOT NULL,
+    scope text DEFAULT 'brand'::text NOT NULL,
+    key text NOT NULL,
+    content jsonb DEFAULT '{}'::jsonb NOT NULL,
+    confidence numeric(4,3) DEFAULT 0.500 NOT NULL,
+    decay_rate numeric(4,3) DEFAULT 0.000 NOT NULL,
+    access_count integer DEFAULT 0 NOT NULL,
+    last_accessed_at timestamp with time zone,
+    expires_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    entity_type text,
+    entity_id uuid,
+    category text,
+    title text,
+    description text,
+    source_event uuid,
+    tags text[] DEFAULT '{}'::text[] NOT NULL,
+    relations jsonb DEFAULT '[]'::jsonb NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    version integer DEFAULT 1 NOT NULL,
+    origin text DEFAULT 'system'::text NOT NULL,
+    previous_confidence numeric(4,3),
+    source_refs jsonb DEFAULT '[]'::jsonb NOT NULL,
+    reinforcement_count integer DEFAULT 0 NOT NULL,
+    contradiction_count integer DEFAULT 0 NOT NULL,
+    client_id uuid,
+    last_observed_at timestamp with time zone,
+    CONSTRAINT brain_memory_confidence_check CHECK (((confidence >= (0)::numeric) AND (confidence <= (1)::numeric))),
+    CONSTRAINT brain_memory_memory_type_check CHECK ((memory_type = ANY (ARRAY['short_term'::text, 'long_term'::text, 'episodic'::text, 'semantic'::text, 'pattern'::text, 'preference'::text, 'fact'::text]))),
+    CONSTRAINT brain_memory_scope_check CHECK ((scope = ANY (ARRAY['global'::text, 'brand'::text, 'client'::text])))
+);
+
+--
+-- Name: brain_memory_versions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brain_memory_versions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    memory_id uuid NOT NULL,
+    brand_id uuid,
+    version integer NOT NULL,
+    confidence numeric(4,3) NOT NULL,
+    previous_confidence numeric(4,3),
+    delta_confidence numeric(5,3),
+    title text,
+    description text,
+    content jsonb DEFAULT '{}'::jsonb NOT NULL,
+    tags text[] DEFAULT '{}'::text[] NOT NULL,
+    relations jsonb DEFAULT '[]'::jsonb NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    change_reason text,
+    source_event uuid,
+    changed_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: brain_metrics_snapshots; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brain_metrics_snapshots (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid,
+    channel text,
+    metric_name text NOT NULL,
+    metric_value numeric NOT NULL,
+    period_start date NOT NULL,
+    period_end date NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: brain_reasoning_logs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brain_reasoning_logs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid,
+    client_id uuid,
+    user_id uuid,
+    conversation_id uuid,
+    question text NOT NULL,
+    intent text NOT NULL,
+    intent_confidence numeric,
+    plan jsonb DEFAULT '[]'::jsonb NOT NULL,
+    tools_used jsonb DEFAULT '[]'::jsonb NOT NULL,
+    decision text NOT NULL,
+    used_llm boolean DEFAULT false NOT NULL,
+    answer_confidence numeric,
+    latency_ms integer,
+    memory_hits integer DEFAULT 0 NOT NULL,
+    answer_preview text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: brain_recommendations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brain_recommendations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid,
+    client_id uuid,
+    target_user_id uuid,
+    recommendation_type text NOT NULL,
+    title text NOT NULL,
+    description text,
+    action_payload jsonb DEFAULT '{}'::jsonb,
+    priority text DEFAULT 'medium'::text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    confidence numeric(4,3) DEFAULT 0.500 NOT NULL,
+    source_insight_id uuid,
+    source_event_ids uuid[] DEFAULT ARRAY[]::uuid[],
+    expires_at timestamp with time zone,
+    acted_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT brain_recommendations_confidence_check CHECK (((confidence >= (0)::numeric) AND (confidence <= (1)::numeric))),
+    CONSTRAINT brain_recommendations_priority_check CHECK ((priority = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text, 'critical'::text]))),
+    CONSTRAINT brain_recommendations_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'shown'::text, 'accepted'::text, 'dismissed'::text, 'expired'::text])))
+);
+
+--
+-- Name: brain_relationships; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brain_relationships (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid,
+    from_type text NOT NULL,
+    from_id uuid NOT NULL,
+    to_type text NOT NULL,
+    to_id uuid NOT NULL,
+    relationship_type text NOT NULL,
+    strength numeric(4,3) DEFAULT 0.500 NOT NULL,
+    confidence numeric(4,3) DEFAULT 0.500 NOT NULL,
+    bidirectional boolean DEFAULT false NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    observation_count integer DEFAULT 1 NOT NULL,
+    last_observed_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    client_id uuid,
+    CONSTRAINT brain_relationships_confidence_check CHECK (((confidence >= (0)::numeric) AND (confidence <= (1)::numeric))),
+    CONSTRAINT brain_relationships_strength_check CHECK (((strength >= (0)::numeric) AND (strength <= (1)::numeric)))
+);
+
+--
+-- Name: brain_retention_config; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brain_retention_config (
+    key text NOT NULL,
+    value_days integer NOT NULL,
+    description text,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: brands; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brands (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text NOT NULL,
+    slug text NOT NULL,
+    color text DEFAULT '#8b5cf6'::text,
+    logo_url text,
+    created_by uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    cpf text,
+    cnpj text,
+    nome_fantasia text,
+    razao_social text,
+    cep text,
+    rua text,
+    numero text,
+    complemento text,
+    bairro text,
+    cidade text,
+    estado text,
+    logo_dark_url text,
+    icon_url text,
+    login_logo_url text,
+    app_url text,
+    is_active boolean DEFAULT true NOT NULL,
+    inactivated_at timestamp with time zone
+);
+
+--
+-- Name: posts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.posts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid NOT NULL,
+    project_id uuid,
+    title text NOT NULL,
+    copy text DEFAULT ''::text,
+    channels public.post_channel[] DEFAULT '{}'::public.post_channel[] NOT NULL,
+    stage public.post_stage DEFAULT 'idea'::public.post_stage NOT NULL,
+    scheduled_at timestamp with time zone,
+    published_at timestamp with time zone,
+    assignee_id uuid,
+    cover_url text,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    pipeline_id uuid,
+    stage_id uuid,
+    "position" integer DEFAULT 0 NOT NULL,
+    review_status text DEFAULT 'pending'::text NOT NULL,
+    reference_media jsonb DEFAULT '[]'::jsonb NOT NULL,
+    design_brief text,
+    ai_phase text DEFAULT 'idea'::text NOT NULL,
+    approved_at timestamp with time zone,
+    approved_by uuid,
+    deleted_at timestamp with time zone,
+    rework_notes text,
+    priority text DEFAULT 'normal'::text,
+    format text,
+    tags text[] DEFAULT '{}'::text[] NOT NULL,
+    visible_in_portal boolean DEFAULT true NOT NULL,
+    internal_briefing text,
+    client_briefing text,
+    script jsonb DEFAULT '[]'::jsonb,
+    "references" jsonb DEFAULT '[]'::jsonb NOT NULL,
+    remind_at timestamp with time zone,
+    recurrence jsonb,
+    assignees uuid[] DEFAULT '{}'::uuid[] NOT NULL,
+    stage_entered_at timestamp with time zone DEFAULT now(),
+    target_connection_ids uuid[] DEFAULT '{}'::uuid[] NOT NULL,
+    monthly_plan_topic_id uuid,
+    ai_phase_at timestamp with time zone,
+    CONSTRAINT posts_format_canonical CHECK (((format IS NULL) OR (format = ANY (ARRAY['feed'::text, 'stories'::text, 'reels'::text, 'carrossel'::text]))))
+);
+
+--
+-- Name: projects; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.projects (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid,
+    name text NOT NULL,
+    description text,
+    status public.project_status DEFAULT 'planning'::public.project_status NOT NULL,
+    progress integer DEFAULT 0 NOT NULL,
+    due_at timestamp with time zone,
+    owner_id uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    color text,
+    start_date timestamp with time zone,
+    goals text,
+    monthly_plan_id uuid,
+    CONSTRAINT projects_progress_check CHECK (((progress >= 0) AND (progress <= 100)))
+);
+
+--
+-- Name: tasks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tasks (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid,
+    project_id uuid,
+    title text NOT NULL,
+    description text,
+    status public.task_status DEFAULT 'todo'::public.task_status NOT NULL,
+    priority public.task_priority DEFAULT 'medium'::public.task_priority NOT NULL,
+    assignee_id uuid,
+    due_at timestamp with time zone,
+    done boolean DEFAULT false NOT NULL,
+    done_at timestamp with time zone,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    job_id uuid,
+    estimated_minutes integer,
+    total_minutes integer DEFAULT 0 NOT NULL,
+    "position" integer DEFAULT 0 NOT NULL,
+    post_id uuid,
+    archived_at timestamp with time zone
+);
+
+--
+-- Name: brain_worker_runs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brain_worker_runs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    job_name text DEFAULT 'brain_learning_worker'::text NOT NULL,
+    status text DEFAULT 'ok'::text NOT NULL,
+    started_at timestamp with time zone DEFAULT now() NOT NULL,
+    finished_at timestamp with time zone,
+    duration_ms integer,
+    picked integer DEFAULT 0 NOT NULL,
+    processed integer DEFAULT 0 NOT NULL,
+    discarded integer DEFAULT 0 NOT NULL,
+    failed integer DEFAULT 0 NOT NULL,
+    memories_created integer DEFAULT 0 NOT NULL,
+    memories_updated integer DEFAULT 0 NOT NULL,
+    insights_created integer DEFAULT 0 NOT NULL,
+    edges_created integer DEFAULT 0 NOT NULL,
+    error text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: brand_ai_content; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_ai_content (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    post_id uuid,
+    pauta_id uuid,
+    plataforma text,
+    formato text,
+    data jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    client_id uuid NOT NULL
+);
+
+--
+-- Name: brand_ai_usage; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_ai_usage (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    agent text NOT NULL,
+    model text NOT NULL,
+    input_tokens integer DEFAULT 0 NOT NULL,
+    output_tokens integer DEFAULT 0 NOT NULL,
+    cost_usd numeric(10,6) DEFAULT 0 NOT NULL,
+    success boolean DEFAULT true NOT NULL,
+    error_message text,
+    actor_id uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    client_id uuid
+);
+
+--
+-- Name: brand_ai_versions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_ai_versions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    entity_type text NOT NULL,
+    entity_id uuid NOT NULL,
+    data jsonb NOT NULL,
+    changed_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    client_id uuid NOT NULL
+);
+
+--
+-- Name: brand_api_credentials; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_api_credentials (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    provider text NOT NULL,
+    ciphertext text NOT NULL,
+    masked text NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    updated_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: brand_briefing_proposals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_briefing_proposals (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    request_id uuid NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid NOT NULL,
+    base_version_id uuid,
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    attachments jsonb DEFAULT '[]'::jsonb NOT NULL,
+    note text,
+    submitted_via text DEFAULT 'portal_session'::text NOT NULL,
+    submitted_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT brand_briefing_proposals_via_chk CHECK ((submitted_via = ANY (ARRAY['portal_session'::text, 'portal_token'::text])))
+);
+
+--
+-- Name: brand_briefing_requests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_briefing_requests (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid NOT NULL,
+    requested_fields text[] DEFAULT '{}'::text[] NOT NULL,
+    message text,
+    status text DEFAULT 'requested'::text NOT NULL,
+    base_version_id uuid,
+    due_at timestamp with time zone,
+    requested_by uuid,
+    requested_at timestamp with time zone DEFAULT now() NOT NULL,
+    submitted_at timestamp with time zone,
+    reviewed_at timestamp with time zone,
+    reviewed_by uuid,
+    canceled_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    accepted_fields text[] DEFAULT '{}'::text[] NOT NULL,
+    pending_fields text[] DEFAULT '{}'::text[] NOT NULL,
+    review_decision text,
+    review_note text,
+    promoted_version_id uuid,
+    decided_at timestamp with time zone,
+    decided_by uuid,
+    CONSTRAINT brand_briefing_requests_decision_chk CHECK (((review_decision IS NULL) OR (review_decision = ANY (ARRAY['approved'::text, 'partial'::text, 'changes_requested'::text])))),
+    CONSTRAINT brand_briefing_requests_status_chk CHECK ((status = ANY (ARRAY['requested'::text, 'submitted'::text, 'in_review'::text, 'approved'::text])))
+);
+
+--
+-- Name: brand_briefing_reviews; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_briefing_reviews (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    request_id uuid NOT NULL,
+    proposal_id uuid,
+    brand_id uuid NOT NULL,
+    client_id uuid NOT NULL,
+    decision text NOT NULL,
+    accepted_fields text[] DEFAULT '{}'::text[] NOT NULL,
+    pending_fields text[] DEFAULT '{}'::text[] NOT NULL,
+    promoted jsonb DEFAULT '{}'::jsonb NOT NULL,
+    note text,
+    version_id uuid,
+    reviewed_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT brand_briefing_reviews_decision_chk CHECK ((decision = ANY (ARRAY['approved'::text, 'partial'::text, 'changes_requested'::text])))
+);
+
+--
+-- Name: brand_briefing_versions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_briefing_versions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid NOT NULL,
+    snapshot jsonb DEFAULT '{}'::jsonb NOT NULL,
+    completion integer DEFAULT 0 NOT NULL,
+    status text DEFAULT 'draft'::text NOT NULL,
+    origin text DEFAULT 'manual'::text NOT NULL,
+    changed_fields text[] DEFAULT '{}'::text[] NOT NULL,
+    changed_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: brand_briefings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_briefings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    raw_text text,
+    data jsonb DEFAULT '{}'::jsonb NOT NULL,
+    completude integer DEFAULT 0 NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    client_id uuid NOT NULL
+);
+
+--
+-- Name: brand_cohorts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_cohorts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    data jsonb DEFAULT '{}'::jsonb NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    client_id uuid NOT NULL
+);
+
+--
+-- Name: brand_competitors; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_competitors (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    handle text,
+    bio_colada text,
+    posts_colados text,
+    snapshot jsonb DEFAULT '{}'::jsonb NOT NULL,
+    pautas_inspiradas jsonb DEFAULT '[]'::jsonb NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    client_id uuid NOT NULL
+);
+
+--
+-- Name: brand_connections; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_connections (
+    brand_id uuid NOT NULL,
+    monthly_budget_usd numeric DEFAULT 500 NOT NULL,
+    text_provider text DEFAULT 'openai'::text NOT NULL,
+    image_provider text DEFAULT 'gemini'::text NOT NULL,
+    providers jsonb DEFAULT '{}'::jsonb NOT NULL,
+    channels jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    text_fallback_provider text
+);
+
+--
+-- Name: brand_features; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_features (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    feature_key text NOT NULL,
+    enabled boolean DEFAULT false NOT NULL,
+    enabled_at timestamp with time zone,
+    enabled_by uuid,
+    notes text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: brand_invites; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_invites (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    email text NOT NULL,
+    role public.app_role DEFAULT 'user'::public.app_role NOT NULL,
+    permissions jsonb DEFAULT '[]'::jsonb NOT NULL,
+    token text NOT NULL,
+    invited_by uuid NOT NULL,
+    accepted_at timestamp with time zone,
+    accepted_by uuid,
+    expires_at timestamp with time zone DEFAULT (now() + '14 days'::interval) NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    revoked_at timestamp with time zone,
+    revoked_by uuid,
+    temp_password_sent boolean DEFAULT false NOT NULL
+);
+
+--
+-- Name: brand_journey_stage_templates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_journey_stage_templates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    stage text NOT NULL,
+    project_template_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT brand_journey_stage_templates_stage_check CHECK ((stage = ANY (ARRAY['onboarding'::text, 'ativacao'::text, 'operacao'::text, 'expansao'::text, 'renovacao'::text])))
+);
+
+--
+-- Name: brand_media_assets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_media_assets (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    uploaded_by uuid,
+    storage_path text NOT NULL,
+    name text NOT NULL,
+    mime_type text NOT NULL,
+    size_bytes bigint DEFAULT 0 NOT NULL,
+    kind text NOT NULL,
+    width integer,
+    height integer,
+    tags text[] DEFAULT '{}'::text[] NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    client_id uuid,
+    CONSTRAINT brand_media_assets_kind_check CHECK ((kind = ANY (ARRAY['image'::text, 'video'::text, 'other'::text])))
+);
+
+--
+-- Name: brand_members; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_members (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    role public.app_role DEFAULT 'user'::public.app_role NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    permissions jsonb DEFAULT '[]'::jsonb NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    deactivated_at timestamp with time zone,
+    deactivated_by uuid,
+    CONSTRAINT brand_members_role_official_chk CHECK ((role = ANY (ARRAY['owner'::public.app_role, 'admin'::public.app_role, 'manager'::public.app_role, 'user'::public.app_role, 'client'::public.app_role])))
+);
+
+--
+-- Name: brand_pautas; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_pautas (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    titulo text NOT NULL,
+    pilar text,
+    cohort_alvo text,
+    formato_recomendado text,
+    plataforma text,
+    gancho text,
+    data jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    client_id uuid NOT NULL,
+    status text DEFAULT 'backlog'::text NOT NULL,
+    pilar_type text,
+    formato text
+);
+
+--
+-- Name: brand_personas; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_personas (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    data jsonb DEFAULT '{}'::jsonb NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    client_id uuid NOT NULL
+);
+
+--
+-- Name: brand_swot; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_swot (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    data jsonb DEFAULT '{}'::jsonb NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    client_id uuid NOT NULL
+);
+
+--
+-- Name: brand_voice_cards; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.brand_voice_cards (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    data jsonb DEFAULT '{}'::jsonb NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    client_id uuid NOT NULL
+);
+
+--
+-- Name: calendar_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.calendar_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid,
+    client_id uuid,
+    type public.calendar_event_type NOT NULL,
+    title text NOT NULL,
+    description text,
+    starts_at timestamp with time zone NOT NULL,
+    ends_at timestamp with time zone,
+    all_day boolean DEFAULT false NOT NULL,
+    is_global boolean DEFAULT false NOT NULL,
+    color text,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT calendar_events_scope_ck CHECK ((((is_global = true) AND (brand_id IS NULL)) OR ((is_global = false) AND (brand_id IS NOT NULL)))),
+    CONSTRAINT calendar_events_seasonal_global_ck CHECK (((is_global = false) OR (type = 'seasonal'::public.calendar_event_type)))
+);
+
+--
+-- Name: card_approval_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.card_approval_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    post_id uuid NOT NULL,
+    token_id uuid,
+    brand_id uuid NOT NULL,
+    verb text NOT NULL,
+    comment text,
+    ip inet,
+    user_agent text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: card_approval_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.card_approval_tokens (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    post_id uuid NOT NULL,
+    brand_id uuid NOT NULL,
+    token text NOT NULL,
+    expires_at timestamp with time zone,
+    revoked_at timestamp with time zone,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: chat_conversations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.chat_conversations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    brand_id uuid,
+    client_id uuid,
+    title text DEFAULT 'Nova conversa'::text NOT NULL,
+    last_message_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: chat_messages; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.chat_messages (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    conversation_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    role text NOT NULL,
+    content text DEFAULT ''::text NOT NULL,
+    attachments jsonb DEFAULT '[]'::jsonb NOT NULL,
+    brain_context jsonb,
+    used_llm boolean DEFAULT false NOT NULL,
+    model text,
+    tokens_in integer,
+    tokens_out integer,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    tool_calls jsonb DEFAULT '[]'::jsonb NOT NULL,
+    CONSTRAINT chat_messages_role_check CHECK ((role = ANY (ARRAY['user'::text, 'assistant'::text, 'system'::text])))
+);
+
+--
+-- Name: client_briefing_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.client_briefing_tokens (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid NOT NULL,
+    token text NOT NULL,
+    label text,
+    expires_at timestamp with time zone,
+    revoked_at timestamp with time zone,
+    submitted_at timestamp with time zone,
+    submission jsonb,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: client_briefings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.client_briefings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    client_id uuid NOT NULL,
+    personas jsonb DEFAULT '[]'::jsonb,
+    target_audience text,
+    hashtags text[] DEFAULT '{}'::text[],
+    monthly_volume integer DEFAULT 0,
+    guidelines text,
+    updated_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: client_documents; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.client_documents (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid NOT NULL,
+    name text NOT NULL,
+    storage_path text NOT NULL,
+    mime_type text,
+    size_bytes bigint,
+    uploaded_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    ai_status text DEFAULT 'idle'::text NOT NULL,
+    ai_model text,
+    ai_error text,
+    extracted_text text,
+    ai_summary jsonb,
+    analyzed_at timestamp with time zone,
+    applied_to_briefing_at timestamp with time zone,
+    visible_to_client boolean DEFAULT false NOT NULL,
+    CONSTRAINT client_documents_ai_status_chk CHECK ((ai_status = ANY (ARRAY['idle'::text, 'queued'::text, 'running'::text, 'done'::text, 'failed'::text])))
+);
+
+--
+-- Name: client_journey_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.client_journey_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid NOT NULL,
+    from_stage text,
+    to_stage text NOT NULL,
+    note text,
+    project_id uuid,
+    moved_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: client_members; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.client_members (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    role text DEFAULT 'editor'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_by uuid,
+    last_seen_at timestamp with time zone
+);
+
+--
+-- Name: client_social_accounts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.client_social_accounts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid NOT NULL,
+    connection_id uuid NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: clients; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.clients (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    name text NOT NULL,
+    niche text,
+    color text DEFAULT '#6366f1'::text,
+    contact_name text,
+    contact_email text,
+    contact_phone text,
+    tone_of_voice text,
+    palette jsonb DEFAULT '[]'::jsonb,
+    socials jsonb DEFAULT '[]'::jsonb,
+    archived_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    owner_user_id uuid,
+    logo_url text,
+    logo_secondary_url text,
+    favicon_url text,
+    brand_hub jsonb DEFAULT '{}'::jsonb NOT NULL,
+    website text,
+    address text,
+    monthly_contract_value numeric(12,2),
+    margin_percent numeric(5,2),
+    contract_start_date date,
+    contract_renewal_date date,
+    contract_status text DEFAULT 'ativo'::text NOT NULL,
+    internal_notes text,
+    journey_stage text DEFAULT 'onboarding'::text NOT NULL,
+    portal_theme jsonb DEFAULT '{"mode": "system"}'::jsonb NOT NULL,
+    legal_name text,
+    cnpj text,
+    description text,
+    briefing_status text DEFAULT 'draft'::text NOT NULL,
+    briefing_status_at timestamp with time zone,
+    briefing_status_by uuid,
+    CONSTRAINT clients_briefing_status_check CHECK ((briefing_status = ANY (ARRAY['draft'::text, 'requested'::text, 'submitted'::text, 'in_review'::text, 'approved'::text]))),
+    CONSTRAINT clients_contract_status_check CHECK ((contract_status = ANY (ARRAY['ativo'::text, 'pausado'::text, 'encerrado'::text]))),
+    CONSTRAINT clients_journey_stage_check CHECK ((journey_stage = ANY (ARRAY['onboarding'::text, 'ativacao'::text, 'operacao'::text, 'expansao'::text, 'renovacao'::text])))
+);
+
+--
+-- Name: content_pipeline_stages; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.content_pipeline_stages (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    pipeline_id uuid NOT NULL,
+    key text NOT NULL,
+    label text NOT NULL,
+    color text DEFAULT 'muted'::text NOT NULL,
+    "position" integer DEFAULT 0 NOT NULL,
+    is_terminal boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    hide_in_portal boolean DEFAULT false NOT NULL,
+    enables_approval_link boolean DEFAULT false NOT NULL,
+    sla_days integer,
+    sla_hours integer
+);
+
+--
+-- Name: content_pipelines; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.content_pipelines (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid NOT NULL,
+    name text NOT NULL,
+    slug text NOT NULL,
+    is_default boolean DEFAULT false NOT NULL,
+    "position" integer DEFAULT 0 NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    color text,
+    description text,
+    icon text
+);
+
+--
+-- Name: evolution_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.evolution_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    instance_id uuid NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid,
+    instance_name text NOT NULL,
+    event_type text NOT NULL,
+    provider_event_id text,
+    connection_state text,
+    phone_number text,
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    received_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: evolution_instances; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.evolution_instances (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid,
+    instance_name text NOT NULL,
+    label text,
+    status text DEFAULT 'created'::text NOT NULL,
+    connection_state text,
+    phone_number text,
+    last_state_at timestamp with time zone,
+    last_error text,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    webhook_token text,
+    webhook_configured_at timestamp with time zone,
+    last_event_at timestamp with time zone
+);
+
+--
+-- Name: feature_catalog; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.feature_catalog (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    key text NOT NULL,
+    name text NOT NULL,
+    description text,
+    category text,
+    icon text,
+    is_core boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    sort_order integer DEFAULT 100 NOT NULL,
+    is_available boolean DEFAULT true NOT NULL,
+    default_enabled boolean DEFAULT false NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: installation; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.installation (
+    id boolean DEFAULT true NOT NULL,
+    app_url text,
+    logo_url text,
+    logo_dark_url text,
+    icon_url text,
+    login_logo_url text,
+    email_from text,
+    email_from_name text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT installation_singleton_chk CHECK (id)
+);
+
+--
+-- Name: media_plan_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.media_plan_items (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    plan_id uuid NOT NULL,
+    "position" integer DEFAULT 0 NOT NULL,
+    product_service text,
+    campaign_type text,
+    funnel_stage text,
+    objective text,
+    main_kpi text,
+    channel text,
+    audience text,
+    budget_pct numeric(6,2) DEFAULT 0 NOT NULL,
+    budget_amount numeric(14,2) DEFAULT 0 NOT NULL,
+    keywords text[] DEFAULT ARRAY[]::text[] NOT NULL,
+    benchmark text,
+    other_refs text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT media_plan_items_funnel_stage_check CHECK ((funnel_stage = ANY (ARRAY['topo'::text, 'meio'::text, 'fundo'::text])))
+);
+
+--
+-- Name: media_plans; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.media_plans (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid NOT NULL,
+    title text DEFAULT 'Plano de mídia'::text NOT NULL,
+    period_start date,
+    period_end date,
+    monthly_budget numeric(14,2) DEFAULT 0 NOT NULL,
+    status text DEFAULT 'draft'::text NOT NULL,
+    share_token text,
+    share_expires_at timestamp with time zone,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT media_plans_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'approved'::text, 'archived'::text])))
+);
+
+--
+-- Name: message_logs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.message_logs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    channel text NOT NULL,
+    status text NOT NULL,
+    provider_message_id text,
+    recipient text,
+    error_message text,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    sent_at timestamp with time zone DEFAULT now() NOT NULL,
+    delivered_at timestamp with time zone,
+    failed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    client_id uuid
+);
+
+--
+-- Name: message_templates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.message_templates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    event_key text NOT NULL,
+    channel text NOT NULL,
+    subject text,
+    body text DEFAULT ''::text NOT NULL,
+    variables_used text[] DEFAULT '{}'::text[] NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    updated_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT message_templates_channel_check CHECK ((channel = ANY (ARRAY['email'::text, 'whatsapp'::text])))
+);
+
+--
+-- Name: meta_compliance_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.meta_compliance_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    event_type text NOT NULL,
+    meta_user_id text NOT NULL,
+    confirmation_code text NOT NULL,
+    status text DEFAULT 'received'::text NOT NULL,
+    affected_connections integer DEFAULT 0 NOT NULL,
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT meta_compliance_events_event_type_check CHECK ((event_type = ANY (ARRAY['deauthorize'::text, 'data_deletion'::text])))
+);
+
+--
+-- Name: meta_oauth_sessions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.meta_oauth_sessions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    meta_user_id text NOT NULL,
+    meta_user_name text,
+    meta_user_email text,
+    user_token_ciphertext text NOT NULL,
+    user_token_expires_at timestamp with time zone,
+    scopes text[] DEFAULT '{}'::text[] NOT NULL,
+    pages jsonb DEFAULT '[]'::jsonb NOT NULL,
+    consumed_at timestamp with time zone,
+    expires_at timestamp with time zone DEFAULT (now() + '00:30:00'::interval) NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    threads_accounts jsonb DEFAULT '[]'::jsonb NOT NULL,
+    ad_accounts jsonb DEFAULT '[]'::jsonb NOT NULL,
+    requested_scopes text[] DEFAULT ARRAY[]::text[] NOT NULL,
+    portfolio_loaded_at timestamp with time zone,
+    portfolio_load_status text DEFAULT 'not_loaded'::text NOT NULL,
+    portfolio_error text,
+    portfolio_rate_limited_until timestamp with time zone,
+    portfolio_source_session_id uuid,
+    CONSTRAINT meta_oauth_sessions_portfolio_load_status_check CHECK ((portfolio_load_status = ANY (ARRAY['not_loaded'::text, 'loaded'::text, 'empty'::text, 'error'::text, 'rate_limited'::text])))
+);
+
+--
+-- Name: monthly_plan_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.monthly_plan_tokens (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    monthly_plan_id uuid NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid NOT NULL,
+    token text NOT NULL,
+    expires_at timestamp with time zone,
+    revoked_at timestamp with time zone,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: monthly_plan_topics; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.monthly_plan_topics (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    monthly_plan_id uuid NOT NULL,
+    topic_title text NOT NULL,
+    content_format text,
+    angle text,
+    status text DEFAULT 'pending'::text NOT NULL,
+    "position" integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    channel text,
+    previous_title text,
+    previous_angle text,
+    target_audience text,
+    rationale text,
+    client_status text DEFAULT 'pending'::text NOT NULL,
+    client_comment text,
+    client_decision_at timestamp with time zone,
+    CONSTRAINT monthly_plan_topics_content_format_canonical CHECK (((content_format IS NULL) OR (content_format = ANY (ARRAY['feed'::text, 'stories'::text, 'reels'::text, 'carrossel'::text])))),
+    CONSTRAINT monthly_plan_topics_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))
+);
+
+--
+-- Name: monthly_plans; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.monthly_plans (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    input_theme text,
+    input_briefing_id uuid,
+    title text NOT NULL,
+    description text,
+    objectives text,
+    status text DEFAULT 'draft'::text NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    client_id uuid NOT NULL,
+    internal_approved_at timestamp with time zone,
+    internal_approved_by uuid,
+    client_decision_at timestamp with time zone,
+    client_feedback text,
+    context_sources jsonb DEFAULT '{}'::jsonb NOT NULL,
+    project_id uuid,
+    client_decision_mode text,
+    CONSTRAINT monthly_plans_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'pending_client'::text, 'client_approved'::text, 'changes_requested'::text, 'approved'::text, 'archived'::text])))
+);
+
+--
+-- Name: notifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.notifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    brand_id uuid NOT NULL,
+    kind public.notification_kind NOT NULL,
+    title text NOT NULL,
+    body text,
+    href text,
+    read_at timestamp with time zone,
+    payload jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    dedupe_key text,
+    archived_at timestamp with time zone
+);
+
+--
+-- Name: plan_overage_requests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.plan_overage_requests (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid NOT NULL,
+    channel text NOT NULL,
+    period_month date NOT NULL,
+    quota integer DEFAULT 0 NOT NULL,
+    requested integer DEFAULT 0 NOT NULL,
+    overage integer DEFAULT 0 NOT NULL,
+    justification text,
+    status text DEFAULT 'pending'::text NOT NULL,
+    requested_by uuid,
+    decided_by uuid,
+    decided_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT plan_overage_requests_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))
+);
+
+--
+-- Name: portal_rate_limit; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.portal_rate_limit (
+    ip_hash text NOT NULL,
+    window_start timestamp with time zone DEFAULT now() NOT NULL,
+    fail_count integer DEFAULT 0 NOT NULL,
+    blocked_until timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: portal_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.portal_tokens (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    client_id uuid NOT NULL,
+    token text NOT NULL,
+    label text,
+    revoked_at timestamp with time zone,
+    expires_at timestamp with time zone,
+    last_seen_at timestamp with time zone,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: post_approvals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.post_approvals (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    post_id uuid NOT NULL,
+    status public.approval_status DEFAULT 'pending'::public.approval_status NOT NULL,
+    notes text,
+    decided_by uuid,
+    decided_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    decided_by_name text
+);
+
+--
+-- Name: post_placements; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.post_placements (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    post_id uuid NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid NOT NULL,
+    format text NOT NULL,
+    scheduled_at timestamp with time zone,
+    copy_override jsonb,
+    media jsonb DEFAULT '[]'::jsonb NOT NULL,
+    status text DEFAULT 'draft'::text NOT NULL,
+    published_at timestamp with time zone,
+    external_ref text,
+    is_primary boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    connection_id uuid,
+    CONSTRAINT post_placements_format_check CHECK ((format = ANY (ARRAY['feed'::text, 'stories'::text, 'reels'::text, 'carrossel'::text]))),
+    CONSTRAINT post_placements_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'scheduled'::text, 'published'::text, 'failed'::text])))
+);
+
+--
+-- Name: project_jobs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.project_jobs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid NOT NULL,
+    brand_id uuid NOT NULL,
+    name text NOT NULL,
+    description text,
+    color text,
+    "position" integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: project_template_jobs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.project_template_jobs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    template_id uuid NOT NULL,
+    name text NOT NULL,
+    description text,
+    color text,
+    "position" integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: project_template_tasks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.project_template_tasks (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    template_job_id uuid NOT NULL,
+    title text NOT NULL,
+    description text,
+    priority text,
+    estimated_minutes integer,
+    "position" integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: project_templates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.project_templates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid,
+    name text NOT NULL,
+    description text,
+    icon text,
+    is_system boolean DEFAULT false NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: sla_rules; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sla_rules (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    scope text NOT NULL,
+    scope_ref text,
+    project_id uuid,
+    target_hours integer NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    updated_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT sla_rules_scope_check CHECK ((scope = ANY (ARRAY['project'::text, 'user_role'::text, 'agent'::text]))),
+    CONSTRAINT sla_rules_target_hours_check CHECK ((target_hours > 0))
+);
+
+--
+-- Name: social_connections; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.social_connections (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    provider text NOT NULL,
+    external_id text NOT NULL,
+    external_name text,
+    account_id text,
+    account_username text,
+    owner_external_id text,
+    owner_name text,
+    access_token_ciphertext text NOT NULL,
+    refresh_token_ciphertext text,
+    scopes text[] DEFAULT '{}'::text[] NOT NULL,
+    token_expires_at timestamp with time zone,
+    status text DEFAULT 'active'::text NOT NULL,
+    last_error text,
+    last_synced_at timestamp with time zone,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    channel text NOT NULL,
+    client_id uuid,
+    page_id text,
+    instagram_business_id text,
+    meta_user_id text,
+    channel_name text,
+    CONSTRAINT social_connections_channel_check CHECK ((channel = ANY (ARRAY['instagram'::text, 'facebook'::text, 'linkedin'::text, 'tiktok'::text, 'youtube'::text, 'x'::text, 'threads'::text, 'ads'::text]))),
+    CONSTRAINT social_connections_provider_check CHECK ((provider = ANY (ARRAY['meta'::text, 'instagram'::text, 'facebook'::text, 'tiktok'::text, 'youtube'::text, 'linkedin'::text, 'twitter'::text, 'threads'::text]))),
+    CONSTRAINT social_connections_status_check CHECK ((status = ANY (ARRAY['active'::text, 'error'::text, 'expired'::text, 'revoked'::text])))
+);
+
+--
+-- Name: social_posts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.social_posts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid,
+    connection_id uuid NOT NULL,
+    provider text NOT NULL,
+    placement text DEFAULT 'feed'::text NOT NULL,
+    status text DEFAULT 'draft'::text NOT NULL,
+    caption text,
+    media jsonb DEFAULT '[]'::jsonb NOT NULL,
+    hashtags text[] DEFAULT '{}'::text[] NOT NULL,
+    mentions text[] DEFAULT '{}'::text[] NOT NULL,
+    scheduled_at timestamp with time zone,
+    published_at timestamp with time zone,
+    external_post_id text,
+    external_permalink text,
+    last_error text,
+    provider_response jsonb DEFAULT '{}'::jsonb NOT NULL,
+    post_id uuid,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    publish_attempts integer DEFAULT 0 NOT NULL,
+    publish_locked_at timestamp with time zone,
+    location_id text,
+    CONSTRAINT social_posts_placement_check CHECK ((placement = ANY (ARRAY['feed'::text, 'story'::text, 'reel'::text, 'carousel'::text, 'short'::text, 'tweet'::text, 'thread'::text, 'post'::text]))),
+    CONSTRAINT social_posts_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'scheduled'::text, 'publishing'::text, 'published'::text, 'failed'::text, 'cancelled'::text, 'blocked'::text])))
+);
+
+--
+-- Name: task_comments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.task_comments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    task_id uuid NOT NULL,
+    brand_id uuid NOT NULL,
+    author_id uuid NOT NULL,
+    body text NOT NULL,
+    mentions uuid[] DEFAULT '{}'::uuid[] NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: task_subtasks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.task_subtasks (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    task_id uuid NOT NULL,
+    brand_id uuid NOT NULL,
+    title text NOT NULL,
+    done boolean DEFAULT false NOT NULL,
+    "position" integer DEFAULT 0 NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: task_time_entries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.task_time_entries (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    task_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    brand_id uuid NOT NULL,
+    started_at timestamp with time zone DEFAULT now() NOT NULL,
+    ended_at timestamp with time zone,
+    minutes integer,
+    description text,
+    is_rework boolean DEFAULT false NOT NULL,
+    source text DEFAULT 'manual'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    seconds integer,
+    ended_reason text,
+    CONSTRAINT task_time_entries_source_check CHECK ((source = ANY (ARRAY['timer'::text, 'manual'::text])))
+);
+
+--
+-- Name: user_profiles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_profiles (
+    id uuid NOT NULL,
+    full_name text NOT NULL,
+    role text DEFAULT 'user'::text NOT NULL,
+    avatar_url text,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    requires_password_change boolean DEFAULT false NOT NULL,
+    phone text,
+    timezone text DEFAULT 'America/Sao_Paulo'::text NOT NULL,
+    locale text DEFAULT 'pt-BR'::text NOT NULL,
+    job_title text,
+    bio text,
+    is_super_admin boolean DEFAULT false NOT NULL,
+    whatsapp text,
+    notify_whatsapp boolean DEFAULT false NOT NULL,
+    notification_prefs jsonb DEFAULT '{"ai_jobs": true, "comments": true, "approvals": true, "deadlines": true, "assignments": true}'::jsonb NOT NULL,
+    CONSTRAINT user_profiles_role_check CHECK ((role = ANY (ARRAY['admin'::text, 'manager'::text, 'user'::text, 'super_admin'::text])))
+);
+
+--
+-- Name: whatsapp_recipients; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.whatsapp_recipients (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    brand_id uuid NOT NULL,
+    client_id uuid,
+    user_id uuid,
+    type text NOT NULL,
+    name text NOT NULL,
+    role_label text,
+    destination text,
+    is_active boolean DEFAULT true NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT whatsapp_recipients_client_required CHECK (((type <> ALL (ARRAY['client_contact'::text, 'account_manager'::text, 'whatsapp_group'::text])) OR (client_id IS NOT NULL))),
+    CONSTRAINT whatsapp_recipients_destination_required CHECK ((((type = ANY (ARRAY['client_contact'::text, 'whatsapp_group'::text])) AND (destination IS NOT NULL) AND (length(btrim(destination)) > 0)) OR ((type = ANY (ARRAY['account_manager'::text, 'workspace_admin'::text, 'workspace_user'::text])) AND (destination IS NULL)))),
+    CONSTRAINT whatsapp_recipients_group_jid CHECK (((type <> 'whatsapp_group'::text) OR (destination ~ '^[0-9]+(-[0-9]+)?@g\.us$'::text))),
+    CONSTRAINT whatsapp_recipients_phone_digits CHECK (((type <> 'client_contact'::text) OR (destination ~ '^[0-9]{10,15}$'::text))),
+    CONSTRAINT whatsapp_recipients_type_check CHECK ((type = ANY (ARRAY['client_contact'::text, 'account_manager'::text, 'workspace_admin'::text, 'workspace_user'::text, 'whatsapp_group'::text]))),
+    CONSTRAINT whatsapp_recipients_user_required CHECK (((type <> 'workspace_user'::text) OR (user_id IS NOT NULL)))
+);
+
+
+-- ============================ FUNCTIONS (133) ============================
+
 --
 -- Name: _brain_cfg_days(text, integer); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -184,7 +2004,6 @@ CREATE FUNCTION public._brain_cfg_days(_key text, _default integer) RETURNS inte
     AS $$
   SELECT COALESCE((SELECT value_days FROM public.brain_retention_config WHERE key = _key), _default);
 $$;
-
 
 --
 -- Name: _portal_session(text); Type: FUNCTION; Schema: public; Owner: -
@@ -212,7 +2031,6 @@ BEGIN
   RETURN NEXT;
 END $$;
 
-
 --
 -- Name: _portal_session_any(text, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -228,7 +2046,6 @@ BEGIN
     RETURN QUERY SELECT * FROM public._portal_session(_token);
   END IF;
 END $$;
-
 
 --
 -- Name: _portal_session_user(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -265,7 +2082,6 @@ BEGIN
   client_id := r.client_id; brand_id := r.brand_id; token_id := NULL;
   RETURN NEXT;
 END $$;
-
 
 --
 -- Name: accept_brand_invite(text); Type: FUNCTION; Schema: public; Owner: -
@@ -311,7 +2127,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: add_brand_owner(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -329,7 +2144,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 
 --
 -- Name: app_access_role(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -371,7 +2185,6 @@ CREATE FUNCTION public.app_access_role(_user_id uuid, _brand_id uuid DEFAULT NUL
     )
   END;
 $$;
-
 
 --
 -- Name: block_unusable_scheduled_social_posts(); Type: FUNCTION; Schema: public; Owner: -
@@ -428,14 +2241,6 @@ BEGIN
   END LOOP;
 END;
 $$;
-
-
---
--- Name: FUNCTION block_unusable_scheduled_social_posts(); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.block_unusable_scheduled_social_posts() IS 'Uso interno (service_role / worker publish-scheduled). EXECUTE revogado de PUBLIC, anon e authenticated (V6).';
-
 
 --
 -- Name: brain_cleanup_ttl(); Type: FUNCTION; Schema: public; Owner: -
@@ -496,7 +2301,6 @@ BEGIN
     'learning_queue_orphans', lq_orphans);
 END $$;
 
-
 --
 -- Name: brain_confidence(integer, numeric, timestamp with time zone, numeric); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -512,7 +2316,6 @@ CREATE FUNCTION public.brain_confidence(_sample integer, _consistency numeric, _
       ) * LEAST(GREATEST(COALESCE(_relevance,1), 0), 1)
   , 3)));
 $$;
-
 
 --
 -- Name: brain_events_guard_identity(); Type: FUNCTION; Schema: public; Owner: -
@@ -568,7 +2371,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: brain_events_prune(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -587,7 +2389,6 @@ BEGIN
   ) SELECT count(*) INTO deleted FROM d;
   RETURN jsonb_build_object('deleted', deleted, 'cutoff', cutoff);
 END $$;
-
 
 --
 -- Name: brain_memory_decay_and_archive(); Type: FUNCTION; Schema: public; Owner: -
@@ -613,7 +2414,6 @@ BEGIN
   SELECT count(*) INTO archived FROM upd;
   RETURN archived;
 END $$;
-
 
 --
 -- Name: brain_memory_evolve(uuid, text, uuid, text, text, text, jsonb, numeric, text, uuid, text[], jsonb, jsonb, boolean); Type: FUNCTION; Schema: public; Owner: -
@@ -698,7 +2498,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: brain_memory_guard_scope(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -718,7 +2517,6 @@ BEGIN
     RAISE EXCEPTION 'client_out_of_scope' USING ERRCODE = '42501';
   END IF;
 END $$;
-
 
 --
 -- Name: brain_memory_snapshot(); Type: FUNCTION; Schema: public; Owner: -
@@ -773,7 +2571,6 @@ BEGIN
   RETURN NEW;
 END $$;
 
-
 --
 -- Name: brain_memory_touch(uuid[]); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -797,7 +2594,6 @@ BEGIN
   SELECT count(*) INTO n FROM upd;
   RETURN n;
 END $$;
-
 
 --
 -- Name: brain_mine_patterns(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -1112,7 +2908,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: brain_render_memory_desc(text, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -1137,7 +2932,6 @@ CREATE FUNCTION public.brain_render_memory_desc(_category text, _content jsonb) 
   END;
 $$;
 
-
 --
 -- Name: brain_retention_run(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -1152,14 +2946,6 @@ BEGIN
   b := public.brain_cleanup_ttl();
   RETURN jsonb_build_object('events', a, 'ttl', b, 'ran_at', now());
 END $$;
-
-
---
--- Name: FUNCTION brain_retention_run(); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.brain_retention_run() IS 'Ensure partitions + archive + ttl cleanup. Agendar diariamente.';
-
 
 --
 -- Name: brain_run_mining_safe(); Type: FUNCTION; Schema: public; Owner: -
@@ -1206,7 +2992,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: brain_scope_guard(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -1226,7 +3011,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 
 --
 -- Name: brain_set_last_observed(); Type: FUNCTION; Schema: public; Owner: -
@@ -1248,7 +3032,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: brain_touch_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -1257,7 +3040,6 @@ CREATE FUNCTION public.brain_touch_updated_at() RETURNS trigger
     LANGUAGE plpgsql
     SET search_path TO 'public', 'pg_temp'
     AS $$ BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;
-
 
 --
 -- Name: brain_trg_client_documents(); Type: FUNCTION; Schema: public; Owner: -
@@ -1275,7 +3057,6 @@ BEGIN
   );
   RETURN NEW;
 END; $$;
-
 
 --
 -- Name: brain_trg_clients(); Type: FUNCTION; Schema: public; Owner: -
@@ -1295,7 +3076,6 @@ BEGIN
   );
   RETURN NEW;
 END; $$;
-
 
 --
 -- Name: brain_trg_post_approvals(); Type: FUNCTION; Schema: public; Owner: -
@@ -1321,7 +3101,6 @@ BEGIN
   );
   RETURN NEW;
 END; $$;
-
 
 --
 -- Name: brain_trg_posts(); Type: FUNCTION; Schema: public; Owner: -
@@ -1368,7 +3147,6 @@ BEGIN
   RETURN NEW;
 END; $$;
 
-
 --
 -- Name: brain_trg_projects(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -1390,7 +3168,6 @@ BEGIN
   RETURN NEW;
 END; $$;
 
-
 --
 -- Name: brain_trg_task_comments(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -1410,7 +3187,6 @@ BEGIN
   );
   RETURN NEW;
 END; $$;
-
 
 --
 -- Name: brain_trg_tasks(); Type: FUNCTION; Schema: public; Owner: -
@@ -1440,7 +3216,6 @@ BEGIN
   RETURN NEW;
 END; $$;
 
-
 --
 -- Name: brand_member_role(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -1459,7 +3234,6 @@ CREATE FUNCTION public.brand_member_role(_user_id uuid, _brand_id uuid) RETURNS 
    LIMIT 1;
 $$;
 
-
 --
 -- Name: bump_chat_conversation_last_message(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -1477,7 +3251,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: calendar_events_touch_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -1491,7 +3264,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 
 --
 -- Name: can_access_client(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -1522,7 +3294,6 @@ BEGIN
   RETURN public.can_access_client_row(_client_id, v_brand, v_owner, _user_id);
 END;
 $$;
-
 
 --
 -- Name: can_access_client_row(uuid, uuid, uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -1571,7 +3342,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: can_access_project(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -1590,14 +3360,6 @@ CREATE FUNCTION public.can_access_project(_project_id uuid, _user_id uuid) RETUR
            END
   );
 $$;
-
-
---
--- Name: FUNCTION can_access_project(_project_id uuid, _user_id uuid); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.can_access_project(_project_id uuid, _user_id uuid) IS 'Escopo canônico de projeto: membro do workspace E (projeto sem cliente OU cliente no escopo do usuário).';
-
 
 --
 -- Name: can_access_task(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -1618,7 +3380,6 @@ CREATE FUNCTION public.can_access_task(_task_id uuid, _user_id uuid) RETURNS boo
        AND (t.project_id IS NULL OR public.can_access_project(t.project_id, _user_id))
   );
 $$;
-
 
 --
 -- Name: can_create_brand(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -1645,7 +3406,6 @@ CREATE FUNCTION public.can_create_brand(_user_id uuid) RETURNS boolean
     );
 $$;
 
-
 --
 -- Name: can_delete_brand(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -1657,7 +3417,6 @@ CREATE FUNCTION public.can_delete_brand(_brand_id uuid, _user_id uuid) RETURNS b
   SELECT public.is_super_admin(_user_id)
       OR public.brand_member_role(_user_id, _brand_id) = 'owner';
 $$;
-
 
 --
 -- Name: can_invite_brand_role(uuid, uuid, public.app_role, text); Type: FUNCTION; Schema: public; Owner: -
@@ -1704,7 +3463,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: can_manage_brand_ai_limits(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -1721,7 +3479,6 @@ CREATE FUNCTION public.can_manage_brand_ai_limits(_brand_id uuid, _user_id uuid)
          AND m.role IN ('owner','admin','manager')
     );
 $$;
-
 
 --
 -- Name: canonical_content_format(text); Type: FUNCTION; Schema: public; Owner: -
@@ -1740,7 +3497,6 @@ CREATE FUNCTION public.canonical_content_format(_raw text) RETURNS text
     ELSE 'feed'
   END
 $$;
-
 
 --
 -- Name: card_approval_public_decide(text, text, text, text, text); Type: FUNCTION; Schema: public; Owner: -
@@ -1820,7 +3576,6 @@ BEGIN
   RETURN jsonb_build_object('ok', true, 'verb', _verb);
 END $$;
 
-
 --
 -- Name: check_ai_usage_budget(uuid, uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -1887,7 +3642,6 @@ BEGIN
     'user', jsonb_build_object('spent', user_spent, 'limit', user_lim.limit_usd));
 END; $$;
 
-
 --
 -- Name: claim_scheduled_social_posts(integer); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -1939,7 +3693,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: client_in_scope(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -1952,14 +3705,6 @@ CREATE FUNCTION public.client_in_scope(_client_id uuid, _brand_id uuid) RETURNS 
      AND public.is_brand_member(_brand_id, auth.uid())
      AND (_client_id IS NULL OR public.can_access_client(_client_id, auth.uid()));
 $$;
-
-
---
--- Name: FUNCTION client_in_scope(_client_id uuid, _brand_id uuid); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.client_in_scope(_client_id uuid, _brand_id uuid) IS 'Predicado de escopo de cliente (RLS). EXECUTE apenas authenticated/service_role.';
-
 
 --
 -- Name: clients_set_default_owner(); Type: FUNCTION; Schema: public; Owner: -
@@ -1981,7 +3726,6 @@ begin
   return new;
 end;
 $$;
-
 
 --
 -- Name: consolidate_brain_memory(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -2110,7 +3854,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: cron_secret(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -2121,7 +3864,6 @@ CREATE FUNCTION public.cron_secret() RETURNS text
     AS $$
   select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret' limit 1;
 $$;
-
 
 --
 -- Name: derive_post_stage(uuid, public.post_stage); Type: FUNCTION; Schema: public; Owner: -
@@ -2165,7 +3907,6 @@ BEGIN
   RETURN _current;
 END;
 $$;
-
 
 --
 -- Name: derive_relationships_from_event(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -2250,7 +3991,6 @@ BEGIN
   RETURN v_count;
 END $$;
 
-
 --
 -- Name: emit_brain_event(uuid, text, text, uuid, text, uuid, text, uuid, uuid, jsonb, numeric, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -2276,7 +4016,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: enable_default_brand_features(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -2294,7 +4033,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 
 --
 -- Name: enforce_task_project_client(); Type: FUNCTION; Schema: public; Owner: -
@@ -2331,7 +4069,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: enqueue_brain_event_for_learning(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -2344,7 +4081,6 @@ BEGIN
   INSERT INTO public.brain_learning_queue (event_id, brand_id) VALUES (NEW.id, NEW.brand_id);
   RETURN NEW;
 END $$;
-
 
 --
 -- Name: enqueue_deadline_notifications(); Type: FUNCTION; Schema: public; Owner: -
@@ -2430,7 +4166,6 @@ BEGIN
   RETURN inserted + added;
 END $$;
 
-
 --
 -- Name: find_user_id_by_email(text); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -2444,7 +4179,6 @@ CREATE FUNCTION public.find_user_id_by_email(_email text) RETURNS uuid
   WHERE lower(u.email) = lower(trim(_email))
   LIMIT 1
 $$;
-
 
 --
 -- Name: get_brain_graph(uuid, integer); Type: FUNCTION; Schema: public; Owner: -
@@ -2495,7 +4229,6 @@ BEGIN
 
   RETURN jsonb_build_object('nodes', v_nodes, 'edges', v_edges);
 END $$;
-
 
 --
 -- Name: get_brain_neighborhood(uuid, text, uuid, integer); Type: FUNCTION; Schema: public; Owner: -
@@ -2557,7 +4290,6 @@ BEGIN
   RETURN jsonb_build_object('nodes', v_nodes, 'edges', v_edges);
 END $$;
 
-
 --
 -- Name: guard_super_admin_flag(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -2596,14 +4328,6 @@ BEGIN
 END;
 $$;
 
-
---
--- Name: FUNCTION guard_super_admin_flag(); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.guard_super_admin_flag() IS 'Guarda de campos privilegiados de user_profiles (role, is_super_admin): grava somente quando auth.uid() e nulo (rotina interna/service_role) ou o ator e super admin.';
-
-
 --
 -- Name: handle_new_user(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -2639,7 +4363,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: has_brand_role(uuid, uuid, public.app_role); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -2655,7 +4378,6 @@ CREATE FUNCTION public.has_brand_role(_brand_id uuid, _user_id uuid, _role publi
        WHERE brand_id = _brand_id AND user_id = _user_id AND role = _role AND is_active
     );
 $$;
-
 
 --
 -- Name: instantiate_project_template(uuid, uuid, uuid, text); Type: FUNCTION; Schema: public; Owner: -
@@ -2714,7 +4436,6 @@ BEGIN
   RETURN _new_project;
 END; $$;
 
-
 --
 -- Name: is_agency_operator(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -2726,14 +4447,6 @@ CREATE FUNCTION public.is_agency_operator(_user_id uuid, _brand_id uuid) RETURNS
   SELECT public.app_access_role(_user_id, _brand_id) IN ('super_admin', 'admin', 'manager', 'user');
 $$;
 
-
---
--- Name: FUNCTION is_agency_operator(_user_id uuid, _brand_id uuid); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.is_agency_operator(_user_id uuid, _brand_id uuid) IS 'Operador interno do workspace (super_admin/admin/manager/user) — NÃO é verificação de autoridade administrativa nem de escopo de cliente.';
-
-
 --
 -- Name: is_brand_admin_level(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -2744,7 +4457,6 @@ CREATE FUNCTION public.is_brand_admin_level(_brand_id uuid, _user_id uuid) RETUR
     AS $$
   SELECT public.app_access_role(_user_id, _brand_id) IN ('super_admin', 'admin', 'manager');
 $$;
-
 
 --
 -- Name: is_brand_member(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -2761,7 +4473,6 @@ CREATE FUNCTION public.is_brand_member(_brand_id uuid, _user_id uuid) RETURNS bo
        WHERE brand_id = _brand_id AND user_id = _user_id AND is_active
     );
 $$;
-
 
 --
 -- Name: is_client_assigned(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -2785,14 +4496,6 @@ CREATE FUNCTION public.is_client_assigned(_user_id uuid, _client_id uuid) RETURN
   );
 $$;
 
-
---
--- Name: FUNCTION is_client_assigned(_user_id uuid, _client_id uuid); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.is_client_assigned(_user_id uuid, _client_id uuid) IS 'Fonte única de "cliente atribuído": clients.owner_user_id ou client_members (não portal).';
-
-
 --
 -- Name: is_global_admin(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -2803,14 +4506,6 @@ CREATE FUNCTION public.is_global_admin(_user_id uuid) RETURNS boolean
     AS $$
   SELECT false;
 $$;
-
-
---
--- Name: FUNCTION is_global_admin(_user_id uuid); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.is_global_admin(_user_id uuid) IS 'DEPRECIADA (Fase 1 RBAC): ADMIN é sempre escopado ao workspace. Retorna sempre false. Acesso global = is_super_admin.';
-
 
 --
 -- Name: is_portal_client_of(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -2828,7 +4523,6 @@ CREATE FUNCTION public.is_portal_client_of(_client_id uuid, _user_id uuid) RETUR
   );
 $$;
 
-
 --
 -- Name: is_portal_user(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -2843,7 +4537,6 @@ CREATE FUNCTION public.is_portal_user(_user_id uuid) RETURNS boolean
   );
 $$;
 
-
 --
 -- Name: is_super_admin(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -2854,7 +4547,6 @@ CREATE FUNCTION public.is_super_admin() RETURNS boolean
     AS $$
   SELECT public.is_super_admin(auth.uid());
 $$;
-
 
 --
 -- Name: is_super_admin(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -2871,7 +4563,6 @@ CREATE FUNCTION public.is_super_admin(_user_id uuid) RETURNS boolean
     false
   );
 $$;
-
 
 --
 -- Name: link_existing_user_to_brand(uuid, text, public.app_role, jsonb); Type: FUNCTION; Schema: public; Owner: -
@@ -2963,7 +4654,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: list_agent_catalog(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -2976,7 +4666,6 @@ CREATE FUNCTION public.list_agent_catalog() RETURNS TABLE(agent_id text, agent_n
   FROM public.agent_prompts
   ORDER BY agent_name;
 $$;
-
 
 --
 -- Name: list_ai_usage_overview(uuid, timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
@@ -3083,7 +4772,6 @@ BEGIN
   RETURN result;
 END; $$;
 
-
 --
 -- Name: log_post_activity(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -3120,7 +4808,6 @@ BEGIN
   RETURN NEW;
 END $$;
 
-
 --
 -- Name: log_task_activity(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -3140,7 +4827,6 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-
 
 --
 -- Name: mark_social_post_blocked(uuid, text, text); Type: FUNCTION; Schema: public; Owner: -
@@ -3180,7 +4866,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: mark_social_post_failed(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -3206,7 +4891,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: mark_social_post_published(uuid, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -3225,7 +4909,6 @@ CREATE FUNCTION public.mark_social_post_published(p_post_id uuid, p_external_id 
          updated_at = now()
    WHERE id = p_post_id;
 $$;
-
 
 --
 -- Name: match_brain_events(uuid, public.vector, integer); Type: FUNCTION; Schema: public; Owner: -
@@ -3255,7 +4938,6 @@ CREATE FUNCTION public.match_brain_events(_brand_id uuid, _query public.vector, 
   limit _match_count;
 $$;
 
-
 --
 -- Name: media_plan_public_items(text); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -3279,7 +4961,6 @@ BEGIN
   ) x;
   RETURN rows;
 END $$;
-
 
 --
 -- Name: media_plan_public_resolve(text); Type: FUNCTION; Schema: public; Owner: -
@@ -3309,7 +4990,6 @@ BEGIN
   );
 END $$;
 
-
 --
 -- Name: message_logs_guard_scope(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -3330,14 +5010,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-
---
--- Name: FUNCTION message_logs_guard_scope(); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.message_logs_guard_scope() IS 'Fase 10B: trigger interno. Valida clients.brand_id = message_logs.brand_id. Sem EXECUTE público.';
-
 
 --
 -- Name: my_access(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -3373,7 +5045,6 @@ CREATE FUNCTION public.my_access(_brand_id uuid DEFAULT NULL::uuid) RETURNS json
   );
 $$;
 
-
 --
 -- Name: normalize_app_role(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -3390,7 +5061,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: normalize_client_member_role(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -3406,7 +5076,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 
 --
 -- Name: notification_pref_for_kind(text); Type: FUNCTION; Schema: public; Owner: -
@@ -3427,7 +5096,6 @@ CREATE FUNCTION public.notification_pref_for_kind(_kind text) RETURNS text
   END
 $$;
 
-
 --
 -- Name: notification_prefs_allows(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -3444,7 +5112,6 @@ CREATE FUNCTION public.notification_prefs_allows(_user_id uuid, _kind text) RETU
       true)
   END
 $$;
-
 
 --
 -- Name: notify_ai_job_completed(); Type: FUNCTION; Schema: public; Owner: -
@@ -3473,7 +5140,6 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-
 
 --
 -- Name: notify_post_approval_events(); Type: FUNCTION; Schema: public; Owner: -
@@ -3522,7 +5188,6 @@ BEGIN
   RETURN NEW;
 END $$;
 
-
 --
 -- Name: notify_task_assigned(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -3548,7 +5213,6 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-
 
 --
 -- Name: notify_task_mentions(); Type: FUNCTION; Schema: public; Owner: -
@@ -3580,7 +5244,6 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
-
 
 --
 -- Name: portal_approvals(text, text, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -3617,7 +5280,6 @@ BEGIN
   RETURN rows;
 END $$;
 
-
 --
 -- Name: portal_briefings(text, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -3637,7 +5299,6 @@ BEGIN
   ) x;
   RETURN rows;
 END $$;
-
 
 --
 -- Name: portal_calendar(text, text, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -3667,7 +5328,6 @@ BEGIN
   RETURN rows;
 END $$;
 
-
 --
 -- Name: portal_client_ids(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -3680,7 +5340,6 @@ CREATE FUNCTION public.portal_client_ids(_user_id uuid) RETURNS uuid[]
   FROM public.client_members
   WHERE user_id = _user_id AND role = 'portal_client';
 $$;
-
 
 --
 -- Name: portal_decide(text, uuid, text, text, text, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -3802,7 +5461,6 @@ BEGIN
   RETURN jsonb_build_object('ok', true);
 END $$;
 
-
 --
 -- Name: portal_files(text, text, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -3824,7 +5482,6 @@ BEGIN
   ) x;
   RETURN rows;
 END $$;
-
 
 --
 -- Name: portal_metrics(text, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -3859,7 +5516,6 @@ BEGIN
   );
 END $$;
 
-
 --
 -- Name: portal_my_clients(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -3877,7 +5533,6 @@ CREATE FUNCTION public.portal_my_clients() RETURNS jsonb
      ORDER BY c.name
   ) x;
 $$;
-
 
 --
 -- Name: portal_post(text, uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -3905,7 +5560,6 @@ BEGIN
   ) a;
   RETURN jsonb_build_object('post', post_row, 'approval', apprv);
 END $$;
-
 
 --
 -- Name: portal_rate_register_failure(text); Type: FUNCTION; Schema: public; Owner: -
@@ -3957,7 +5611,6 @@ BEGIN
   );
 END $$;
 
-
 --
 -- Name: portal_rate_status(text); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -3980,7 +5633,6 @@ BEGIN
     'retry_after', ceil(extract(epoch FROM (r.blocked_until - now())))::int
   );
 END $$;
-
 
 --
 -- Name: portal_resolve(text, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -4014,7 +5666,6 @@ BEGIN
   RETURN res;
 END $$;
 
-
 --
 -- Name: posts_sync_legacy_stage(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -4030,7 +5681,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 
 --
 -- Name: posts_touch_stage_entered_at(); Type: FUNCTION; Schema: public; Owner: -
@@ -4053,7 +5703,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 
 --
 -- Name: process_brain_learning_queue(integer); Type: FUNCTION; Schema: public; Owner: -
@@ -4338,7 +5987,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: protect_pipeline_delete(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -4363,7 +6011,6 @@ BEGIN
   END IF;
   RETURN OLD;
 END $$;
-
 
 --
 -- Name: public_surface_rate_hit(text, integer, integer, integer); Type: FUNCTION; Schema: public; Owner: -
@@ -4419,7 +6066,6 @@ BEGIN
   RETURN jsonb_build_object('blocked', false, 'retry_after', 0, 'count', r.fail_count);
 END $$;
 
-
 --
 -- Name: reactivate_portal_token(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -4454,7 +6100,6 @@ BEGIN
       FROM public.portal_tokens pt WHERE pt.id = _token_id;
 END;
 $$;
-
 
 --
 -- Name: reap_brain_learning_queue(); Type: FUNCTION; Schema: public; Owner: -
@@ -4495,7 +6140,6 @@ BEGIN
   RETURN n;
 END $$;
 
-
 --
 -- Name: reap_stuck_ai_jobs(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -4523,7 +6167,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: recalc_media_plan_item_amount(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -4540,7 +6183,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 
 --
 -- Name: recalc_media_plan_items_on_plan(); Type: FUNCTION; Schema: public; Owner: -
@@ -4561,7 +6203,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: refresh_brain_stats(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -4574,7 +6215,6 @@ BEGIN
   REFRESH MATERIALIZED VIEW CONCURRENTLY public.brain_stats_mv;
 END;
 $$;
-
 
 --
 -- Name: refresh_task_total_minutes(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -4601,7 +6241,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: safe_uuid(text); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -4616,7 +6255,6 @@ BEGIN
 EXCEPTION WHEN others THEN
   RETURN NULL;
 END $$;
-
 
 --
 -- Name: set_cron_secret(text); Type: FUNCTION; Schema: public; Owner: -
@@ -4639,7 +6277,6 @@ begin
   end if;
 end;
 $$;
-
 
 --
 -- Name: start_timer(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -4679,7 +6316,6 @@ BEGIN
   RETURN _new_id;
 END; $$;
 
-
 --
 -- Name: stop_timer(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -4713,7 +6349,6 @@ BEGIN
   RETURN COALESCE(_secs, 0);
 END;
 $$;
-
 
 --
 -- Name: storage_scope_allows(text, text, boolean); Type: FUNCTION; Schema: public; Owner: -
@@ -4768,7 +6403,6 @@ BEGIN
   -- Não existe fallback "brand member = pode acessar".
   RETURN public.is_brand_admin_level(_brand, _uid);
 END $$;
-
 
 --
 -- Name: sync_post_publication_state(uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -4897,7 +6531,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: tg_ai_usage_limits_touch(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -4907,7 +6540,6 @@ CREATE FUNCTION public.tg_ai_usage_limits_touch() RETURNS trigger
     SET search_path TO 'public'
     AS $$
 BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;
-
 
 --
 -- Name: tg_social_posts_sync_publication(); Type: FUNCTION; Schema: public; Owner: -
@@ -4927,7 +6559,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: tg_touch_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -4937,7 +6568,6 @@ CREATE FUNCTION public.tg_touch_updated_at() RETURNS trigger
     SET search_path TO 'public'
     AS $$
 BEGIN NEW.updated_at = now(); RETURN NEW; END $$;
-
 
 --
 -- Name: trg_time_entry_refresh_totals(); Type: FUNCTION; Schema: public; Owner: -
@@ -4959,7 +6589,6 @@ BEGIN
   RETURN NEW;
 END; $$;
 
-
 --
 -- Name: update_updated_at_column(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -4973,7 +6602,6 @@ BEGIN
     RETURN NEW;
 END;
 $$;
-
 
 --
 -- Name: upsert_brain_relationship(uuid, text, uuid, text, uuid, text, numeric, jsonb, boolean); Type: FUNCTION; Schema: public; Owner: -
@@ -5013,7 +6641,6 @@ BEGIN
 
   RETURN v_id;
 END $$;
-
 
 --
 -- Name: upsert_social_connection(uuid, text, text, text, text, text, text, text, text, text, text, text, text[], timestamp with time zone, jsonb, uuid); Type: FUNCTION; Schema: public; Owner: -
@@ -5057,7 +6684,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: validate_client_social_account(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -5081,7 +6707,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 
 --
 -- Name: validate_placement_connection(); Type: FUNCTION; Schema: public; Owner: -
@@ -5113,553 +6738,7 @@ END;
 $$;
 
 
-
-
---
--- Name: activity_events; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.activity_events (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid,
-    actor_id uuid,
-    entity_type text NOT NULL,
-    entity_id uuid,
-    verb text NOT NULL,
-    payload jsonb DEFAULT '{}'::jsonb,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: agent_prompt_overrides; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.agent_prompt_overrides (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    agent_id text NOT NULL,
-    system_prompt text NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: agent_prompts; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.agent_prompts (
-    agent_id text NOT NULL,
-    agent_name text NOT NULL,
-    system_prompt text NOT NULL,
-    required_fields jsonb DEFAULT '[]'::jsonb NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    default_prompt text NOT NULL,
-    brain_enabled boolean DEFAULT true NOT NULL
-);
-
-
---
--- Name: ai_jobs; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.ai_jobs (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid,
-    user_id uuid NOT NULL,
-    kind text NOT NULL,
-    title text NOT NULL,
-    subtitle text,
-    status text DEFAULT 'queued'::text NOT NULL,
-    progress smallint DEFAULT 0 NOT NULL,
-    step_label text,
-    input jsonb DEFAULT '{}'::jsonb NOT NULL,
-    result jsonb,
-    error text,
-    target_route text,
-    started_at timestamp with time zone,
-    finished_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-ALTER TABLE ONLY public.ai_jobs REPLICA IDENTITY FULL;
-
-
---
--- Name: ai_model_catalog_overrides; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.ai_model_catalog_overrides (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    provider text NOT NULL,
-    role text NOT NULL,
-    model_id text NOT NULL,
-    replaced_model_id text,
-    reason text,
-    source text DEFAULT 'auto_health_check'::text NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: ai_model_health; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.ai_model_health (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    provider text NOT NULL,
-    model_id text NOT NULL,
-    status text NOT NULL,
-    error_message text,
-    checked_at timestamp with time zone DEFAULT now() NOT NULL,
-    role text DEFAULT 'operational'::text NOT NULL,
-    CONSTRAINT ai_model_health_status_check CHECK ((status = ANY (ARRAY['ok'::text, 'failed'::text])))
-);
-
-
---
--- Name: ai_usage_limits; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.ai_usage_limits (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    scope text NOT NULL,
-    client_id uuid,
-    user_id uuid,
-    period text DEFAULT 'monthly'::text NOT NULL,
-    limit_usd numeric(12,4) NOT NULL,
-    hard_stop boolean DEFAULT true NOT NULL,
-    notify_at_pct integer DEFAULT 80 NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT ai_usage_limits_limit_usd_check CHECK ((limit_usd >= (0)::numeric)),
-    CONSTRAINT ai_usage_limits_notify_at_pct_check CHECK (((notify_at_pct >= 1) AND (notify_at_pct <= 100))),
-    CONSTRAINT ai_usage_limits_period_check CHECK ((period = 'monthly'::text)),
-    CONSTRAINT ai_usage_limits_scope_check CHECK ((scope = ANY (ARRAY['brand'::text, 'client'::text, 'user'::text]))),
-    CONSTRAINT ai_usage_limits_scope_shape CHECK ((((scope = 'brand'::text) AND (client_id IS NULL) AND (user_id IS NULL)) OR ((scope = 'client'::text) AND (client_id IS NOT NULL) AND (user_id IS NULL)) OR ((scope = 'user'::text) AND (user_id IS NOT NULL))))
-);
-
-
---
--- Name: brain_embeddings; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brain_embeddings (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid,
-    event_id uuid,
-    content_summary text NOT NULL,
-    embedding public.vector(1536),
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: brain_events; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brain_events (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid,
-    event_type text NOT NULL,
-    source_module text NOT NULL,
-    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    outcome_score numeric,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    actor_id uuid,
-    entity_type text,
-    entity_id uuid,
-    action text,
-    client_id uuid,
-    project_id uuid,
-    confidence numeric,
-    correlation_id uuid,
-    processed_at timestamp with time zone
-);
-
-ALTER TABLE ONLY public.brain_events FORCE ROW LEVEL SECURITY;
-
-
---
--- Name: TABLE brain_events; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.brain_events IS 'Barramento de eventos do Brain. Tabela unica (nao particionada) desde a ETAPA 3 da simplificacao.';
-
-
---
--- Name: brain_insights; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brain_insights (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid,
-    insight_type text NOT NULL,
-    description text NOT NULL,
-    confidence numeric,
-    based_on_events integer DEFAULT 0,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    expires_at timestamp with time zone,
-    client_id uuid,
-    scope text DEFAULT 'brand'::text NOT NULL,
-    CONSTRAINT brain_insights_scope_check CHECK ((scope = ANY (ARRAY['global'::text, 'brand'::text, 'client'::text])))
-);
-
-
---
--- Name: brain_learning_queue; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brain_learning_queue (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    event_id uuid NOT NULL,
-    brand_id uuid,
-    status text DEFAULT 'queued'::text NOT NULL,
-    attempts integer DEFAULT 0 NOT NULL,
-    error text,
-    enqueued_at timestamp with time zone DEFAULT now() NOT NULL,
-    started_at timestamp with time zone,
-    processed_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: brain_memory; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brain_memory (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid,
-    subject_type text,
-    subject_id uuid,
-    memory_type text NOT NULL,
-    scope text DEFAULT 'brand'::text NOT NULL,
-    key text NOT NULL,
-    content jsonb DEFAULT '{}'::jsonb NOT NULL,
-    confidence numeric(4,3) DEFAULT 0.500 NOT NULL,
-    decay_rate numeric(4,3) DEFAULT 0.000 NOT NULL,
-    access_count integer DEFAULT 0 NOT NULL,
-    last_accessed_at timestamp with time zone,
-    expires_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    entity_type text,
-    entity_id uuid,
-    category text,
-    title text,
-    description text,
-    source_event uuid,
-    tags text[] DEFAULT '{}'::text[] NOT NULL,
-    relations jsonb DEFAULT '[]'::jsonb NOT NULL,
-    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
-    status text DEFAULT 'active'::text NOT NULL,
-    version integer DEFAULT 1 NOT NULL,
-    origin text DEFAULT 'system'::text NOT NULL,
-    previous_confidence numeric(4,3),
-    source_refs jsonb DEFAULT '[]'::jsonb NOT NULL,
-    reinforcement_count integer DEFAULT 0 NOT NULL,
-    contradiction_count integer DEFAULT 0 NOT NULL,
-    client_id uuid,
-    last_observed_at timestamp with time zone,
-    CONSTRAINT brain_memory_confidence_check CHECK (((confidence >= (0)::numeric) AND (confidence <= (1)::numeric))),
-    CONSTRAINT brain_memory_memory_type_check CHECK ((memory_type = ANY (ARRAY['short_term'::text, 'long_term'::text, 'episodic'::text, 'semantic'::text, 'pattern'::text, 'preference'::text, 'fact'::text]))),
-    CONSTRAINT brain_memory_scope_check CHECK ((scope = ANY (ARRAY['global'::text, 'brand'::text, 'client'::text])))
-);
-
-
---
--- Name: brain_memory_versions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brain_memory_versions (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    memory_id uuid NOT NULL,
-    brand_id uuid,
-    version integer NOT NULL,
-    confidence numeric(4,3) NOT NULL,
-    previous_confidence numeric(4,3),
-    delta_confidence numeric(5,3),
-    title text,
-    description text,
-    content jsonb DEFAULT '{}'::jsonb NOT NULL,
-    tags text[] DEFAULT '{}'::text[] NOT NULL,
-    relations jsonb DEFAULT '[]'::jsonb NOT NULL,
-    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
-    status text DEFAULT 'active'::text NOT NULL,
-    change_reason text,
-    source_event uuid,
-    changed_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: brain_metrics_snapshots; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brain_metrics_snapshots (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid,
-    channel text,
-    metric_name text NOT NULL,
-    metric_value numeric NOT NULL,
-    period_start date NOT NULL,
-    period_end date NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: brain_reasoning_logs; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brain_reasoning_logs (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid,
-    client_id uuid,
-    user_id uuid,
-    conversation_id uuid,
-    question text NOT NULL,
-    intent text NOT NULL,
-    intent_confidence numeric,
-    plan jsonb DEFAULT '[]'::jsonb NOT NULL,
-    tools_used jsonb DEFAULT '[]'::jsonb NOT NULL,
-    decision text NOT NULL,
-    used_llm boolean DEFAULT false NOT NULL,
-    answer_confidence numeric,
-    latency_ms integer,
-    memory_hits integer DEFAULT 0 NOT NULL,
-    answer_preview text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: brain_recommendations; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brain_recommendations (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid,
-    client_id uuid,
-    target_user_id uuid,
-    recommendation_type text NOT NULL,
-    title text NOT NULL,
-    description text,
-    action_payload jsonb DEFAULT '{}'::jsonb,
-    priority text DEFAULT 'medium'::text NOT NULL,
-    status text DEFAULT 'pending'::text NOT NULL,
-    confidence numeric(4,3) DEFAULT 0.500 NOT NULL,
-    source_insight_id uuid,
-    source_event_ids uuid[] DEFAULT ARRAY[]::uuid[],
-    expires_at timestamp with time zone,
-    acted_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT brain_recommendations_confidence_check CHECK (((confidence >= (0)::numeric) AND (confidence <= (1)::numeric))),
-    CONSTRAINT brain_recommendations_priority_check CHECK ((priority = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text, 'critical'::text]))),
-    CONSTRAINT brain_recommendations_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'shown'::text, 'accepted'::text, 'dismissed'::text, 'expired'::text])))
-);
-
-
---
--- Name: brain_relationships; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brain_relationships (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid,
-    from_type text NOT NULL,
-    from_id uuid NOT NULL,
-    to_type text NOT NULL,
-    to_id uuid NOT NULL,
-    relationship_type text NOT NULL,
-    strength numeric(4,3) DEFAULT 0.500 NOT NULL,
-    confidence numeric(4,3) DEFAULT 0.500 NOT NULL,
-    bidirectional boolean DEFAULT false NOT NULL,
-    metadata jsonb DEFAULT '{}'::jsonb,
-    observation_count integer DEFAULT 1 NOT NULL,
-    last_observed_at timestamp with time zone DEFAULT now() NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    client_id uuid,
-    CONSTRAINT brain_relationships_confidence_check CHECK (((confidence >= (0)::numeric) AND (confidence <= (1)::numeric))),
-    CONSTRAINT brain_relationships_strength_check CHECK (((strength >= (0)::numeric) AND (strength <= (1)::numeric)))
-);
-
-
---
--- Name: brain_retention_config; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brain_retention_config (
-    key text NOT NULL,
-    value_days integer NOT NULL,
-    description text,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: brands; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brands (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    name text NOT NULL,
-    slug text NOT NULL,
-    color text DEFAULT '#8b5cf6'::text,
-    logo_url text,
-    created_by uuid NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    cpf text,
-    cnpj text,
-    nome_fantasia text,
-    razao_social text,
-    cep text,
-    rua text,
-    numero text,
-    complemento text,
-    bairro text,
-    cidade text,
-    estado text,
-    logo_dark_url text,
-    icon_url text,
-    login_logo_url text,
-    app_url text,
-    is_active boolean DEFAULT true NOT NULL,
-    inactivated_at timestamp with time zone
-);
-
-
---
--- Name: COLUMN brands.app_url; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.brands.app_url IS 'URL canonica da instalacao que atende este workspace. Aprendida do host real das requisicoes e usada por jobs/cron/workers para montar links absolutos sem depender de variavel de ambiente global.';
-
-
---
--- Name: posts; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.posts (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid NOT NULL,
-    project_id uuid,
-    title text NOT NULL,
-    copy text DEFAULT ''::text,
-    channels public.post_channel[] DEFAULT '{}'::public.post_channel[] NOT NULL,
-    stage public.post_stage DEFAULT 'idea'::public.post_stage NOT NULL,
-    scheduled_at timestamp with time zone,
-    published_at timestamp with time zone,
-    assignee_id uuid,
-    cover_url text,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    pipeline_id uuid,
-    stage_id uuid,
-    "position" integer DEFAULT 0 NOT NULL,
-    review_status text DEFAULT 'pending'::text NOT NULL,
-    reference_media jsonb DEFAULT '[]'::jsonb NOT NULL,
-    design_brief text,
-    ai_phase text DEFAULT 'idea'::text NOT NULL,
-    approved_at timestamp with time zone,
-    approved_by uuid,
-    deleted_at timestamp with time zone,
-    rework_notes text,
-    priority text DEFAULT 'normal'::text,
-    format text,
-    tags text[] DEFAULT '{}'::text[] NOT NULL,
-    visible_in_portal boolean DEFAULT true NOT NULL,
-    internal_briefing text,
-    client_briefing text,
-    script jsonb DEFAULT '[]'::jsonb,
-    "references" jsonb DEFAULT '[]'::jsonb NOT NULL,
-    remind_at timestamp with time zone,
-    recurrence jsonb,
-    assignees uuid[] DEFAULT '{}'::uuid[] NOT NULL,
-    stage_entered_at timestamp with time zone DEFAULT now(),
-    target_connection_ids uuid[] DEFAULT '{}'::uuid[] NOT NULL,
-    monthly_plan_topic_id uuid,
-    ai_phase_at timestamp with time zone,
-    CONSTRAINT posts_format_canonical CHECK (((format IS NULL) OR (format = ANY (ARRAY['feed'::text, 'stories'::text, 'reels'::text, 'carrossel'::text]))))
-);
-
-
---
--- Name: COLUMN posts.target_connection_ids; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.posts.target_connection_ids IS 'IDs de social_connections que este post deve publicar. Referenciados por aplicação (validados por brand/cliente no server function).';
-
-
---
--- Name: projects; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.projects (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid,
-    name text NOT NULL,
-    description text,
-    status public.project_status DEFAULT 'planning'::public.project_status NOT NULL,
-    progress integer DEFAULT 0 NOT NULL,
-    due_at timestamp with time zone,
-    owner_id uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    color text,
-    start_date timestamp with time zone,
-    goals text,
-    monthly_plan_id uuid,
-    CONSTRAINT projects_progress_check CHECK (((progress >= 0) AND (progress <= 100)))
-);
-
-
---
--- Name: tasks; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.tasks (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid,
-    project_id uuid,
-    title text NOT NULL,
-    description text,
-    status public.task_status DEFAULT 'todo'::public.task_status NOT NULL,
-    priority public.task_priority DEFAULT 'medium'::public.task_priority NOT NULL,
-    assignee_id uuid,
-    due_at timestamp with time zone,
-    done boolean DEFAULT false NOT NULL,
-    done_at timestamp with time zone,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    job_id uuid,
-    estimated_minutes integer,
-    total_minutes integer DEFAULT 0 NOT NULL,
-    "position" integer DEFAULT 0 NOT NULL,
-    post_id uuid,
-    archived_at timestamp with time zone
-);
-
+-- ============================ VIEWS / MATERIALIZED VIEWS (1) ============================
 
 --
 -- Name: brain_stats_mv; Type: MATERIALIZED VIEW; Schema: public; Owner: -
@@ -5681,1479 +6760,12 @@ CREATE MATERIALIZED VIEW public.brain_stats_mv AS
   WITH NO DATA;
 
 
---
--- Name: brain_worker_runs; Type: TABLE; Schema: public; Owner: -
---
+-- ============================ COLUMN DEFAULTS / OTHER ALTERS (1) ============================
 
-CREATE TABLE public.brain_worker_runs (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    job_name text DEFAULT 'brain_learning_worker'::text NOT NULL,
-    status text DEFAULT 'ok'::text NOT NULL,
-    started_at timestamp with time zone DEFAULT now() NOT NULL,
-    finished_at timestamp with time zone,
-    duration_ms integer,
-    picked integer DEFAULT 0 NOT NULL,
-    processed integer DEFAULT 0 NOT NULL,
-    discarded integer DEFAULT 0 NOT NULL,
-    failed integer DEFAULT 0 NOT NULL,
-    memories_created integer DEFAULT 0 NOT NULL,
-    memories_updated integer DEFAULT 0 NOT NULL,
-    insights_created integer DEFAULT 0 NOT NULL,
-    edges_created integer DEFAULT 0 NOT NULL,
-    error text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
+ALTER TABLE ONLY public.ai_jobs REPLICA IDENTITY FULL;
 
 
---
--- Name: brand_ai_content; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_ai_content (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    post_id uuid,
-    pauta_id uuid,
-    plataforma text,
-    formato text,
-    data jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    client_id uuid NOT NULL
-);
-
-
---
--- Name: brand_ai_usage; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_ai_usage (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    agent text NOT NULL,
-    model text NOT NULL,
-    input_tokens integer DEFAULT 0 NOT NULL,
-    output_tokens integer DEFAULT 0 NOT NULL,
-    cost_usd numeric(10,6) DEFAULT 0 NOT NULL,
-    success boolean DEFAULT true NOT NULL,
-    error_message text,
-    actor_id uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    client_id uuid
-);
-
-
---
--- Name: brand_ai_versions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_ai_versions (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    entity_type text NOT NULL,
-    entity_id uuid NOT NULL,
-    data jsonb NOT NULL,
-    changed_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    client_id uuid NOT NULL
-);
-
-
---
--- Name: brand_api_credentials; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_api_credentials (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    provider text NOT NULL,
-    ciphertext text NOT NULL,
-    masked text NOT NULL,
-    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
-    updated_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: brand_briefing_proposals; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_briefing_proposals (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    request_id uuid NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid NOT NULL,
-    base_version_id uuid,
-    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    attachments jsonb DEFAULT '[]'::jsonb NOT NULL,
-    note text,
-    submitted_via text DEFAULT 'portal_session'::text NOT NULL,
-    submitted_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT brand_briefing_proposals_via_chk CHECK ((submitted_via = ANY (ARRAY['portal_session'::text, 'portal_token'::text])))
-);
-
-
---
--- Name: brand_briefing_requests; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_briefing_requests (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid NOT NULL,
-    requested_fields text[] DEFAULT '{}'::text[] NOT NULL,
-    message text,
-    status text DEFAULT 'requested'::text NOT NULL,
-    base_version_id uuid,
-    due_at timestamp with time zone,
-    requested_by uuid,
-    requested_at timestamp with time zone DEFAULT now() NOT NULL,
-    submitted_at timestamp with time zone,
-    reviewed_at timestamp with time zone,
-    reviewed_by uuid,
-    canceled_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    accepted_fields text[] DEFAULT '{}'::text[] NOT NULL,
-    pending_fields text[] DEFAULT '{}'::text[] NOT NULL,
-    review_decision text,
-    review_note text,
-    promoted_version_id uuid,
-    decided_at timestamp with time zone,
-    decided_by uuid,
-    CONSTRAINT brand_briefing_requests_decision_chk CHECK (((review_decision IS NULL) OR (review_decision = ANY (ARRAY['approved'::text, 'partial'::text, 'changes_requested'::text])))),
-    CONSTRAINT brand_briefing_requests_status_chk CHECK ((status = ANY (ARRAY['requested'::text, 'submitted'::text, 'in_review'::text, 'approved'::text])))
-);
-
-
---
--- Name: brand_briefing_reviews; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_briefing_reviews (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    request_id uuid NOT NULL,
-    proposal_id uuid,
-    brand_id uuid NOT NULL,
-    client_id uuid NOT NULL,
-    decision text NOT NULL,
-    accepted_fields text[] DEFAULT '{}'::text[] NOT NULL,
-    pending_fields text[] DEFAULT '{}'::text[] NOT NULL,
-    promoted jsonb DEFAULT '{}'::jsonb NOT NULL,
-    note text,
-    version_id uuid,
-    reviewed_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT brand_briefing_reviews_decision_chk CHECK ((decision = ANY (ARRAY['approved'::text, 'partial'::text, 'changes_requested'::text])))
-);
-
-
---
--- Name: brand_briefing_versions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_briefing_versions (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid NOT NULL,
-    snapshot jsonb DEFAULT '{}'::jsonb NOT NULL,
-    completion integer DEFAULT 0 NOT NULL,
-    status text DEFAULT 'draft'::text NOT NULL,
-    origin text DEFAULT 'manual'::text NOT NULL,
-    changed_fields text[] DEFAULT '{}'::text[] NOT NULL,
-    changed_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: brand_briefings; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_briefings (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    raw_text text,
-    data jsonb DEFAULT '{}'::jsonb NOT NULL,
-    completude integer DEFAULT 0 NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    client_id uuid NOT NULL
-);
-
-
---
--- Name: brand_cohorts; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_cohorts (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    data jsonb DEFAULT '{}'::jsonb NOT NULL,
-    is_active boolean DEFAULT true NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    client_id uuid NOT NULL
-);
-
-
---
--- Name: brand_competitors; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_competitors (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    handle text,
-    bio_colada text,
-    posts_colados text,
-    snapshot jsonb DEFAULT '{}'::jsonb NOT NULL,
-    pautas_inspiradas jsonb DEFAULT '[]'::jsonb NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    client_id uuid NOT NULL
-);
-
-
---
--- Name: brand_connections; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_connections (
-    brand_id uuid NOT NULL,
-    monthly_budget_usd numeric DEFAULT 500 NOT NULL,
-    text_provider text DEFAULT 'openai'::text NOT NULL,
-    image_provider text DEFAULT 'gemini'::text NOT NULL,
-    providers jsonb DEFAULT '{}'::jsonb NOT NULL,
-    channels jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    text_fallback_provider text
-);
-
-
---
--- Name: brand_features; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_features (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    feature_key text NOT NULL,
-    enabled boolean DEFAULT false NOT NULL,
-    enabled_at timestamp with time zone,
-    enabled_by uuid,
-    notes text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: brand_invites; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_invites (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    email text NOT NULL,
-    role public.app_role DEFAULT 'user'::public.app_role NOT NULL,
-    permissions jsonb DEFAULT '[]'::jsonb NOT NULL,
-    token text NOT NULL,
-    invited_by uuid NOT NULL,
-    accepted_at timestamp with time zone,
-    accepted_by uuid,
-    expires_at timestamp with time zone DEFAULT (now() + '14 days'::interval) NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    revoked_at timestamp with time zone,
-    revoked_by uuid,
-    temp_password_sent boolean DEFAULT false NOT NULL
-);
-
-
---
--- Name: brand_journey_stage_templates; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_journey_stage_templates (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    stage text NOT NULL,
-    project_template_id uuid NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT brand_journey_stage_templates_stage_check CHECK ((stage = ANY (ARRAY['onboarding'::text, 'ativacao'::text, 'operacao'::text, 'expansao'::text, 'renovacao'::text])))
-);
-
-
---
--- Name: brand_media_assets; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_media_assets (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    uploaded_by uuid,
-    storage_path text NOT NULL,
-    name text NOT NULL,
-    mime_type text NOT NULL,
-    size_bytes bigint DEFAULT 0 NOT NULL,
-    kind text NOT NULL,
-    width integer,
-    height integer,
-    tags text[] DEFAULT '{}'::text[] NOT NULL,
-    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    client_id uuid,
-    CONSTRAINT brand_media_assets_kind_check CHECK ((kind = ANY (ARRAY['image'::text, 'video'::text, 'other'::text])))
-);
-
-
---
--- Name: brand_members; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_members (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    user_id uuid NOT NULL,
-    role public.app_role DEFAULT 'user'::public.app_role NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    permissions jsonb DEFAULT '[]'::jsonb NOT NULL,
-    is_active boolean DEFAULT true NOT NULL,
-    deactivated_at timestamp with time zone,
-    deactivated_by uuid,
-    CONSTRAINT brand_members_role_official_chk CHECK ((role = ANY (ARRAY['owner'::public.app_role, 'admin'::public.app_role, 'manager'::public.app_role, 'user'::public.app_role, 'client'::public.app_role])))
-);
-
-
---
--- Name: brand_pautas; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_pautas (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    titulo text NOT NULL,
-    pilar text,
-    cohort_alvo text,
-    formato_recomendado text,
-    plataforma text,
-    gancho text,
-    data jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    client_id uuid NOT NULL,
-    status text DEFAULT 'backlog'::text NOT NULL,
-    pilar_type text,
-    formato text
-);
-
-
---
--- Name: brand_personas; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_personas (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    data jsonb DEFAULT '{}'::jsonb NOT NULL,
-    is_active boolean DEFAULT true NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    client_id uuid NOT NULL
-);
-
-
---
--- Name: brand_swot; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_swot (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    data jsonb DEFAULT '{}'::jsonb NOT NULL,
-    is_active boolean DEFAULT true NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    client_id uuid NOT NULL
-);
-
-
---
--- Name: brand_voice_cards; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.brand_voice_cards (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    data jsonb DEFAULT '{}'::jsonb NOT NULL,
-    is_active boolean DEFAULT true NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    client_id uuid NOT NULL
-);
-
-
---
--- Name: calendar_events; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.calendar_events (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid,
-    client_id uuid,
-    type public.calendar_event_type NOT NULL,
-    title text NOT NULL,
-    description text,
-    starts_at timestamp with time zone NOT NULL,
-    ends_at timestamp with time zone,
-    all_day boolean DEFAULT false NOT NULL,
-    is_global boolean DEFAULT false NOT NULL,
-    color text,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT calendar_events_scope_ck CHECK ((((is_global = true) AND (brand_id IS NULL)) OR ((is_global = false) AND (brand_id IS NOT NULL)))),
-    CONSTRAINT calendar_events_seasonal_global_ck CHECK (((is_global = false) OR (type = 'seasonal'::public.calendar_event_type)))
-);
-
-
---
--- Name: card_approval_events; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.card_approval_events (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    post_id uuid NOT NULL,
-    token_id uuid,
-    brand_id uuid NOT NULL,
-    verb text NOT NULL,
-    comment text,
-    ip inet,
-    user_agent text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: card_approval_tokens; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.card_approval_tokens (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    post_id uuid NOT NULL,
-    brand_id uuid NOT NULL,
-    token text NOT NULL,
-    expires_at timestamp with time zone,
-    revoked_at timestamp with time zone,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: chat_conversations; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.chat_conversations (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    brand_id uuid,
-    client_id uuid,
-    title text DEFAULT 'Nova conversa'::text NOT NULL,
-    last_message_at timestamp with time zone DEFAULT now() NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: chat_messages; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.chat_messages (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    conversation_id uuid NOT NULL,
-    user_id uuid NOT NULL,
-    role text NOT NULL,
-    content text DEFAULT ''::text NOT NULL,
-    attachments jsonb DEFAULT '[]'::jsonb NOT NULL,
-    brain_context jsonb,
-    used_llm boolean DEFAULT false NOT NULL,
-    model text,
-    tokens_in integer,
-    tokens_out integer,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    tool_calls jsonb DEFAULT '[]'::jsonb NOT NULL,
-    CONSTRAINT chat_messages_role_check CHECK ((role = ANY (ARRAY['user'::text, 'assistant'::text, 'system'::text])))
-);
-
-
---
--- Name: client_briefing_tokens; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.client_briefing_tokens (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid NOT NULL,
-    token text NOT NULL,
-    label text,
-    expires_at timestamp with time zone,
-    revoked_at timestamp with time zone,
-    submitted_at timestamp with time zone,
-    submission jsonb,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: client_briefings; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.client_briefings (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    client_id uuid NOT NULL,
-    personas jsonb DEFAULT '[]'::jsonb,
-    target_audience text,
-    hashtags text[] DEFAULT '{}'::text[],
-    monthly_volume integer DEFAULT 0,
-    guidelines text,
-    updated_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: client_documents; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.client_documents (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid NOT NULL,
-    name text NOT NULL,
-    storage_path text NOT NULL,
-    mime_type text,
-    size_bytes bigint,
-    uploaded_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    ai_status text DEFAULT 'idle'::text NOT NULL,
-    ai_model text,
-    ai_error text,
-    extracted_text text,
-    ai_summary jsonb,
-    analyzed_at timestamp with time zone,
-    applied_to_briefing_at timestamp with time zone,
-    visible_to_client boolean DEFAULT false NOT NULL,
-    CONSTRAINT client_documents_ai_status_chk CHECK ((ai_status = ANY (ARRAY['idle'::text, 'queued'::text, 'running'::text, 'done'::text, 'failed'::text])))
-);
-
-
---
--- Name: client_journey_events; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.client_journey_events (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid NOT NULL,
-    from_stage text,
-    to_stage text NOT NULL,
-    note text,
-    project_id uuid,
-    moved_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: client_members; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.client_members (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid NOT NULL,
-    user_id uuid NOT NULL,
-    role text DEFAULT 'editor'::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    created_by uuid,
-    last_seen_at timestamp with time zone
-);
-
-
---
--- Name: client_social_accounts; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.client_social_accounts (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid NOT NULL,
-    connection_id uuid NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: TABLE client_social_accounts; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.client_social_accounts IS 'Unica fonte de verdade do vinculo canal <-> cliente.';
-
-
---
--- Name: clients; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.clients (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    name text NOT NULL,
-    niche text,
-    color text DEFAULT '#6366f1'::text,
-    contact_name text,
-    contact_email text,
-    contact_phone text,
-    tone_of_voice text,
-    palette jsonb DEFAULT '[]'::jsonb,
-    socials jsonb DEFAULT '[]'::jsonb,
-    archived_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    is_active boolean DEFAULT true NOT NULL,
-    owner_user_id uuid,
-    logo_url text,
-    logo_secondary_url text,
-    favicon_url text,
-    brand_hub jsonb DEFAULT '{}'::jsonb NOT NULL,
-    website text,
-    address text,
-    monthly_contract_value numeric(12,2),
-    margin_percent numeric(5,2),
-    contract_start_date date,
-    contract_renewal_date date,
-    contract_status text DEFAULT 'ativo'::text NOT NULL,
-    internal_notes text,
-    journey_stage text DEFAULT 'onboarding'::text NOT NULL,
-    portal_theme jsonb DEFAULT '{"mode": "system"}'::jsonb NOT NULL,
-    legal_name text,
-    cnpj text,
-    description text,
-    briefing_status text DEFAULT 'draft'::text NOT NULL,
-    briefing_status_at timestamp with time zone,
-    briefing_status_by uuid,
-    CONSTRAINT clients_briefing_status_check CHECK ((briefing_status = ANY (ARRAY['draft'::text, 'requested'::text, 'submitted'::text, 'in_review'::text, 'approved'::text]))),
-    CONSTRAINT clients_contract_status_check CHECK ((contract_status = ANY (ARRAY['ativo'::text, 'pausado'::text, 'encerrado'::text]))),
-    CONSTRAINT clients_journey_stage_check CHECK ((journey_stage = ANY (ARRAY['onboarding'::text, 'ativacao'::text, 'operacao'::text, 'expansao'::text, 'renovacao'::text])))
-);
-
-
---
--- Name: COLUMN clients.portal_theme; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.clients.portal_theme IS 'Tema do portal público: { mode: system|custom, accent, logo_url, bg, dark, footer_label, show_agency_credit }';
-
-
---
--- Name: content_pipeline_stages; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.content_pipeline_stages (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    pipeline_id uuid NOT NULL,
-    key text NOT NULL,
-    label text NOT NULL,
-    color text DEFAULT 'muted'::text NOT NULL,
-    "position" integer DEFAULT 0 NOT NULL,
-    is_terminal boolean DEFAULT false NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    hide_in_portal boolean DEFAULT false NOT NULL,
-    enables_approval_link boolean DEFAULT false NOT NULL,
-    sla_days integer,
-    sla_hours integer
-);
-
-
---
--- Name: COLUMN content_pipeline_stages.sla_hours; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.content_pipeline_stages.sla_hours IS 'SLA em horas para a etapa. Coluna canônica; sla_days permanece como legado (compat).';
-
-
---
--- Name: content_pipelines; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.content_pipelines (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid NOT NULL,
-    name text NOT NULL,
-    slug text NOT NULL,
-    is_default boolean DEFAULT false NOT NULL,
-    "position" integer DEFAULT 0 NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    color text,
-    description text,
-    icon text
-);
-
-
---
--- Name: evolution_events; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.evolution_events (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    instance_id uuid NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid,
-    instance_name text NOT NULL,
-    event_type text NOT NULL,
-    provider_event_id text,
-    connection_state text,
-    phone_number text,
-    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    received_at timestamp with time zone DEFAULT now() NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: evolution_instances; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.evolution_instances (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid,
-    instance_name text NOT NULL,
-    label text,
-    status text DEFAULT 'created'::text NOT NULL,
-    connection_state text,
-    phone_number text,
-    last_state_at timestamp with time zone,
-    last_error text,
-    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    webhook_token text,
-    webhook_configured_at timestamp with time zone,
-    last_event_at timestamp with time zone
-);
-
-
---
--- Name: feature_catalog; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.feature_catalog (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    key text NOT NULL,
-    name text NOT NULL,
-    description text,
-    category text,
-    icon text,
-    is_core boolean DEFAULT false NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    sort_order integer DEFAULT 100 NOT NULL,
-    is_available boolean DEFAULT true NOT NULL,
-    default_enabled boolean DEFAULT false NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: installation; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.installation (
-    id boolean DEFAULT true NOT NULL,
-    app_url text,
-    logo_url text,
-    logo_dark_url text,
-    icon_url text,
-    login_logo_url text,
-    email_from text,
-    email_from_name text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT installation_singleton_chk CHECK (id)
-);
-
-
---
--- Name: media_plan_items; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.media_plan_items (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    plan_id uuid NOT NULL,
-    "position" integer DEFAULT 0 NOT NULL,
-    product_service text,
-    campaign_type text,
-    funnel_stage text,
-    objective text,
-    main_kpi text,
-    channel text,
-    audience text,
-    budget_pct numeric(6,2) DEFAULT 0 NOT NULL,
-    budget_amount numeric(14,2) DEFAULT 0 NOT NULL,
-    keywords text[] DEFAULT ARRAY[]::text[] NOT NULL,
-    benchmark text,
-    other_refs text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT media_plan_items_funnel_stage_check CHECK ((funnel_stage = ANY (ARRAY['topo'::text, 'meio'::text, 'fundo'::text])))
-);
-
-
---
--- Name: media_plans; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.media_plans (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid NOT NULL,
-    title text DEFAULT 'Plano de mídia'::text NOT NULL,
-    period_start date,
-    period_end date,
-    monthly_budget numeric(14,2) DEFAULT 0 NOT NULL,
-    status text DEFAULT 'draft'::text NOT NULL,
-    share_token text,
-    share_expires_at timestamp with time zone,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT media_plans_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'approved'::text, 'archived'::text])))
-);
-
-
---
--- Name: message_logs; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.message_logs (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    channel text NOT NULL,
-    status text NOT NULL,
-    provider_message_id text,
-    recipient text,
-    error_message text,
-    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
-    sent_at timestamp with time zone DEFAULT now() NOT NULL,
-    delivered_at timestamp with time zone,
-    failed_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    client_id uuid
-);
-
-
---
--- Name: COLUMN message_logs.client_id; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.message_logs.client_id IS 'Fase 10B: cliente do registro. NULL = registro de workspace (visível só para admin/super admin).';
-
-
---
--- Name: message_templates; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.message_templates (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    event_key text NOT NULL,
-    channel text NOT NULL,
-    subject text,
-    body text DEFAULT ''::text NOT NULL,
-    variables_used text[] DEFAULT '{}'::text[] NOT NULL,
-    is_active boolean DEFAULT true NOT NULL,
-    updated_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT message_templates_channel_check CHECK ((channel = ANY (ARRAY['email'::text, 'whatsapp'::text])))
-);
-
-
---
--- Name: meta_compliance_events; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.meta_compliance_events (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    event_type text NOT NULL,
-    meta_user_id text NOT NULL,
-    confirmation_code text NOT NULL,
-    status text DEFAULT 'received'::text NOT NULL,
-    affected_connections integer DEFAULT 0 NOT NULL,
-    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT meta_compliance_events_event_type_check CHECK ((event_type = ANY (ARRAY['deauthorize'::text, 'data_deletion'::text])))
-);
-
-
---
--- Name: TABLE meta_compliance_events; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.meta_compliance_events IS 'Uso interno (service role). RLS sem policies nega acesso via Data API.';
-
-
---
--- Name: meta_oauth_sessions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.meta_oauth_sessions (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    user_id uuid NOT NULL,
-    meta_user_id text NOT NULL,
-    meta_user_name text,
-    meta_user_email text,
-    user_token_ciphertext text NOT NULL,
-    user_token_expires_at timestamp with time zone,
-    scopes text[] DEFAULT '{}'::text[] NOT NULL,
-    pages jsonb DEFAULT '[]'::jsonb NOT NULL,
-    consumed_at timestamp with time zone,
-    expires_at timestamp with time zone DEFAULT (now() + '00:30:00'::interval) NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    threads_accounts jsonb DEFAULT '[]'::jsonb NOT NULL,
-    ad_accounts jsonb DEFAULT '[]'::jsonb NOT NULL,
-    requested_scopes text[] DEFAULT ARRAY[]::text[] NOT NULL,
-    portfolio_loaded_at timestamp with time zone,
-    portfolio_load_status text DEFAULT 'not_loaded'::text NOT NULL,
-    portfolio_error text,
-    portfolio_rate_limited_until timestamp with time zone,
-    portfolio_source_session_id uuid,
-    CONSTRAINT meta_oauth_sessions_portfolio_load_status_check CHECK ((portfolio_load_status = ANY (ARRAY['not_loaded'::text, 'loaded'::text, 'empty'::text, 'error'::text, 'rate_limited'::text])))
-);
-
-
---
--- Name: monthly_plan_tokens; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.monthly_plan_tokens (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    monthly_plan_id uuid NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid NOT NULL,
-    token text NOT NULL,
-    expires_at timestamp with time zone,
-    revoked_at timestamp with time zone,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: monthly_plan_topics; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.monthly_plan_topics (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    monthly_plan_id uuid NOT NULL,
-    topic_title text NOT NULL,
-    content_format text,
-    angle text,
-    status text DEFAULT 'pending'::text NOT NULL,
-    "position" integer DEFAULT 0 NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    channel text,
-    previous_title text,
-    previous_angle text,
-    target_audience text,
-    rationale text,
-    client_status text DEFAULT 'pending'::text NOT NULL,
-    client_comment text,
-    client_decision_at timestamp with time zone,
-    CONSTRAINT monthly_plan_topics_content_format_canonical CHECK (((content_format IS NULL) OR (content_format = ANY (ARRAY['feed'::text, 'stories'::text, 'reels'::text, 'carrossel'::text])))),
-    CONSTRAINT monthly_plan_topics_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))
-);
-
-
---
--- Name: monthly_plans; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.monthly_plans (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    input_theme text,
-    input_briefing_id uuid,
-    title text NOT NULL,
-    description text,
-    objectives text,
-    status text DEFAULT 'draft'::text NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    client_id uuid NOT NULL,
-    internal_approved_at timestamp with time zone,
-    internal_approved_by uuid,
-    client_decision_at timestamp with time zone,
-    client_feedback text,
-    context_sources jsonb DEFAULT '{}'::jsonb NOT NULL,
-    project_id uuid,
-    client_decision_mode text,
-    CONSTRAINT monthly_plans_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'pending_client'::text, 'client_approved'::text, 'changes_requested'::text, 'approved'::text, 'archived'::text])))
-);
-
-
---
--- Name: notifications; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.notifications (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    brand_id uuid NOT NULL,
-    kind public.notification_kind NOT NULL,
-    title text NOT NULL,
-    body text,
-    href text,
-    read_at timestamp with time zone,
-    payload jsonb DEFAULT '{}'::jsonb,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    dedupe_key text,
-    archived_at timestamp with time zone
-);
-
-
---
--- Name: plan_overage_requests; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.plan_overage_requests (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid NOT NULL,
-    channel text NOT NULL,
-    period_month date NOT NULL,
-    quota integer DEFAULT 0 NOT NULL,
-    requested integer DEFAULT 0 NOT NULL,
-    overage integer DEFAULT 0 NOT NULL,
-    justification text,
-    status text DEFAULT 'pending'::text NOT NULL,
-    requested_by uuid,
-    decided_by uuid,
-    decided_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT plan_overage_requests_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))
-);
-
-
---
--- Name: portal_rate_limit; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.portal_rate_limit (
-    ip_hash text NOT NULL,
-    window_start timestamp with time zone DEFAULT now() NOT NULL,
-    fail_count integer DEFAULT 0 NOT NULL,
-    blocked_until timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: TABLE portal_rate_limit; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.portal_rate_limit IS 'Uso interno (service role). RLS sem policies nega acesso via Data API.';
-
-
---
--- Name: portal_tokens; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.portal_tokens (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    client_id uuid NOT NULL,
-    token text NOT NULL,
-    label text,
-    revoked_at timestamp with time zone,
-    expires_at timestamp with time zone,
-    last_seen_at timestamp with time zone,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: post_approvals; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.post_approvals (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    post_id uuid NOT NULL,
-    status public.approval_status DEFAULT 'pending'::public.approval_status NOT NULL,
-    notes text,
-    decided_by uuid,
-    decided_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    decided_by_name text
-);
-
-
---
--- Name: post_placements; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.post_placements (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    post_id uuid NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid NOT NULL,
-    format text NOT NULL,
-    scheduled_at timestamp with time zone,
-    copy_override jsonb,
-    media jsonb DEFAULT '[]'::jsonb NOT NULL,
-    status text DEFAULT 'draft'::text NOT NULL,
-    published_at timestamp with time zone,
-    external_ref text,
-    is_primary boolean DEFAULT false NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    connection_id uuid,
-    CONSTRAINT post_placements_format_check CHECK ((format = ANY (ARRAY['feed'::text, 'stories'::text, 'reels'::text, 'carrossel'::text]))),
-    CONSTRAINT post_placements_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'scheduled'::text, 'published'::text, 'failed'::text])))
-);
-
-
---
--- Name: project_jobs; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.project_jobs (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    project_id uuid NOT NULL,
-    brand_id uuid NOT NULL,
-    name text NOT NULL,
-    description text,
-    color text,
-    "position" integer DEFAULT 0 NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: project_template_jobs; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.project_template_jobs (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    template_id uuid NOT NULL,
-    name text NOT NULL,
-    description text,
-    color text,
-    "position" integer DEFAULT 0 NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: project_template_tasks; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.project_template_tasks (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    template_job_id uuid NOT NULL,
-    title text NOT NULL,
-    description text,
-    priority text,
-    estimated_minutes integer,
-    "position" integer DEFAULT 0 NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: project_templates; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.project_templates (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid,
-    name text NOT NULL,
-    description text,
-    icon text,
-    is_system boolean DEFAULT false NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: sla_rules; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.sla_rules (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    scope text NOT NULL,
-    scope_ref text,
-    project_id uuid,
-    target_hours integer NOT NULL,
-    is_active boolean DEFAULT true NOT NULL,
-    updated_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT sla_rules_scope_check CHECK ((scope = ANY (ARRAY['project'::text, 'user_role'::text, 'agent'::text]))),
-    CONSTRAINT sla_rules_target_hours_check CHECK ((target_hours > 0))
-);
-
-
---
--- Name: social_connections; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.social_connections (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    provider text NOT NULL,
-    external_id text NOT NULL,
-    external_name text,
-    account_id text,
-    account_username text,
-    owner_external_id text,
-    owner_name text,
-    access_token_ciphertext text NOT NULL,
-    refresh_token_ciphertext text,
-    scopes text[] DEFAULT '{}'::text[] NOT NULL,
-    token_expires_at timestamp with time zone,
-    status text DEFAULT 'active'::text NOT NULL,
-    last_error text,
-    last_synced_at timestamp with time zone,
-    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    channel text NOT NULL,
-    client_id uuid,
-    page_id text,
-    instagram_business_id text,
-    meta_user_id text,
-    channel_name text,
-    CONSTRAINT social_connections_channel_check CHECK ((channel = ANY (ARRAY['instagram'::text, 'facebook'::text, 'linkedin'::text, 'tiktok'::text, 'youtube'::text, 'x'::text, 'threads'::text, 'ads'::text]))),
-    CONSTRAINT social_connections_provider_check CHECK ((provider = ANY (ARRAY['meta'::text, 'instagram'::text, 'facebook'::text, 'tiktok'::text, 'youtube'::text, 'linkedin'::text, 'twitter'::text, 'threads'::text]))),
-    CONSTRAINT social_connections_status_check CHECK ((status = ANY (ARRAY['active'::text, 'error'::text, 'expired'::text, 'revoked'::text])))
-);
-
-
---
--- Name: TABLE social_connections; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.social_connections IS 'Integracao/canal social no nivel do WORKSPACE (brand). Nao representa vinculo com cliente.';
-
-
---
--- Name: COLUMN social_connections.client_id; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.social_connections.client_id IS 'DEPRECATED (Fase 1): nao use. Vinculo canal<->cliente vive em public.client_social_accounts.';
-
-
---
--- Name: COLUMN social_connections.page_id; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.social_connections.page_id IS 'Facebook Page ID (Meta).';
-
-
---
--- Name: COLUMN social_connections.instagram_business_id; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.social_connections.instagram_business_id IS 'Instagram Business Account ID (Meta).';
-
-
---
--- Name: COLUMN social_connections.meta_user_id; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.social_connections.meta_user_id IS 'Meta user/app-scoped user id (owner).';
-
-
---
--- Name: social_posts; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.social_posts (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid,
-    connection_id uuid NOT NULL,
-    provider text NOT NULL,
-    placement text DEFAULT 'feed'::text NOT NULL,
-    status text DEFAULT 'draft'::text NOT NULL,
-    caption text,
-    media jsonb DEFAULT '[]'::jsonb NOT NULL,
-    hashtags text[] DEFAULT '{}'::text[] NOT NULL,
-    mentions text[] DEFAULT '{}'::text[] NOT NULL,
-    scheduled_at timestamp with time zone,
-    published_at timestamp with time zone,
-    external_post_id text,
-    external_permalink text,
-    last_error text,
-    provider_response jsonb DEFAULT '{}'::jsonb NOT NULL,
-    post_id uuid,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    publish_attempts integer DEFAULT 0 NOT NULL,
-    publish_locked_at timestamp with time zone,
-    location_id text,
-    CONSTRAINT social_posts_placement_check CHECK ((placement = ANY (ARRAY['feed'::text, 'story'::text, 'reel'::text, 'carousel'::text, 'short'::text, 'tweet'::text, 'thread'::text, 'post'::text]))),
-    CONSTRAINT social_posts_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'scheduled'::text, 'publishing'::text, 'published'::text, 'failed'::text, 'cancelled'::text, 'blocked'::text])))
-);
-
-
---
--- Name: task_comments; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.task_comments (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    task_id uuid NOT NULL,
-    brand_id uuid NOT NULL,
-    author_id uuid NOT NULL,
-    body text NOT NULL,
-    mentions uuid[] DEFAULT '{}'::uuid[] NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: task_subtasks; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.task_subtasks (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    task_id uuid NOT NULL,
-    brand_id uuid NOT NULL,
-    title text NOT NULL,
-    done boolean DEFAULT false NOT NULL,
-    "position" integer DEFAULT 0 NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: task_time_entries; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.task_time_entries (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    task_id uuid NOT NULL,
-    user_id uuid NOT NULL,
-    brand_id uuid NOT NULL,
-    started_at timestamp with time zone DEFAULT now() NOT NULL,
-    ended_at timestamp with time zone,
-    minutes integer,
-    description text,
-    is_rework boolean DEFAULT false NOT NULL,
-    source text DEFAULT 'manual'::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    seconds integer,
-    ended_reason text,
-    CONSTRAINT task_time_entries_source_check CHECK ((source = ANY (ARRAY['timer'::text, 'manual'::text])))
-);
-
-
---
--- Name: user_profiles; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.user_profiles (
-    id uuid NOT NULL,
-    full_name text NOT NULL,
-    role text DEFAULT 'user'::text NOT NULL,
-    avatar_url text,
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-    requires_password_change boolean DEFAULT false NOT NULL,
-    phone text,
-    timezone text DEFAULT 'America/Sao_Paulo'::text NOT NULL,
-    locale text DEFAULT 'pt-BR'::text NOT NULL,
-    job_title text,
-    bio text,
-    is_super_admin boolean DEFAULT false NOT NULL,
-    whatsapp text,
-    notify_whatsapp boolean DEFAULT false NOT NULL,
-    notification_prefs jsonb DEFAULT '{"ai_jobs": true, "comments": true, "approvals": true, "deadlines": true, "assignments": true}'::jsonb NOT NULL,
-    CONSTRAINT user_profiles_role_check CHECK ((role = ANY (ARRAY['admin'::text, 'manager'::text, 'user'::text, 'super_admin'::text])))
-);
-
-
---
--- Name: whatsapp_recipients; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.whatsapp_recipients (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    brand_id uuid NOT NULL,
-    client_id uuid,
-    user_id uuid,
-    type text NOT NULL,
-    name text NOT NULL,
-    role_label text,
-    destination text,
-    is_active boolean DEFAULT true NOT NULL,
-    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT whatsapp_recipients_client_required CHECK (((type <> ALL (ARRAY['client_contact'::text, 'account_manager'::text, 'whatsapp_group'::text])) OR (client_id IS NOT NULL))),
-    CONSTRAINT whatsapp_recipients_destination_required CHECK ((((type = ANY (ARRAY['client_contact'::text, 'whatsapp_group'::text])) AND (destination IS NOT NULL) AND (length(btrim(destination)) > 0)) OR ((type = ANY (ARRAY['account_manager'::text, 'workspace_admin'::text, 'workspace_user'::text])) AND (destination IS NULL)))),
-    CONSTRAINT whatsapp_recipients_group_jid CHECK (((type <> 'whatsapp_group'::text) OR (destination ~ '^[0-9]+(-[0-9]+)?@g\.us$'::text))),
-    CONSTRAINT whatsapp_recipients_phone_digits CHECK (((type <> 'client_contact'::text) OR (destination ~ '^[0-9]{10,15}$'::text))),
-    CONSTRAINT whatsapp_recipients_type_check CHECK ((type = ANY (ARRAY['client_contact'::text, 'account_manager'::text, 'workspace_admin'::text, 'workspace_user'::text, 'whatsapp_group'::text]))),
-    CONSTRAINT whatsapp_recipients_user_required CHECK (((type <> 'workspace_user'::text) OR (user_id IS NOT NULL)))
-);
-
+-- ============================ CONSTRAINTS (PK / UNIQUE / CHECK) (114) ============================
 
 --
 -- Name: activity_events activity_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7162,14 +6774,12 @@ CREATE TABLE public.whatsapp_recipients (
 ALTER TABLE ONLY public.activity_events
     ADD CONSTRAINT activity_events_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: agent_prompt_overrides agent_prompt_overrides_brand_id_agent_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.agent_prompt_overrides
     ADD CONSTRAINT agent_prompt_overrides_brand_id_agent_id_key UNIQUE (brand_id, agent_id);
-
 
 --
 -- Name: agent_prompt_overrides agent_prompt_overrides_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7178,14 +6788,12 @@ ALTER TABLE ONLY public.agent_prompt_overrides
 ALTER TABLE ONLY public.agent_prompt_overrides
     ADD CONSTRAINT agent_prompt_overrides_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: agent_prompts agent_prompts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.agent_prompts
     ADD CONSTRAINT agent_prompts_pkey PRIMARY KEY (agent_id);
-
 
 --
 -- Name: ai_jobs ai_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7194,14 +6802,12 @@ ALTER TABLE ONLY public.agent_prompts
 ALTER TABLE ONLY public.ai_jobs
     ADD CONSTRAINT ai_jobs_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: ai_model_catalog_overrides ai_model_catalog_overrides_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.ai_model_catalog_overrides
     ADD CONSTRAINT ai_model_catalog_overrides_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: ai_model_catalog_overrides ai_model_catalog_overrides_provider_role_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7210,14 +6816,12 @@ ALTER TABLE ONLY public.ai_model_catalog_overrides
 ALTER TABLE ONLY public.ai_model_catalog_overrides
     ADD CONSTRAINT ai_model_catalog_overrides_provider_role_key UNIQUE (provider, role);
 
-
 --
 -- Name: ai_model_health ai_model_health_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.ai_model_health
     ADD CONSTRAINT ai_model_health_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: ai_usage_limits ai_usage_limits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7226,14 +6830,12 @@ ALTER TABLE ONLY public.ai_model_health
 ALTER TABLE ONLY public.ai_usage_limits
     ADD CONSTRAINT ai_usage_limits_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: brain_embeddings brain_embeddings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brain_embeddings
     ADD CONSTRAINT brain_embeddings_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: brain_events brain_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7242,14 +6844,12 @@ ALTER TABLE ONLY public.brain_embeddings
 ALTER TABLE ONLY public.brain_events
     ADD CONSTRAINT brain_events_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: brain_insights brain_insights_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brain_insights
     ADD CONSTRAINT brain_insights_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: brain_learning_queue brain_learning_queue_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7258,14 +6858,12 @@ ALTER TABLE ONLY public.brain_insights
 ALTER TABLE ONLY public.brain_learning_queue
     ADD CONSTRAINT brain_learning_queue_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: brain_memory brain_memory_brand_id_subject_type_subject_id_memory_type_k_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brain_memory
     ADD CONSTRAINT brain_memory_brand_id_subject_type_subject_id_memory_type_k_key UNIQUE (brand_id, subject_type, subject_id, memory_type, key);
-
 
 --
 -- Name: brain_memory brain_memory_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7274,14 +6872,12 @@ ALTER TABLE ONLY public.brain_memory
 ALTER TABLE ONLY public.brain_memory
     ADD CONSTRAINT brain_memory_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: brain_memory_versions brain_memory_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brain_memory_versions
     ADD CONSTRAINT brain_memory_versions_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: brain_metrics_snapshots brain_metrics_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7290,14 +6886,12 @@ ALTER TABLE ONLY public.brain_memory_versions
 ALTER TABLE ONLY public.brain_metrics_snapshots
     ADD CONSTRAINT brain_metrics_snapshots_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: brain_reasoning_logs brain_reasoning_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brain_reasoning_logs
     ADD CONSTRAINT brain_reasoning_logs_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: brain_recommendations brain_recommendations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7306,14 +6900,12 @@ ALTER TABLE ONLY public.brain_reasoning_logs
 ALTER TABLE ONLY public.brain_recommendations
     ADD CONSTRAINT brain_recommendations_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: brain_relationships brain_relationships_brand_id_from_type_from_id_to_type_to_i_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brain_relationships
     ADD CONSTRAINT brain_relationships_brand_id_from_type_from_id_to_type_to_i_key UNIQUE (brand_id, from_type, from_id, to_type, to_id, relationship_type);
-
 
 --
 -- Name: brain_relationships brain_relationships_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7322,14 +6914,12 @@ ALTER TABLE ONLY public.brain_relationships
 ALTER TABLE ONLY public.brain_relationships
     ADD CONSTRAINT brain_relationships_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: brain_retention_config brain_retention_config_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brain_retention_config
     ADD CONSTRAINT brain_retention_config_pkey PRIMARY KEY (key);
-
 
 --
 -- Name: brain_worker_runs brain_worker_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7338,14 +6928,12 @@ ALTER TABLE ONLY public.brain_retention_config
 ALTER TABLE ONLY public.brain_worker_runs
     ADD CONSTRAINT brain_worker_runs_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: brand_ai_content brand_ai_content_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brand_ai_content
     ADD CONSTRAINT brand_ai_content_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: brand_ai_usage brand_ai_usage_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7354,14 +6942,12 @@ ALTER TABLE ONLY public.brand_ai_content
 ALTER TABLE ONLY public.brand_ai_usage
     ADD CONSTRAINT brand_ai_usage_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: brand_ai_versions brand_ai_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brand_ai_versions
     ADD CONSTRAINT brand_ai_versions_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: brand_api_credentials brand_api_credentials_brand_id_provider_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7370,14 +6956,12 @@ ALTER TABLE ONLY public.brand_ai_versions
 ALTER TABLE ONLY public.brand_api_credentials
     ADD CONSTRAINT brand_api_credentials_brand_id_provider_key UNIQUE (brand_id, provider);
 
-
 --
 -- Name: brand_api_credentials brand_api_credentials_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brand_api_credentials
     ADD CONSTRAINT brand_api_credentials_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: brand_briefing_proposals brand_briefing_proposals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7386,14 +6970,12 @@ ALTER TABLE ONLY public.brand_api_credentials
 ALTER TABLE ONLY public.brand_briefing_proposals
     ADD CONSTRAINT brand_briefing_proposals_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: brand_briefing_requests brand_briefing_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brand_briefing_requests
     ADD CONSTRAINT brand_briefing_requests_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: brand_briefing_reviews brand_briefing_reviews_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7402,14 +6984,12 @@ ALTER TABLE ONLY public.brand_briefing_requests
 ALTER TABLE ONLY public.brand_briefing_reviews
     ADD CONSTRAINT brand_briefing_reviews_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: brand_briefing_versions brand_briefing_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brand_briefing_versions
     ADD CONSTRAINT brand_briefing_versions_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: brand_briefings brand_briefings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7418,14 +6998,12 @@ ALTER TABLE ONLY public.brand_briefing_versions
 ALTER TABLE ONLY public.brand_briefings
     ADD CONSTRAINT brand_briefings_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: brand_cohorts brand_cohorts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brand_cohorts
     ADD CONSTRAINT brand_cohorts_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: brand_competitors brand_competitors_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7434,14 +7012,12 @@ ALTER TABLE ONLY public.brand_cohorts
 ALTER TABLE ONLY public.brand_competitors
     ADD CONSTRAINT brand_competitors_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: brand_connections brand_connections_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brand_connections
     ADD CONSTRAINT brand_connections_pkey PRIMARY KEY (brand_id);
-
 
 --
 -- Name: brand_features brand_features_brand_id_feature_key_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7450,14 +7026,12 @@ ALTER TABLE ONLY public.brand_connections
 ALTER TABLE ONLY public.brand_features
     ADD CONSTRAINT brand_features_brand_id_feature_key_key UNIQUE (brand_id, feature_key);
 
-
 --
 -- Name: brand_features brand_features_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brand_features
     ADD CONSTRAINT brand_features_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: brand_invites brand_invites_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7466,14 +7040,12 @@ ALTER TABLE ONLY public.brand_features
 ALTER TABLE ONLY public.brand_invites
     ADD CONSTRAINT brand_invites_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: brand_invites brand_invites_token_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brand_invites
     ADD CONSTRAINT brand_invites_token_key UNIQUE (token);
-
 
 --
 -- Name: brand_journey_stage_templates brand_journey_stage_templates_brand_id_stage_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7482,14 +7054,12 @@ ALTER TABLE ONLY public.brand_invites
 ALTER TABLE ONLY public.brand_journey_stage_templates
     ADD CONSTRAINT brand_journey_stage_templates_brand_id_stage_key UNIQUE (brand_id, stage);
 
-
 --
 -- Name: brand_journey_stage_templates brand_journey_stage_templates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brand_journey_stage_templates
     ADD CONSTRAINT brand_journey_stage_templates_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: brand_media_assets brand_media_assets_brand_id_storage_path_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7498,14 +7068,12 @@ ALTER TABLE ONLY public.brand_journey_stage_templates
 ALTER TABLE ONLY public.brand_media_assets
     ADD CONSTRAINT brand_media_assets_brand_id_storage_path_key UNIQUE (brand_id, storage_path);
 
-
 --
 -- Name: brand_media_assets brand_media_assets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brand_media_assets
     ADD CONSTRAINT brand_media_assets_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: brand_members brand_members_brand_id_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7514,14 +7082,12 @@ ALTER TABLE ONLY public.brand_media_assets
 ALTER TABLE ONLY public.brand_members
     ADD CONSTRAINT brand_members_brand_id_user_id_key UNIQUE (brand_id, user_id);
 
-
 --
 -- Name: brand_members brand_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brand_members
     ADD CONSTRAINT brand_members_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: brand_pautas brand_pautas_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7530,14 +7096,12 @@ ALTER TABLE ONLY public.brand_members
 ALTER TABLE ONLY public.brand_pautas
     ADD CONSTRAINT brand_pautas_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: brand_personas brand_personas_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brand_personas
     ADD CONSTRAINT brand_personas_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: brand_swot brand_swot_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7546,14 +7110,12 @@ ALTER TABLE ONLY public.brand_personas
 ALTER TABLE ONLY public.brand_swot
     ADD CONSTRAINT brand_swot_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: brand_voice_cards brand_voice_cards_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brand_voice_cards
     ADD CONSTRAINT brand_voice_cards_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: brands brands_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7562,14 +7124,12 @@ ALTER TABLE ONLY public.brand_voice_cards
 ALTER TABLE ONLY public.brands
     ADD CONSTRAINT brands_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: brands brands_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.brands
     ADD CONSTRAINT brands_slug_key UNIQUE (slug);
-
 
 --
 -- Name: calendar_events calendar_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7578,14 +7138,12 @@ ALTER TABLE ONLY public.brands
 ALTER TABLE ONLY public.calendar_events
     ADD CONSTRAINT calendar_events_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: card_approval_events card_approval_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.card_approval_events
     ADD CONSTRAINT card_approval_events_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: card_approval_tokens card_approval_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7594,14 +7152,12 @@ ALTER TABLE ONLY public.card_approval_events
 ALTER TABLE ONLY public.card_approval_tokens
     ADD CONSTRAINT card_approval_tokens_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: card_approval_tokens card_approval_tokens_token_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.card_approval_tokens
     ADD CONSTRAINT card_approval_tokens_token_key UNIQUE (token);
-
 
 --
 -- Name: chat_conversations chat_conversations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7610,14 +7166,12 @@ ALTER TABLE ONLY public.card_approval_tokens
 ALTER TABLE ONLY public.chat_conversations
     ADD CONSTRAINT chat_conversations_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: chat_messages chat_messages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.chat_messages
     ADD CONSTRAINT chat_messages_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: client_briefing_tokens client_briefing_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7626,14 +7180,12 @@ ALTER TABLE ONLY public.chat_messages
 ALTER TABLE ONLY public.client_briefing_tokens
     ADD CONSTRAINT client_briefing_tokens_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: client_briefing_tokens client_briefing_tokens_token_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.client_briefing_tokens
     ADD CONSTRAINT client_briefing_tokens_token_key UNIQUE (token);
-
 
 --
 -- Name: client_briefings client_briefings_client_id_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7642,14 +7194,12 @@ ALTER TABLE ONLY public.client_briefing_tokens
 ALTER TABLE ONLY public.client_briefings
     ADD CONSTRAINT client_briefings_client_id_key UNIQUE (client_id);
 
-
 --
 -- Name: client_briefings client_briefings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.client_briefings
     ADD CONSTRAINT client_briefings_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: client_documents client_documents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7658,14 +7208,12 @@ ALTER TABLE ONLY public.client_briefings
 ALTER TABLE ONLY public.client_documents
     ADD CONSTRAINT client_documents_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: client_journey_events client_journey_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.client_journey_events
     ADD CONSTRAINT client_journey_events_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: client_members client_members_client_id_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7674,14 +7222,12 @@ ALTER TABLE ONLY public.client_journey_events
 ALTER TABLE ONLY public.client_members
     ADD CONSTRAINT client_members_client_id_user_id_key UNIQUE (client_id, user_id);
 
-
 --
 -- Name: client_members client_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.client_members
     ADD CONSTRAINT client_members_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: client_social_accounts client_social_accounts_client_id_connection_id_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7690,14 +7236,12 @@ ALTER TABLE ONLY public.client_members
 ALTER TABLE ONLY public.client_social_accounts
     ADD CONSTRAINT client_social_accounts_client_id_connection_id_key UNIQUE (client_id, connection_id);
 
-
 --
 -- Name: client_social_accounts client_social_accounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.client_social_accounts
     ADD CONSTRAINT client_social_accounts_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: clients clients_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7706,14 +7250,12 @@ ALTER TABLE ONLY public.client_social_accounts
 ALTER TABLE ONLY public.clients
     ADD CONSTRAINT clients_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: content_pipeline_stages content_pipeline_stages_pipeline_id_key_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.content_pipeline_stages
     ADD CONSTRAINT content_pipeline_stages_pipeline_id_key_key UNIQUE (pipeline_id, key);
-
 
 --
 -- Name: content_pipeline_stages content_pipeline_stages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7722,14 +7264,12 @@ ALTER TABLE ONLY public.content_pipeline_stages
 ALTER TABLE ONLY public.content_pipeline_stages
     ADD CONSTRAINT content_pipeline_stages_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: content_pipelines content_pipelines_client_id_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.content_pipelines
     ADD CONSTRAINT content_pipelines_client_id_slug_key UNIQUE (client_id, slug);
-
 
 --
 -- Name: content_pipelines content_pipelines_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7738,14 +7278,12 @@ ALTER TABLE ONLY public.content_pipelines
 ALTER TABLE ONLY public.content_pipelines
     ADD CONSTRAINT content_pipelines_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: evolution_events evolution_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.evolution_events
     ADD CONSTRAINT evolution_events_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: evolution_instances evolution_instances_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7754,14 +7292,12 @@ ALTER TABLE ONLY public.evolution_events
 ALTER TABLE ONLY public.evolution_instances
     ADD CONSTRAINT evolution_instances_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: feature_catalog feature_catalog_key_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.feature_catalog
     ADD CONSTRAINT feature_catalog_key_key UNIQUE (key);
-
 
 --
 -- Name: feature_catalog feature_catalog_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7770,14 +7306,12 @@ ALTER TABLE ONLY public.feature_catalog
 ALTER TABLE ONLY public.feature_catalog
     ADD CONSTRAINT feature_catalog_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: installation installation_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.installation
     ADD CONSTRAINT installation_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: media_plan_items media_plan_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7786,14 +7320,12 @@ ALTER TABLE ONLY public.installation
 ALTER TABLE ONLY public.media_plan_items
     ADD CONSTRAINT media_plan_items_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: media_plans media_plans_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.media_plans
     ADD CONSTRAINT media_plans_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: media_plans media_plans_share_token_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7802,14 +7334,12 @@ ALTER TABLE ONLY public.media_plans
 ALTER TABLE ONLY public.media_plans
     ADD CONSTRAINT media_plans_share_token_key UNIQUE (share_token);
 
-
 --
 -- Name: message_logs message_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.message_logs
     ADD CONSTRAINT message_logs_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: message_templates message_templates_brand_id_event_key_channel_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7818,14 +7348,12 @@ ALTER TABLE ONLY public.message_logs
 ALTER TABLE ONLY public.message_templates
     ADD CONSTRAINT message_templates_brand_id_event_key_channel_key UNIQUE (brand_id, event_key, channel);
 
-
 --
 -- Name: message_templates message_templates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.message_templates
     ADD CONSTRAINT message_templates_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: meta_compliance_events meta_compliance_events_confirmation_code_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7834,14 +7362,12 @@ ALTER TABLE ONLY public.message_templates
 ALTER TABLE ONLY public.meta_compliance_events
     ADD CONSTRAINT meta_compliance_events_confirmation_code_key UNIQUE (confirmation_code);
 
-
 --
 -- Name: meta_compliance_events meta_compliance_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.meta_compliance_events
     ADD CONSTRAINT meta_compliance_events_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: meta_oauth_sessions meta_oauth_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7850,14 +7376,12 @@ ALTER TABLE ONLY public.meta_compliance_events
 ALTER TABLE ONLY public.meta_oauth_sessions
     ADD CONSTRAINT meta_oauth_sessions_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: monthly_plan_tokens monthly_plan_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.monthly_plan_tokens
     ADD CONSTRAINT monthly_plan_tokens_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: monthly_plan_tokens monthly_plan_tokens_token_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7866,14 +7390,12 @@ ALTER TABLE ONLY public.monthly_plan_tokens
 ALTER TABLE ONLY public.monthly_plan_tokens
     ADD CONSTRAINT monthly_plan_tokens_token_key UNIQUE (token);
 
-
 --
 -- Name: monthly_plan_topics monthly_plan_topics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.monthly_plan_topics
     ADD CONSTRAINT monthly_plan_topics_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: monthly_plans monthly_plans_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7882,14 +7404,12 @@ ALTER TABLE ONLY public.monthly_plan_topics
 ALTER TABLE ONLY public.monthly_plans
     ADD CONSTRAINT monthly_plans_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: notifications notifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.notifications
     ADD CONSTRAINT notifications_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: plan_overage_requests plan_overage_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7898,14 +7418,12 @@ ALTER TABLE ONLY public.notifications
 ALTER TABLE ONLY public.plan_overage_requests
     ADD CONSTRAINT plan_overage_requests_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: portal_rate_limit portal_rate_limit_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.portal_rate_limit
     ADD CONSTRAINT portal_rate_limit_pkey PRIMARY KEY (ip_hash);
-
 
 --
 -- Name: portal_tokens portal_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7914,14 +7432,12 @@ ALTER TABLE ONLY public.portal_rate_limit
 ALTER TABLE ONLY public.portal_tokens
     ADD CONSTRAINT portal_tokens_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: portal_tokens portal_tokens_token_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.portal_tokens
     ADD CONSTRAINT portal_tokens_token_key UNIQUE (token);
-
 
 --
 -- Name: post_approvals post_approvals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7930,14 +7446,12 @@ ALTER TABLE ONLY public.portal_tokens
 ALTER TABLE ONLY public.post_approvals
     ADD CONSTRAINT post_approvals_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: post_placements post_placements_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.post_placements
     ADD CONSTRAINT post_placements_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: posts posts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7946,14 +7460,12 @@ ALTER TABLE ONLY public.post_placements
 ALTER TABLE ONLY public.posts
     ADD CONSTRAINT posts_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: project_jobs project_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.project_jobs
     ADD CONSTRAINT project_jobs_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: project_template_jobs project_template_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7962,14 +7474,12 @@ ALTER TABLE ONLY public.project_jobs
 ALTER TABLE ONLY public.project_template_jobs
     ADD CONSTRAINT project_template_jobs_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: project_template_tasks project_template_tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.project_template_tasks
     ADD CONSTRAINT project_template_tasks_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: project_templates project_templates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7978,14 +7488,12 @@ ALTER TABLE ONLY public.project_template_tasks
 ALTER TABLE ONLY public.project_templates
     ADD CONSTRAINT project_templates_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: projects projects_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.projects
     ADD CONSTRAINT projects_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: sla_rules sla_rules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -7994,14 +7502,12 @@ ALTER TABLE ONLY public.projects
 ALTER TABLE ONLY public.sla_rules
     ADD CONSTRAINT sla_rules_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: social_connections social_connections_brand_id_provider_external_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.social_connections
     ADD CONSTRAINT social_connections_brand_id_provider_external_id_key UNIQUE (brand_id, provider, external_id);
-
 
 --
 -- Name: social_connections social_connections_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -8010,14 +7516,12 @@ ALTER TABLE ONLY public.social_connections
 ALTER TABLE ONLY public.social_connections
     ADD CONSTRAINT social_connections_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: social_posts social_posts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.social_posts
     ADD CONSTRAINT social_posts_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: task_comments task_comments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -8026,14 +7530,12 @@ ALTER TABLE ONLY public.social_posts
 ALTER TABLE ONLY public.task_comments
     ADD CONSTRAINT task_comments_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: task_subtasks task_subtasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.task_subtasks
     ADD CONSTRAINT task_subtasks_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: task_time_entries task_time_entries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -8042,7 +7544,6 @@ ALTER TABLE ONLY public.task_subtasks
 ALTER TABLE ONLY public.task_time_entries
     ADD CONSTRAINT task_time_entries_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: tasks tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
@@ -8050,14 +7551,12 @@ ALTER TABLE ONLY public.task_time_entries
 ALTER TABLE ONLY public.tasks
     ADD CONSTRAINT tasks_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: user_profiles user_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.user_profiles
     ADD CONSTRAINT user_profiles_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: whatsapp_recipients whatsapp_recipients_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -8067,12 +7566,1374 @@ ALTER TABLE ONLY public.whatsapp_recipients
     ADD CONSTRAINT whatsapp_recipients_pkey PRIMARY KEY (id);
 
 
+-- ============================ FOREIGN KEYS (194) ============================
+
+--
+-- Name: activity_events activity_events_actor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.activity_events
+    ADD CONSTRAINT activity_events_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: activity_events activity_events_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.activity_events
+    ADD CONSTRAINT activity_events_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: activity_events activity_events_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.activity_events
+    ADD CONSTRAINT activity_events_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE SET NULL;
+
+--
+-- Name: agent_prompt_overrides agent_prompt_overrides_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_prompt_overrides
+    ADD CONSTRAINT agent_prompt_overrides_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: agent_prompt_overrides agent_prompt_overrides_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_prompt_overrides
+    ADD CONSTRAINT agent_prompt_overrides_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: ai_jobs ai_jobs_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ai_jobs
+    ADD CONSTRAINT ai_jobs_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: ai_jobs ai_jobs_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ai_jobs
+    ADD CONSTRAINT ai_jobs_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: ai_usage_limits ai_usage_limits_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ai_usage_limits
+    ADD CONSTRAINT ai_usage_limits_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: ai_usage_limits ai_usage_limits_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ai_usage_limits
+    ADD CONSTRAINT ai_usage_limits_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: ai_usage_limits ai_usage_limits_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ai_usage_limits
+    ADD CONSTRAINT ai_usage_limits_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: ai_usage_limits ai_usage_limits_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ai_usage_limits
+    ADD CONSTRAINT ai_usage_limits_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+--
+-- Name: brain_embeddings brain_embeddings_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brain_embeddings
+    ADD CONSTRAINT brain_embeddings_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brain_embeddings brain_embeddings_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brain_embeddings
+    ADD CONSTRAINT brain_embeddings_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.brain_events(id) ON DELETE CASCADE;
+
+--
+-- Name: brain_events brain_events_new_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brain_events
+    ADD CONSTRAINT brain_events_new_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brain_insights brain_insights_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brain_insights
+    ADD CONSTRAINT brain_insights_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brain_insights brain_insights_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brain_insights
+    ADD CONSTRAINT brain_insights_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: brain_learning_queue brain_learning_queue_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brain_learning_queue
+    ADD CONSTRAINT brain_learning_queue_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.brain_events(id) ON DELETE CASCADE;
+
+--
+-- Name: brain_memory brain_memory_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brain_memory
+    ADD CONSTRAINT brain_memory_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brain_memory brain_memory_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brain_memory
+    ADD CONSTRAINT brain_memory_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: brain_memory_versions brain_memory_versions_memory_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brain_memory_versions
+    ADD CONSTRAINT brain_memory_versions_memory_id_fkey FOREIGN KEY (memory_id) REFERENCES public.brain_memory(id) ON DELETE CASCADE;
+
+--
+-- Name: brain_metrics_snapshots brain_metrics_snapshots_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brain_metrics_snapshots
+    ADD CONSTRAINT brain_metrics_snapshots_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brain_recommendations brain_recommendations_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brain_recommendations
+    ADD CONSTRAINT brain_recommendations_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brain_recommendations brain_recommendations_source_insight_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brain_recommendations
+    ADD CONSTRAINT brain_recommendations_source_insight_id_fkey FOREIGN KEY (source_insight_id) REFERENCES public.brain_insights(id) ON DELETE SET NULL;
+
+--
+-- Name: brain_relationships brain_relationships_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brain_relationships
+    ADD CONSTRAINT brain_relationships_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brain_relationships brain_relationships_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brain_relationships
+    ADD CONSTRAINT brain_relationships_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_ai_content brand_ai_content_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_ai_content
+    ADD CONSTRAINT brand_ai_content_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_ai_content brand_ai_content_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_ai_content
+    ADD CONSTRAINT brand_ai_content_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_ai_content brand_ai_content_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_ai_content
+    ADD CONSTRAINT brand_ai_content_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: brand_ai_content brand_ai_content_pauta_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_ai_content
+    ADD CONSTRAINT brand_ai_content_pauta_id_fkey FOREIGN KEY (pauta_id) REFERENCES public.brand_pautas(id) ON DELETE SET NULL;
+
+--
+-- Name: brand_ai_content brand_ai_content_post_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_ai_content
+    ADD CONSTRAINT brand_ai_content_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id) ON DELETE SET NULL;
+
+--
+-- Name: brand_ai_usage brand_ai_usage_actor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_ai_usage
+    ADD CONSTRAINT brand_ai_usage_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: brand_ai_usage brand_ai_usage_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_ai_usage
+    ADD CONSTRAINT brand_ai_usage_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_ai_usage brand_ai_usage_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_ai_usage
+    ADD CONSTRAINT brand_ai_usage_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE SET NULL;
+
+--
+-- Name: brand_ai_versions brand_ai_versions_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_ai_versions
+    ADD CONSTRAINT brand_ai_versions_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_ai_versions brand_ai_versions_changed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_ai_versions
+    ADD CONSTRAINT brand_ai_versions_changed_by_fkey FOREIGN KEY (changed_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: brand_ai_versions brand_ai_versions_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_ai_versions
+    ADD CONSTRAINT brand_ai_versions_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_api_credentials brand_api_credentials_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_api_credentials
+    ADD CONSTRAINT brand_api_credentials_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_briefing_proposals brand_briefing_proposals_base_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_briefing_proposals
+    ADD CONSTRAINT brand_briefing_proposals_base_version_id_fkey FOREIGN KEY (base_version_id) REFERENCES public.brand_briefing_versions(id) ON DELETE SET NULL;
+
+--
+-- Name: brand_briefing_proposals brand_briefing_proposals_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_briefing_proposals
+    ADD CONSTRAINT brand_briefing_proposals_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_briefing_proposals brand_briefing_proposals_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_briefing_proposals
+    ADD CONSTRAINT brand_briefing_proposals_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_briefing_proposals brand_briefing_proposals_request_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_briefing_proposals
+    ADD CONSTRAINT brand_briefing_proposals_request_id_fkey FOREIGN KEY (request_id) REFERENCES public.brand_briefing_requests(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_briefing_requests brand_briefing_requests_base_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_briefing_requests
+    ADD CONSTRAINT brand_briefing_requests_base_version_id_fkey FOREIGN KEY (base_version_id) REFERENCES public.brand_briefing_versions(id) ON DELETE SET NULL;
+
+--
+-- Name: brand_briefing_requests brand_briefing_requests_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_briefing_requests
+    ADD CONSTRAINT brand_briefing_requests_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_briefing_requests brand_briefing_requests_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_briefing_requests
+    ADD CONSTRAINT brand_briefing_requests_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_briefing_requests brand_briefing_requests_promoted_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_briefing_requests
+    ADD CONSTRAINT brand_briefing_requests_promoted_version_id_fkey FOREIGN KEY (promoted_version_id) REFERENCES public.brand_briefing_versions(id) ON DELETE SET NULL;
+
+--
+-- Name: brand_briefing_reviews brand_briefing_reviews_proposal_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_briefing_reviews
+    ADD CONSTRAINT brand_briefing_reviews_proposal_id_fkey FOREIGN KEY (proposal_id) REFERENCES public.brand_briefing_proposals(id) ON DELETE SET NULL;
+
+--
+-- Name: brand_briefing_reviews brand_briefing_reviews_request_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_briefing_reviews
+    ADD CONSTRAINT brand_briefing_reviews_request_id_fkey FOREIGN KEY (request_id) REFERENCES public.brand_briefing_requests(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_briefing_reviews brand_briefing_reviews_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_briefing_reviews
+    ADD CONSTRAINT brand_briefing_reviews_version_id_fkey FOREIGN KEY (version_id) REFERENCES public.brand_briefing_versions(id) ON DELETE SET NULL;
+
+--
+-- Name: brand_briefing_versions brand_briefing_versions_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_briefing_versions
+    ADD CONSTRAINT brand_briefing_versions_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_briefing_versions brand_briefing_versions_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_briefing_versions
+    ADD CONSTRAINT brand_briefing_versions_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_briefings brand_briefings_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_briefings
+    ADD CONSTRAINT brand_briefings_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_briefings brand_briefings_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_briefings
+    ADD CONSTRAINT brand_briefings_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_briefings brand_briefings_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_briefings
+    ADD CONSTRAINT brand_briefings_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: brand_cohorts brand_cohorts_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_cohorts
+    ADD CONSTRAINT brand_cohorts_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_cohorts brand_cohorts_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_cohorts
+    ADD CONSTRAINT brand_cohorts_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_cohorts brand_cohorts_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_cohorts
+    ADD CONSTRAINT brand_cohorts_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: brand_competitors brand_competitors_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_competitors
+    ADD CONSTRAINT brand_competitors_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_competitors brand_competitors_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_competitors
+    ADD CONSTRAINT brand_competitors_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_competitors brand_competitors_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_competitors
+    ADD CONSTRAINT brand_competitors_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: brand_connections brand_connections_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_connections
+    ADD CONSTRAINT brand_connections_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_features brand_features_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_features
+    ADD CONSTRAINT brand_features_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_features brand_features_enabled_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_features
+    ADD CONSTRAINT brand_features_enabled_by_fkey FOREIGN KEY (enabled_by) REFERENCES auth.users(id);
+
+--
+-- Name: brand_features brand_features_feature_key_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_features
+    ADD CONSTRAINT brand_features_feature_key_fkey FOREIGN KEY (feature_key) REFERENCES public.feature_catalog(key) ON UPDATE CASCADE;
+
+--
+-- Name: brand_invites brand_invites_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_invites
+    ADD CONSTRAINT brand_invites_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_journey_stage_templates brand_journey_stage_templates_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_journey_stage_templates
+    ADD CONSTRAINT brand_journey_stage_templates_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_journey_stage_templates brand_journey_stage_templates_project_template_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_journey_stage_templates
+    ADD CONSTRAINT brand_journey_stage_templates_project_template_id_fkey FOREIGN KEY (project_template_id) REFERENCES public.project_templates(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_media_assets brand_media_assets_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_media_assets
+    ADD CONSTRAINT brand_media_assets_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_media_assets brand_media_assets_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_media_assets
+    ADD CONSTRAINT brand_media_assets_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_members brand_members_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_members
+    ADD CONSTRAINT brand_members_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_members brand_members_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_members
+    ADD CONSTRAINT brand_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_pautas brand_pautas_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_pautas
+    ADD CONSTRAINT brand_pautas_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_pautas brand_pautas_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_pautas
+    ADD CONSTRAINT brand_pautas_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_pautas brand_pautas_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_pautas
+    ADD CONSTRAINT brand_pautas_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: brand_personas brand_personas_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_personas
+    ADD CONSTRAINT brand_personas_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_personas brand_personas_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_personas
+    ADD CONSTRAINT brand_personas_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_personas brand_personas_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_personas
+    ADD CONSTRAINT brand_personas_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: brand_swot brand_swot_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_swot
+    ADD CONSTRAINT brand_swot_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_swot brand_swot_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_swot
+    ADD CONSTRAINT brand_swot_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_swot brand_swot_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_swot
+    ADD CONSTRAINT brand_swot_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: brand_voice_cards brand_voice_cards_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_voice_cards
+    ADD CONSTRAINT brand_voice_cards_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_voice_cards brand_voice_cards_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_voice_cards
+    ADD CONSTRAINT brand_voice_cards_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: brand_voice_cards brand_voice_cards_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brand_voice_cards
+    ADD CONSTRAINT brand_voice_cards_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: brands brands_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.brands
+    ADD CONSTRAINT brands_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE RESTRICT;
+
+--
+-- Name: calendar_events calendar_events_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.calendar_events
+    ADD CONSTRAINT calendar_events_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: calendar_events calendar_events_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.calendar_events
+    ADD CONSTRAINT calendar_events_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: calendar_events calendar_events_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.calendar_events
+    ADD CONSTRAINT calendar_events_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: card_approval_events card_approval_events_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.card_approval_events
+    ADD CONSTRAINT card_approval_events_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: card_approval_events card_approval_events_post_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.card_approval_events
+    ADD CONSTRAINT card_approval_events_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id) ON DELETE CASCADE;
+
+--
+-- Name: card_approval_events card_approval_events_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.card_approval_events
+    ADD CONSTRAINT card_approval_events_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.card_approval_tokens(id) ON DELETE SET NULL;
+
+--
+-- Name: card_approval_tokens card_approval_tokens_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.card_approval_tokens
+    ADD CONSTRAINT card_approval_tokens_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: card_approval_tokens card_approval_tokens_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.card_approval_tokens
+    ADD CONSTRAINT card_approval_tokens_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
+
+--
+-- Name: card_approval_tokens card_approval_tokens_post_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.card_approval_tokens
+    ADD CONSTRAINT card_approval_tokens_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id) ON DELETE CASCADE;
+
+--
+-- Name: chat_conversations chat_conversations_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.chat_conversations
+    ADD CONSTRAINT chat_conversations_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE SET NULL;
+
+--
+-- Name: chat_conversations chat_conversations_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.chat_conversations
+    ADD CONSTRAINT chat_conversations_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE SET NULL;
+
+--
+-- Name: chat_conversations chat_conversations_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.chat_conversations
+    ADD CONSTRAINT chat_conversations_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+--
+-- Name: chat_messages chat_messages_conversation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.chat_messages
+    ADD CONSTRAINT chat_messages_conversation_id_fkey FOREIGN KEY (conversation_id) REFERENCES public.chat_conversations(id) ON DELETE CASCADE;
+
+--
+-- Name: chat_messages chat_messages_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.chat_messages
+    ADD CONSTRAINT chat_messages_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+--
+-- Name: client_briefing_tokens client_briefing_tokens_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.client_briefing_tokens
+    ADD CONSTRAINT client_briefing_tokens_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: client_briefing_tokens client_briefing_tokens_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.client_briefing_tokens
+    ADD CONSTRAINT client_briefing_tokens_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: client_briefings client_briefings_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.client_briefings
+    ADD CONSTRAINT client_briefings_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: client_briefings client_briefings_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.client_briefings
+    ADD CONSTRAINT client_briefings_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id);
+
+--
+-- Name: client_documents client_documents_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.client_documents
+    ADD CONSTRAINT client_documents_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: client_documents client_documents_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.client_documents
+    ADD CONSTRAINT client_documents_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: client_journey_events client_journey_events_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.client_journey_events
+    ADD CONSTRAINT client_journey_events_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: client_journey_events client_journey_events_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.client_journey_events
+    ADD CONSTRAINT client_journey_events_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: client_journey_events client_journey_events_moved_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.client_journey_events
+    ADD CONSTRAINT client_journey_events_moved_by_fkey FOREIGN KEY (moved_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: client_journey_events client_journey_events_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.client_journey_events
+    ADD CONSTRAINT client_journey_events_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE SET NULL;
+
+--
+-- Name: client_members client_members_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.client_members
+    ADD CONSTRAINT client_members_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: client_members client_members_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.client_members
+    ADD CONSTRAINT client_members_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: client_social_accounts client_social_accounts_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.client_social_accounts
+    ADD CONSTRAINT client_social_accounts_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: client_social_accounts client_social_accounts_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.client_social_accounts
+    ADD CONSTRAINT client_social_accounts_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: client_social_accounts client_social_accounts_connection_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.client_social_accounts
+    ADD CONSTRAINT client_social_accounts_connection_id_fkey FOREIGN KEY (connection_id) REFERENCES public.social_connections(id) ON DELETE CASCADE;
+
+--
+-- Name: client_social_accounts client_social_accounts_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.client_social_accounts
+    ADD CONSTRAINT client_social_accounts_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
+
+--
+-- Name: clients clients_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.clients
+    ADD CONSTRAINT clients_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: clients clients_owner_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.clients
+    ADD CONSTRAINT clients_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: content_pipeline_stages content_pipeline_stages_pipeline_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.content_pipeline_stages
+    ADD CONSTRAINT content_pipeline_stages_pipeline_id_fkey FOREIGN KEY (pipeline_id) REFERENCES public.content_pipelines(id) ON DELETE CASCADE;
+
+--
+-- Name: content_pipelines content_pipelines_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.content_pipelines
+    ADD CONSTRAINT content_pipelines_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: content_pipelines content_pipelines_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.content_pipelines
+    ADD CONSTRAINT content_pipelines_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: evolution_events evolution_events_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.evolution_events
+    ADD CONSTRAINT evolution_events_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: evolution_events evolution_events_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.evolution_events
+    ADD CONSTRAINT evolution_events_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE SET NULL;
+
+--
+-- Name: evolution_events evolution_events_instance_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.evolution_events
+    ADD CONSTRAINT evolution_events_instance_id_fkey FOREIGN KEY (instance_id) REFERENCES public.evolution_instances(id) ON DELETE CASCADE;
+
+--
+-- Name: evolution_instances evolution_instances_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.evolution_instances
+    ADD CONSTRAINT evolution_instances_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: evolution_instances evolution_instances_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.evolution_instances
+    ADD CONSTRAINT evolution_instances_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE SET NULL;
+
+--
+-- Name: media_plan_items media_plan_items_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_plan_items
+    ADD CONSTRAINT media_plan_items_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.media_plans(id) ON DELETE CASCADE;
+
+--
+-- Name: media_plans media_plans_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_plans
+    ADD CONSTRAINT media_plans_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: media_plans media_plans_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_plans
+    ADD CONSTRAINT media_plans_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: message_logs message_logs_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.message_logs
+    ADD CONSTRAINT message_logs_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: message_logs message_logs_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.message_logs
+    ADD CONSTRAINT message_logs_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE SET NULL;
+
+--
+-- Name: message_templates message_templates_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.message_templates
+    ADD CONSTRAINT message_templates_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: meta_oauth_sessions meta_oauth_sessions_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.meta_oauth_sessions
+    ADD CONSTRAINT meta_oauth_sessions_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: meta_oauth_sessions meta_oauth_sessions_portfolio_source_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.meta_oauth_sessions
+    ADD CONSTRAINT meta_oauth_sessions_portfolio_source_session_id_fkey FOREIGN KEY (portfolio_source_session_id) REFERENCES public.meta_oauth_sessions(id) ON DELETE SET NULL;
+
+--
+-- Name: monthly_plan_tokens monthly_plan_tokens_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monthly_plan_tokens
+    ADD CONSTRAINT monthly_plan_tokens_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: monthly_plan_tokens monthly_plan_tokens_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monthly_plan_tokens
+    ADD CONSTRAINT monthly_plan_tokens_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: monthly_plan_tokens monthly_plan_tokens_monthly_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monthly_plan_tokens
+    ADD CONSTRAINT monthly_plan_tokens_monthly_plan_id_fkey FOREIGN KEY (monthly_plan_id) REFERENCES public.monthly_plans(id) ON DELETE CASCADE;
+
+--
+-- Name: monthly_plan_topics monthly_plan_topics_monthly_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monthly_plan_topics
+    ADD CONSTRAINT monthly_plan_topics_monthly_plan_id_fkey FOREIGN KEY (monthly_plan_id) REFERENCES public.monthly_plans(id) ON DELETE CASCADE;
+
+--
+-- Name: monthly_plans monthly_plans_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monthly_plans
+    ADD CONSTRAINT monthly_plans_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: monthly_plans monthly_plans_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monthly_plans
+    ADD CONSTRAINT monthly_plans_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: monthly_plans monthly_plans_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monthly_plans
+    ADD CONSTRAINT monthly_plans_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: monthly_plans monthly_plans_input_briefing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monthly_plans
+    ADD CONSTRAINT monthly_plans_input_briefing_id_fkey FOREIGN KEY (input_briefing_id) REFERENCES public.brand_briefings(id) ON DELETE SET NULL;
+
+--
+-- Name: monthly_plans monthly_plans_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monthly_plans
+    ADD CONSTRAINT monthly_plans_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE SET NULL;
+
+--
+-- Name: notifications notifications_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notifications
+    ADD CONSTRAINT notifications_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: notifications notifications_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notifications
+    ADD CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+--
+-- Name: plan_overage_requests plan_overage_requests_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_overage_requests
+    ADD CONSTRAINT plan_overage_requests_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: plan_overage_requests plan_overage_requests_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_overage_requests
+    ADD CONSTRAINT plan_overage_requests_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: portal_tokens portal_tokens_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.portal_tokens
+    ADD CONSTRAINT portal_tokens_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: portal_tokens portal_tokens_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.portal_tokens
+    ADD CONSTRAINT portal_tokens_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
+
+--
+-- Name: post_approvals post_approvals_decided_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.post_approvals
+    ADD CONSTRAINT post_approvals_decided_by_fkey FOREIGN KEY (decided_by) REFERENCES auth.users(id);
+
+--
+-- Name: post_approvals post_approvals_post_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.post_approvals
+    ADD CONSTRAINT post_approvals_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id) ON DELETE CASCADE;
+
+--
+-- Name: post_placements post_placements_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.post_placements
+    ADD CONSTRAINT post_placements_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: post_placements post_placements_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.post_placements
+    ADD CONSTRAINT post_placements_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: post_placements post_placements_connection_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.post_placements
+    ADD CONSTRAINT post_placements_connection_id_fkey FOREIGN KEY (connection_id) REFERENCES public.social_connections(id) ON DELETE SET NULL;
+
+--
+-- Name: post_placements post_placements_post_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.post_placements
+    ADD CONSTRAINT post_placements_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id) ON DELETE CASCADE;
+
+--
+-- Name: posts posts_assignee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.posts
+    ADD CONSTRAINT posts_assignee_id_fkey FOREIGN KEY (assignee_id) REFERENCES auth.users(id);
+
+--
+-- Name: posts posts_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.posts
+    ADD CONSTRAINT posts_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: posts posts_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.posts
+    ADD CONSTRAINT posts_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: posts posts_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.posts
+    ADD CONSTRAINT posts_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
+
+--
+-- Name: posts posts_monthly_plan_topic_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.posts
+    ADD CONSTRAINT posts_monthly_plan_topic_id_fkey FOREIGN KEY (monthly_plan_topic_id) REFERENCES public.monthly_plan_topics(id) ON DELETE SET NULL;
+
+--
+-- Name: posts posts_pipeline_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.posts
+    ADD CONSTRAINT posts_pipeline_id_fkey FOREIGN KEY (pipeline_id) REFERENCES public.content_pipelines(id) ON DELETE SET NULL;
+
+--
+-- Name: posts posts_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.posts
+    ADD CONSTRAINT posts_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE SET NULL;
+
+--
+-- Name: posts posts_stage_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.posts
+    ADD CONSTRAINT posts_stage_id_fkey FOREIGN KEY (stage_id) REFERENCES public.content_pipeline_stages(id) ON DELETE SET NULL;
+
+--
+-- Name: project_jobs project_jobs_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_jobs
+    ADD CONSTRAINT project_jobs_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: project_jobs project_jobs_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_jobs
+    ADD CONSTRAINT project_jobs_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+--
+-- Name: project_template_jobs project_template_jobs_template_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_template_jobs
+    ADD CONSTRAINT project_template_jobs_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.project_templates(id) ON DELETE CASCADE;
+
+--
+-- Name: project_template_tasks project_template_tasks_template_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_template_tasks
+    ADD CONSTRAINT project_template_tasks_template_job_id_fkey FOREIGN KEY (template_job_id) REFERENCES public.project_template_jobs(id) ON DELETE CASCADE;
+
+--
+-- Name: project_templates project_templates_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_templates
+    ADD CONSTRAINT project_templates_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: projects projects_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.projects
+    ADD CONSTRAINT projects_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: projects projects_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.projects
+    ADD CONSTRAINT projects_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: projects projects_monthly_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.projects
+    ADD CONSTRAINT projects_monthly_plan_id_fkey FOREIGN KEY (monthly_plan_id) REFERENCES public.monthly_plans(id) ON DELETE SET NULL;
+
+--
+-- Name: projects projects_owner_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.projects
+    ADD CONSTRAINT projects_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id);
+
+--
+-- Name: sla_rules sla_rules_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sla_rules
+    ADD CONSTRAINT sla_rules_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: sla_rules sla_rules_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sla_rules
+    ADD CONSTRAINT sla_rules_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+--
+-- Name: social_connections social_connections_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.social_connections
+    ADD CONSTRAINT social_connections_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: social_connections social_connections_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.social_connections
+    ADD CONSTRAINT social_connections_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: social_connections social_connections_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.social_connections
+    ADD CONSTRAINT social_connections_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: social_posts social_posts_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.social_posts
+    ADD CONSTRAINT social_posts_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: social_posts social_posts_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.social_posts
+    ADD CONSTRAINT social_posts_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE SET NULL;
+
+--
+-- Name: social_posts social_posts_connection_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.social_posts
+    ADD CONSTRAINT social_posts_connection_id_fkey FOREIGN KEY (connection_id) REFERENCES public.social_connections(id) ON DELETE CASCADE;
+
+--
+-- Name: social_posts social_posts_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.social_posts
+    ADD CONSTRAINT social_posts_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+--
+-- Name: task_comments task_comments_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.task_comments
+    ADD CONSTRAINT task_comments_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: task_comments task_comments_task_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.task_comments
+    ADD CONSTRAINT task_comments_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id) ON DELETE CASCADE;
+
+--
+-- Name: task_subtasks task_subtasks_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.task_subtasks
+    ADD CONSTRAINT task_subtasks_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: task_subtasks task_subtasks_task_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.task_subtasks
+    ADD CONSTRAINT task_subtasks_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id) ON DELETE CASCADE;
+
+--
+-- Name: task_time_entries task_time_entries_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.task_time_entries
+    ADD CONSTRAINT task_time_entries_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: task_time_entries task_time_entries_task_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.task_time_entries
+    ADD CONSTRAINT task_time_entries_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id) ON DELETE CASCADE;
+
+--
+-- Name: tasks tasks_assignee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tasks
+    ADD CONSTRAINT tasks_assignee_id_fkey FOREIGN KEY (assignee_id) REFERENCES auth.users(id);
+
+--
+-- Name: tasks tasks_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tasks
+    ADD CONSTRAINT tasks_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: tasks tasks_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tasks
+    ADD CONSTRAINT tasks_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+--
+-- Name: tasks tasks_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tasks
+    ADD CONSTRAINT tasks_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
+
+--
+-- Name: tasks tasks_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tasks
+    ADD CONSTRAINT tasks_job_id_fkey FOREIGN KEY (job_id) REFERENCES public.project_jobs(id) ON DELETE SET NULL;
+
+--
+-- Name: tasks tasks_post_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tasks
+    ADD CONSTRAINT tasks_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id) ON DELETE CASCADE;
+
+--
+-- Name: tasks tasks_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tasks
+    ADD CONSTRAINT tasks_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+--
+-- Name: user_profiles user_profiles_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_profiles
+    ADD CONSTRAINT user_profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+--
+-- Name: whatsapp_recipients whatsapp_recipients_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.whatsapp_recipients
+    ADD CONSTRAINT whatsapp_recipients_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
+
+--
+-- Name: whatsapp_recipients whatsapp_recipients_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.whatsapp_recipients
+    ADD CONSTRAINT whatsapp_recipients_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
+
+
+-- ============================ INDEXES (203) ============================
+
 --
 -- Name: agent_prompt_overrides_brand_agent_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX agent_prompt_overrides_brand_agent_idx ON public.agent_prompt_overrides USING btree (brand_id, agent_id);
-
 
 --
 -- Name: ai_jobs_brand_idx; Type: INDEX; Schema: public; Owner: -
@@ -8080,13 +8941,11 @@ CREATE INDEX agent_prompt_overrides_brand_agent_idx ON public.agent_prompt_overr
 
 CREATE INDEX ai_jobs_brand_idx ON public.ai_jobs USING btree (brand_id, created_at DESC);
 
-
 --
 -- Name: ai_jobs_user_status_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX ai_jobs_user_status_idx ON public.ai_jobs USING btree (user_id, status, created_at DESC);
-
 
 --
 -- Name: ai_model_health_checked_at_idx; Type: INDEX; Schema: public; Owner: -
@@ -8094,13 +8953,11 @@ CREATE INDEX ai_jobs_user_status_idx ON public.ai_jobs USING btree (user_id, sta
 
 CREATE INDEX ai_model_health_checked_at_idx ON public.ai_model_health USING btree (checked_at DESC);
 
-
 --
 -- Name: ai_model_health_provider_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX ai_model_health_provider_idx ON public.ai_model_health USING btree (provider, checked_at DESC);
-
 
 --
 -- Name: ai_usage_limits_brand_unique; Type: INDEX; Schema: public; Owner: -
@@ -8108,13 +8965,11 @@ CREATE INDEX ai_model_health_provider_idx ON public.ai_model_health USING btree 
 
 CREATE UNIQUE INDEX ai_usage_limits_brand_unique ON public.ai_usage_limits USING btree (brand_id) WHERE (scope = 'brand'::text);
 
-
 --
 -- Name: ai_usage_limits_client_unique; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX ai_usage_limits_client_unique ON public.ai_usage_limits USING btree (brand_id, client_id) WHERE (scope = 'client'::text);
-
 
 --
 -- Name: ai_usage_limits_user_unique; Type: INDEX; Schema: public; Owner: -
@@ -8122,13 +8977,11 @@ CREATE UNIQUE INDEX ai_usage_limits_client_unique ON public.ai_usage_limits USIN
 
 CREATE UNIQUE INDEX ai_usage_limits_user_unique ON public.ai_usage_limits USING btree (brand_id, COALESCE(client_id, '00000000-0000-0000-0000-000000000000'::uuid), user_id) WHERE (scope = 'user'::text);
 
-
 --
 -- Name: brain_embeddings_brand_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX brain_embeddings_brand_idx ON public.brain_embeddings USING btree (brand_id);
-
 
 --
 -- Name: brain_embeddings_created_brin; Type: INDEX; Schema: public; Owner: -
@@ -8136,13 +8989,11 @@ CREATE INDEX brain_embeddings_brand_idx ON public.brain_embeddings USING btree (
 
 CREATE INDEX brain_embeddings_created_brin ON public.brain_embeddings USING brin (created_at);
 
-
 --
 -- Name: brain_embeddings_event_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX brain_embeddings_event_idx ON public.brain_embeddings USING btree (event_id);
-
 
 --
 -- Name: brain_embeddings_hnsw_idx; Type: INDEX; Schema: public; Owner: -
@@ -8150,13 +9001,11 @@ CREATE INDEX brain_embeddings_event_idx ON public.brain_embeddings USING btree (
 
 CREATE INDEX brain_embeddings_hnsw_idx ON public.brain_embeddings USING hnsw (embedding public.vector_cosine_ops) WITH (m='16', ef_construction='64') WHERE (embedding IS NOT NULL);
 
-
 --
 -- Name: brain_events_brand_created_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX brain_events_brand_created_idx ON public.brain_events USING btree (brand_id, created_at DESC);
-
 
 --
 -- Name: brain_events_type_idx; Type: INDEX; Schema: public; Owner: -
@@ -8164,13 +9013,11 @@ CREATE INDEX brain_events_brand_created_idx ON public.brain_events USING btree (
 
 CREATE INDEX brain_events_type_idx ON public.brain_events USING btree (event_type);
 
-
 --
 -- Name: brain_events_unprocessed_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX brain_events_unprocessed_idx ON public.brain_events USING btree (created_at) WHERE (processed_at IS NULL);
-
 
 --
 -- Name: brain_insights_brand_idx; Type: INDEX; Schema: public; Owner: -
@@ -8178,13 +9025,11 @@ CREATE INDEX brain_events_unprocessed_idx ON public.brain_events USING btree (cr
 
 CREATE INDEX brain_insights_brand_idx ON public.brain_insights USING btree (brand_id, created_at DESC);
 
-
 --
 -- Name: brain_memory_expires_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX brain_memory_expires_idx ON public.brain_memory USING btree (expires_at) WHERE (expires_at IS NOT NULL);
-
 
 --
 -- Name: brain_memory_subject_idx; Type: INDEX; Schema: public; Owner: -
@@ -8192,13 +9037,11 @@ CREATE INDEX brain_memory_expires_idx ON public.brain_memory USING btree (expire
 
 CREATE INDEX brain_memory_subject_idx ON public.brain_memory USING btree (brand_id, subject_type, subject_id);
 
-
 --
 -- Name: brain_metrics_brand_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX brain_metrics_brand_idx ON public.brain_metrics_snapshots USING btree (brand_id, period_end DESC);
-
 
 --
 -- Name: brain_reasoning_logs_brand_created_idx; Type: INDEX; Schema: public; Owner: -
@@ -8206,13 +9049,11 @@ CREATE INDEX brain_metrics_brand_idx ON public.brain_metrics_snapshots USING btr
 
 CREATE INDEX brain_reasoning_logs_brand_created_idx ON public.brain_reasoning_logs USING btree (brand_id, created_at DESC);
 
-
 --
 -- Name: brain_reasoning_logs_user_created_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX brain_reasoning_logs_user_created_idx ON public.brain_reasoning_logs USING btree (user_id, created_at DESC);
-
 
 --
 -- Name: brain_recs_brand_status_idx; Type: INDEX; Schema: public; Owner: -
@@ -8220,13 +9061,11 @@ CREATE INDEX brain_reasoning_logs_user_created_idx ON public.brain_reasoning_log
 
 CREATE INDEX brain_recs_brand_status_idx ON public.brain_recommendations USING btree (brand_id, status, priority DESC);
 
-
 --
 -- Name: brain_recs_user_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX brain_recs_user_idx ON public.brain_recommendations USING btree (target_user_id, status);
-
 
 --
 -- Name: brain_rel_from_idx; Type: INDEX; Schema: public; Owner: -
@@ -8234,13 +9073,11 @@ CREATE INDEX brain_recs_user_idx ON public.brain_recommendations USING btree (ta
 
 CREATE INDEX brain_rel_from_idx ON public.brain_relationships USING btree (brand_id, from_type, from_id);
 
-
 --
 -- Name: brain_rel_to_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX brain_rel_to_idx ON public.brain_relationships USING btree (brand_id, to_type, to_id);
-
 
 --
 -- Name: brain_relationships_from_idx; Type: INDEX; Schema: public; Owner: -
@@ -8248,13 +9085,11 @@ CREATE INDEX brain_rel_to_idx ON public.brain_relationships USING btree (brand_i
 
 CREATE INDEX brain_relationships_from_idx ON public.brain_relationships USING btree (brand_id, from_type, from_id);
 
-
 --
 -- Name: brain_relationships_to_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX brain_relationships_to_idx ON public.brain_relationships USING btree (brand_id, to_type, to_id);
-
 
 --
 -- Name: brain_relationships_type_idx; Type: INDEX; Schema: public; Owner: -
@@ -8262,13 +9097,11 @@ CREATE INDEX brain_relationships_to_idx ON public.brain_relationships USING btre
 
 CREATE INDEX brain_relationships_type_idx ON public.brain_relationships USING btree (brand_id, relationship_type);
 
-
 --
 -- Name: brain_relationships_unique_edge; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX brain_relationships_unique_edge ON public.brain_relationships USING btree (COALESCE(brand_id, '00000000-0000-0000-0000-000000000000'::uuid), from_type, from_id, to_type, to_id, relationship_type);
-
 
 --
 -- Name: brain_stats_mv_brand_uniq; Type: INDEX; Schema: public; Owner: -
@@ -8276,13 +9109,11 @@ CREATE UNIQUE INDEX brain_relationships_unique_edge ON public.brain_relationship
 
 CREATE UNIQUE INDEX brain_stats_mv_brand_uniq ON public.brain_stats_mv USING btree (brand_id);
 
-
 --
 -- Name: brand_ai_usage_brand_actor_created_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX brand_ai_usage_brand_actor_created_idx ON public.brand_ai_usage USING btree (brand_id, actor_id, created_at DESC);
-
 
 --
 -- Name: brand_ai_usage_brand_client_created_idx; Type: INDEX; Schema: public; Owner: -
@@ -8290,13 +9121,11 @@ CREATE INDEX brand_ai_usage_brand_actor_created_idx ON public.brand_ai_usage USI
 
 CREATE INDEX brand_ai_usage_brand_client_created_idx ON public.brand_ai_usage USING btree (brand_id, client_id, created_at DESC);
 
-
 --
 -- Name: brand_ai_usage_brand_created_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX brand_ai_usage_brand_created_idx ON public.brand_ai_usage USING btree (brand_id, created_at DESC);
-
 
 --
 -- Name: brand_briefing_proposals_request_idx; Type: INDEX; Schema: public; Owner: -
@@ -8304,13 +9133,11 @@ CREATE INDEX brand_ai_usage_brand_created_idx ON public.brand_ai_usage USING btr
 
 CREATE INDEX brand_briefing_proposals_request_idx ON public.brand_briefing_proposals USING btree (request_id, created_at DESC);
 
-
 --
 -- Name: brand_briefing_proposals_scope_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX brand_briefing_proposals_scope_idx ON public.brand_briefing_proposals USING btree (brand_id, client_id, created_at DESC);
-
 
 --
 -- Name: brand_briefing_requests_scope_idx; Type: INDEX; Schema: public; Owner: -
@@ -8318,13 +9145,11 @@ CREATE INDEX brand_briefing_proposals_scope_idx ON public.brand_briefing_proposa
 
 CREATE INDEX brand_briefing_requests_scope_idx ON public.brand_briefing_requests USING btree (brand_id, client_id, requested_at DESC);
 
-
 --
 -- Name: brand_briefing_reviews_request_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX brand_briefing_reviews_request_idx ON public.brand_briefing_reviews USING btree (request_id, created_at DESC);
-
 
 --
 -- Name: brand_briefing_reviews_scope_idx; Type: INDEX; Schema: public; Owner: -
@@ -8332,13 +9157,11 @@ CREATE INDEX brand_briefing_reviews_request_idx ON public.brand_briefing_reviews
 
 CREATE INDEX brand_briefing_reviews_scope_idx ON public.brand_briefing_reviews USING btree (brand_id, client_id, created_at DESC);
 
-
 --
 -- Name: brand_features_brand_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX brand_features_brand_id_idx ON public.brand_features USING btree (brand_id);
-
 
 --
 -- Name: brand_invites_brand_idx; Type: INDEX; Schema: public; Owner: -
@@ -8346,13 +9169,11 @@ CREATE INDEX brand_features_brand_id_idx ON public.brand_features USING btree (b
 
 CREATE INDEX brand_invites_brand_idx ON public.brand_invites USING btree (brand_id);
 
-
 --
 -- Name: brand_invites_email_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX brand_invites_email_idx ON public.brand_invites USING btree (lower(email));
-
 
 --
 -- Name: brands_is_active_idx; Type: INDEX; Schema: public; Owner: -
@@ -8360,13 +9181,11 @@ CREATE INDEX brand_invites_email_idx ON public.brand_invites USING btree (lower(
 
 CREATE INDEX brands_is_active_idx ON public.brands USING btree (is_active);
 
-
 --
 -- Name: calendar_events_brand_starts_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX calendar_events_brand_starts_idx ON public.calendar_events USING btree (brand_id, starts_at);
-
 
 --
 -- Name: calendar_events_global_starts_idx; Type: INDEX; Schema: public; Owner: -
@@ -8374,13 +9193,11 @@ CREATE INDEX calendar_events_brand_starts_idx ON public.calendar_events USING bt
 
 CREATE INDEX calendar_events_global_starts_idx ON public.calendar_events USING btree (starts_at) WHERE (is_global = true);
 
-
 --
 -- Name: card_approval_events_post_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX card_approval_events_post_idx ON public.card_approval_events USING btree (post_id, created_at DESC);
-
 
 --
 -- Name: card_approval_tokens_post_idx; Type: INDEX; Schema: public; Owner: -
@@ -8388,13 +9205,11 @@ CREATE INDEX card_approval_events_post_idx ON public.card_approval_events USING 
 
 CREATE INDEX card_approval_tokens_post_idx ON public.card_approval_tokens USING btree (post_id);
 
-
 --
 -- Name: chat_conversations_user_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX chat_conversations_user_idx ON public.chat_conversations USING btree (user_id, last_message_at DESC);
-
 
 --
 -- Name: chat_messages_conversation_idx; Type: INDEX; Schema: public; Owner: -
@@ -8402,13 +9217,11 @@ CREATE INDEX chat_conversations_user_idx ON public.chat_conversations USING btre
 
 CREATE INDEX chat_messages_conversation_idx ON public.chat_messages USING btree (conversation_id, created_at);
 
-
 --
 -- Name: client_briefing_tokens_brand_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX client_briefing_tokens_brand_idx ON public.client_briefing_tokens USING btree (brand_id);
-
 
 --
 -- Name: client_briefing_tokens_client_idx; Type: INDEX; Schema: public; Owner: -
@@ -8416,13 +9229,11 @@ CREATE INDEX client_briefing_tokens_brand_idx ON public.client_briefing_tokens U
 
 CREATE INDEX client_briefing_tokens_client_idx ON public.client_briefing_tokens USING btree (client_id);
 
-
 --
 -- Name: client_documents_client_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX client_documents_client_idx ON public.client_documents USING btree (client_id, created_at DESC);
-
 
 --
 -- Name: client_documents_visible_idx; Type: INDEX; Schema: public; Owner: -
@@ -8430,13 +9241,11 @@ CREATE INDEX client_documents_client_idx ON public.client_documents USING btree 
 
 CREATE INDEX client_documents_visible_idx ON public.client_documents USING btree (client_id, visible_to_client);
 
-
 --
 -- Name: client_members_brand_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX client_members_brand_id_idx ON public.client_members USING btree (brand_id);
-
 
 --
 -- Name: client_members_client_user_key; Type: INDEX; Schema: public; Owner: -
@@ -8444,13 +9253,11 @@ CREATE INDEX client_members_brand_id_idx ON public.client_members USING btree (b
 
 CREATE UNIQUE INDEX client_members_client_user_key ON public.client_members USING btree (client_id, user_id);
 
-
 --
 -- Name: client_members_portal_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX client_members_portal_idx ON public.client_members USING btree (user_id) WHERE (role = 'portal_client'::text);
-
 
 --
 -- Name: client_members_user_id_idx; Type: INDEX; Schema: public; Owner: -
@@ -8458,13 +9265,11 @@ CREATE INDEX client_members_portal_idx ON public.client_members USING btree (use
 
 CREATE INDEX client_members_user_id_idx ON public.client_members USING btree (user_id);
 
-
 --
 -- Name: client_members_user_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX client_members_user_idx ON public.client_members USING btree (user_id);
-
 
 --
 -- Name: client_social_accounts_client_connection_key; Type: INDEX; Schema: public; Owner: -
@@ -8472,13 +9277,11 @@ CREATE INDEX client_members_user_idx ON public.client_members USING btree (user_
 
 CREATE UNIQUE INDEX client_social_accounts_client_connection_key ON public.client_social_accounts USING btree (client_id, connection_id);
 
-
 --
 -- Name: client_social_accounts_connection_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX client_social_accounts_connection_idx ON public.client_social_accounts USING btree (connection_id);
-
 
 --
 -- Name: clients_is_active_idx; Type: INDEX; Schema: public; Owner: -
@@ -8486,13 +9289,11 @@ CREATE INDEX client_social_accounts_connection_idx ON public.client_social_accou
 
 CREATE INDEX clients_is_active_idx ON public.clients USING btree (is_active);
 
-
 --
 -- Name: clients_owner_user_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX clients_owner_user_id_idx ON public.clients USING btree (owner_user_id);
-
 
 --
 -- Name: evolution_events_brand_idx; Type: INDEX; Schema: public; Owner: -
@@ -8500,13 +9301,11 @@ CREATE INDEX clients_owner_user_id_idx ON public.clients USING btree (owner_user
 
 CREATE INDEX evolution_events_brand_idx ON public.evolution_events USING btree (brand_id, received_at DESC);
 
-
 --
 -- Name: evolution_events_dedupe_key; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX evolution_events_dedupe_key ON public.evolution_events USING btree (instance_id, event_type, provider_event_id) WHERE (provider_event_id IS NOT NULL);
-
 
 --
 -- Name: evolution_events_instance_idx; Type: INDEX; Schema: public; Owner: -
@@ -8514,13 +9313,11 @@ CREATE UNIQUE INDEX evolution_events_dedupe_key ON public.evolution_events USING
 
 CREATE INDEX evolution_events_instance_idx ON public.evolution_events USING btree (instance_id, received_at DESC);
 
-
 --
 -- Name: evolution_instances_brand_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX evolution_instances_brand_idx ON public.evolution_instances USING btree (brand_id);
-
 
 --
 -- Name: evolution_instances_brand_name_key; Type: INDEX; Schema: public; Owner: -
@@ -8528,13 +9325,11 @@ CREATE INDEX evolution_instances_brand_idx ON public.evolution_instances USING b
 
 CREATE UNIQUE INDEX evolution_instances_brand_name_key ON public.evolution_instances USING btree (brand_id, lower(instance_name));
 
-
 --
 -- Name: evolution_instances_client_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX evolution_instances_client_idx ON public.evolution_instances USING btree (client_id);
-
 
 --
 -- Name: evolution_instances_webhook_token_key; Type: INDEX; Schema: public; Owner: -
@@ -8542,13 +9337,11 @@ CREATE INDEX evolution_instances_client_idx ON public.evolution_instances USING 
 
 CREATE UNIQUE INDEX evolution_instances_webhook_token_key ON public.evolution_instances USING btree (webhook_token) WHERE (webhook_token IS NOT NULL);
 
-
 --
 -- Name: idx_activity_events_brand_client_created; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_activity_events_brand_client_created ON public.activity_events USING btree (brand_id, client_id, created_at DESC);
-
 
 --
 -- Name: idx_activity_events_brand_created; Type: INDEX; Schema: public; Owner: -
@@ -8556,13 +9349,11 @@ CREATE INDEX idx_activity_events_brand_client_created ON public.activity_events 
 
 CREATE INDEX idx_activity_events_brand_created ON public.activity_events USING btree (brand_id, created_at DESC);
 
-
 --
 -- Name: idx_activity_events_client_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_activity_events_client_id ON public.activity_events USING btree (client_id);
-
 
 --
 -- Name: idx_ai_jobs_client_id; Type: INDEX; Schema: public; Owner: -
@@ -8570,13 +9361,11 @@ CREATE INDEX idx_activity_events_client_id ON public.activity_events USING btree
 
 CREATE INDEX idx_ai_jobs_client_id ON public.ai_jobs USING btree (client_id);
 
-
 --
 -- Name: idx_brain_insights_brand_expires; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_brain_insights_brand_expires ON public.brain_insights USING btree (brand_id, expires_at);
-
 
 --
 -- Name: idx_brain_insights_scope; Type: INDEX; Schema: public; Owner: -
@@ -8584,13 +9373,11 @@ CREATE INDEX idx_brain_insights_brand_expires ON public.brain_insights USING btr
 
 CREATE INDEX idx_brain_insights_scope ON public.brain_insights USING btree (brand_id, client_id, created_at DESC);
 
-
 --
 -- Name: idx_brain_learning_queue_brand; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_brain_learning_queue_brand ON public.brain_learning_queue USING btree (brand_id);
-
 
 --
 -- Name: idx_brain_learning_queue_status; Type: INDEX; Schema: public; Owner: -
@@ -8598,13 +9385,11 @@ CREATE INDEX idx_brain_learning_queue_brand ON public.brain_learning_queue USING
 
 CREATE INDEX idx_brain_learning_queue_status ON public.brain_learning_queue USING btree (status, enqueued_at) WHERE (status = ANY (ARRAY['queued'::text, 'processing'::text]));
 
-
 --
 -- Name: idx_brain_memory_brand; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_brain_memory_brand ON public.brain_memory USING btree (brand_id);
-
 
 --
 -- Name: idx_brain_memory_category; Type: INDEX; Schema: public; Owner: -
@@ -8612,13 +9397,11 @@ CREATE INDEX idx_brain_memory_brand ON public.brain_memory USING btree (brand_id
 
 CREATE INDEX idx_brain_memory_category ON public.brain_memory USING btree (category);
 
-
 --
 -- Name: idx_brain_memory_client_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_brain_memory_client_id ON public.brain_memory USING btree (client_id);
-
 
 --
 -- Name: idx_brain_memory_confidence; Type: INDEX; Schema: public; Owner: -
@@ -8626,13 +9409,11 @@ CREATE INDEX idx_brain_memory_client_id ON public.brain_memory USING btree (clie
 
 CREATE INDEX idx_brain_memory_confidence ON public.brain_memory USING btree (confidence DESC);
 
-
 --
 -- Name: idx_brain_memory_entity; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_brain_memory_entity ON public.brain_memory USING btree (entity_type, entity_id);
-
 
 --
 -- Name: idx_brain_memory_last_accessed; Type: INDEX; Schema: public; Owner: -
@@ -8640,13 +9421,11 @@ CREATE INDEX idx_brain_memory_entity ON public.brain_memory USING btree (entity_
 
 CREATE INDEX idx_brain_memory_last_accessed ON public.brain_memory USING btree (last_accessed_at DESC NULLS LAST);
 
-
 --
 -- Name: idx_brain_memory_origin; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_brain_memory_origin ON public.brain_memory USING btree (origin);
-
 
 --
 -- Name: idx_brain_memory_scope; Type: INDEX; Schema: public; Owner: -
@@ -8654,13 +9433,11 @@ CREATE INDEX idx_brain_memory_origin ON public.brain_memory USING btree (origin)
 
 CREATE INDEX idx_brain_memory_scope ON public.brain_memory USING btree (brand_id, client_id, status, category);
 
-
 --
 -- Name: idx_brain_memory_status; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_brain_memory_status ON public.brain_memory USING btree (status);
-
 
 --
 -- Name: idx_brain_memory_tags; Type: INDEX; Schema: public; Owner: -
@@ -8668,13 +9445,11 @@ CREATE INDEX idx_brain_memory_status ON public.brain_memory USING btree (status)
 
 CREATE INDEX idx_brain_memory_tags ON public.brain_memory USING gin (tags);
 
-
 --
 -- Name: idx_brain_memory_versions_brand; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_brain_memory_versions_brand ON public.brain_memory_versions USING btree (brand_id, created_at DESC);
-
 
 --
 -- Name: idx_brain_memory_versions_memory; Type: INDEX; Schema: public; Owner: -
@@ -8682,13 +9457,11 @@ CREATE INDEX idx_brain_memory_versions_brand ON public.brain_memory_versions USI
 
 CREATE INDEX idx_brain_memory_versions_memory ON public.brain_memory_versions USING btree (memory_id, version DESC);
 
-
 --
 -- Name: idx_brain_recs_brand_status_active; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_brain_recs_brand_status_active ON public.brain_recommendations USING btree (brand_id, status) WHERE (status = 'active'::text);
-
 
 --
 -- Name: idx_brain_relationships_scope; Type: INDEX; Schema: public; Owner: -
@@ -8696,13 +9469,11 @@ CREATE INDEX idx_brain_recs_brand_status_active ON public.brain_recommendations 
 
 CREATE INDEX idx_brain_relationships_scope ON public.brain_relationships USING btree (brand_id, client_id);
 
-
 --
 -- Name: idx_brain_worker_runs_recent; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_brain_worker_runs_recent ON public.brain_worker_runs USING btree (job_name, started_at DESC);
-
 
 --
 -- Name: idx_brand_ai_content_brand_id; Type: INDEX; Schema: public; Owner: -
@@ -8710,13 +9481,11 @@ CREATE INDEX idx_brain_worker_runs_recent ON public.brain_worker_runs USING btre
 
 CREATE INDEX idx_brand_ai_content_brand_id ON public.brand_ai_content USING btree (brand_id);
 
-
 --
 -- Name: idx_brand_ai_content_client; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_brand_ai_content_client ON public.brand_ai_content USING btree (client_id);
-
 
 --
 -- Name: idx_brand_ai_usage_brand_date; Type: INDEX; Schema: public; Owner: -
@@ -8724,13 +9493,11 @@ CREATE INDEX idx_brand_ai_content_client ON public.brand_ai_content USING btree 
 
 CREATE INDEX idx_brand_ai_usage_brand_date ON public.brand_ai_usage USING btree (brand_id, created_at DESC);
 
-
 --
 -- Name: idx_brand_ai_versions_client; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_brand_ai_versions_client ON public.brand_ai_versions USING btree (client_id);
-
 
 --
 -- Name: idx_brand_ai_versions_entity; Type: INDEX; Schema: public; Owner: -
@@ -8738,13 +9505,11 @@ CREATE INDEX idx_brand_ai_versions_client ON public.brand_ai_versions USING btre
 
 CREATE INDEX idx_brand_ai_versions_entity ON public.brand_ai_versions USING btree (entity_type, entity_id);
 
-
 --
 -- Name: idx_brand_briefing_versions_client; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_brand_briefing_versions_client ON public.brand_briefing_versions USING btree (client_id, created_at DESC);
-
 
 --
 -- Name: idx_brand_briefings_brand_client; Type: INDEX; Schema: public; Owner: -
@@ -8752,13 +9517,11 @@ CREATE INDEX idx_brand_briefing_versions_client ON public.brand_briefing_version
 
 CREATE INDEX idx_brand_briefings_brand_client ON public.brand_briefings USING btree (brand_id, client_id);
 
-
 --
 -- Name: idx_brand_briefings_client; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_brand_briefings_client ON public.brand_briefings USING btree (client_id);
-
 
 --
 -- Name: idx_brand_cohorts_client; Type: INDEX; Schema: public; Owner: -
@@ -8766,13 +9529,11 @@ CREATE INDEX idx_brand_briefings_client ON public.brand_briefings USING btree (c
 
 CREATE INDEX idx_brand_cohorts_client ON public.brand_cohorts USING btree (client_id);
 
-
 --
 -- Name: idx_brand_competitors_client; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_brand_competitors_client ON public.brand_competitors USING btree (client_id);
-
 
 --
 -- Name: idx_brand_media_brand; Type: INDEX; Schema: public; Owner: -
@@ -8780,13 +9541,11 @@ CREATE INDEX idx_brand_competitors_client ON public.brand_competitors USING btre
 
 CREATE INDEX idx_brand_media_brand ON public.brand_media_assets USING btree (brand_id, created_at DESC);
 
-
 --
 -- Name: idx_brand_media_client; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_brand_media_client ON public.brand_media_assets USING btree (brand_id, client_id, created_at DESC);
-
 
 --
 -- Name: idx_brand_media_kind; Type: INDEX; Schema: public; Owner: -
@@ -8794,13 +9553,11 @@ CREATE INDEX idx_brand_media_client ON public.brand_media_assets USING btree (br
 
 CREATE INDEX idx_brand_media_kind ON public.brand_media_assets USING btree (brand_id, kind);
 
-
 --
 -- Name: idx_brand_members_user; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_brand_members_user ON public.brand_members USING btree (user_id);
-
 
 --
 -- Name: idx_brand_pautas_client; Type: INDEX; Schema: public; Owner: -
@@ -8808,13 +9565,11 @@ CREATE INDEX idx_brand_members_user ON public.brand_members USING btree (user_id
 
 CREATE INDEX idx_brand_pautas_client ON public.brand_pautas USING btree (client_id);
 
-
 --
 -- Name: idx_brand_personas_client; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_brand_personas_client ON public.brand_personas USING btree (client_id);
-
 
 --
 -- Name: idx_brand_swot_client; Type: INDEX; Schema: public; Owner: -
@@ -8822,13 +9577,11 @@ CREATE INDEX idx_brand_personas_client ON public.brand_personas USING btree (cli
 
 CREATE INDEX idx_brand_swot_client ON public.brand_swot USING btree (client_id);
 
-
 --
 -- Name: idx_brand_voice_cards_client; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_brand_voice_cards_client ON public.brand_voice_cards USING btree (client_id);
-
 
 --
 -- Name: idx_calendar_events_client_id; Type: INDEX; Schema: public; Owner: -
@@ -8836,13 +9589,11 @@ CREATE INDEX idx_brand_voice_cards_client ON public.brand_voice_cards USING btre
 
 CREATE INDEX idx_calendar_events_client_id ON public.calendar_events USING btree (client_id);
 
-
 --
 -- Name: idx_client_documents_brand_client_created; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_client_documents_brand_client_created ON public.client_documents USING btree (brand_id, client_id, created_at DESC);
-
 
 --
 -- Name: idx_client_journey_events_brand; Type: INDEX; Schema: public; Owner: -
@@ -8850,13 +9601,11 @@ CREATE INDEX idx_client_documents_brand_client_created ON public.client_document
 
 CREATE INDEX idx_client_journey_events_brand ON public.client_journey_events USING btree (brand_id, created_at DESC);
 
-
 --
 -- Name: idx_client_journey_events_client; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_client_journey_events_client ON public.client_journey_events USING btree (client_id, created_at DESC);
-
 
 --
 -- Name: idx_client_members_user_role; Type: INDEX; Schema: public; Owner: -
@@ -8864,13 +9613,11 @@ CREATE INDEX idx_client_journey_events_client ON public.client_journey_events US
 
 CREATE INDEX idx_client_members_user_role ON public.client_members USING btree (user_id, role);
 
-
 --
 -- Name: idx_client_social_accounts_brand_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_client_social_accounts_brand_id ON public.client_social_accounts USING btree (brand_id);
-
 
 --
 -- Name: idx_client_social_accounts_client; Type: INDEX; Schema: public; Owner: -
@@ -8878,13 +9625,11 @@ CREATE INDEX idx_client_social_accounts_brand_id ON public.client_social_account
 
 CREATE INDEX idx_client_social_accounts_client ON public.client_social_accounts USING btree (client_id);
 
-
 --
 -- Name: idx_client_social_accounts_connection; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_client_social_accounts_connection ON public.client_social_accounts USING btree (connection_id);
-
 
 --
 -- Name: idx_meta_compliance_events_code; Type: INDEX; Schema: public; Owner: -
@@ -8892,13 +9637,11 @@ CREATE INDEX idx_client_social_accounts_connection ON public.client_social_accou
 
 CREATE INDEX idx_meta_compliance_events_code ON public.meta_compliance_events USING btree (confirmation_code);
 
-
 --
 -- Name: idx_meta_compliance_events_meta_user; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_meta_compliance_events_meta_user ON public.meta_compliance_events USING btree (meta_user_id);
-
 
 --
 -- Name: idx_meta_oauth_sessions_expires; Type: INDEX; Schema: public; Owner: -
@@ -8906,20 +9649,17 @@ CREATE INDEX idx_meta_compliance_events_meta_user ON public.meta_compliance_even
 
 CREATE INDEX idx_meta_oauth_sessions_expires ON public.meta_oauth_sessions USING btree (expires_at);
 
-
 --
 -- Name: idx_meta_oauth_sessions_rate_limit; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_meta_oauth_sessions_rate_limit ON public.meta_oauth_sessions USING btree (brand_id, meta_user_id, portfolio_rate_limited_until) WHERE (portfolio_rate_limited_until IS NOT NULL);
 
-
 --
 -- Name: idx_meta_oauth_sessions_user; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_meta_oauth_sessions_user ON public.meta_oauth_sessions USING btree (user_id, created_at DESC);
-
 
 --
 -- Name: idx_meta_oauth_sessions_valid_portfolio; Type: INDEX; Schema: public; Owner: -
@@ -8936,13 +9676,11 @@ CASE jsonb_typeof(COALESCE(pages, '[]'::jsonb))
     ELSE 0
 END > 0));
 
-
 --
 -- Name: idx_monthly_plan_topics_plan; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_monthly_plan_topics_plan ON public.monthly_plan_topics USING btree (monthly_plan_id);
-
 
 --
 -- Name: idx_monthly_plans_brand; Type: INDEX; Schema: public; Owner: -
@@ -8950,13 +9688,11 @@ CREATE INDEX idx_monthly_plan_topics_plan ON public.monthly_plan_topics USING bt
 
 CREATE INDEX idx_monthly_plans_brand ON public.monthly_plans USING btree (brand_id);
 
-
 --
 -- Name: idx_monthly_plans_status; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_monthly_plans_status ON public.monthly_plans USING btree (brand_id, status);
-
 
 --
 -- Name: idx_notifications_user_created; Type: INDEX; Schema: public; Owner: -
@@ -8964,13 +9700,11 @@ CREATE INDEX idx_monthly_plans_status ON public.monthly_plans USING btree (brand
 
 CREATE INDEX idx_notifications_user_created ON public.notifications USING btree (user_id, created_at DESC);
 
-
 --
 -- Name: idx_notifications_user_unread; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_notifications_user_unread ON public.notifications USING btree (user_id, created_at DESC) WHERE (read_at IS NULL);
-
 
 --
 -- Name: idx_post_placements_brand_client; Type: INDEX; Schema: public; Owner: -
@@ -8978,13 +9712,11 @@ CREATE INDEX idx_notifications_user_unread ON public.notifications USING btree (
 
 CREATE INDEX idx_post_placements_brand_client ON public.post_placements USING btree (brand_id, client_id);
 
-
 --
 -- Name: idx_post_placements_post; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_post_placements_post ON public.post_placements USING btree (post_id);
-
 
 --
 -- Name: idx_post_placements_scheduled; Type: INDEX; Schema: public; Owner: -
@@ -8992,13 +9724,11 @@ CREATE INDEX idx_post_placements_post ON public.post_placements USING btree (pos
 
 CREATE INDEX idx_post_placements_scheduled ON public.post_placements USING btree (scheduled_at);
 
-
 --
 -- Name: idx_posts_brand_client_stage; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_posts_brand_client_stage ON public.posts USING btree (brand_id, client_id, stage);
-
 
 --
 -- Name: idx_posts_brand_stage_scheduled; Type: INDEX; Schema: public; Owner: -
@@ -9006,13 +9736,11 @@ CREATE INDEX idx_posts_brand_client_stage ON public.posts USING btree (brand_id,
 
 CREATE INDEX idx_posts_brand_stage_scheduled ON public.posts USING btree (brand_id, stage, scheduled_at) WHERE (deleted_at IS NULL);
 
-
 --
 -- Name: idx_posts_brand_stage_updated; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_posts_brand_stage_updated ON public.posts USING btree (brand_id, stage, updated_at DESC) WHERE (deleted_at IS NULL);
-
 
 --
 -- Name: idx_posts_monthly_plan_topic; Type: INDEX; Schema: public; Owner: -
@@ -9020,13 +9748,11 @@ CREATE INDEX idx_posts_brand_stage_updated ON public.posts USING btree (brand_id
 
 CREATE INDEX idx_posts_monthly_plan_topic ON public.posts USING btree (monthly_plan_topic_id);
 
-
 --
 -- Name: idx_posts_stage_entered_at; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_posts_stage_entered_at ON public.posts USING btree (stage_id, stage_entered_at) WHERE (deleted_at IS NULL);
-
 
 --
 -- Name: idx_posts_target_connection_ids; Type: INDEX; Schema: public; Owner: -
@@ -9034,13 +9760,11 @@ CREATE INDEX idx_posts_stage_entered_at ON public.posts USING btree (stage_id, s
 
 CREATE INDEX idx_posts_target_connection_ids ON public.posts USING gin (target_connection_ids);
 
-
 --
 -- Name: idx_projects_brand; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_projects_brand ON public.projects USING btree (brand_id);
-
 
 --
 -- Name: idx_social_connections_brand; Type: INDEX; Schema: public; Owner: -
@@ -9048,13 +9772,11 @@ CREATE INDEX idx_projects_brand ON public.projects USING btree (brand_id);
 
 CREATE INDEX idx_social_connections_brand ON public.social_connections USING btree (brand_id);
 
-
 --
 -- Name: idx_social_connections_brand_channel; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_social_connections_brand_channel ON public.social_connections USING btree (brand_id, channel);
-
 
 --
 -- Name: idx_social_connections_channel_external; Type: INDEX; Schema: public; Owner: -
@@ -9062,13 +9784,11 @@ CREATE INDEX idx_social_connections_brand_channel ON public.social_connections U
 
 CREATE INDEX idx_social_connections_channel_external ON public.social_connections USING btree (channel, external_id);
 
-
 --
 -- Name: idx_social_connections_client_channel; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_social_connections_client_channel ON public.social_connections USING btree (client_id, channel) WHERE (client_id IS NOT NULL);
-
 
 --
 -- Name: idx_social_connections_provider; Type: INDEX; Schema: public; Owner: -
@@ -9076,13 +9796,11 @@ CREATE INDEX idx_social_connections_client_channel ON public.social_connections 
 
 CREATE INDEX idx_social_connections_provider ON public.social_connections USING btree (brand_id, provider);
 
-
 --
 -- Name: idx_social_posts_brand; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_social_posts_brand ON public.social_posts USING btree (brand_id);
-
 
 --
 -- Name: idx_social_posts_claim; Type: INDEX; Schema: public; Owner: -
@@ -9090,13 +9808,11 @@ CREATE INDEX idx_social_posts_brand ON public.social_posts USING btree (brand_id
 
 CREATE INDEX idx_social_posts_claim ON public.social_posts USING btree (status, scheduled_at) WHERE (status = 'scheduled'::text);
 
-
 --
 -- Name: idx_social_posts_connection; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_social_posts_connection ON public.social_posts USING btree (connection_id);
-
 
 --
 -- Name: idx_social_posts_status_scheduled; Type: INDEX; Schema: public; Owner: -
@@ -9104,13 +9820,11 @@ CREATE INDEX idx_social_posts_connection ON public.social_posts USING btree (con
 
 CREATE INDEX idx_social_posts_status_scheduled ON public.social_posts USING btree (status, scheduled_at) WHERE (status = ANY (ARRAY['scheduled'::text, 'publishing'::text]));
 
-
 --
 -- Name: idx_tasks_brand_archived; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_tasks_brand_archived ON public.tasks USING btree (brand_id, archived_at);
-
 
 --
 -- Name: idx_tasks_brand_client_done; Type: INDEX; Schema: public; Owner: -
@@ -9118,13 +9832,11 @@ CREATE INDEX idx_tasks_brand_archived ON public.tasks USING btree (brand_id, arc
 
 CREATE INDEX idx_tasks_brand_client_done ON public.tasks USING btree (brand_id, client_id, done);
 
-
 --
 -- Name: media_plan_items_plan_pos_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX media_plan_items_plan_pos_idx ON public.media_plan_items USING btree (plan_id, "position");
-
 
 --
 -- Name: media_plans_brand_idx; Type: INDEX; Schema: public; Owner: -
@@ -9132,13 +9844,11 @@ CREATE INDEX media_plan_items_plan_pos_idx ON public.media_plan_items USING btre
 
 CREATE INDEX media_plans_brand_idx ON public.media_plans USING btree (brand_id);
 
-
 --
 -- Name: media_plans_client_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX media_plans_client_idx ON public.media_plans USING btree (client_id, created_at DESC);
-
 
 --
 -- Name: message_logs_brand_channel_idx; Type: INDEX; Schema: public; Owner: -
@@ -9146,13 +9856,11 @@ CREATE INDEX media_plans_client_idx ON public.media_plans USING btree (client_id
 
 CREATE INDEX message_logs_brand_channel_idx ON public.message_logs USING btree (brand_id, channel);
 
-
 --
 -- Name: message_logs_brand_client_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX message_logs_brand_client_idx ON public.message_logs USING btree (brand_id, client_id);
-
 
 --
 -- Name: message_logs_brand_sent_at_idx; Type: INDEX; Schema: public; Owner: -
@@ -9160,13 +9868,11 @@ CREATE INDEX message_logs_brand_client_idx ON public.message_logs USING btree (b
 
 CREATE INDEX message_logs_brand_sent_at_idx ON public.message_logs USING btree (brand_id, sent_at DESC);
 
-
 --
 -- Name: message_logs_brand_status_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX message_logs_brand_status_idx ON public.message_logs USING btree (brand_id, status);
-
 
 --
 -- Name: message_logs_client_sent_at_idx; Type: INDEX; Schema: public; Owner: -
@@ -9174,13 +9880,11 @@ CREATE INDEX message_logs_brand_status_idx ON public.message_logs USING btree (b
 
 CREATE INDEX message_logs_client_sent_at_idx ON public.message_logs USING btree (client_id, sent_at DESC);
 
-
 --
 -- Name: monthly_plan_tokens_plan_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX monthly_plan_tokens_plan_idx ON public.monthly_plan_tokens USING btree (monthly_plan_id);
-
 
 --
 -- Name: monthly_plans_brand_client_created_idx; Type: INDEX; Schema: public; Owner: -
@@ -9188,13 +9892,11 @@ CREATE INDEX monthly_plan_tokens_plan_idx ON public.monthly_plan_tokens USING bt
 
 CREATE INDEX monthly_plans_brand_client_created_idx ON public.monthly_plans USING btree (brand_id, client_id, created_at DESC);
 
-
 --
 -- Name: monthly_plans_project_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX monthly_plans_project_id_idx ON public.monthly_plans USING btree (project_id);
-
 
 --
 -- Name: notifications_pending_idx; Type: INDEX; Schema: public; Owner: -
@@ -9202,13 +9904,11 @@ CREATE INDEX monthly_plans_project_id_idx ON public.monthly_plans USING btree (p
 
 CREATE INDEX notifications_pending_idx ON public.notifications USING btree (user_id, brand_id, created_at DESC) WHERE ((read_at IS NULL) AND (archived_at IS NULL));
 
-
 --
 -- Name: notifications_user_brand_created_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX notifications_user_brand_created_idx ON public.notifications USING btree (user_id, brand_id, created_at DESC);
-
 
 --
 -- Name: plan_overage_requests_lookup_idx; Type: INDEX; Schema: public; Owner: -
@@ -9216,13 +9916,11 @@ CREATE INDEX notifications_user_brand_created_idx ON public.notifications USING 
 
 CREATE INDEX plan_overage_requests_lookup_idx ON public.plan_overage_requests USING btree (client_id, channel, period_month, status);
 
-
 --
 -- Name: portal_rate_limit_updated_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX portal_rate_limit_updated_idx ON public.portal_rate_limit USING btree (updated_at);
-
 
 --
 -- Name: portal_tokens_one_active_per_client; Type: INDEX; Schema: public; Owner: -
@@ -9230,13 +9928,11 @@ CREATE INDEX portal_rate_limit_updated_idx ON public.portal_rate_limit USING btr
 
 CREATE UNIQUE INDEX portal_tokens_one_active_per_client ON public.portal_tokens USING btree (client_id) WHERE (revoked_at IS NULL);
 
-
 --
 -- Name: post_placements_connection_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX post_placements_connection_idx ON public.post_placements USING btree (connection_id) WHERE (connection_id IS NOT NULL);
-
 
 --
 -- Name: post_placements_post_conn_format_key; Type: INDEX; Schema: public; Owner: -
@@ -9244,13 +9940,11 @@ CREATE INDEX post_placements_connection_idx ON public.post_placements USING btre
 
 CREATE UNIQUE INDEX post_placements_post_conn_format_key ON public.post_placements USING btree (post_id, connection_id, format) WHERE (connection_id IS NOT NULL);
 
-
 --
 -- Name: posts_channels_gin; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX posts_channels_gin ON public.posts USING gin (channels);
-
 
 --
 -- Name: posts_deleted_at_idx; Type: INDEX; Schema: public; Owner: -
@@ -9258,13 +9952,11 @@ CREATE INDEX posts_channels_gin ON public.posts USING gin (channels);
 
 CREATE INDEX posts_deleted_at_idx ON public.posts USING btree (deleted_at) WHERE (deleted_at IS NULL);
 
-
 --
 -- Name: posts_pipeline_stage_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX posts_pipeline_stage_idx ON public.posts USING btree (pipeline_id, stage_id, "position");
-
 
 --
 -- Name: posts_priority_idx; Type: INDEX; Schema: public; Owner: -
@@ -9272,13 +9964,11 @@ CREATE INDEX posts_pipeline_stage_idx ON public.posts USING btree (pipeline_id, 
 
 CREATE INDEX posts_priority_idx ON public.posts USING btree (priority);
 
-
 --
 -- Name: posts_project_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX posts_project_id_idx ON public.posts USING btree (project_id);
-
 
 --
 -- Name: posts_remind_at_idx; Type: INDEX; Schema: public; Owner: -
@@ -9286,13 +9976,11 @@ CREATE INDEX posts_project_id_idx ON public.posts USING btree (project_id);
 
 CREATE INDEX posts_remind_at_idx ON public.posts USING btree (remind_at) WHERE (remind_at IS NOT NULL);
 
-
 --
 -- Name: posts_scheduled_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX posts_scheduled_at_idx ON public.posts USING btree (scheduled_at) WHERE ((deleted_at IS NULL) AND (scheduled_at IS NOT NULL));
-
 
 --
 -- Name: posts_tags_gin; Type: INDEX; Schema: public; Owner: -
@@ -9300,13 +9988,11 @@ CREATE INDEX posts_scheduled_at_idx ON public.posts USING btree (scheduled_at) W
 
 CREATE INDEX posts_tags_gin ON public.posts USING gin (tags);
 
-
 --
 -- Name: project_jobs_project_pos_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX project_jobs_project_pos_idx ON public.project_jobs USING btree (project_id, "position");
-
 
 --
 -- Name: projects_monthly_plan_id_key; Type: INDEX; Schema: public; Owner: -
@@ -9314,13 +10000,11 @@ CREATE INDEX project_jobs_project_pos_idx ON public.project_jobs USING btree (pr
 
 CREATE UNIQUE INDEX projects_monthly_plan_id_key ON public.projects USING btree (monthly_plan_id) WHERE (monthly_plan_id IS NOT NULL);
 
-
 --
 -- Name: sla_rules_brand_scope_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX sla_rules_brand_scope_idx ON public.sla_rules USING btree (brand_id, scope);
-
 
 --
 -- Name: sla_rules_unique_scope; Type: INDEX; Schema: public; Owner: -
@@ -9328,13 +10012,11 @@ CREATE INDEX sla_rules_brand_scope_idx ON public.sla_rules USING btree (brand_id
 
 CREATE UNIQUE INDEX sla_rules_unique_scope ON public.sla_rules USING btree (brand_id, scope, COALESCE(scope_ref, ''::text), COALESCE((project_id)::text, ''::text));
 
-
 --
 -- Name: social_connections_brand_provider_channel_ext_key; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX social_connections_brand_provider_channel_ext_key ON public.social_connections USING btree (brand_id, provider, channel, external_id);
-
 
 --
 -- Name: social_connections_ig_id_idx; Type: INDEX; Schema: public; Owner: -
@@ -9342,13 +10024,11 @@ CREATE UNIQUE INDEX social_connections_brand_provider_channel_ext_key ON public.
 
 CREATE INDEX social_connections_ig_id_idx ON public.social_connections USING btree (instagram_business_id) WHERE (instagram_business_id IS NOT NULL);
 
-
 --
 -- Name: social_connections_page_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX social_connections_page_id_idx ON public.social_connections USING btree (page_id) WHERE (page_id IS NOT NULL);
-
 
 --
 -- Name: social_posts_active_dest_key; Type: INDEX; Schema: public; Owner: -
@@ -9356,13 +10036,11 @@ CREATE INDEX social_connections_page_id_idx ON public.social_connections USING b
 
 CREATE UNIQUE INDEX social_posts_active_dest_key ON public.social_posts USING btree (post_id, connection_id, placement) WHERE ((post_id IS NOT NULL) AND (placement <> 'story'::text) AND (status = ANY (ARRAY['scheduled'::text, 'publishing'::text])));
 
-
 --
 -- Name: task_comments_task_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX task_comments_task_idx ON public.task_comments USING btree (task_id, created_at DESC);
-
 
 --
 -- Name: task_subtasks_task_id_idx; Type: INDEX; Schema: public; Owner: -
@@ -9370,13 +10048,11 @@ CREATE INDEX task_comments_task_idx ON public.task_comments USING btree (task_id
 
 CREATE INDEX task_subtasks_task_id_idx ON public.task_subtasks USING btree (task_id);
 
-
 --
 -- Name: task_time_entries_one_running_per_user; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX task_time_entries_one_running_per_user ON public.task_time_entries USING btree (user_id) WHERE (ended_at IS NULL);
-
 
 --
 -- Name: task_time_entries_task_idx; Type: INDEX; Schema: public; Owner: -
@@ -9384,13 +10060,11 @@ CREATE UNIQUE INDEX task_time_entries_one_running_per_user ON public.task_time_e
 
 CREATE INDEX task_time_entries_task_idx ON public.task_time_entries USING btree (task_id, started_at DESC);
 
-
 --
 -- Name: tasks_post_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX tasks_post_id_idx ON public.tasks USING btree (post_id);
-
 
 --
 -- Name: tasks_post_production_unique; Type: INDEX; Schema: public; Owner: -
@@ -9398,13 +10072,11 @@ CREATE INDEX tasks_post_id_idx ON public.tasks USING btree (post_id);
 
 CREATE UNIQUE INDEX tasks_post_production_unique ON public.tasks USING btree (post_id) WHERE (post_id IS NOT NULL);
 
-
 --
 -- Name: tasks_project_job_pos_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX tasks_project_job_pos_idx ON public.tasks USING btree (project_id, job_id, "position");
-
 
 --
 -- Name: template_jobs_tpl_pos_idx; Type: INDEX; Schema: public; Owner: -
@@ -9412,13 +10084,11 @@ CREATE INDEX tasks_project_job_pos_idx ON public.tasks USING btree (project_id, 
 
 CREATE INDEX template_jobs_tpl_pos_idx ON public.project_template_jobs USING btree (template_id, "position");
 
-
 --
 -- Name: template_tasks_job_pos_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX template_tasks_job_pos_idx ON public.project_template_tasks USING btree (template_job_id, "position");
-
 
 --
 -- Name: uq_brain_memory_ident; Type: INDEX; Schema: public; Owner: -
@@ -9426,13 +10096,11 @@ CREATE INDEX template_tasks_job_pos_idx ON public.project_template_tasks USING b
 
 CREATE UNIQUE INDEX uq_brain_memory_ident ON public.brain_memory USING btree (COALESCE(brand_id, '00000000-0000-0000-0000-000000000000'::uuid), entity_type, entity_id, category, title);
 
-
 --
 -- Name: uq_brain_metrics_snapshots_events_daily; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX uq_brain_metrics_snapshots_events_daily ON public.brain_metrics_snapshots USING btree (COALESCE(brand_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(channel, 'system'::text), metric_name, period_start) WHERE (metric_name ~~ 'events.%'::text);
-
 
 --
 -- Name: uq_client_social_accounts_client_conn; Type: INDEX; Schema: public; Owner: -
@@ -9440,13 +10108,11 @@ CREATE UNIQUE INDEX uq_brain_metrics_snapshots_events_daily ON public.brain_metr
 
 CREATE UNIQUE INDEX uq_client_social_accounts_client_conn ON public.client_social_accounts USING btree (client_id, connection_id);
 
-
 --
 -- Name: uq_client_social_accounts_connection; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX uq_client_social_accounts_connection ON public.client_social_accounts USING btree (connection_id);
-
 
 --
 -- Name: uq_social_conn_brand_provider_external; Type: INDEX; Schema: public; Owner: -
@@ -9454,13 +10120,11 @@ CREATE UNIQUE INDEX uq_client_social_accounts_connection ON public.client_social
 
 CREATE UNIQUE INDEX uq_social_conn_brand_provider_external ON public.social_connections USING btree (brand_id, provider, external_id);
 
-
 --
 -- Name: user_profiles_is_super_admin_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX user_profiles_is_super_admin_idx ON public.user_profiles USING btree (is_super_admin) WHERE is_super_admin;
-
 
 --
 -- Name: ux_notifications_unread_dedupe; Type: INDEX; Schema: public; Owner: -
@@ -9468,13 +10132,11 @@ CREATE INDEX user_profiles_is_super_admin_idx ON public.user_profiles USING btre
 
 CREATE UNIQUE INDEX ux_notifications_unread_dedupe ON public.notifications USING btree (user_id, kind, dedupe_key) WHERE ((read_at IS NULL) AND (dedupe_key IS NOT NULL));
 
-
 --
 -- Name: whatsapp_recipients_brand_client_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX whatsapp_recipients_brand_client_idx ON public.whatsapp_recipients USING btree (brand_id, client_id) WHERE is_active;
-
 
 --
 -- Name: whatsapp_recipients_unique_destination; Type: INDEX; Schema: public; Owner: -
@@ -9482,13 +10144,11 @@ CREATE INDEX whatsapp_recipients_brand_client_idx ON public.whatsapp_recipients 
 
 CREATE UNIQUE INDEX whatsapp_recipients_unique_destination ON public.whatsapp_recipients USING btree (brand_id, COALESCE(client_id, '00000000-0000-0000-0000-000000000000'::uuid), type, destination) WHERE (destination IS NOT NULL);
 
-
 --
 -- Name: whatsapp_recipients_unique_dynamic; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX whatsapp_recipients_unique_dynamic ON public.whatsapp_recipients USING btree (brand_id, COALESCE(client_id, '00000000-0000-0000-0000-000000000000'::uuid), type) WHERE ((user_id IS NULL) AND (destination IS NULL));
-
 
 --
 -- Name: whatsapp_recipients_unique_user; Type: INDEX; Schema: public; Owner: -
@@ -9497,12 +10157,13 @@ CREATE UNIQUE INDEX whatsapp_recipients_unique_dynamic ON public.whatsapp_recipi
 CREATE UNIQUE INDEX whatsapp_recipients_unique_user ON public.whatsapp_recipients USING btree (brand_id, COALESCE(client_id, '00000000-0000-0000-0000-000000000000'::uuid), type, user_id) WHERE (user_id IS NOT NULL);
 
 
+-- ============================ TRIGGERS (96) ============================
+
 --
 -- Name: ai_jobs ai_jobs_notify_completed; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER ai_jobs_notify_completed AFTER UPDATE OF status ON public.ai_jobs FOR EACH ROW EXECUTE FUNCTION public.notify_ai_job_completed();
-
 
 --
 -- Name: ai_usage_limits ai_usage_limits_touch; Type: TRIGGER; Schema: public; Owner: -
@@ -9510,13 +10171,11 @@ CREATE TRIGGER ai_jobs_notify_completed AFTER UPDATE OF status ON public.ai_jobs
 
 CREATE TRIGGER ai_usage_limits_touch BEFORE UPDATE ON public.ai_usage_limits FOR EACH ROW EXECUTE FUNCTION public.tg_ai_usage_limits_touch();
 
-
 --
 -- Name: client_documents brain_client_docs_evt; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER brain_client_docs_evt AFTER INSERT ON public.client_documents FOR EACH ROW EXECUTE FUNCTION public.brain_trg_client_documents();
-
 
 --
 -- Name: clients brain_clients_evt; Type: TRIGGER; Schema: public; Owner: -
@@ -9524,13 +10183,11 @@ CREATE TRIGGER brain_client_docs_evt AFTER INSERT ON public.client_documents FOR
 
 CREATE TRIGGER brain_clients_evt AFTER INSERT OR UPDATE ON public.clients FOR EACH ROW EXECUTE FUNCTION public.brain_trg_clients();
 
-
 --
 -- Name: brain_insights brain_insights_scope_guard; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER brain_insights_scope_guard BEFORE INSERT OR UPDATE ON public.brain_insights FOR EACH ROW EXECUTE FUNCTION public.brain_scope_guard();
-
 
 --
 -- Name: brain_memory brain_memory_scope_guard; Type: TRIGGER; Schema: public; Owner: -
@@ -9538,13 +10195,11 @@ CREATE TRIGGER brain_insights_scope_guard BEFORE INSERT OR UPDATE ON public.brai
 
 CREATE TRIGGER brain_memory_scope_guard BEFORE INSERT OR UPDATE ON public.brain_memory FOR EACH ROW EXECUTE FUNCTION public.brain_scope_guard();
 
-
 --
 -- Name: brain_memory brain_memory_snapshot_trg; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER brain_memory_snapshot_trg BEFORE UPDATE ON public.brain_memory FOR EACH ROW EXECUTE FUNCTION public.brain_memory_snapshot();
-
 
 --
 -- Name: brain_memory brain_memory_touch; Type: TRIGGER; Schema: public; Owner: -
@@ -9552,13 +10207,11 @@ CREATE TRIGGER brain_memory_snapshot_trg BEFORE UPDATE ON public.brain_memory FO
 
 CREATE TRIGGER brain_memory_touch BEFORE UPDATE ON public.brain_memory FOR EACH ROW EXECUTE FUNCTION public.brain_touch_updated_at();
 
-
 --
 -- Name: post_approvals brain_post_approvals_evt; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER brain_post_approvals_evt AFTER INSERT OR UPDATE ON public.post_approvals FOR EACH ROW EXECUTE FUNCTION public.brain_trg_post_approvals();
-
 
 --
 -- Name: posts brain_posts_evt; Type: TRIGGER; Schema: public; Owner: -
@@ -9566,13 +10219,11 @@ CREATE TRIGGER brain_post_approvals_evt AFTER INSERT OR UPDATE ON public.post_ap
 
 CREATE TRIGGER brain_posts_evt AFTER INSERT OR UPDATE ON public.posts FOR EACH ROW EXECUTE FUNCTION public.brain_trg_posts();
 
-
 --
 -- Name: projects brain_projects_evt; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER brain_projects_evt AFTER INSERT OR UPDATE ON public.projects FOR EACH ROW EXECUTE FUNCTION public.brain_trg_projects();
-
 
 --
 -- Name: brain_recommendations brain_recs_touch; Type: TRIGGER; Schema: public; Owner: -
@@ -9580,13 +10231,11 @@ CREATE TRIGGER brain_projects_evt AFTER INSERT OR UPDATE ON public.projects FOR 
 
 CREATE TRIGGER brain_recs_touch BEFORE UPDATE ON public.brain_recommendations FOR EACH ROW EXECUTE FUNCTION public.brain_touch_updated_at();
 
-
 --
 -- Name: brain_relationships brain_rel_touch; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER brain_rel_touch BEFORE UPDATE ON public.brain_relationships FOR EACH ROW EXECUTE FUNCTION public.brain_touch_updated_at();
-
 
 --
 -- Name: task_comments brain_task_comments_evt; Type: TRIGGER; Schema: public; Owner: -
@@ -9594,13 +10243,11 @@ CREATE TRIGGER brain_rel_touch BEFORE UPDATE ON public.brain_relationships FOR E
 
 CREATE TRIGGER brain_task_comments_evt AFTER INSERT ON public.task_comments FOR EACH ROW EXECUTE FUNCTION public.brain_trg_task_comments();
 
-
 --
 -- Name: tasks brain_tasks_evt; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER brain_tasks_evt AFTER INSERT OR UPDATE ON public.tasks FOR EACH ROW EXECUTE FUNCTION public.brain_trg_tasks();
-
 
 --
 -- Name: brand_connections brand_connections_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -9608,13 +10255,11 @@ CREATE TRIGGER brain_tasks_evt AFTER INSERT OR UPDATE ON public.tasks FOR EACH R
 
 CREATE TRIGGER brand_connections_updated_at BEFORE UPDATE ON public.brand_connections FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: brand_invites brand_invites_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER brand_invites_updated_at BEFORE UPDATE ON public.brand_invites FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: calendar_events calendar_events_touch_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -9622,13 +10267,11 @@ CREATE TRIGGER brand_invites_updated_at BEFORE UPDATE ON public.brand_invites FO
 
 CREATE TRIGGER calendar_events_touch_updated_at BEFORE UPDATE ON public.calendar_events FOR EACH ROW EXECUTE FUNCTION public.calendar_events_touch_updated_at();
 
-
 --
 -- Name: client_documents client_documents_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER client_documents_updated_at BEFORE UPDATE ON public.client_documents FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: evolution_instances evolution_instances_touch_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -9636,13 +10279,11 @@ CREATE TRIGGER client_documents_updated_at BEFORE UPDATE ON public.client_docume
 
 CREATE TRIGGER evolution_instances_touch_updated_at BEFORE UPDATE ON public.evolution_instances FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: installation installation_touch_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER installation_touch_updated_at BEFORE UPDATE ON public.installation FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: media_plan_items media_plan_items_amount_trg; Type: TRIGGER; Schema: public; Owner: -
@@ -9650,13 +10291,11 @@ CREATE TRIGGER installation_touch_updated_at BEFORE UPDATE ON public.installatio
 
 CREATE TRIGGER media_plan_items_amount_trg BEFORE INSERT OR UPDATE OF budget_pct, plan_id ON public.media_plan_items FOR EACH ROW EXECUTE FUNCTION public.recalc_media_plan_item_amount();
 
-
 --
 -- Name: media_plan_items media_plan_items_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER media_plan_items_updated_at BEFORE UPDATE ON public.media_plan_items FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: media_plans media_plans_budget_trg; Type: TRIGGER; Schema: public; Owner: -
@@ -9664,13 +10303,11 @@ CREATE TRIGGER media_plan_items_updated_at BEFORE UPDATE ON public.media_plan_it
 
 CREATE TRIGGER media_plans_budget_trg AFTER UPDATE OF monthly_budget ON public.media_plans FOR EACH ROW EXECUTE FUNCTION public.recalc_media_plan_items_on_plan();
 
-
 --
 -- Name: media_plans media_plans_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER media_plans_updated_at BEFORE UPDATE ON public.media_plans FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: message_logs message_logs_guard_scope_trg; Type: TRIGGER; Schema: public; Owner: -
@@ -9678,13 +10315,11 @@ CREATE TRIGGER media_plans_updated_at BEFORE UPDATE ON public.media_plans FOR EA
 
 CREATE TRIGGER message_logs_guard_scope_trg BEFORE INSERT OR UPDATE ON public.message_logs FOR EACH ROW EXECUTE FUNCTION public.message_logs_guard_scope();
 
-
 --
 -- Name: plan_overage_requests plan_overage_requests_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER plan_overage_requests_updated_at BEFORE UPDATE ON public.plan_overage_requests FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: posts posts_notify_approval; Type: TRIGGER; Schema: public; Owner: -
@@ -9692,13 +10327,11 @@ CREATE TRIGGER plan_overage_requests_updated_at BEFORE UPDATE ON public.plan_ove
 
 CREATE TRIGGER posts_notify_approval AFTER UPDATE OF stage ON public.posts FOR EACH ROW EXECUTE FUNCTION public.notify_post_approval_events();
 
-
 --
 -- Name: posts posts_sync_legacy_stage; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER posts_sync_legacy_stage BEFORE INSERT OR UPDATE OF stage_id ON public.posts FOR EACH ROW EXECUTE FUNCTION public.posts_sync_legacy_stage();
-
 
 --
 -- Name: content_pipelines protect_default_pipeline; Type: TRIGGER; Schema: public; Owner: -
@@ -9706,13 +10339,11 @@ CREATE TRIGGER posts_sync_legacy_stage BEFORE INSERT OR UPDATE OF stage_id ON pu
 
 CREATE TRIGGER protect_default_pipeline BEFORE DELETE ON public.content_pipelines FOR EACH ROW EXECUTE FUNCTION public.protect_pipeline_delete();
 
-
 --
 -- Name: sla_rules sla_rules_set_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER sla_rules_set_updated_at BEFORE UPDATE ON public.sla_rules FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: task_comments task_comments_notify; Type: TRIGGER; Schema: public; Owner: -
@@ -9720,13 +10351,11 @@ CREATE TRIGGER sla_rules_set_updated_at BEFORE UPDATE ON public.sla_rules FOR EA
 
 CREATE TRIGGER task_comments_notify AFTER INSERT ON public.task_comments FOR EACH ROW EXECUTE FUNCTION public.notify_task_mentions();
 
-
 --
 -- Name: task_comments task_comments_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER task_comments_updated_at BEFORE UPDATE ON public.task_comments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: task_subtasks task_subtasks_touch; Type: TRIGGER; Schema: public; Owner: -
@@ -9734,13 +10363,11 @@ CREATE TRIGGER task_comments_updated_at BEFORE UPDATE ON public.task_comments FO
 
 CREATE TRIGGER task_subtasks_touch BEFORE UPDATE ON public.task_subtasks FOR EACH ROW EXECUTE FUNCTION public.brain_touch_updated_at();
 
-
 --
 -- Name: tasks tasks_notify_assigned; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER tasks_notify_assigned AFTER INSERT OR UPDATE OF assignee_id ON public.tasks FOR EACH ROW EXECUTE FUNCTION public.notify_task_assigned();
-
 
 --
 -- Name: ai_jobs trg_ai_jobs_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -9748,13 +10375,11 @@ CREATE TRIGGER tasks_notify_assigned AFTER INSERT OR UPDATE OF assignee_id ON pu
 
 CREATE TRIGGER trg_ai_jobs_updated_at BEFORE UPDATE ON public.ai_jobs FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: post_approvals trg_approvals_updated; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_approvals_updated BEFORE UPDATE ON public.post_approvals FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: brain_events trg_brain_events_enqueue_learning; Type: TRIGGER; Schema: public; Owner: -
@@ -9762,13 +10387,11 @@ CREATE TRIGGER trg_approvals_updated BEFORE UPDATE ON public.post_approvals FOR 
 
 CREATE TRIGGER trg_brain_events_enqueue_learning AFTER INSERT ON public.brain_events FOR EACH ROW EXECUTE FUNCTION public.enqueue_brain_event_for_learning();
 
-
 --
 -- Name: brain_events trg_brain_events_guard_identity; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_brain_events_guard_identity BEFORE INSERT ON public.brain_events FOR EACH ROW EXECUTE FUNCTION public.brain_events_guard_identity();
-
 
 --
 -- Name: brain_learning_queue trg_brain_learning_queue_updated; Type: TRIGGER; Schema: public; Owner: -
@@ -9776,13 +10399,11 @@ CREATE TRIGGER trg_brain_events_guard_identity BEFORE INSERT ON public.brain_eve
 
 CREATE TRIGGER trg_brain_learning_queue_updated BEFORE UPDATE ON public.brain_learning_queue FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: brain_memory trg_brain_memory_last_observed; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_brain_memory_last_observed BEFORE INSERT OR UPDATE ON public.brain_memory FOR EACH ROW EXECUTE FUNCTION public.brain_set_last_observed();
-
 
 --
 -- Name: brand_ai_content trg_brand_ai_content_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -9790,13 +10411,11 @@ CREATE TRIGGER trg_brain_memory_last_observed BEFORE INSERT OR UPDATE ON public.
 
 CREATE TRIGGER trg_brand_ai_content_updated_at BEFORE UPDATE ON public.brand_ai_content FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: brand_api_credentials trg_brand_api_credentials_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_brand_api_credentials_updated_at BEFORE UPDATE ON public.brand_api_credentials FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: brand_briefings trg_brand_briefings_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -9804,13 +10423,11 @@ CREATE TRIGGER trg_brand_api_credentials_updated_at BEFORE UPDATE ON public.bran
 
 CREATE TRIGGER trg_brand_briefings_updated_at BEFORE UPDATE ON public.brand_briefings FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: brand_cohorts trg_brand_cohorts_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_brand_cohorts_updated_at BEFORE UPDATE ON public.brand_cohorts FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: brand_competitors trg_brand_competitors_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -9818,13 +10435,11 @@ CREATE TRIGGER trg_brand_cohorts_updated_at BEFORE UPDATE ON public.brand_cohort
 
 CREATE TRIGGER trg_brand_competitors_updated_at BEFORE UPDATE ON public.brand_competitors FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: brand_invites trg_brand_invites_normalize_role; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_brand_invites_normalize_role BEFORE INSERT OR UPDATE OF role ON public.brand_invites FOR EACH ROW EXECUTE FUNCTION public.normalize_app_role();
-
 
 --
 -- Name: brand_media_assets trg_brand_media_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -9832,13 +10447,11 @@ CREATE TRIGGER trg_brand_invites_normalize_role BEFORE INSERT OR UPDATE OF role 
 
 CREATE TRIGGER trg_brand_media_updated_at BEFORE UPDATE ON public.brand_media_assets FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: brand_members trg_brand_members_normalize_role; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_brand_members_normalize_role BEFORE INSERT OR UPDATE OF role ON public.brand_members FOR EACH ROW EXECUTE FUNCTION public.normalize_app_role();
-
 
 --
 -- Name: brand_pautas trg_brand_pautas_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -9846,13 +10459,11 @@ CREATE TRIGGER trg_brand_members_normalize_role BEFORE INSERT OR UPDATE OF role 
 
 CREATE TRIGGER trg_brand_pautas_updated_at BEFORE UPDATE ON public.brand_pautas FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: brand_personas trg_brand_personas_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_brand_personas_updated_at BEFORE UPDATE ON public.brand_personas FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: brand_swot trg_brand_swot_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -9860,13 +10471,11 @@ CREATE TRIGGER trg_brand_personas_updated_at BEFORE UPDATE ON public.brand_perso
 
 CREATE TRIGGER trg_brand_swot_updated_at BEFORE UPDATE ON public.brand_swot FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: brand_voice_cards trg_brand_voice_cards_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_brand_voice_cards_updated_at BEFORE UPDATE ON public.brand_voice_cards FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: brands trg_brands_add_owner; Type: TRIGGER; Schema: public; Owner: -
@@ -9874,13 +10483,11 @@ CREATE TRIGGER trg_brand_voice_cards_updated_at BEFORE UPDATE ON public.brand_vo
 
 CREATE TRIGGER trg_brands_add_owner AFTER INSERT ON public.brands FOR EACH ROW EXECUTE FUNCTION public.add_brand_owner();
 
-
 --
 -- Name: brands trg_brands_updated; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_brands_updated BEFORE UPDATE ON public.brands FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: client_briefings trg_briefings_updated; Type: TRIGGER; Schema: public; Owner: -
@@ -9888,13 +10495,11 @@ CREATE TRIGGER trg_brands_updated BEFORE UPDATE ON public.brands FOR EACH ROW EX
 
 CREATE TRIGGER trg_briefings_updated BEFORE UPDATE ON public.client_briefings FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: chat_conversations trg_chat_conversations_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_chat_conversations_updated_at BEFORE UPDATE ON public.chat_conversations FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: chat_messages trg_chat_messages_bump; Type: TRIGGER; Schema: public; Owner: -
@@ -9902,13 +10507,11 @@ CREATE TRIGGER trg_chat_conversations_updated_at BEFORE UPDATE ON public.chat_co
 
 CREATE TRIGGER trg_chat_messages_bump AFTER INSERT ON public.chat_messages FOR EACH ROW EXECUTE FUNCTION public.bump_chat_conversation_last_message();
 
-
 --
 -- Name: client_briefing_tokens trg_client_briefing_tokens_updated; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_client_briefing_tokens_updated BEFORE UPDATE ON public.client_briefing_tokens FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: client_members trg_client_members_normalize_role; Type: TRIGGER; Schema: public; Owner: -
@@ -9916,13 +10519,11 @@ CREATE TRIGGER trg_client_briefing_tokens_updated BEFORE UPDATE ON public.client
 
 CREATE TRIGGER trg_client_members_normalize_role BEFORE INSERT OR UPDATE OF role ON public.client_members FOR EACH ROW EXECUTE FUNCTION public.normalize_client_member_role();
 
-
 --
 -- Name: clients trg_clients_set_default_owner; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_clients_set_default_owner BEFORE INSERT ON public.clients FOR EACH ROW EXECUTE FUNCTION public.clients_set_default_owner();
-
 
 --
 -- Name: clients trg_clients_updated; Type: TRIGGER; Schema: public; Owner: -
@@ -9930,13 +10531,11 @@ CREATE TRIGGER trg_clients_set_default_owner BEFORE INSERT ON public.clients FOR
 
 CREATE TRIGGER trg_clients_updated BEFORE UPDATE ON public.clients FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: brands trg_enable_default_brand_features; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_enable_default_brand_features AFTER INSERT ON public.brands FOR EACH ROW EXECUTE FUNCTION public.enable_default_brand_features();
-
 
 --
 -- Name: tasks trg_enforce_task_project_client; Type: TRIGGER; Schema: public; Owner: -
@@ -9944,13 +10543,11 @@ CREATE TRIGGER trg_enable_default_brand_features AFTER INSERT ON public.brands F
 
 CREATE TRIGGER trg_enforce_task_project_client BEFORE INSERT OR UPDATE OF project_id, client_id, brand_id ON public.tasks FOR EACH ROW EXECUTE FUNCTION public.enforce_task_project_client();
 
-
 --
 -- Name: user_profiles trg_guard_super_admin_flag; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_guard_super_admin_flag BEFORE UPDATE ON public.user_profiles FOR EACH ROW EXECUTE FUNCTION public.guard_super_admin_flag();
-
 
 --
 -- Name: user_profiles trg_guard_super_admin_flag_insert; Type: TRIGGER; Schema: public; Owner: -
@@ -9958,13 +10555,11 @@ CREATE TRIGGER trg_guard_super_admin_flag BEFORE UPDATE ON public.user_profiles 
 
 CREATE TRIGGER trg_guard_super_admin_flag_insert BEFORE INSERT ON public.user_profiles FOR EACH ROW EXECUTE FUNCTION public.guard_super_admin_flag();
 
-
 --
 -- Name: monthly_plan_topics trg_monthly_plan_topics_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_monthly_plan_topics_updated_at BEFORE UPDATE ON public.monthly_plan_topics FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: monthly_plans trg_monthly_plans_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -9972,13 +10567,11 @@ CREATE TRIGGER trg_monthly_plan_topics_updated_at BEFORE UPDATE ON public.monthl
 
 CREATE TRIGGER trg_monthly_plans_updated_at BEFORE UPDATE ON public.monthly_plans FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: post_placements trg_post_placements_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_post_placements_updated_at BEFORE UPDATE ON public.post_placements FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: posts trg_posts_activity; Type: TRIGGER; Schema: public; Owner: -
@@ -9986,13 +10579,11 @@ CREATE TRIGGER trg_post_placements_updated_at BEFORE UPDATE ON public.post_place
 
 CREATE TRIGGER trg_posts_activity AFTER INSERT OR UPDATE ON public.posts FOR EACH ROW EXECUTE FUNCTION public.log_post_activity();
 
-
 --
 -- Name: posts trg_posts_touch_stage_entered_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_posts_touch_stage_entered_at BEFORE INSERT OR UPDATE OF stage_id ON public.posts FOR EACH ROW EXECUTE FUNCTION public.posts_touch_stage_entered_at();
-
 
 --
 -- Name: posts trg_posts_updated; Type: TRIGGER; Schema: public; Owner: -
@@ -10000,13 +10591,11 @@ CREATE TRIGGER trg_posts_touch_stage_entered_at BEFORE INSERT OR UPDATE OF stage
 
 CREATE TRIGGER trg_posts_updated BEFORE UPDATE ON public.posts FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: project_jobs trg_project_jobs_updated; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_project_jobs_updated BEFORE UPDATE ON public.project_jobs FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: project_templates trg_project_templates_updated; Type: TRIGGER; Schema: public; Owner: -
@@ -10014,13 +10603,11 @@ CREATE TRIGGER trg_project_jobs_updated BEFORE UPDATE ON public.project_jobs FOR
 
 CREATE TRIGGER trg_project_templates_updated BEFORE UPDATE ON public.project_templates FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: projects trg_projects_updated; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_projects_updated BEFORE UPDATE ON public.projects FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: projects trg_projects_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -10028,13 +10615,11 @@ CREATE TRIGGER trg_projects_updated BEFORE UPDATE ON public.projects FOR EACH RO
 
 CREATE TRIGGER trg_projects_updated_at BEFORE UPDATE ON public.projects FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: social_connections trg_social_connections_touch; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_social_connections_touch BEFORE UPDATE ON public.social_connections FOR EACH ROW EXECUTE FUNCTION public.tg_touch_updated_at();
-
 
 --
 -- Name: social_posts trg_social_posts_sync_publication; Type: TRIGGER; Schema: public; Owner: -
@@ -10042,13 +10627,11 @@ CREATE TRIGGER trg_social_connections_touch BEFORE UPDATE ON public.social_conne
 
 CREATE TRIGGER trg_social_posts_sync_publication AFTER INSERT OR UPDATE OF status ON public.social_posts FOR EACH ROW EXECUTE FUNCTION public.tg_social_posts_sync_publication();
 
-
 --
 -- Name: social_posts trg_social_posts_touch; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_social_posts_touch BEFORE UPDATE ON public.social_posts FOR EACH ROW EXECUTE FUNCTION public.tg_touch_updated_at();
-
 
 --
 -- Name: brand_journey_stage_templates trg_stage_templates_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -10056,13 +10639,11 @@ CREATE TRIGGER trg_social_posts_touch BEFORE UPDATE ON public.social_posts FOR E
 
 CREATE TRIGGER trg_stage_templates_updated_at BEFORE UPDATE ON public.brand_journey_stage_templates FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: task_time_entries trg_task_time_entries_updated; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_task_time_entries_updated BEFORE UPDATE ON public.task_time_entries FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: tasks trg_tasks_activity; Type: TRIGGER; Schema: public; Owner: -
@@ -10070,13 +10651,11 @@ CREATE TRIGGER trg_task_time_entries_updated BEFORE UPDATE ON public.task_time_e
 
 CREATE TRIGGER trg_tasks_activity AFTER INSERT OR UPDATE ON public.tasks FOR EACH ROW EXECUTE FUNCTION public.log_task_activity();
 
-
 --
 -- Name: tasks trg_tasks_updated; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_tasks_updated BEFORE UPDATE ON public.tasks FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: task_time_entries trg_time_entry_totals; Type: TRIGGER; Schema: public; Owner: -
@@ -10084,13 +10663,11 @@ CREATE TRIGGER trg_tasks_updated BEFORE UPDATE ON public.tasks FOR EACH ROW EXEC
 
 CREATE TRIGGER trg_time_entry_totals AFTER INSERT OR DELETE OR UPDATE ON public.task_time_entries FOR EACH ROW EXECUTE FUNCTION public.trg_time_entry_refresh_totals();
 
-
 --
 -- Name: client_social_accounts trg_validate_client_social_account; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_validate_client_social_account BEFORE INSERT OR UPDATE ON public.client_social_accounts FOR EACH ROW EXECUTE FUNCTION public.validate_client_social_account();
-
 
 --
 -- Name: post_placements trg_validate_placement_connection; Type: TRIGGER; Schema: public; Owner: -
@@ -10098,13 +10675,11 @@ CREATE TRIGGER trg_validate_client_social_account BEFORE INSERT OR UPDATE ON pub
 
 CREATE TRIGGER trg_validate_placement_connection BEFORE INSERT OR UPDATE OF connection_id, client_id ON public.post_placements FOR EACH ROW EXECUTE FUNCTION public.validate_placement_connection();
 
-
 --
 -- Name: agent_prompt_overrides update_agent_prompt_overrides_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER update_agent_prompt_overrides_updated_at BEFORE UPDATE ON public.agent_prompt_overrides FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: agent_prompts update_agent_prompts_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -10112,13 +10687,11 @@ CREATE TRIGGER update_agent_prompt_overrides_updated_at BEFORE UPDATE ON public.
 
 CREATE TRIGGER update_agent_prompts_updated_at BEFORE UPDATE ON public.agent_prompts FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: ai_jobs update_ai_jobs_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER update_ai_jobs_updated_at BEFORE UPDATE ON public.ai_jobs FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: brand_features update_brand_features_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -10126,13 +10699,11 @@ CREATE TRIGGER update_ai_jobs_updated_at BEFORE UPDATE ON public.ai_jobs FOR EAC
 
 CREATE TRIGGER update_brand_features_updated_at BEFORE UPDATE ON public.brand_features FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: content_pipeline_stages update_content_pipeline_stages_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER update_content_pipeline_stages_updated_at BEFORE UPDATE ON public.content_pipeline_stages FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: content_pipelines update_content_pipelines_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -10140,13 +10711,11 @@ CREATE TRIGGER update_content_pipeline_stages_updated_at BEFORE UPDATE ON public
 
 CREATE TRIGGER update_content_pipelines_updated_at BEFORE UPDATE ON public.content_pipelines FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: message_templates update_message_templates_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER update_message_templates_updated_at BEFORE UPDATE ON public.message_templates FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: monthly_plan_tokens update_monthly_plan_tokens_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -10154,13 +10723,11 @@ CREATE TRIGGER update_message_templates_updated_at BEFORE UPDATE ON public.messa
 
 CREATE TRIGGER update_monthly_plan_tokens_updated_at BEFORE UPDATE ON public.monthly_plan_tokens FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-
 --
 -- Name: user_profiles update_user_profiles_modtime; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER update_user_profiles_modtime BEFORE UPDATE ON public.user_profiles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 
 --
 -- Name: whatsapp_recipients whatsapp_recipients_touch_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -10169,1688 +10736,15 @@ CREATE TRIGGER update_user_profiles_modtime BEFORE UPDATE ON public.user_profile
 CREATE TRIGGER whatsapp_recipients_touch_updated_at BEFORE UPDATE ON public.whatsapp_recipients FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
---
--- Name: activity_events activity_events_actor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
+-- ============================ ROW LEVEL SECURITY (90) ============================
 
-ALTER TABLE ONLY public.activity_events
-    ADD CONSTRAINT activity_events_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: activity_events activity_events_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.activity_events
-    ADD CONSTRAINT activity_events_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: activity_events activity_events_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.activity_events
-    ADD CONSTRAINT activity_events_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE SET NULL;
-
-
---
--- Name: agent_prompt_overrides agent_prompt_overrides_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.agent_prompt_overrides
-    ADD CONSTRAINT agent_prompt_overrides_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: agent_prompt_overrides agent_prompt_overrides_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.agent_prompt_overrides
-    ADD CONSTRAINT agent_prompt_overrides_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: ai_jobs ai_jobs_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.ai_jobs
-    ADD CONSTRAINT ai_jobs_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: ai_jobs ai_jobs_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.ai_jobs
-    ADD CONSTRAINT ai_jobs_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: ai_usage_limits ai_usage_limits_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.ai_usage_limits
-    ADD CONSTRAINT ai_usage_limits_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: ai_usage_limits ai_usage_limits_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.ai_usage_limits
-    ADD CONSTRAINT ai_usage_limits_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: ai_usage_limits ai_usage_limits_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.ai_usage_limits
-    ADD CONSTRAINT ai_usage_limits_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: ai_usage_limits ai_usage_limits_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.ai_usage_limits
-    ADD CONSTRAINT ai_usage_limits_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-
---
--- Name: brain_embeddings brain_embeddings_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brain_embeddings
-    ADD CONSTRAINT brain_embeddings_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brain_embeddings brain_embeddings_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brain_embeddings
-    ADD CONSTRAINT brain_embeddings_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.brain_events(id) ON DELETE CASCADE;
-
-
---
--- Name: brain_events brain_events_new_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brain_events
-    ADD CONSTRAINT brain_events_new_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brain_insights brain_insights_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brain_insights
-    ADD CONSTRAINT brain_insights_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brain_insights brain_insights_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brain_insights
-    ADD CONSTRAINT brain_insights_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: brain_learning_queue brain_learning_queue_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brain_learning_queue
-    ADD CONSTRAINT brain_learning_queue_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.brain_events(id) ON DELETE CASCADE;
-
-
---
--- Name: brain_memory brain_memory_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brain_memory
-    ADD CONSTRAINT brain_memory_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brain_memory brain_memory_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brain_memory
-    ADD CONSTRAINT brain_memory_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: brain_memory_versions brain_memory_versions_memory_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brain_memory_versions
-    ADD CONSTRAINT brain_memory_versions_memory_id_fkey FOREIGN KEY (memory_id) REFERENCES public.brain_memory(id) ON DELETE CASCADE;
-
-
---
--- Name: brain_metrics_snapshots brain_metrics_snapshots_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brain_metrics_snapshots
-    ADD CONSTRAINT brain_metrics_snapshots_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brain_recommendations brain_recommendations_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brain_recommendations
-    ADD CONSTRAINT brain_recommendations_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brain_recommendations brain_recommendations_source_insight_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brain_recommendations
-    ADD CONSTRAINT brain_recommendations_source_insight_id_fkey FOREIGN KEY (source_insight_id) REFERENCES public.brain_insights(id) ON DELETE SET NULL;
-
-
---
--- Name: brain_relationships brain_relationships_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brain_relationships
-    ADD CONSTRAINT brain_relationships_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brain_relationships brain_relationships_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brain_relationships
-    ADD CONSTRAINT brain_relationships_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_ai_content brand_ai_content_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_ai_content
-    ADD CONSTRAINT brand_ai_content_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_ai_content brand_ai_content_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_ai_content
-    ADD CONSTRAINT brand_ai_content_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_ai_content brand_ai_content_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_ai_content
-    ADD CONSTRAINT brand_ai_content_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: brand_ai_content brand_ai_content_pauta_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_ai_content
-    ADD CONSTRAINT brand_ai_content_pauta_id_fkey FOREIGN KEY (pauta_id) REFERENCES public.brand_pautas(id) ON DELETE SET NULL;
-
-
---
--- Name: brand_ai_content brand_ai_content_post_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_ai_content
-    ADD CONSTRAINT brand_ai_content_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id) ON DELETE SET NULL;
-
-
---
--- Name: brand_ai_usage brand_ai_usage_actor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_ai_usage
-    ADD CONSTRAINT brand_ai_usage_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: brand_ai_usage brand_ai_usage_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_ai_usage
-    ADD CONSTRAINT brand_ai_usage_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_ai_usage brand_ai_usage_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_ai_usage
-    ADD CONSTRAINT brand_ai_usage_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE SET NULL;
-
-
---
--- Name: brand_ai_versions brand_ai_versions_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_ai_versions
-    ADD CONSTRAINT brand_ai_versions_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_ai_versions brand_ai_versions_changed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_ai_versions
-    ADD CONSTRAINT brand_ai_versions_changed_by_fkey FOREIGN KEY (changed_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: brand_ai_versions brand_ai_versions_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_ai_versions
-    ADD CONSTRAINT brand_ai_versions_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_api_credentials brand_api_credentials_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_api_credentials
-    ADD CONSTRAINT brand_api_credentials_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_briefing_proposals brand_briefing_proposals_base_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_briefing_proposals
-    ADD CONSTRAINT brand_briefing_proposals_base_version_id_fkey FOREIGN KEY (base_version_id) REFERENCES public.brand_briefing_versions(id) ON DELETE SET NULL;
-
-
---
--- Name: brand_briefing_proposals brand_briefing_proposals_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_briefing_proposals
-    ADD CONSTRAINT brand_briefing_proposals_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_briefing_proposals brand_briefing_proposals_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_briefing_proposals
-    ADD CONSTRAINT brand_briefing_proposals_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_briefing_proposals brand_briefing_proposals_request_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_briefing_proposals
-    ADD CONSTRAINT brand_briefing_proposals_request_id_fkey FOREIGN KEY (request_id) REFERENCES public.brand_briefing_requests(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_briefing_requests brand_briefing_requests_base_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_briefing_requests
-    ADD CONSTRAINT brand_briefing_requests_base_version_id_fkey FOREIGN KEY (base_version_id) REFERENCES public.brand_briefing_versions(id) ON DELETE SET NULL;
-
-
---
--- Name: brand_briefing_requests brand_briefing_requests_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_briefing_requests
-    ADD CONSTRAINT brand_briefing_requests_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_briefing_requests brand_briefing_requests_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_briefing_requests
-    ADD CONSTRAINT brand_briefing_requests_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_briefing_requests brand_briefing_requests_promoted_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_briefing_requests
-    ADD CONSTRAINT brand_briefing_requests_promoted_version_id_fkey FOREIGN KEY (promoted_version_id) REFERENCES public.brand_briefing_versions(id) ON DELETE SET NULL;
-
-
---
--- Name: brand_briefing_reviews brand_briefing_reviews_proposal_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_briefing_reviews
-    ADD CONSTRAINT brand_briefing_reviews_proposal_id_fkey FOREIGN KEY (proposal_id) REFERENCES public.brand_briefing_proposals(id) ON DELETE SET NULL;
-
-
---
--- Name: brand_briefing_reviews brand_briefing_reviews_request_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_briefing_reviews
-    ADD CONSTRAINT brand_briefing_reviews_request_id_fkey FOREIGN KEY (request_id) REFERENCES public.brand_briefing_requests(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_briefing_reviews brand_briefing_reviews_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_briefing_reviews
-    ADD CONSTRAINT brand_briefing_reviews_version_id_fkey FOREIGN KEY (version_id) REFERENCES public.brand_briefing_versions(id) ON DELETE SET NULL;
-
-
---
--- Name: brand_briefing_versions brand_briefing_versions_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_briefing_versions
-    ADD CONSTRAINT brand_briefing_versions_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_briefing_versions brand_briefing_versions_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_briefing_versions
-    ADD CONSTRAINT brand_briefing_versions_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_briefings brand_briefings_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_briefings
-    ADD CONSTRAINT brand_briefings_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_briefings brand_briefings_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_briefings
-    ADD CONSTRAINT brand_briefings_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_briefings brand_briefings_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_briefings
-    ADD CONSTRAINT brand_briefings_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: brand_cohorts brand_cohorts_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_cohorts
-    ADD CONSTRAINT brand_cohorts_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_cohorts brand_cohorts_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_cohorts
-    ADD CONSTRAINT brand_cohorts_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_cohorts brand_cohorts_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_cohorts
-    ADD CONSTRAINT brand_cohorts_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: brand_competitors brand_competitors_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_competitors
-    ADD CONSTRAINT brand_competitors_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_competitors brand_competitors_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_competitors
-    ADD CONSTRAINT brand_competitors_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_competitors brand_competitors_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_competitors
-    ADD CONSTRAINT brand_competitors_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: brand_connections brand_connections_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_connections
-    ADD CONSTRAINT brand_connections_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_features brand_features_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_features
-    ADD CONSTRAINT brand_features_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_features brand_features_enabled_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_features
-    ADD CONSTRAINT brand_features_enabled_by_fkey FOREIGN KEY (enabled_by) REFERENCES auth.users(id);
-
-
---
--- Name: brand_features brand_features_feature_key_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_features
-    ADD CONSTRAINT brand_features_feature_key_fkey FOREIGN KEY (feature_key) REFERENCES public.feature_catalog(key) ON UPDATE CASCADE;
-
-
---
--- Name: brand_invites brand_invites_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_invites
-    ADD CONSTRAINT brand_invites_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_journey_stage_templates brand_journey_stage_templates_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_journey_stage_templates
-    ADD CONSTRAINT brand_journey_stage_templates_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_journey_stage_templates brand_journey_stage_templates_project_template_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_journey_stage_templates
-    ADD CONSTRAINT brand_journey_stage_templates_project_template_id_fkey FOREIGN KEY (project_template_id) REFERENCES public.project_templates(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_media_assets brand_media_assets_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_media_assets
-    ADD CONSTRAINT brand_media_assets_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_media_assets brand_media_assets_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_media_assets
-    ADD CONSTRAINT brand_media_assets_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_members brand_members_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_members
-    ADD CONSTRAINT brand_members_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_members brand_members_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_members
-    ADD CONSTRAINT brand_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_pautas brand_pautas_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_pautas
-    ADD CONSTRAINT brand_pautas_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_pautas brand_pautas_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_pautas
-    ADD CONSTRAINT brand_pautas_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_pautas brand_pautas_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_pautas
-    ADD CONSTRAINT brand_pautas_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: brand_personas brand_personas_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_personas
-    ADD CONSTRAINT brand_personas_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_personas brand_personas_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_personas
-    ADD CONSTRAINT brand_personas_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_personas brand_personas_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_personas
-    ADD CONSTRAINT brand_personas_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: brand_swot brand_swot_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_swot
-    ADD CONSTRAINT brand_swot_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_swot brand_swot_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_swot
-    ADD CONSTRAINT brand_swot_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_swot brand_swot_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_swot
-    ADD CONSTRAINT brand_swot_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: brand_voice_cards brand_voice_cards_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_voice_cards
-    ADD CONSTRAINT brand_voice_cards_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_voice_cards brand_voice_cards_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_voice_cards
-    ADD CONSTRAINT brand_voice_cards_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_voice_cards brand_voice_cards_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brand_voice_cards
-    ADD CONSTRAINT brand_voice_cards_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: brands brands_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.brands
-    ADD CONSTRAINT brands_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE RESTRICT;
-
-
---
--- Name: calendar_events calendar_events_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.calendar_events
-    ADD CONSTRAINT calendar_events_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: calendar_events calendar_events_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.calendar_events
-    ADD CONSTRAINT calendar_events_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: calendar_events calendar_events_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.calendar_events
-    ADD CONSTRAINT calendar_events_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: card_approval_events card_approval_events_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_approval_events
-    ADD CONSTRAINT card_approval_events_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: card_approval_events card_approval_events_post_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_approval_events
-    ADD CONSTRAINT card_approval_events_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id) ON DELETE CASCADE;
-
-
---
--- Name: card_approval_events card_approval_events_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_approval_events
-    ADD CONSTRAINT card_approval_events_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.card_approval_tokens(id) ON DELETE SET NULL;
-
-
---
--- Name: card_approval_tokens card_approval_tokens_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_approval_tokens
-    ADD CONSTRAINT card_approval_tokens_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: card_approval_tokens card_approval_tokens_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_approval_tokens
-    ADD CONSTRAINT card_approval_tokens_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
-
-
---
--- Name: card_approval_tokens card_approval_tokens_post_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.card_approval_tokens
-    ADD CONSTRAINT card_approval_tokens_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id) ON DELETE CASCADE;
-
-
---
--- Name: chat_conversations chat_conversations_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.chat_conversations
-    ADD CONSTRAINT chat_conversations_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE SET NULL;
-
-
---
--- Name: chat_conversations chat_conversations_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.chat_conversations
-    ADD CONSTRAINT chat_conversations_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE SET NULL;
-
-
---
--- Name: chat_conversations chat_conversations_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.chat_conversations
-    ADD CONSTRAINT chat_conversations_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-
---
--- Name: chat_messages chat_messages_conversation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.chat_messages
-    ADD CONSTRAINT chat_messages_conversation_id_fkey FOREIGN KEY (conversation_id) REFERENCES public.chat_conversations(id) ON DELETE CASCADE;
-
-
---
--- Name: chat_messages chat_messages_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.chat_messages
-    ADD CONSTRAINT chat_messages_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-
---
--- Name: client_briefing_tokens client_briefing_tokens_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.client_briefing_tokens
-    ADD CONSTRAINT client_briefing_tokens_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: client_briefing_tokens client_briefing_tokens_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.client_briefing_tokens
-    ADD CONSTRAINT client_briefing_tokens_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: client_briefings client_briefings_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.client_briefings
-    ADD CONSTRAINT client_briefings_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: client_briefings client_briefings_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.client_briefings
-    ADD CONSTRAINT client_briefings_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id);
-
-
---
--- Name: client_documents client_documents_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.client_documents
-    ADD CONSTRAINT client_documents_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: client_documents client_documents_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.client_documents
-    ADD CONSTRAINT client_documents_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: client_journey_events client_journey_events_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.client_journey_events
-    ADD CONSTRAINT client_journey_events_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: client_journey_events client_journey_events_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.client_journey_events
-    ADD CONSTRAINT client_journey_events_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: client_journey_events client_journey_events_moved_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.client_journey_events
-    ADD CONSTRAINT client_journey_events_moved_by_fkey FOREIGN KEY (moved_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: client_journey_events client_journey_events_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.client_journey_events
-    ADD CONSTRAINT client_journey_events_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE SET NULL;
-
-
---
--- Name: client_members client_members_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.client_members
-    ADD CONSTRAINT client_members_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: client_members client_members_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.client_members
-    ADD CONSTRAINT client_members_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: client_social_accounts client_social_accounts_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.client_social_accounts
-    ADD CONSTRAINT client_social_accounts_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: client_social_accounts client_social_accounts_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.client_social_accounts
-    ADD CONSTRAINT client_social_accounts_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: client_social_accounts client_social_accounts_connection_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.client_social_accounts
-    ADD CONSTRAINT client_social_accounts_connection_id_fkey FOREIGN KEY (connection_id) REFERENCES public.social_connections(id) ON DELETE CASCADE;
-
-
---
--- Name: client_social_accounts client_social_accounts_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.client_social_accounts
-    ADD CONSTRAINT client_social_accounts_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
-
-
---
--- Name: clients clients_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.clients
-    ADD CONSTRAINT clients_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: clients clients_owner_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.clients
-    ADD CONSTRAINT clients_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: content_pipeline_stages content_pipeline_stages_pipeline_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.content_pipeline_stages
-    ADD CONSTRAINT content_pipeline_stages_pipeline_id_fkey FOREIGN KEY (pipeline_id) REFERENCES public.content_pipelines(id) ON DELETE CASCADE;
-
-
---
--- Name: content_pipelines content_pipelines_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.content_pipelines
-    ADD CONSTRAINT content_pipelines_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: content_pipelines content_pipelines_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.content_pipelines
-    ADD CONSTRAINT content_pipelines_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: evolution_events evolution_events_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.evolution_events
-    ADD CONSTRAINT evolution_events_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: evolution_events evolution_events_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.evolution_events
-    ADD CONSTRAINT evolution_events_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE SET NULL;
-
-
---
--- Name: evolution_events evolution_events_instance_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.evolution_events
-    ADD CONSTRAINT evolution_events_instance_id_fkey FOREIGN KEY (instance_id) REFERENCES public.evolution_instances(id) ON DELETE CASCADE;
-
-
---
--- Name: evolution_instances evolution_instances_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.evolution_instances
-    ADD CONSTRAINT evolution_instances_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: evolution_instances evolution_instances_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.evolution_instances
-    ADD CONSTRAINT evolution_instances_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE SET NULL;
-
-
---
--- Name: media_plan_items media_plan_items_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.media_plan_items
-    ADD CONSTRAINT media_plan_items_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.media_plans(id) ON DELETE CASCADE;
-
-
---
--- Name: media_plans media_plans_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.media_plans
-    ADD CONSTRAINT media_plans_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: media_plans media_plans_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.media_plans
-    ADD CONSTRAINT media_plans_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: message_logs message_logs_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.message_logs
-    ADD CONSTRAINT message_logs_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: message_logs message_logs_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.message_logs
-    ADD CONSTRAINT message_logs_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE SET NULL;
-
-
---
--- Name: message_templates message_templates_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.message_templates
-    ADD CONSTRAINT message_templates_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: meta_oauth_sessions meta_oauth_sessions_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.meta_oauth_sessions
-    ADD CONSTRAINT meta_oauth_sessions_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: meta_oauth_sessions meta_oauth_sessions_portfolio_source_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.meta_oauth_sessions
-    ADD CONSTRAINT meta_oauth_sessions_portfolio_source_session_id_fkey FOREIGN KEY (portfolio_source_session_id) REFERENCES public.meta_oauth_sessions(id) ON DELETE SET NULL;
-
-
---
--- Name: monthly_plan_tokens monthly_plan_tokens_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.monthly_plan_tokens
-    ADD CONSTRAINT monthly_plan_tokens_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: monthly_plan_tokens monthly_plan_tokens_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.monthly_plan_tokens
-    ADD CONSTRAINT monthly_plan_tokens_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: monthly_plan_tokens monthly_plan_tokens_monthly_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.monthly_plan_tokens
-    ADD CONSTRAINT monthly_plan_tokens_monthly_plan_id_fkey FOREIGN KEY (monthly_plan_id) REFERENCES public.monthly_plans(id) ON DELETE CASCADE;
-
-
---
--- Name: monthly_plan_topics monthly_plan_topics_monthly_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.monthly_plan_topics
-    ADD CONSTRAINT monthly_plan_topics_monthly_plan_id_fkey FOREIGN KEY (monthly_plan_id) REFERENCES public.monthly_plans(id) ON DELETE CASCADE;
-
-
---
--- Name: monthly_plans monthly_plans_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.monthly_plans
-    ADD CONSTRAINT monthly_plans_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: monthly_plans monthly_plans_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.monthly_plans
-    ADD CONSTRAINT monthly_plans_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: monthly_plans monthly_plans_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.monthly_plans
-    ADD CONSTRAINT monthly_plans_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: monthly_plans monthly_plans_input_briefing_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.monthly_plans
-    ADD CONSTRAINT monthly_plans_input_briefing_id_fkey FOREIGN KEY (input_briefing_id) REFERENCES public.brand_briefings(id) ON DELETE SET NULL;
-
-
---
--- Name: monthly_plans monthly_plans_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.monthly_plans
-    ADD CONSTRAINT monthly_plans_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE SET NULL;
-
-
---
--- Name: notifications notifications_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.notifications
-    ADD CONSTRAINT notifications_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: notifications notifications_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.notifications
-    ADD CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-
---
--- Name: plan_overage_requests plan_overage_requests_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.plan_overage_requests
-    ADD CONSTRAINT plan_overage_requests_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: plan_overage_requests plan_overage_requests_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.plan_overage_requests
-    ADD CONSTRAINT plan_overage_requests_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: portal_tokens portal_tokens_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.portal_tokens
-    ADD CONSTRAINT portal_tokens_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: portal_tokens portal_tokens_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.portal_tokens
-    ADD CONSTRAINT portal_tokens_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
-
-
---
--- Name: post_approvals post_approvals_decided_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.post_approvals
-    ADD CONSTRAINT post_approvals_decided_by_fkey FOREIGN KEY (decided_by) REFERENCES auth.users(id);
-
-
---
--- Name: post_approvals post_approvals_post_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.post_approvals
-    ADD CONSTRAINT post_approvals_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id) ON DELETE CASCADE;
-
-
---
--- Name: post_placements post_placements_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.post_placements
-    ADD CONSTRAINT post_placements_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: post_placements post_placements_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.post_placements
-    ADD CONSTRAINT post_placements_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: post_placements post_placements_connection_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.post_placements
-    ADD CONSTRAINT post_placements_connection_id_fkey FOREIGN KEY (connection_id) REFERENCES public.social_connections(id) ON DELETE SET NULL;
-
-
---
--- Name: post_placements post_placements_post_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.post_placements
-    ADD CONSTRAINT post_placements_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id) ON DELETE CASCADE;
-
-
---
--- Name: posts posts_assignee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.posts
-    ADD CONSTRAINT posts_assignee_id_fkey FOREIGN KEY (assignee_id) REFERENCES auth.users(id);
-
-
---
--- Name: posts posts_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.posts
-    ADD CONSTRAINT posts_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: posts posts_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.posts
-    ADD CONSTRAINT posts_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: posts posts_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.posts
-    ADD CONSTRAINT posts_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
-
-
---
--- Name: posts posts_monthly_plan_topic_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.posts
-    ADD CONSTRAINT posts_monthly_plan_topic_id_fkey FOREIGN KEY (monthly_plan_topic_id) REFERENCES public.monthly_plan_topics(id) ON DELETE SET NULL;
-
-
---
--- Name: posts posts_pipeline_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.posts
-    ADD CONSTRAINT posts_pipeline_id_fkey FOREIGN KEY (pipeline_id) REFERENCES public.content_pipelines(id) ON DELETE SET NULL;
-
-
---
--- Name: posts posts_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.posts
-    ADD CONSTRAINT posts_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE SET NULL;
-
-
---
--- Name: posts posts_stage_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.posts
-    ADD CONSTRAINT posts_stage_id_fkey FOREIGN KEY (stage_id) REFERENCES public.content_pipeline_stages(id) ON DELETE SET NULL;
-
-
---
--- Name: project_jobs project_jobs_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.project_jobs
-    ADD CONSTRAINT project_jobs_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: project_jobs project_jobs_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.project_jobs
-    ADD CONSTRAINT project_jobs_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
-
-
---
--- Name: project_template_jobs project_template_jobs_template_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.project_template_jobs
-    ADD CONSTRAINT project_template_jobs_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.project_templates(id) ON DELETE CASCADE;
-
-
---
--- Name: project_template_tasks project_template_tasks_template_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.project_template_tasks
-    ADD CONSTRAINT project_template_tasks_template_job_id_fkey FOREIGN KEY (template_job_id) REFERENCES public.project_template_jobs(id) ON DELETE CASCADE;
-
-
---
--- Name: project_templates project_templates_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.project_templates
-    ADD CONSTRAINT project_templates_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: projects projects_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.projects
-    ADD CONSTRAINT projects_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: projects projects_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.projects
-    ADD CONSTRAINT projects_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: projects projects_monthly_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.projects
-    ADD CONSTRAINT projects_monthly_plan_id_fkey FOREIGN KEY (monthly_plan_id) REFERENCES public.monthly_plans(id) ON DELETE SET NULL;
-
-
---
--- Name: projects projects_owner_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.projects
-    ADD CONSTRAINT projects_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id);
-
-
---
--- Name: sla_rules sla_rules_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.sla_rules
-    ADD CONSTRAINT sla_rules_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: sla_rules sla_rules_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.sla_rules
-    ADD CONSTRAINT sla_rules_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
-
-
---
--- Name: social_connections social_connections_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.social_connections
-    ADD CONSTRAINT social_connections_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: social_connections social_connections_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.social_connections
-    ADD CONSTRAINT social_connections_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: social_connections social_connections_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.social_connections
-    ADD CONSTRAINT social_connections_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: social_posts social_posts_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.social_posts
-    ADD CONSTRAINT social_posts_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: social_posts social_posts_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.social_posts
-    ADD CONSTRAINT social_posts_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE SET NULL;
-
-
---
--- Name: social_posts social_posts_connection_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.social_posts
-    ADD CONSTRAINT social_posts_connection_id_fkey FOREIGN KEY (connection_id) REFERENCES public.social_connections(id) ON DELETE CASCADE;
-
-
---
--- Name: social_posts social_posts_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.social_posts
-    ADD CONSTRAINT social_posts_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-
---
--- Name: task_comments task_comments_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.task_comments
-    ADD CONSTRAINT task_comments_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: task_comments task_comments_task_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.task_comments
-    ADD CONSTRAINT task_comments_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id) ON DELETE CASCADE;
-
-
---
--- Name: task_subtasks task_subtasks_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.task_subtasks
-    ADD CONSTRAINT task_subtasks_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: task_subtasks task_subtasks_task_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.task_subtasks
-    ADD CONSTRAINT task_subtasks_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id) ON DELETE CASCADE;
-
-
---
--- Name: task_time_entries task_time_entries_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.task_time_entries
-    ADD CONSTRAINT task_time_entries_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: task_time_entries task_time_entries_task_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.task_time_entries
-    ADD CONSTRAINT task_time_entries_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id) ON DELETE CASCADE;
-
-
---
--- Name: tasks tasks_assignee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tasks
-    ADD CONSTRAINT tasks_assignee_id_fkey FOREIGN KEY (assignee_id) REFERENCES auth.users(id);
-
-
---
--- Name: tasks tasks_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tasks
-    ADD CONSTRAINT tasks_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: tasks tasks_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tasks
-    ADD CONSTRAINT tasks_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: tasks tasks_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tasks
-    ADD CONSTRAINT tasks_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
-
-
---
--- Name: tasks tasks_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tasks
-    ADD CONSTRAINT tasks_job_id_fkey FOREIGN KEY (job_id) REFERENCES public.project_jobs(id) ON DELETE SET NULL;
-
-
---
--- Name: tasks tasks_post_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tasks
-    ADD CONSTRAINT tasks_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.posts(id) ON DELETE CASCADE;
-
-
---
--- Name: tasks tasks_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tasks
-    ADD CONSTRAINT tasks_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
-
-
---
--- Name: user_profiles user_profiles_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.user_profiles
-    ADD CONSTRAINT user_profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-
---
--- Name: whatsapp_recipients whatsapp_recipients_brand_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.whatsapp_recipients
-    ADD CONSTRAINT whatsapp_recipients_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE CASCADE;
-
-
---
--- Name: whatsapp_recipients whatsapp_recipients_client_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.whatsapp_recipients
-    ADD CONSTRAINT whatsapp_recipients_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id) ON DELETE CASCADE;
-
-
---
--- Name: brand_connections Members can read brand connections; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Members can read brand connections" ON public.brand_connections FOR SELECT TO authenticated USING (public.is_brand_member(brand_id, auth.uid()));
-
-
---
--- Name: brand_connections Members can update brand connections; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Members can update brand connections" ON public.brand_connections FOR UPDATE TO authenticated USING (public.is_brand_member(brand_id, auth.uid())) WITH CHECK (public.is_brand_member(brand_id, auth.uid()));
-
-
---
--- Name: brand_connections Members can upsert brand connections; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Members can upsert brand connections" ON public.brand_connections FOR INSERT TO authenticated WITH CHECK (public.is_brand_member(brand_id, auth.uid()));
-
-
---
--- Name: client_members Portal user reads own membership; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Portal user reads own membership" ON public.client_members FOR SELECT TO authenticated USING (((user_id = auth.uid()) AND (role = 'portal_client'::text)));
-
-
---
--- Name: ai_model_health Super admins can view ai model health; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Super admins can view ai model health" ON public.ai_model_health FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.user_profiles up
-  WHERE ((up.id = auth.uid()) AND (up.is_super_admin = true)))));
-
-
---
--- Name: meta_oauth_sessions Users can delete own meta sessions; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can delete own meta sessions" ON public.meta_oauth_sessions FOR DELETE TO authenticated USING ((user_id = auth.uid()));
-
-
---
--- Name: meta_oauth_sessions Users can read own meta sessions; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can read own meta sessions" ON public.meta_oauth_sessions FOR SELECT TO authenticated USING ((user_id = auth.uid()));
-
-
---
--- Name: meta_oauth_sessions Users can update own meta sessions; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users can update own meta sessions" ON public.meta_oauth_sessions FOR UPDATE TO authenticated USING ((user_id = auth.uid())) WITH CHECK ((user_id = auth.uid()));
-
-
---
--- Name: user_profiles Users see own profile; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users see own profile" ON public.user_profiles FOR SELECT TO authenticated USING ((auth.uid() = id));
-
-
---
--- Name: user_profiles Users see profiles of shared brand members; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Users see profiles of shared brand members" ON public.user_profiles FOR SELECT TO authenticated USING (((id = auth.uid()) OR public.is_super_admin(auth.uid()) OR (EXISTS ( SELECT 1
-   FROM (public.brand_members me
-     JOIN public.brand_members other ON ((other.brand_id = me.brand_id)))
-  WHERE ((me.user_id = auth.uid()) AND me.is_active AND (other.user_id = user_profiles.id) AND other.is_active)))));
-
-
---
--- Name: user_profiles Usuários atualizam próprio perfil; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Usuários atualizam próprio perfil" ON public.user_profiles FOR UPDATE TO authenticated USING ((auth.uid() = id)) WITH CHECK ((auth.uid() = id));
-
+ALTER TABLE ONLY public.brain_events FORCE ROW LEVEL SECURITY;
 
 --
 -- Name: activity_events; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.activity_events ENABLE ROW LEVEL SECURITY;
-
---
--- Name: content_pipeline_stages admin level delete stages; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "admin level delete stages" ON public.content_pipeline_stages FOR DELETE TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.content_pipelines p
-  WHERE ((p.id = content_pipeline_stages.pipeline_id) AND public.is_brand_admin_level(p.brand_id, auth.uid())))));
-
-
---
--- Name: content_pipeline_stages admin level insert stages; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "admin level insert stages" ON public.content_pipeline_stages FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.content_pipelines p
-  WHERE ((p.id = content_pipeline_stages.pipeline_id) AND public.is_brand_admin_level(p.brand_id, auth.uid())))));
-
-
---
--- Name: content_pipeline_stages admin level update stages; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "admin level update stages" ON public.content_pipeline_stages FOR UPDATE TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.content_pipelines p
-  WHERE ((p.id = content_pipeline_stages.pipeline_id) AND public.is_brand_admin_level(p.brand_id, auth.uid()))))) WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.content_pipelines p
-  WHERE ((p.id = content_pipeline_stages.pipeline_id) AND public.is_brand_admin_level(p.brand_id, auth.uid())))));
-
-
---
--- Name: brands admin level updates brand; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "admin level updates brand" ON public.brands FOR UPDATE TO authenticated USING (public.is_brand_admin_level(id, auth.uid())) WITH CHECK (public.is_brand_admin_level(id, auth.uid()));
-
-
---
--- Name: brand_members admins manage non-owner members; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "admins manage non-owner members" ON public.brand_members TO authenticated USING (((public.app_access_role(auth.uid(), brand_id) = 'admin'::text) AND (role <> 'owner'::public.app_role))) WITH CHECK (((public.app_access_role(auth.uid(), brand_id) = 'admin'::text) AND (role <> 'owner'::public.app_role)));
-
 
 --
 -- Name: agent_prompt_overrides; Type: ROW SECURITY; Schema: public; Owner: -
@@ -11865,45 +10759,10 @@ ALTER TABLE public.agent_prompt_overrides ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.agent_prompts ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: agent_prompts agent_prompts_read_super_admin; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY agent_prompts_read_super_admin ON public.agent_prompts FOR SELECT TO authenticated USING (public.is_super_admin(auth.uid()));
-
-
---
--- Name: agent_prompts agent_prompts_update_super_admin; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY agent_prompts_update_super_admin ON public.agent_prompts FOR UPDATE TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
-
-
---
--- Name: brand_ai_usage ai usage in client scope read; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "ai usage in client scope read" ON public.brand_ai_usage FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
-
-
---
 -- Name: ai_jobs; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.ai_jobs ENABLE ROW LEVEL SECURITY;
-
---
--- Name: ai_jobs ai_jobs in client scope insert; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "ai_jobs in client scope insert" ON public.ai_jobs FOR INSERT TO authenticated WITH CHECK (((auth.uid() = user_id) AND public.client_in_scope(client_id, brand_id)));
-
-
---
--- Name: ai_jobs ai_jobs in client scope read; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "ai_jobs in client scope read" ON public.ai_jobs FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
-
 
 --
 -- Name: ai_model_catalog_overrides; Type: ROW SECURITY; Schema: public; Owner: -
@@ -11924,71 +10783,6 @@ ALTER TABLE public.ai_model_health ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ai_usage_limits ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: ai_usage_limits ai_usage_limits_manage; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY ai_usage_limits_manage ON public.ai_usage_limits TO authenticated USING (public.can_manage_brand_ai_limits(brand_id, auth.uid())) WITH CHECK (public.can_manage_brand_ai_limits(brand_id, auth.uid()));
-
-
---
--- Name: card_approval_events approval events in client scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "approval events in client scope" ON public.card_approval_events FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.posts p
-  WHERE ((p.id = card_approval_events.post_id) AND public.can_access_client(p.client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), p.brand_id)))));
-
-
---
--- Name: card_approval_tokens approval tokens in client scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "approval tokens in client scope" ON public.card_approval_tokens TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.posts p
-  WHERE ((p.id = card_approval_tokens.post_id) AND public.can_access_client(p.client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), p.brand_id))))) WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.posts p
-  WHERE ((p.id = card_approval_tokens.post_id) AND public.can_access_client(p.client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), p.brand_id)))));
-
-
---
--- Name: post_approvals approvals delete agency only; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "approvals delete agency only" ON public.post_approvals FOR DELETE TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.posts p
-  WHERE ((p.id = post_approvals.post_id) AND public.can_access_client(p.client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), p.brand_id)))));
-
-
---
--- Name: post_approvals approvals insert agency only; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "approvals insert agency only" ON public.post_approvals FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.posts p
-  WHERE ((p.id = post_approvals.post_id) AND public.can_access_client(p.client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), p.brand_id)))));
-
-
---
--- Name: post_approvals approvals read scoped; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "approvals read scoped" ON public.post_approvals FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.posts p
-  WHERE ((p.id = post_approvals.post_id) AND ((public.can_access_client(p.client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), p.brand_id)) OR (public.is_portal_client_of(p.client_id, auth.uid()) AND (p.visible_in_portal IS TRUE) AND (p.deleted_at IS NULL)))))));
-
-
---
--- Name: post_approvals approvals update agency only; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "approvals update agency only" ON public.post_approvals FOR UPDATE TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.posts p
-  WHERE ((p.id = post_approvals.post_id) AND public.can_access_client(p.client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), p.brand_id))))) WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.posts p
-  WHERE ((p.id = post_approvals.post_id) AND public.can_access_client(p.client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), p.brand_id)))));
-
-
---
 -- Name: brain_embeddings; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -12001,31 +10795,10 @@ ALTER TABLE public.brain_embeddings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.brain_events ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: brain_events brain_events_insert; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY brain_events_insert ON public.brain_events FOR INSERT TO authenticated WITH CHECK ((public.client_in_scope(client_id, brand_id) AND ((actor_id IS NULL) OR (actor_id = auth.uid())) AND (created_at >= (now() - '00:02:00'::interval)) AND (created_at <= (now() + '00:02:00'::interval))));
-
-
---
--- Name: brain_events brain_events_select; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY brain_events_select ON public.brain_events FOR SELECT TO authenticated USING ((public.is_super_admin(auth.uid()) OR public.client_in_scope(client_id, brand_id)));
-
-
---
 -- Name: brain_insights; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.brain_insights ENABLE ROW LEVEL SECURITY;
-
---
--- Name: brain_insights brain_insights select in client scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brain_insights select in client scope" ON public.brain_insights FOR SELECT TO authenticated USING (((brand_id IS NULL) OR public.is_super_admin(auth.uid()) OR public.client_in_scope(client_id, brand_id)));
-
 
 --
 -- Name: brain_learning_queue; Type: ROW SECURITY; Schema: public; Owner: -
@@ -12040,33 +10813,10 @@ ALTER TABLE public.brain_learning_queue ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.brain_memory ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: brain_memory brain_memory select in client scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brain_memory select in client scope" ON public.brain_memory FOR SELECT TO authenticated USING ((public.is_super_admin(auth.uid()) OR public.client_in_scope(client_id, brand_id)));
-
-
---
 -- Name: brain_memory_versions; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.brain_memory_versions ENABLE ROW LEVEL SECURITY;
-
---
--- Name: brain_memory_versions brain_memory_versions select in scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brain_memory_versions select in scope" ON public.brain_memory_versions FOR SELECT TO authenticated USING ((public.is_super_admin(auth.uid()) OR (EXISTS ( SELECT 1
-   FROM public.brain_memory m
-  WHERE ((m.id = brain_memory_versions.memory_id) AND public.client_in_scope(m.client_id, m.brand_id))))));
-
-
---
--- Name: brain_metrics_snapshots brain_metrics select admin scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brain_metrics select admin scope" ON public.brain_metrics_snapshots FOR SELECT TO authenticated USING ((public.is_super_admin(auth.uid()) OR ((brand_id IS NOT NULL) AND (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text])))));
-
 
 --
 -- Name: brain_metrics_snapshots; Type: ROW SECURITY; Schema: public; Owner: -
@@ -12087,24 +10837,10 @@ ALTER TABLE public.brain_reasoning_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.brain_recommendations ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: brain_recommendations brain_recommendations select in client scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brain_recommendations select in client scope" ON public.brain_recommendations FOR SELECT TO authenticated USING ((public.is_super_admin(auth.uid()) OR public.client_in_scope(client_id, brand_id)));
-
-
---
 -- Name: brain_relationships; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.brain_relationships ENABLE ROW LEVEL SECURITY;
-
---
--- Name: brain_relationships brain_relationships select in client scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brain_relationships select in client scope" ON public.brain_relationships FOR SELECT TO authenticated USING ((public.is_super_admin(auth.uid()) OR public.client_in_scope(client_id, brand_id)));
-
 
 --
 -- Name: brain_retention_config; Type: ROW SECURITY; Schema: public; Owner: -
@@ -12113,213 +10849,10 @@ CREATE POLICY "brain_relationships select in client scope" ON public.brain_relat
 ALTER TABLE public.brain_retention_config ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: brain_retention_config brain_retention_config read by any authenticated; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brain_retention_config read by any authenticated" ON public.brain_retention_config FOR SELECT TO authenticated USING (true);
-
-
---
 -- Name: brain_worker_runs; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.brain_worker_runs ENABLE ROW LEVEL SECURITY;
-
---
--- Name: brain_worker_runs brain_worker_runs_read; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY brain_worker_runs_read ON public.brain_worker_runs FOR SELECT TO authenticated USING (public.is_super_admin(auth.uid()));
-
-
---
--- Name: brand_invites brand admins create invites; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand admins create invites" ON public.brand_invites FOR INSERT TO authenticated WITH CHECK (public.can_invite_brand_role(brand_id, auth.uid(), role, email));
-
-
---
--- Name: brand_invites brand admins delete invites; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand admins delete invites" ON public.brand_invites FOR DELETE TO authenticated USING (public.is_brand_admin_level(brand_id, auth.uid()));
-
-
---
--- Name: brand_invites brand admins read invites; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand admins read invites" ON public.brand_invites FOR SELECT TO authenticated USING (public.is_brand_admin_level(brand_id, auth.uid()));
-
-
---
--- Name: brand_invites brand admins update invites; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand admins update invites" ON public.brand_invites FOR UPDATE TO authenticated USING (public.is_brand_admin_level(brand_id, auth.uid())) WITH CHECK (public.can_invite_brand_role(brand_id, auth.uid(), role, email));
-
-
---
--- Name: brand_ai_content brand members access ai content; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members access ai content" ON public.brand_ai_content USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
-
-
---
--- Name: brand_briefings brand members access briefings; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members access briefings" ON public.brand_briefings TO authenticated USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
-
-
---
--- Name: brand_competitors brand members access competitors; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members access competitors" ON public.brand_competitors USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
-
-
---
--- Name: brand_pautas brand members access pautas; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members access pautas" ON public.brand_pautas USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
-
-
---
--- Name: brand_personas brand members access personas; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members access personas" ON public.brand_personas USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
-
-
---
--- Name: brand_swot brand members access swot; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members access swot" ON public.brand_swot USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
-
-
---
--- Name: brand_voice_cards brand members access voice cards; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members access voice cards" ON public.brand_voice_cards USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
-
-
---
--- Name: brand_ai_versions brand members insert versions; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members insert versions" ON public.brand_ai_versions FOR INSERT WITH CHECK (public.can_access_client(client_id, auth.uid()));
-
-
---
--- Name: client_briefing_tokens brand members manage briefing tokens; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members manage briefing tokens" ON public.client_briefing_tokens USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
-
-
---
--- Name: client_briefings brand members manage briefings; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members manage briefings" ON public.client_briefings USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
-
-
---
--- Name: brand_api_credentials brand members manage credentials; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members manage credentials" ON public.brand_api_credentials TO authenticated USING ((public.is_brand_member(brand_id, auth.uid()) OR public.is_super_admin(auth.uid()))) WITH CHECK ((public.is_brand_member(brand_id, auth.uid()) OR public.is_super_admin(auth.uid())));
-
-
---
--- Name: media_plan_items brand members manage media plan items; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members manage media plan items" ON public.media_plan_items USING ((EXISTS ( SELECT 1
-   FROM public.media_plans mp
-  WHERE ((mp.id = media_plan_items.plan_id) AND public.can_access_client(mp.client_id, auth.uid()))))) WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.media_plans mp
-  WHERE ((mp.id = media_plan_items.plan_id) AND public.can_access_client(mp.client_id, auth.uid())))));
-
-
---
--- Name: media_plans brand members manage media plans; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members manage media plans" ON public.media_plans USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
-
-
---
--- Name: post_placements brand members manage placements; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members manage placements" ON public.post_placements USING ((EXISTS ( SELECT 1
-   FROM public.posts p
-  WHERE ((p.id = post_placements.post_id) AND public.can_access_client(p.client_id, auth.uid()))))) WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.posts p
-  WHERE ((p.id = post_placements.post_id) AND public.can_access_client(p.client_id, auth.uid())))));
-
-
---
--- Name: activity_events brand members read activity; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members read activity" ON public.activity_events FOR SELECT TO authenticated USING (
-CASE
-    WHEN (client_id IS NULL) THEN (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text]))
-    ELSE public.can_access_client(client_id, auth.uid())
-END);
-
-
---
--- Name: agent_prompt_overrides brand members read overrides; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members read overrides" ON public.agent_prompt_overrides FOR SELECT TO authenticated USING (public.is_brand_member(brand_id, auth.uid()));
-
-
---
--- Name: content_pipeline_stages brand members read stages; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members read stages" ON public.content_pipeline_stages FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.content_pipelines p
-  WHERE ((p.id = content_pipeline_stages.pipeline_id) AND public.is_brand_member(p.brand_id, auth.uid())))));
-
-
---
--- Name: message_templates brand members read templates; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members read templates" ON public.message_templates FOR SELECT TO authenticated USING ((public.is_brand_member(brand_id, auth.uid()) OR public.is_super_admin(auth.uid())));
-
-
---
--- Name: brand_ai_versions brand members read versions; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members read versions" ON public.brand_ai_versions FOR SELECT USING (public.can_access_client(client_id, auth.uid()));
-
-
---
--- Name: agent_prompt_overrides brand members write overrides; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members write overrides" ON public.agent_prompt_overrides TO authenticated USING (public.is_brand_member(brand_id, auth.uid())) WITH CHECK (public.is_brand_member(brand_id, auth.uid()));
-
-
---
--- Name: message_templates brand members write templates; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "brand members write templates" ON public.message_templates TO authenticated USING ((public.is_brand_member(brand_id, auth.uid()) OR public.is_super_admin(auth.uid()))) WITH CHECK ((public.is_brand_member(brand_id, auth.uid()) OR public.is_super_admin(auth.uid())));
-
 
 --
 -- Name: brand_ai_content; Type: ROW SECURITY; Schema: public; Owner: -
@@ -12400,34 +10933,6 @@ ALTER TABLE public.brand_connections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.brand_features ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: brand_features brand_features_delete_superadmin; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY brand_features_delete_superadmin ON public.brand_features FOR DELETE TO authenticated USING (public.is_super_admin(auth.uid()));
-
-
---
--- Name: brand_features brand_features_insert_superadmin; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY brand_features_insert_superadmin ON public.brand_features FOR INSERT TO authenticated WITH CHECK (public.is_super_admin(auth.uid()));
-
-
---
--- Name: brand_features brand_features_select_members_or_superadmin; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY brand_features_select_members_or_superadmin ON public.brand_features FOR SELECT TO authenticated USING ((public.is_brand_member(brand_id, auth.uid()) OR public.is_super_admin(auth.uid())));
-
-
---
--- Name: brand_features brand_features_update_superadmin; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY brand_features_update_superadmin ON public.brand_features FOR UPDATE TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
-
-
---
 -- Name: brand_invites; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -12482,94 +10987,10 @@ ALTER TABLE public.brand_voice_cards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.brands ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: brand_briefing_versions briefing versions insert staff; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "briefing versions insert staff" ON public.brand_briefing_versions FOR INSERT TO authenticated WITH CHECK ((public.can_access_client(client_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text]))));
-
-
---
--- Name: brand_briefing_versions briefing versions readable in scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "briefing versions readable in scope" ON public.brand_briefing_versions FOR SELECT TO authenticated USING (public.can_access_client(client_id, auth.uid()));
-
-
---
--- Name: brand_briefing_proposals briefing_proposals_select_scoped; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY briefing_proposals_select_scoped ON public.brand_briefing_proposals FOR SELECT TO authenticated USING (public.can_access_client(client_id, auth.uid()));
-
-
---
--- Name: brand_briefing_requests briefing_requests_select_scoped; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY briefing_requests_select_scoped ON public.brand_briefing_requests FOR SELECT TO authenticated USING (public.can_access_client(client_id, auth.uid()));
-
-
---
--- Name: brand_briefing_requests briefing_requests_update_staff; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY briefing_requests_update_staff ON public.brand_briefing_requests FOR UPDATE TO authenticated USING ((public.can_access_client(client_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text])))) WITH CHECK ((public.can_access_client(client_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text]))));
-
-
---
--- Name: brand_briefing_requests briefing_requests_write_staff; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY briefing_requests_write_staff ON public.brand_briefing_requests FOR INSERT TO authenticated WITH CHECK ((public.can_access_client(client_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text]))));
-
-
---
--- Name: brand_briefing_reviews briefing_reviews_insert_staff; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY briefing_reviews_insert_staff ON public.brand_briefing_reviews FOR INSERT TO authenticated WITH CHECK ((public.can_access_client(client_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text]))));
-
-
---
--- Name: brand_briefing_reviews briefing_reviews_select_scoped; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY briefing_reviews_select_scoped ON public.brand_briefing_reviews FOR SELECT TO authenticated USING (public.can_access_client(client_id, auth.uid()));
-
-
---
 -- Name: calendar_events; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.calendar_events ENABLE ROW LEVEL SECURITY;
-
---
--- Name: calendar_events calendar_events_delete; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY calendar_events_delete ON public.calendar_events FOR DELETE TO authenticated USING ((((is_global = true) AND public.is_super_admin(auth.uid())) OR public.client_in_scope(client_id, brand_id)));
-
-
---
--- Name: calendar_events calendar_events_insert; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY calendar_events_insert ON public.calendar_events FOR INSERT TO authenticated WITH CHECK ((((is_global = true) AND public.is_super_admin(auth.uid())) OR ((is_global = false) AND public.client_in_scope(client_id, brand_id))));
-
-
---
--- Name: calendar_events calendar_events_select_global_or_scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY calendar_events_select_global_or_scope ON public.calendar_events FOR SELECT TO authenticated USING (((is_global = true) OR public.is_super_admin(auth.uid()) OR public.client_in_scope(client_id, brand_id)));
-
-
---
--- Name: calendar_events calendar_events_update; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY calendar_events_update ON public.calendar_events FOR UPDATE TO authenticated USING ((((is_global = true) AND public.is_super_admin(auth.uid())) OR public.client_in_scope(client_id, brand_id))) WITH CHECK ((((is_global = true) AND public.is_super_admin(auth.uid())) OR public.client_in_scope(client_id, brand_id)));
-
 
 --
 -- Name: card_approval_events; Type: ROW SECURITY; Schema: public; Owner: -
@@ -12590,56 +11011,10 @@ ALTER TABLE public.card_approval_tokens ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_conversations ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: chat_conversations chat_conversations_owner_in_client_scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY chat_conversations_owner_in_client_scope ON public.chat_conversations TO authenticated USING (((user_id = auth.uid()) AND public.client_in_scope(client_id, brand_id))) WITH CHECK (((user_id = auth.uid()) AND public.client_in_scope(client_id, brand_id)));
-
-
---
 -- Name: chat_messages; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
-
---
--- Name: chat_messages chat_messages_inherit_conversation_scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY chat_messages_inherit_conversation_scope ON public.chat_messages TO authenticated USING (((user_id = auth.uid()) AND (EXISTS ( SELECT 1
-   FROM public.chat_conversations c
-  WHERE ((c.id = chat_messages.conversation_id) AND (c.user_id = auth.uid()) AND public.client_in_scope(c.client_id, c.brand_id)))))) WITH CHECK (((user_id = auth.uid()) AND (EXISTS ( SELECT 1
-   FROM public.chat_conversations c
-  WHERE ((c.id = chat_messages.conversation_id) AND (c.user_id = auth.uid()) AND public.client_in_scope(c.client_id, c.brand_id))))));
-
-
---
--- Name: client_members client memberships delete in scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "client memberships delete in scope" ON public.client_members FOR DELETE TO authenticated USING ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
-
-
---
--- Name: client_members client memberships manage in scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "client memberships manage in scope" ON public.client_members FOR INSERT TO authenticated WITH CHECK ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
-
-
---
--- Name: client_members client memberships read in scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "client memberships read in scope" ON public.client_members FOR SELECT TO authenticated USING (((user_id = auth.uid()) OR (public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id))));
-
-
---
--- Name: client_members client memberships update in scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "client memberships update in scope" ON public.client_members FOR UPDATE TO authenticated USING ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id))) WITH CHECK ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
-
 
 --
 -- Name: client_briefing_tokens; Type: ROW SECURITY; Schema: public; Owner: -
@@ -12684,41 +11059,6 @@ ALTER TABLE public.client_social_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: clients clients delete in scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "clients delete in scope" ON public.clients FOR DELETE TO authenticated USING ((public.can_access_client_row(id, brand_id, owner_user_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text]))));
-
-
---
--- Name: clients clients insert admins; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "clients insert admins" ON public.clients FOR INSERT TO authenticated WITH CHECK ((public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text])));
-
-
---
--- Name: clients clients read in scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "clients read in scope" ON public.clients FOR SELECT TO authenticated USING ((public.can_access_client_row(id, brand_id, owner_user_id, auth.uid()) OR public.is_portal_client_of(id, auth.uid())));
-
-
---
--- Name: clients clients update staff in scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "clients update staff in scope" ON public.clients FOR UPDATE TO authenticated USING ((public.can_access_client_row(id, brand_id, owner_user_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text, 'user'::text])))) WITH CHECK ((public.can_access_client_row(id, brand_id, owner_user_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text, 'user'::text]))));
-
-
---
--- Name: brand_cohorts cohorts in client scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "cohorts in client scope" ON public.brand_cohorts TO authenticated USING (public.client_in_scope(client_id, brand_id)) WITH CHECK (public.client_in_scope(client_id, brand_id));
-
-
---
 -- Name: content_pipeline_stages; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -12731,80 +11071,10 @@ ALTER TABLE public.content_pipeline_stages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.content_pipelines ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: client_social_accounts csa admins delete; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "csa admins delete" ON public.client_social_accounts FOR DELETE TO authenticated USING ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
-
-
---
--- Name: client_social_accounts csa admins insert; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "csa admins insert" ON public.client_social_accounts FOR INSERT TO authenticated WITH CHECK ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
-
-
---
--- Name: client_social_accounts csa admins update; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "csa admins update" ON public.client_social_accounts FOR UPDATE TO authenticated USING ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id))) WITH CHECK ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
-
-
---
--- Name: client_social_accounts csa in client scope read; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "csa in client scope read" ON public.client_social_accounts FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
-
-
---
--- Name: client_social_accounts csa super admin; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "csa super admin" ON public.client_social_accounts TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
-
-
---
--- Name: client_documents documents in client scope delete; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "documents in client scope delete" ON public.client_documents FOR DELETE TO authenticated USING (public.client_in_scope(client_id, brand_id));
-
-
---
--- Name: client_documents documents in client scope insert; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "documents in client scope insert" ON public.client_documents FOR INSERT TO authenticated WITH CHECK (public.client_in_scope(client_id, brand_id));
-
-
---
--- Name: client_documents documents in client scope read; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "documents in client scope read" ON public.client_documents FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
-
-
---
--- Name: client_documents documents in client scope update; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "documents in client scope update" ON public.client_documents FOR UPDATE TO authenticated USING (public.client_in_scope(client_id, brand_id)) WITH CHECK (public.client_in_scope(client_id, brand_id));
-
-
---
 -- Name: evolution_events; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.evolution_events ENABLE ROW LEVEL SECURITY;
-
---
--- Name: evolution_events evolution_events_select_scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY evolution_events_select_scope ON public.evolution_events FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
-
 
 --
 -- Name: evolution_instances; Type: ROW SECURITY; Schema: public; Owner: -
@@ -12813,128 +11083,16 @@ CREATE POLICY evolution_events_select_scope ON public.evolution_events FOR SELEC
 ALTER TABLE public.evolution_instances ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: evolution_instances evolution_instances_delete_admin; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY evolution_instances_delete_admin ON public.evolution_instances FOR DELETE TO authenticated USING (((public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text])) AND public.client_in_scope(client_id, brand_id)));
-
-
---
--- Name: evolution_instances evolution_instances_insert_admin; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY evolution_instances_insert_admin ON public.evolution_instances FOR INSERT TO authenticated WITH CHECK (((public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text])) AND public.client_in_scope(client_id, brand_id)));
-
-
---
--- Name: evolution_instances evolution_instances_select_scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY evolution_instances_select_scope ON public.evolution_instances FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
-
-
---
--- Name: evolution_instances evolution_instances_update_admin; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY evolution_instances_update_admin ON public.evolution_instances FOR UPDATE TO authenticated USING (((public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text])) AND public.client_in_scope(client_id, brand_id))) WITH CHECK (((public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text])) AND public.client_in_scope(client_id, brand_id)));
-
-
---
 -- Name: feature_catalog; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.feature_catalog ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: feature_catalog feature_catalog_delete_superadmin; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY feature_catalog_delete_superadmin ON public.feature_catalog FOR DELETE TO authenticated USING (public.is_super_admin(auth.uid()));
-
-
---
--- Name: feature_catalog feature_catalog_insert_superadmin; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY feature_catalog_insert_superadmin ON public.feature_catalog FOR INSERT TO authenticated WITH CHECK (public.is_super_admin(auth.uid()));
-
-
---
--- Name: feature_catalog feature_catalog_select_authenticated; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY feature_catalog_select_authenticated ON public.feature_catalog FOR SELECT TO authenticated USING (true);
-
-
---
--- Name: feature_catalog feature_catalog_update_superadmin; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY feature_catalog_update_superadmin ON public.feature_catalog FOR UPDATE TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
-
-
---
 -- Name: installation; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.installation ENABLE ROW LEVEL SECURITY;
-
---
--- Name: installation installation_select_public; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY installation_select_public ON public.installation FOR SELECT USING (true);
-
-
---
--- Name: installation installation_update_super_admin; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY installation_update_super_admin ON public.installation FOR UPDATE TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
-
-
---
--- Name: brands internal users create brand; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "internal users create brand" ON public.brands FOR INSERT TO authenticated WITH CHECK (((created_by = auth.uid()) AND public.can_create_brand(auth.uid())));
-
-
---
--- Name: brand_invites invitee reads own invite; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "invitee reads own invite" ON public.brand_invites FOR SELECT TO authenticated USING ((lower(email) = lower(COALESCE((auth.jwt() ->> 'email'::text), ''::text))));
-
-
---
--- Name: client_journey_events journey_events in client scope insert; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "journey_events in client scope insert" ON public.client_journey_events FOR INSERT TO authenticated WITH CHECK ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
-
-
---
--- Name: client_journey_events journey_events in client scope read; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "journey_events in client scope read" ON public.client_journey_events FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
-
-
---
--- Name: brand_members managers manage user members; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "managers manage user members" ON public.brand_members TO authenticated USING (((public.app_access_role(auth.uid(), brand_id) = 'manager'::text) AND (role = 'user'::public.app_role))) WITH CHECK (((public.app_access_role(auth.uid(), brand_id) = 'manager'::text) AND (role = 'user'::public.app_role)));
-
-
---
--- Name: brand_media_assets media in client scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "media in client scope" ON public.brand_media_assets TO authenticated USING ((public.is_super_admin(auth.uid()) OR public.client_in_scope(client_id, brand_id))) WITH CHECK ((public.is_super_admin(auth.uid()) OR public.client_in_scope(client_id, brand_id)));
-
 
 --
 -- Name: media_plan_items; Type: ROW SECURITY; Schema: public; Owner: -
@@ -12949,38 +11107,10 @@ ALTER TABLE public.media_plan_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.media_plans ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: brands members read brand; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "members read brand" ON public.brands FOR SELECT TO authenticated USING (public.is_brand_member(id, auth.uid()));
-
-
---
--- Name: brand_members members read brand memberships; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "members read brand memberships" ON public.brand_members FOR SELECT TO authenticated USING ((((user_id = auth.uid()) OR public.is_brand_member(brand_id, auth.uid())) AND ((NOT public.is_super_admin(user_id)) OR public.is_super_admin(auth.uid()))));
-
-
---
 -- Name: message_logs; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.message_logs ENABLE ROW LEVEL SECURITY;
-
---
--- Name: message_logs message_logs_scoped_insert; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY message_logs_scoped_insert ON public.message_logs FOR INSERT TO authenticated WITH CHECK ((public.is_super_admin(auth.uid()) OR ((client_id IS NOT NULL) AND public.client_in_scope(client_id, brand_id)) OR ((client_id IS NULL) AND public.is_brand_member(brand_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = 'admin'::text))));
-
-
---
--- Name: message_logs message_logs_scoped_select; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY message_logs_scoped_select ON public.message_logs FOR SELECT TO authenticated USING ((public.is_super_admin(auth.uid()) OR ((client_id IS NOT NULL) AND public.client_in_scope(client_id, brand_id)) OR ((client_id IS NULL) AND public.is_brand_member(brand_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = 'admin'::text))));
-
 
 --
 -- Name: message_templates; Type: ROW SECURITY; Schema: public; Owner: -
@@ -12999,13 +11129,6 @@ ALTER TABLE public.meta_compliance_events ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.meta_oauth_sessions ENABLE ROW LEVEL SECURITY;
-
---
--- Name: monthly_plan_tokens monthly plan tokens in client scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "monthly plan tokens in client scope" ON public.monthly_plan_tokens TO authenticated USING (public.client_in_scope(client_id, brand_id)) WITH CHECK (public.client_in_scope(client_id, brand_id));
-
 
 --
 -- Name: monthly_plan_tokens; Type: ROW SECURITY; Schema: public; Owner: -
@@ -13032,129 +11155,10 @@ ALTER TABLE public.monthly_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: plan_overage_requests overage admins decide; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "overage admins decide" ON public.plan_overage_requests FOR UPDATE TO authenticated USING ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id))) WITH CHECK ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
-
-
---
--- Name: plan_overage_requests overage admins delete; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "overage admins delete" ON public.plan_overage_requests FOR DELETE TO authenticated USING ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
-
-
---
--- Name: plan_overage_requests overage in client scope insert; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "overage in client scope insert" ON public.plan_overage_requests FOR INSERT TO authenticated WITH CHECK ((public.client_in_scope(client_id, brand_id) AND (requested_by = auth.uid())));
-
-
---
--- Name: plan_overage_requests overage in client scope read; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "overage in client scope read" ON public.plan_overage_requests FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
-
-
---
--- Name: ai_jobs owner deletes ai_jobs in client scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "owner deletes ai_jobs in client scope" ON public.ai_jobs FOR DELETE TO authenticated USING (((auth.uid() = user_id) AND public.client_in_scope(client_id, brand_id)));
-
-
---
--- Name: brands owner or super admin deletes brand; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "owner or super admin deletes brand" ON public.brands FOR DELETE TO authenticated USING (public.can_delete_brand(id, auth.uid()));
-
-
---
--- Name: ai_jobs owner updates ai_jobs in client scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "owner updates ai_jobs in client scope" ON public.ai_jobs FOR UPDATE TO authenticated USING (((auth.uid() = user_id) AND public.client_in_scope(client_id, brand_id))) WITH CHECK (((auth.uid() = user_id) AND public.client_in_scope(client_id, brand_id)));
-
-
---
--- Name: brand_members owners manage brand members; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "owners manage brand members" ON public.brand_members TO authenticated USING (public.has_brand_role(brand_id, auth.uid(), 'owner'::public.app_role)) WITH CHECK (public.has_brand_role(brand_id, auth.uid(), 'owner'::public.app_role));
-
-
---
--- Name: content_pipelines pipelines in client scope delete; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "pipelines in client scope delete" ON public.content_pipelines FOR DELETE TO authenticated USING (public.client_in_scope(client_id, brand_id));
-
-
---
--- Name: content_pipelines pipelines in client scope insert; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "pipelines in client scope insert" ON public.content_pipelines FOR INSERT TO authenticated WITH CHECK (public.client_in_scope(client_id, brand_id));
-
-
---
--- Name: content_pipelines pipelines in client scope read; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "pipelines in client scope read" ON public.content_pipelines FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
-
-
---
--- Name: content_pipelines pipelines in client scope update; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "pipelines in client scope update" ON public.content_pipelines FOR UPDATE TO authenticated USING (public.client_in_scope(client_id, brand_id)) WITH CHECK (public.client_in_scope(client_id, brand_id));
-
-
---
 -- Name: plan_overage_requests; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.plan_overage_requests ENABLE ROW LEVEL SECURITY;
-
---
--- Name: monthly_plans plans delete agency only; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "plans delete agency only" ON public.monthly_plans FOR DELETE TO authenticated USING ((public.can_access_client(client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), brand_id)));
-
-
---
--- Name: monthly_plans plans insert agency only; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "plans insert agency only" ON public.monthly_plans FOR INSERT TO authenticated WITH CHECK ((public.can_access_client(client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), brand_id)));
-
-
---
--- Name: monthly_plans plans read scoped; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "plans read scoped" ON public.monthly_plans FOR SELECT TO authenticated USING ((public.can_access_client(client_id, auth.uid()) OR public.is_portal_client_of(client_id, auth.uid())));
-
-
---
--- Name: monthly_plans plans update agency only; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "plans update agency only" ON public.monthly_plans FOR UPDATE TO authenticated USING ((public.can_access_client(client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), brand_id))) WITH CHECK ((public.can_access_client(client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), brand_id)));
-
-
---
--- Name: brand_briefings portal client reads own briefing; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "portal client reads own briefing" ON public.brand_briefings FOR SELECT TO authenticated USING (public.is_portal_client_of(client_id, auth.uid()));
-
 
 --
 -- Name: portal_rate_limit; Type: ROW SECURITY; Schema: public; Owner: -
@@ -13187,45 +11191,10 @@ ALTER TABLE public.post_placements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.posts ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: posts posts delete agency only; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "posts delete agency only" ON public.posts FOR DELETE TO authenticated USING ((public.can_access_client(client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), brand_id)));
-
-
---
--- Name: posts posts insert agency only; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "posts insert agency only" ON public.posts FOR INSERT TO authenticated WITH CHECK ((public.can_access_client(client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), brand_id)));
-
-
---
--- Name: posts posts read scoped; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "posts read scoped" ON public.posts FOR SELECT TO authenticated USING (((public.can_access_client(client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), brand_id)) OR (public.is_portal_client_of(client_id, auth.uid()) AND (visible_in_portal IS TRUE) AND (deleted_at IS NULL))));
-
-
---
--- Name: posts posts update agency only; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "posts update agency only" ON public.posts FOR UPDATE TO authenticated USING ((public.can_access_client(client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), brand_id))) WITH CHECK ((public.can_access_client(client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), brand_id)));
-
-
---
 -- Name: project_jobs; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.project_jobs ENABLE ROW LEVEL SECURITY;
-
---
--- Name: project_jobs project_jobs via parent project; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "project_jobs via parent project" ON public.project_jobs TO authenticated USING (public.can_access_project(project_id, auth.uid())) WITH CHECK (public.can_access_project(project_id, auth.uid()));
-
 
 --
 -- Name: project_template_jobs; Type: ROW SECURITY; Schema: public; Owner: -
@@ -13246,82 +11215,10 @@ ALTER TABLE public.project_template_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.project_templates ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: project_templates project_templates delete brand; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "project_templates delete brand" ON public.project_templates FOR DELETE TO authenticated USING (((brand_id IS NOT NULL) AND public.is_brand_member(brand_id, auth.uid())));
-
-
---
--- Name: project_templates project_templates insert brand; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "project_templates insert brand" ON public.project_templates FOR INSERT TO authenticated WITH CHECK (((brand_id IS NOT NULL) AND public.is_brand_member(brand_id, auth.uid())));
-
-
---
--- Name: project_templates project_templates read visible; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "project_templates read visible" ON public.project_templates FOR SELECT TO authenticated USING ((is_system OR ((brand_id IS NOT NULL) AND public.is_brand_member(brand_id, auth.uid()))));
-
-
---
--- Name: project_templates project_templates update brand; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "project_templates update brand" ON public.project_templates FOR UPDATE TO authenticated USING (((brand_id IS NOT NULL) AND public.is_brand_member(brand_id, auth.uid()))) WITH CHECK (((brand_id IS NOT NULL) AND public.is_brand_member(brand_id, auth.uid())));
-
-
---
 -- Name: projects; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
-
---
--- Name: projects projects read in scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "projects read in scope" ON public.projects FOR SELECT TO authenticated USING (
-CASE
-    WHEN (client_id IS NULL) THEN (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text]))
-    ELSE public.can_access_client(client_id, auth.uid())
-END);
-
-
---
--- Name: projects projects write agency only; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "projects write agency only" ON public.projects TO authenticated USING ((public.is_agency_operator(auth.uid(), brand_id) AND
-CASE
-    WHEN (client_id IS NULL) THEN (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text]))
-    ELSE public.can_access_client(client_id, auth.uid())
-END)) WITH CHECK ((public.is_agency_operator(auth.uid(), brand_id) AND
-CASE
-    WHEN (client_id IS NULL) THEN (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text]))
-    ELSE public.can_access_client(client_id, auth.uid())
-END));
-
-
---
--- Name: brain_reasoning_logs reasoning logs owner read in client scope; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "reasoning logs owner read in client scope" ON public.brain_reasoning_logs FOR SELECT TO authenticated USING (((user_id = auth.uid()) AND public.client_in_scope(client_id, brand_id)));
-
-
---
--- Name: portal_tokens scoped members manage portal tokens; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "scoped members manage portal tokens" ON public.portal_tokens TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.clients c
-  WHERE ((c.id = portal_tokens.client_id) AND public.can_access_client_row(c.id, c.brand_id, c.owner_user_id, auth.uid()))))) WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.clients c
-  WHERE ((c.id = portal_tokens.client_id) AND public.can_access_client_row(c.id, c.brand_id, c.owner_user_id, auth.uid())))));
-
 
 --
 -- Name: sla_rules; Type: ROW SECURITY; Schema: public; Owner: -
@@ -13330,212 +11227,16 @@ CREATE POLICY "scoped members manage portal tokens" ON public.portal_tokens TO a
 ALTER TABLE public.sla_rules ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: sla_rules sla_rules_read_members; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY sla_rules_read_members ON public.sla_rules FOR SELECT TO authenticated USING (public.is_brand_member(brand_id, auth.uid()));
-
-
---
--- Name: sla_rules sla_rules_write_managers; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY sla_rules_write_managers ON public.sla_rules TO authenticated USING (public.is_brand_admin_level(brand_id, auth.uid())) WITH CHECK (public.is_brand_admin_level(brand_id, auth.uid()));
-
-
---
 -- Name: social_connections; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.social_connections ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: social_connections social_connections admins delete; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "social_connections admins delete" ON public.social_connections FOR DELETE TO authenticated USING ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
-
-
---
--- Name: social_connections social_connections admins insert; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "social_connections admins insert" ON public.social_connections FOR INSERT TO authenticated WITH CHECK ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
-
-
---
--- Name: social_connections social_connections admins update; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "social_connections admins update" ON public.social_connections FOR UPDATE TO authenticated USING ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id))) WITH CHECK ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
-
-
---
--- Name: social_connections social_connections in scope read; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "social_connections in scope read" ON public.social_connections FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
-
-
---
 -- Name: social_posts; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.social_posts ENABLE ROW LEVEL SECURITY;
-
---
--- Name: social_posts social_posts in client scope delete; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "social_posts in client scope delete" ON public.social_posts FOR DELETE TO authenticated USING (public.client_in_scope(client_id, brand_id));
-
-
---
--- Name: social_posts social_posts in client scope insert; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "social_posts in client scope insert" ON public.social_posts FOR INSERT TO authenticated WITH CHECK (public.client_in_scope(client_id, brand_id));
-
-
---
--- Name: social_posts social_posts in client scope read; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "social_posts in client scope read" ON public.social_posts FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
-
-
---
--- Name: social_posts social_posts in client scope update; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "social_posts in client scope update" ON public.social_posts FOR UPDATE TO authenticated USING (public.client_in_scope(client_id, brand_id));
-
-
---
--- Name: brand_journey_stage_templates stage_templates_modify_admin_manager; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY stage_templates_modify_admin_manager ON public.brand_journey_stage_templates TO authenticated USING (public.is_brand_admin_level(brand_id, auth.uid())) WITH CHECK (public.is_brand_admin_level(brand_id, auth.uid()));
-
-
---
--- Name: brand_journey_stage_templates stage_templates_select_brand_members; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY stage_templates_select_brand_members ON public.brand_journey_stage_templates FOR SELECT TO authenticated USING (public.is_brand_member(brand_id, auth.uid()));
-
-
---
--- Name: task_subtasks subtasks delete via parent task; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "subtasks delete via parent task" ON public.task_subtasks FOR DELETE TO authenticated USING (public.can_access_task(task_id, auth.uid()));
-
-
---
--- Name: task_subtasks subtasks insert via parent task; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "subtasks insert via parent task" ON public.task_subtasks FOR INSERT TO authenticated WITH CHECK (public.can_access_task(task_id, auth.uid()));
-
-
---
--- Name: task_subtasks subtasks select via parent task; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "subtasks select via parent task" ON public.task_subtasks FOR SELECT TO authenticated USING (public.can_access_task(task_id, auth.uid()));
-
-
---
--- Name: task_subtasks subtasks update via parent task; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "subtasks update via parent task" ON public.task_subtasks FOR UPDATE TO authenticated USING (public.can_access_task(task_id, auth.uid())) WITH CHECK (public.can_access_task(task_id, auth.uid()));
-
-
---
--- Name: ai_model_catalog_overrides super admins read model overrides; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "super admins read model overrides" ON public.ai_model_catalog_overrides FOR SELECT TO authenticated USING (public.is_super_admin(auth.uid()));
-
-
---
--- Name: ai_jobs super_admin_full_access; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY super_admin_full_access ON public.ai_jobs TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
-
-
---
--- Name: brain_reasoning_logs super_admin_full_access; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY super_admin_full_access ON public.brain_reasoning_logs TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
-
-
---
--- Name: brand_invites super_admin_full_access; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY super_admin_full_access ON public.brand_invites TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
-
-
---
--- Name: brand_members super_admin_full_access; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY super_admin_full_access ON public.brand_members TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
-
-
---
--- Name: chat_conversations super_admin_full_access; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY super_admin_full_access ON public.chat_conversations TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
-
-
---
--- Name: chat_messages super_admin_full_access; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY super_admin_full_access ON public.chat_messages TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
-
-
---
--- Name: notifications super_admin_full_access; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY super_admin_full_access ON public.notifications TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
-
-
---
--- Name: social_connections super_admin_full_access; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY super_admin_full_access ON public.social_connections TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
-
-
---
--- Name: social_posts super_admin_full_access; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY super_admin_full_access ON public.social_posts TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
-
-
---
--- Name: user_profiles super_admin_full_access; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY super_admin_full_access ON public.user_profiles TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
-
-
---
--- Name: task_comments task comments via parent task; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "task comments via parent task" ON public.task_comments TO authenticated USING (public.can_access_task(task_id, auth.uid())) WITH CHECK (public.can_access_task(task_id, auth.uid()));
-
 
 --
 -- Name: task_comments; Type: ROW SECURITY; Schema: public; Owner: -
@@ -13562,6 +11263,1160 @@ ALTER TABLE public.task_time_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: user_profiles; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: whatsapp_recipients; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.whatsapp_recipients ENABLE ROW LEVEL SECURITY;
+
+
+-- ============================ POLICIES (200) ============================
+
+--
+-- Name: brand_connections Members can read brand connections; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Members can read brand connections" ON public.brand_connections FOR SELECT TO authenticated USING (public.is_brand_member(brand_id, auth.uid()));
+
+--
+-- Name: brand_connections Members can update brand connections; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Members can update brand connections" ON public.brand_connections FOR UPDATE TO authenticated USING (public.is_brand_member(brand_id, auth.uid())) WITH CHECK (public.is_brand_member(brand_id, auth.uid()));
+
+--
+-- Name: brand_connections Members can upsert brand connections; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Members can upsert brand connections" ON public.brand_connections FOR INSERT TO authenticated WITH CHECK (public.is_brand_member(brand_id, auth.uid()));
+
+--
+-- Name: client_members Portal user reads own membership; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Portal user reads own membership" ON public.client_members FOR SELECT TO authenticated USING (((user_id = auth.uid()) AND (role = 'portal_client'::text)));
+
+--
+-- Name: ai_model_health Super admins can view ai model health; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Super admins can view ai model health" ON public.ai_model_health FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
+   FROM public.user_profiles up
+  WHERE ((up.id = auth.uid()) AND (up.is_super_admin = true)))));
+
+--
+-- Name: meta_oauth_sessions Users can delete own meta sessions; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can delete own meta sessions" ON public.meta_oauth_sessions FOR DELETE TO authenticated USING ((user_id = auth.uid()));
+
+--
+-- Name: meta_oauth_sessions Users can read own meta sessions; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can read own meta sessions" ON public.meta_oauth_sessions FOR SELECT TO authenticated USING ((user_id = auth.uid()));
+
+--
+-- Name: meta_oauth_sessions Users can update own meta sessions; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can update own meta sessions" ON public.meta_oauth_sessions FOR UPDATE TO authenticated USING ((user_id = auth.uid())) WITH CHECK ((user_id = auth.uid()));
+
+--
+-- Name: user_profiles Users see own profile; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users see own profile" ON public.user_profiles FOR SELECT TO authenticated USING ((auth.uid() = id));
+
+--
+-- Name: user_profiles Users see profiles of shared brand members; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users see profiles of shared brand members" ON public.user_profiles FOR SELECT TO authenticated USING (((id = auth.uid()) OR public.is_super_admin(auth.uid()) OR (EXISTS ( SELECT 1
+   FROM (public.brand_members me
+     JOIN public.brand_members other ON ((other.brand_id = me.brand_id)))
+  WHERE ((me.user_id = auth.uid()) AND me.is_active AND (other.user_id = user_profiles.id) AND other.is_active)))));
+
+--
+-- Name: user_profiles Usuários atualizam próprio perfil; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Usuários atualizam próprio perfil" ON public.user_profiles FOR UPDATE TO authenticated USING ((auth.uid() = id)) WITH CHECK ((auth.uid() = id));
+
+--
+-- Name: content_pipeline_stages admin level delete stages; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "admin level delete stages" ON public.content_pipeline_stages FOR DELETE TO authenticated USING ((EXISTS ( SELECT 1
+   FROM public.content_pipelines p
+  WHERE ((p.id = content_pipeline_stages.pipeline_id) AND public.is_brand_admin_level(p.brand_id, auth.uid())))));
+
+--
+-- Name: content_pipeline_stages admin level insert stages; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "admin level insert stages" ON public.content_pipeline_stages FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
+   FROM public.content_pipelines p
+  WHERE ((p.id = content_pipeline_stages.pipeline_id) AND public.is_brand_admin_level(p.brand_id, auth.uid())))));
+
+--
+-- Name: content_pipeline_stages admin level update stages; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "admin level update stages" ON public.content_pipeline_stages FOR UPDATE TO authenticated USING ((EXISTS ( SELECT 1
+   FROM public.content_pipelines p
+  WHERE ((p.id = content_pipeline_stages.pipeline_id) AND public.is_brand_admin_level(p.brand_id, auth.uid()))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM public.content_pipelines p
+  WHERE ((p.id = content_pipeline_stages.pipeline_id) AND public.is_brand_admin_level(p.brand_id, auth.uid())))));
+
+--
+-- Name: brands admin level updates brand; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "admin level updates brand" ON public.brands FOR UPDATE TO authenticated USING (public.is_brand_admin_level(id, auth.uid())) WITH CHECK (public.is_brand_admin_level(id, auth.uid()));
+
+--
+-- Name: brand_members admins manage non-owner members; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "admins manage non-owner members" ON public.brand_members TO authenticated USING (((public.app_access_role(auth.uid(), brand_id) = 'admin'::text) AND (role <> 'owner'::public.app_role))) WITH CHECK (((public.app_access_role(auth.uid(), brand_id) = 'admin'::text) AND (role <> 'owner'::public.app_role)));
+
+--
+-- Name: agent_prompts agent_prompts_read_super_admin; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY agent_prompts_read_super_admin ON public.agent_prompts FOR SELECT TO authenticated USING (public.is_super_admin(auth.uid()));
+
+--
+-- Name: agent_prompts agent_prompts_update_super_admin; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY agent_prompts_update_super_admin ON public.agent_prompts FOR UPDATE TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
+
+--
+-- Name: brand_ai_usage ai usage in client scope read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "ai usage in client scope read" ON public.brand_ai_usage FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: ai_jobs ai_jobs in client scope insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "ai_jobs in client scope insert" ON public.ai_jobs FOR INSERT TO authenticated WITH CHECK (((auth.uid() = user_id) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: ai_jobs ai_jobs in client scope read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "ai_jobs in client scope read" ON public.ai_jobs FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: ai_usage_limits ai_usage_limits_manage; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY ai_usage_limits_manage ON public.ai_usage_limits TO authenticated USING (public.can_manage_brand_ai_limits(brand_id, auth.uid())) WITH CHECK (public.can_manage_brand_ai_limits(brand_id, auth.uid()));
+
+--
+-- Name: card_approval_events approval events in client scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "approval events in client scope" ON public.card_approval_events FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
+   FROM public.posts p
+  WHERE ((p.id = card_approval_events.post_id) AND public.can_access_client(p.client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), p.brand_id)))));
+
+--
+-- Name: card_approval_tokens approval tokens in client scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "approval tokens in client scope" ON public.card_approval_tokens TO authenticated USING ((EXISTS ( SELECT 1
+   FROM public.posts p
+  WHERE ((p.id = card_approval_tokens.post_id) AND public.can_access_client(p.client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), p.brand_id))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM public.posts p
+  WHERE ((p.id = card_approval_tokens.post_id) AND public.can_access_client(p.client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), p.brand_id)))));
+
+--
+-- Name: post_approvals approvals delete agency only; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "approvals delete agency only" ON public.post_approvals FOR DELETE TO authenticated USING ((EXISTS ( SELECT 1
+   FROM public.posts p
+  WHERE ((p.id = post_approvals.post_id) AND public.can_access_client(p.client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), p.brand_id)))));
+
+--
+-- Name: post_approvals approvals insert agency only; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "approvals insert agency only" ON public.post_approvals FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
+   FROM public.posts p
+  WHERE ((p.id = post_approvals.post_id) AND public.can_access_client(p.client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), p.brand_id)))));
+
+--
+-- Name: post_approvals approvals read scoped; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "approvals read scoped" ON public.post_approvals FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
+   FROM public.posts p
+  WHERE ((p.id = post_approvals.post_id) AND ((public.can_access_client(p.client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), p.brand_id)) OR (public.is_portal_client_of(p.client_id, auth.uid()) AND (p.visible_in_portal IS TRUE) AND (p.deleted_at IS NULL)))))));
+
+--
+-- Name: post_approvals approvals update agency only; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "approvals update agency only" ON public.post_approvals FOR UPDATE TO authenticated USING ((EXISTS ( SELECT 1
+   FROM public.posts p
+  WHERE ((p.id = post_approvals.post_id) AND public.can_access_client(p.client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), p.brand_id))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM public.posts p
+  WHERE ((p.id = post_approvals.post_id) AND public.can_access_client(p.client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), p.brand_id)))));
+
+--
+-- Name: brain_events brain_events_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY brain_events_insert ON public.brain_events FOR INSERT TO authenticated WITH CHECK ((public.client_in_scope(client_id, brand_id) AND ((actor_id IS NULL) OR (actor_id = auth.uid())) AND (created_at >= (now() - '00:02:00'::interval)) AND (created_at <= (now() + '00:02:00'::interval))));
+
+--
+-- Name: brain_events brain_events_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY brain_events_select ON public.brain_events FOR SELECT TO authenticated USING ((public.is_super_admin(auth.uid()) OR public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: brain_insights brain_insights select in client scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brain_insights select in client scope" ON public.brain_insights FOR SELECT TO authenticated USING (((brand_id IS NULL) OR public.is_super_admin(auth.uid()) OR public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: brain_memory brain_memory select in client scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brain_memory select in client scope" ON public.brain_memory FOR SELECT TO authenticated USING ((public.is_super_admin(auth.uid()) OR public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: brain_memory_versions brain_memory_versions select in scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brain_memory_versions select in scope" ON public.brain_memory_versions FOR SELECT TO authenticated USING ((public.is_super_admin(auth.uid()) OR (EXISTS ( SELECT 1
+   FROM public.brain_memory m
+  WHERE ((m.id = brain_memory_versions.memory_id) AND public.client_in_scope(m.client_id, m.brand_id))))));
+
+--
+-- Name: brain_metrics_snapshots brain_metrics select admin scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brain_metrics select admin scope" ON public.brain_metrics_snapshots FOR SELECT TO authenticated USING ((public.is_super_admin(auth.uid()) OR ((brand_id IS NOT NULL) AND (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text])))));
+
+--
+-- Name: brain_recommendations brain_recommendations select in client scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brain_recommendations select in client scope" ON public.brain_recommendations FOR SELECT TO authenticated USING ((public.is_super_admin(auth.uid()) OR public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: brain_relationships brain_relationships select in client scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brain_relationships select in client scope" ON public.brain_relationships FOR SELECT TO authenticated USING ((public.is_super_admin(auth.uid()) OR public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: brain_retention_config brain_retention_config read by any authenticated; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brain_retention_config read by any authenticated" ON public.brain_retention_config FOR SELECT TO authenticated USING (true);
+
+--
+-- Name: brain_worker_runs brain_worker_runs_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY brain_worker_runs_read ON public.brain_worker_runs FOR SELECT TO authenticated USING (public.is_super_admin(auth.uid()));
+
+--
+-- Name: brand_invites brand admins create invites; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand admins create invites" ON public.brand_invites FOR INSERT TO authenticated WITH CHECK (public.can_invite_brand_role(brand_id, auth.uid(), role, email));
+
+--
+-- Name: brand_invites brand admins delete invites; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand admins delete invites" ON public.brand_invites FOR DELETE TO authenticated USING (public.is_brand_admin_level(brand_id, auth.uid()));
+
+--
+-- Name: brand_invites brand admins read invites; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand admins read invites" ON public.brand_invites FOR SELECT TO authenticated USING (public.is_brand_admin_level(brand_id, auth.uid()));
+
+--
+-- Name: brand_invites brand admins update invites; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand admins update invites" ON public.brand_invites FOR UPDATE TO authenticated USING (public.is_brand_admin_level(brand_id, auth.uid())) WITH CHECK (public.can_invite_brand_role(brand_id, auth.uid(), role, email));
+
+--
+-- Name: brand_ai_content brand members access ai content; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members access ai content" ON public.brand_ai_content USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
+
+--
+-- Name: brand_briefings brand members access briefings; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members access briefings" ON public.brand_briefings TO authenticated USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
+
+--
+-- Name: brand_competitors brand members access competitors; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members access competitors" ON public.brand_competitors USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
+
+--
+-- Name: brand_pautas brand members access pautas; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members access pautas" ON public.brand_pautas USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
+
+--
+-- Name: brand_personas brand members access personas; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members access personas" ON public.brand_personas USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
+
+--
+-- Name: brand_swot brand members access swot; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members access swot" ON public.brand_swot USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
+
+--
+-- Name: brand_voice_cards brand members access voice cards; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members access voice cards" ON public.brand_voice_cards USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
+
+--
+-- Name: brand_ai_versions brand members insert versions; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members insert versions" ON public.brand_ai_versions FOR INSERT WITH CHECK (public.can_access_client(client_id, auth.uid()));
+
+--
+-- Name: client_briefing_tokens brand members manage briefing tokens; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members manage briefing tokens" ON public.client_briefing_tokens USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
+
+--
+-- Name: client_briefings brand members manage briefings; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members manage briefings" ON public.client_briefings USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
+
+--
+-- Name: brand_api_credentials brand members manage credentials; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members manage credentials" ON public.brand_api_credentials TO authenticated USING ((public.is_brand_member(brand_id, auth.uid()) OR public.is_super_admin(auth.uid()))) WITH CHECK ((public.is_brand_member(brand_id, auth.uid()) OR public.is_super_admin(auth.uid())));
+
+--
+-- Name: media_plan_items brand members manage media plan items; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members manage media plan items" ON public.media_plan_items USING ((EXISTS ( SELECT 1
+   FROM public.media_plans mp
+  WHERE ((mp.id = media_plan_items.plan_id) AND public.can_access_client(mp.client_id, auth.uid()))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM public.media_plans mp
+  WHERE ((mp.id = media_plan_items.plan_id) AND public.can_access_client(mp.client_id, auth.uid())))));
+
+--
+-- Name: media_plans brand members manage media plans; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members manage media plans" ON public.media_plans USING (public.can_access_client(client_id, auth.uid())) WITH CHECK (public.can_access_client(client_id, auth.uid()));
+
+--
+-- Name: post_placements brand members manage placements; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members manage placements" ON public.post_placements USING ((EXISTS ( SELECT 1
+   FROM public.posts p
+  WHERE ((p.id = post_placements.post_id) AND public.can_access_client(p.client_id, auth.uid()))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM public.posts p
+  WHERE ((p.id = post_placements.post_id) AND public.can_access_client(p.client_id, auth.uid())))));
+
+--
+-- Name: activity_events brand members read activity; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members read activity" ON public.activity_events FOR SELECT TO authenticated USING (
+CASE
+    WHEN (client_id IS NULL) THEN (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text]))
+    ELSE public.can_access_client(client_id, auth.uid())
+END);
+
+--
+-- Name: agent_prompt_overrides brand members read overrides; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members read overrides" ON public.agent_prompt_overrides FOR SELECT TO authenticated USING (public.is_brand_member(brand_id, auth.uid()));
+
+--
+-- Name: content_pipeline_stages brand members read stages; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members read stages" ON public.content_pipeline_stages FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
+   FROM public.content_pipelines p
+  WHERE ((p.id = content_pipeline_stages.pipeline_id) AND public.is_brand_member(p.brand_id, auth.uid())))));
+
+--
+-- Name: message_templates brand members read templates; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members read templates" ON public.message_templates FOR SELECT TO authenticated USING ((public.is_brand_member(brand_id, auth.uid()) OR public.is_super_admin(auth.uid())));
+
+--
+-- Name: brand_ai_versions brand members read versions; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members read versions" ON public.brand_ai_versions FOR SELECT USING (public.can_access_client(client_id, auth.uid()));
+
+--
+-- Name: agent_prompt_overrides brand members write overrides; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members write overrides" ON public.agent_prompt_overrides TO authenticated USING (public.is_brand_member(brand_id, auth.uid())) WITH CHECK (public.is_brand_member(brand_id, auth.uid()));
+
+--
+-- Name: message_templates brand members write templates; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "brand members write templates" ON public.message_templates TO authenticated USING ((public.is_brand_member(brand_id, auth.uid()) OR public.is_super_admin(auth.uid()))) WITH CHECK ((public.is_brand_member(brand_id, auth.uid()) OR public.is_super_admin(auth.uid())));
+
+--
+-- Name: brand_features brand_features_delete_superadmin; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY brand_features_delete_superadmin ON public.brand_features FOR DELETE TO authenticated USING (public.is_super_admin(auth.uid()));
+
+--
+-- Name: brand_features brand_features_insert_superadmin; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY brand_features_insert_superadmin ON public.brand_features FOR INSERT TO authenticated WITH CHECK (public.is_super_admin(auth.uid()));
+
+--
+-- Name: brand_features brand_features_select_members_or_superadmin; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY brand_features_select_members_or_superadmin ON public.brand_features FOR SELECT TO authenticated USING ((public.is_brand_member(brand_id, auth.uid()) OR public.is_super_admin(auth.uid())));
+
+--
+-- Name: brand_features brand_features_update_superadmin; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY brand_features_update_superadmin ON public.brand_features FOR UPDATE TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
+
+--
+-- Name: brand_briefing_versions briefing versions insert staff; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "briefing versions insert staff" ON public.brand_briefing_versions FOR INSERT TO authenticated WITH CHECK ((public.can_access_client(client_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text]))));
+
+--
+-- Name: brand_briefing_versions briefing versions readable in scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "briefing versions readable in scope" ON public.brand_briefing_versions FOR SELECT TO authenticated USING (public.can_access_client(client_id, auth.uid()));
+
+--
+-- Name: brand_briefing_proposals briefing_proposals_select_scoped; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY briefing_proposals_select_scoped ON public.brand_briefing_proposals FOR SELECT TO authenticated USING (public.can_access_client(client_id, auth.uid()));
+
+--
+-- Name: brand_briefing_requests briefing_requests_select_scoped; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY briefing_requests_select_scoped ON public.brand_briefing_requests FOR SELECT TO authenticated USING (public.can_access_client(client_id, auth.uid()));
+
+--
+-- Name: brand_briefing_requests briefing_requests_update_staff; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY briefing_requests_update_staff ON public.brand_briefing_requests FOR UPDATE TO authenticated USING ((public.can_access_client(client_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text])))) WITH CHECK ((public.can_access_client(client_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text]))));
+
+--
+-- Name: brand_briefing_requests briefing_requests_write_staff; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY briefing_requests_write_staff ON public.brand_briefing_requests FOR INSERT TO authenticated WITH CHECK ((public.can_access_client(client_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text]))));
+
+--
+-- Name: brand_briefing_reviews briefing_reviews_insert_staff; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY briefing_reviews_insert_staff ON public.brand_briefing_reviews FOR INSERT TO authenticated WITH CHECK ((public.can_access_client(client_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text]))));
+
+--
+-- Name: brand_briefing_reviews briefing_reviews_select_scoped; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY briefing_reviews_select_scoped ON public.brand_briefing_reviews FOR SELECT TO authenticated USING (public.can_access_client(client_id, auth.uid()));
+
+--
+-- Name: calendar_events calendar_events_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY calendar_events_delete ON public.calendar_events FOR DELETE TO authenticated USING ((((is_global = true) AND public.is_super_admin(auth.uid())) OR public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: calendar_events calendar_events_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY calendar_events_insert ON public.calendar_events FOR INSERT TO authenticated WITH CHECK ((((is_global = true) AND public.is_super_admin(auth.uid())) OR ((is_global = false) AND public.client_in_scope(client_id, brand_id))));
+
+--
+-- Name: calendar_events calendar_events_select_global_or_scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY calendar_events_select_global_or_scope ON public.calendar_events FOR SELECT TO authenticated USING (((is_global = true) OR public.is_super_admin(auth.uid()) OR public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: calendar_events calendar_events_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY calendar_events_update ON public.calendar_events FOR UPDATE TO authenticated USING ((((is_global = true) AND public.is_super_admin(auth.uid())) OR public.client_in_scope(client_id, brand_id))) WITH CHECK ((((is_global = true) AND public.is_super_admin(auth.uid())) OR public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: chat_conversations chat_conversations_owner_in_client_scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY chat_conversations_owner_in_client_scope ON public.chat_conversations TO authenticated USING (((user_id = auth.uid()) AND public.client_in_scope(client_id, brand_id))) WITH CHECK (((user_id = auth.uid()) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: chat_messages chat_messages_inherit_conversation_scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY chat_messages_inherit_conversation_scope ON public.chat_messages TO authenticated USING (((user_id = auth.uid()) AND (EXISTS ( SELECT 1
+   FROM public.chat_conversations c
+  WHERE ((c.id = chat_messages.conversation_id) AND (c.user_id = auth.uid()) AND public.client_in_scope(c.client_id, c.brand_id)))))) WITH CHECK (((user_id = auth.uid()) AND (EXISTS ( SELECT 1
+   FROM public.chat_conversations c
+  WHERE ((c.id = chat_messages.conversation_id) AND (c.user_id = auth.uid()) AND public.client_in_scope(c.client_id, c.brand_id))))));
+
+--
+-- Name: client_members client memberships delete in scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "client memberships delete in scope" ON public.client_members FOR DELETE TO authenticated USING ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: client_members client memberships manage in scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "client memberships manage in scope" ON public.client_members FOR INSERT TO authenticated WITH CHECK ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: client_members client memberships read in scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "client memberships read in scope" ON public.client_members FOR SELECT TO authenticated USING (((user_id = auth.uid()) OR (public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id))));
+
+--
+-- Name: client_members client memberships update in scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "client memberships update in scope" ON public.client_members FOR UPDATE TO authenticated USING ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id))) WITH CHECK ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: clients clients delete in scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "clients delete in scope" ON public.clients FOR DELETE TO authenticated USING ((public.can_access_client_row(id, brand_id, owner_user_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text]))));
+
+--
+-- Name: clients clients insert admins; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "clients insert admins" ON public.clients FOR INSERT TO authenticated WITH CHECK ((public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text])));
+
+--
+-- Name: clients clients read in scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "clients read in scope" ON public.clients FOR SELECT TO authenticated USING ((public.can_access_client_row(id, brand_id, owner_user_id, auth.uid()) OR public.is_portal_client_of(id, auth.uid())));
+
+--
+-- Name: clients clients update staff in scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "clients update staff in scope" ON public.clients FOR UPDATE TO authenticated USING ((public.can_access_client_row(id, brand_id, owner_user_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text, 'user'::text])))) WITH CHECK ((public.can_access_client_row(id, brand_id, owner_user_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text, 'user'::text]))));
+
+--
+-- Name: brand_cohorts cohorts in client scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "cohorts in client scope" ON public.brand_cohorts TO authenticated USING (public.client_in_scope(client_id, brand_id)) WITH CHECK (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: client_social_accounts csa admins delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "csa admins delete" ON public.client_social_accounts FOR DELETE TO authenticated USING ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: client_social_accounts csa admins insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "csa admins insert" ON public.client_social_accounts FOR INSERT TO authenticated WITH CHECK ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: client_social_accounts csa admins update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "csa admins update" ON public.client_social_accounts FOR UPDATE TO authenticated USING ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id))) WITH CHECK ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: client_social_accounts csa in client scope read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "csa in client scope read" ON public.client_social_accounts FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: client_social_accounts csa super admin; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "csa super admin" ON public.client_social_accounts TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
+
+--
+-- Name: client_documents documents in client scope delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "documents in client scope delete" ON public.client_documents FOR DELETE TO authenticated USING (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: client_documents documents in client scope insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "documents in client scope insert" ON public.client_documents FOR INSERT TO authenticated WITH CHECK (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: client_documents documents in client scope read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "documents in client scope read" ON public.client_documents FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: client_documents documents in client scope update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "documents in client scope update" ON public.client_documents FOR UPDATE TO authenticated USING (public.client_in_scope(client_id, brand_id)) WITH CHECK (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: evolution_events evolution_events_select_scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY evolution_events_select_scope ON public.evolution_events FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: evolution_instances evolution_instances_delete_admin; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY evolution_instances_delete_admin ON public.evolution_instances FOR DELETE TO authenticated USING (((public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text])) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: evolution_instances evolution_instances_insert_admin; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY evolution_instances_insert_admin ON public.evolution_instances FOR INSERT TO authenticated WITH CHECK (((public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text])) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: evolution_instances evolution_instances_select_scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY evolution_instances_select_scope ON public.evolution_instances FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: evolution_instances evolution_instances_update_admin; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY evolution_instances_update_admin ON public.evolution_instances FOR UPDATE TO authenticated USING (((public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text])) AND public.client_in_scope(client_id, brand_id))) WITH CHECK (((public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text, 'manager'::text])) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: feature_catalog feature_catalog_delete_superadmin; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY feature_catalog_delete_superadmin ON public.feature_catalog FOR DELETE TO authenticated USING (public.is_super_admin(auth.uid()));
+
+--
+-- Name: feature_catalog feature_catalog_insert_superadmin; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY feature_catalog_insert_superadmin ON public.feature_catalog FOR INSERT TO authenticated WITH CHECK (public.is_super_admin(auth.uid()));
+
+--
+-- Name: feature_catalog feature_catalog_select_authenticated; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY feature_catalog_select_authenticated ON public.feature_catalog FOR SELECT TO authenticated USING (true);
+
+--
+-- Name: feature_catalog feature_catalog_update_superadmin; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY feature_catalog_update_superadmin ON public.feature_catalog FOR UPDATE TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
+
+--
+-- Name: installation installation_select_public; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY installation_select_public ON public.installation FOR SELECT USING (true);
+
+--
+-- Name: installation installation_update_super_admin; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY installation_update_super_admin ON public.installation FOR UPDATE TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
+
+--
+-- Name: brands internal users create brand; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "internal users create brand" ON public.brands FOR INSERT TO authenticated WITH CHECK (((created_by = auth.uid()) AND public.can_create_brand(auth.uid())));
+
+--
+-- Name: brand_invites invitee reads own invite; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "invitee reads own invite" ON public.brand_invites FOR SELECT TO authenticated USING ((lower(email) = lower(COALESCE((auth.jwt() ->> 'email'::text), ''::text))));
+
+--
+-- Name: client_journey_events journey_events in client scope insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "journey_events in client scope insert" ON public.client_journey_events FOR INSERT TO authenticated WITH CHECK ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: client_journey_events journey_events in client scope read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "journey_events in client scope read" ON public.client_journey_events FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: brand_members managers manage user members; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "managers manage user members" ON public.brand_members TO authenticated USING (((public.app_access_role(auth.uid(), brand_id) = 'manager'::text) AND (role = 'user'::public.app_role))) WITH CHECK (((public.app_access_role(auth.uid(), brand_id) = 'manager'::text) AND (role = 'user'::public.app_role)));
+
+--
+-- Name: brand_media_assets media in client scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "media in client scope" ON public.brand_media_assets TO authenticated USING ((public.is_super_admin(auth.uid()) OR public.client_in_scope(client_id, brand_id))) WITH CHECK ((public.is_super_admin(auth.uid()) OR public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: brands members read brand; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "members read brand" ON public.brands FOR SELECT TO authenticated USING (public.is_brand_member(id, auth.uid()));
+
+--
+-- Name: brand_members members read brand memberships; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "members read brand memberships" ON public.brand_members FOR SELECT TO authenticated USING ((((user_id = auth.uid()) OR public.is_brand_member(brand_id, auth.uid())) AND ((NOT public.is_super_admin(user_id)) OR public.is_super_admin(auth.uid()))));
+
+--
+-- Name: message_logs message_logs_scoped_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY message_logs_scoped_insert ON public.message_logs FOR INSERT TO authenticated WITH CHECK ((public.is_super_admin(auth.uid()) OR ((client_id IS NOT NULL) AND public.client_in_scope(client_id, brand_id)) OR ((client_id IS NULL) AND public.is_brand_member(brand_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = 'admin'::text))));
+
+--
+-- Name: message_logs message_logs_scoped_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY message_logs_scoped_select ON public.message_logs FOR SELECT TO authenticated USING ((public.is_super_admin(auth.uid()) OR ((client_id IS NOT NULL) AND public.client_in_scope(client_id, brand_id)) OR ((client_id IS NULL) AND public.is_brand_member(brand_id, auth.uid()) AND (public.app_access_role(auth.uid(), brand_id) = 'admin'::text))));
+
+--
+-- Name: monthly_plan_tokens monthly plan tokens in client scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "monthly plan tokens in client scope" ON public.monthly_plan_tokens TO authenticated USING (public.client_in_scope(client_id, brand_id)) WITH CHECK (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: plan_overage_requests overage admins decide; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "overage admins decide" ON public.plan_overage_requests FOR UPDATE TO authenticated USING ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id))) WITH CHECK ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: plan_overage_requests overage admins delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "overage admins delete" ON public.plan_overage_requests FOR DELETE TO authenticated USING ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: plan_overage_requests overage in client scope insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "overage in client scope insert" ON public.plan_overage_requests FOR INSERT TO authenticated WITH CHECK ((public.client_in_scope(client_id, brand_id) AND (requested_by = auth.uid())));
+
+--
+-- Name: plan_overage_requests overage in client scope read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "overage in client scope read" ON public.plan_overage_requests FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: ai_jobs owner deletes ai_jobs in client scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "owner deletes ai_jobs in client scope" ON public.ai_jobs FOR DELETE TO authenticated USING (((auth.uid() = user_id) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: brands owner or super admin deletes brand; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "owner or super admin deletes brand" ON public.brands FOR DELETE TO authenticated USING (public.can_delete_brand(id, auth.uid()));
+
+--
+-- Name: ai_jobs owner updates ai_jobs in client scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "owner updates ai_jobs in client scope" ON public.ai_jobs FOR UPDATE TO authenticated USING (((auth.uid() = user_id) AND public.client_in_scope(client_id, brand_id))) WITH CHECK (((auth.uid() = user_id) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: brand_members owners manage brand members; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "owners manage brand members" ON public.brand_members TO authenticated USING (public.has_brand_role(brand_id, auth.uid(), 'owner'::public.app_role)) WITH CHECK (public.has_brand_role(brand_id, auth.uid(), 'owner'::public.app_role));
+
+--
+-- Name: content_pipelines pipelines in client scope delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "pipelines in client scope delete" ON public.content_pipelines FOR DELETE TO authenticated USING (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: content_pipelines pipelines in client scope insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "pipelines in client scope insert" ON public.content_pipelines FOR INSERT TO authenticated WITH CHECK (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: content_pipelines pipelines in client scope read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "pipelines in client scope read" ON public.content_pipelines FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: content_pipelines pipelines in client scope update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "pipelines in client scope update" ON public.content_pipelines FOR UPDATE TO authenticated USING (public.client_in_scope(client_id, brand_id)) WITH CHECK (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: monthly_plans plans delete agency only; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "plans delete agency only" ON public.monthly_plans FOR DELETE TO authenticated USING ((public.can_access_client(client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), brand_id)));
+
+--
+-- Name: monthly_plans plans insert agency only; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "plans insert agency only" ON public.monthly_plans FOR INSERT TO authenticated WITH CHECK ((public.can_access_client(client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), brand_id)));
+
+--
+-- Name: monthly_plans plans read scoped; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "plans read scoped" ON public.monthly_plans FOR SELECT TO authenticated USING ((public.can_access_client(client_id, auth.uid()) OR public.is_portal_client_of(client_id, auth.uid())));
+
+--
+-- Name: monthly_plans plans update agency only; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "plans update agency only" ON public.monthly_plans FOR UPDATE TO authenticated USING ((public.can_access_client(client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), brand_id))) WITH CHECK ((public.can_access_client(client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), brand_id)));
+
+--
+-- Name: brand_briefings portal client reads own briefing; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "portal client reads own briefing" ON public.brand_briefings FOR SELECT TO authenticated USING (public.is_portal_client_of(client_id, auth.uid()));
+
+--
+-- Name: posts posts delete agency only; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "posts delete agency only" ON public.posts FOR DELETE TO authenticated USING ((public.can_access_client(client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), brand_id)));
+
+--
+-- Name: posts posts insert agency only; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "posts insert agency only" ON public.posts FOR INSERT TO authenticated WITH CHECK ((public.can_access_client(client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), brand_id)));
+
+--
+-- Name: posts posts read scoped; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "posts read scoped" ON public.posts FOR SELECT TO authenticated USING (((public.can_access_client(client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), brand_id)) OR (public.is_portal_client_of(client_id, auth.uid()) AND (visible_in_portal IS TRUE) AND (deleted_at IS NULL))));
+
+--
+-- Name: posts posts update agency only; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "posts update agency only" ON public.posts FOR UPDATE TO authenticated USING ((public.can_access_client(client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), brand_id))) WITH CHECK ((public.can_access_client(client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), brand_id)));
+
+--
+-- Name: project_jobs project_jobs via parent project; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "project_jobs via parent project" ON public.project_jobs TO authenticated USING (public.can_access_project(project_id, auth.uid())) WITH CHECK (public.can_access_project(project_id, auth.uid()));
+
+--
+-- Name: project_templates project_templates delete brand; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "project_templates delete brand" ON public.project_templates FOR DELETE TO authenticated USING (((brand_id IS NOT NULL) AND public.is_brand_member(brand_id, auth.uid())));
+
+--
+-- Name: project_templates project_templates insert brand; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "project_templates insert brand" ON public.project_templates FOR INSERT TO authenticated WITH CHECK (((brand_id IS NOT NULL) AND public.is_brand_member(brand_id, auth.uid())));
+
+--
+-- Name: project_templates project_templates read visible; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "project_templates read visible" ON public.project_templates FOR SELECT TO authenticated USING ((is_system OR ((brand_id IS NOT NULL) AND public.is_brand_member(brand_id, auth.uid()))));
+
+--
+-- Name: project_templates project_templates update brand; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "project_templates update brand" ON public.project_templates FOR UPDATE TO authenticated USING (((brand_id IS NOT NULL) AND public.is_brand_member(brand_id, auth.uid()))) WITH CHECK (((brand_id IS NOT NULL) AND public.is_brand_member(brand_id, auth.uid())));
+
+--
+-- Name: projects projects read in scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "projects read in scope" ON public.projects FOR SELECT TO authenticated USING (
+CASE
+    WHEN (client_id IS NULL) THEN (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text]))
+    ELSE public.can_access_client(client_id, auth.uid())
+END);
+
+--
+-- Name: projects projects write agency only; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "projects write agency only" ON public.projects TO authenticated USING ((public.is_agency_operator(auth.uid(), brand_id) AND
+CASE
+    WHEN (client_id IS NULL) THEN (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text]))
+    ELSE public.can_access_client(client_id, auth.uid())
+END)) WITH CHECK ((public.is_agency_operator(auth.uid(), brand_id) AND
+CASE
+    WHEN (client_id IS NULL) THEN (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text]))
+    ELSE public.can_access_client(client_id, auth.uid())
+END));
+
+--
+-- Name: brain_reasoning_logs reasoning logs owner read in client scope; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "reasoning logs owner read in client scope" ON public.brain_reasoning_logs FOR SELECT TO authenticated USING (((user_id = auth.uid()) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: portal_tokens scoped members manage portal tokens; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "scoped members manage portal tokens" ON public.portal_tokens TO authenticated USING ((EXISTS ( SELECT 1
+   FROM public.clients c
+  WHERE ((c.id = portal_tokens.client_id) AND public.can_access_client_row(c.id, c.brand_id, c.owner_user_id, auth.uid()))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM public.clients c
+  WHERE ((c.id = portal_tokens.client_id) AND public.can_access_client_row(c.id, c.brand_id, c.owner_user_id, auth.uid())))));
+
+--
+-- Name: sla_rules sla_rules_read_members; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY sla_rules_read_members ON public.sla_rules FOR SELECT TO authenticated USING (public.is_brand_member(brand_id, auth.uid()));
+
+--
+-- Name: sla_rules sla_rules_write_managers; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY sla_rules_write_managers ON public.sla_rules TO authenticated USING (public.is_brand_admin_level(brand_id, auth.uid())) WITH CHECK (public.is_brand_admin_level(brand_id, auth.uid()));
+
+--
+-- Name: social_connections social_connections admins delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "social_connections admins delete" ON public.social_connections FOR DELETE TO authenticated USING ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: social_connections social_connections admins insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "social_connections admins insert" ON public.social_connections FOR INSERT TO authenticated WITH CHECK ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: social_connections social_connections admins update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "social_connections admins update" ON public.social_connections FOR UPDATE TO authenticated USING ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id))) WITH CHECK ((public.is_brand_admin_level(brand_id, auth.uid()) AND public.client_in_scope(client_id, brand_id)));
+
+--
+-- Name: social_connections social_connections in scope read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "social_connections in scope read" ON public.social_connections FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: social_posts social_posts in client scope delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "social_posts in client scope delete" ON public.social_posts FOR DELETE TO authenticated USING (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: social_posts social_posts in client scope insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "social_posts in client scope insert" ON public.social_posts FOR INSERT TO authenticated WITH CHECK (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: social_posts social_posts in client scope read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "social_posts in client scope read" ON public.social_posts FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: social_posts social_posts in client scope update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "social_posts in client scope update" ON public.social_posts FOR UPDATE TO authenticated USING (public.client_in_scope(client_id, brand_id));
+
+--
+-- Name: brand_journey_stage_templates stage_templates_modify_admin_manager; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY stage_templates_modify_admin_manager ON public.brand_journey_stage_templates TO authenticated USING (public.is_brand_admin_level(brand_id, auth.uid())) WITH CHECK (public.is_brand_admin_level(brand_id, auth.uid()));
+
+--
+-- Name: brand_journey_stage_templates stage_templates_select_brand_members; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY stage_templates_select_brand_members ON public.brand_journey_stage_templates FOR SELECT TO authenticated USING (public.is_brand_member(brand_id, auth.uid()));
+
+--
+-- Name: task_subtasks subtasks delete via parent task; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "subtasks delete via parent task" ON public.task_subtasks FOR DELETE TO authenticated USING (public.can_access_task(task_id, auth.uid()));
+
+--
+-- Name: task_subtasks subtasks insert via parent task; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "subtasks insert via parent task" ON public.task_subtasks FOR INSERT TO authenticated WITH CHECK (public.can_access_task(task_id, auth.uid()));
+
+--
+-- Name: task_subtasks subtasks select via parent task; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "subtasks select via parent task" ON public.task_subtasks FOR SELECT TO authenticated USING (public.can_access_task(task_id, auth.uid()));
+
+--
+-- Name: task_subtasks subtasks update via parent task; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "subtasks update via parent task" ON public.task_subtasks FOR UPDATE TO authenticated USING (public.can_access_task(task_id, auth.uid())) WITH CHECK (public.can_access_task(task_id, auth.uid()));
+
+--
+-- Name: ai_model_catalog_overrides super admins read model overrides; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "super admins read model overrides" ON public.ai_model_catalog_overrides FOR SELECT TO authenticated USING (public.is_super_admin(auth.uid()));
+
+--
+-- Name: ai_jobs super_admin_full_access; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY super_admin_full_access ON public.ai_jobs TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
+
+--
+-- Name: brain_reasoning_logs super_admin_full_access; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY super_admin_full_access ON public.brain_reasoning_logs TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
+
+--
+-- Name: brand_invites super_admin_full_access; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY super_admin_full_access ON public.brand_invites TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
+
+--
+-- Name: brand_members super_admin_full_access; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY super_admin_full_access ON public.brand_members TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
+
+--
+-- Name: chat_conversations super_admin_full_access; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY super_admin_full_access ON public.chat_conversations TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
+
+--
+-- Name: chat_messages super_admin_full_access; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY super_admin_full_access ON public.chat_messages TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
+
+--
+-- Name: notifications super_admin_full_access; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY super_admin_full_access ON public.notifications TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
+
+--
+-- Name: social_connections super_admin_full_access; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY super_admin_full_access ON public.social_connections TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
+
+--
+-- Name: social_posts super_admin_full_access; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY super_admin_full_access ON public.social_posts TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
+
+--
+-- Name: user_profiles super_admin_full_access; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY super_admin_full_access ON public.user_profiles TO authenticated USING (public.is_super_admin(auth.uid())) WITH CHECK (public.is_super_admin(auth.uid()));
+
+--
+-- Name: task_comments task comments via parent task; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "task comments via parent task" ON public.task_comments TO authenticated USING (public.can_access_task(task_id, auth.uid())) WITH CHECK (public.can_access_task(task_id, auth.uid()));
+
+--
 -- Name: tasks tasks read in scope; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -13570,7 +12425,6 @@ CASE
     WHEN (client_id IS NULL) THEN (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text]))
     ELSE public.can_access_client(client_id, auth.uid())
 END);
-
 
 --
 -- Name: tasks tasks write agency only; Type: POLICY; Schema: public; Owner: -
@@ -13586,7 +12440,6 @@ CASE
     ELSE public.can_access_client(client_id, auth.uid())
 END));
 
-
 --
 -- Name: project_template_jobs template_jobs read; Type: POLICY; Schema: public; Owner: -
 --
@@ -13594,7 +12447,6 @@ END));
 CREATE POLICY "template_jobs read" ON public.project_template_jobs FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM public.project_templates t
   WHERE ((t.id = project_template_jobs.template_id) AND (t.is_system OR ((t.brand_id IS NOT NULL) AND public.is_brand_member(t.brand_id, auth.uid())))))));
-
 
 --
 -- Name: project_template_jobs template_jobs write; Type: POLICY; Schema: public; Owner: -
@@ -13606,7 +12458,6 @@ CREATE POLICY "template_jobs write" ON public.project_template_jobs TO authentic
    FROM public.project_templates t
   WHERE ((t.id = project_template_jobs.template_id) AND (t.brand_id IS NOT NULL) AND public.is_brand_member(t.brand_id, auth.uid())))));
 
-
 --
 -- Name: project_template_tasks template_tasks read; Type: POLICY; Schema: public; Owner: -
 --
@@ -13615,7 +12466,6 @@ CREATE POLICY "template_tasks read" ON public.project_template_tasks FOR SELECT 
    FROM (public.project_template_jobs j
      JOIN public.project_templates t ON ((t.id = j.template_id)))
   WHERE ((j.id = project_template_tasks.template_job_id) AND (t.is_system OR ((t.brand_id IS NOT NULL) AND public.is_brand_member(t.brand_id, auth.uid())))))));
-
 
 --
 -- Name: project_template_tasks template_tasks write; Type: POLICY; Schema: public; Owner: -
@@ -13629,13 +12479,11 @@ CREATE POLICY "template_tasks write" ON public.project_template_tasks TO authent
      JOIN public.project_templates t ON ((t.id = j.template_id)))
   WHERE ((j.id = project_template_tasks.template_job_id) AND (t.brand_id IS NOT NULL) AND public.is_brand_member(t.brand_id, auth.uid())))));
 
-
 --
 -- Name: task_time_entries time_entries own delete via parent task; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY "time_entries own delete via parent task" ON public.task_time_entries FOR DELETE TO authenticated USING (((user_id = auth.uid()) AND public.can_access_task(task_id, auth.uid())));
-
 
 --
 -- Name: task_time_entries time_entries own insert via parent task; Type: POLICY; Schema: public; Owner: -
@@ -13643,20 +12491,17 @@ CREATE POLICY "time_entries own delete via parent task" ON public.task_time_entr
 
 CREATE POLICY "time_entries own insert via parent task" ON public.task_time_entries FOR INSERT TO authenticated WITH CHECK (((user_id = auth.uid()) AND public.can_access_task(task_id, auth.uid())));
 
-
 --
 -- Name: task_time_entries time_entries own update via parent task; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY "time_entries own update via parent task" ON public.task_time_entries FOR UPDATE TO authenticated USING (((user_id = auth.uid()) AND public.can_access_task(task_id, auth.uid()))) WITH CHECK (((user_id = auth.uid()) AND public.can_access_task(task_id, auth.uid())));
 
-
 --
 -- Name: task_time_entries time_entries read via parent task; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY "time_entries read via parent task" ON public.task_time_entries FOR SELECT TO authenticated USING (public.can_access_task(task_id, auth.uid()));
-
 
 --
 -- Name: monthly_plan_topics topics delete in scope; Type: POLICY; Schema: public; Owner: -
@@ -13666,7 +12511,6 @@ CREATE POLICY "topics delete in scope" ON public.monthly_plan_topics FOR DELETE 
    FROM public.monthly_plans mp
   WHERE ((mp.id = monthly_plan_topics.monthly_plan_id) AND public.can_access_client(mp.client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), mp.brand_id)))));
 
-
 --
 -- Name: monthly_plan_topics topics insert in scope; Type: POLICY; Schema: public; Owner: -
 --
@@ -13675,7 +12519,6 @@ CREATE POLICY "topics insert in scope" ON public.monthly_plan_topics FOR INSERT 
    FROM public.monthly_plans mp
   WHERE ((mp.id = monthly_plan_topics.monthly_plan_id) AND public.can_access_client(mp.client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), mp.brand_id)))));
 
-
 --
 -- Name: monthly_plan_topics topics read in scope; Type: POLICY; Schema: public; Owner: -
 --
@@ -13683,7 +12526,6 @@ CREATE POLICY "topics insert in scope" ON public.monthly_plan_topics FOR INSERT 
 CREATE POLICY "topics read in scope" ON public.monthly_plan_topics FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
    FROM public.monthly_plans mp
   WHERE ((mp.id = monthly_plan_topics.monthly_plan_id) AND (public.can_access_client(mp.client_id, auth.uid()) OR public.is_portal_client_of(mp.client_id, auth.uid()))))));
-
 
 --
 -- Name: monthly_plan_topics topics update in scope; Type: POLICY; Schema: public; Owner: -
@@ -13695,13 +12537,11 @@ CREATE POLICY "topics update in scope" ON public.monthly_plan_topics FOR UPDATE 
    FROM public.monthly_plans mp
   WHERE ((mp.id = monthly_plan_topics.monthly_plan_id) AND public.can_access_client(mp.client_id, auth.uid()) AND public.is_agency_operator(auth.uid(), mp.brand_id)))));
 
-
 --
 -- Name: notifications user reads own notifications; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY "user reads own notifications" ON public.notifications FOR SELECT TO authenticated USING ((user_id = auth.uid()));
-
 
 --
 -- Name: notifications user updates own notifications; Type: POLICY; Schema: public; Owner: -
@@ -13709,25 +12549,11 @@ CREATE POLICY "user reads own notifications" ON public.notifications FOR SELECT 
 
 CREATE POLICY "user updates own notifications" ON public.notifications FOR UPDATE TO authenticated USING ((user_id = auth.uid())) WITH CHECK ((user_id = auth.uid()));
 
-
---
--- Name: user_profiles; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
-
 --
 -- Name: notifications users create own notifications; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY "users create own notifications" ON public.notifications FOR INSERT TO authenticated WITH CHECK (((user_id = auth.uid()) AND public.is_brand_member(brand_id, auth.uid())));
-
-
---
--- Name: whatsapp_recipients; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.whatsapp_recipients ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: whatsapp_recipients whatsapp_recipients_delete_scoped; Type: POLICY; Schema: public; Owner: -
@@ -13735,20 +12561,17 @@ ALTER TABLE public.whatsapp_recipients ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY whatsapp_recipients_delete_scoped ON public.whatsapp_recipients FOR DELETE TO authenticated USING ((public.client_in_scope(client_id, brand_id) AND ((client_id IS NOT NULL) OR (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text])))));
 
-
 --
 -- Name: whatsapp_recipients whatsapp_recipients_insert_scoped; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY whatsapp_recipients_insert_scoped ON public.whatsapp_recipients FOR INSERT TO authenticated WITH CHECK ((public.client_in_scope(client_id, brand_id) AND ((client_id IS NOT NULL) OR (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text])))));
 
-
 --
 -- Name: whatsapp_recipients whatsapp_recipients_select_scoped; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY whatsapp_recipients_select_scoped ON public.whatsapp_recipients FOR SELECT TO authenticated USING (public.client_in_scope(client_id, brand_id));
-
 
 --
 -- Name: whatsapp_recipients whatsapp_recipients_update_scoped; Type: POLICY; Schema: public; Owner: -
@@ -13757,1356 +12580,1602 @@ CREATE POLICY whatsapp_recipients_select_scoped ON public.whatsapp_recipients FO
 CREATE POLICY whatsapp_recipients_update_scoped ON public.whatsapp_recipients FOR UPDATE TO authenticated USING ((public.client_in_scope(client_id, brand_id) AND ((client_id IS NOT NULL) OR (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text]))))) WITH CHECK ((public.client_in_scope(client_id, brand_id) AND ((client_id IS NOT NULL) OR (public.app_access_role(auth.uid(), brand_id) = ANY (ARRAY['super_admin'::text, 'admin'::text])))));
 
 
+-- ============================ COMMENTS (23) ============================
+
+--
+-- Name: FUNCTION block_unusable_scheduled_social_posts(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.block_unusable_scheduled_social_posts() IS 'Uso interno (service_role / worker publish-scheduled). EXECUTE revogado de PUBLIC, anon e authenticated (V6).';
+
+--
+-- Name: FUNCTION brain_retention_run(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.brain_retention_run() IS 'Ensure partitions + archive + ttl cleanup. Agendar diariamente.';
+
+--
+-- Name: FUNCTION can_access_project(_project_id uuid, _user_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.can_access_project(_project_id uuid, _user_id uuid) IS 'Escopo canônico de projeto: membro do workspace E (projeto sem cliente OU cliente no escopo do usuário).';
+
+--
+-- Name: FUNCTION client_in_scope(_client_id uuid, _brand_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.client_in_scope(_client_id uuid, _brand_id uuid) IS 'Predicado de escopo de cliente (RLS). EXECUTE apenas authenticated/service_role.';
+
+--
+-- Name: FUNCTION guard_super_admin_flag(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.guard_super_admin_flag() IS 'Guarda de campos privilegiados de user_profiles (role, is_super_admin): grava somente quando auth.uid() e nulo (rotina interna/service_role) ou o ator e super admin.';
+
+--
+-- Name: FUNCTION is_agency_operator(_user_id uuid, _brand_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.is_agency_operator(_user_id uuid, _brand_id uuid) IS 'Operador interno do workspace (super_admin/admin/manager/user) — NÃO é verificação de autoridade administrativa nem de escopo de cliente.';
+
+--
+-- Name: FUNCTION is_client_assigned(_user_id uuid, _client_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.is_client_assigned(_user_id uuid, _client_id uuid) IS 'Fonte única de "cliente atribuído": clients.owner_user_id ou client_members (não portal).';
+
+--
+-- Name: FUNCTION is_global_admin(_user_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.is_global_admin(_user_id uuid) IS 'DEPRECIADA (Fase 1 RBAC): ADMIN é sempre escopado ao workspace. Retorna sempre false. Acesso global = is_super_admin.';
+
+--
+-- Name: FUNCTION message_logs_guard_scope(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.message_logs_guard_scope() IS 'Fase 10B: trigger interno. Valida clients.brand_id = message_logs.brand_id. Sem EXECUTE público.';
+
+--
+-- Name: TABLE brain_events; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.brain_events IS 'Barramento de eventos do Brain. Tabela unica (nao particionada) desde a ETAPA 3 da simplificacao.';
+
+--
+-- Name: COLUMN brands.app_url; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.brands.app_url IS 'URL canonica da instalacao que atende este workspace. Aprendida do host real das requisicoes e usada por jobs/cron/workers para montar links absolutos sem depender de variavel de ambiente global.';
+
+--
+-- Name: COLUMN posts.target_connection_ids; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.posts.target_connection_ids IS 'IDs de social_connections que este post deve publicar. Referenciados por aplicação (validados por brand/cliente no server function).';
+
+--
+-- Name: TABLE client_social_accounts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.client_social_accounts IS 'Unica fonte de verdade do vinculo canal <-> cliente.';
+
+--
+-- Name: COLUMN clients.portal_theme; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.clients.portal_theme IS 'Tema do portal público: { mode: system|custom, accent, logo_url, bg, dark, footer_label, show_agency_credit }';
+
+--
+-- Name: COLUMN content_pipeline_stages.sla_hours; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.content_pipeline_stages.sla_hours IS 'SLA em horas para a etapa. Coluna canônica; sla_days permanece como legado (compat).';
+
+--
+-- Name: COLUMN message_logs.client_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.message_logs.client_id IS 'Fase 10B: cliente do registro. NULL = registro de workspace (visível só para admin/super admin).';
+
+--
+-- Name: TABLE meta_compliance_events; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.meta_compliance_events IS 'Uso interno (service role). RLS sem policies nega acesso via Data API.';
+
+--
+-- Name: TABLE portal_rate_limit; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.portal_rate_limit IS 'Uso interno (service role). RLS sem policies nega acesso via Data API.';
+
+--
+-- Name: TABLE social_connections; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.social_connections IS 'Integracao/canal social no nivel do WORKSPACE (brand). Nao representa vinculo com cliente.';
+
+--
+-- Name: COLUMN social_connections.client_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.social_connections.client_id IS 'DEPRECATED (Fase 1): nao use. Vinculo canal<->cliente vive em public.client_social_accounts.';
+
+--
+-- Name: COLUMN social_connections.page_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.social_connections.page_id IS 'Facebook Page ID (Meta).';
+
+--
+-- Name: COLUMN social_connections.instagram_business_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.social_connections.instagram_business_id IS 'Instagram Business Account ID (Meta).';
+
+--
+-- Name: COLUMN social_connections.meta_user_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.social_connections.meta_user_id IS 'Meta user/app-scoped user id (owner).';
+
+
+-- ============================ GRANTS / REVOKES (635) ============================
+
 --
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -
 --
 
 GRANT USAGE ON SCHEMA public TO postgres;
-GRANT USAGE ON SCHEMA public TO anon;
-GRANT USAGE ON SCHEMA public TO authenticated;
-GRANT USAGE ON SCHEMA public TO service_role;
 
+GRANT USAGE ON SCHEMA public TO anon;
+
+GRANT USAGE ON SCHEMA public TO authenticated;
+
+GRANT USAGE ON SCHEMA public TO service_role;
 
 --
 -- Name: FUNCTION _brain_cfg_days(_key text, _default integer); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public._brain_cfg_days(_key text, _default integer) FROM PUBLIC;
-GRANT ALL ON FUNCTION public._brain_cfg_days(_key text, _default integer) TO service_role;
 
+GRANT ALL ON FUNCTION public._brain_cfg_days(_key text, _default integer) TO service_role;
 
 --
 -- Name: FUNCTION _portal_session(_token text); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public._portal_session(_token text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public._portal_session(_token text) TO service_role;
 
+GRANT ALL ON FUNCTION public._portal_session(_token text) TO service_role;
 
 --
 -- Name: FUNCTION _portal_session_any(_token text, _client_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public._portal_session_any(_token text, _client_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public._portal_session_any(_token text, _client_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public._portal_session_any(_token text, _client_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public._portal_session_any(_token text, _client_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public._portal_session_any(_token text, _client_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION _portal_session_user(_client_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public._portal_session_user(_client_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public._portal_session_user(_client_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public._portal_session_user(_client_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public._portal_session_user(_client_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public._portal_session_user(_client_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION accept_brand_invite(_token text); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.accept_brand_invite(_token text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.accept_brand_invite(_token text) TO service_role;
-GRANT ALL ON FUNCTION public.accept_brand_invite(_token text) TO authenticated;
 
+GRANT ALL ON FUNCTION public.accept_brand_invite(_token text) TO service_role;
+
+GRANT ALL ON FUNCTION public.accept_brand_invite(_token text) TO authenticated;
 
 --
 -- Name: FUNCTION add_brand_owner(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.add_brand_owner() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.add_brand_owner() TO service_role;
 
+GRANT ALL ON FUNCTION public.add_brand_owner() TO service_role;
 
 --
 -- Name: FUNCTION app_access_role(_user_id uuid, _brand_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.app_access_role(_user_id uuid, _brand_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.app_access_role(_user_id uuid, _brand_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.app_access_role(_user_id uuid, _brand_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.app_access_role(_user_id uuid, _brand_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.app_access_role(_user_id uuid, _brand_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION block_unusable_scheduled_social_posts(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.block_unusable_scheduled_social_posts() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.block_unusable_scheduled_social_posts() TO service_role;
 
+GRANT ALL ON FUNCTION public.block_unusable_scheduled_social_posts() TO service_role;
 
 --
 -- Name: FUNCTION brain_cleanup_ttl(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_cleanup_ttl() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_cleanup_ttl() TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_cleanup_ttl() TO service_role;
 
 --
 -- Name: FUNCTION brain_confidence(_sample integer, _consistency numeric, _last_observed timestamp with time zone, _relevance numeric); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_confidence(_sample integer, _consistency numeric, _last_observed timestamp with time zone, _relevance numeric) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_confidence(_sample integer, _consistency numeric, _last_observed timestamp with time zone, _relevance numeric) TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_confidence(_sample integer, _consistency numeric, _last_observed timestamp with time zone, _relevance numeric) TO service_role;
 
 --
 -- Name: FUNCTION brain_events_guard_identity(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_events_guard_identity() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_events_guard_identity() TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_events_guard_identity() TO service_role;
 
 --
 -- Name: FUNCTION brain_events_prune(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_events_prune() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_events_prune() TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_events_prune() TO service_role;
 
 --
 -- Name: FUNCTION brain_memory_decay_and_archive(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_memory_decay_and_archive() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_memory_decay_and_archive() TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_memory_decay_and_archive() TO service_role;
 
 --
 -- Name: FUNCTION brain_memory_evolve(_brand_id uuid, _entity_type text, _entity_id uuid, _category text, _title text, _description text, _content jsonb, _evidence_confidence numeric, _origin text, _source_event uuid, _tags text[], _relations jsonb, _metadata jsonb, _contradicts boolean); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_memory_evolve(_brand_id uuid, _entity_type text, _entity_id uuid, _category text, _title text, _description text, _content jsonb, _evidence_confidence numeric, _origin text, _source_event uuid, _tags text[], _relations jsonb, _metadata jsonb, _contradicts boolean) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_memory_evolve(_brand_id uuid, _entity_type text, _entity_id uuid, _category text, _title text, _description text, _content jsonb, _evidence_confidence numeric, _origin text, _source_event uuid, _tags text[], _relations jsonb, _metadata jsonb, _contradicts boolean) TO service_role;
-GRANT ALL ON FUNCTION public.brain_memory_evolve(_brand_id uuid, _entity_type text, _entity_id uuid, _category text, _title text, _description text, _content jsonb, _evidence_confidence numeric, _origin text, _source_event uuid, _tags text[], _relations jsonb, _metadata jsonb, _contradicts boolean) TO authenticated;
 
+GRANT ALL ON FUNCTION public.brain_memory_evolve(_brand_id uuid, _entity_type text, _entity_id uuid, _category text, _title text, _description text, _content jsonb, _evidence_confidence numeric, _origin text, _source_event uuid, _tags text[], _relations jsonb, _metadata jsonb, _contradicts boolean) TO service_role;
+
+GRANT ALL ON FUNCTION public.brain_memory_evolve(_brand_id uuid, _entity_type text, _entity_id uuid, _category text, _title text, _description text, _content jsonb, _evidence_confidence numeric, _origin text, _source_event uuid, _tags text[], _relations jsonb, _metadata jsonb, _contradicts boolean) TO authenticated;
 
 --
 -- Name: FUNCTION brain_memory_guard_scope(_brand_id uuid, _client_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_memory_guard_scope(_brand_id uuid, _client_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_memory_guard_scope(_brand_id uuid, _client_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.brain_memory_guard_scope(_brand_id uuid, _client_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_memory_guard_scope(_brand_id uuid, _client_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.brain_memory_guard_scope(_brand_id uuid, _client_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION brain_memory_snapshot(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_memory_snapshot() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_memory_snapshot() TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_memory_snapshot() TO service_role;
 
 --
 -- Name: FUNCTION brain_memory_touch(_ids uuid[]); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_memory_touch(_ids uuid[]) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_memory_touch(_ids uuid[]) TO service_role;
-GRANT ALL ON FUNCTION public.brain_memory_touch(_ids uuid[]) TO authenticated;
 
+GRANT ALL ON FUNCTION public.brain_memory_touch(_ids uuid[]) TO service_role;
+
+GRANT ALL ON FUNCTION public.brain_memory_touch(_ids uuid[]) TO authenticated;
 
 --
 -- Name: FUNCTION brain_mine_patterns(_brand_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_mine_patterns(_brand_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_mine_patterns(_brand_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_mine_patterns(_brand_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION brain_render_memory_desc(_category text, _content jsonb); Type: ACL; Schema: public; Owner: -
 --
 
 GRANT ALL ON FUNCTION public.brain_render_memory_desc(_category text, _content jsonb) TO authenticated;
-GRANT ALL ON FUNCTION public.brain_render_memory_desc(_category text, _content jsonb) TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_render_memory_desc(_category text, _content jsonb) TO service_role;
 
 --
 -- Name: FUNCTION brain_retention_run(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_retention_run() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_retention_run() TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_retention_run() TO service_role;
 
 --
 -- Name: FUNCTION brain_run_mining_safe(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_run_mining_safe() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_run_mining_safe() TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_run_mining_safe() TO service_role;
 
 --
 -- Name: FUNCTION brain_scope_guard(); Type: ACL; Schema: public; Owner: -
 --
 
 GRANT ALL ON FUNCTION public.brain_scope_guard() TO anon;
-GRANT ALL ON FUNCTION public.brain_scope_guard() TO authenticated;
-GRANT ALL ON FUNCTION public.brain_scope_guard() TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_scope_guard() TO authenticated;
+
+GRANT ALL ON FUNCTION public.brain_scope_guard() TO service_role;
 
 --
 -- Name: FUNCTION brain_set_last_observed(); Type: ACL; Schema: public; Owner: -
 --
 
 GRANT ALL ON FUNCTION public.brain_set_last_observed() TO anon;
-GRANT ALL ON FUNCTION public.brain_set_last_observed() TO authenticated;
-GRANT ALL ON FUNCTION public.brain_set_last_observed() TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_set_last_observed() TO authenticated;
+
+GRANT ALL ON FUNCTION public.brain_set_last_observed() TO service_role;
 
 --
 -- Name: FUNCTION brain_touch_updated_at(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_touch_updated_at() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_touch_updated_at() TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_touch_updated_at() TO service_role;
 
 --
 -- Name: FUNCTION brain_trg_client_documents(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_trg_client_documents() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_trg_client_documents() TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_trg_client_documents() TO service_role;
 
 --
 -- Name: FUNCTION brain_trg_clients(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_trg_clients() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_trg_clients() TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_trg_clients() TO service_role;
 
 --
 -- Name: FUNCTION brain_trg_post_approvals(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_trg_post_approvals() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_trg_post_approvals() TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_trg_post_approvals() TO service_role;
 
 --
 -- Name: FUNCTION brain_trg_posts(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_trg_posts() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_trg_posts() TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_trg_posts() TO service_role;
 
 --
 -- Name: FUNCTION brain_trg_projects(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_trg_projects() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_trg_projects() TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_trg_projects() TO service_role;
 
 --
 -- Name: FUNCTION brain_trg_task_comments(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_trg_task_comments() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_trg_task_comments() TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_trg_task_comments() TO service_role;
 
 --
 -- Name: FUNCTION brain_trg_tasks(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brain_trg_tasks() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brain_trg_tasks() TO service_role;
 
+GRANT ALL ON FUNCTION public.brain_trg_tasks() TO service_role;
 
 --
 -- Name: FUNCTION brand_member_role(_user_id uuid, _brand_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.brand_member_role(_user_id uuid, _brand_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.brand_member_role(_user_id uuid, _brand_id uuid) TO anon;
-GRANT ALL ON FUNCTION public.brand_member_role(_user_id uuid, _brand_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.brand_member_role(_user_id uuid, _brand_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.brand_member_role(_user_id uuid, _brand_id uuid) TO anon;
+
+GRANT ALL ON FUNCTION public.brand_member_role(_user_id uuid, _brand_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.brand_member_role(_user_id uuid, _brand_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION bump_chat_conversation_last_message(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.bump_chat_conversation_last_message() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.bump_chat_conversation_last_message() TO service_role;
 
+GRANT ALL ON FUNCTION public.bump_chat_conversation_last_message() TO service_role;
 
 --
 -- Name: FUNCTION calendar_events_touch_updated_at(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.calendar_events_touch_updated_at() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.calendar_events_touch_updated_at() TO service_role;
 
+GRANT ALL ON FUNCTION public.calendar_events_touch_updated_at() TO service_role;
 
 --
 -- Name: FUNCTION can_access_client(_client_id uuid, _user_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.can_access_client(_client_id uuid, _user_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.can_access_client(_client_id uuid, _user_id uuid) TO service_role;
-GRANT ALL ON FUNCTION public.can_access_client(_client_id uuid, _user_id uuid) TO authenticated;
 
+GRANT ALL ON FUNCTION public.can_access_client(_client_id uuid, _user_id uuid) TO service_role;
+
+GRANT ALL ON FUNCTION public.can_access_client(_client_id uuid, _user_id uuid) TO authenticated;
 
 --
 -- Name: FUNCTION can_access_client_row(_client_id uuid, _brand_id uuid, _owner_user_id uuid, _user_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.can_access_client_row(_client_id uuid, _brand_id uuid, _owner_user_id uuid, _user_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.can_access_client_row(_client_id uuid, _brand_id uuid, _owner_user_id uuid, _user_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.can_access_client_row(_client_id uuid, _brand_id uuid, _owner_user_id uuid, _user_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.can_access_client_row(_client_id uuid, _brand_id uuid, _owner_user_id uuid, _user_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.can_access_client_row(_client_id uuid, _brand_id uuid, _owner_user_id uuid, _user_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION can_access_project(_project_id uuid, _user_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.can_access_project(_project_id uuid, _user_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.can_access_project(_project_id uuid, _user_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.can_access_project(_project_id uuid, _user_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.can_access_project(_project_id uuid, _user_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.can_access_project(_project_id uuid, _user_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION can_access_task(_task_id uuid, _user_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.can_access_task(_task_id uuid, _user_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.can_access_task(_task_id uuid, _user_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.can_access_task(_task_id uuid, _user_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.can_access_task(_task_id uuid, _user_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.can_access_task(_task_id uuid, _user_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION can_create_brand(_user_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.can_create_brand(_user_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.can_create_brand(_user_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.can_create_brand(_user_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.can_create_brand(_user_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.can_create_brand(_user_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION can_delete_brand(_brand_id uuid, _user_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.can_delete_brand(_brand_id uuid, _user_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.can_delete_brand(_brand_id uuid, _user_id uuid) TO anon;
-GRANT ALL ON FUNCTION public.can_delete_brand(_brand_id uuid, _user_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.can_delete_brand(_brand_id uuid, _user_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.can_delete_brand(_brand_id uuid, _user_id uuid) TO anon;
+
+GRANT ALL ON FUNCTION public.can_delete_brand(_brand_id uuid, _user_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.can_delete_brand(_brand_id uuid, _user_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION can_invite_brand_role(_brand_id uuid, _actor_id uuid, _role public.app_role, _email text); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.can_invite_brand_role(_brand_id uuid, _actor_id uuid, _role public.app_role, _email text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.can_invite_brand_role(_brand_id uuid, _actor_id uuid, _role public.app_role, _email text) TO authenticated;
-GRANT ALL ON FUNCTION public.can_invite_brand_role(_brand_id uuid, _actor_id uuid, _role public.app_role, _email text) TO service_role;
 
+GRANT ALL ON FUNCTION public.can_invite_brand_role(_brand_id uuid, _actor_id uuid, _role public.app_role, _email text) TO authenticated;
+
+GRANT ALL ON FUNCTION public.can_invite_brand_role(_brand_id uuid, _actor_id uuid, _role public.app_role, _email text) TO service_role;
 
 --
 -- Name: FUNCTION can_manage_brand_ai_limits(_brand_id uuid, _user_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.can_manage_brand_ai_limits(_brand_id uuid, _user_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.can_manage_brand_ai_limits(_brand_id uuid, _user_id uuid) TO service_role;
-GRANT ALL ON FUNCTION public.can_manage_brand_ai_limits(_brand_id uuid, _user_id uuid) TO authenticated;
 
+GRANT ALL ON FUNCTION public.can_manage_brand_ai_limits(_brand_id uuid, _user_id uuid) TO service_role;
+
+GRANT ALL ON FUNCTION public.can_manage_brand_ai_limits(_brand_id uuid, _user_id uuid) TO authenticated;
 
 --
 -- Name: FUNCTION canonical_content_format(_raw text); Type: ACL; Schema: public; Owner: -
 --
 
 GRANT ALL ON FUNCTION public.canonical_content_format(_raw text) TO anon;
-GRANT ALL ON FUNCTION public.canonical_content_format(_raw text) TO authenticated;
-GRANT ALL ON FUNCTION public.canonical_content_format(_raw text) TO service_role;
 
+GRANT ALL ON FUNCTION public.canonical_content_format(_raw text) TO authenticated;
+
+GRANT ALL ON FUNCTION public.canonical_content_format(_raw text) TO service_role;
 
 --
 -- Name: FUNCTION card_approval_public_decide(_token text, _verb text, _comment text, _ip text, _ua text); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.card_approval_public_decide(_token text, _verb text, _comment text, _ip text, _ua text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.card_approval_public_decide(_token text, _verb text, _comment text, _ip text, _ua text) TO service_role;
 
+GRANT ALL ON FUNCTION public.card_approval_public_decide(_token text, _verb text, _comment text, _ip text, _ua text) TO service_role;
 
 --
 -- Name: FUNCTION check_ai_usage_budget(_brand_id uuid, _client_id uuid, _user_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.check_ai_usage_budget(_brand_id uuid, _client_id uuid, _user_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.check_ai_usage_budget(_brand_id uuid, _client_id uuid, _user_id uuid) TO service_role;
-GRANT ALL ON FUNCTION public.check_ai_usage_budget(_brand_id uuid, _client_id uuid, _user_id uuid) TO authenticated;
 
+GRANT ALL ON FUNCTION public.check_ai_usage_budget(_brand_id uuid, _client_id uuid, _user_id uuid) TO service_role;
+
+GRANT ALL ON FUNCTION public.check_ai_usage_budget(_brand_id uuid, _client_id uuid, _user_id uuid) TO authenticated;
 
 --
 -- Name: FUNCTION claim_scheduled_social_posts(p_limit integer); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.claim_scheduled_social_posts(p_limit integer) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.claim_scheduled_social_posts(p_limit integer) TO service_role;
 
+GRANT ALL ON FUNCTION public.claim_scheduled_social_posts(p_limit integer) TO service_role;
 
 --
 -- Name: FUNCTION client_in_scope(_client_id uuid, _brand_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.client_in_scope(_client_id uuid, _brand_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.client_in_scope(_client_id uuid, _brand_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.client_in_scope(_client_id uuid, _brand_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.client_in_scope(_client_id uuid, _brand_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.client_in_scope(_client_id uuid, _brand_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION clients_set_default_owner(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.clients_set_default_owner() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.clients_set_default_owner() TO service_role;
 
+GRANT ALL ON FUNCTION public.clients_set_default_owner() TO service_role;
 
 --
 -- Name: FUNCTION consolidate_brain_memory(_brand_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.consolidate_brain_memory(_brand_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.consolidate_brain_memory(_brand_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.consolidate_brain_memory(_brand_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION cron_secret(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.cron_secret() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.cron_secret() TO service_role;
 
+GRANT ALL ON FUNCTION public.cron_secret() TO service_role;
 
 --
 -- Name: FUNCTION derive_post_stage(_stage_id uuid, _current public.post_stage); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.derive_post_stage(_stage_id uuid, _current public.post_stage) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.derive_post_stage(_stage_id uuid, _current public.post_stage) TO service_role;
 
+GRANT ALL ON FUNCTION public.derive_post_stage(_stage_id uuid, _current public.post_stage) TO service_role;
 
 --
 -- Name: FUNCTION derive_relationships_from_event(_event_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.derive_relationships_from_event(_event_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.derive_relationships_from_event(_event_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.derive_relationships_from_event(_event_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION emit_brain_event(p_brand_id uuid, p_event_type text, p_source_module text, p_actor_id uuid, p_entity_type text, p_entity_id uuid, p_action text, p_client_id uuid, p_project_id uuid, p_payload jsonb, p_confidence numeric, p_correlation_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.emit_brain_event(p_brand_id uuid, p_event_type text, p_source_module text, p_actor_id uuid, p_entity_type text, p_entity_id uuid, p_action text, p_client_id uuid, p_project_id uuid, p_payload jsonb, p_confidence numeric, p_correlation_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.emit_brain_event(p_brand_id uuid, p_event_type text, p_source_module text, p_actor_id uuid, p_entity_type text, p_entity_id uuid, p_action text, p_client_id uuid, p_project_id uuid, p_payload jsonb, p_confidence numeric, p_correlation_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.emit_brain_event(p_brand_id uuid, p_event_type text, p_source_module text, p_actor_id uuid, p_entity_type text, p_entity_id uuid, p_action text, p_client_id uuid, p_project_id uuid, p_payload jsonb, p_confidence numeric, p_correlation_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION enable_default_brand_features(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.enable_default_brand_features() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.enable_default_brand_features() TO service_role;
 
+GRANT ALL ON FUNCTION public.enable_default_brand_features() TO service_role;
 
 --
 -- Name: FUNCTION enforce_task_project_client(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.enforce_task_project_client() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.enforce_task_project_client() TO service_role;
 
+GRANT ALL ON FUNCTION public.enforce_task_project_client() TO service_role;
 
 --
 -- Name: FUNCTION enqueue_brain_event_for_learning(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.enqueue_brain_event_for_learning() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.enqueue_brain_event_for_learning() TO service_role;
 
+GRANT ALL ON FUNCTION public.enqueue_brain_event_for_learning() TO service_role;
 
 --
 -- Name: FUNCTION enqueue_deadline_notifications(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.enqueue_deadline_notifications() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.enqueue_deadline_notifications() TO service_role;
 
+GRANT ALL ON FUNCTION public.enqueue_deadline_notifications() TO service_role;
 
 --
 -- Name: FUNCTION find_user_id_by_email(_email text); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.find_user_id_by_email(_email text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.find_user_id_by_email(_email text) TO service_role;
 
+GRANT ALL ON FUNCTION public.find_user_id_by_email(_email text) TO service_role;
 
 --
 -- Name: FUNCTION get_brain_graph(_brand_id uuid, _limit integer); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.get_brain_graph(_brand_id uuid, _limit integer) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.get_brain_graph(_brand_id uuid, _limit integer) TO service_role;
-GRANT ALL ON FUNCTION public.get_brain_graph(_brand_id uuid, _limit integer) TO authenticated;
 
+GRANT ALL ON FUNCTION public.get_brain_graph(_brand_id uuid, _limit integer) TO service_role;
+
+GRANT ALL ON FUNCTION public.get_brain_graph(_brand_id uuid, _limit integer) TO authenticated;
 
 --
 -- Name: FUNCTION get_brain_neighborhood(_brand_id uuid, _entity_type text, _entity_id uuid, _depth integer); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.get_brain_neighborhood(_brand_id uuid, _entity_type text, _entity_id uuid, _depth integer) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.get_brain_neighborhood(_brand_id uuid, _entity_type text, _entity_id uuid, _depth integer) TO service_role;
-GRANT ALL ON FUNCTION public.get_brain_neighborhood(_brand_id uuid, _entity_type text, _entity_id uuid, _depth integer) TO authenticated;
 
+GRANT ALL ON FUNCTION public.get_brain_neighborhood(_brand_id uuid, _entity_type text, _entity_id uuid, _depth integer) TO service_role;
+
+GRANT ALL ON FUNCTION public.get_brain_neighborhood(_brand_id uuid, _entity_type text, _entity_id uuid, _depth integer) TO authenticated;
 
 --
 -- Name: FUNCTION guard_super_admin_flag(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.guard_super_admin_flag() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.guard_super_admin_flag() TO service_role;
 
+GRANT ALL ON FUNCTION public.guard_super_admin_flag() TO service_role;
 
 --
 -- Name: FUNCTION handle_new_user(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.handle_new_user() TO service_role;
 
+GRANT ALL ON FUNCTION public.handle_new_user() TO service_role;
 
 --
 -- Name: FUNCTION has_brand_role(_brand_id uuid, _user_id uuid, _role public.app_role); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.has_brand_role(_brand_id uuid, _user_id uuid, _role public.app_role) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.has_brand_role(_brand_id uuid, _user_id uuid, _role public.app_role) TO service_role;
-GRANT ALL ON FUNCTION public.has_brand_role(_brand_id uuid, _user_id uuid, _role public.app_role) TO authenticated;
 
+GRANT ALL ON FUNCTION public.has_brand_role(_brand_id uuid, _user_id uuid, _role public.app_role) TO service_role;
+
+GRANT ALL ON FUNCTION public.has_brand_role(_brand_id uuid, _user_id uuid, _role public.app_role) TO authenticated;
 
 --
 -- Name: FUNCTION instantiate_project_template(_template_id uuid, _brand_id uuid, _client_id uuid, _project_name text); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.instantiate_project_template(_template_id uuid, _brand_id uuid, _client_id uuid, _project_name text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.instantiate_project_template(_template_id uuid, _brand_id uuid, _client_id uuid, _project_name text) TO service_role;
-GRANT ALL ON FUNCTION public.instantiate_project_template(_template_id uuid, _brand_id uuid, _client_id uuid, _project_name text) TO authenticated;
 
+GRANT ALL ON FUNCTION public.instantiate_project_template(_template_id uuid, _brand_id uuid, _client_id uuid, _project_name text) TO service_role;
+
+GRANT ALL ON FUNCTION public.instantiate_project_template(_template_id uuid, _brand_id uuid, _client_id uuid, _project_name text) TO authenticated;
 
 --
 -- Name: FUNCTION is_agency_operator(_user_id uuid, _brand_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.is_agency_operator(_user_id uuid, _brand_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.is_agency_operator(_user_id uuid, _brand_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.is_agency_operator(_user_id uuid, _brand_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.is_agency_operator(_user_id uuid, _brand_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.is_agency_operator(_user_id uuid, _brand_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION is_brand_admin_level(_brand_id uuid, _user_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.is_brand_admin_level(_brand_id uuid, _user_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.is_brand_admin_level(_brand_id uuid, _user_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.is_brand_admin_level(_brand_id uuid, _user_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.is_brand_admin_level(_brand_id uuid, _user_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.is_brand_admin_level(_brand_id uuid, _user_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION is_brand_member(_brand_id uuid, _user_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.is_brand_member(_brand_id uuid, _user_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.is_brand_member(_brand_id uuid, _user_id uuid) TO service_role;
-GRANT ALL ON FUNCTION public.is_brand_member(_brand_id uuid, _user_id uuid) TO authenticated;
 
+GRANT ALL ON FUNCTION public.is_brand_member(_brand_id uuid, _user_id uuid) TO service_role;
+
+GRANT ALL ON FUNCTION public.is_brand_member(_brand_id uuid, _user_id uuid) TO authenticated;
 
 --
 -- Name: FUNCTION is_client_assigned(_user_id uuid, _client_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.is_client_assigned(_user_id uuid, _client_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.is_client_assigned(_user_id uuid, _client_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.is_client_assigned(_user_id uuid, _client_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.is_client_assigned(_user_id uuid, _client_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.is_client_assigned(_user_id uuid, _client_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION is_global_admin(_user_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.is_global_admin(_user_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.is_global_admin(_user_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.is_global_admin(_user_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.is_global_admin(_user_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.is_global_admin(_user_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION is_portal_client_of(_client_id uuid, _user_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.is_portal_client_of(_client_id uuid, _user_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.is_portal_client_of(_client_id uuid, _user_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.is_portal_client_of(_client_id uuid, _user_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.is_portal_client_of(_client_id uuid, _user_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.is_portal_client_of(_client_id uuid, _user_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION is_portal_user(_user_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.is_portal_user(_user_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.is_portal_user(_user_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.is_portal_user(_user_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.is_portal_user(_user_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.is_portal_user(_user_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION is_super_admin(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.is_super_admin() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.is_super_admin() TO service_role;
-GRANT ALL ON FUNCTION public.is_super_admin() TO authenticated;
 
+GRANT ALL ON FUNCTION public.is_super_admin() TO service_role;
+
+GRANT ALL ON FUNCTION public.is_super_admin() TO authenticated;
 
 --
 -- Name: FUNCTION is_super_admin(_user_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.is_super_admin(_user_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.is_super_admin(_user_id uuid) TO service_role;
-GRANT ALL ON FUNCTION public.is_super_admin(_user_id uuid) TO authenticated;
 
+GRANT ALL ON FUNCTION public.is_super_admin(_user_id uuid) TO service_role;
+
+GRANT ALL ON FUNCTION public.is_super_admin(_user_id uuid) TO authenticated;
 
 --
 -- Name: FUNCTION link_existing_user_to_brand(_brand_id uuid, _email text, _role public.app_role, _permissions jsonb); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.link_existing_user_to_brand(_brand_id uuid, _email text, _role public.app_role, _permissions jsonb) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.link_existing_user_to_brand(_brand_id uuid, _email text, _role public.app_role, _permissions jsonb) TO service_role;
-GRANT ALL ON FUNCTION public.link_existing_user_to_brand(_brand_id uuid, _email text, _role public.app_role, _permissions jsonb) TO authenticated;
 
+GRANT ALL ON FUNCTION public.link_existing_user_to_brand(_brand_id uuid, _email text, _role public.app_role, _permissions jsonb) TO service_role;
+
+GRANT ALL ON FUNCTION public.link_existing_user_to_brand(_brand_id uuid, _email text, _role public.app_role, _permissions jsonb) TO authenticated;
 
 --
 -- Name: FUNCTION list_agent_catalog(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.list_agent_catalog() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.list_agent_catalog() TO service_role;
-GRANT ALL ON FUNCTION public.list_agent_catalog() TO authenticated;
 
+GRANT ALL ON FUNCTION public.list_agent_catalog() TO service_role;
+
+GRANT ALL ON FUNCTION public.list_agent_catalog() TO authenticated;
 
 --
 -- Name: FUNCTION list_ai_usage_overview(_brand_id uuid, _period_start timestamp with time zone, _period_end timestamp with time zone); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.list_ai_usage_overview(_brand_id uuid, _period_start timestamp with time zone, _period_end timestamp with time zone) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.list_ai_usage_overview(_brand_id uuid, _period_start timestamp with time zone, _period_end timestamp with time zone) TO service_role;
-GRANT ALL ON FUNCTION public.list_ai_usage_overview(_brand_id uuid, _period_start timestamp with time zone, _period_end timestamp with time zone) TO authenticated;
 
+GRANT ALL ON FUNCTION public.list_ai_usage_overview(_brand_id uuid, _period_start timestamp with time zone, _period_end timestamp with time zone) TO service_role;
+
+GRANT ALL ON FUNCTION public.list_ai_usage_overview(_brand_id uuid, _period_start timestamp with time zone, _period_end timestamp with time zone) TO authenticated;
 
 --
 -- Name: FUNCTION log_post_activity(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.log_post_activity() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.log_post_activity() TO service_role;
 
+GRANT ALL ON FUNCTION public.log_post_activity() TO service_role;
 
 --
 -- Name: FUNCTION log_task_activity(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.log_task_activity() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.log_task_activity() TO service_role;
 
+GRANT ALL ON FUNCTION public.log_task_activity() TO service_role;
 
 --
 -- Name: FUNCTION mark_social_post_blocked(p_post_id uuid, p_error text, p_reason text); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.mark_social_post_blocked(p_post_id uuid, p_error text, p_reason text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.mark_social_post_blocked(p_post_id uuid, p_error text, p_reason text) TO service_role;
 
+GRANT ALL ON FUNCTION public.mark_social_post_blocked(p_post_id uuid, p_error text, p_reason text) TO service_role;
 
 --
 -- Name: FUNCTION mark_social_post_failed(p_post_id uuid, p_error text); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.mark_social_post_failed(p_post_id uuid, p_error text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.mark_social_post_failed(p_post_id uuid, p_error text) TO service_role;
 
+GRANT ALL ON FUNCTION public.mark_social_post_failed(p_post_id uuid, p_error text) TO service_role;
 
 --
 -- Name: FUNCTION mark_social_post_published(p_post_id uuid, p_external_id text, p_permalink text); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.mark_social_post_published(p_post_id uuid, p_external_id text, p_permalink text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.mark_social_post_published(p_post_id uuid, p_external_id text, p_permalink text) TO service_role;
 
+GRANT ALL ON FUNCTION public.mark_social_post_published(p_post_id uuid, p_external_id text, p_permalink text) TO service_role;
 
 --
 -- Name: FUNCTION match_brain_events(_brand_id uuid, _query public.vector, _match_count integer); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.match_brain_events(_brand_id uuid, _query public.vector, _match_count integer) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.match_brain_events(_brand_id uuid, _query public.vector, _match_count integer) TO service_role;
-GRANT ALL ON FUNCTION public.match_brain_events(_brand_id uuid, _query public.vector, _match_count integer) TO authenticated;
 
+GRANT ALL ON FUNCTION public.match_brain_events(_brand_id uuid, _query public.vector, _match_count integer) TO service_role;
+
+GRANT ALL ON FUNCTION public.match_brain_events(_brand_id uuid, _query public.vector, _match_count integer) TO authenticated;
 
 --
 -- Name: FUNCTION media_plan_public_items(_token text); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.media_plan_public_items(_token text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.media_plan_public_items(_token text) TO service_role;
-GRANT ALL ON FUNCTION public.media_plan_public_items(_token text) TO anon;
-GRANT ALL ON FUNCTION public.media_plan_public_items(_token text) TO authenticated;
 
+GRANT ALL ON FUNCTION public.media_plan_public_items(_token text) TO service_role;
+
+GRANT ALL ON FUNCTION public.media_plan_public_items(_token text) TO anon;
+
+GRANT ALL ON FUNCTION public.media_plan_public_items(_token text) TO authenticated;
 
 --
 -- Name: FUNCTION media_plan_public_resolve(_token text); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.media_plan_public_resolve(_token text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.media_plan_public_resolve(_token text) TO service_role;
-GRANT ALL ON FUNCTION public.media_plan_public_resolve(_token text) TO anon;
-GRANT ALL ON FUNCTION public.media_plan_public_resolve(_token text) TO authenticated;
 
+GRANT ALL ON FUNCTION public.media_plan_public_resolve(_token text) TO service_role;
+
+GRANT ALL ON FUNCTION public.media_plan_public_resolve(_token text) TO anon;
+
+GRANT ALL ON FUNCTION public.media_plan_public_resolve(_token text) TO authenticated;
 
 --
 -- Name: FUNCTION message_logs_guard_scope(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.message_logs_guard_scope() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.message_logs_guard_scope() TO service_role;
 
+GRANT ALL ON FUNCTION public.message_logs_guard_scope() TO service_role;
 
 --
 -- Name: FUNCTION my_access(_brand_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.my_access(_brand_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.my_access(_brand_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.my_access(_brand_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.my_access(_brand_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.my_access(_brand_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION normalize_app_role(); Type: ACL; Schema: public; Owner: -
 --
 
 GRANT ALL ON FUNCTION public.normalize_app_role() TO anon;
-GRANT ALL ON FUNCTION public.normalize_app_role() TO authenticated;
-GRANT ALL ON FUNCTION public.normalize_app_role() TO service_role;
 
+GRANT ALL ON FUNCTION public.normalize_app_role() TO authenticated;
+
+GRANT ALL ON FUNCTION public.normalize_app_role() TO service_role;
 
 --
 -- Name: FUNCTION normalize_client_member_role(); Type: ACL; Schema: public; Owner: -
 --
 
 GRANT ALL ON FUNCTION public.normalize_client_member_role() TO anon;
-GRANT ALL ON FUNCTION public.normalize_client_member_role() TO authenticated;
-GRANT ALL ON FUNCTION public.normalize_client_member_role() TO service_role;
 
+GRANT ALL ON FUNCTION public.normalize_client_member_role() TO authenticated;
+
+GRANT ALL ON FUNCTION public.normalize_client_member_role() TO service_role;
 
 --
 -- Name: FUNCTION notification_pref_for_kind(_kind text); Type: ACL; Schema: public; Owner: -
 --
 
 GRANT ALL ON FUNCTION public.notification_pref_for_kind(_kind text) TO anon;
-GRANT ALL ON FUNCTION public.notification_pref_for_kind(_kind text) TO authenticated;
-GRANT ALL ON FUNCTION public.notification_pref_for_kind(_kind text) TO service_role;
 
+GRANT ALL ON FUNCTION public.notification_pref_for_kind(_kind text) TO authenticated;
+
+GRANT ALL ON FUNCTION public.notification_pref_for_kind(_kind text) TO service_role;
 
 --
 -- Name: FUNCTION notification_prefs_allows(_user_id uuid, _kind text); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.notification_prefs_allows(_user_id uuid, _kind text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.notification_prefs_allows(_user_id uuid, _kind text) TO authenticated;
-GRANT ALL ON FUNCTION public.notification_prefs_allows(_user_id uuid, _kind text) TO service_role;
 
+GRANT ALL ON FUNCTION public.notification_prefs_allows(_user_id uuid, _kind text) TO authenticated;
+
+GRANT ALL ON FUNCTION public.notification_prefs_allows(_user_id uuid, _kind text) TO service_role;
 
 --
 -- Name: FUNCTION notify_ai_job_completed(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.notify_ai_job_completed() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.notify_ai_job_completed() TO service_role;
 
+GRANT ALL ON FUNCTION public.notify_ai_job_completed() TO service_role;
 
 --
 -- Name: FUNCTION notify_post_approval_events(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.notify_post_approval_events() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.notify_post_approval_events() TO service_role;
 
+GRANT ALL ON FUNCTION public.notify_post_approval_events() TO service_role;
 
 --
 -- Name: FUNCTION notify_task_assigned(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.notify_task_assigned() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.notify_task_assigned() TO service_role;
 
+GRANT ALL ON FUNCTION public.notify_task_assigned() TO service_role;
 
 --
 -- Name: FUNCTION notify_task_mentions(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.notify_task_mentions() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.notify_task_mentions() TO service_role;
 
+GRANT ALL ON FUNCTION public.notify_task_mentions() TO service_role;
 
 --
 -- Name: FUNCTION portal_approvals(_token text, _status text, _client_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.portal_approvals(_token text, _status text, _client_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.portal_approvals(_token text, _status text, _client_id uuid) TO anon;
-GRANT ALL ON FUNCTION public.portal_approvals(_token text, _status text, _client_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.portal_approvals(_token text, _status text, _client_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.portal_approvals(_token text, _status text, _client_id uuid) TO anon;
+
+GRANT ALL ON FUNCTION public.portal_approvals(_token text, _status text, _client_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.portal_approvals(_token text, _status text, _client_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION portal_briefings(_token text, _client_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.portal_briefings(_token text, _client_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.portal_briefings(_token text, _client_id uuid) TO anon;
-GRANT ALL ON FUNCTION public.portal_briefings(_token text, _client_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.portal_briefings(_token text, _client_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.portal_briefings(_token text, _client_id uuid) TO anon;
+
+GRANT ALL ON FUNCTION public.portal_briefings(_token text, _client_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.portal_briefings(_token text, _client_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION portal_calendar(_token text, _month text, _client_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.portal_calendar(_token text, _month text, _client_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.portal_calendar(_token text, _month text, _client_id uuid) TO anon;
-GRANT ALL ON FUNCTION public.portal_calendar(_token text, _month text, _client_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.portal_calendar(_token text, _month text, _client_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.portal_calendar(_token text, _month text, _client_id uuid) TO anon;
+
+GRANT ALL ON FUNCTION public.portal_calendar(_token text, _month text, _client_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.portal_calendar(_token text, _month text, _client_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION portal_client_ids(_user_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.portal_client_ids(_user_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.portal_client_ids(_user_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.portal_client_ids(_user_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.portal_client_ids(_user_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.portal_client_ids(_user_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION portal_decide(_token text, _post_id uuid, _decision text, _note text, _identity text, _client_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.portal_decide(_token text, _post_id uuid, _decision text, _note text, _identity text, _client_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.portal_decide(_token text, _post_id uuid, _decision text, _note text, _identity text, _client_id uuid) TO anon;
-GRANT ALL ON FUNCTION public.portal_decide(_token text, _post_id uuid, _decision text, _note text, _identity text, _client_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.portal_decide(_token text, _post_id uuid, _decision text, _note text, _identity text, _client_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.portal_decide(_token text, _post_id uuid, _decision text, _note text, _identity text, _client_id uuid) TO anon;
+
+GRANT ALL ON FUNCTION public.portal_decide(_token text, _post_id uuid, _decision text, _note text, _identity text, _client_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.portal_decide(_token text, _post_id uuid, _decision text, _note text, _identity text, _client_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION portal_files(_token text, _search text, _client_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.portal_files(_token text, _search text, _client_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.portal_files(_token text, _search text, _client_id uuid) TO anon;
-GRANT ALL ON FUNCTION public.portal_files(_token text, _search text, _client_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.portal_files(_token text, _search text, _client_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.portal_files(_token text, _search text, _client_id uuid) TO anon;
+
+GRANT ALL ON FUNCTION public.portal_files(_token text, _search text, _client_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.portal_files(_token text, _search text, _client_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION portal_metrics(_token text, _client_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.portal_metrics(_token text, _client_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.portal_metrics(_token text, _client_id uuid) TO anon;
-GRANT ALL ON FUNCTION public.portal_metrics(_token text, _client_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.portal_metrics(_token text, _client_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.portal_metrics(_token text, _client_id uuid) TO anon;
+
+GRANT ALL ON FUNCTION public.portal_metrics(_token text, _client_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.portal_metrics(_token text, _client_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION portal_my_clients(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.portal_my_clients() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.portal_my_clients() TO anon;
-GRANT ALL ON FUNCTION public.portal_my_clients() TO authenticated;
-GRANT ALL ON FUNCTION public.portal_my_clients() TO service_role;
 
+GRANT ALL ON FUNCTION public.portal_my_clients() TO anon;
+
+GRANT ALL ON FUNCTION public.portal_my_clients() TO authenticated;
+
+GRANT ALL ON FUNCTION public.portal_my_clients() TO service_role;
 
 --
 -- Name: FUNCTION portal_post(_token text, _post_id uuid, _client_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.portal_post(_token text, _post_id uuid, _client_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.portal_post(_token text, _post_id uuid, _client_id uuid) TO anon;
-GRANT ALL ON FUNCTION public.portal_post(_token text, _post_id uuid, _client_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.portal_post(_token text, _post_id uuid, _client_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.portal_post(_token text, _post_id uuid, _client_id uuid) TO anon;
+
+GRANT ALL ON FUNCTION public.portal_post(_token text, _post_id uuid, _client_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.portal_post(_token text, _post_id uuid, _client_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION portal_rate_register_failure(_ip_hash text); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.portal_rate_register_failure(_ip_hash text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.portal_rate_register_failure(_ip_hash text) TO anon;
-GRANT ALL ON FUNCTION public.portal_rate_register_failure(_ip_hash text) TO authenticated;
-GRANT ALL ON FUNCTION public.portal_rate_register_failure(_ip_hash text) TO service_role;
 
+GRANT ALL ON FUNCTION public.portal_rate_register_failure(_ip_hash text) TO anon;
+
+GRANT ALL ON FUNCTION public.portal_rate_register_failure(_ip_hash text) TO authenticated;
+
+GRANT ALL ON FUNCTION public.portal_rate_register_failure(_ip_hash text) TO service_role;
 
 --
 -- Name: FUNCTION portal_rate_status(_ip_hash text); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.portal_rate_status(_ip_hash text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.portal_rate_status(_ip_hash text) TO anon;
-GRANT ALL ON FUNCTION public.portal_rate_status(_ip_hash text) TO authenticated;
-GRANT ALL ON FUNCTION public.portal_rate_status(_ip_hash text) TO service_role;
 
+GRANT ALL ON FUNCTION public.portal_rate_status(_ip_hash text) TO anon;
+
+GRANT ALL ON FUNCTION public.portal_rate_status(_ip_hash text) TO authenticated;
+
+GRANT ALL ON FUNCTION public.portal_rate_status(_ip_hash text) TO service_role;
 
 --
 -- Name: FUNCTION portal_resolve(_token text, _client_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.portal_resolve(_token text, _client_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.portal_resolve(_token text, _client_id uuid) TO anon;
-GRANT ALL ON FUNCTION public.portal_resolve(_token text, _client_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.portal_resolve(_token text, _client_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.portal_resolve(_token text, _client_id uuid) TO anon;
+
+GRANT ALL ON FUNCTION public.portal_resolve(_token text, _client_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.portal_resolve(_token text, _client_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION posts_sync_legacy_stage(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.posts_sync_legacy_stage() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.posts_sync_legacy_stage() TO service_role;
 
+GRANT ALL ON FUNCTION public.posts_sync_legacy_stage() TO service_role;
 
 --
 -- Name: FUNCTION posts_touch_stage_entered_at(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.posts_touch_stage_entered_at() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.posts_touch_stage_entered_at() TO service_role;
 
+GRANT ALL ON FUNCTION public.posts_touch_stage_entered_at() TO service_role;
 
 --
 -- Name: FUNCTION process_brain_learning_queue(_limit integer); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.process_brain_learning_queue(_limit integer) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.process_brain_learning_queue(_limit integer) TO service_role;
 
+GRANT ALL ON FUNCTION public.process_brain_learning_queue(_limit integer) TO service_role;
 
 --
 -- Name: FUNCTION protect_pipeline_delete(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.protect_pipeline_delete() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.protect_pipeline_delete() TO service_role;
 
+GRANT ALL ON FUNCTION public.protect_pipeline_delete() TO service_role;
 
 --
 -- Name: FUNCTION public_surface_rate_hit(_key text, _max integer, _window_seconds integer, _block_seconds integer); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.public_surface_rate_hit(_key text, _max integer, _window_seconds integer, _block_seconds integer) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.public_surface_rate_hit(_key text, _max integer, _window_seconds integer, _block_seconds integer) TO service_role;
 
+GRANT ALL ON FUNCTION public.public_surface_rate_hit(_key text, _max integer, _window_seconds integer, _block_seconds integer) TO service_role;
 
 --
 -- Name: FUNCTION reactivate_portal_token(_token_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.reactivate_portal_token(_token_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.reactivate_portal_token(_token_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.reactivate_portal_token(_token_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.reactivate_portal_token(_token_id uuid) TO authenticated;
+
+GRANT ALL ON FUNCTION public.reactivate_portal_token(_token_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION reap_brain_learning_queue(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.reap_brain_learning_queue() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.reap_brain_learning_queue() TO service_role;
 
+GRANT ALL ON FUNCTION public.reap_brain_learning_queue() TO service_role;
 
 --
 -- Name: FUNCTION reap_stuck_ai_jobs(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.reap_stuck_ai_jobs() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.reap_stuck_ai_jobs() TO service_role;
 
+GRANT ALL ON FUNCTION public.reap_stuck_ai_jobs() TO service_role;
 
 --
 -- Name: FUNCTION recalc_media_plan_item_amount(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.recalc_media_plan_item_amount() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.recalc_media_plan_item_amount() TO service_role;
 
+GRANT ALL ON FUNCTION public.recalc_media_plan_item_amount() TO service_role;
 
 --
 -- Name: FUNCTION recalc_media_plan_items_on_plan(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.recalc_media_plan_items_on_plan() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.recalc_media_plan_items_on_plan() TO service_role;
 
+GRANT ALL ON FUNCTION public.recalc_media_plan_items_on_plan() TO service_role;
 
 --
 -- Name: FUNCTION refresh_brain_stats(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.refresh_brain_stats() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.refresh_brain_stats() TO service_role;
 
+GRANT ALL ON FUNCTION public.refresh_brain_stats() TO service_role;
 
 --
 -- Name: FUNCTION refresh_task_total_minutes(_task_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.refresh_task_total_minutes(_task_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.refresh_task_total_minutes(_task_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.refresh_task_total_minutes(_task_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION safe_uuid(_txt text); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.safe_uuid(_txt text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.safe_uuid(_txt text) TO anon;
-GRANT ALL ON FUNCTION public.safe_uuid(_txt text) TO authenticated;
-GRANT ALL ON FUNCTION public.safe_uuid(_txt text) TO service_role;
 
+GRANT ALL ON FUNCTION public.safe_uuid(_txt text) TO anon;
+
+GRANT ALL ON FUNCTION public.safe_uuid(_txt text) TO authenticated;
+
+GRANT ALL ON FUNCTION public.safe_uuid(_txt text) TO service_role;
 
 --
 -- Name: FUNCTION set_cron_secret(_value text); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.set_cron_secret(_value text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.set_cron_secret(_value text) TO service_role;
 
+GRANT ALL ON FUNCTION public.set_cron_secret(_value text) TO service_role;
 
 --
 -- Name: FUNCTION start_timer(_task_id uuid, _brand_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.start_timer(_task_id uuid, _brand_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.start_timer(_task_id uuid, _brand_id uuid) TO service_role;
-GRANT ALL ON FUNCTION public.start_timer(_task_id uuid, _brand_id uuid) TO authenticated;
 
+GRANT ALL ON FUNCTION public.start_timer(_task_id uuid, _brand_id uuid) TO service_role;
+
+GRANT ALL ON FUNCTION public.start_timer(_task_id uuid, _brand_id uuid) TO authenticated;
 
 --
 -- Name: FUNCTION stop_timer(_entry_id uuid, _reason text); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.stop_timer(_entry_id uuid, _reason text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.stop_timer(_entry_id uuid, _reason text) TO authenticated;
-GRANT ALL ON FUNCTION public.stop_timer(_entry_id uuid, _reason text) TO service_role;
 
+GRANT ALL ON FUNCTION public.stop_timer(_entry_id uuid, _reason text) TO authenticated;
+
+GRANT ALL ON FUNCTION public.stop_timer(_entry_id uuid, _reason text) TO service_role;
 
 --
 -- Name: FUNCTION storage_scope_allows(_bucket text, _name text, _write boolean); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.storage_scope_allows(_bucket text, _name text, _write boolean) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.storage_scope_allows(_bucket text, _name text, _write boolean) TO anon;
-GRANT ALL ON FUNCTION public.storage_scope_allows(_bucket text, _name text, _write boolean) TO authenticated;
-GRANT ALL ON FUNCTION public.storage_scope_allows(_bucket text, _name text, _write boolean) TO service_role;
 
+GRANT ALL ON FUNCTION public.storage_scope_allows(_bucket text, _name text, _write boolean) TO anon;
+
+GRANT ALL ON FUNCTION public.storage_scope_allows(_bucket text, _name text, _write boolean) TO authenticated;
+
+GRANT ALL ON FUNCTION public.storage_scope_allows(_bucket text, _name text, _write boolean) TO service_role;
 
 --
 -- Name: FUNCTION sync_post_publication_state(p_post_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.sync_post_publication_state(p_post_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.sync_post_publication_state(p_post_id uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.sync_post_publication_state(p_post_id uuid) TO service_role;
 
 --
 -- Name: FUNCTION tg_ai_usage_limits_touch(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.tg_ai_usage_limits_touch() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.tg_ai_usage_limits_touch() TO service_role;
 
+GRANT ALL ON FUNCTION public.tg_ai_usage_limits_touch() TO service_role;
 
 --
 -- Name: FUNCTION tg_social_posts_sync_publication(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.tg_social_posts_sync_publication() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.tg_social_posts_sync_publication() TO service_role;
 
+GRANT ALL ON FUNCTION public.tg_social_posts_sync_publication() TO service_role;
 
 --
 -- Name: FUNCTION tg_touch_updated_at(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.tg_touch_updated_at() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.tg_touch_updated_at() TO service_role;
 
+GRANT ALL ON FUNCTION public.tg_touch_updated_at() TO service_role;
 
 --
 -- Name: FUNCTION trg_time_entry_refresh_totals(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.trg_time_entry_refresh_totals() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.trg_time_entry_refresh_totals() TO service_role;
 
+GRANT ALL ON FUNCTION public.trg_time_entry_refresh_totals() TO service_role;
 
 --
 -- Name: FUNCTION update_updated_at_column(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.update_updated_at_column() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.update_updated_at_column() TO service_role;
 
+GRANT ALL ON FUNCTION public.update_updated_at_column() TO service_role;
 
 --
 -- Name: FUNCTION upsert_brain_relationship(_brand_id uuid, _from_type text, _from_id uuid, _to_type text, _to_id uuid, _rel_type text, _strength_delta numeric, _metadata jsonb, _bidirectional boolean); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.upsert_brain_relationship(_brand_id uuid, _from_type text, _from_id uuid, _to_type text, _to_id uuid, _rel_type text, _strength_delta numeric, _metadata jsonb, _bidirectional boolean) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.upsert_brain_relationship(_brand_id uuid, _from_type text, _from_id uuid, _to_type text, _to_id uuid, _rel_type text, _strength_delta numeric, _metadata jsonb, _bidirectional boolean) TO service_role;
 
+GRANT ALL ON FUNCTION public.upsert_brain_relationship(_brand_id uuid, _from_type text, _from_id uuid, _to_type text, _to_id uuid, _rel_type text, _strength_delta numeric, _metadata jsonb, _bidirectional boolean) TO service_role;
 
 --
 -- Name: FUNCTION upsert_social_connection(_brand_id uuid, _provider text, _channel text, _external_id text, _access_token_ciphertext text, _external_name text, _account_username text, _page_id text, _instagram_business_id text, _meta_user_id text, _owner_external_id text, _owner_name text, _scopes text[], _token_expires_at timestamp with time zone, _metadata jsonb, _created_by uuid); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.upsert_social_connection(_brand_id uuid, _provider text, _channel text, _external_id text, _access_token_ciphertext text, _external_name text, _account_username text, _page_id text, _instagram_business_id text, _meta_user_id text, _owner_external_id text, _owner_name text, _scopes text[], _token_expires_at timestamp with time zone, _metadata jsonb, _created_by uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.upsert_social_connection(_brand_id uuid, _provider text, _channel text, _external_id text, _access_token_ciphertext text, _external_name text, _account_username text, _page_id text, _instagram_business_id text, _meta_user_id text, _owner_external_id text, _owner_name text, _scopes text[], _token_expires_at timestamp with time zone, _metadata jsonb, _created_by uuid) TO service_role;
 
+GRANT ALL ON FUNCTION public.upsert_social_connection(_brand_id uuid, _provider text, _channel text, _external_id text, _access_token_ciphertext text, _external_name text, _account_username text, _page_id text, _instagram_business_id text, _meta_user_id text, _owner_external_id text, _owner_name text, _scopes text[], _token_expires_at timestamp with time zone, _metadata jsonb, _created_by uuid) TO service_role;
 
 --
 -- Name: FUNCTION validate_client_social_account(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.validate_client_social_account() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.validate_client_social_account() TO service_role;
 
+GRANT ALL ON FUNCTION public.validate_client_social_account() TO service_role;
 
 --
 -- Name: FUNCTION validate_placement_connection(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.validate_placement_connection() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.validate_placement_connection() TO service_role;
 
+GRANT ALL ON FUNCTION public.validate_placement_connection() TO service_role;
 
 --
 -- Name: TABLE activity_events; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.activity_events TO anon;
-GRANT ALL ON TABLE public.activity_events TO authenticated;
-GRANT ALL ON TABLE public.activity_events TO service_role;
 
+GRANT ALL ON TABLE public.activity_events TO authenticated;
+
+GRANT ALL ON TABLE public.activity_events TO service_role;
 
 --
 -- Name: TABLE agent_prompt_overrides; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.agent_prompt_overrides TO anon;
-GRANT ALL ON TABLE public.agent_prompt_overrides TO authenticated;
-GRANT ALL ON TABLE public.agent_prompt_overrides TO service_role;
 
+GRANT ALL ON TABLE public.agent_prompt_overrides TO authenticated;
+
+GRANT ALL ON TABLE public.agent_prompt_overrides TO service_role;
 
 --
 -- Name: TABLE agent_prompts; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.agent_prompts TO anon;
-GRANT REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.agent_prompts TO authenticated;
-GRANT ALL ON TABLE public.agent_prompts TO service_role;
 
+GRANT REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.agent_prompts TO authenticated;
+
+GRANT ALL ON TABLE public.agent_prompts TO service_role;
 
 --
 -- Name: TABLE ai_jobs; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.ai_jobs TO anon;
-GRANT ALL ON TABLE public.ai_jobs TO authenticated;
-GRANT ALL ON TABLE public.ai_jobs TO service_role;
 
+GRANT ALL ON TABLE public.ai_jobs TO authenticated;
+
+GRANT ALL ON TABLE public.ai_jobs TO service_role;
 
 --
 -- Name: TABLE ai_model_catalog_overrides; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.ai_model_catalog_overrides TO anon;
-GRANT ALL ON TABLE public.ai_model_catalog_overrides TO authenticated;
-GRANT ALL ON TABLE public.ai_model_catalog_overrides TO service_role;
 
+GRANT ALL ON TABLE public.ai_model_catalog_overrides TO authenticated;
+
+GRANT ALL ON TABLE public.ai_model_catalog_overrides TO service_role;
 
 --
 -- Name: TABLE ai_model_health; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.ai_model_health TO anon;
-GRANT ALL ON TABLE public.ai_model_health TO authenticated;
-GRANT ALL ON TABLE public.ai_model_health TO service_role;
 
+GRANT ALL ON TABLE public.ai_model_health TO authenticated;
+
+GRANT ALL ON TABLE public.ai_model_health TO service_role;
 
 --
 -- Name: TABLE ai_usage_limits; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.ai_usage_limits TO anon;
-GRANT ALL ON TABLE public.ai_usage_limits TO authenticated;
-GRANT ALL ON TABLE public.ai_usage_limits TO service_role;
 
+GRANT ALL ON TABLE public.ai_usage_limits TO authenticated;
+
+GRANT ALL ON TABLE public.ai_usage_limits TO service_role;
 
 --
 -- Name: TABLE brain_embeddings; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brain_embeddings TO anon;
-GRANT ALL ON TABLE public.brain_embeddings TO authenticated;
-GRANT ALL ON TABLE public.brain_embeddings TO service_role;
 
+GRANT ALL ON TABLE public.brain_embeddings TO authenticated;
+
+GRANT ALL ON TABLE public.brain_embeddings TO service_role;
 
 --
 -- Name: TABLE brain_events; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.brain_events TO anon;
-GRANT ALL ON TABLE public.brain_events TO authenticated;
-GRANT ALL ON TABLE public.brain_events TO service_role;
 
+GRANT ALL ON TABLE public.brain_events TO authenticated;
+
+GRANT ALL ON TABLE public.brain_events TO service_role;
 
 --
 -- Name: TABLE brain_insights; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brain_insights TO anon;
-GRANT ALL ON TABLE public.brain_insights TO authenticated;
-GRANT ALL ON TABLE public.brain_insights TO service_role;
 
+GRANT ALL ON TABLE public.brain_insights TO authenticated;
+
+GRANT ALL ON TABLE public.brain_insights TO service_role;
 
 --
 -- Name: TABLE brain_learning_queue; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brain_learning_queue TO anon;
-GRANT ALL ON TABLE public.brain_learning_queue TO authenticated;
-GRANT ALL ON TABLE public.brain_learning_queue TO service_role;
 
+GRANT ALL ON TABLE public.brain_learning_queue TO authenticated;
+
+GRANT ALL ON TABLE public.brain_learning_queue TO service_role;
 
 --
 -- Name: TABLE brain_memory; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brain_memory TO anon;
-GRANT ALL ON TABLE public.brain_memory TO authenticated;
-GRANT ALL ON TABLE public.brain_memory TO service_role;
 
+GRANT ALL ON TABLE public.brain_memory TO authenticated;
+
+GRANT ALL ON TABLE public.brain_memory TO service_role;
 
 --
 -- Name: TABLE brain_memory_versions; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brain_memory_versions TO anon;
-GRANT ALL ON TABLE public.brain_memory_versions TO authenticated;
-GRANT ALL ON TABLE public.brain_memory_versions TO service_role;
 
+GRANT ALL ON TABLE public.brain_memory_versions TO authenticated;
+
+GRANT ALL ON TABLE public.brain_memory_versions TO service_role;
 
 --
 -- Name: TABLE brain_metrics_snapshots; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brain_metrics_snapshots TO anon;
-GRANT ALL ON TABLE public.brain_metrics_snapshots TO authenticated;
-GRANT ALL ON TABLE public.brain_metrics_snapshots TO service_role;
 
+GRANT ALL ON TABLE public.brain_metrics_snapshots TO authenticated;
+
+GRANT ALL ON TABLE public.brain_metrics_snapshots TO service_role;
 
 --
 -- Name: TABLE brain_reasoning_logs; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brain_reasoning_logs TO anon;
-GRANT ALL ON TABLE public.brain_reasoning_logs TO authenticated;
-GRANT ALL ON TABLE public.brain_reasoning_logs TO service_role;
 
+GRANT ALL ON TABLE public.brain_reasoning_logs TO authenticated;
+
+GRANT ALL ON TABLE public.brain_reasoning_logs TO service_role;
 
 --
 -- Name: TABLE brain_recommendations; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brain_recommendations TO anon;
-GRANT ALL ON TABLE public.brain_recommendations TO authenticated;
-GRANT ALL ON TABLE public.brain_recommendations TO service_role;
 
+GRANT ALL ON TABLE public.brain_recommendations TO authenticated;
+
+GRANT ALL ON TABLE public.brain_recommendations TO service_role;
 
 --
 -- Name: TABLE brain_relationships; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brain_relationships TO anon;
-GRANT ALL ON TABLE public.brain_relationships TO authenticated;
-GRANT ALL ON TABLE public.brain_relationships TO service_role;
 
+GRANT ALL ON TABLE public.brain_relationships TO authenticated;
+
+GRANT ALL ON TABLE public.brain_relationships TO service_role;
 
 --
 -- Name: TABLE brain_retention_config; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brain_retention_config TO anon;
-GRANT ALL ON TABLE public.brain_retention_config TO authenticated;
-GRANT ALL ON TABLE public.brain_retention_config TO service_role;
 
+GRANT ALL ON TABLE public.brain_retention_config TO authenticated;
+
+GRANT ALL ON TABLE public.brain_retention_config TO service_role;
 
 --
 -- Name: TABLE brands; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brands TO anon;
-GRANT ALL ON TABLE public.brands TO authenticated;
-GRANT ALL ON TABLE public.brands TO service_role;
 
+GRANT ALL ON TABLE public.brands TO authenticated;
+
+GRANT ALL ON TABLE public.brands TO service_role;
 
 --
 -- Name: TABLE posts; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.posts TO anon;
-GRANT ALL ON TABLE public.posts TO authenticated;
-GRANT ALL ON TABLE public.posts TO service_role;
 
+GRANT ALL ON TABLE public.posts TO authenticated;
+
+GRANT ALL ON TABLE public.posts TO service_role;
 
 --
 -- Name: TABLE projects; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.projects TO anon;
-GRANT ALL ON TABLE public.projects TO authenticated;
-GRANT ALL ON TABLE public.projects TO service_role;
 
+GRANT ALL ON TABLE public.projects TO authenticated;
+
+GRANT ALL ON TABLE public.projects TO service_role;
 
 --
 -- Name: TABLE tasks; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.tasks TO anon;
-GRANT ALL ON TABLE public.tasks TO authenticated;
-GRANT ALL ON TABLE public.tasks TO service_role;
 
+GRANT ALL ON TABLE public.tasks TO authenticated;
+
+GRANT ALL ON TABLE public.tasks TO service_role;
 
 --
 -- Name: TABLE brain_stats_mv; Type: ACL; Schema: public; Owner: -
@@ -15114,401 +14183,443 @@ GRANT ALL ON TABLE public.tasks TO service_role;
 
 GRANT ALL ON TABLE public.brain_stats_mv TO service_role;
 
-
 --
 -- Name: TABLE brain_worker_runs; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brain_worker_runs TO anon;
-GRANT ALL ON TABLE public.brain_worker_runs TO authenticated;
-GRANT ALL ON TABLE public.brain_worker_runs TO service_role;
 
+GRANT ALL ON TABLE public.brain_worker_runs TO authenticated;
+
+GRANT ALL ON TABLE public.brain_worker_runs TO service_role;
 
 --
 -- Name: TABLE brand_ai_content; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_ai_content TO anon;
-GRANT ALL ON TABLE public.brand_ai_content TO authenticated;
-GRANT ALL ON TABLE public.brand_ai_content TO service_role;
 
+GRANT ALL ON TABLE public.brand_ai_content TO authenticated;
+
+GRANT ALL ON TABLE public.brand_ai_content TO service_role;
 
 --
 -- Name: TABLE brand_ai_usage; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_ai_usage TO anon;
-GRANT ALL ON TABLE public.brand_ai_usage TO authenticated;
-GRANT ALL ON TABLE public.brand_ai_usage TO service_role;
 
+GRANT ALL ON TABLE public.brand_ai_usage TO authenticated;
+
+GRANT ALL ON TABLE public.brand_ai_usage TO service_role;
 
 --
 -- Name: TABLE brand_ai_versions; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_ai_versions TO anon;
-GRANT ALL ON TABLE public.brand_ai_versions TO authenticated;
-GRANT ALL ON TABLE public.brand_ai_versions TO service_role;
 
+GRANT ALL ON TABLE public.brand_ai_versions TO authenticated;
+
+GRANT ALL ON TABLE public.brand_ai_versions TO service_role;
 
 --
 -- Name: TABLE brand_api_credentials; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_api_credentials TO anon;
-GRANT ALL ON TABLE public.brand_api_credentials TO authenticated;
-GRANT ALL ON TABLE public.brand_api_credentials TO service_role;
 
+GRANT ALL ON TABLE public.brand_api_credentials TO authenticated;
+
+GRANT ALL ON TABLE public.brand_api_credentials TO service_role;
 
 --
 -- Name: TABLE brand_briefing_proposals; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_briefing_proposals TO anon;
-GRANT ALL ON TABLE public.brand_briefing_proposals TO authenticated;
-GRANT ALL ON TABLE public.brand_briefing_proposals TO service_role;
 
+GRANT ALL ON TABLE public.brand_briefing_proposals TO authenticated;
+
+GRANT ALL ON TABLE public.brand_briefing_proposals TO service_role;
 
 --
 -- Name: TABLE brand_briefing_requests; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_briefing_requests TO anon;
-GRANT ALL ON TABLE public.brand_briefing_requests TO authenticated;
-GRANT ALL ON TABLE public.brand_briefing_requests TO service_role;
 
+GRANT ALL ON TABLE public.brand_briefing_requests TO authenticated;
+
+GRANT ALL ON TABLE public.brand_briefing_requests TO service_role;
 
 --
 -- Name: TABLE brand_briefing_reviews; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_briefing_reviews TO anon;
-GRANT ALL ON TABLE public.brand_briefing_reviews TO authenticated;
-GRANT ALL ON TABLE public.brand_briefing_reviews TO service_role;
 
+GRANT ALL ON TABLE public.brand_briefing_reviews TO authenticated;
+
+GRANT ALL ON TABLE public.brand_briefing_reviews TO service_role;
 
 --
 -- Name: TABLE brand_briefing_versions; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_briefing_versions TO anon;
-GRANT ALL ON TABLE public.brand_briefing_versions TO authenticated;
-GRANT ALL ON TABLE public.brand_briefing_versions TO service_role;
 
+GRANT ALL ON TABLE public.brand_briefing_versions TO authenticated;
+
+GRANT ALL ON TABLE public.brand_briefing_versions TO service_role;
 
 --
 -- Name: TABLE brand_briefings; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_briefings TO anon;
-GRANT ALL ON TABLE public.brand_briefings TO authenticated;
-GRANT ALL ON TABLE public.brand_briefings TO service_role;
 
+GRANT ALL ON TABLE public.brand_briefings TO authenticated;
+
+GRANT ALL ON TABLE public.brand_briefings TO service_role;
 
 --
 -- Name: TABLE brand_cohorts; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_cohorts TO anon;
-GRANT ALL ON TABLE public.brand_cohorts TO authenticated;
-GRANT ALL ON TABLE public.brand_cohorts TO service_role;
 
+GRANT ALL ON TABLE public.brand_cohorts TO authenticated;
+
+GRANT ALL ON TABLE public.brand_cohorts TO service_role;
 
 --
 -- Name: TABLE brand_competitors; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_competitors TO anon;
-GRANT ALL ON TABLE public.brand_competitors TO authenticated;
-GRANT ALL ON TABLE public.brand_competitors TO service_role;
 
+GRANT ALL ON TABLE public.brand_competitors TO authenticated;
+
+GRANT ALL ON TABLE public.brand_competitors TO service_role;
 
 --
 -- Name: TABLE brand_connections; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_connections TO anon;
-GRANT ALL ON TABLE public.brand_connections TO authenticated;
-GRANT ALL ON TABLE public.brand_connections TO service_role;
 
+GRANT ALL ON TABLE public.brand_connections TO authenticated;
+
+GRANT ALL ON TABLE public.brand_connections TO service_role;
 
 --
 -- Name: TABLE brand_features; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_features TO anon;
-GRANT ALL ON TABLE public.brand_features TO authenticated;
-GRANT ALL ON TABLE public.brand_features TO service_role;
 
+GRANT ALL ON TABLE public.brand_features TO authenticated;
+
+GRANT ALL ON TABLE public.brand_features TO service_role;
 
 --
 -- Name: TABLE brand_invites; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_invites TO anon;
-GRANT ALL ON TABLE public.brand_invites TO authenticated;
-GRANT ALL ON TABLE public.brand_invites TO service_role;
 
+GRANT ALL ON TABLE public.brand_invites TO authenticated;
+
+GRANT ALL ON TABLE public.brand_invites TO service_role;
 
 --
 -- Name: TABLE brand_journey_stage_templates; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_journey_stage_templates TO anon;
-GRANT ALL ON TABLE public.brand_journey_stage_templates TO authenticated;
-GRANT ALL ON TABLE public.brand_journey_stage_templates TO service_role;
 
+GRANT ALL ON TABLE public.brand_journey_stage_templates TO authenticated;
+
+GRANT ALL ON TABLE public.brand_journey_stage_templates TO service_role;
 
 --
 -- Name: TABLE brand_media_assets; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_media_assets TO anon;
-GRANT ALL ON TABLE public.brand_media_assets TO authenticated;
-GRANT ALL ON TABLE public.brand_media_assets TO service_role;
 
+GRANT ALL ON TABLE public.brand_media_assets TO authenticated;
+
+GRANT ALL ON TABLE public.brand_media_assets TO service_role;
 
 --
 -- Name: TABLE brand_members; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_members TO anon;
-GRANT ALL ON TABLE public.brand_members TO authenticated;
-GRANT ALL ON TABLE public.brand_members TO service_role;
 
+GRANT ALL ON TABLE public.brand_members TO authenticated;
+
+GRANT ALL ON TABLE public.brand_members TO service_role;
 
 --
 -- Name: TABLE brand_pautas; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_pautas TO anon;
-GRANT ALL ON TABLE public.brand_pautas TO authenticated;
-GRANT ALL ON TABLE public.brand_pautas TO service_role;
 
+GRANT ALL ON TABLE public.brand_pautas TO authenticated;
+
+GRANT ALL ON TABLE public.brand_pautas TO service_role;
 
 --
 -- Name: TABLE brand_personas; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_personas TO anon;
-GRANT ALL ON TABLE public.brand_personas TO authenticated;
-GRANT ALL ON TABLE public.brand_personas TO service_role;
 
+GRANT ALL ON TABLE public.brand_personas TO authenticated;
+
+GRANT ALL ON TABLE public.brand_personas TO service_role;
 
 --
 -- Name: TABLE brand_swot; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_swot TO anon;
-GRANT ALL ON TABLE public.brand_swot TO authenticated;
-GRANT ALL ON TABLE public.brand_swot TO service_role;
 
+GRANT ALL ON TABLE public.brand_swot TO authenticated;
+
+GRANT ALL ON TABLE public.brand_swot TO service_role;
 
 --
 -- Name: TABLE brand_voice_cards; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.brand_voice_cards TO anon;
-GRANT ALL ON TABLE public.brand_voice_cards TO authenticated;
-GRANT ALL ON TABLE public.brand_voice_cards TO service_role;
 
+GRANT ALL ON TABLE public.brand_voice_cards TO authenticated;
+
+GRANT ALL ON TABLE public.brand_voice_cards TO service_role;
 
 --
 -- Name: TABLE calendar_events; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.calendar_events TO anon;
-GRANT ALL ON TABLE public.calendar_events TO authenticated;
-GRANT ALL ON TABLE public.calendar_events TO service_role;
 
+GRANT ALL ON TABLE public.calendar_events TO authenticated;
+
+GRANT ALL ON TABLE public.calendar_events TO service_role;
 
 --
 -- Name: TABLE card_approval_events; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.card_approval_events TO anon;
-GRANT ALL ON TABLE public.card_approval_events TO authenticated;
-GRANT ALL ON TABLE public.card_approval_events TO service_role;
 
+GRANT ALL ON TABLE public.card_approval_events TO authenticated;
+
+GRANT ALL ON TABLE public.card_approval_events TO service_role;
 
 --
 -- Name: TABLE card_approval_tokens; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.card_approval_tokens TO anon;
-GRANT ALL ON TABLE public.card_approval_tokens TO authenticated;
-GRANT ALL ON TABLE public.card_approval_tokens TO service_role;
 
+GRANT ALL ON TABLE public.card_approval_tokens TO authenticated;
+
+GRANT ALL ON TABLE public.card_approval_tokens TO service_role;
 
 --
 -- Name: TABLE chat_conversations; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.chat_conversations TO anon;
-GRANT ALL ON TABLE public.chat_conversations TO authenticated;
-GRANT ALL ON TABLE public.chat_conversations TO service_role;
 
+GRANT ALL ON TABLE public.chat_conversations TO authenticated;
+
+GRANT ALL ON TABLE public.chat_conversations TO service_role;
 
 --
 -- Name: TABLE chat_messages; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.chat_messages TO anon;
-GRANT ALL ON TABLE public.chat_messages TO authenticated;
-GRANT ALL ON TABLE public.chat_messages TO service_role;
 
+GRANT ALL ON TABLE public.chat_messages TO authenticated;
+
+GRANT ALL ON TABLE public.chat_messages TO service_role;
 
 --
 -- Name: TABLE client_briefing_tokens; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.client_briefing_tokens TO anon;
-GRANT ALL ON TABLE public.client_briefing_tokens TO authenticated;
-GRANT ALL ON TABLE public.client_briefing_tokens TO service_role;
 
+GRANT ALL ON TABLE public.client_briefing_tokens TO authenticated;
+
+GRANT ALL ON TABLE public.client_briefing_tokens TO service_role;
 
 --
 -- Name: TABLE client_briefings; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.client_briefings TO anon;
-GRANT ALL ON TABLE public.client_briefings TO authenticated;
-GRANT ALL ON TABLE public.client_briefings TO service_role;
 
+GRANT ALL ON TABLE public.client_briefings TO authenticated;
+
+GRANT ALL ON TABLE public.client_briefings TO service_role;
 
 --
 -- Name: TABLE client_documents; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.client_documents TO anon;
-GRANT ALL ON TABLE public.client_documents TO authenticated;
-GRANT ALL ON TABLE public.client_documents TO service_role;
 
+GRANT ALL ON TABLE public.client_documents TO authenticated;
+
+GRANT ALL ON TABLE public.client_documents TO service_role;
 
 --
 -- Name: TABLE client_journey_events; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.client_journey_events TO anon;
-GRANT ALL ON TABLE public.client_journey_events TO authenticated;
-GRANT ALL ON TABLE public.client_journey_events TO service_role;
 
+GRANT ALL ON TABLE public.client_journey_events TO authenticated;
+
+GRANT ALL ON TABLE public.client_journey_events TO service_role;
 
 --
 -- Name: TABLE client_members; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.client_members TO anon;
-GRANT ALL ON TABLE public.client_members TO authenticated;
-GRANT ALL ON TABLE public.client_members TO service_role;
 
+GRANT ALL ON TABLE public.client_members TO authenticated;
+
+GRANT ALL ON TABLE public.client_members TO service_role;
 
 --
 -- Name: TABLE client_social_accounts; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.client_social_accounts TO anon;
-GRANT ALL ON TABLE public.client_social_accounts TO authenticated;
-GRANT ALL ON TABLE public.client_social_accounts TO service_role;
 
+GRANT ALL ON TABLE public.client_social_accounts TO authenticated;
+
+GRANT ALL ON TABLE public.client_social_accounts TO service_role;
 
 --
 -- Name: TABLE clients; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.clients TO anon;
-GRANT ALL ON TABLE public.clients TO authenticated;
-GRANT ALL ON TABLE public.clients TO service_role;
 
+GRANT ALL ON TABLE public.clients TO authenticated;
+
+GRANT ALL ON TABLE public.clients TO service_role;
 
 --
 -- Name: TABLE content_pipeline_stages; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.content_pipeline_stages TO anon;
-GRANT ALL ON TABLE public.content_pipeline_stages TO authenticated;
-GRANT ALL ON TABLE public.content_pipeline_stages TO service_role;
 
+GRANT ALL ON TABLE public.content_pipeline_stages TO authenticated;
+
+GRANT ALL ON TABLE public.content_pipeline_stages TO service_role;
 
 --
 -- Name: TABLE content_pipelines; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.content_pipelines TO anon;
-GRANT ALL ON TABLE public.content_pipelines TO authenticated;
-GRANT ALL ON TABLE public.content_pipelines TO service_role;
 
+GRANT ALL ON TABLE public.content_pipelines TO authenticated;
+
+GRANT ALL ON TABLE public.content_pipelines TO service_role;
 
 --
 -- Name: TABLE evolution_events; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.evolution_events TO anon;
-GRANT ALL ON TABLE public.evolution_events TO authenticated;
-GRANT ALL ON TABLE public.evolution_events TO service_role;
 
+GRANT ALL ON TABLE public.evolution_events TO authenticated;
+
+GRANT ALL ON TABLE public.evolution_events TO service_role;
 
 --
 -- Name: TABLE evolution_instances; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.evolution_instances TO anon;
-GRANT ALL ON TABLE public.evolution_instances TO authenticated;
-GRANT ALL ON TABLE public.evolution_instances TO service_role;
 
+GRANT ALL ON TABLE public.evolution_instances TO authenticated;
+
+GRANT ALL ON TABLE public.evolution_instances TO service_role;
 
 --
 -- Name: TABLE feature_catalog; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.feature_catalog TO anon;
-GRANT ALL ON TABLE public.feature_catalog TO authenticated;
-GRANT ALL ON TABLE public.feature_catalog TO service_role;
 
+GRANT ALL ON TABLE public.feature_catalog TO authenticated;
+
+GRANT ALL ON TABLE public.feature_catalog TO service_role;
 
 --
 -- Name: TABLE installation; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT SELECT,REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.installation TO anon;
-GRANT ALL ON TABLE public.installation TO authenticated;
-GRANT ALL ON TABLE public.installation TO service_role;
 
+GRANT ALL ON TABLE public.installation TO authenticated;
+
+GRANT ALL ON TABLE public.installation TO service_role;
 
 --
 -- Name: TABLE media_plan_items; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.media_plan_items TO anon;
-GRANT ALL ON TABLE public.media_plan_items TO authenticated;
-GRANT ALL ON TABLE public.media_plan_items TO service_role;
 
+GRANT ALL ON TABLE public.media_plan_items TO authenticated;
+
+GRANT ALL ON TABLE public.media_plan_items TO service_role;
 
 --
 -- Name: TABLE media_plans; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.media_plans TO anon;
-GRANT ALL ON TABLE public.media_plans TO authenticated;
-GRANT ALL ON TABLE public.media_plans TO service_role;
 
+GRANT ALL ON TABLE public.media_plans TO authenticated;
+
+GRANT ALL ON TABLE public.media_plans TO service_role;
 
 --
 -- Name: TABLE message_logs; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT SELECT,INSERT,REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.message_logs TO authenticated;
-GRANT ALL ON TABLE public.message_logs TO service_role;
 
+GRANT ALL ON TABLE public.message_logs TO service_role;
 
 --
 -- Name: TABLE message_templates; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.message_templates TO anon;
-GRANT ALL ON TABLE public.message_templates TO authenticated;
-GRANT ALL ON TABLE public.message_templates TO service_role;
 
+GRANT ALL ON TABLE public.message_templates TO authenticated;
+
+GRANT ALL ON TABLE public.message_templates TO service_role;
 
 --
 -- Name: TABLE meta_compliance_events; Type: ACL; Schema: public; Owner: -
@@ -15516,60 +14627,65 @@ GRANT ALL ON TABLE public.message_templates TO service_role;
 
 GRANT ALL ON TABLE public.meta_compliance_events TO service_role;
 
-
 --
 -- Name: TABLE meta_oauth_sessions; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.meta_oauth_sessions TO anon;
-GRANT ALL ON TABLE public.meta_oauth_sessions TO authenticated;
-GRANT ALL ON TABLE public.meta_oauth_sessions TO service_role;
 
+GRANT ALL ON TABLE public.meta_oauth_sessions TO authenticated;
+
+GRANT ALL ON TABLE public.meta_oauth_sessions TO service_role;
 
 --
 -- Name: TABLE monthly_plan_tokens; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.monthly_plan_tokens TO anon;
-GRANT ALL ON TABLE public.monthly_plan_tokens TO authenticated;
-GRANT ALL ON TABLE public.monthly_plan_tokens TO service_role;
 
+GRANT ALL ON TABLE public.monthly_plan_tokens TO authenticated;
+
+GRANT ALL ON TABLE public.monthly_plan_tokens TO service_role;
 
 --
 -- Name: TABLE monthly_plan_topics; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.monthly_plan_topics TO anon;
-GRANT ALL ON TABLE public.monthly_plan_topics TO authenticated;
-GRANT ALL ON TABLE public.monthly_plan_topics TO service_role;
 
+GRANT ALL ON TABLE public.monthly_plan_topics TO authenticated;
+
+GRANT ALL ON TABLE public.monthly_plan_topics TO service_role;
 
 --
 -- Name: TABLE monthly_plans; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.monthly_plans TO anon;
-GRANT ALL ON TABLE public.monthly_plans TO authenticated;
-GRANT ALL ON TABLE public.monthly_plans TO service_role;
 
+GRANT ALL ON TABLE public.monthly_plans TO authenticated;
+
+GRANT ALL ON TABLE public.monthly_plans TO service_role;
 
 --
 -- Name: TABLE notifications; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.notifications TO anon;
-GRANT ALL ON TABLE public.notifications TO authenticated;
-GRANT ALL ON TABLE public.notifications TO service_role;
 
+GRANT ALL ON TABLE public.notifications TO authenticated;
+
+GRANT ALL ON TABLE public.notifications TO service_role;
 
 --
 -- Name: TABLE plan_overage_requests; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.plan_overage_requests TO anon;
-GRANT ALL ON TABLE public.plan_overage_requests TO authenticated;
-GRANT ALL ON TABLE public.plan_overage_requests TO service_role;
 
+GRANT ALL ON TABLE public.plan_overage_requests TO authenticated;
+
+GRANT ALL ON TABLE public.plan_overage_requests TO service_role;
 
 --
 -- Name: TABLE portal_rate_limit; Type: ACL; Schema: public; Owner: -
@@ -15577,204 +14693,223 @@ GRANT ALL ON TABLE public.plan_overage_requests TO service_role;
 
 GRANT ALL ON TABLE public.portal_rate_limit TO service_role;
 
-
 --
 -- Name: TABLE portal_tokens; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.portal_tokens TO anon;
-GRANT ALL ON TABLE public.portal_tokens TO authenticated;
-GRANT ALL ON TABLE public.portal_tokens TO service_role;
 
+GRANT ALL ON TABLE public.portal_tokens TO authenticated;
+
+GRANT ALL ON TABLE public.portal_tokens TO service_role;
 
 --
 -- Name: TABLE post_approvals; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.post_approvals TO anon;
-GRANT ALL ON TABLE public.post_approvals TO authenticated;
-GRANT ALL ON TABLE public.post_approvals TO service_role;
 
+GRANT ALL ON TABLE public.post_approvals TO authenticated;
+
+GRANT ALL ON TABLE public.post_approvals TO service_role;
 
 --
 -- Name: TABLE post_placements; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.post_placements TO anon;
-GRANT ALL ON TABLE public.post_placements TO authenticated;
-GRANT ALL ON TABLE public.post_placements TO service_role;
 
+GRANT ALL ON TABLE public.post_placements TO authenticated;
+
+GRANT ALL ON TABLE public.post_placements TO service_role;
 
 --
 -- Name: TABLE project_jobs; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.project_jobs TO anon;
-GRANT ALL ON TABLE public.project_jobs TO authenticated;
-GRANT ALL ON TABLE public.project_jobs TO service_role;
 
+GRANT ALL ON TABLE public.project_jobs TO authenticated;
+
+GRANT ALL ON TABLE public.project_jobs TO service_role;
 
 --
 -- Name: TABLE project_template_jobs; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.project_template_jobs TO anon;
-GRANT ALL ON TABLE public.project_template_jobs TO authenticated;
-GRANT ALL ON TABLE public.project_template_jobs TO service_role;
 
+GRANT ALL ON TABLE public.project_template_jobs TO authenticated;
+
+GRANT ALL ON TABLE public.project_template_jobs TO service_role;
 
 --
 -- Name: TABLE project_template_tasks; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.project_template_tasks TO anon;
-GRANT ALL ON TABLE public.project_template_tasks TO authenticated;
-GRANT ALL ON TABLE public.project_template_tasks TO service_role;
 
+GRANT ALL ON TABLE public.project_template_tasks TO authenticated;
+
+GRANT ALL ON TABLE public.project_template_tasks TO service_role;
 
 --
 -- Name: TABLE project_templates; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.project_templates TO anon;
-GRANT ALL ON TABLE public.project_templates TO authenticated;
-GRANT ALL ON TABLE public.project_templates TO service_role;
 
+GRANT ALL ON TABLE public.project_templates TO authenticated;
+
+GRANT ALL ON TABLE public.project_templates TO service_role;
 
 --
 -- Name: TABLE sla_rules; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.sla_rules TO anon;
-GRANT ALL ON TABLE public.sla_rules TO authenticated;
-GRANT ALL ON TABLE public.sla_rules TO service_role;
 
+GRANT ALL ON TABLE public.sla_rules TO authenticated;
+
+GRANT ALL ON TABLE public.sla_rules TO service_role;
 
 --
 -- Name: TABLE social_connections; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.social_connections TO anon;
-GRANT ALL ON TABLE public.social_connections TO authenticated;
-GRANT ALL ON TABLE public.social_connections TO service_role;
 
+GRANT ALL ON TABLE public.social_connections TO authenticated;
+
+GRANT ALL ON TABLE public.social_connections TO service_role;
 
 --
 -- Name: TABLE social_posts; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.social_posts TO anon;
-GRANT ALL ON TABLE public.social_posts TO authenticated;
-GRANT ALL ON TABLE public.social_posts TO service_role;
 
+GRANT ALL ON TABLE public.social_posts TO authenticated;
+
+GRANT ALL ON TABLE public.social_posts TO service_role;
 
 --
 -- Name: TABLE task_comments; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.task_comments TO anon;
-GRANT ALL ON TABLE public.task_comments TO authenticated;
-GRANT ALL ON TABLE public.task_comments TO service_role;
 
+GRANT ALL ON TABLE public.task_comments TO authenticated;
+
+GRANT ALL ON TABLE public.task_comments TO service_role;
 
 --
 -- Name: TABLE task_subtasks; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.task_subtasks TO anon;
-GRANT ALL ON TABLE public.task_subtasks TO authenticated;
-GRANT ALL ON TABLE public.task_subtasks TO service_role;
 
+GRANT ALL ON TABLE public.task_subtasks TO authenticated;
+
+GRANT ALL ON TABLE public.task_subtasks TO service_role;
 
 --
 -- Name: TABLE task_time_entries; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT MAINTAIN ON TABLE public.task_time_entries TO anon;
-GRANT ALL ON TABLE public.task_time_entries TO authenticated;
-GRANT ALL ON TABLE public.task_time_entries TO service_role;
 
+GRANT ALL ON TABLE public.task_time_entries TO authenticated;
+
+GRANT ALL ON TABLE public.task_time_entries TO service_role;
 
 --
 -- Name: TABLE user_profiles; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT SELECT,INSERT,DELETE,MAINTAIN,UPDATE ON TABLE public.user_profiles TO authenticated;
-GRANT ALL ON TABLE public.user_profiles TO service_role;
 
+GRANT ALL ON TABLE public.user_profiles TO service_role;
 
 --
 -- Name: TABLE whatsapp_recipients; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.whatsapp_recipients TO anon;
-GRANT ALL ON TABLE public.whatsapp_recipients TO authenticated;
-GRANT ALL ON TABLE public.whatsapp_recipients TO service_role;
 
+GRANT ALL ON TABLE public.whatsapp_recipients TO authenticated;
+
+GRANT ALL ON TABLE public.whatsapp_recipients TO service_role;
 
 --
 -- Name: DEFAULT PRIVILEGES FOR SEQUENCES; Type: DEFAULT ACL; Schema: public; Owner: -
 --
 
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO service_role;
 
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO anon;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO service_role;
 
 --
 -- Name: DEFAULT PRIVILEGES FOR SEQUENCES; Type: DEFAULT ACL; Schema: public; Owner: -
 --
 
 ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO service_role;
 
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO anon;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO service_role;
 
 --
 -- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: public; Owner: -
 --
 
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO service_role;
 
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO authenticated;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO service_role;
 
 --
 -- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: public; Owner: -
 --
 
 ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO service_role;
 
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO authenticated;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO service_role;
 
 --
 -- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: public; Owner: -
 --
 
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO service_role;
 
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLES TO anon;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO authenticated;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO service_role;
 
 --
 -- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: public; Owner: -
 --
 
 ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES TO postgres;
+
 ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES TO anon;
+
 ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES TO authenticated;
+
 ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES TO service_role;
-
-
---
--- PostgreSQL database dump complete
---
-
-\unrestrict yXwfeDXdbcd2GkJQzrs4tN5NWe1Pwy7RDfmvC2TkEuUXmdNDKiftPob5NdW0psA
 
