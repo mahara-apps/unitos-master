@@ -449,22 +449,32 @@ export function DocumentsTab({
 
       <section className="overflow-hidden rounded-xl border border-border bg-card">
         {docsQ.isError ? (
-          <div className="space-y-3 px-4 py-10 text-center text-sm text-destructive">
+          <div className="space-y-3 px-4 py-6 text-center text-sm text-destructive">
             <p>Não foi possível carregar os documentos deste cliente.</p>
             <Button size="sm" variant="outline" onClick={() => docsQ.refetch()}>
               Tentar novamente
             </Button>
           </div>
         ) : docsQ.isLoading ? (
-          <div className="space-y-2 p-4">
-            <Skeleton className="h-14 w-full rounded-lg" />
-            <Skeleton className="h-14 w-full rounded-lg" />
-            <Skeleton className="h-14 w-full rounded-lg" />
+          <div className="space-y-2 p-3">
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
           </div>
         ) : docs.length === 0 ? (
-          <p className="px-6 py-10 text-center text-xs text-muted-foreground">
-            Nenhum documento ainda. Envie um brandbook ou pesquisa acima para começar.
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3.5">
+            <p className="min-w-0 text-xs text-muted-foreground">
+              Nenhum material de contexto ainda.
+            </p>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 gap-1.5 text-[11px]"
+              onClick={() => inputRef.current?.click()}
+            >
+              <Upload className="h-3 w-3" /> Enviar o primeiro arquivo
+            </Button>
+          </div>
+
         ) : (
           <>
             {/* Mobile (≤ md): mesma informação e ações, em cartões legíveis. */}
