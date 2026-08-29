@@ -297,11 +297,23 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
       count?: number;
     }> = [];
     const briefingUpdated = briefingUpdatedAt;
-    if (!briefingUpdated || now - new Date(briefingUpdated).getTime() > 7 * 86_400_000) {
+    // O alerta de briefing usa o estado REAL de conclusão (clients.briefing_status
+    // + completude do brand_hub), nunca a data da última atualização. Briefing
+    // concluído não gera alerta, independente de quando foi atualizado.
+    if (briefingStatus === "requested") {
       alerts.push({
-        severity: "critical",
-        title: briefingUpdated ? "Briefing desatualizado" : "Briefing não preenchido",
-        description: "Cérebro da marca sem atualização há mais de 7 dias",
+        severity: "warning",
+        title: "Atualização de briefing pendente",
+        description: "Foi solicitada uma atualização do briefing ao cliente",
+      });
+    } else if (!briefingConcluded) {
+      alerts.push({
+        severity: briefingCompletion === 0 ? "critical" : "warning",
+        title: briefingCompletion === 0 ? "Briefing não preenchido" : "Briefing incompleto",
+        description:
+          briefingCompletion === 0
+            ? "Cérebro da marca ainda sem informações"
+            : `Cérebro da marca ${briefingCompletion}% preenchido`,
       });
     }
     const stalePending = approvalRows.filter(
