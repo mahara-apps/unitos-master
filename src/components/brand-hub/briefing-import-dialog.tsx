@@ -911,6 +911,23 @@ function ChangeCard({
   const confidence = confidenceLabel(change.confidence);
   const evidence =
     typeof change.evidence?.["excerpt"] === "string" ? (change.evidence["excerpt"] as string) : null;
+  const originSource =
+    typeof change.evidence?.["source"] === "string" ? (change.evidence["source"] as string) : null;
+  const originLabel =
+    typeof change.evidence?.["document_name"] === "string"
+      ? (change.evidence["document_name"] as string)
+      : typeof change.evidence?.["label"] === "string"
+        ? (change.evidence["label"] as string)
+        : null;
+  const origin = [
+    originSource
+      ? ({ document: "Documento", transcript: "Transcrição", paste: "Texto colado" }[originSource] ??
+        originSource)
+      : null,
+    originLabel,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="rounded-lg border border-border/60 px-3 py-3">
@@ -930,6 +947,10 @@ function ChangeCard({
             {confidence ? (
               <span className="text-[11px] text-muted-foreground">{confidence}</span>
             ) : null}
+            {origin ? (
+              <span className="truncate text-[11px] text-muted-foreground">Origem: {origin}</span>
+            ) : null}
+
             {readOnly ? (
               <Badge variant="outline" className="text-[11px] text-muted-foreground">
                 {change.decision === "accepted"
