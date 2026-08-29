@@ -503,6 +503,40 @@ export async function saveImportProposal(
   return { counts };
 }
 
+export type ImportStepRow = {
+  id: string;
+  run_id: string;
+  step: ImportStep;
+  status: ImportStepStatus;
+  attempt: number;
+  input_ref: string | null;
+  output: JsonValue;
+  error: string | null;
+  error_kind: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_ms: number | null;
+  created_at: string;
+};
+
+/** Timeline da run — usada pelo detalhe do histórico (somente leitura). */
+export async function listImportSteps(
+  supabase: Db,
+  args: { brandId: string; clientId: string; runId: string },
+): Promise<ImportStepRow[]> {
+  const { data, error } = await table(supabase, "briefing_import_steps")
+    .select(
+      "id, run_id, step, status, attempt, input_ref, output, error, error_kind, started_at, finished_at, duration_ms, created_at",
+    )
+    .eq("run_id", args.runId)
+    .eq("brand_id", args.brandId)
+    .eq("client_id", args.clientId)
+    .order("created_at", { ascending: true });
+  if (error) throw error as Error;
+  return ((data as ImportStepRow[] | null) ?? []);
+}
+
+
 export async function listImportChanges(
   supabase: Db,
   args: { brandId: string; clientId: string; runId: string },
