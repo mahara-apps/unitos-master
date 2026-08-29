@@ -142,10 +142,21 @@ async function runAnalysis(params: {
     if (dl.error || !dl.data) throw dl.error ?? new Error("download_failed");
     const bytes = new Uint8Array(await dl.data.arrayBuffer());
     const mediaType = doc.mime_type ?? "application/octet-stream";
-    const base64 = uint8ToBase64(bytes);
+    // Preparação por formato: imagem/PDF seguem inline (Base64 STRING),
+    // DOCX/planilhas/texto têm o conteúdo extraído aqui no servidor.
+    const { prepareDocumentContent, assertInlinePayload } = await import(
+      "@/lib/document-extract.server"
+    );
+    const prepared = await prepareDocumentContent({ bytes, mediaType, filename: doc.name });
     await setRunStep(supabase as never, runScope, "ingest", "done", {
       inputRef: doc.storage_path,
-      output: { bytes: bytes.length, mediaType },
+      output: {
+        bytes: bytes.length,
+        mediaType,
+        mode: prepared.mode,
+        note: prepared.note,
+        ...(prepared.mode === "text" ? { chars: prepared.text.length } : {}),
+      },
     });
 
     await setRunStep(supabase as never, runScope, "interpret", "running");
@@ -161,9 +172,35 @@ async function runAnalysis(params: {
     // Modelo/provedor REAIS da execução (antes ficava hardcoded).
     await setRunModel(supabase as never, runId, { model: modelId, provider });
 
-    const system = `Você é um analista sênior de marca. Interprete o documento e devolva um JSON estrito em pt-BR, mapeando cada informação para os campos de briefing. Use null quando o campo não estiver claramente descrito. Nunca invente dados. Todos os textos devem ser objetivos e prontos para uso no briefing (sem introduções como "o documento diz").`;
+    const isTranscript = input.sourceKind === "transcript";
+    const system = `Você é um analista sênior de marca. Interprete o material e devolva um JSON estrito em pt-BR, mapeando cada informação para os campos de briefing. Use null quando o campo não estiver claramente descrito. Nunca invente dados. Todos os textos devem ser objetivos e prontos para uso no briefing (sem introduções como "o documento diz").${
+      isTranscript
+        ? ` Este material é uma transcrição de reunião: identifique os participantes citados e, quando o contexto permitir, infira o papel de cada um (cliente, gestor, usuário, fornecedor etc.). Nunca invente nomes, cargos ou identidades que não apareçam no material — deixe o papel como desconhecido quando não houver evidência.`
+        : ""
+    }`;
 
-    const userPrompt = `Documento: ${doc.name}\n\nSua tarefa:\n1) Extraia o texto principal (até 8000 caracteres) para \`extracted_text\`.\n2) Classifique o tipo em \`document_type\` (ex.: "Brandbook", "Manual de marca", "Pesquisa", "Deck comercial").\n3) Faça um resumo executivo em até 400 caracteres.\n4) Mapeie cada campo de \`briefing\` com o que estiver explícito. Para \`hashtags\`, devolva array de strings sem o "#".\n5) Atribua um \`confidence\` (0 a 1) refletindo quão bem o documento cobriu o briefing.`;
+    const taskPrompt = `Documento: ${doc.name}\n\nSua tarefa:\n1) Extraia o texto principal (até 8000 caracteres) para \`extracted_text\`.\n2) Classifique o tipo em \`document_type\` (ex.: "Brandbook", "Manual de marca", "Pesquisa", "Deck comercial", "Transcrição de reunião").\n3) Faça um resumo executivo em até 400 caracteres.\n4) Mapeie cada campo de \`briefing\` com o que estiver explícito. Para \`hashtags\`, devolva array de strings sem o "#".\n5) Atribua um \`confidence\` (0 a 1) refletindo quão bem o material cobriu o briefing.`;
+
+    // Payload multimodal montado conforme o contrato real do provider:
+    // `file`/`image` recebem SOMENTE string Base64 + mediaType separado.
+    const content: Array<
+      | { type: "text"; text: string }
+      | { type: "file"; data: string; mediaType: string; filename?: string }
+    > = [{ type: "text", text: taskPrompt }];
+    if (prepared.mode === "inline") {
+      assertInlinePayload({ mediaType: prepared.mediaType, base64: prepared.base64 });
+      content.push({
+        type: "file",
+        data: prepared.base64,
+        mediaType: prepared.mediaType,
+        filename: doc.name,
+      });
+    } else {
+      content.push({
+        type: "text",
+        text: `Conteúdo extraído do arquivo (${prepared.note})\n\n${prepared.text}`,
+      });
+    }
 
     let summary: DocumentAiSummary;
     try {
@@ -171,17 +208,7 @@ async function runAnalysis(params: {
         model,
         system,
         output: Output.object({ schema: AiSummarySchema }),
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: userPrompt },
-              mediaType.startsWith("image/")
-                ? { type: "image", image: `data:${mediaType};base64,${base64}` }
-                : { type: "file", data: base64, mediaType, filename: doc.name },
-            ],
-          },
-        ],
+        messages: [{ role: "user", content }],
       });
       summary = output;
     } catch (err) {
@@ -192,6 +219,7 @@ async function runAnalysis(params: {
       }
       throw err;
     }
+
     await setRunStep(supabase as never, runScope, "interpret", "done", {
       output: { document_type: summary.document_type, confidence: summary.confidence },
     });
