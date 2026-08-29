@@ -14,7 +14,10 @@ const BodySchema = z.object({
   brandId: z.string().uuid(),
   clientId: z.string().uuid(),
   documentId: z.string().uuid(),
+  /** Reanálise explícita: ignora o reuso por fingerprint. */
+  force: z.boolean().optional(),
 });
+
 
 function buildUserClient(token: string) {
   const url = process.env.SUPABASE_URL!;
@@ -60,9 +63,23 @@ function uint8ToBase64(bytes: Uint8Array): string {
   return btoa(bin);
 }
 
-async function runAnalysis(params: { token: string; input: z.infer<typeof BodySchema> }) {
-  const { token, input } = params;
+async function runAnalysis(params: {
+  token: string;
+  input: z.infer<typeof BodySchema>;
+  runId: string;
+}) {
+  const { token, input, runId } = params;
   const supabase = buildUserClient(token);
+  const runScope = { id: runId, brand_id: input.brandId, client_id: input.clientId };
+
+  const {
+    claimImportRun,
+    setRunStep,
+    setRunModel,
+    saveImportProposal,
+    failImportRun,
+    classifyChange,
+  } = await import("@/lib/briefing-import.server");
 
   const patch = (fields: Record<string, unknown>) =>
     (
@@ -76,8 +93,17 @@ async function runAnalysis(params: { token: string; input: z.infer<typeof BodySc
       .update(fields)
       .eq("id", input.documentId);
 
+  // Trava de concorrência: só a primeira execução assume a run.
+  const claimed = await claimImportRun(supabase as never, runId).catch(() => true);
+  if (!claimed) {
+    console.warn("[analyze-document] run já em execução:", runId);
+    return;
+  }
+
   try {
     await patch({ ai_status: "running", ai_error: null });
+    await setRunStep(supabase as never, runScope, "ingest", "running");
+
 
     const { data: doc, error: docErr } = await (
       supabase as unknown as {
@@ -120,11 +146,23 @@ async function runAnalysis(params: { token: string; input: z.infer<typeof BodySc
     const bytes = new Uint8Array(await dl.data.arrayBuffer());
     const mediaType = doc.mime_type ?? "application/octet-stream";
     const base64 = uint8ToBase64(bytes);
-
-    const { model } = await getBrandAiModelAdmin(input.brandId, "text", "operational", {
-      agent: "document.analyze",
-      clientId: input.clientId ?? null,
+    await setRunStep(supabase as never, runScope, "ingest", "done", {
+      inputRef: doc.storage_path,
+      output: { bytes: bytes.length, mediaType },
     });
+
+    await setRunStep(supabase as never, runScope, "interpret", "running");
+    const { model, modelId, provider } = await getBrandAiModelAdmin(
+      input.brandId,
+      "text",
+      "operational",
+      {
+        agent: "document.analyze",
+        clientId: input.clientId ?? null,
+      },
+    );
+    // Modelo/provedor REAIS da execução (antes ficava hardcoded).
+    await setRunModel(supabase as never, runId, { model: modelId, provider });
 
     const system = `Você é um analista sênior de marca. Interprete o documento e devolva um JSON estrito em pt-BR, mapeando cada informação para os campos de briefing. Use null quando o campo não estiver claramente descrito. Nunca invente dados. Todos os textos devem ser objetivos e prontos para uso no briefing (sem introduções como "o documento diz").`;
 
@@ -157,21 +195,60 @@ async function runAnalysis(params: { token: string; input: z.infer<typeof BodySc
       }
       throw err;
     }
+    await setRunStep(supabase as never, runScope, "interpret", "done", {
+      output: { document_type: summary.document_type, confidence: summary.confidence },
+    });
 
     await patch({
       ai_status: "done",
-      ai_model: "google/gemini-2.5-flash",
+      ai_model: modelId,
       ai_error: null,
       extracted_text: summary.extracted_text ?? null,
       ai_summary: summary as unknown as Record<string, unknown>,
       analyzed_at: new Date().toISOString(),
     });
+
+    // Diff contra o briefing canônico atual → proposta campo a campo.
+    await setRunStep(supabase as never, runScope, "diff", "running");
+    const { loadCanonicalBriefing } = await import("@/lib/briefing-source.server");
+    const canonical = await loadCanonicalBriefing(supabase as never, {
+      brandId: input.brandId,
+      clientId: input.clientId,
+    });
+    const current = (canonical.hub ?? {}) as Record<string, unknown>;
+    const changes = Object.entries(summary.briefing).map(([field, proposed]) => ({
+      field,
+      currentValue: current[field] ?? null,
+      proposedValue: proposed,
+      action: classifyChange(current[field] ?? null, proposed),
+      confidence: summary.confidence ?? null,
+      evidence: {
+        source: "document",
+        document_id: input.documentId,
+        document_name: doc.name,
+      },
+    }));
+    await setRunStep(supabase as never, runScope, "diff", "done", { output: { fields: changes.length } });
+
+    await saveImportProposal(supabase as never, runScope, {
+      changes,
+      summary: summary.executive_summary ?? null,
+      confidence: summary.confidence ?? null,
+    });
+    await setRunStep(supabase as never, runScope, "propose", "done", {
+      output: { document_type: summary.document_type },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[analyze-document] failed:", message);
     await patch({ ai_status: "failed", ai_error: message.slice(0, 500) });
+    await failImportRun(supabase as never, runScope, {
+      message,
+      kind: "analysis",
+    }).catch(() => undefined);
   }
 }
+
 
 export const Route = createFileRoute("/api/jobs/analyze-document")({
   server: {
@@ -197,6 +274,72 @@ export const Route = createFileRoute("/api/jobs/analyze-document")({
         const denied = await guardClientScope(supabase, userId, parsed.data.clientId);
         if (denied) return denied;
 
+        // Metadados do arquivo → fingerprint estável para idempotência.
+        const { data: meta } = await (
+          supabase as unknown as {
+            from: (t: string) => {
+              select: (c: string) => {
+                eq: (
+                  k: string,
+                  v: string,
+                ) => {
+                  eq: (
+                    k: string,
+                    v: string,
+                  ) => {
+                    eq: (
+                      k: string,
+                      v: string,
+                    ) => {
+                      maybeSingle: () => Promise<{
+                        data: {
+                          storage_path: string;
+                          size_bytes: number | null;
+                          mime_type: string | null;
+                        } | null;
+                      }>;
+                    };
+                  };
+                };
+              };
+            };
+          }
+        )
+          .from("client_documents")
+          .select("storage_path, size_bytes, mime_type")
+          .eq("id", parsed.data.documentId)
+          .eq("brand_id", parsed.data.brandId)
+          .eq("client_id", parsed.data.clientId)
+          .maybeSingle();
+        if (!meta) return new Response("Not found", { status: 404 });
+
+        const { buildInputFingerprint, startImportRun } = await import(
+          "@/lib/briefing-import.server"
+        );
+        const fingerprint = await buildInputFingerprint({
+          sourceKind: "document",
+          documentPath: meta.storage_path,
+          documentSize: meta.size_bytes,
+          documentMime: meta.mime_type,
+        });
+        const { run, reused } = await startImportRun(supabase as never, {
+          brandId: parsed.data.brandId,
+          clientId: parsed.data.clientId,
+          userId,
+          sourceKind: "document",
+          documentId: parsed.data.documentId,
+          inputFingerprint: fingerprint,
+          force: parsed.data.force === true,
+        });
+
+        // Reuso: já existe execução viva para o mesmo arquivo — não gasta IA.
+        if (reused && run.status !== "queued") {
+          return new Response(JSON.stringify({ ok: true, runId: run.id, reused: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
         await (
           supabase as unknown as {
             from: (t: string) => {
@@ -208,12 +351,13 @@ export const Route = createFileRoute("/api/jobs/analyze-document")({
           .update({ ai_status: "queued", ai_error: null })
           .eq("id", parsed.data.documentId);
 
-        waitUntil(runAnalysis({ token, input: parsed.data }));
+        waitUntil(runAnalysis({ token, input: parsed.data, runId: run.id }));
 
-        return new Response(JSON.stringify({ ok: true }), {
+        return new Response(JSON.stringify({ ok: true, runId: run.id, reused }), {
           status: 202,
           headers: { "Content-Type": "application/json" },
         });
+
       },
     },
   },

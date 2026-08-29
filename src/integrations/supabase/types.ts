@@ -2578,6 +2578,324 @@ export type Database = {
         }
         Relationships: []
       }
+      briefing_import_changes: {
+        Row: {
+          action: string
+          brand_id: string
+          client_id: string
+          confidence: number | null
+          created_at: string
+          current_value: Json | null
+          decided_at: string | null
+          decided_by: string | null
+          decision: string
+          evidence: Json
+          field: string
+          id: string
+          proposed_value: Json | null
+          run_id: string
+          updated_at: string
+        }
+        Insert: {
+          action: string
+          brand_id: string
+          client_id: string
+          confidence?: number | null
+          created_at?: string
+          current_value?: Json | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string
+          evidence?: Json
+          field: string
+          id?: string
+          proposed_value?: Json | null
+          run_id: string
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          brand_id?: string
+          client_id?: string
+          confidence?: number | null
+          created_at?: string
+          current_value?: Json | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string
+          evidence?: Json
+          field?: string
+          id?: string
+          proposed_value?: Json | null
+          run_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "briefing_import_changes_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "briefing_import_changes_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "briefing_import_changes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "briefing_import_changes_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "briefing_import_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      briefing_import_runs: {
+        Row: {
+          ai_job_id: string | null
+          applied_version_id: string | null
+          attempt: number
+          base_version_id: string | null
+          brand_id: string
+          client_id: string
+          confidence: number | null
+          cost_cents: number | null
+          counts: Json
+          created_at: string
+          created_by: string | null
+          current_step: string | null
+          document_id: string | null
+          error: string | null
+          error_kind: string | null
+          finished_at: string | null
+          id: string
+          idempotency_key: string | null
+          input_fingerprint: string | null
+          model: string | null
+          provider: string | null
+          raw_text: string | null
+          source_kind: string
+          speakers: Json
+          started_at: string | null
+          status: string
+          summary: string | null
+          tokens_in: number | null
+          tokens_out: number | null
+          updated_at: string
+        }
+        Insert: {
+          ai_job_id?: string | null
+          applied_version_id?: string | null
+          attempt?: number
+          base_version_id?: string | null
+          brand_id: string
+          client_id: string
+          confidence?: number | null
+          cost_cents?: number | null
+          counts?: Json
+          created_at?: string
+          created_by?: string | null
+          current_step?: string | null
+          document_id?: string | null
+          error?: string | null
+          error_kind?: string | null
+          finished_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          input_fingerprint?: string | null
+          model?: string | null
+          provider?: string | null
+          raw_text?: string | null
+          source_kind?: string
+          speakers?: Json
+          started_at?: string | null
+          status?: string
+          summary?: string | null
+          tokens_in?: number | null
+          tokens_out?: number | null
+          updated_at?: string
+        }
+        Update: {
+          ai_job_id?: string | null
+          applied_version_id?: string | null
+          attempt?: number
+          base_version_id?: string | null
+          brand_id?: string
+          client_id?: string
+          confidence?: number | null
+          cost_cents?: number | null
+          counts?: Json
+          created_at?: string
+          created_by?: string | null
+          current_step?: string | null
+          document_id?: string | null
+          error?: string | null
+          error_kind?: string | null
+          finished_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          input_fingerprint?: string | null
+          model?: string | null
+          provider?: string | null
+          raw_text?: string | null
+          source_kind?: string
+          speakers?: Json
+          started_at?: string | null
+          status?: string
+          summary?: string | null
+          tokens_in?: number | null
+          tokens_out?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "briefing_import_runs_ai_job_id_fkey"
+            columns: ["ai_job_id"]
+            isOneToOne: false
+            referencedRelation: "ai_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "briefing_import_runs_applied_version_id_fkey"
+            columns: ["applied_version_id"]
+            isOneToOne: false
+            referencedRelation: "brand_briefing_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "briefing_import_runs_base_version_id_fkey"
+            columns: ["base_version_id"]
+            isOneToOne: false
+            referencedRelation: "brand_briefing_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "briefing_import_runs_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "briefing_import_runs_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "briefing_import_runs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "briefing_import_runs_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "client_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      briefing_import_steps: {
+        Row: {
+          attempt: number
+          brand_id: string
+          client_id: string
+          created_at: string
+          duration_ms: number | null
+          error: string | null
+          error_kind: string | null
+          finished_at: string | null
+          id: string
+          input_ref: string | null
+          output: Json | null
+          run_id: string
+          started_at: string | null
+          status: string
+          step: string
+          updated_at: string
+        }
+        Insert: {
+          attempt?: number
+          brand_id: string
+          client_id: string
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          error_kind?: string | null
+          finished_at?: string | null
+          id?: string
+          input_ref?: string | null
+          output?: Json | null
+          run_id: string
+          started_at?: string | null
+          status?: string
+          step: string
+          updated_at?: string
+        }
+        Update: {
+          attempt?: number
+          brand_id?: string
+          client_id?: string
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          error_kind?: string | null
+          finished_at?: string | null
+          id?: string
+          input_ref?: string | null
+          output?: Json | null
+          run_id?: string
+          started_at?: string | null
+          status?: string
+          step?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "briefing_import_steps_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "briefing_import_steps_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "briefing_import_steps_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "briefing_import_steps_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "briefing_import_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_events: {
         Row: {
           all_day: boolean
