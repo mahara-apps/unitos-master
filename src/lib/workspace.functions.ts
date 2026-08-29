@@ -88,17 +88,30 @@ export const createBrand = createServerFn({ method: "POST" })
     // V5: usuários exclusivamente do Portal (client_members.role='portal_client')
     // não podem criar Brand — a criação é restrita a usuários internos.
     // (types.ts só terá `can_create_brand` após a promoção da migration V5)
-    const { data: allowed, error: guardErr } = await callRpc<boolean | null>(
-      context.supabase,
-      "can_create_brand",
-      { _user_id: context.userId },
-    );
-    if (guardErr && !/function .*can_create_brand.* does not exist/i.test(guardErr.message)) {
+    // PostgREST pode responder transitoriamente "Could not query the database
+    // for the schema cache" logo após migrations; nesse caso tentamos novamente
+    // antes de falhar (e nunca bloqueamos a criação por erro de infraestrutura).
+    const isRetryable = (msg: string) =>
+      /schema cache|does not exist|fetch failed|timeout/i.test(msg);
+
+    let allowed: boolean | null = null;
+    let guardErr: { message: string } | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const res = await callRpc<boolean | null>(context.supabase, "can_create_brand", {
+        _user_id: context.userId,
+      });
+      allowed = res.data ?? null;
+      guardErr = res.error ?? null;
+      if (!guardErr || !/schema cache/i.test(guardErr.message)) break;
+      await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+    }
+    if (guardErr && !isRetryable(guardErr.message)) {
       throw new Error(guardErr.message);
     }
     if (allowed === false) {
       throw new Error("Usuários do Portal do Cliente não podem criar workspaces.");
     }
+
 
     const id = crypto.randomUUID();
 
