@@ -524,112 +524,155 @@ export function BriefingImportDialog({
         <StepIndicator step={step} />
 
         {step === "upload" ? (
-          <div className="space-y-4">
-            <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
-              A IA vai <strong className="text-foreground">ler o material enviado</strong>, comparar
-              com o briefing e o contexto atuais e identificar{" "}
-              <strong className="text-foreground">informações novas, contradições e lacunas</strong>.
-              Ao final você recebe uma proposta campo a campo. Se ainda não houver contexto útil, o
-              briefing pode ser construído do zero a partir do material.
-            </div>
+          <div className="space-y-5">
+            <ContextExplainer />
 
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragging(true);
-              }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragging(false);
-                if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
-              }}
-              className={cn(
-                "flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-6 py-8 text-center transition",
-                dragging ? "border-primary bg-primary/5" : "border-border/70 bg-muted/20",
-              )}
-            >
-              <Upload className="h-5 w-5 text-muted-foreground" />
-              <div className="text-sm font-medium">Arraste os arquivos ou selecione</div>
-              <p className="text-[11px] text-muted-foreground">
-                PDF, texto (.txt, .md, .csv, .json), legenda (.vtt, .srt) ou imagem · até 25 MB por
-                arquivo
-              </p>
-              <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
-                Selecionar arquivos
-              </Button>
-              <input
-                ref={inputRef}
-                type="file"
-                multiple
-                accept={ACCEPT_ATTRIBUTE}
-                className="hidden"
+            <section className="space-y-2">
+              <div className="flex items-baseline justify-between gap-3">
+                <h3 className="text-sm font-medium">1. Colar texto</h3>
+                <span className="text-[11px] text-muted-foreground">
+                  {pastedTrimmed.length > 0
+                    ? `${pastedTrimmed.length.toLocaleString("pt-BR")} caracteres`
+                    : "Opcional"}
+                </span>
+              </div>
+              <Textarea
+                value={pasted}
                 onChange={(e) => {
-                  if (e.target.files?.length) addFiles(e.target.files);
-                  e.target.value = "";
+                  setPasted(e.target.value);
+                  setStartError(null);
                 }}
+                rows={8}
+                className="resize-y text-sm"
+                placeholder="Cole aqui o conteúdo que deseja analisar… briefing, anotações, transcrição de reunião, e-mails, pesquisas."
               />
-            </div>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                {pastedTrimmed.length > 0 && !pasteReady ? (
+                  <span className="text-amber-600 dark:text-amber-400">
+                    Cole ao menos {MIN_PASTE_CHARS} caracteres para a IA ter contexto.
+                  </span>
+                ) : null}
+                {pasteReady && pasteKind === "transcript" ? (
+                  <Badge variant="outline" className="text-[11px]">
+                    Detectado: {SOURCE_KIND_LABELS.transcript}
+                  </Badge>
+                ) : null}
+              </div>
+            </section>
 
-            {files.length > 0 ? (
-              <ul className="space-y-2">
-                {files.map((f, i) => (
-                  <li
-                    key={`${f.file.name}-${i}`}
-                    className={cn(
-                      "flex items-start gap-3 rounded-lg border px-3 py-2",
-                      f.error ? "border-destructive/40 bg-destructive/5" : "border-border/60",
-                    )}
-                  >
-                    <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm">{f.file.name}</div>
-                      <div className="text-[11px] text-muted-foreground">
-                        {f.file.type || "tipo desconhecido"} · {formatBytes(f.file.size)}
-                      </div>
-                      {f.error ? (
-                        <div className="mt-1 flex items-center gap-1 text-[11px] text-destructive">
-                          <AlertTriangle className="h-3 w-3" /> {f.error}
-                        </div>
-                      ) : null}
-                    </div>
-                    {!f.error ? (
-                      <Select
-                        value={f.sourceKind}
-                        onValueChange={(v) =>
-                          setFiles((prev) =>
-                            prev.map((p, pi) =>
-                              pi === i
-                                ? { ...p, sourceKind: v as "document" | "transcript" }
-                                : p,
-                            ),
-                          )
-                        }
-                      >
-                        <SelectTrigger className="h-8 w-[190px] text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="document">{SOURCE_KIND_LABELS.document}</SelectItem>
-                          <SelectItem value="transcript">
-                            {SOURCE_KIND_LABELS.transcript}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : null}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      aria-label={`Remover ${f.file.name}`}
-                      onClick={() => setFiles((prev) => prev.filter((_, pi) => pi !== i))}
+            <section className="space-y-2">
+              <h3 className="text-sm font-medium">2. Anexar arquivos</h3>
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragging(false);
+                  if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
+                }}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-6 py-7 text-center transition",
+                  dragging ? "border-primary bg-primary/5" : "border-border/70 bg-muted/20",
+                )}
+              >
+                <Upload className="h-5 w-5 text-muted-foreground" />
+                <div className="text-sm font-medium">Arraste os arquivos ou selecione</div>
+                <p className="text-[11px] text-muted-foreground">
+                  PDF, DOCX, XLS/XLSX, CSV, texto (.txt, .md, .json), legenda (.vtt, .srt) e imagens ·
+                  até 25 MB por arquivo · vários arquivos por análise
+                </p>
+                <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
+                  Selecionar arquivos
+                </Button>
+                <input
+                  ref={inputRef}
+                  type="file"
+                  multiple
+                  accept={ACCEPT_ATTRIBUTE}
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files?.length) addFiles(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+              </div>
+
+              {files.length > 0 ? (
+                <ul className="space-y-2">
+                  {files.map((f, i) => (
+                    <li
+                      key={`${f.file.name}-${i}`}
+                      className={cn(
+                        "flex items-start gap-3 rounded-lg border px-3 py-2",
+                        f.error ? "border-destructive/40 bg-destructive/5" : "border-border/60",
+                      )}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+                      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm">{f.file.name}</div>
+                        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <span>{f.file.type || "tipo desconhecido"}</span>
+                          <span>·</span>
+                          <span>{formatBytes(f.file.size)}</span>
+                          <span>·</span>
+                          <span
+                            className={cn(
+                              f.status === "error" && "text-destructive",
+                              (f.status === "ready" || f.status === "sent") &&
+                                "text-emerald-600 dark:text-emerald-400",
+                            )}
+                          >
+                            {FILE_READ_STATUS_LABELS[f.status]}
+                          </span>
+                        </div>
+                        {f.error ? (
+                          <div className="mt-1 flex items-center gap-1 text-[11px] text-destructive">
+                            <AlertTriangle className="h-3 w-3" /> {f.error}
+                          </div>
+                        ) : null}
+                      </div>
+                      {!f.error ? (
+                        <Select
+                          value={f.sourceKind}
+                          onValueChange={(v) =>
+                            setFiles((prev) =>
+                              prev.map((p, pi) =>
+                                pi === i
+                                  ? { ...p, sourceKind: v as "document" | "transcript" }
+                                  : p,
+                              ),
+                            )
+                          }
+                        >
+                          <SelectTrigger className="h-8 w-[190px] text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="document">{SOURCE_KIND_LABELS.document}</SelectItem>
+                            <SelectItem value="transcript">
+                              {SOURCE_KIND_LABELS.transcript}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : null}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        aria-label={`Remover ${f.file.name}`}
+                        onClick={() => setFiles((prev) => prev.filter((_, pi) => pi !== i))}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </section>
+
 
             {startError ? (
               <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
