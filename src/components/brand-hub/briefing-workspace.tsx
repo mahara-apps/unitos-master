@@ -20,7 +20,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { BriefingImportDialog } from "@/components/brand-hub/briefing-import-dialog";
-import { BriefingImportDialog } from "@/components/brand-hub/briefing-import-dialog";
+
 import { BriefingImportHistory } from "@/components/brand-hub/briefing-import-history";
 import { DocumentsTab } from "@/components/brand-hub/documents-tab";
 import {
