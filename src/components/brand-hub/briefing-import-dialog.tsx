@@ -410,7 +410,9 @@ export function BriefingImportDialog({
       qc.invalidateQueries({ queryKey: ["brand-hub", brandId, clientId] });
       qc.invalidateQueries({ queryKey: ["briefing-import-runs", brandId, clientId] });
       qc.invalidateQueries({ queryKey: ["briefing-import-run", brandId, clientId, current?.runId] });
+      onApplied?.(res.appliedFields);
       advance();
+
     },
     onError: (e) => toast.error(importErrorMessage(e)),
   });
