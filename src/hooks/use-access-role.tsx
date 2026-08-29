@@ -3,8 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyAccessFn } from "@/lib/access.functions";
 import { useActiveContext } from "@/hooks/use-active-context";
+import { getCachedUser } from "@/lib/auth-cache";
 import { type AccessRole } from "@/lib/permissions";
 import type { AuthorityRole } from "@/lib/access-guard";
+
 
 type Result = {
   /** Nível legado usado pela UI atual (admin = admin|manager|super_admin). */
