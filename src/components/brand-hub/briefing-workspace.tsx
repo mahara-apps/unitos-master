@@ -275,6 +275,8 @@ export function BriefingWorkspace({
 
   // ------------- Gerar estratégia (fase 1 · pipeline de agentes) --------------
   const [regenOpen, setRegenOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+
   const [generating, setGenerating] = useState(false);
 
   // ------------- Gerar ideias (fase 2 · gate humano) --------------
