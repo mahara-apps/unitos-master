@@ -33,7 +33,7 @@ arquivos (ou sem isolamento por workspace/cliente).
 | `005_auth_trigger.sql` | `on_auth_user_created` → `public.handle_new_user()` | `pg_get_triggerdef` |
 | `003_storage_buckets.sql` | `brand-assets`, `brand-documents`, `brand-media`, `avatars`, `chat-attachments` (privados) | `storage.buckets` |
 | `006_storage_policies.sql` | 12 policies de `storage.objects` + RLS | `pg_policies` |
-| `004_seeds.sql` | apenas ponteiros de catálogo, sem dados de produção | — |
+| `004_seeds.sql` | 9 `agent_prompts` + 14 `feature_catalog` + 7 `brain_retention_config` + singleton vazio de `installation`; zero dados de negócio/cliente/credencial | catálogos do Master (somente leitura) |
 | `002_bootstrap_cron.sql` | 14 jobs (7 via `net.http_post`, 7 SQL diretos) | `cron.job` |
 | `tools/dump_schema.sh` | regenera o `001` | — |
 
