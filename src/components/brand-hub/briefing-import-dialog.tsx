@@ -267,7 +267,9 @@ export function BriefingImportDialog({
         const content = composeTextMaterial(textBlocks);
         const kind: "paste" | "transcript" =
           pasteKind === "transcript" || anyTranscriptFile ? "transcript" : "paste";
-        const label = textBlocks.map((b) => b.label).join(", ").slice(0, 280);
+        const rawLabel = textBlocks.map((b) => b.label).join(", ");
+        const label = (sourceLabel ? `${sourceLabel} · ${rawLabel}` : rawLabel).slice(0, 280);
+
         created.push(await startTextRun({ token, content, sourceKind: kind, label }));
       }
 
