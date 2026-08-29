@@ -169,7 +169,12 @@ def main():
             dropped += 1
             continue
         groups[b].append(s.strip())
-    out = [HEADER]
+    out = [HEADER,
+           "-- Bodies de funcoes nao sao validados: o dump nao garante ordem\n"
+           "-- topologica entre funcoes que chamam outras funcoes. Objetos que\n"
+           "-- exigem validacao real (defaults, CHECK, indices, policies) sao\n"
+           "-- criados DEPOIS das funcoes, portanto continuam sendo verificados.\n"
+           "SET check_function_bodies = false;\n"]
     for k in sorted(LABELS):
         if not groups[k]:
             continue
