@@ -43,19 +43,3 @@ CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA public;
 
 -- pg_cron sempre em pg_catalog no Supabase.
 CREATE EXTENSION IF NOT EXISTS pg_cron;
-
-CREATE SCHEMA IF NOT EXISTS extensions;
-
-CREATE EXTENSION IF NOT EXISTS pgcrypto      WITH SCHEMA extensions;
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp"   WITH SCHEMA extensions;
-CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA extensions;
-
--- pgvector instalado em public no banco de origem: o 001 referencia
--- public.vector e public.vector_cosine_ops, logo o schema NAO pode mudar.
-CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
-
--- pg_net em public (usado pelos cron jobs de 002_bootstrap_cron.sql).
-CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA public;
-
--- pg_cron sempre em pg_catalog no Supabase.
-CREATE EXTENSION IF NOT EXISTS pg_cron;
