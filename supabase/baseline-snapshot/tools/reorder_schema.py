@@ -160,6 +160,13 @@ def main():
     raw = "\n".join(
         ln for ln in raw.split("\n") if not ln.lstrip().startswith("\\")
     )
+    # remove o cabecalho original do arquivo de entrada (comentarios antes do
+    # primeiro statement) para nao duplicar com o HEADER desta ferramenta.
+    lines = raw.split("\n")
+    k = 0
+    while k < len(lines) and (not lines[k].strip() or lines[k].lstrip().startswith("--")):
+        k += 1
+    raw = "\n".join(lines[k:])
     stmts = split_statements(raw)
     groups = {k: [] for k in LABELS}
     dropped = 0

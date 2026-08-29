@@ -27,40 +27,6 @@ SET check_function_bodies = false;
 
 -- ============================ SCHEMA / EXTENSIONS (2) ============================
 
--- =============================================================================
--- 001_initial_schema.sql — SNAPSHOT ESTRUTURAL DO ESTADO ATUAL APROVADO
--- Gerado por pg_dump --schema-only. NAO e replay das 250 migrations historicas,
--- que permanecem preservadas em supabase/migrations/ (e no Git).
---
--- Contem: extensoes (inclui vector/pgvector, pg_cron, pg_net, supabase_vault),
--- enums atuais (app_role preserva os labels reais, incluindo editor/designer),
--- tabelas e colunas, PK/FK/UNIQUE/CHECK, indices, funcoes/RPCs, triggers,
--- RLS + policies atuais, matview brain_stats_mv, GRANTs.
---
--- NAO contem: DML de seed/backfill, dados de producao, objetos removidos
--- (brain_events_archive, particoes do Brain, brain_knowledge, meta_connections,
--- meta_oauth_states, CRM), cron jobs, buckets de Storage.
--- Esses itens ficam em 002_bootstrap_cron.sql, 003_storage_buckets.sql e
--- 004_seeds.sql.
---
--- ATENCAO: pg_dump --schema=public NAO inclui o trigger on_auth_user_created
--- em auth.users (schema reservado). Aplique-o manualmente apos o snapshot:
---   CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users
---     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
--- =============================================================================
---
--- PostgreSQL database dump
---
-
-
--- Dumped from database version 17.6
--- Dumped by pg_dump version 17.9
-
-
---
--- Name: public; Type: SCHEMA; Schema: -; Owner: -
---
-
 CREATE SCHEMA IF NOT EXISTS public;
 
 --
