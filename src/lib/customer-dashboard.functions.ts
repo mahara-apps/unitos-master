@@ -5,6 +5,8 @@ import { computeClientHealthScore } from "@/lib/client-health";
 import { normalizePortalTheme, portalThemeSchema } from "@/lib/portal-theme";
 import { assertClientInBrand } from "@/lib/access-guard";
 import { resolveInclusiveRange } from "@/lib/date-range";
+import { computeBriefingCompletion } from "@/lib/briefing-progress";
+import type { BrandHubData } from "@/lib/brand-hub.functions";
 
 const scope = z.object({
   brandId: z.string().uuid(),
