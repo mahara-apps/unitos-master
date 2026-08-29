@@ -91,21 +91,30 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
       },
     });
 
+    // `getClaims` valida o JWT localmente (JWKS). Em rotação de chaves ou
+    // quando o JWKS ainda não está em cache no Worker, isso falha mesmo com um
+    // token válido — nesse caso confirmamos no servidor de auth via getUser().
     const { data, error } = await supabase.auth.getClaims(token);
-    if (error || !data?.claims) {
-      throw new Error("Unauthorized: Invalid token");
+    let userId = data?.claims?.sub ?? null;
+    let claims = data?.claims ?? null;
+
+    if (error || !userId) {
+      const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+      if (userErr || !userData?.user?.id) {
+        throw new Error("Unauthorized: Invalid token");
+      }
+      userId = userData.user.id;
+      claims = (claims ?? { sub: userId }) as typeof claims;
     }
 
-    if (!data.claims.sub) {
-      throw new Error("Unauthorized: No user ID found in token");
-    }
 
     return next({
       context: {
         supabase,
-        userId: data.claims.sub,
-        claims: data.claims,
+        userId,
+        claims: claims!,
       },
     });
+
   },
 );
