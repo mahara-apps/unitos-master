@@ -127,7 +127,16 @@ function statusBadge(s: ClientDocumentAi["ai_status"]) {
   }
 }
 
-export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId: string }) {
+export function DocumentsTab({
+  brandId,
+  clientId,
+  onImportAi,
+}: {
+  brandId: string;
+  clientId: string;
+  onImportAi?: () => void;
+}) {
+
   const list = useServerFn(listClientDocumentsAi);
   const upload = useServerFn(uploadClientDocument);
   const remove = useServerFn(deleteClientDocument);
