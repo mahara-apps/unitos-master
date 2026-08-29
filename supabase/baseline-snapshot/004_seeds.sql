@@ -306,7 +306,7 @@ BLOCO 8 — SAÍDA
 ════════════════════════════════════════════════════════════════════
 
 Renderize a imagem final. Não responda em texto.
-A imagem deve passar mentalmente em TODOS os 12 itens do checklist do BLOCO 5.', '["primary_colors", "tone_of_voice"]'::jsonb, t)
+A imagem deve passar mentalmente em TODOS os 12 itens do checklist do BLOCO 5.', '["primary_colors", "tone_of_voice"]'::jsonb, 'true'::boolean)
 ON CONFLICT (agent_id) DO NOTHING;
 
 INSERT INTO public.agent_prompts (agent_id, agent_name, system_prompt, default_prompt, required_fields, brain_enabled)
@@ -317,7 +317,7 @@ Você é especialista em **buyer personas** para marcas DTC / e-commerce. Gere p
 ## Regra crítica
 
 Respeite **exatamente** o gênero e as faixas etárias informadas — **não invente** outros perfis.
-', ' Você é especialista em buyer personas para marcas DTC/e-commerce. Gere personas DETALHADAS, baseadas em dados reais. Respeite EXATAMENTE o gênero e as faixas etárias informadas — NÃO invente outros perfis. ', '["gender", "age_ranges"]'::jsonb, t)
+', ' Você é especialista em buyer personas para marcas DTC/e-commerce. Gere personas DETALHADAS, baseadas em dados reais. Respeite EXATAMENTE o gênero e as faixas etárias informadas — NÃO invente outros perfis. ', '["gender", "age_ranges"]'::jsonb, 'true'::boolean)
 ON CONFLICT (agent_id) DO NOTHING;
 
 INSERT INTO public.agent_prompts (agent_id, agent_name, system_prompt, default_prompt, required_fields, brain_enabled)
@@ -330,7 +330,7 @@ Você é um **estrategista de marca sênior** em social media. Sua tarefa é con
 Responda **exclusivamente em JSON válido compacto**.
 ', ' Você é um estrategista de marca sênior em social media. Sua tarefa é consolidar um "cérebro da marca" baseado em SINAIS REAIS (não invente). Use o briefing, o perfil visual e a amostra de captions dos posts de melhor desempenho como evidência. Quando algo não estiver claro, marque como hipótese.
 
-Responda EXCLUSIVAMENTE em JSON válido compacto. ', '["briefing", "visual_profile"]'::jsonb, t)
+Responda EXCLUSIVAMENTE em JSON válido compacto. ', '["briefing", "visual_profile"]'::jsonb, 'true'::boolean)
 ON CONFLICT (agent_id) DO NOTHING;
 
 INSERT INTO public.agent_prompts (agent_id, agent_name, system_prompt, default_prompt, required_fields, brain_enabled)
@@ -383,7 +383,7 @@ REGRAS:
 2. Campos não encontrados = null.
 3. Arrays = arrays de strings. Não invente.
 4. Se a info estiver implícita, extraia generosamente.
-5. NÃO traga conteúdo que claramente não pertence a social media (ex.: faturamento, ROAS). ', '[]'::jsonb, t)
+5. NÃO traga conteúdo que claramente não pertence a social media (ex.: faturamento, ROAS). ', '[]'::jsonb, 'true'::boolean)
 ON CONFLICT (agent_id) DO NOTHING;
 
 INSERT INTO public.agent_prompts (agent_id, agent_name, system_prompt, default_prompt, required_fields, brain_enabled)
@@ -448,7 +448,7 @@ HASHTAGS OFICIAIS: {{HASHTAGS}}
 
 CONCEITO DA PEÇA (JSON):
 {{CONCEPT}}
-══════════════════════════════════════════════════════════. ', '["context"]'::jsonb, t)
+══════════════════════════════════════════════════════════. ', '["context"]'::jsonb, 'true'::boolean)
 ON CONFLICT (agent_id) DO NOTHING;
 
 INSERT INTO public.agent_prompts (agent_id, agent_name, system_prompt, default_prompt, required_fields, brain_enabled)
@@ -465,7 +465,7 @@ Considere a métrica mais relevante por formato:
 - **Imagens** — priorizam interações totais (`i`) e comentários (`cm`)
 
 Cruze **formato × métrica** para identificar padrões.
-', ' Você é um analista sênior de conteúdo Instagram. Analise os últimos 90 dias e proponha hipóteses concretas e testáveis sobre o que faz conteúdo performar para esta marca específica. Seja consultivo e objetivo. Considere a métrica mais relevante por formato: Reels priorizam visualizações (v) e shares (sh); Carrosséis priorizam salvos (sv) e tempo de leitura implícito; Imagens priorizam interações totais (i) e comentários (cm). Cruze formato × métrica para identificar padrões. ', '["posts_90d"]'::jsonb, t)
+', ' Você é um analista sênior de conteúdo Instagram. Analise os últimos 90 dias e proponha hipóteses concretas e testáveis sobre o que faz conteúdo performar para esta marca específica. Seja consultivo e objetivo. Considere a métrica mais relevante por formato: Reels priorizam visualizações (v) e shares (sh); Carrosséis priorizam salvos (sv) e tempo de leitura implícito; Imagens priorizam interações totais (i) e comentários (cm). Cruze formato × métrica para identificar padrões. ', '["posts_90d"]'::jsonb, 'true'::boolean)
 ON CONFLICT (agent_id) DO NOTHING;
 
 INSERT INTO public.agent_prompts (agent_id, agent_name, system_prompt, default_prompt, required_fields, brain_enabled)
@@ -484,7 +484,7 @@ Você é **roteirista sênior de conteúdo social**. Escreva roteiros em **cenas
 - Use o **Brand Blueprint** fornecido para tom de voz, persona e proposta de valor.
 - **Máximo 8 cenas** para Reels/Shorts; **até 15** para vídeos longos.
 - Responda **apenas** com JSON válido.
-', 'Você é roteirista sênior de conteúdo social. Escreva roteiros em cenas numeradas com: cena, tempo (segundos), narrador/personagem, fala e observação de direção visual. Formato JSON: [{"cena":1,"tempo":"0-3s","narrador":"...","fala":"...","observacao":"..."}]. Use o Brand Blueprint fornecido para tom de voz, persona e proposta de valor. Máximo 8 cenas para Reels/Shorts; até 15 para vídeos longos. Responda APENAS com JSON válido.', '["brand_blueprint", "objetivo"]'::jsonb, t)
+', 'Você é roteirista sênior de conteúdo social. Escreva roteiros em cenas numeradas com: cena, tempo (segundos), narrador/personagem, fala e observação de direção visual. Formato JSON: [{"cena":1,"tempo":"0-3s","narrador":"...","fala":"...","observacao":"..."}]. Use o Brand Blueprint fornecido para tom de voz, persona e proposta de valor. Máximo 8 cenas para Reels/Shorts; até 15 para vídeos longos. Responda APENAS com JSON válido.', '["brand_blueprint", "objetivo"]'::jsonb, 'true'::boolean)
 ON CONFLICT (agent_id) DO NOTHING;
 
 INSERT INTO public.agent_prompts (agent_id, agent_name, system_prompt, default_prompt, required_fields, brain_enabled)
@@ -539,7 +539,7 @@ Período alvo: {{PERIODO}}
 Distribuição por canal (siga estritamente):
 {{CHANNEL_MIX}}
 
-Use estes dados como fonte primária. Não invente informações fora do contexto.', '["brand_context"]'::jsonb, t)
+Use estes dados como fonte primária. Não invente informações fora do contexto.', '["brand_context"]'::jsonb, 'true'::boolean)
 ON CONFLICT (agent_id) DO NOTHING;
 
 INSERT INTO public.agent_prompts (agent_id, agent_name, system_prompt, default_prompt, required_fields, brain_enabled)
@@ -556,63 +556,63 @@ Responda chamando a função `save_visual_profile`.
 
 Responda chamando a função save_visual_profile.
 
-Observação: o placeholder {{N}} é substituído pelo número de amostras pela edge function. ', '["samples"]'::jsonb, t)
+Observação: o placeholder {{N}} é substituído pelo número de amostras pela edge function. ', '["samples"]'::jsonb, 'true'::boolean)
 ON CONFLICT (agent_id) DO NOTHING;
 
-INSERT INTO public.feature_catalog (key, name, description, category, icon, is_core, sort_order, is_available, default_enabled)
-VALUES ('dashboard', 'Dashboard', 'Visão geral consolidada do ambiente.', 'Visão Geral', 'LayoutDashboard', t, 10, t, t)
+INSERT INTO public.feature_catalog (key, name, description, category, icon, quote_literal(is_core::text), sort_order, quote_literal(is_available::text), quote_literal(default_enabled::text))
+VALUES ('dashboard', 'Dashboard', 'Visão geral consolidada do ambiente.', 'Visão Geral', 'LayoutDashboard', 'true'::boolean, 10, 'true'::boolean, 'true'::boolean)
 ON CONFLICT (key) DO NOTHING;
 
-INSERT INTO public.feature_catalog (key, name, description, category, icon, is_core, sort_order, is_available, default_enabled)
-VALUES ('analytics', 'Analytics', 'Métricas e desempenho das contas conectadas.', 'Visão Geral', 'BarChart3', f, 20, t, t)
+INSERT INTO public.feature_catalog (key, name, description, category, icon, quote_literal(is_core::text), sort_order, quote_literal(is_available::text), quote_literal(default_enabled::text))
+VALUES ('analytics', 'Analytics', 'Métricas e desempenho das contas conectadas.', 'Visão Geral', 'BarChart3', 'false'::boolean, 20, 'true'::boolean, 'true'::boolean)
 ON CONFLICT (key) DO NOTHING;
 
-INSERT INTO public.feature_catalog (key, name, description, category, icon, is_core, sort_order, is_available, default_enabled)
-VALUES ('projects', 'Projetos', 'Gestão de projetos e execução de pautas.', 'Operação', 'FolderKanban', f, 30, t, t)
+INSERT INTO public.feature_catalog (key, name, description, category, icon, quote_literal(is_core::text), sort_order, quote_literal(is_available::text), quote_literal(default_enabled::text))
+VALUES ('projects', 'Projetos', 'Gestão de projetos e execução de pautas.', 'Operação', 'FolderKanban', 'false'::boolean, 30, 'true'::boolean, 'true'::boolean)
 ON CONFLICT (key) DO NOTHING;
 
-INSERT INTO public.feature_catalog (key, name, description, category, icon, is_core, sort_order, is_available, default_enabled)
-VALUES ('monthly_plan', 'Pauta', 'Planejamento mensal de conteúdo gerado por IA.', 'Operação', 'ScrollText', f, 40, t, t)
+INSERT INTO public.feature_catalog (key, name, description, category, icon, quote_literal(is_core::text), sort_order, quote_literal(is_available::text), quote_literal(default_enabled::text))
+VALUES ('monthly_plan', 'Pauta', 'Planejamento mensal de conteúdo gerado por IA.', 'Operação', 'ScrollText', 'false'::boolean, 40, 'true'::boolean, 'true'::boolean)
 ON CONFLICT (key) DO NOTHING;
 
-INSERT INTO public.feature_catalog (key, name, description, category, icon, is_core, sort_order, is_available, default_enabled)
-VALUES ('blog_post', 'Conteúdo', 'Kanban de produção de peças e publicações.', 'Operação', 'KanbanSquare', f, 50, t, t)
+INSERT INTO public.feature_catalog (key, name, description, category, icon, quote_literal(is_core::text), sort_order, quote_literal(is_available::text), quote_literal(default_enabled::text))
+VALUES ('blog_post', 'Conteúdo', 'Kanban de produção de peças e publicações.', 'Operação', 'KanbanSquare', 'false'::boolean, 50, 'true'::boolean, 'true'::boolean)
 ON CONFLICT (key) DO NOTHING;
 
-INSERT INTO public.feature_catalog (key, name, description, category, icon, is_core, sort_order, is_available, default_enabled)
-VALUES ('calendar', 'Calendário', 'Central de agendamento e publicação.', 'Operação', 'CalendarDays', f, 60, t, t)
+INSERT INTO public.feature_catalog (key, name, description, category, icon, quote_literal(is_core::text), sort_order, quote_literal(is_available::text), quote_literal(default_enabled::text))
+VALUES ('calendar', 'Calendário', 'Central de agendamento e publicação.', 'Operação', 'CalendarDays', 'false'::boolean, 60, 'true'::boolean, 'true'::boolean)
 ON CONFLICT (key) DO NOTHING;
 
-INSERT INTO public.feature_catalog (key, name, description, category, icon, is_core, sort_order, is_available, default_enabled)
-VALUES ('tasks', 'Tarefas', 'Tarefas, subtarefas e apontamento de horas.', 'Operação', 'ListChecks', f, 70, t, t)
+INSERT INTO public.feature_catalog (key, name, description, category, icon, quote_literal(is_core::text), sort_order, quote_literal(is_available::text), quote_literal(default_enabled::text))
+VALUES ('tasks', 'Tarefas', 'Tarefas, subtarefas e apontamento de horas.', 'Operação', 'ListChecks', 'false'::boolean, 70, 'true'::boolean, 'true'::boolean)
 ON CONFLICT (key) DO NOTHING;
 
-INSERT INTO public.feature_catalog (key, name, description, category, icon, is_core, sort_order, is_available, default_enabled)
-VALUES ('midia_paga', 'Mídia Paga', 'Planos de mídia e investimento em anúncios.', 'Operação', 'Target', f, 80, t, f)
+INSERT INTO public.feature_catalog (key, name, description, category, icon, quote_literal(is_core::text), sort_order, quote_literal(is_available::text), quote_literal(default_enabled::text))
+VALUES ('midia_paga', 'Mídia Paga', 'Planos de mídia e investimento em anúncios.', 'Operação', 'Target', 'false'::boolean, 80, 'true'::boolean, 'false'::boolean)
 ON CONFLICT (key) DO NOTHING;
 
-INSERT INTO public.feature_catalog (key, name, description, category, icon, is_core, sort_order, is_available, default_enabled)
-VALUES ('customers', 'Clientes', 'Cadastro e painel dos clientes atendidos.', 'Gestão', 'Users', f, 90, t, t)
+INSERT INTO public.feature_catalog (key, name, description, category, icon, quote_literal(is_core::text), sort_order, quote_literal(is_available::text), quote_literal(default_enabled::text))
+VALUES ('customers', 'Clientes', 'Cadastro e painel dos clientes atendidos.', 'Gestão', 'Users', 'false'::boolean, 90, 'true'::boolean, 'true'::boolean)
 ON CONFLICT (key) DO NOTHING;
 
-INSERT INTO public.feature_catalog (key, name, description, category, icon, is_core, sort_order, is_available, default_enabled)
-VALUES ('connections', 'Integrações', 'Conexões de canais e contas sociais.', 'Gestão', 'Plug', f, 100, t, t)
+INSERT INTO public.feature_catalog (key, name, description, category, icon, quote_literal(is_core::text), sort_order, quote_literal(is_available::text), quote_literal(default_enabled::text))
+VALUES ('connections', 'Integrações', 'Conexões de canais e contas sociais.', 'Gestão', 'Plug', 'false'::boolean, 100, 'true'::boolean, 'true'::boolean)
 ON CONFLICT (key) DO NOTHING;
 
-INSERT INTO public.feature_catalog (key, name, description, category, icon, is_core, sort_order, is_available, default_enabled)
-VALUES ('notifications', 'Notificações', 'Central de notificações do ambiente.', 'Gestão', 'Bell', f, 110, t, t)
+INSERT INTO public.feature_catalog (key, name, description, category, icon, quote_literal(is_core::text), sort_order, quote_literal(is_available::text), quote_literal(default_enabled::text))
+VALUES ('notifications', 'Notificações', 'Central de notificações do ambiente.', 'Gestão', 'Bell', 'false'::boolean, 110, 'true'::boolean, 'true'::boolean)
 ON CONFLICT (key) DO NOTHING;
 
-INSERT INTO public.feature_catalog (key, name, description, category, icon, is_core, sort_order, is_available, default_enabled)
-VALUES ('agents', 'Agentes IA', 'Agentes de IA e prompts operacionais.', 'Inteligência', 'Bot', f, 120, t, t)
+INSERT INTO public.feature_catalog (key, name, description, category, icon, quote_literal(is_core::text), sort_order, quote_literal(is_available::text), quote_literal(default_enabled::text))
+VALUES ('agents', 'Agentes IA', 'Agentes de IA e prompts operacionais.', 'Inteligência', 'Bot', 'false'::boolean, 120, 'true'::boolean, 'true'::boolean)
 ON CONFLICT (key) DO NOTHING;
 
-INSERT INTO public.feature_catalog (key, name, description, category, icon, is_core, sort_order, is_available, default_enabled)
-VALUES ('brain', 'Brain', 'Núcleo de inteligência central do Unitos.', 'Inteligência', 'Brain', f, 130, t, t)
+INSERT INTO public.feature_catalog (key, name, description, category, icon, quote_literal(is_core::text), sort_order, quote_literal(is_available::text), quote_literal(default_enabled::text))
+VALUES ('brain', 'Brain', 'Núcleo de inteligência central do Unitos.', 'Inteligência', 'Brain', 'false'::boolean, 130, 'true'::boolean, 'true'::boolean)
 ON CONFLICT (key) DO NOTHING;
 
-INSERT INTO public.feature_catalog (key, name, description, category, icon, is_core, sort_order, is_available, default_enabled)
-VALUES ('chat', 'Chat', 'Copiloto conversacional do ambiente.', 'Inteligência', 'MessageSquare', f, 140, t, f)
+INSERT INTO public.feature_catalog (key, name, description, category, icon, quote_literal(is_core::text), sort_order, quote_literal(is_available::text), quote_literal(default_enabled::text))
+VALUES ('chat', 'Chat', 'Copiloto conversacional do ambiente.', 'Inteligência', 'MessageSquare', 'false'::boolean, 140, 'true'::boolean, 'false'::boolean)
 ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO public.brain_retention_config (key, value_days, description)
