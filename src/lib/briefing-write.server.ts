@@ -20,8 +20,10 @@ export type BriefingWriteOrigin =
   | "ai.briefing"
   | "ai.pipeline"
   | "ai.edit"
+  | "ai.import"
   | "document"
   | "portal";
+
 
 export type BriefingWriteResult = {
   hub: BrandHubData;

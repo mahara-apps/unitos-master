@@ -129,8 +129,13 @@ const ALLOWED_FIELDS = new Set<keyof DocumentBriefingSummary>([
 ]);
 
 /**
- * Merge the selected AI-extracted fields into the client's briefing.data jsonb.
- * Creates a briefing row when none exists. Never overwrites unselected fields.
+ * Merge the selected AI-extracted fields into the client's briefing.
+ *
+ * A escrita agora passa pela camada de execução de importação
+ * (`briefing_import_runs`): a run do documento é reaproveitada, os campos
+ * selecionados são aceitos e o apply é idempotente (uma run já aplicada
+ * devolve a versão existente). Quando não existe run — documentos analisados
+ * antes desta camada — cai no caminho legado direto.
  */
 export const applyDocumentToBriefing = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -186,9 +191,27 @@ export const applyDocumentToBriefing = createServerFn({ method: "POST" })
       throw new Error("Nenhum campo válido selecionado.");
     }
 
-    // Fonte única: clients.brand_hub. As chaves de DocumentBriefingSummary são
-    // exatamente as chaves do brand_hub, então o patch é aplicado direto —
-    // com snapshot de auditoria em brand_briefing_versions.
+    const runId = await findDocumentRunId(context.supabase, data);
+    if (runId) {
+      const { applyImportRun } = await import("@/lib/briefing-import.server");
+      const result = await applyImportRun(context.supabase, {
+        brandId: data.brandId,
+        clientId: data.clientId,
+        runId,
+        userId: context.userId,
+        acceptFields: Object.keys(patch),
+      });
+      await markDocumentApplied(context.supabase, data.documentId);
+      return {
+        ok: true,
+        appliedFields: result.appliedFields,
+        runId,
+        versionId: result.versionId,
+        counts: result.counts,
+      };
+    }
+
+    // Caminho legado (documento sem run de importação).
     const { writeCanonicalBriefing } = await import("@/lib/briefing-write.server");
     await writeCanonicalBriefing(context.supabase, {
       brandId: data.brandId,
@@ -197,22 +220,41 @@ export const applyDocumentToBriefing = createServerFn({ method: "POST" })
       authorId: context.userId,
       origin: "document",
     });
-
-    await (
-      context.supabase as unknown as {
-        from: (t: string) => {
-          update: (v: unknown) => {
-            eq: (k: string, v: string) => Promise<unknown>;
-          };
-        };
-      }
-    )
-      .from("client_documents")
-      .update({ applied_to_briefing_at: new Date().toISOString() })
-      .eq("id", data.documentId);
-
+    await markDocumentApplied(context.supabase, data.documentId);
     return { ok: true, appliedFields: Object.keys(patch) };
   });
+
+/** Run de importação mais recente e aplicável para o documento. */
+async function findDocumentRunId(
+  supabase: unknown,
+  scope: { brandId: string; clientId: string; documentId: string },
+): Promise<string | null> {
+  const { data } = await (supabase as { from: (t: string) => any })
+    .from("briefing_import_runs")
+    .select("id, status")
+    .eq("brand_id", scope.brandId)
+    .eq("client_id", scope.clientId)
+    .eq("document_id", scope.documentId)
+    .in("status", ["proposed", "applying", "applied"])
+    .order("created_at", { ascending: false })
+    .limit(1);
+  const row = ((data as Array<{ id: string }> | null) ?? [])[0];
+  return row?.id ?? null;
+}
+
+async function markDocumentApplied(supabase: unknown, documentId: string): Promise<void> {
+  await (
+    supabase as unknown as {
+      from: (t: string) => {
+        update: (v: unknown) => { eq: (k: string, v: string) => Promise<unknown> };
+      };
+    }
+  )
+    .from("client_documents")
+    .update({ applied_to_briefing_at: new Date().toISOString() })
+    .eq("id", documentId);
+}
+
 
 /**
  * Get the current briefing snapshot for before/after comparison in the UI.
