@@ -23,13 +23,16 @@ export async function extractTextFromFile(file: File): Promise<ExtractResult> {
   }
 
   if (ext === ".docx") {
-    const mammoth = await import("mammoth/mammoth.browser.js");
+    const mammoth = (await import(
+      /* @vite-ignore */ "mammoth/mammoth.browser.js"
+    )) as unknown as {
+      extractRawText: (o: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }>;
+      default?: { extractRawText: (o: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }> };
+    };
+    const api = mammoth.default ?? mammoth;
     const buffer = await file.arrayBuffer();
-    const res = await (
-      mammoth as unknown as {
-        extractRawText: (o: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }>;
-      }
-    ).extractRawText({ arrayBuffer: buffer });
+    const res = await api.extractRawText({ arrayBuffer: buffer });
+
     return finish(res.value ?? "", file.name);
   }
 
