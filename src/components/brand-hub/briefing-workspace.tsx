@@ -1525,72 +1525,66 @@ function StackedBrainLayout(props: StackedProps) {
 
   return (
     <div className="relative">
-      {/* Sticky action bar */}
-      <div className="sticky top-0 z-20 -mx-1 border-b border-border/60 bg-background/80 px-1 py-3 backdrop-blur-md">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="w-full max-w-xs">
+      {/* Header minimalista: marca + progresso/salvamento + salvar + uma ação de IA */}
+      <div className="sticky top-0 z-20 -mx-1 border-b border-border/60 bg-background/85 px-1 py-3 backdrop-blur-md">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:flex-wrap sm:justify-between">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="min-w-0">
+              <h2 className="truncate text-sm font-semibold tracking-tight">
+                {client.name ?? "Briefing"}
+              </h2>
+              <p className="truncate text-[11px] text-muted-foreground">
+                {savedAt
+                  ? `Salvo em ${new Intl.DateTimeFormat("pt-BR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }).format(new Date(savedAt))}`
+                  : "Ainda não salvo nesta sessão"}
+              </p>
+            </div>
+            <div className="hidden w-40 shrink-0 md:block">
               <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                <span>{progressLabel(completion)}</span>
+                <span className="truncate">{progressLabel(completion)}</span>
                 <span className="font-mono">{completion}%</span>
               </div>
               <Progress value={completion} className="h-1.5" />
             </div>
-            {savedAt ? (
-              <span className="hidden text-[11px] text-muted-foreground md:inline">
-                Salvo em{" "}
-                {new Intl.DateTimeFormat("pt-BR", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }).format(new Date(savedAt))}
-              </span>
-            ) : null}
           </div>
-          <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-xs" onClick={onImportAi}>
-            <Sparkles className="h-3.5 w-3.5" /> Importar Briefing via IA
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 gap-1.5 text-xs"
-            onClick={onGenerateIdeas}
-            disabled={!strategyReady || genIdeas}
-            title={
-              strategyReady ? "Gerar ideias de conteúdo" : "Gere e revise a estratégia primeiro"
-            }
-          >
-            {genIdeas ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Lightbulb className="h-3.5 w-3.5" />
-            )}
-            Gerar ideias
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 gap-1.5 text-xs"
-            onClick={onSave}
-            disabled={saving}
-          >
-            {saving ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Save className="h-3.5 w-3.5" />
-            )}
-            Salvar
-          </Button>
-          <GenerateIntelligenceButton
-            form={form}
-            generating={generating}
-            onGenerate={onGenerateStrategy}
-            onJump={scrollTo}
-          />
+
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 text-xs"
+              onClick={onSave}
+              disabled={saving}
+            >
+              {saving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Save className="h-3.5 w-3.5" />
+              )}
+              Salvar
+            </Button>
+            <AiActionsMenu
+              form={form}
+              generating={generating}
+              genIdeas={genIdeas}
+              strategyReady={strategyReady}
+              onGenerateStrategy={onGenerateStrategy}
+              onGenerateIdeas={onGenerateIdeas}
+              onImportAi={onImportAi}
+              onJump={scrollTo}
+            />
+          </div>
+        </div>
+        <div className="mt-2 md:hidden">
+          <Progress value={completion} className="h-1.5" />
         </div>
       </div>
+
 
       <div className="grid gap-8 pt-6 md:grid-cols-[200px_minmax(0,1fr)]">
         {/* Left anchor nav */}
