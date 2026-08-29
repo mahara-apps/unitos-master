@@ -118,7 +118,7 @@ def bucket(stmt: str) -> int:
         return 12
     if u.startswith("COMMENT ON"):
         return 13
-    if u.startswith(("GRANT ", "REVOKE ")):
+    if u.startswith(("GRANT ", "REVOKE ", "ALTER DEFAULT PRIVILEGES")):
         return 14
     return 6  # outros ALTERs de tabela (defaults, identity, replica identity)
 
