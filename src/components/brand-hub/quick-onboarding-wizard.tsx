@@ -32,6 +32,7 @@ import {
   type BrandHubData,
 } from "@/lib/brand-hub.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { BriefingImportDialog } from "./briefing-import-dialog";
 
 type SocialKey = "instagram" | "tiktok" | "linkedin" | "youtube" | "facebook";
 const SOCIALS: Array<{ key: SocialKey; label: string }> = [
@@ -298,7 +299,7 @@ export function QuickOnboardingWizard({
             )}
 
 
-            {step === 1 && (
+            {!aiOpen && step === 1 && (
               <Button
                 size="default"
                 onClick={() =>
@@ -316,7 +317,7 @@ export function QuickOnboardingWizard({
                 <ChevronRight className="h-4 w-4" />
               </Button>
             )}
-            {step === 2 && (
+            {!aiOpen && step === 2 && (
               <Button
                 size="default"
                 onClick={() =>
@@ -335,7 +336,7 @@ export function QuickOnboardingWizard({
                 <ChevronRight className="h-4 w-4" />
               </Button>
             )}
-            {step === 3 && (
+            {!aiOpen && step === 3 && (
               <Button
                 size="default"
                 onClick={() => advance({ volumetry: state.volumetry, goals: state.goals })}
@@ -347,7 +348,7 @@ export function QuickOnboardingWizard({
                 <ChevronRight className="h-4 w-4" />
               </Button>
             )}
-            {step > totalSteps && (
+            {!aiOpen && step > totalSteps && (
               <>
                 <Button
                   variant="ghost"
