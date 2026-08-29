@@ -1383,28 +1383,25 @@ function AiActionsMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button size="sm" className="h-8 gap-1.5 text-xs" disabled={busy}>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1 text-xs text-muted-foreground"
+          disabled={busy}
+        >
           {busy ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
             <Sparkles className="h-3.5 w-3.5" />
           )}
           IA
+          <ChevronDown className="h-3 w-3 opacity-60" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
         <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
-          Ferramentas de IA para este briefing
+          Gerar com IA
         </DropdownMenuLabel>
-        <DropdownMenuItem onClick={onImportAi} className="gap-2">
-          <Upload className="h-3.5 w-3.5 shrink-0" />
-          <span className="min-w-0">
-            <span className="block text-xs font-medium">Importar contexto com IA</span>
-            <span className="block text-[11px] text-muted-foreground">
-              Envie material e revise as sugestões
-            </span>
-          </span>
-        </DropdownMenuItem>
         <DropdownMenuItem onClick={onGenerateStrategy} className="gap-2">
           <Sparkles className="h-3.5 w-3.5 shrink-0" />
           <span className="min-w-0">
