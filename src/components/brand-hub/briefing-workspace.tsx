@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { BriefingImportDialog } from "@/components/brand-hub/briefing-import-dialog";
 import { BriefingImportDialog } from "@/components/brand-hub/briefing-import-dialog";
 import { BriefingImportHistory } from "@/components/brand-hub/briefing-import-history";
 import { DocumentsTab } from "@/components/brand-hub/documents-tab";
