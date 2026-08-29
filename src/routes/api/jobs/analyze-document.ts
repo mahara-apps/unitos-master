@@ -329,11 +329,13 @@ export const Route = createFileRoute("/api/jobs/analyze-document")({
           brandId: parsed.data.brandId,
           clientId: parsed.data.clientId,
           userId,
-          sourceKind: "document",
+          // A UI pode marcar transcrição; o fingerprint segue o arquivo.
+          sourceKind: parsed.data.sourceKind ?? "document",
           documentId: parsed.data.documentId,
           inputFingerprint: fingerprint,
           force: parsed.data.force === true,
         });
+
 
         // Reuso: já existe execução viva para o mesmo arquivo — não gasta IA.
         if (reused && run.status !== "queued") {
