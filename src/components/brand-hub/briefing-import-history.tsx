@@ -89,16 +89,15 @@ function statusBadge(status: ImportRunStatus) {
 export function BriefingImportHistory({
   brandId,
   clientId,
-  onImport,
 }: {
   brandId: string;
   clientId: string;
-  onImport?: () => void;
 }) {
   const list = useServerFn(listBriefingImportRuns);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | ImportRunStatus>("all");
   const [openRun, setOpenRun] = useState<ImportRunListItem | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   const runsQ = useQuery({
     queryKey: ["briefing-import-runs", brandId, clientId],
@@ -108,6 +107,8 @@ export function BriefingImportHistory({
       return rows.some((r) => shouldPollRun(r.status)) ? 4000 : false;
     },
   });
+
+  const total = runsQ.data?.length ?? 0;
 
   const rows = useMemo(() => {
     const all = runsQ.data ?? [];
@@ -122,24 +123,37 @@ export function BriefingImportHistory({
   }, [runsQ.data, search, status]);
 
   return (
-    <Card className="border-border/60">
-      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 border-b border-border/60 px-4 py-3">
+    <Card className="border-border/60 bg-muted/10">
+      <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 space-y-0 px-4 py-3">
         <div className="min-w-0">
-          <CardTitle className="flex items-center gap-2 text-sm font-medium">
-            <History className="h-4 w-4 text-muted-foreground" /> Histórico de importações com IA
+          <CardTitle className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
+            <History className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Importações com IA</span>
+            {total > 0 ? (
+              <Badge variant="outline" className="shrink-0 text-[10px]">
+                {total}
+              </Badge>
+            ) : null}
           </CardTitle>
-          <CardDescription className="text-[11px]">
-            Cada execução guarda o material enviado, a proposta e o que foi aplicado.
-          </CardDescription>
+          {!expanded ? (
+            <CardDescription className="mt-0.5 truncate text-[11px]">
+              Cada execução guarda o material enviado, a proposta e o que foi aplicado.
+            </CardDescription>
+          ) : null}
         </div>
-        {onImport ? (
-          <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={onImport}>
-            <Sparkles className="h-3.5 w-3.5" /> Importar Briefing via IA
-          </Button>
-        ) : null}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 shrink-0 text-[11px]"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? "Ocultar" : "Ver histórico"}
+        </Button>
       </CardHeader>
-      <CardContent className="space-y-3 px-4 py-4">
-        <div className="flex flex-wrap gap-2">
+      {expanded ? (
+        <CardContent className="space-y-3 border-t border-border/60 px-4 py-4">
+          <div className="flex flex-wrap gap-2">
+
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -219,7 +233,9 @@ export function BriefingImportHistory({
             ))}
           </ul>
         )}
-      </CardContent>
+        </CardContent>
+      ) : null}
+
 
       <ImportRunDetail
         brandId={brandId}

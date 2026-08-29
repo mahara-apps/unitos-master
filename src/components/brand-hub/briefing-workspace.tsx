@@ -19,8 +19,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { BriefingImportDialog } from "@/components/brand-hub/briefing-import-dialog";
+
 import { BriefingImportHistory } from "@/components/brand-hub/briefing-import-history";
 import { DocumentsTab } from "@/components/brand-hub/documents-tab";
 import {
@@ -87,8 +87,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
 
 /* ----------------------------- Types / helpers ----------------------------- */
 
@@ -1350,99 +1353,107 @@ function getMissingEssentials(form: FormState): EssentialField[] {
   );
 }
 
-function GenerateIntelligenceButton({
+/**
+ * Ação de IA única e contextual. Reúne importar contexto, gerar inteligência e
+ * gerar ideias em um só ponto de entrada, com aviso de campos essenciais
+ * faltantes em vez de um popover separado.
+ */
+function AiActionsMenu({
   form,
   generating,
-  onGenerate,
+  genIdeas,
+  strategyReady,
+  onGenerateStrategy,
+  onGenerateIdeas,
+  onImportAi,
   onJump,
-  label = "Gerar Inteligência com IA",
 }: {
   form: FormState;
   generating: boolean;
-  onGenerate: () => void;
-  onJump?: (sectionId: string) => void;
-  label?: string;
+  genIdeas: boolean;
+  strategyReady: boolean;
+  onGenerateStrategy: () => void;
+  onGenerateIdeas: () => void;
+  onImportAi: () => void;
+  onJump: (sectionId: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const missing = getMissingEssentials(form);
-
-  const handleClick = () => {
-    if (generating) return;
-    if (missing.length === 0) {
-      onGenerate();
-      return;
-    }
-    setOpen(true);
-  };
-
-  const proceed = () => {
-    setOpen(false);
-    onGenerate();
-  };
-
-  const jump = (sectionId: string) => {
-    setOpen(false);
-    if (onJump) onJump(sectionId);
-    else if (typeof document !== "undefined") {
-      document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
+  const busy = generating || genIdeas;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          size="sm"
-          className="h-8 gap-1.5 text-xs"
-          onClick={handleClick}
-          disabled={generating}
-        >
-          {generating ? (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" className="h-8 gap-1.5 text-xs" disabled={busy}>
+          {busy ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
             <Sparkles className="h-3.5 w-3.5" />
           )}
-          {label}
+          IA
         </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 space-y-3">
-        <div className="space-y-1">
-          <div className="text-sm font-medium">Preencha para um resultado melhor</div>
-          <p className="text-xs text-muted-foreground">
-            Estes campos ajudam a IA a gerar uma estratégia mais precisa. Você pode gerar mesmo
-            assim.
-          </p>
-        </div>
-        <ul className="space-y-1">
-          {missing.map((f) => (
-            <li
-              key={f.key}
-              className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5"
-            >
-              <span className="text-xs">{f.label}</span>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 gap-1 px-2 text-[11px] text-primary hover:text-primary"
-                onClick={() => jump(f.sectionId)}
-              >
-                Preencher
-              </Button>
-            </li>
-          ))}
-        </ul>
-        <div className="flex items-center justify-end gap-2 pt-1">
-          <Button size="sm" variant="ghost" className="h-8" onClick={() => setOpen(false)}>
-            Cancelar
-          </Button>
-          <Button size="sm" className="h-8 gap-1.5" onClick={proceed}>
-            <Sparkles className="h-3.5 w-3.5" /> Gerar mesmo assim
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-72">
+        <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
+          Ferramentas de IA para este briefing
+        </DropdownMenuLabel>
+        <DropdownMenuItem onClick={onImportAi} className="gap-2">
+          <Upload className="h-3.5 w-3.5 shrink-0" />
+          <span className="min-w-0">
+            <span className="block text-xs font-medium">Importar contexto com IA</span>
+            <span className="block text-[11px] text-muted-foreground">
+              Envie material e revise as sugestões
+            </span>
+          </span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onGenerateStrategy} className="gap-2">
+          <Sparkles className="h-3.5 w-3.5 shrink-0" />
+          <span className="min-w-0">
+            <span className="block text-xs font-medium">Gerar inteligência</span>
+            <span className="block text-[11px] text-muted-foreground">
+              Voice Card, personas, cohorts e SWOT
+            </span>
+          </span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={onGenerateIdeas}
+          disabled={!strategyReady}
+          className="gap-2"
+        >
+          <Lightbulb className="h-3.5 w-3.5 shrink-0" />
+          <span className="min-w-0">
+            <span className="block text-xs font-medium">Gerar ideias de conteúdo</span>
+            <span className="block text-[11px] text-muted-foreground">
+              {strategyReady ? "A partir da estratégia revisada" : "Gere a estratégia primeiro"}
+            </span>
+          </span>
+        </DropdownMenuItem>
+        {missing.length > 0 ? (
+          <>
+            <DropdownMenuSeparator />
+            <div className="px-2 py-1.5">
+              <p className="mb-1.5 text-[11px] text-muted-foreground">
+                Campos essenciais em falta melhoram o resultado da IA:
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {missing.map((f) => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => onJump(f.sectionId)}
+                    className="rounded-md border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[11px] text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
+
 
 type StackedProps = {
   brandId: string;
@@ -1525,72 +1536,66 @@ function StackedBrainLayout(props: StackedProps) {
 
   return (
     <div className="relative">
-      {/* Sticky action bar */}
-      <div className="sticky top-0 z-20 -mx-1 border-b border-border/60 bg-background/80 px-1 py-3 backdrop-blur-md">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="w-full max-w-xs">
+      {/* Header minimalista: marca + progresso/salvamento + salvar + uma ação de IA */}
+      <div className="sticky top-0 z-20 -mx-1 border-b border-border/60 bg-background/85 px-1 py-3 backdrop-blur-md">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:flex-wrap sm:justify-between">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="min-w-0">
+              <h2 className="truncate text-sm font-semibold tracking-tight">
+                {client.name ?? "Briefing"}
+              </h2>
+              <p className="truncate text-[11px] text-muted-foreground">
+                {savedAt
+                  ? `Salvo em ${new Intl.DateTimeFormat("pt-BR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }).format(new Date(savedAt))}`
+                  : "Ainda não salvo nesta sessão"}
+              </p>
+            </div>
+            <div className="hidden w-40 shrink-0 md:block">
               <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                <span>{progressLabel(completion)}</span>
+                <span className="truncate">{progressLabel(completion)}</span>
                 <span className="font-mono">{completion}%</span>
               </div>
               <Progress value={completion} className="h-1.5" />
             </div>
-            {savedAt ? (
-              <span className="hidden text-[11px] text-muted-foreground md:inline">
-                Salvo em{" "}
-                {new Intl.DateTimeFormat("pt-BR", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }).format(new Date(savedAt))}
-              </span>
-            ) : null}
           </div>
-          <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-xs" onClick={onImportAi}>
-            <Sparkles className="h-3.5 w-3.5" /> Importar Briefing via IA
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 gap-1.5 text-xs"
-            onClick={onGenerateIdeas}
-            disabled={!strategyReady || genIdeas}
-            title={
-              strategyReady ? "Gerar ideias de conteúdo" : "Gere e revise a estratégia primeiro"
-            }
-          >
-            {genIdeas ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Lightbulb className="h-3.5 w-3.5" />
-            )}
-            Gerar ideias
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 gap-1.5 text-xs"
-            onClick={onSave}
-            disabled={saving}
-          >
-            {saving ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Save className="h-3.5 w-3.5" />
-            )}
-            Salvar
-          </Button>
-          <GenerateIntelligenceButton
-            form={form}
-            generating={generating}
-            onGenerate={onGenerateStrategy}
-            onJump={scrollTo}
-          />
+
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 text-xs"
+              onClick={onSave}
+              disabled={saving}
+            >
+              {saving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Save className="h-3.5 w-3.5" />
+              )}
+              Salvar
+            </Button>
+            <AiActionsMenu
+              form={form}
+              generating={generating}
+              genIdeas={genIdeas}
+              strategyReady={strategyReady}
+              onGenerateStrategy={onGenerateStrategy}
+              onGenerateIdeas={onGenerateIdeas}
+              onImportAi={onImportAi}
+              onJump={scrollTo}
+            />
+          </div>
+        </div>
+        <div className="mt-2 md:hidden">
+          <Progress value={completion} className="h-1.5" />
         </div>
       </div>
+
 
       <div className="grid gap-8 pt-6 md:grid-cols-[200px_minmax(0,1fr)]">
         {/* Left anchor nav */}
@@ -1649,14 +1654,11 @@ function StackedBrainLayout(props: StackedProps) {
 
           <BrainSection id="documentos" title="Documentos & Contexto IA">
             <div className="space-y-4">
-              <DocumentsTab brandId={brandId} clientId={clientId} />
-              <BriefingImportHistory
-                brandId={brandId}
-                clientId={clientId}
-                onImport={onImportAi}
-              />
+              <DocumentsTab brandId={brandId} clientId={clientId} onImportAi={onImportAi} />
+              <BriefingImportHistory brandId={brandId} clientId={clientId} />
             </div>
           </BrainSection>
+
 
 
           <BrainSection id="briefing-cliente" title="Briefing com o cliente">
