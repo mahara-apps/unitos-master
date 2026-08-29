@@ -13,6 +13,21 @@ vi.mock("@tanstack/react-start/server", () => ({
   getRequestHeader: (name: string) => headers.get(name.toLowerCase()),
 }));
 
+// A instalação (singleton) é mockada: este teste cobre requisição × env, e
+// nunca deve escrever/ler o banco real.
+vi.mock("@/lib/installation-settings.server", () => ({
+  getInstallationSettings: async () => ({
+    appUrl: null,
+    logoUrl: null,
+    logoDarkUrl: null,
+    iconUrl: null,
+    loginLogoUrl: null,
+    emailFrom: null,
+    emailFromName: null,
+  }),
+  updateInstallationSettings: async () => {},
+}));
+
 const ENV_KEYS = ["PUBLIC_APP_URL", "APP_PUBLIC_URL", "APP_URL"] as const;
 let saved: Record<string, string | undefined> = {};
 

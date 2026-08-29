@@ -60,11 +60,37 @@ export async function requestOrigin(): Promise<string | null> {
   }
 }
 
-/** Origem configurada por env — usada apenas fora de uma requisição. */
+/** Origem configurada por env — último recurso fora de uma requisição. */
 export function configuredOrigin(): string | null {
   return normalizeOrigin(
     process.env.PUBLIC_APP_URL ?? process.env.APP_PUBLIC_URL ?? process.env.APP_URL ?? null,
   );
+}
+
+/**
+ * Origem persistida da INSTALAÇÃO (singleton `public.installation`).
+ * É aprendida do host real das requisições, então cron/worker desta instância
+ * reconstroem links do próprio domínio — nunca de env compartilhado.
+ */
+async function installationOrigin(): Promise<string | null> {
+  try {
+    const { getInstallationSettings } = await import("./installation-settings.server");
+    const settings = await getInstallationSettings();
+    return normalizeOrigin(settings.appUrl);
+  } catch {
+    return null;
+  }
+}
+
+async function learnInstallationOrigin(origin: string): Promise<void> {
+  try {
+    const current = await installationOrigin();
+    if (current === origin) return;
+    const { updateInstallationSettings } = await import("./installation-settings.server");
+    await updateInstallationSettings({ app_url: origin });
+  } catch {
+    /* ambiente sem banco (teste/dev): nada a aprender */
+  }
 }
 
 /**
@@ -73,8 +99,9 @@ export function configuredOrigin(): string | null {
  */
 export async function getPublicAppUrl(): Promise<string> {
   const fromRequest = await requestOrigin();
-  const fromEnv = configuredOrigin();
   if (fromRequest) {
+    void learnInstallationOrigin(fromRequest);
+    const fromEnv = configuredOrigin();
     if (fromEnv && fromEnv !== fromRequest) {
       console.warn(
         `[app-url] env aponta para outra instalação (${fromEnv}); usando o host da requisição (${fromRequest})`,
@@ -82,9 +109,13 @@ export async function getPublicAppUrl(): Promise<string> {
     }
     return fromRequest;
   }
+  const fromInstallation = await installationOrigin();
+  if (fromInstallation) return fromInstallation;
+  const fromEnv = configuredOrigin();
   if (fromEnv) return fromEnv;
   throw new AppUrlNotConfiguredError();
 }
+
 
 /** Igual a `getPublicAppUrl`, mas retorna null em vez de lançar. */
 export async function tryGetPublicAppUrl(): Promise<string | null> {

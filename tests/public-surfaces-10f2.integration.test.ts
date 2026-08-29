@@ -243,18 +243,19 @@ describe("rate limit de superfície pública", () => {
   });
 });
 
-describe("logo de login — escopo do asset", () => {
-  it("path da logo pertence estruturalmente à brand (nunca asset de outra brand)", async () => {
-    const other = `${fx!.otherBrandId}/logo_login-1.png`;
-    // Regra aplicada em getLoginLogoFn: só assina quando o path começa por `<brand_id>/`.
-    const allows = (brandId: string, path: string) =>
-      !path.includes("..") && path.startsWith(`${brandId}/`);
-    expect(allows(fx!.brandId, `${fx!.brandId}/logo_login-1.png`)).toBe(true);
-    expect(allows(fx!.brandId, other)).toBe(false);
-    expect(allows(fx!.brandId, `${fx!.brandId}/../${other}`)).toBe(false);
+describe("logo de login — escopo da instalação", () => {
+  it("path da logo é validado estruturalmente antes de assinar", async () => {
+    const { isSafeLoginLogoPath } = await import("@/lib/login-branding.functions");
+    expect(isSafeLoginLogoPath(`${fx!.brandId}/logo_login-1.png`)).toBe(true);
+    expect(isSafeLoginLogoPath("installation/logo_login-1.png")).toBe(true);
+    expect(isSafeLoginLogoPath(`${fx!.brandId}/../${fx!.otherBrandId}/x.png`)).toBe(false);
+    expect(isSafeLoginLogoPath("../../secret.png")).toBe(false);
+    expect(isSafeLoginLogoPath("qualquer/pasta/x.png")).toBe(false);
+    expect(isSafeLoginLogoPath(null)).toBe(false);
   });
 
-  it("instalação com múltiplas brands com logo não permite escolha arbitrária", async () => {
+  it("logo de login vem da instalação (singleton), nunca de um workspace", async () => {
+    // Mesmo com brands tendo logo própria, a superfície pública lê só o singleton.
     await admin
       .from("brands")
       .update({ login_logo_url: `${fx!.brandId}/logo_login-a.png` })
@@ -263,19 +264,17 @@ describe("logo de login — escopo do asset", () => {
       .from("brands")
       .update({ login_logo_url: `${fx!.otherBrandId}/logo_login-b.png` })
       .eq("id", fx!.otherBrandId);
-    const { data } = await admin
-      .from("brands")
-      .select("id")
-      .not("login_logo_url", "is", null)
-      .limit(2);
-    // ≥2 candidatas ⇒ getLoginLogoFn devolve null (branding neutro), sem eleger marca.
-    expect((data ?? []).length).toBe(2);
+
+    const { data: rows } = await admin.from("installation").select("id, login_logo_url");
+    expect((rows ?? []).length).toBe(1);
+
     await admin
       .from("brands")
       .update({ login_logo_url: null })
       .in("id", [fx!.brandId, fx!.otherBrandId]);
   });
 });
+
 
 describe("share_token do plano de mídia — vínculo estrutural", () => {
   it("token inexistente não resolve plano", async () => {

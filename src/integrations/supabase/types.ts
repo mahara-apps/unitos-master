@@ -3716,6 +3716,45 @@ export type Database = {
         }
         Relationships: []
       }
+      installation: {
+        Row: {
+          app_url: string | null
+          created_at: string
+          email_from: string | null
+          email_from_name: string | null
+          icon_url: string | null
+          id: boolean
+          login_logo_url: string | null
+          logo_dark_url: string | null
+          logo_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          app_url?: string | null
+          created_at?: string
+          email_from?: string | null
+          email_from_name?: string | null
+          icon_url?: string | null
+          id?: boolean
+          login_logo_url?: string | null
+          logo_dark_url?: string | null
+          logo_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          app_url?: string | null
+          created_at?: string
+          email_from?: string | null
+          email_from_name?: string | null
+          icon_url?: string | null
+          id?: boolean
+          login_logo_url?: string | null
+          logo_dark_url?: string | null
+          logo_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       media_plan_items: {
         Row: {
           audience: string | null
