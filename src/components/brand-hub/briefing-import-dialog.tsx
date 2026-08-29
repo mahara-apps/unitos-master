@@ -800,7 +800,41 @@ export function BriefingImportDialog({
   );
 }
 
+/** 3. Contexto da análise — o que a IA vai fazer, antes de executar. */
+function ContextExplainer() {
+  const items = [
+    { icon: Lightbulb, label: "Novas informações" },
+    { icon: GitCompareArrows, label: "Contradições" },
+    { icon: AlertTriangle, label: "Lacunas" },
+    { icon: Sparkles, label: "Informações que podem ser aprimoradas" },
+  ];
+  return (
+    <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+      <p className="text-xs leading-relaxed">
+        Confrontaremos o material enviado com o briefing e o contexto atuais da marca.
+      </p>
+      <ul className="mt-2 flex flex-wrap gap-1.5">
+        {items.map((it) => (
+          <li
+            key={it.label}
+            className="flex items-center gap-1.5 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] text-muted-foreground"
+          >
+            <it.icon className="h-3 w-3" />
+            {it.label}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 flex items-start gap-1.5 text-[11px] text-muted-foreground">
+        <Info className="mt-0.5 h-3 w-3 shrink-0" />
+        Se ainda não houver informações suficientes, a IA poderá construir o briefing a partir do
+        material enviado. Nenhuma alteração é aplicada sem sua confirmação.
+      </p>
+    </div>
+  );
+}
+
 function StepIndicator({ step }: { step: ReturnType<typeof uiStepFromRun> }) {
+
   const items: Array<{ key: string; label: string; active: boolean; done: boolean }> = [
     {
       key: "upload",
