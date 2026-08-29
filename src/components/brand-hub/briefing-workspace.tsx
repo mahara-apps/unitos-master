@@ -1350,99 +1350,107 @@ function getMissingEssentials(form: FormState): EssentialField[] {
   );
 }
 
-function GenerateIntelligenceButton({
+/**
+ * Ação de IA única e contextual. Reúne importar contexto, gerar inteligência e
+ * gerar ideias em um só ponto de entrada, com aviso de campos essenciais
+ * faltantes em vez de um popover separado.
+ */
+function AiActionsMenu({
   form,
   generating,
-  onGenerate,
+  genIdeas,
+  strategyReady,
+  onGenerateStrategy,
+  onGenerateIdeas,
+  onImportAi,
   onJump,
-  label = "Gerar Inteligência com IA",
 }: {
   form: FormState;
   generating: boolean;
-  onGenerate: () => void;
-  onJump?: (sectionId: string) => void;
-  label?: string;
+  genIdeas: boolean;
+  strategyReady: boolean;
+  onGenerateStrategy: () => void;
+  onGenerateIdeas: () => void;
+  onImportAi: () => void;
+  onJump: (sectionId: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const missing = getMissingEssentials(form);
-
-  const handleClick = () => {
-    if (generating) return;
-    if (missing.length === 0) {
-      onGenerate();
-      return;
-    }
-    setOpen(true);
-  };
-
-  const proceed = () => {
-    setOpen(false);
-    onGenerate();
-  };
-
-  const jump = (sectionId: string) => {
-    setOpen(false);
-    if (onJump) onJump(sectionId);
-    else if (typeof document !== "undefined") {
-      document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
+  const busy = generating || genIdeas;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          size="sm"
-          className="h-8 gap-1.5 text-xs"
-          onClick={handleClick}
-          disabled={generating}
-        >
-          {generating ? (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" className="h-8 gap-1.5 text-xs" disabled={busy}>
+          {busy ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
             <Sparkles className="h-3.5 w-3.5" />
           )}
-          {label}
+          IA
         </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 space-y-3">
-        <div className="space-y-1">
-          <div className="text-sm font-medium">Preencha para um resultado melhor</div>
-          <p className="text-xs text-muted-foreground">
-            Estes campos ajudam a IA a gerar uma estratégia mais precisa. Você pode gerar mesmo
-            assim.
-          </p>
-        </div>
-        <ul className="space-y-1">
-          {missing.map((f) => (
-            <li
-              key={f.key}
-              className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5"
-            >
-              <span className="text-xs">{f.label}</span>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 gap-1 px-2 text-[11px] text-primary hover:text-primary"
-                onClick={() => jump(f.sectionId)}
-              >
-                Preencher
-              </Button>
-            </li>
-          ))}
-        </ul>
-        <div className="flex items-center justify-end gap-2 pt-1">
-          <Button size="sm" variant="ghost" className="h-8" onClick={() => setOpen(false)}>
-            Cancelar
-          </Button>
-          <Button size="sm" className="h-8 gap-1.5" onClick={proceed}>
-            <Sparkles className="h-3.5 w-3.5" /> Gerar mesmo assim
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-72">
+        <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
+          Ferramentas de IA para este briefing
+        </DropdownMenuLabel>
+        <DropdownMenuItem onClick={onImportAi} className="gap-2">
+          <Upload className="h-3.5 w-3.5 shrink-0" />
+          <span className="min-w-0">
+            <span className="block text-xs font-medium">Importar contexto com IA</span>
+            <span className="block text-[11px] text-muted-foreground">
+              Envie material e revise as sugestões
+            </span>
+          </span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onGenerateStrategy} className="gap-2">
+          <Sparkles className="h-3.5 w-3.5 shrink-0" />
+          <span className="min-w-0">
+            <span className="block text-xs font-medium">Gerar inteligência</span>
+            <span className="block text-[11px] text-muted-foreground">
+              Voice Card, personas, cohorts e SWOT
+            </span>
+          </span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={onGenerateIdeas}
+          disabled={!strategyReady}
+          className="gap-2"
+        >
+          <Lightbulb className="h-3.5 w-3.5 shrink-0" />
+          <span className="min-w-0">
+            <span className="block text-xs font-medium">Gerar ideias de conteúdo</span>
+            <span className="block text-[11px] text-muted-foreground">
+              {strategyReady ? "A partir da estratégia revisada" : "Gere a estratégia primeiro"}
+            </span>
+          </span>
+        </DropdownMenuItem>
+        {missing.length > 0 ? (
+          <>
+            <DropdownMenuSeparator />
+            <div className="px-2 py-1.5">
+              <p className="mb-1.5 text-[11px] text-muted-foreground">
+                Campos essenciais em falta melhoram o resultado da IA:
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {missing.map((f) => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => onJump(f.sectionId)}
+                    className="rounded-md border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[11px] text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
+
 
 type StackedProps = {
   brandId: string;
