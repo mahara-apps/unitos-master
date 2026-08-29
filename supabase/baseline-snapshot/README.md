@@ -10,15 +10,19 @@ todas as consultas ao banco foram `SELECT` em `pg_catalog`, `information_schema`
 
 ## Arquivos
 
+Ordem de aplicação: **000 → 001 → 005 → 003 → 002** (004 apenas ponteiros).
+
 | Arquivo | Conteúdo | Status |
 |---|---|---|
-| `001_initial_schema.sql` | extensões, enums, tabelas/colunas, PK/FK/CHECK, índices, funções/RPCs, triggers, RLS + policies, matview | **pendente de geração via `tools/dump_schema.sh`** (ver "Limitação") |
+| `000_extensions.sql` | extensões reais (`vector` em `public`, `pg_net`, `pgcrypto`, `uuid-ossp`, `pg_stat_statements`, `pg_cron`) | gerado a partir de `pg_extension` — necessário porque `pg_dump --schema=public` não emite `CREATE EXTENSION` |
+| `001_initial_schema.sql` | enums, tabelas/colunas, PK/FK/UNIQUE/CHECK, 203 índices + 114 constraints, 133 funções/RPCs, 96 triggers, RLS + 200 policies, matview, GRANTs | **gerado** (2026-08-29, 530 KB, 15.780 linhas, `pg_dump --schema-only --schema=public`) |
+| `005_auth_trigger.sql` | `on_auth_user_created` em `auth.users` → `public.handle_new_user()` | gerado a partir de `pg_get_triggerdef` — schema reservado, fora de `--schema=public` |
 | `002_bootstrap_cron.sql` | os 14 cron jobs reais (9 via `net.http_post` + 5 SQL diretos) | gerado a partir de `cron.job` |
 | `003_storage_buckets.sql` | os 5 buckets reais | gerado a partir de `storage.buckets` |
 | `004_seeds.sql` | seeds/configurações dependentes de dados | gerado (apenas ponteiros, sem dados de produção) |
 | `tools/dump_schema.sh` | comando exato de dump estrutural que produz `001_initial_schema.sql` | gerado |
 
-## Limitação real desta etapa (não contornada silenciosamente)
+## Limitações conhecidas (não contornadas silenciosamente)
 
 1. **Sem conexão Postgres direta no ambiente de execução.** `PGHOST` não está
    definido e não existe `SUPABASE_DB_URL`/token de acesso; portanto `pg_dump`
