@@ -626,7 +626,9 @@ export async function applyImportRun(
         alreadyApplied: true,
       };
     }
+    throw new Error("import_run_apply_in_progress");
   }
+
 
   await setRunStep(supabase, run, "apply", "running");
 
