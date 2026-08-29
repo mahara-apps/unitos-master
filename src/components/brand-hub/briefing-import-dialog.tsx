@@ -114,6 +114,7 @@ export function BriefingImportDialog({
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const [files, setFiles] = useState<PendingFile[]>([]);
+  const [pasted, setPasted] = useState("");
   const [dragging, setDragging] = useState(false);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
@@ -146,6 +147,7 @@ export function BriefingImportDialog({
 
   const reset = () => {
     setFiles([]);
+    setPasted("");
     setQueue([]);
     setIndex(0);
     setSelected(new Set());
@@ -165,7 +167,9 @@ export function BriefingImportDialog({
       const check = validateImportFile(file);
       next.push({
         file,
+        handling: fileHandling(file.name),
         sourceKind: inferSourceKind(file.name),
+        status: check.ok ? "pending" : "error",
         ...(check.ok ? {} : { error: check.reason }),
       });
     }
@@ -173,10 +177,48 @@ export function BriefingImportDialog({
     setStartError(null);
   };
 
+  const patchFile = (i: number, patch: Partial<PendingFile>) =>
+    setFiles((prev) => prev.map((f, fi) => (fi === i ? { ...f, ...patch } : f)));
+
   const valid = files.filter((f) => !f.error);
+  const pastedTrimmed = pasted.trim();
+  const pasteReady = pastedTrimmed.length >= MIN_PASTE_CHARS;
+  const pasteKind = pasteReady ? inferPasteSourceKind(pastedTrimmed) : "paste";
+  const canStart = pasteReady || valid.length > 0;
+
+  const startTextRun = async (args: {
+    token: string;
+    content: string;
+    sourceKind: "paste" | "transcript";
+    label: string;
+    force?: boolean;
+  }): Promise<QueuedRun> => {
+    const res = await fetch("/api/jobs/analyze-briefing-text", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${args.token}` },
+      body: JSON.stringify({
+        brandId,
+        clientId,
+        text: args.content,
+        sourceKind: args.sourceKind,
+        label: args.label,
+        ...(args.force ? { force: true } : {}),
+      }),
+    });
+    if (!res.ok) throw new Error(await res.text().catch(() => "Falha ao iniciar a análise"));
+    const body = (await res.json().catch(() => ({}))) as { runId?: string; reused?: boolean };
+    if (!body.runId) throw new Error("A análise não retornou uma execução válida.");
+    return {
+      runId: body.runId,
+      fileName: args.label,
+      documentId: null,
+      reused: body.reused === true,
+      text: { content: args.content, sourceKind: args.sourceKind, label: args.label },
+    };
+  };
 
   const start = async () => {
-    if (valid.length === 0) return;
+    if (!canStart) return;
     setStarting(true);
     setStartError(null);
     try {
@@ -185,7 +227,46 @@ export function BriefingImportDialog({
       if (!token) throw new Error("Sessão expirada. Faça login novamente.");
 
       const created: QueuedRun[] = [];
-      for (const item of valid) {
+
+      // 1) Material de texto: colado + arquivos lidos no navegador (docx, planilhas, texto).
+      const textBlocks: Array<{ label: string; text: string }> = [];
+      if (pasteReady) {
+        textBlocks.push({
+          label: pasteKind === "transcript" ? "Transcrição colada" : "Texto colado",
+          text: pastedTrimmed,
+        });
+      }
+      let anyTranscriptFile = false;
+      for (let i = 0; i < files.length; i += 1) {
+        const item = files[i]!;
+        if (item.error || item.handling !== "extract") continue;
+        patchFile(i, { status: "reading" });
+        try {
+          const { text } = await extractTextFromFile(item.file);
+          patchFile(i, { status: "ready", extracted: text });
+          textBlocks.push({ label: item.file.name, text });
+          if (item.sourceKind === "transcript") anyTranscriptFile = true;
+        } catch (e) {
+          patchFile(i, {
+            status: "error",
+            error: e instanceof Error ? e.message : "Não foi possível ler o arquivo.",
+          });
+        }
+      }
+
+      if (textBlocks.length > 0) {
+        const content = composeTextMaterial(textBlocks);
+        const kind: "paste" | "transcript" =
+          pasteKind === "transcript" || anyTranscriptFile ? "transcript" : "paste";
+        const label = textBlocks.map((b) => b.label).join(", ").slice(0, 280);
+        created.push(await startTextRun({ token, content, sourceKind: kind, label }));
+      }
+
+      // 2) Arquivos nativos (PDF/imagem): upload no bucket + análise multimodal.
+      for (let i = 0; i < files.length; i += 1) {
+        const item = files[i]!;
+        if (item.error || item.handling !== "native") continue;
+        patchFile(i, { status: "uploading" });
         const base64 = await fileToBase64(item.file);
         const doc = await upload({
           data: {
@@ -215,6 +296,7 @@ export function BriefingImportDialog({
         }
         const body = (await res.json().catch(() => ({}))) as { runId?: string; reused?: boolean };
         if (!body.runId) throw new Error("A análise não retornou uma execução válida.");
+        patchFile(i, { status: "sent" });
         created.push({
           runId: body.runId,
           fileName: item.file.name,
@@ -223,12 +305,16 @@ export function BriefingImportDialog({
         });
       }
 
+      if (created.length === 0) {
+        throw new Error("Nenhum material legível foi enviado.");
+      }
       if (created.some((c) => c.reused)) {
         toast.info("Material já analisado antes — reaproveitando a execução existente.");
       }
       setQueue(created);
       setIndex(0);
       setFiles([]);
+      setPasted("");
       qc.invalidateQueries({ queryKey: ["briefing-import-runs", brandId, clientId] });
       qc.invalidateQueries({ queryKey: ["client-documents", brandId, clientId] });
     } catch (e) {
@@ -246,22 +332,28 @@ export function BriefingImportDialog({
       const { data: session } = await supabase.auth.getSession();
       const token = session.session?.access_token;
       if (!token) throw new Error("Sessão expirada. Faça login novamente.");
-      const res = await fetch("/api/jobs/analyze-document", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          brandId,
-          clientId,
-          documentId: current.documentId,
-          force: true,
-        }),
-      });
-      if (!res.ok) throw new Error(await res.text().catch(() => "Falha ao reprocessar"));
-      const body = (await res.json().catch(() => ({}))) as { runId?: string };
-      if (!body.runId) throw new Error("A análise não retornou uma execução válida.");
-      setQueue((prev) =>
-        prev.map((q, i) => (i === index ? { ...q, runId: body.runId!, reused: false } : q)),
-      );
+
+      let runId: string;
+      if (current.text) {
+        const again = await startTextRun({ token, ...current.text, force: true });
+        runId = again.runId;
+      } else {
+        const res = await fetch("/api/jobs/analyze-document", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            brandId,
+            clientId,
+            documentId: current.documentId,
+            force: true,
+          }),
+        });
+        if (!res.ok) throw new Error(await res.text().catch(() => "Falha ao reprocessar"));
+        const body = (await res.json().catch(() => ({}))) as { runId?: string };
+        if (!body.runId) throw new Error("A análise não retornou uma execução válida.");
+        runId = body.runId;
+      }
+      setQueue((prev) => prev.map((q, i) => (i === index ? { ...q, runId, reused: false } : q)));
       setTouched(false);
       qc.invalidateQueries({ queryKey: ["briefing-import-runs", brandId, clientId] });
     } catch (e) {
@@ -270,6 +362,7 @@ export function BriefingImportDialog({
       setStarting(false);
     }
   };
+
 
   const advance = () => {
     if (index + 1 < queue.length) {
