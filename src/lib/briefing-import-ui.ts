@@ -21,27 +21,36 @@ import type {
 export const MAX_IMPORT_FILE_BYTES = 25 * 1024 * 1024;
 
 /**
- * Formatos que o pipeline atual realmente consegue interpretar: PDF e imagens
- * vão direto na chamada multimodal; texto puro (txt/md/csv/json) é legível como
- * arquivo. Formatos Office binários (.docx/.pptx/.xlsx) NÃO são suportados —
- * não prometemos o que o backend não lê.
+ * Formatos aceitos. Dois caminhos reais:
+ *  - `native`: o arquivo vai inteiro para a chamada multimodal (PDF e imagens).
+ *  - `extract`: o texto é extraído no navegador e enviado como material de
+ *    texto (docx, planilhas, texto puro, legendas).
+ * `.doc` legado (binário do Word 97) não é legível em nenhum dos dois caminhos.
  */
-export const ACCEPTED_IMPORT_EXTENSIONS = [
-  ".pdf",
+export const NATIVE_IMPORT_EXTENSIONS = [".pdf", ".png", ".jpg", ".jpeg", ".webp"] as const;
+
+export const EXTRACT_IMPORT_EXTENSIONS = [
+  ".docx",
+  ".xlsx",
+  ".xls",
+  ".csv",
   ".txt",
   ".md",
-  ".csv",
   ".json",
   ".vtt",
   ".srt",
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".webp",
+] as const;
+
+export const ACCEPTED_IMPORT_EXTENSIONS = [
+  ...NATIVE_IMPORT_EXTENSIONS,
+  ...EXTRACT_IMPORT_EXTENSIONS,
 ] as const;
 
 export const ACCEPT_ATTRIBUTE = [
   "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
   "text/plain",
   "text/markdown",
   "text/csv",
@@ -52,6 +61,8 @@ export const ACCEPT_ATTRIBUTE = [
   ...ACCEPTED_IMPORT_EXTENSIONS,
 ].join(",");
 
+export type FileHandling = "native" | "extract" | "unsupported";
+
 export type FileValidation = { ok: true } | { ok: false; reason: string };
 
 function extensionOf(name: string): string {
@@ -59,12 +70,26 @@ function extensionOf(name: string): string {
   return i < 0 ? "" : name.slice(i).toLowerCase();
 }
 
+/** Como o arquivo será lido — decide o caminho de envio no modal. */
+export function fileHandling(name: string): FileHandling {
+  const ext = extensionOf(name);
+  if ((NATIVE_IMPORT_EXTENSIONS as readonly string[]).includes(ext)) return "native";
+  if ((EXTRACT_IMPORT_EXTENSIONS as readonly string[]).includes(ext)) return "extract";
+  return "unsupported";
+}
+
 export function validateImportFile(file: { name: string; size: number }): FileValidation {
   const ext = extensionOf(file.name);
-  if (!ACCEPTED_IMPORT_EXTENSIONS.includes(ext as (typeof ACCEPTED_IMPORT_EXTENSIONS)[number])) {
+  if (ext === ".doc") {
     return {
       ok: false,
-      reason: `Formato não suportado (${ext || "sem extensão"}). Use PDF, texto (.txt/.md/.csv/.json), legenda (.vtt/.srt) ou imagem.`,
+      reason: "O formato .doc (Word 97) não é legível. Salve como .docx ou PDF e reenvie.",
+    };
+  }
+  if (fileHandling(file.name) === "unsupported") {
+    return {
+      ok: false,
+      reason: `Formato não suportado (${ext || "sem extensão"}). Use PDF, DOCX, XLS/XLSX, CSV, texto, legenda ou imagem.`,
     };
   }
   if (file.size <= 0) return { ok: false, reason: "Arquivo vazio." };
@@ -73,6 +98,7 @@ export function validateImportFile(file: { name: string; size: number }): FileVa
   }
   return { ok: true };
 }
+
 
 export function formatBytes(n: number | null | undefined): string {
   if (!n) return "—";
