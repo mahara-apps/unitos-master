@@ -26,7 +26,7 @@ import {
   applyBriefingImportRun,
   getBriefingImportRun,
 } from "@/lib/briefing-import.functions";
-import type { ImportChangeRow, ImportSourceKind } from "@/lib/briefing-import.server";
+import type { ImportChangeRow } from "@/lib/briefing-import.server";
 import {
   ACCEPT_ATTRIBUTE,
   CHANGE_STATE_LABELS,
