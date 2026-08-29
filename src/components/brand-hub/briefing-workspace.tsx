@@ -5,6 +5,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  ChevronDown,
   ImageIcon,
   Loader2,
   Lightbulb,
@@ -1383,28 +1384,25 @@ function AiActionsMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button size="sm" className="h-8 gap-1.5 text-xs" disabled={busy}>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1 text-xs text-muted-foreground"
+          disabled={busy}
+        >
           {busy ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
             <Sparkles className="h-3.5 w-3.5" />
           )}
           IA
+          <ChevronDown className="h-3 w-3 opacity-60" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
         <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
-          Ferramentas de IA para este briefing
+          Gerar com IA
         </DropdownMenuLabel>
-        <DropdownMenuItem onClick={onImportAi} className="gap-2">
-          <Upload className="h-3.5 w-3.5 shrink-0" />
-          <span className="min-w-0">
-            <span className="block text-xs font-medium">Importar contexto com IA</span>
-            <span className="block text-[11px] text-muted-foreground">
-              Envie material e revise as sugestões
-            </span>
-          </span>
-        </DropdownMenuItem>
         <DropdownMenuItem onClick={onGenerateStrategy} className="gap-2">
           <Sparkles className="h-3.5 w-3.5 shrink-0" />
           <span className="min-w-0">
@@ -1567,15 +1565,23 @@ function StackedBrainLayout(props: StackedProps) {
           <div className="flex shrink-0 items-center gap-2">
             <Button
               size="sm"
+              className="h-9 gap-1.5 px-4 text-sm font-medium shadow-sm"
+              onClick={onImportAi}
+            >
+              <Sparkles className="h-4 w-4" />
+              Importar com IA
+            </Button>
+            <Button
+              size="sm"
               variant="outline"
-              className="h-8 gap-1.5 text-xs"
+              className="h-9 gap-1.5 px-3.5 text-sm"
               onClick={onSave}
               disabled={saving}
             >
               {saving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Save className="h-3.5 w-3.5" />
+                <Save className="h-4 w-4" />
               )}
               Salvar
             </Button>
