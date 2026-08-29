@@ -24,20 +24,18 @@ Ordem de aplicação: **000 → 001 → 005 → 003 → 002** (004 apenas pontei
 
 ## Limitações conhecidas (não contornadas silenciosamente)
 
-1. **Sem conexão Postgres direta no ambiente de execução.** `PGHOST` não está
-   definido e não existe `SUPABASE_DB_URL`/token de acesso; portanto `pg_dump`
-   não pode ser executado daqui. O único canal disponível é SQL somente-leitura
-   por consulta, insuficiente para emitir com fidelidade ~250 KB de DDL
-   (133 funções ≈ 161 KB, 200 policies, 317 índices, 89 tabelas) sem risco de
-   truncamento e de divergência silenciosa — exatamente o que o pedido proíbe.
-2. **Não é possível provisionar um projeto Supabase descartável** a partir deste
-   ambiente (não há tool de provisionamento nem access token de organização).
-   Logo a etapa de reconstruir e comparar banco atual × banco reconstruído
-   também precisa ser executada com credenciais suas.
+1. **`CREATE EXTENSION` não sai no dump.** `pg_dump --schema=public` omite as
+   extensões (inclusive `vector`, instalado em `public`). Coberto por
+   `000_extensions.sql`, copiado literalmente de `pg_extension`.
+2. **Trigger em `auth.users` não sai no dump** (schema reservado). Coberto por
+   `005_auth_trigger.sql`, copiado de `pg_get_triggerdef`.
+3. **Validação por reconstrução ainda não executada.** Não é possível provisionar
+   um projeto Supabase descartável a partir deste ambiente; o diff
+   banco atual × banco reconstruído é a etapa seguinte.
 
-Consequência: `001_initial_schema.sql` deve ser gerado por dump estrutural
-(`tools/dump_schema.sh`), que é fiel por construção — inclusive quanto aos labels
-`editor`/`designer` do enum `app_role`, que **não** devem ser removidos.
+O snapshot é fiel por construção (dump estrutural, sem replay das migrations) —
+inclusive quanto aos labels `editor`/`designer` do enum `app_role`, que **não**
+foram removidos.
 
 ## Investigação `user_profiles` / `handle_new_user` (estado real hoje)
 
