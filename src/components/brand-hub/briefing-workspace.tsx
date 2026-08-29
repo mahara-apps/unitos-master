@@ -1651,14 +1651,11 @@ function StackedBrainLayout(props: StackedProps) {
 
           <BrainSection id="documentos" title="Documentos & Contexto IA">
             <div className="space-y-4">
-              <DocumentsTab brandId={brandId} clientId={clientId} />
-              <BriefingImportHistory
-                brandId={brandId}
-                clientId={clientId}
-                onImport={onImportAi}
-              />
+              <DocumentsTab brandId={brandId} clientId={clientId} onImportAi={onImportAi} />
+              <BriefingImportHistory brandId={brandId} clientId={clientId} />
             </div>
           </BrainSection>
+
 
 
           <BrainSection id="briefing-cliente" title="Briefing com o cliente">
