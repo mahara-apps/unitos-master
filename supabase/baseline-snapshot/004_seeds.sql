@@ -1,0 +1,42 @@
+-- =============================================================================
+-- 004_seeds.sql — SEEDS / CONFIGURACOES DEPENDENTES DE DADOS
+-- Staging: NAO aplicar em producao. Ver supabase/baseline-snapshot/README.md.
+-- =============================================================================
+-- Este arquivo existe para SEPARAR do schema estrutural tudo que e DML.
+-- Regras desta etapa:
+--   * ZERO dados de producao (usuarios, marcas, clientes, posts, Brain, tokens).
+--   * ZERO backfill historico (dependem de dados que nao existem em base nova).
+--   * O 001_initial_schema.sql nao contem nenhum INSERT/UPDATE/DELETE.
+--
+-- O que precisa ser semeado em instalacao nova (catalogos, nao dados de negocio):
+--
+--   1. public.agent_prompts        — catalogo de prompts dos agentes de IA.
+--                                    Fonte versionada: migrations de seed de
+--                                    agent_prompts em supabase/migrations/.
+--   2. public.feature_catalog      — catalogo de features/modulos. As features
+--                                    por marca sao criadas pelo trigger
+--                                    enable_default_brand_features().
+--   3. public.ai_model_catalog_overrides — opcional; o catalogo de modelos e
+--                                    auto-healing em runtime.
+--   4. public.brain_retention_config — parametros de TTL do Brain (defaults).
+--   5. public.installation         — singleton (1 linha) com URL/dominio, logos
+--                                    institucionais, logo de login e remetente.
+--                                    NAO copiar da instalacao atual: cada
+--                                    instalacao configura o seu, via UI de
+--                                    Super Admin. Se a linha nao existir, criar
+--                                    vazia:
+--                                      INSERT INTO public.installation (id)
+--                                      VALUES (true) ON CONFLICT DO NOTHING;
+--                                    (ajuste ao formato real da PK singleton)
+--
+-- O que NAO deve ser semeado: brands, clients, projects, tasks, posts,
+-- user_profiles, brand_members, social_connections, evolution_instances,
+-- portal_tokens, message_logs, notifications, brain_*.
+--
+-- Secrets (CRON_SECRET, BRAND_CREDENTIALS_SECRET, Meta, Resend, IA) ficam
+-- FORA do banco — configurar por instalacao.
+-- =============================================================================
+
+-- Intencionalmente sem comandos: a promocao de cada seed de catalogo deve ser
+-- feita copiando o INSERT idempotente da migration de origem correspondente,
+-- apos decisao explicita de quais catalogos entram na instalacao nova.
