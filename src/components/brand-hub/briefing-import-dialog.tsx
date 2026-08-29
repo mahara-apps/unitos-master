@@ -101,17 +101,26 @@ export function BriefingImportDialog({
   clientId,
   open,
   onOpenChange,
+  embedded = false,
+  sourceLabel,
+  onApplied,
 }: {
   brandId: string;
   clientId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Modo embutido: renderiza o mesmo fluxo dentro de outro modal (ex.: onboarding). */
+  embedded?: boolean;
+  /** Rótulo de origem registrado na execução (ex.: "Onboarding Rápido"). */
+  sourceLabel?: string;
+  onApplied?: (appliedFields: string[]) => void;
 }) {
   const upload = useServerFn(uploadClientDocument);
   const getRun = useServerFn(getBriefingImportRun);
   const applyRun = useServerFn(applyBriefingImportRun);
   const qc = useQueryClient();
   const inputRef = useRef<HTMLInputElement | null>(null);
+
 
   const [files, setFiles] = useState<PendingFile[]>([]);
   const [pasted, setPasted] = useState("");
