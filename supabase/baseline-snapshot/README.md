@@ -94,9 +94,10 @@ Nenhum valor de domínio, ID, usuário ou marca desta instalação está no SQL
 1. **Execução real ainda não feita.** Toda a validação desta etapa é estática
    (dependências, ordem, catálogos). O diff banco atual × banco reconstruído
    exige um projeto Supabase descartável.
-2. **Catálogos de `004` não promovidos.** `agent_prompts` e `feature_catalog`
-   continuam apenas apontados; sem eles a instalação sobe sem agentes de IA e
-   sem features padrão. Decidir quais entram e copiar os `INSERT` idempotentes.
+2. ~~Catálogos de `004` não promovidos.~~ **RESOLVIDO:** `004_seeds.sql` agora
+   contém os seeds reais e idempotentes — 9 `agent_prompts`, 14 `feature_catalog`,
+   7 `brain_retention_config` e o singleton vazio de `installation`.
+   Validado por execução real dentro de transação com `ROLLBACK` (zero erros).
 3. **`brain_stats_mv`** nasce vazia; o job `refresh-brain-stats-mv` a popula.
 4. Divergências de contagem esperadas (não são erro): 96 triggers no `001`
    (os 103 do banco incluem `auth`/`cron`/`realtime`/`storage`) e 203
