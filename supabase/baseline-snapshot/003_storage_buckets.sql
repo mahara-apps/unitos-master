@@ -7,9 +7,9 @@
 -- Todos privados (public = false), sem file_size_limit e sem allowed_mime_types.
 -- O acesso e sempre por signed URL gerada em server function.
 --
--- As policies de storage.objects fazem parte do schema estrutural
--- (001_initial_schema.sql) — este arquivo cria apenas os buckets, que nunca
--- foram versionados por SQL.
+-- As policies de storage.objects NAO estao no 001_initial_schema.sql (dump feito
+-- com --schema=public): elas ficam em 006_storage_policies.sql, que deve rodar
+-- DEPOIS deste arquivo. Aqui so sao criados os buckets, nunca versionados por SQL.
 --
 -- Nota: dependendo do fluxo, buckets podem/devem ser criados via API/painel;
 -- neste caso ignore este arquivo e crie os 5 buckets com as mesmas propriedades.
