@@ -21,9 +21,7 @@ OUT="$OUT_DIR/001_initial_schema.sql"
 pg_dump "$DB_URL" \
   --schema-only \
   --no-owner \
-  --no-privileges=false \
   --schema=public \
-  --schema=storage \
   --exclude-table='public.brain_events_archive*' \
   --file="$OUT.raw"
 
