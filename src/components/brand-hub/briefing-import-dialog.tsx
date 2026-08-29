@@ -5,6 +5,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   FileText,
+  GitCompareArrows,
+  Info,
+  Lightbulb,
   Loader2,
   RotateCcw,
   Sparkles,
@@ -19,6 +22,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ExpandedModal } from "@/components/ui/expanded-modal";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadClientDocument } from "@/lib/brand-hub.functions";
@@ -27,9 +31,12 @@ import {
   getBriefingImportRun,
 } from "@/lib/briefing-import.functions";
 import type { ImportChangeRow } from "@/lib/briefing-import.server";
+import { composeTextMaterial, extractTextFromFile } from "@/lib/briefing-import-extract";
 import {
   ACCEPT_ATTRIBUTE,
   CHANGE_STATE_LABELS,
+  FILE_READ_STATUS_LABELS,
+  MIN_PASTE_CHARS,
   SOURCE_KIND_LABELS,
   STEP_LABELS,
   changeState,
@@ -37,8 +44,10 @@ import {
   defaultSelection,
   displayValue,
   fieldLabel,
+  fileHandling,
   formatBytes,
   importErrorMessage,
+  inferPasteSourceKind,
   inferSourceKind,
   isReviewable,
   shouldPollRun,
@@ -46,18 +55,35 @@ import {
   uiStepFromRun,
   validateImportFile,
 } from "@/lib/briefing-import-ui";
+import type { FileHandling, FileReadStatus } from "@/lib/briefing-import-ui";
 
 /**
  * Importar Briefing via IA — modal com 3 estados internos:
  * Enviar material → IA analisando → Revisar alterações.
  *
- * Nenhuma regra de negócio nova aqui: o upload usa o mesmo bucket privado de
- * Documentos & Contexto, a análise usa `/api/jobs/analyze-document` (que cria
- * ou reaproveita a run por fingerprint) e a aplicação usa `applyImportRun`.
+ * Entrada única para texto colado e/ou arquivos. Nada de regra nova: arquivos
+ * nativos (PDF/imagem) usam `/api/jobs/analyze-document`; texto colado e
+ * arquivos lidos no navegador (docx/planilha/texto) usam
+ * `/api/jobs/analyze-briefing-text`. Os dois criam/reaproveitam runs pelo
+ * mesmo fingerprint e a aplicação continua em `applyImportRun`.
  */
 
-type PendingFile = { file: File; sourceKind: "document" | "transcript"; error?: string };
-type QueuedRun = { runId: string; fileName: string; documentId: string; reused: boolean };
+type PendingFile = {
+  file: File;
+  handling: FileHandling;
+  sourceKind: "document" | "transcript";
+  status: FileReadStatus;
+  error?: string;
+  extracted?: string;
+};
+type QueuedRun = {
+  runId: string;
+  fileName: string;
+  documentId: string | null;
+  reused: boolean;
+  /** Payload para reprocessar quando a origem é texto. */
+  text?: { content: string; sourceKind: "paste" | "transcript"; label: string };
+};
 
 async function fileToBase64(file: File): Promise<string> {
   const buf = new Uint8Array(await file.arrayBuffer());
@@ -68,6 +94,7 @@ async function fileToBase64(file: File): Promise<string> {
   }
   return btoa(bin);
 }
+
 
 export function BriefingImportDialog({
   brandId,

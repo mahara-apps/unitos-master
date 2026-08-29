@@ -54,6 +54,7 @@ import { Route as PBriefingTokenRouteImport } from './routes/p.briefing.$token'
 import { Route as ApiJobsCustomerPipelineRouteImport } from './routes/api/jobs/customer-pipeline'
 import { Route as ApiJobsCopilotRouteImport } from './routes/api/jobs/copilot'
 import { Route as ApiJobsAnalyzeDocumentRouteImport } from './routes/api/jobs/analyze-document'
+import { Route as ApiJobsAnalyzeBriefingTextRouteImport } from './routes/api/jobs/analyze-briefing-text'
 import { Route as ApiChatStreamRouteImport } from './routes/api/chat.stream'
 import { Route as PortalAreaPautaRouteImport } from './routes/_portal/area.pauta'
 import { Route as PortalAreaMinhaMarcaRouteImport } from './routes/_portal/area.minha-marca'
@@ -334,6 +335,12 @@ const ApiJobsAnalyzeDocumentRoute = ApiJobsAnalyzeDocumentRouteImport.update({
   path: '/api/jobs/analyze-document',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiJobsAnalyzeBriefingTextRoute =
+  ApiJobsAnalyzeBriefingTextRouteImport.update({
+    id: '/api/jobs/analyze-briefing-text',
+    path: '/api/jobs/analyze-briefing-text',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiChatStreamRoute = ApiChatStreamRouteImport.update({
   id: '/api/chat/stream',
   path: '/api/chat/stream',
@@ -670,6 +677,7 @@ export interface FileRoutesByFullPath {
   '/area/minha-marca': typeof PortalAreaMinhaMarcaRoute
   '/area/pauta': typeof PortalAreaPautaRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
+  '/api/jobs/analyze-briefing-text': typeof ApiJobsAnalyzeBriefingTextRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
@@ -757,6 +765,7 @@ export interface FileRoutesByTo {
   '/area/minha-marca': typeof PortalAreaMinhaMarcaRoute
   '/area/pauta': typeof PortalAreaPautaRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
+  '/api/jobs/analyze-briefing-text': typeof ApiJobsAnalyzeBriefingTextRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
@@ -854,6 +863,7 @@ export interface FileRoutesById {
   '/_portal/area/minha-marca': typeof PortalAreaMinhaMarcaRoute
   '/_portal/area/pauta': typeof PortalAreaPautaRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
+  '/api/jobs/analyze-briefing-text': typeof ApiJobsAnalyzeBriefingTextRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
@@ -950,6 +960,7 @@ export interface FileRouteTypes {
     | '/area/minha-marca'
     | '/area/pauta'
     | '/api/chat/stream'
+    | '/api/jobs/analyze-briefing-text'
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
@@ -1037,6 +1048,7 @@ export interface FileRouteTypes {
     | '/area/minha-marca'
     | '/area/pauta'
     | '/api/chat/stream'
+    | '/api/jobs/analyze-briefing-text'
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
@@ -1133,6 +1145,7 @@ export interface FileRouteTypes {
     | '/_portal/area/minha-marca'
     | '/_portal/area/pauta'
     | '/api/chat/stream'
+    | '/api/jobs/analyze-briefing-text'
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
@@ -1187,6 +1200,7 @@ export interface RootRouteChildren {
   PlanoPlanIdRoute: typeof PlanoPlanIdRoute
   PortalTokenRoute: typeof PortalTokenRouteWithChildren
   ApiChatStreamRoute: typeof ApiChatStreamRoute
+  ApiJobsAnalyzeBriefingTextRoute: typeof ApiJobsAnalyzeBriefingTextRoute
   ApiJobsAnalyzeDocumentRoute: typeof ApiJobsAnalyzeDocumentRoute
   ApiJobsCopilotRoute: typeof ApiJobsCopilotRoute
   ApiJobsCustomerPipelineRoute: typeof ApiJobsCustomerPipelineRoute
@@ -1526,6 +1540,13 @@ declare module '@tanstack/react-router' {
       path: '/api/jobs/analyze-document'
       fullPath: '/api/jobs/analyze-document'
       preLoaderRoute: typeof ApiJobsAnalyzeDocumentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/jobs/analyze-briefing-text': {
+      id: '/api/jobs/analyze-briefing-text'
+      path: '/api/jobs/analyze-briefing-text'
+      fullPath: '/api/jobs/analyze-briefing-text'
+      preLoaderRoute: typeof ApiJobsAnalyzeBriefingTextRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/chat/stream': {
@@ -2137,6 +2158,7 @@ const rootRouteChildren: RootRouteChildren = {
   PlanoPlanIdRoute: PlanoPlanIdRoute,
   PortalTokenRoute: PortalTokenRouteWithChildren,
   ApiChatStreamRoute: ApiChatStreamRoute,
+  ApiJobsAnalyzeBriefingTextRoute: ApiJobsAnalyzeBriefingTextRoute,
   ApiJobsAnalyzeDocumentRoute: ApiJobsAnalyzeDocumentRoute,
   ApiJobsCopilotRoute: ApiJobsCopilotRoute,
   ApiJobsCustomerPipelineRoute: ApiJobsCustomerPipelineRoute,
