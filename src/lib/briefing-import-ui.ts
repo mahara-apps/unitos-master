@@ -140,6 +140,50 @@ export const SOURCE_KIND_LABELS: Record<ImportSourceKind, string> = {
   url: "Link",
 };
 
+/* --------------------------- Texto colado --------------------------- */
+
+/** Abaixo disso não há material suficiente para a IA cruzar com o briefing. */
+export const MIN_PASTE_CHARS = 40;
+
+/**
+ * Heurística de transcrição sobre o conteúdo colado: linhas com prefixo de
+ * falante (`Nome:`), marcas de tempo de legenda ou vocabulário de reunião.
+ * Só decide a ORIGEM — a identificação de participantes/papéis é da IA.
+ */
+export function looksLikeTranscript(text: string): boolean {
+  const sample = text.slice(0, 4000);
+  if (/\d{1,2}:\d{2}(:\d{2})?([.,]\d{3})?\s*-->\s*\d{1,2}:\d{2}/.test(sample)) return true;
+  const lines = sample
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const speakerLines = lines.filter((l) => /^(\[?\d{1,2}:\d{2}[^\]]*\]?\s*)?[\p{L}][\p{L}\s.'-]{1,30}:\s+\S/u.test(l));
+  if (lines.length >= 4 && speakerLines.length >= Math.max(3, Math.ceil(lines.length * 0.3))) {
+    return true;
+  }
+  const lower = sample.toLowerCase();
+  return TRANSCRIPT_HINTS.some((h) => lower.includes(h)) && speakerLines.length >= 2;
+}
+
+/** Origem do texto colado, já considerando a heurística de transcrição. */
+export function inferPasteSourceKind(text: string): Extract<ImportSourceKind, "paste" | "transcript"> {
+  return looksLikeTranscript(text) ? "transcript" : "paste";
+}
+
+/* ---------------------------- Leitura de arquivos ---------------------------- */
+
+export type FileReadStatus = "pending" | "reading" | "ready" | "uploading" | "sent" | "error";
+
+export const FILE_READ_STATUS_LABELS: Record<FileReadStatus, string> = {
+  pending: "Aguardando",
+  reading: "Lendo conteúdo",
+  ready: "Pronto",
+  uploading: "Enviando",
+  sent: "Em análise",
+  error: "Erro",
+};
+
+
 /* --------------------------- Máquina de estados --------------------------- */
 
 export type ImportUiStep = "upload" | "analyzing" | "review" | "applied" | "failed";
