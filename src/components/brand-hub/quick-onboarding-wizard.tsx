@@ -209,6 +209,37 @@ export function QuickOnboardingWizard({
             <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando…
             </div>
+          ) : aiOpen ? (
+            <div className="space-y-3 pt-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-semibold">Preencher com IA</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Você pode enviar briefing, transcrição de reunião, pesquisa, planilha ou outros
+                    materiais da marca.
+                  </p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => setAiOpen(false)}>
+                  Voltar ao preenchimento
+                </Button>
+              </div>
+              <BriefingImportDialog
+                brandId={brandId}
+                clientId={clientId}
+                open={aiOpen}
+                onOpenChange={(v) => setAiOpen(v)}
+                embedded
+                sourceLabel="Onboarding Rápido"
+                onApplied={async () => {
+                  const fresh = await hubQ.refetch();
+                  if (fresh.data) {
+                    setState(fromHub(fresh.data.brand_hub ?? {}, fresh.data.tone_of_voice));
+                  }
+                  setAiOpen(false);
+                  toast.success("Campos do onboarding atualizados — revise e siga para a próxima etapa.");
+                }}
+              />
+            </div>
           ) : step === 1 ? (
             <StepIdentity state={state} setField={setField} client={hubQ.data ?? null} />
           ) : step === 2 ? (
@@ -230,7 +261,32 @@ export function QuickOnboardingWizard({
           </button>
 
           <div className="flex items-center gap-4">
-            {step <= totalSteps && (
+            {!aiOpen && step <= totalSteps && (
+              <div className="hidden flex-col items-end sm:flex">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAiOpen(true)}
+                  className="gap-1.5 border-primary/40 text-primary hover:bg-primary/5 hover:text-primary"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Gerar com IA
+                </Button>
+                <span className="mt-1 text-[11px] text-muted-foreground">
+                  Envie materiais da marca e deixe a IA preencher o briefing para você.
+                </span>
+              </div>
+            )}
+            {!aiOpen && step <= totalSteps && (
+              <button
+                type="button"
+                onClick={() => setAiOpen(true)}
+                className="text-sm font-medium text-primary sm:hidden"
+              >
+                Gerar com IA
+              </button>
+            )}
+            {!aiOpen && step <= totalSteps && (
               <button
                 type="button"
                 onClick={skip}
@@ -240,6 +296,7 @@ export function QuickOnboardingWizard({
                 Pular esta etapa
               </button>
             )}
+
 
             {step === 1 && (
               <Button
