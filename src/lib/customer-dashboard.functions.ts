@@ -52,7 +52,7 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
       context.supabase
         .from("clients")
         .select(
-          "id,name,niche,color,socials,contact_name,contact_email,tone_of_voice,is_active,created_at,updated_at,brand_hub",
+          "id,name,niche,color,socials,contact_name,contact_email,tone_of_voice,is_active,created_at,updated_at,brand_hub,briefing_status",
         )
         .eq("id", data.clientId)
         .maybeSingle(),
@@ -123,7 +123,7 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
       "draft";
     const briefingCompletion = computeBriefingCompletion(
       (brandHub ?? {}) as BrandHubData,
-      client.data as { tone_of_voice?: string | null } | null as never,
+      { tone_of_voice: (client.data as { tone_of_voice?: string | null } | null)?.tone_of_voice ?? null },
     );
     const briefingConcluded =
       briefingStatus === "submitted" ||
