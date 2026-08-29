@@ -298,7 +298,7 @@ export function importErrorMessage(error: unknown): string {
   for (const [key, message] of Object.entries(map)) {
     if (raw.includes(key)) return message;
   }
-  if (/unauthorized|forbidden|permission|denied|rls/i.test(raw)) {
+  if (/unauthorized|forbidden|permission|denied|row-level security|\brls\b/i.test(raw)) {
     return "Você não tem permissão para importar o briefing deste cliente.";
   }
   return raw || "Falha na importação.";
