@@ -25,37 +25,15 @@ pg_dump "$DB_URL" \
   --exclude-table='public.brain_events_archive*' \
   --file="$OUT.raw"
 
-# Cabecalho + normalizacoes minimas (sem alterar semantica):
-{
-  cat <<'HDR'
--- =============================================================================
--- 001_initial_schema.sql — SNAPSHOT ESTRUTURAL DO ESTADO ATUAL APROVADO
--- Gerado por pg_dump --schema-only. NAO e replay das 250 migrations historicas,
--- que permanecem preservadas em supabase/migrations/ (e no Git).
---
--- Contem: extensoes (inclui vector/pgvector, pg_cron, pg_net, supabase_vault),
--- enums atuais (app_role preserva os labels reais, incluindo editor/designer),
--- tabelas e colunas, PK/FK/UNIQUE/CHECK, indices, funcoes/RPCs, triggers,
--- RLS + policies atuais, matview brain_stats_mv, GRANTs.
---
--- NAO contem: DML de seed/backfill, dados de producao, objetos removidos
--- (brain_events_archive, particoes do Brain, brain_knowledge, meta_connections,
--- meta_oauth_states, CRM), cron jobs, buckets de Storage.
--- Esses itens ficam em 002_bootstrap_cron.sql, 003_storage_buckets.sql e
--- 004_seeds.sql.
---
--- ATENCAO: pg_dump --schema=public NAO inclui o trigger on_auth_user_created
--- em auth.users (schema reservado). Aplique-o manualmente apos o snapshot:
---   CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users
---     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
--- =============================================================================
-HDR
-  # remove apenas comandos de sessao do pg_dump; nenhuma DDL e alterada
-  grep -v -E "^(SET |SELECT pg_catalog\.set_config)" "$OUT.raw"
-} > "$OUT"
+# Reordenacao por dependencia (obrigatoria): pg_dump emite funcoes ANTES das
+# tabelas que elas referenciam, o que quebra a execucao em banco vazio via
+# `supabase db query --linked`. O script abaixo apenas reordena statements e
+# remove meta-comandos do psql (\restrict/\unrestrict) — nenhuma DDL muda.
+python3 "$(dirname "$0")/reorder_schema.py" "$OUT.raw" "$OUT"
 
 rm -f "$OUT.raw"
 echo "gerado: $OUT ($(wc -l < "$OUT") linhas)"
+
 
 cat <<'NEXT'
 
