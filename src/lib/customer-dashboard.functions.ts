@@ -116,6 +116,21 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
       ? ((client.data as { updated_at?: string } | null)?.updated_at ?? null)
       : ((briefingRes?.data?.updated_at as string | null) ?? null);
 
+    // Estado real de conclusão do briefing (fonte: clients.briefing_status +
+    // completude canônica do brand_hub). Usado apenas para os alertas.
+    const briefingStatus =
+      ((client.data as { briefing_status?: string } | null)?.briefing_status as string | null) ??
+      "draft";
+    const briefingCompletion = computeBriefingCompletion(
+      (brandHub ?? {}) as BrandHubData,
+      client.data as { tone_of_voice?: string | null } | null as never,
+    );
+    const briefingConcluded =
+      briefingStatus === "submitted" ||
+      briefingStatus === "in_review" ||
+      briefingStatus === "approved" ||
+      briefingCompletion >= 100;
+
     const defaultPipeline = (pipelinesRes.data ?? [])[0] ?? null;
 
     const [stagesRes, posts] = await Promise.all([
