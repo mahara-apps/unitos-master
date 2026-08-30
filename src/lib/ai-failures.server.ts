@@ -146,7 +146,7 @@ export function classifyAiError(err: unknown): { kind: FailureKind; retryable: b
   ) {
     return { kind: "provider_unavailable", retryable: true };
   }
-  if (msg.includes("ai_invalid_output") || msg.includes("empty_caption") || msg.includes("json")) {
+  if (status === 400 || msg.includes("ai_invalid_output") || msg.includes("empty_caption") || msg.includes("json")) {
     return { kind: "invalid_output", retryable: true };
   }
   // Sem pista alguma, mas o SDK relatou stream sem saída: tratar como saída
