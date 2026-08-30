@@ -1,6 +1,7 @@
 import {
   readPagesPayload,
   accountDiscoveryStatus,
+  accountStatusReason,
   type CachedPagesPayload,
   type PublishAuthorizationInfo,
   type DiscoveredAccountStatus,
@@ -27,7 +28,13 @@ export type DiscoveredAccount = {
   /** Página irmã (para vincular Página + Instagram juntos). */
   pairPageId: string | null;
   status: DiscoveredAccountStatus;
+  /** Explicação acionável quando o status não é "ready". */
+  statusReason: string | null;
+  /** Business Portfolio de origem do ativo. */
+  businessId: string | null;
+  businessName: string | null;
 };
+
 
 type SupabaseLike = {
   from: (table: string) => any;
