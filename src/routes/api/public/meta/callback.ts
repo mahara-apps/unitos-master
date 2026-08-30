@@ -82,13 +82,26 @@ export const Route = createFileRoute("/api/public/meta/callback")({
                 user_token_expires_at: longLived.expiresAt?.toISOString() ?? null,
                 scopes: grantedScopes,
                 requested_scopes: requestedScopes,
+                // Single-use marker: the unique index on `state_nonce` makes a
+                // replayed `state` fail here instead of minting a new session.
+                state_nonce: state.nonce,
                 pages: [] as unknown as import("@/integrations/supabase/types").Json,
                 threads_accounts: [] as unknown as import("@/integrations/supabase/types").Json,
                 ad_accounts: [] as unknown as import("@/integrations/supabase/types").Json,
               })
               .select("id")
               .single();
-            if (sessErr) throw sessErr;
+            if (sessErr) {
+              if ((sessErr as { code?: string }).code === "23505") {
+                return htmlResult({
+                  ok: false,
+                  error:
+                    "Esta autorização da Meta já foi utilizada. Inicie a conexão novamente pela Central de canais.",
+                });
+              }
+              throw sessErr;
+            }
+
 
             return htmlResult({
               ok: true,

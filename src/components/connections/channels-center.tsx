@@ -25,6 +25,16 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -32,6 +42,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
 import {
   Select,
   SelectContent,
@@ -77,8 +88,14 @@ import {
   type DiscoveredAccountsResult,
 } from "@/lib/meta/discovery.functions";
 import { linkMetaAccount } from "@/lib/meta/portfolio.functions";
+import {
+  disconnectMetaPortfolioFn,
+  getMetaPortfolioStatusFn,
+  type MetaPortfolioSummary,
+} from "@/lib/meta/portfolio-admin.functions";
 import { listChannelHistoryFn, recordChannelEventFn } from "@/lib/channels-center.functions";
 import { cn } from "@/lib/utils";
+
 
 /**
  * Central de Canais (Integrações → Canais).
@@ -235,13 +252,23 @@ export function ChannelsCenter({
     staleTime: 60_000,
   });
 
+  const portfolioStatusFn = useServerFn(getMetaPortfolioStatusFn);
+  const { data: portfolioStatus, isLoading: loadingPortfolio } = useQuery({
+    queryKey: ["meta-portfolio-status", brandId],
+    queryFn: () => portfolioStatusFn({ data: { brandId: brandId! } }),
+    enabled: !!brandId,
+    staleTime: 30_000,
+  });
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["workspace-channels", brandId] });
     qc.invalidateQueries({ queryKey: ["channel-history", brandId] });
     qc.invalidateQueries({ queryKey: ["meta-connections", brandId] });
     qc.invalidateQueries({ queryKey: ["connections", brandId] });
     qc.invalidateQueries({ queryKey: ["meta-discovered-accounts", brandId] });
+    qc.invalidateQueries({ queryKey: ["meta-portfolio-status", brandId] });
   };
+
 
   /** Nova varredura na Meta (mesma operação de antes, agora reutilizável). */
   function refreshDiscovery() {
@@ -307,7 +334,7 @@ export function ChannelsCenter({
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
-  async function connectMeta(channel: "facebook" | "instagram") {
+  async function connectMeta(channel: "facebook" | "instagram", forceReauth = false) {
     if (!brandId) return;
     setConnecting(channel);
     // O popup precisa abrir de forma síncrona no clique.
@@ -319,10 +346,11 @@ export function ChannelsCenter({
     try {
       const { authorizeUrl, redirectUri } = await startMetaFn({
         // Fluxo normal: reutiliza a sessão Meta e solicita novamente apenas
-        // permissões recusadas. Reautenticação forçada fica restrita à ação
-        // explícita de trocar/reconectar uma conta.
-        data: { brandId, channel },
+        // permissões recusadas. Reautenticação forçada fica restrita às ações
+        // explícitas de trocar portfólio / reconectar uma conta.
+        data: { brandId, channel, ...(forceReauth ? { forceReauth: true } : {}) },
       });
+
       console.info("[meta-oauth] redirect_uri em uso:", redirectUri);
       if (popup) popup.location.href = authorizeUrl;
       else window.location.href = authorizeUrl;
@@ -393,6 +421,20 @@ export function ChannelsCenter({
           </Button>
         ) : null}
       </div>
+
+      <MetaPortfolioPanel
+        brandId={brandId}
+        canManage={canManage}
+        loading={loadingPortfolio}
+        metaUserName={portfolioStatus?.metaUserName ?? null}
+        portfolios={portfolioStatus?.portfolios ?? []}
+        switching={connecting !== null}
+        onConnect={() => void connectMeta("facebook")}
+        onSwitch={() => void connectMeta("facebook", true)}
+        onChanged={invalidate}
+      />
+
+
 
       <PageKpiGrid columns={4}>
         <PageKpi
@@ -1701,5 +1743,154 @@ function LinkDiscoveredDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* ----------------------------- portfólio Meta ----------------------------- */
+
+/**
+ * Painel de PORTFÓLIOS Meta conectados ao workspace.
+ *
+ * O portfólio (Business da Meta) é a identidade que autoriza a instalação; os
+ * canais abaixo dele atendem clientes específicos. Trocar o portfólio inicia uma
+ * nova autorização e o seletor de contas — nada é gravado até a seleção, então a
+ * conexão atual continua íntegra se a nova autorização falhar.
+ */
+function MetaPortfolioPanel({
+  brandId,
+  canManage,
+  loading,
+  metaUserName,
+  portfolios,
+  switching,
+  onConnect,
+  onSwitch,
+  onChanged,
+}: {
+  brandId: string | null;
+  canManage: boolean;
+  loading: boolean;
+  metaUserName: string | null;
+  portfolios: MetaPortfolioSummary[];
+  switching: boolean;
+  onConnect: () => void;
+  onSwitch: () => void;
+  onChanged: () => void;
+}) {
+  const disconnectFn = useServerFn(disconnectMetaPortfolioFn);
+  const [target, setTarget] = useState<MetaPortfolioSummary | null>(null);
+
+  const disconnectMut = useMutation({
+    mutationFn: (p: MetaPortfolioSummary) =>
+      disconnectFn({ data: { brandId: brandId!, ownerExternalId: p.ownerExternalId } }),
+    onSuccess: (res) => {
+      if (!res.ok) {
+        toast.error(res.message);
+        return;
+      }
+      toast.success("Portfólio desconectado.", { description: res.message });
+      setTarget(null);
+      onChanged();
+    },
+    onError: () => toast.error("Não foi possível desconectar este portfólio."),
+  });
+
+  if (loading) {
+    return (
+      <Card className="p-3">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="mt-2 h-3 w-64" />
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold">Portfólio Meta do workspace</p>
+          <p className="text-xs text-muted-foreground">
+            {portfolios.length
+              ? "A autorização pertence ao workspace; os canais abaixo atendem clientes específicos."
+              : "Nenhum portfólio Meta autorizado neste workspace ainda."}
+            {metaUserName ? ` Autorizado por ${metaUserName}.` : ""}
+          </p>
+        </div>
+        {canManage ? (
+          <Button
+            size="sm"
+            variant={portfolios.length ? "outline" : "default"}
+            className="h-8 gap-1.5 text-xs"
+            disabled={switching}
+            onClick={portfolios.length ? onSwitch : onConnect}
+          >
+            {switching ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+            {portfolios.length ? "Trocar portfólio" : "Conectar Meta"}
+          </Button>
+        ) : null}
+      </div>
+
+      {portfolios.length ? (
+        <div className="mt-3 space-y-2">
+          {portfolios.map((p) => (
+            <div
+              key={p.ownerExternalId ?? "unknown"}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2.5"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-xs font-medium">
+                  {p.ownerName ?? "Portfólio sem nome na Meta"}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {p.channelCount} canal(is) · {p.clientCount} cliente(s)
+                  {p.attentionCount ? ` · ${p.attentionCount} com atenção` : ""}
+                  {p.ownerExternalId ? ` · ID ${p.ownerExternalId}` : ""}
+                </p>
+              </div>
+              {canManage ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 gap-1.5 text-xs text-destructive hover:text-destructive"
+                  onClick={() => setTarget(p)}
+                >
+                  <Unlink className="h-3.5 w-3.5" />
+                  Desconectar
+                </Button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <AlertDialog open={!!target} onOpenChange={(v) => !v && setTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desconectar este portfólio?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {target?.channelCount ?? 0} canal(is) deste portfólio deixarão de publicar e os
+              vínculos com {target?.clientCount ?? 0} cliente(s) serão removidos. O histórico é
+              preservado e você pode reconectar depois.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={disconnectMut.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (target) disconnectMut.mutate(target);
+              }}
+            >
+              {disconnectMut.isPending ? "Desconectando…" : "Desconectar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
   );
 }

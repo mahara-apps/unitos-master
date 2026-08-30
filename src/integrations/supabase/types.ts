@@ -4399,6 +4399,7 @@ export type Database = {
           portfolio_source_session_id: string | null
           requested_scopes: string[]
           scopes: string[]
+          state_nonce: string | null
           threads_accounts: Json
           user_id: string
           user_token_ciphertext: string
@@ -4422,6 +4423,7 @@ export type Database = {
           portfolio_source_session_id?: string | null
           requested_scopes?: string[]
           scopes?: string[]
+          state_nonce?: string | null
           threads_accounts?: Json
           user_id: string
           user_token_ciphertext: string
@@ -4445,6 +4447,7 @@ export type Database = {
           portfolio_source_session_id?: string | null
           requested_scopes?: string[]
           scopes?: string[]
+          state_nonce?: string | null
           threads_accounts?: Json
           user_id?: string
           user_token_ciphertext?: string
