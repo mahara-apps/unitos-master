@@ -143,50 +143,70 @@ export const disconnectMetaPortfolioFn = createServerFn({ method: "POST" })
       const { data: conns, error: listErr } = await query;
       if (listErr) throw listErr;
       const ids = (conns ?? []).map((c) => c.id);
-      if (!ids.length) {
-        return { ok: true, removed: 0, message: "Nenhuma conexão ativa neste portfólio." };
+
+      if (ids.length) {
+        const { error: linkErr } = await context.supabase
+          .from("client_social_accounts")
+          .delete()
+          .eq("brand_id", data.brandId)
+          .in("connection_id", ids);
+        if (linkErr) throw linkErr;
+
+        const { error: revokeErr } = await context.supabase
+          .from("social_connections")
+          .update({
+            status: "revoked",
+            client_id: null,
+            last_error: "Portfólio Meta desconectado do workspace pela equipe.",
+            last_synced_at: new Date().toISOString(),
+          })
+          .eq("brand_id", data.brandId)
+          .eq("provider", "meta")
+          .in("id", ids);
+        if (revokeErr) throw revokeErr;
       }
 
-      const { error: linkErr } = await context.supabase
-        .from("client_social_accounts")
-        .delete()
-        .eq("brand_id", data.brandId)
-        .in("connection_id", ids);
-      if (linkErr) throw linkErr;
+      // A autorização Meta é revogada SEMPRE, mesmo quando o portfólio não
+      // tinha nenhum canal vinculado: sem isso as contas descobertas por
+      // aquela autorização continuariam listadas como "disponíveis".
+      // O histórico permanece na tabela (linhas marcadas, não apagadas).
+      const nowIso = new Date().toISOString();
+      const revokeSessions = async (scopeToPortfolio: boolean) => {
+        let q = context.supabase
+          .from("meta_oauth_sessions")
+          .update({
+            revoked_at: nowIso,
+            revoked_reason: "Portfólio Meta desconectado do workspace pela equipe.",
+            expires_at: nowIso,
+            user_token_expires_at: nowIso,
+          })
+          .eq("brand_id", data.brandId)
+          .is("revoked_at", null);
+        if (scopeToPortfolio && data.ownerExternalId) {
+          q = q.eq("meta_user_id", data.ownerExternalId);
+        }
+        const { error } = await q;
+        if (error) throw error;
+      };
 
-      const { error: revokeErr } = await context.supabase
-        .from("social_connections")
-        .update({
-          status: "revoked",
-          client_id: null,
-          last_error: "Portfólio Meta desconectado do workspace pela equipe.",
-          last_synced_at: new Date().toISOString(),
-        })
-        .eq("brand_id", data.brandId)
-        .eq("provider", "meta")
-        .in("id", ids);
-      if (revokeErr) throw revokeErr;
+      await revokeSessions(true);
 
-      // Se não sobrou nenhuma conexão Meta ativa, as sessões OAuth deste
-      // workspace deixam de fazer sentido e são expiradas.
+      // Se não sobrou nenhuma conexão Meta ativa no workspace, nenhuma
+      // autorização remanescente faz sentido — revoga todas.
       const { count } = await context.supabase
         .from("social_connections")
         .select("id", { count: "exact", head: true })
         .eq("brand_id", data.brandId)
         .eq("provider", "meta")
         .neq("status", "revoked");
-      if (!count) {
-        const nowIso = new Date().toISOString();
-        await context.supabase
-          .from("meta_oauth_sessions")
-          .update({ expires_at: nowIso, user_token_expires_at: nowIso })
-          .eq("brand_id", data.brandId);
-      }
+      if (!count) await revokeSessions(false);
 
       return {
         ok: true,
         removed: ids.length,
-        message: `${ids.length} canal(is) desconectado(s) deste portfólio.`,
+        message: ids.length
+          ? `${ids.length} canal(is) desconectado(s) e autorização Meta revogada.`
+          : "Autorização Meta revogada. Nenhum canal estava vinculado a este portfólio.",
       };
     },
   );
