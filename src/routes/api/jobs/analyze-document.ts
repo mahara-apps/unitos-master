@@ -264,14 +264,23 @@ async function runAnalysis(params: {
       output: { document_type: summary.document_type },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[analyze-document] failed:", message);
-    await patch({ ai_status: "failed", ai_error: message.slice(0, 500) });
+    const technical = err instanceof Error ? err.message : String(err);
+    // Erro técnico completo fica no log e no step da execução; o usuário vê
+    // uma mensagem amigável.
+    console.error("[analyze-document] failed:", technical, err);
+    const { friendlyAnalysisError } = await import("@/lib/briefing-import-ui");
+    const friendly = friendlyAnalysisError(err) || "Não foi possível analisar este material.";
+    await setRunStep(supabase as never, runScope, "interpret", "failed", {
+      error: technical.slice(0, 2000),
+      errorKind: "analysis",
+    }).catch(() => undefined);
+    await patch({ ai_status: "failed", ai_error: friendly.slice(0, 500) });
     await failImportRun(supabase as never, runScope, {
-      message,
+      message: friendly,
       kind: "analysis",
     }).catch(() => undefined);
   }
+
 }
 
 
