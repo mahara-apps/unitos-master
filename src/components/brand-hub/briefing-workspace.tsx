@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { describeError, readApiError } from "@/lib/errors";
 import { generateMonthlyPlanFn } from "@/lib/monthly-plans.functions";
+import {
+  PautaOrganizationField,
+  requiredOrganization,
+  toOrganizationInput,
+  type OrganizationDraft,
+} from "@/components/monthly-plan/pauta-organization-field";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -287,6 +293,7 @@ export function BriefingWorkspace({
   // ------------- Gerar ideias (fase 2 · gate humano) --------------
   const [ideasOpen, setIdeasOpen] = useState(false);
   const [ideasTheme, setIdeasTheme] = useState("");
+  const [ideasOrg, setIdeasOrg] = useState<OrganizationDraft>(requiredOrganization);
   const [genIdeas, setGenIdeas] = useState(false);
 
   // Strategy artifacts gate — enable "Gerar ideias" only when all four exist.
@@ -339,8 +346,18 @@ export function BriefingWorkspace({
     try {
       // Caminho canônico ÚNICO: monthly_plans -> monthly_plan_topics -> aprovação.
       // A quantidade vem da volumetria (canal + formato) do briefing.
+      const organization = toOrganizationInput(ideasOrg, false);
+      if (!organization) {
+        toast.error("Escolha um projeto existente ou informe o nome do novo projeto.");
+        return;
+      }
       const res = await generatePlan({
-        data: { brandId, clientId, ...(ideasTheme.trim() ? { theme: ideasTheme.trim() } : {}) },
+        data: {
+          brandId,
+          clientId,
+          organization,
+          ...(ideasTheme.trim() ? { theme: ideasTheme.trim() } : {}),
+        },
       });
       if (!res.ok) {
         toast.error(describeError(new Error(res.code)));
@@ -494,6 +511,8 @@ export function BriefingWorkspace({
         setIdeasOpen={setIdeasOpen}
         ideasTheme={ideasTheme}
         setIdeasTheme={setIdeasTheme}
+        ideasOrg={ideasOrg}
+        setIdeasOrg={setIdeasOrg}
         runIdeas={runIdeas}
       />
       <BriefingImportDialog
@@ -1477,6 +1496,8 @@ type StackedProps = {
   setIdeasOpen: (v: boolean) => void;
   ideasTheme: string;
   setIdeasTheme: (v: string) => void;
+  ideasOrg: OrganizationDraft;
+  setIdeasOrg: (v: OrganizationDraft) => void;
   runIdeas: () => Promise<void> | void;
 };
 
@@ -1504,6 +1525,8 @@ function StackedBrainLayout(props: StackedProps) {
     setIdeasOpen,
     ideasTheme,
     setIdeasTheme,
+    ideasOrg,
+    setIdeasOrg,
     genIdeas,
     runIdeas,
   } = props;
@@ -1718,12 +1741,21 @@ function StackedBrainLayout(props: StackedProps) {
                 onChange={(e) => setIdeasTheme(e.target.value)}
               />
             </div>
+            <PautaOrganizationField
+              brandId={brandId}
+              clientId={clientId}
+              value={ideasOrg}
+              onChange={setIdeasOrg}
+              allowNone={false}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIdeasOpen(false)} disabled={genIdeas}>
               Cancelar
             </Button>
-            <Button onClick={() => void runIdeas()} disabled={genIdeas} className="gap-1.5">
+            <Button
+              onClick={() => void runIdeas()}
+              disabled={genIdeas || !toOrganizationInput(ideasOrg, false)} className="gap-1.5">
               {genIdeas ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
