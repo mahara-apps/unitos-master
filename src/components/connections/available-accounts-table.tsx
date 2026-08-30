@@ -455,11 +455,19 @@ export function AvailableAccountsTable({
                       </TableCell>
                       <TableCell className="py-2.5">
                         <AuthBadge ready={isReady(a)} />
-                        {!isReady(a) && a.statusReason ? (
+                        {!isReady(a) ? (
                           <p className="mt-1 max-w-[220px] text-[11px] text-muted-foreground">
-                            {a.statusReason}
+                            Autorização ativa — este ativo não está disponível no momento.
+                            {a.statusReason ? ` ${a.statusReason}` : ""}
                           </p>
                         ) : null}
+                      </TableCell>
+                      <TableCell className="py-2.5 text-xs">
+                        {client ? (
+                          <span className="truncate">{client}</span>
+                        ) : (
+                          <span className="text-muted-foreground">Sem cliente vinculado</span>
+                        )}
                       </TableCell>
                       <TableCell className="py-2.5 text-right">
                         {canManage ? (
@@ -470,7 +478,7 @@ export function AvailableAccountsTable({
                             onClick={() => onLink(a)}
                           >
                             <Link2 className="h-3.5 w-3.5" />
-                            Conectar e vincular
+                            {client ? "Gerenciar" : isReady(a) ? "Vincular" : "Reconectar"}
                           </Button>
                         ) : null}
                       </TableCell>
