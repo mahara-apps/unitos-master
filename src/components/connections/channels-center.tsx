@@ -15,6 +15,7 @@ import {
   Search,
   Settings2,
   Unlink,
+  Unplug,
   Users,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
