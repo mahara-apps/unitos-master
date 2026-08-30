@@ -1371,7 +1371,15 @@ export const listPlanBoardFn = createServerFn({ method: "POST" })
     }>;
     const projectMap = new Map(projects.map((p) => [p.id, p]));
 
-    if (rows.length === 0) return { items: [], summary, projects };
+    const { isBrandAdmin } = await import("@/lib/monthly-plan-delete.server");
+    const canDelete = await isBrandAdmin(
+      context.supabase as unknown as SupabaseClient,
+      context.userId,
+      data.brandId,
+    );
+
+    if (rows.length === 0) return { items: [], summary, projects, canDelete };
+
 
     const planIds = rows.map((r) => r.id);
 
