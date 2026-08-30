@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { guardClientScope } from "@/lib/http-scope.server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { withPtBr } from "@/lib/ai-language";
 import type { Database } from "@/integrations/supabase/types";
 import { describeProviderAttempts } from "@/lib/ai-provider.server";
 import type { BriefingAnalysis } from "@/lib/briefing-analysis-schema";
@@ -144,7 +145,7 @@ async function runAnalysis(params: {
       isTranscript
         ? ` Este material é uma transcrição de reunião: identifique os participantes citados e, quando o contexto permitir, infira o papel de cada um (cliente, gestor, usuário, fornecedor etc.). Nunca invente nomes, cargos ou identidades que não apareçam no material — deixe o papel como desconhecido quando não houver evidência.`
         : ""
-    }`;
+    }`);
 
     const taskPrompt = `Documento: ${doc.name}\n\nSua tarefa:\n1) ${prepared.mode === "text" ? "O texto já foi extraído pelo sistema; devolva `extracted_text` como null e não o repita." : "Extraia somente os trechos essenciais (até 4000 caracteres) para `extracted_text`."}\n2) Classifique o tipo em \`material_type\` (ex.: "Brandbook", "Manual de marca", "Pesquisa", "Deck comercial", "Transcrição de reunião").\n3) Faça um resumo executivo em até 400 caracteres.\n4) Mapeie cada campo de \`briefing\` com o que estiver explícito. Para \`hashtags\`, devolva array de strings sem o "#".\n5) Para cada campo proposto, registre uma única evidência literal curta e o conflito em \`evidence\`.\n6) Atribua \`confidence\` de 0 a 1 ou null. \`evidence\` e \`speakers\` devem ser arrays, mesmo quando vazios.\n${BRIEFING_OUTPUT_INSTRUCTIONS}`;
 
