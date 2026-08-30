@@ -1,8 +1,20 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { generateText, NoObjectGeneratedError, Output } from "ai";
+import {
+  generateText,
+  NoObjectGeneratedError,
+  NoOutputGeneratedError,
+  Output,
+  tool,
+} from "ai";
 import type { z } from "zod";
-import { getBrandAiModel, describeProviderAttempts } from "@/lib/ai-provider.server";
+import {
+  getBrandAiCandidates,
+  describeProviderAttempts,
+  type ProviderAttempt,
+} from "@/lib/ai-provider.server";
 import { buildBrandContextBlueprint } from "@/lib/ai-agents.functions";
+import { salvageStructuredOutput } from "@/lib/ai-output-salvage";
+import { PLAN_MAX_OUTPUT_TOKENS, planProviderOptions } from "@/lib/monthly-plan-ai-options";
 import {
   BACKOFF_MS,
   SPACING_MS,
@@ -12,6 +24,7 @@ import {
   unwrapAiError,
   type FailureKind,
 } from "@/lib/ai-failures.server";
+
 
 /**
  * Camada de agente para a Pauta mensal.
