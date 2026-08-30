@@ -548,6 +548,19 @@ export async function runPlanGeneration(args: {
   };
 
   await setPlanJobStep(supabase, jobId, "persistencia");
+  // Falha de escrita precisa ficar VISÍVEL: sem isto o erro do PostgREST era
+  // engolido pelo `String(err)` do chamador e virava "[object Object]".
+  const failPersistence = async (where: string, err: unknown): Promise<never> => {
+    const message = errorToMessage(err) || "erro desconhecido";
+    await logPlanEvent(supabase, scope, {
+      step: "conclusao",
+      ok: false,
+      kind: "persistence",
+      retryable: true,
+      message: `persistencia_falhou (${where}): ${message}`.slice(0, 1000),
+    });
+    throw new Error(`plan_persistence_failed:${where}: ${message}`.slice(0, 1000));
+  };
   let plan: MonthlyPlan;
   if (resume) {
     const { data: planRow, error: upErr } = await supabase
