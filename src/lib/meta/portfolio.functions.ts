@@ -74,6 +74,8 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
     let cachedStandaloneIg = pagesPayload.standaloneInstagram;
     let scanWarnings = pagesPayload.warnings;
     let businessCount = pagesPayload.businessCount;
+    let cachedBusinesses = pagesPayload.businesses ?? [];
+
     let publishAuthorization = pagesPayload.publishAuthorization ?? null;
     let cachedThreads =
       (session.threads_accounts as unknown as Array<
