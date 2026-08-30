@@ -287,7 +287,18 @@ export async function runPlanGeneration(args: {
     }
   }
   if (overageItems.length) {
-    return { ok: false, code: "overage_not_authorized", overage: overageItems };
+    // Autoridade (Super Admin/Owner/Admin) ou volumetria livre: registra o
+    // excedente como autorizado e segue, sem pedir liberação.
+    const auto = await tryAutoAuthorizeOverage(supabase, {
+      brandId: input.brandId,
+      clientId: input.clientId,
+      userId,
+      items: overageItems,
+      periodMonth: period,
+    });
+    if (!auto.allowed) {
+      return { ok: false, code: "overage_not_authorized", overage: overageItems };
+    }
   }
 
   // Estratégia IA ativa + desempenho real das contas conectadas (por canal).
