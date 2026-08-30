@@ -131,6 +131,7 @@ export function AvailableAccountsTable({
   onLink,
   emptyDescription,
   actions,
+  clientByExternalId,
 }: {
   accounts: Account[];
   canManage: boolean;
@@ -139,6 +140,8 @@ export function AvailableAccountsTable({
   emptyDescription: string;
   /** Sincronizar / Autorizar — renderizados na barra de controle. */
   actions?: React.ReactNode;
+  /** Cliente já vinculado ao ativo (quando existir), por ID externo da Meta. */
+  clientByExternalId?: Map<string, string>;
 }) {
   const [rawSearch, setRawSearch] = useState("");
   const [search, setSearch] = useState("");
