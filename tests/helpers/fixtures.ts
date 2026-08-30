@@ -103,8 +103,10 @@ export type Fixture = {
   clientOrphan: string;
   otherBrandClient: string;
   otherBrandProject: string;
-  /** owner da marca (papel efetivo 'admin'), criador das duas brands de QA. */
+  /** owner da marca principal (papel efetivo 'admin'). NÃO tem vínculo com a outra brand. */
   userOwner: TestUser;
+  /** criador/owner da segunda brand (workspace sem relação com a principal). */
+  userOtherOwner: TestUser;
   /** manager da marca. */
   userManager: TestUser;
   /** user (papel efetivo 'user') vinculado somente ao clientA. */
@@ -126,6 +128,10 @@ export async function seed(): Promise<Fixture> {
   const userB = await createUser("b");
   const userNoLink = await createUser("nolink");
   const userPortal = await createUser("portal");
+  // Criador dedicado da segunda brand: o trigger add_brand_owner promove o
+  // created_by a Owner, e a "outra brand" precisa ser um workspace em que
+  // userOwner NÃO tem nenhum vínculo (cenário de cross-workspace).
+  const userOtherOwner = await createUser("owner2");
 
   const brand = await admin
     .from("brands")
@@ -135,7 +141,7 @@ export async function seed(): Promise<Fixture> {
   if (brand.error) throw new Error(`brand: ${brand.error.message}`);
   const otherBrand = await admin
     .from("brands")
-    .insert({ name: `QA Brand2 ${TAG}`, slug: `qa-brand2-${TAG}`, created_by: userOwner.id })
+    .insert({ name: `QA Brand2 ${TAG}`, slug: `qa-brand2-${TAG}`, created_by: userOtherOwner.id })
     .select("id")
     .single();
   if (otherBrand.error) throw new Error(`brand2: ${otherBrand.error.message}`);
@@ -216,6 +222,7 @@ export async function seed(): Promise<Fixture> {
     userB,
     userNoLink,
     userPortal,
+    userOtherOwner,
   };
 }
 
@@ -235,6 +242,7 @@ export async function cleanup(fx: Fixture | null) {
     fx.userB,
     fx.userNoLink,
     fx.userPortal,
+    fx.userOtherOwner,
   ]) {
     await admin.auth.admin.deleteUser(u.id).catch(() => {});
   }

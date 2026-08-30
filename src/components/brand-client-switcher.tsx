@@ -52,8 +52,11 @@ export function ContextSwitcher() {
   const sessionUserId = useSessionUserId();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { role, allowedClientIds } = useAccessRole();
+  const { role, allowedClientIds, brandRole } = useAccessRole();
   const isAdmin = role === "admin";
+  // Regra do produto: 1 workspace por conta. Quem já é Owner não cria outro
+  // (a barreira real está no banco, em can_create_brand); super admin é livre.
+  const canCreateWorkspace = brandRole !== "owner";
   const create = useServerFn(createBrand);
   const listCl = useServerFn(listClients);
 
@@ -232,17 +235,19 @@ export function ContextSwitcher() {
                     {b.id === brandId && <Check className="h-3.5 w-3.5" />}
                   </CommandItem>
                 ))}
-                <CommandItem
-                  value="create workspace"
-                  onSelect={() => {
-                    setPopoverOpen(false);
-                    setDialogOpen(true);
-                  }}
-                  className="text-muted-foreground"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Novo workspace</span>
-                </CommandItem>
+                {canCreateWorkspace && (
+                  <CommandItem
+                    value="create workspace"
+                    onSelect={() => {
+                      setPopoverOpen(false);
+                      setDialogOpen(true);
+                    }}
+                    className="text-muted-foreground"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Novo workspace</span>
+                  </CommandItem>
+                )}
               </CommandGroup>
               <CommandSeparator />
               <CommandGroup
@@ -304,7 +309,7 @@ export function ContextSwitcher() {
           <DialogHeader>
             <DialogTitle>Novo workspace</DialogTitle>
             <DialogDescription>
-              Um workspace é o contêiner da sua agência. Crie quantos precisar.
+              Um workspace é o contêiner da sua agência. Cada conta pode ter 1 workspace.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
