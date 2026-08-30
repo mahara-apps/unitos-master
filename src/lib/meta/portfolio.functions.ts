@@ -468,7 +468,10 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
         .select("id, channel, external_id")
         .eq("brand_id", data.brandId)
         .eq("provider", "meta")
+        // Conta revogada NÃO é "conectada": ela pode ser reconectada.
+        .neq("status", "revoked")
         .in("external_id", externalIds);
+
       for (const r of rows ?? []) {
         if (r.channel === "facebook") connected.facebook[r.external_id] = r.id;
         if (r.channel === "instagram") connected.instagram[r.external_id] = r.id;
