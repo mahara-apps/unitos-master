@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { errorToMessage } from "@/lib/error-message";
 import { brain, type BrainContext } from "@/lib/brain/api";
 import { loadBriefingContext } from "@/lib/monthly-plan-context.server";
 import { loadStrategyContext } from "@/lib/monthly-plan-strategy.server";
@@ -211,7 +212,8 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
     } catch (err) {
       await releasePlanGenerationLock(context.supabase, lock.jobId, {
         ok: false,
-        error: err instanceof Error ? err.message : String(err),
+        // Erros do PostgREST são objetos simples: `String(err)` gerava "[object Object]".
+        error: errorToMessage(err) || "unknown_error",
       });
       throw err;
     }

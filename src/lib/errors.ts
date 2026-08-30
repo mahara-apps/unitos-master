@@ -1,4 +1,5 @@
 import { ZodError } from "zod";
+import { errorToMessage } from "./error-message";
 
 /**
  * Traduz mensagens de erro (Zod, Supabase/Postgres, fetch) para pt-BR
@@ -37,7 +38,8 @@ export function describeError(err: unknown): string {
     }
   }
 
-  const raw = err instanceof Error ? err.message : typeof err === "string" ? err : "";
+  // Cobre Error, string e objetos PostgREST/Supabase ({ message, code, details, hint }).
+  const raw = errorToMessage(err);
 
   if (!raw) return "Ocorreu um erro inesperado.";
 

@@ -548,6 +548,19 @@ export async function runPlanGeneration(args: {
   };
 
   await setPlanJobStep(supabase, jobId, "persistencia");
+  // Falha de escrita precisa ficar VISÍVEL: sem isto o erro do PostgREST era
+  // engolido pelo `String(err)` do chamador e virava "[object Object]".
+  const failPersistence = async (where: string, err: unknown): Promise<never> => {
+    const message = errorToMessage(err) || "erro desconhecido";
+    await logPlanEvent(supabase, scope, {
+      step: "conclusao",
+      ok: false,
+      kind: "unknown",
+      retryable: true,
+      message: `persistencia_falhou (${where}): ${message}`.slice(0, 1000),
+    });
+    throw new Error(`plan_persistence_failed:${where}: ${message}`.slice(0, 1000));
+  };
   let plan: MonthlyPlan;
   if (resume) {
     const { data: planRow, error: upErr } = await supabase
@@ -556,7 +569,7 @@ export async function runPlanGeneration(args: {
       .eq("id", resume.planId)
       .select("*")
       .single();
-    if (upErr) throw upErr;
+    if (upErr) await failPersistence("monthly_plans.update", upErr);
     plan = planRow as unknown as MonthlyPlan;
   } else {
     const { data: planRow, error: planErr } = await supabase
@@ -575,7 +588,7 @@ export async function runPlanGeneration(args: {
       } as never)
       .select("*")
       .single();
-    if (planErr) throw planErr;
+    if (planErr) await failPersistence("monthly_plans.insert", planErr);
     plan = planRow as unknown as MonthlyPlan;
   }
 
@@ -597,7 +610,7 @@ export async function runPlanGeneration(args: {
     .from("monthly_plan_topics" as never)
     .insert(topicRows as never)
     .select("*");
-  if (topErr) throw topErr;
+  if (topErr) await failPersistence("monthly_plan_topics.insert", topErr);
 
   const topics = [...existingTopics, ...((inserted ?? []) as unknown as MonthlyPlanTopic[])].sort(
     (a, b) => a.position - b.position,
