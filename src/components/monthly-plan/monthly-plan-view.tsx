@@ -54,8 +54,21 @@ import {
   normalizeContentFormat,
 } from "@/lib/content-formats";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { describePlanDeleteError } from "@/components/monthly-plan/pauta-board";
+import {
   approveMonthlyPlanFn,
+  canDeletePlansFn,
   createTopicFn,
+  deleteMonthlyPlanFn,
   deleteTopicFn,
   discardMonthlyPlanFn,
   generateMonthlyPlanFn,
