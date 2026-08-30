@@ -45,13 +45,16 @@ export const listDiscoveredMetaAccountsFn = createServerFn({ method: "POST" })
     const empty: DiscoveredAccountsResult = {
       sessionId: null,
       metaUserName: null,
+      metaUserId: null,
       discoveredAt: null,
       needsAuthorization: true,
       accounts: [],
       alreadyLinked: 0,
+      businesses: [],
       warnings: [],
       error: null,
     };
+
 
     const { data: sessions, error } = await context.supabase
       .from("meta_oauth_sessions")
