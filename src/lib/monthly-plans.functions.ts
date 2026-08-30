@@ -211,7 +211,8 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
     } catch (err) {
       await releasePlanGenerationLock(context.supabase, lock.jobId, {
         ok: false,
-        error: err instanceof Error ? err.message : String(err),
+        // Erros do PostgREST são objetos simples: `String(err)` gerava "[object Object]".
+        error: errorToMessage(err) || "unknown_error",
       });
       throw err;
     }
