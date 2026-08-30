@@ -160,6 +160,11 @@ export function GeneratePlanWizard({
       return { channel: c, quota: allowance, requested, overage: requested - allowance };
     })
     .filter((it) => it.overage > 0);
+  /**
+   * Excedente liberado sem aprovação: autoridade do usuário (Super Admin /
+   * Owner / Admin) ou política de volumetria livre no cliente/workspace.
+   */
+  const overageAllowed = Boolean(volumetry?.canBypassOverage) || volumetry?.overagePolicy === "warn";
   const missingFormats = channels.filter((c) => enabled[c] && qtyOf(c) === 0);
 
   const setFormatQty = (c: string, f: ContentFormat, n: number) =>
