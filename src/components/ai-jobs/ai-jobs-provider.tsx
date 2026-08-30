@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useRouter } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { getCachedUser } from "@/lib/auth-cache";
+import { describeError } from "@/lib/errors";
 import {
   listMyAiJobs,
   dismissAiJob,
@@ -112,7 +113,10 @@ export function AiJobsProvider({ children }: { children: ReactNode }) {
               qc.invalidateQueries({ queryKey: ["posts"] });
             }
           } else {
-            toast.error(`Falhou: ${j.title}`, { description: j.error ?? "Erro desconhecido." });
+            toast.error(`Falhou: ${j.title}`, {
+              // Traduz códigos/erros do backend; nunca exibe objeto cru no toast.
+              description: j.error ? describeError(j.error) : "Erro desconhecido.",
+            });
           }
         }
         prevStatusRef.current.set(j.id, j.status);
