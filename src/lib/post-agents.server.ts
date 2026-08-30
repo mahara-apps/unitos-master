@@ -175,6 +175,8 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
   system: string;
   prompt: string;
   schema: T;
+  /** Campo único do schema — permite aceitar resposta em prosa (sem JSON). */
+  textFallbackKey?: string;
   onAttempt?: (
     attempt: number,
     kind: FailureKind,
@@ -189,6 +191,22 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
     model: null,
     fallbackProvider: null,
     providerTrace: null,
+  };
+
+  const parseAny = (text: string): z.infer<T> | null => {
+    const raw = extractJsonObject(text);
+    if (raw !== null) {
+      const parsed = opts.schema.safeParse(raw);
+      if (parsed.success) return parsed.data as z.infer<T>;
+    }
+    if (opts.textFallbackKey) {
+      const coerced = coerceSingleField(text, opts.textFallbackKey);
+      if (coerced !== null) {
+        const parsed = opts.schema.safeParse(coerced);
+        if (parsed.success) return parsed.data as z.infer<T>;
+      }
+    }
+    return null;
   };
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -212,21 +230,22 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
       });
       trace.providerTrace = describeProviderAttempts(handle.providerAttempts) || null;
 
-      const raw = extractJsonObject(res.text ?? "");
-      if (raw === null) throw new Error("ai_invalid_output");
-      const parsed = opts.schema.safeParse(raw);
-      if (!parsed.success) throw new Error("ai_invalid_output");
-      return { output: parsed.data as z.infer<T>, attempts: attempt, trace };
+      const output = parseAny(res.text ?? "");
+      if (output === null) throw new Error("ai_invalid_output");
+      return { output, attempts: attempt, trace };
     } catch (err) {
       if (handle) trace.providerTrace = describeProviderAttempts(handle.providerAttempts) || null;
       // Saída malformada emitida como erro do SDK: tenta recuperar o JSON bruto.
       if (NoObjectGeneratedError.isInstance(err)) {
-        const recovered = extractJsonObject(err.text ?? "");
-        const parsed = recovered === null ? null : opts.schema.safeParse(recovered);
-        if (parsed?.success) {
-          return { output: parsed.data as z.infer<T>, attempts: attempt, trace };
+        const recovered = parseAny(err.text ?? "");
+        if (recovered !== null) {
+          return { output: recovered, attempts: attempt, trace };
         }
         lastErr = new Error("ai_invalid_output");
+      } else {
+        lastErr = err;
+      }
+
       } else {
         lastErr = err;
       }
