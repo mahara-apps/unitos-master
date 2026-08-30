@@ -398,7 +398,7 @@ function withModelInstrumentation(
           retryable &&
           (kind === "provider_unavailable" ||
             kind === "provider_rate_limit" ||
-            kind === "provider_quota" || kind === "invalid_output");
+            kind === "provider_quota");
         if (transient && ctx.fallback && !switchedProvider) {
           switchedProvider = true;
           console.warn(

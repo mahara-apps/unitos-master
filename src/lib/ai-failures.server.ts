@@ -100,7 +100,7 @@ export function unwrapAiError(err: unknown): {
  *
  * `NoOutputGeneratedError` NUNCA é classificado como `unknown`: a causa real é
  * inspecionada e, na ausência de pistas, o caso vira `invalid_output`
- * (retryable) em vez de falha permanente sem explicação.
+ * (terminal) em vez de falha permanente sem explicação.
  */
 export function classifyAiError(err: unknown): { kind: FailureKind; retryable: boolean } {
   const { text, status, hadNoOutput } = unwrapAiError(err);
@@ -168,18 +168,16 @@ export function classifyAiError(err: unknown): { kind: FailureKind; retryable: b
   ) {
     return { kind: "provider_unavailable", retryable: true };
   }
-  // Saída ausente/malformada pode variar entre modelos e admite fallback.
+  // Saída ausente/malformada não é indisponibilidade do provider: repetir em
+  // outro provider pode multiplicar custo sem corrigir o contrato da saída.
   if (
-    status === 400 ||
     msg.includes("ai_invalid_output") ||
     msg.includes("empty_caption") ||
     msg.includes("json")
   ) {
-    return { kind: "invalid_output", retryable: true };
+    return { kind: "invalid_output", retryable: false };
   }
-  // Sem pista alguma, mas o SDK relatou stream sem saída: tratar como saída
-  // inválida (retryable), nunca como desconhecido/permanente.
-  if (hadNoOutput) return { kind: "invalid_output", retryable: true };
+  if (hadNoOutput) return { kind: "invalid_output", retryable: false };
 
   return { kind: "unknown", retryable: false };
 }

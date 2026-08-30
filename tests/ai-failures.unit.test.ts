@@ -31,4 +31,11 @@ describe("classificação de falhas da IA", () => {
       }),
     ).toEqual({ kind: "output_truncated", retryable: false });
   });
+
+  it("não troca provider quando a saída gerada é inválida", () => {
+    expect(classifyAiError(new Error("ai_invalid_output: empty JSON"))).toEqual({
+      kind: "invalid_output",
+      retryable: false,
+    });
+  });
 });
