@@ -412,11 +412,14 @@ export function AvailableAccountsTable({
                   <TableHead className="w-[180px]" />
                 </TableRow>
               </TableHeader>
-              </TableHeader>
               <TableBody>
                 {visible.map((a) => {
                   const def = channelDef(a.channel);
                   const Icon = def.icon;
+                  const client =
+                    clientByExternalId?.get(a.externalId) ??
+                    (a.pageId ? clientByExternalId?.get(a.pageId) : undefined) ??
+                    null;
                   return (
                     <TableRow key={`${a.channel}:${a.externalId}`}>
                       <TableCell className="py-2.5">
