@@ -103,8 +103,10 @@ export type Fixture = {
   clientOrphan: string;
   otherBrandClient: string;
   otherBrandProject: string;
-  /** owner da marca (papel efetivo 'admin'), criador das duas brands de QA. */
+  /** owner da marca principal (papel efetivo 'admin'). NÃO tem vínculo com a outra brand. */
   userOwner: TestUser;
+  /** criador/owner da segunda brand (workspace sem relação com a principal). */
+  userOtherOwner: TestUser;
   /** manager da marca. */
   userManager: TestUser;
   /** user (papel efetivo 'user') vinculado somente ao clientA. */
@@ -239,6 +241,7 @@ export async function cleanup(fx: Fixture | null) {
     fx.userB,
     fx.userNoLink,
     fx.userPortal,
+    fx.userOtherOwner,
   ]) {
     await admin.auth.admin.deleteUser(u.id).catch(() => {});
   }
