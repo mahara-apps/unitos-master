@@ -59,7 +59,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import { MetaPortfolioDialog } from "@/components/connections/meta-portfolio-dialog";
 import { AvailableAccountsTable } from "@/components/connections/available-accounts-table";
 
@@ -232,7 +231,7 @@ export function ChannelsCenter({
   const { data: history = [], isLoading: loadingHistory } = useQuery({
     queryKey: ["channel-history", brandId],
     queryFn: () => historyFn({ data: { brandId: brandId! } }),
-    enabled: !!brandId && tab === "history",
+    enabled: !!brandId && historyOpen,
     staleTime: 60_000,
   });
 
