@@ -16,7 +16,11 @@ export type PortfolioPage = {
   instagramBusinessId: string | null;
   instagramUsername: string | null;
   instagramPictureUrl: string | null;
+  /** Business Portfolio (Business Manager) dono/compartilhador do ativo. */
+  businessId?: string | null;
+  businessName?: string | null;
 };
+
 
 export type PortfolioThreadsAccount = {
   threadsUserId: string;
