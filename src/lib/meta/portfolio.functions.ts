@@ -136,6 +136,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
           cachedStandaloneIg = payload.standaloneInstagram;
           scanWarnings = payload.warnings;
           businessCount = payload.businessCount;
+          cachedBusinesses = payload.businesses ?? cachedBusinesses;
           publishAuthorization = payload.publishAuthorization ?? publishAuthorization;
         }
         portfolioStatus =
@@ -241,6 +242,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
 
             scanWarnings = scan.warnings;
             businessCount = scan.businessCount || businessCount;
+            cachedBusinesses = scan.businesses?.length ? scan.businesses : cachedBusinesses;
 
             // RECONEXÃO FAIL-CLOSED: conexões salvas deste mesmo usuário Meta que
             // não aparecem mais na nova descoberta perdem o status "active" — não
@@ -323,11 +325,14 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
                 standaloneInstagram: cachedStandaloneIg,
                 warnings: scanWarnings,
                 businessCount,
+                businesses: cachedBusinesses,
                 publishAuthorization,
               } as unknown as import("@/integrations/supabase/types").Json,
               threads_accounts:
                 cachedThreads as unknown as import("@/integrations/supabase/types").Json,
               ad_accounts: cachedAds as unknown as import("@/integrations/supabase/types").Json,
+              businesses:
+                cachedBusinesses as unknown as import("@/integrations/supabase/types").Json,
               portfolio_loaded_at: loadedAt,
               portfolio_load_status: nextStatus,
               portfolio_error: null,
@@ -394,6 +399,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
                   standaloneInstagram: cachedStandaloneIg,
                   warnings: scanWarnings,
                   businessCount,
+                  businesses: cachedBusinesses,
                   publishAuthorization,
                 } as unknown as import("@/integrations/supabase/types").Json,
               })
