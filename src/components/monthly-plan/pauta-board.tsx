@@ -282,10 +282,12 @@ export function PautaBoard({
                 key={p.id}
                 item={p}
                 busy={busy}
+                canDelete={canDelete}
                 onOpen={() => onOpen(p.id)}
                 onArchive={() => archiveM.mutate(p.id)}
                 onRestore={() => restoreM.mutate(p.id)}
                 onLinkProject={() => setLinkTarget(p)}
+                onDelete={() => setDeleteTarget(p)}
               />
             ))}
           </ul>
