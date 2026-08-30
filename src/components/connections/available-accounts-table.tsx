@@ -41,12 +41,22 @@ type Account = DiscoveredAccountsResult["accounts"][number];
 type SortKey = "name_asc" | "name_desc" | "recent";
 
 export type AvailableFilters = {
-  channel: "all" | "facebook" | "instagram";
+  channel: "all" | "facebook" | "instagram" | "whatsapp" | "ads" | "other";
   status: "all" | "ready" | "attention";
   kind: "all" | "page" | "instagram";
   auth: "all" | "authorized" | "problem";
   sort: SortKey;
 };
+
+/** Abas de tipo de ativo (WhatsApp/Ads ainda não são descobertos pela Meta). */
+const CHANNEL_TABS: Array<{ value: AvailableFilters["channel"]; label: string }> = [
+  { value: "all", label: "Todos" },
+  { value: "facebook", label: "Facebook" },
+  { value: "instagram", label: "Instagram" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "ads", label: "Ads" },
+  { value: "other", label: "Outros" },
+];
 
 const DEFAULT_FILTERS: AvailableFilters = {
   channel: "all",
@@ -121,6 +131,7 @@ export function AvailableAccountsTable({
   onLink,
   emptyDescription,
   actions,
+  clientByExternalId,
 }: {
   accounts: Account[];
   canManage: boolean;
@@ -129,6 +140,8 @@ export function AvailableAccountsTable({
   emptyDescription: string;
   /** Sincronizar / Autorizar — renderizados na barra de controle. */
   actions?: React.ReactNode;
+  /** Cliente já vinculado ao ativo (quando existir), por ID externo da Meta. */
+  clientByExternalId?: Map<string, string>;
 }) {
   const [rawSearch, setRawSearch] = useState("");
   const [search, setSearch] = useState("");
@@ -197,6 +210,25 @@ export function AvailableAccountsTable({
 
   return (
     <div className="space-y-3">
+      {/* ---------------------------- abas por tipo ---------------------------- */}
+      <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-muted/30 p-1">
+        {CHANNEL_TABS.map((t) => (
+          <button
+            key={t.value}
+            type="button"
+            onClick={() => setFilters((f) => ({ ...f, channel: t.value }))}
+            className={cn(
+              "h-7 rounded-md px-2.5 text-xs font-medium transition-colors",
+              filters.channel === t.value
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       {/* -------------------------- barra de controle -------------------------- */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
@@ -375,7 +407,8 @@ export function AvailableAccountsTable({
                   <TableHead className="min-w-[220px] text-xs">Conta</TableHead>
                   <TableHead className="text-xs">Canal</TableHead>
                   <TableHead className="min-w-[180px] text-xs">ID Meta</TableHead>
-                  <TableHead className="text-xs">Autorização</TableHead>
+                  <TableHead className="text-xs">Status</TableHead>
+                  <TableHead className="min-w-[140px] text-xs">Cliente</TableHead>
                   <TableHead className="w-[180px]" />
                 </TableRow>
               </TableHeader>
@@ -383,6 +416,10 @@ export function AvailableAccountsTable({
                 {visible.map((a) => {
                   const def = channelDef(a.channel);
                   const Icon = def.icon;
+                  const client =
+                    clientByExternalId?.get(a.externalId) ??
+                    (a.pageId ? clientByExternalId?.get(a.pageId) : undefined) ??
+                    null;
                   return (
                     <TableRow key={`${a.channel}:${a.externalId}`}>
                       <TableCell className="py-2.5">
@@ -421,11 +458,19 @@ export function AvailableAccountsTable({
                       </TableCell>
                       <TableCell className="py-2.5">
                         <AuthBadge ready={isReady(a)} />
-                        {!isReady(a) && a.statusReason ? (
+                        {!isReady(a) ? (
                           <p className="mt-1 max-w-[220px] text-[11px] text-muted-foreground">
-                            {a.statusReason}
+                            Autorização ativa — este ativo não está disponível no momento.
+                            {a.statusReason ? ` ${a.statusReason}` : ""}
                           </p>
                         ) : null}
+                      </TableCell>
+                      <TableCell className="py-2.5 text-xs">
+                        {client ? (
+                          <span className="truncate">{client}</span>
+                        ) : (
+                          <span className="text-muted-foreground">Sem cliente vinculado</span>
+                        )}
                       </TableCell>
                       <TableCell className="py-2.5 text-right">
                         {canManage ? (
@@ -436,7 +481,7 @@ export function AvailableAccountsTable({
                             onClick={() => onLink(a)}
                           >
                             <Link2 className="h-3.5 w-3.5" />
-                            Conectar e vincular
+                            {client ? "Gerenciar" : isReady(a) ? "Vincular" : "Reconectar"}
                           </Button>
                         ) : null}
                       </TableCell>
