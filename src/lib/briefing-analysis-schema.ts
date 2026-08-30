@@ -87,15 +87,6 @@ export function normalizeBriefingAnalysis(value: unknown): BriefingAnalysis | nu
     typeof confidence === "number" && Number.isFinite(confidence)
       ? Math.max(0, Math.min(1, confidence))
       : null;
-  const roles = new Set([
-    "cliente",
-    "gestor",
-    "usuario",
-    "fornecedor",
-    "especialista",
-    "interno",
-    "indefinido",
-  ]);
   const briefing = { ...EMPTY_BRIEFING, ...parsed.data.briefing };
   for (const [key, field] of Object.entries(briefing)) {
     if (key === "hashtags") {
@@ -122,9 +113,9 @@ export function normalizeBriefingAnalysis(value: unknown): BriefingAnalysis | nu
       })),
     speakers: (parsed.data.speakers ?? []).slice(0, 20).map((item) => ({
       name: clip(item.name, 160),
-      role: item.role && roles.has(item.role) ? item.role : "indefinido",
+      role: clip(item.role, 80),
       evidence: clip(item.evidence, 300),
-      needs_review: item.needs_review ?? !(item.role && roles.has(item.role)),
+      needs_review: item.needs_review ?? null,
     })),
     confidence: clampConfidence(parsed.data.confidence),
   });

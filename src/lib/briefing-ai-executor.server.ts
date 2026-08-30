@@ -1,4 +1,4 @@
-import { generateText, NoObjectGeneratedError, NoOutputGeneratedError, Output } from "ai";
+import { generateText, NoObjectGeneratedError, NoOutputGeneratedError, Output, tool } from "ai";
 import type { ModelMessage } from "ai";
 import { classifyAiError, unwrapAiError } from "./ai-failures.server";
 import {
@@ -39,16 +39,38 @@ export async function generateBriefingAnalysis(input: {
     const candidate = candidates[index];
     if (!candidate) continue;
     try {
-      const { output } = await generateText({
-        model: candidate.model,
-        system: input.system,
-        maxOutputTokens: BRIEFING_MAX_OUTPUT_TOKENS,
-        providerOptions: briefingProviderOptions(candidate.provider),
-        output: Output.object({ schema: BriefingAnalysisSchema }),
-        messages: input.messages,
-      });
+      let rawAnalysis: unknown;
+      if (candidate.provider === "gemini") {
+        const result = await generateText({
+          model: candidate.model,
+          system: input.system,
+          maxOutputTokens: BRIEFING_MAX_OUTPUT_TOKENS,
+          tools: {
+            extract_client_fields: tool({
+              description: "Entrega a análise estruturada do briefing para revisão humana.",
+              inputSchema: BriefingAnalysisSchema,
+            }),
+          },
+          toolChoice: { type: "tool", toolName: "extract_client_fields" },
+          messages: input.messages,
+        });
+        rawAnalysis = result.toolCalls.find(
+          (call) => call.toolName === "extract_client_fields",
+        )?.input;
+        if (!rawAnalysis) throw new Error("ai_no_structured_output: Gemini não chamou a ferramenta");
+      } else {
+        const result = await generateText({
+          model: candidate.model,
+          system: input.system,
+          maxOutputTokens: BRIEFING_MAX_OUTPUT_TOKENS,
+          providerOptions: briefingProviderOptions(candidate.provider),
+          output: Output.object({ schema: BriefingAnalysisSchema }),
+          messages: input.messages,
+        });
+        rawAnalysis = result.output;
+      }
       attempts.push(...candidate.providerAttempts);
-      const analysis = normalizeBriefingAnalysis(output);
+      const analysis = normalizeBriefingAnalysis(rawAnalysis);
       if (!analysis) throw new Error("ai_invalid_output: briefing analysis did not validate");
       return { analysis, provider: candidate.provider, model: candidate.modelId, attempts };
     } catch (error) {
