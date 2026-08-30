@@ -3,6 +3,8 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { runMetaDiscovery, toDiscoveredAccounts, type DiscoveredAccount } from "./discovery.server";
 import { readPagesPayload } from "./portfolio-shared";
+import { readSessionBusinesses } from "./authorization-state";
+
 
 /**
  * Descoberta Meta para a Central de Canais.
