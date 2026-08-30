@@ -1277,7 +1277,35 @@ export type PlanBoard = {
     archived: number;
   };
   projects: Array<{ id: string; name: string; status: string }>;
+  /** Autoridade do usuário atual para excluir pautas definitivamente. */
+  canDelete: boolean;
 };
+
+/**
+ * Exclusão definitiva da pauta. Só Owner/Admin/Super Admin; recusada quando a
+ * pauta já gerou peças de conteúdo (nesse caso o caminho correto é arquivar).
+ */
+export const deleteMonthlyPlanFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        planId: z.string().uuid(),
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }): Promise<{ ok: true }> => {
+    const { deletePlanHard } = await import("@/lib/monthly-plan-delete.server");
+    return deletePlanHard(context.supabase as unknown as SupabaseClient, {
+      planId: data.planId,
+      brandId: data.brandId,
+      clientId: data.clientId,
+      userId: context.userId,
+    });
+  });
+
 
 /** Listagem da dashboard de pautas, escopada em brand + cliente. */
 export const listPlanBoardFn = createServerFn({ method: "POST" })
