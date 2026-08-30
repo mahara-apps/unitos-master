@@ -549,13 +549,20 @@ function CustomersIndexPage() {
                             <PowerOff className="mr-2 h-3.5 w-3.5" />
                             {active ? "Desativar" : "Ativar"}
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onSelect={() => setToDelete(c)}
-                          >
-                            <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir
-                          </DropdownMenuItem>
+                          {accessRole === "admin" && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onSelect={() => {
+                                  setDeleteConfirmName("");
+                                  setToDelete(c);
+                                }}
+                              >
+                                <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
