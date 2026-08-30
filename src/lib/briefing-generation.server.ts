@@ -1,7 +1,9 @@
+import type { SharedV4ProviderOptions } from "@ai-sdk/provider";
+
 /** Limites e opções provider-aware da análise de briefing. */
 export const BRIEFING_MAX_OUTPUT_TOKENS = 8_192;
 
-export function briefingProviderOptions(provider: string): Record<string, Record<string, unknown>> {
+export function briefingProviderOptions(provider: string): SharedV4ProviderOptions {
   if (provider === "groq") {
     return {
       groq: {
