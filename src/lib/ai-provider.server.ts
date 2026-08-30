@@ -46,6 +46,13 @@ export type BrandAiModel = {
   providerAttempts: ProviderAttempt[];
 };
 
+export type BrandAiCandidate = {
+  provider: ProviderName;
+  modelId: string;
+  model: LanguageModel;
+  providerAttempts: ProviderAttempt[];
+};
+
 /** Resumo curto (sem segredos) para gravar em ai_jobs. */
 export function describeProviderAttempts(attempts: ProviderAttempt[]): string {
   return attempts
@@ -521,6 +528,57 @@ export async function getBrandAiModel(
   };
 }
 
+/**
+ * Resolve os modelos configurados em ordem, sem fallback dentro do wrapper.
+ * Chamadas com contratos específicos por provider (como briefing estruturado)
+ * usam esta lista para reconstruir as opções a cada tentativa.
+ */
+export async function getBrandAiCandidates(
+  supabase: SupabaseClient,
+  brandId: string,
+  role: ProviderRole = "operational",
+  usage?: AiUsageContext,
+): Promise<BrandAiCandidate[]> {
+  const primary = await getBrandProviderKey(supabase, brandId, "text");
+  const primaryModelId = await resolveModel(primary.provider, role);
+  if (!primaryModelId) {
+    throw new Error(
+      `ai_model_unavailable:${primary.provider}:${role}: o provedor não oferece modelo para esta função.`,
+    );
+  }
+
+  await assertBudget(supabase, brandId, usage);
+  const credentials: BrandProviderKey[] = [primary];
+  const fallback = await getBrandFallbackProviderKey(supabase, brandId, primary.provider);
+  if (fallback) credentials.push(fallback);
+
+  const candidates: BrandAiCandidate[] = [];
+  for (const credential of credentials) {
+    const modelId =
+      credential.provider === primary.provider
+        ? primaryModelId
+        : await resolveModel(credential.provider, role);
+    if (!modelId) continue;
+    const providerAttempts: ProviderAttempt[] = [];
+    const base = instantiateModel(credential.provider, credential.apiKey, modelId) as ModelV2;
+    candidates.push({
+      provider: credential.provider,
+      modelId,
+      providerAttempts,
+      model: withModelInstrumentation(base, {
+        provider: credential.provider,
+        role,
+        apiKey: credential.apiKey,
+        brandId,
+        fallback: null,
+        attempts: providerAttempts,
+        ...(usage ? { usage } : {}),
+      }),
+    });
+  }
+  return candidates;
+}
+
 /* ------------------------------------------------------------------ */
 /* Embeddings (1536 dims — matches the brain_embeddings vector column) */
 /* ------------------------------------------------------------------ */
@@ -705,6 +763,16 @@ export async function getBrandAiModelAdmin(
 ): Promise<BrandAiModel> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return getBrandAiModel(supabaseAdmin, brandId, kind, role, usage);
+}
+
+/** Candidatos BYOK isolados para chamadas provider-aware em background. */
+export async function getBrandAiCandidatesAdmin(
+  brandId: string,
+  role: ProviderRole = "operational",
+  usage?: AiUsageContext,
+): Promise<BrandAiCandidate[]> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return getBrandAiCandidates(supabaseAdmin, brandId, role, usage);
 }
 
 /** Embedding com a chave da marca usando o client admin. */

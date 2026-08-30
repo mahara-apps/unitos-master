@@ -1,21 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { guardClientScope } from "@/lib/http-scope.server";
 import { createClient } from "@supabase/supabase-js";
-import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
-import { describeProviderAttempts, getBrandAiModelAdmin } from "@/lib/ai-provider.server";
-import {
-  BriefingAnalysisSchema,
-  effectiveProviderAttempt,
-  normalizeBriefingAnalysis,
-  type BriefingAnalysis,
-} from "@/lib/briefing-analysis-schema";
-import {
-  BRIEFING_MAX_OUTPUT_TOKENS,
-  BRIEFING_OUTPUT_INSTRUCTIONS,
-  BRIEFING_PROVIDER_OPTIONS,
-} from "@/lib/briefing-generation.server";
+import { describeProviderAttempts } from "@/lib/ai-provider.server";
+import type { BriefingAnalysis } from "@/lib/briefing-analysis-schema";
+import { BRIEFING_OUTPUT_INSTRUCTIONS } from "@/lib/briefing-generation.server";
 import { waitUntil } from "@/lib/wait-until.server";
 import type { ProviderAttempt } from "@/lib/ai-provider.server";
 
@@ -149,20 +139,6 @@ async function runAnalysis(params: {
     });
 
     await setRunStep(supabase as never, runScope, "interpret", "running");
-    const resolved = await getBrandAiModelAdmin(
-      input.brandId,
-      "text",
-      "operational",
-      {
-        agent: "document.analyze",
-        clientId: input.clientId ?? null,
-      },
-    );
-    const { model, modelId, provider } = resolved;
-    providerAttempts = resolved.providerAttempts;
-    // Modelo/provedor REAIS da execução (antes ficava hardcoded).
-    await setRunModel(supabase as never, runId, { model: modelId, provider });
-
     const isTranscript = input.sourceKind === "transcript";
     const system = `Você é um analista sênior de marca. Interprete o material e devolva um JSON estrito em pt-BR, mapeando cada informação para os campos de briefing. Preencha TODAS as propriedades do schema: use null para texto/confiança ausente e [] para evidence/speakers sem itens. Nunca invente dados. Todos os textos devem ser objetivos e prontos para uso no briefing (sem introduções como "o documento diz").${
       isTranscript
@@ -193,37 +169,16 @@ async function runAnalysis(params: {
       });
     }
 
-    let summary: DocumentAiSummary;
-    try {
-      const { output } = await generateText({
-        model,
-        system,
-        maxOutputTokens: BRIEFING_MAX_OUTPUT_TOKENS,
-        providerOptions: BRIEFING_PROVIDER_OPTIONS,
-        output: Output.object({ schema: BriefingAnalysisSchema }),
-        messages: [{ role: "user", content }],
-      });
-      summary = normalizeBriefingAnalysis(output) ?? output;
-    } catch (err) {
-      // Recupera geração descartada por validação de schema do provider.
-      const { salvageStructuredOutput } = await import("@/lib/ai-output-salvage");
-      const salvaged = salvageStructuredOutput(
-        err,
-        BriefingAnalysisSchema,
-        normalizeBriefingAnalysis,
-      );
-      if (salvaged) {
-        summary = salvaged;
-      } else if (NoObjectGeneratedError.isInstance(err)) {
-        throw new Error(
-          "A IA não conseguiu estruturar o documento. Tente novamente ou envie um arquivo mais legível.",
-        );
-      } else {
-        throw err;
-      }
-    }
-
-    const effective = effectiveProviderAttempt(providerAttempts, { provider, model: modelId });
+    const { generateBriefingAnalysis } = await import("@/lib/briefing-ai-executor.server");
+    const generated = await generateBriefingAnalysis({
+      brandId: input.brandId,
+      usage: { agent: "document.analyze", clientId: input.clientId ?? null },
+      system,
+      messages: [{ role: "user", content }],
+    });
+    const summary: DocumentAiSummary = generated.analysis;
+    providerAttempts = generated.attempts;
+    const effective = { provider: generated.provider, model: generated.model };
     await setRunModel(supabase as never, runId, effective);
 
     await setRunStep(supabase as never, runScope, "interpret", "done", {
