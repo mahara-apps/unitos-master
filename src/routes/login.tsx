@@ -7,6 +7,10 @@ import { supabase } from "@/integrations/supabase/client";
 
 
 export const Route = createFileRoute("/login")({
+  // Esta rota é inteiramente pública e não depende de dados do servidor.
+  // Renderizá-la no cliente evita que redirects vindos de layouts `ssr:false`
+  // tentem hidratar HTML produzido para um estado de rota diferente.
+  ssr: false,
   validateSearch: (search: Record<string, unknown>): { next?: string } => ({
     next: typeof search.next === "string" ? search.next : undefined,
   }),
