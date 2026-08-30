@@ -6,14 +6,14 @@ import { format, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { DateRange } from "react-day-picker";
 import {
-  endOfMonth,
-  endOfYear,
-  startOfMonth,
-  startOfYear,
-  subDays,
-  subMonths,
-  subYears,
-} from "date-fns";
+  addDaysInTz as shiftDays,
+  addMonthsInTz,
+  addYearsInTz,
+  endOfMonthInTz,
+  endOfYearInTz,
+  startOfMonthInTz,
+  startOfYearInTz,
+} from "@/lib/timezone";
 
 import { cn } from "@/lib/utils";
 import { endOfDay, inclusiveDayCount, lastNDays, startOfDay } from "@/lib/date-range";
@@ -45,7 +45,7 @@ export const DEFAULT_PRESETS: DateRangePreset[] = [
   {
     key: "yesterday",
     label: "Ontem",
-    build: (t) => closed(subDays(t, 1), subDays(t, 1)),
+    build: (t) => closed(shiftDays(t, -1), shiftDays(t, -1)),
   },
   { key: "7d", label: "Últimos 7 dias", build: (t) => lastNDays(7, t) },
   { key: "30d", label: "Últimos 30 dias", build: (t) => lastNDays(30, t) },
@@ -53,22 +53,22 @@ export const DEFAULT_PRESETS: DateRangePreset[] = [
   {
     key: "mtd",
     label: "Este mês",
-    build: (t) => closed(startOfMonth(t), t),
+    build: (t) => closed(startOfMonthInTz(t), t),
   },
   {
     key: "last-month",
     label: "Mês passado",
-    build: (t) => closed(startOfMonth(subMonths(t, 1)), endOfMonth(subMonths(t, 1))),
+    build: (t) => closed(startOfMonthInTz(addMonthsInTz(t, -1)), endOfMonthInTz(addMonthsInTz(t, -1))),
   },
   {
     key: "ytd",
     label: "Este ano",
-    build: (t) => closed(startOfYear(t), t),
+    build: (t) => closed(startOfYearInTz(t), t),
   },
   {
     key: "last-year",
     label: "Ano passado",
-    build: (t) => closed(startOfYear(subYears(t, 1)), endOfYear(subYears(t, 1))),
+    build: (t) => closed(startOfYearInTz(addYearsInTz(t, -1)), endOfYearInTz(addYearsInTz(t, -1))),
   },
 ];
 

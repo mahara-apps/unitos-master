@@ -1,10 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { PLAN_CHANNELS, type PlanChannel } from "@/lib/monthly-plan-fields";
+import { currentMonthStartISO } from "@/lib/timezone";
 
-/** Primeiro dia do mês corrente (UTC) em formato date (YYYY-MM-DD). */
+/**
+ * Primeiro dia do mês corrente no fuso oficial de Brasília (YYYY-MM-DD).
+ * Em UTC, a virada de mês acontecia 3h antes do horário de Brasília.
+ */
 export function currentPeriodMonth(now: Date = new Date()): string {
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  return d.toISOString().slice(0, 10);
+  return currentMonthStartISO(now);
 }
 
 export type OverageMap = Record<PlanChannel, number>;

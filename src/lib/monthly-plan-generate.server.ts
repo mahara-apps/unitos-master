@@ -1,3 +1,4 @@
+import { errorToMessage } from "@/lib/error-message";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { brain, type BrainContext } from "@/lib/brain/api";
@@ -552,6 +553,8 @@ export async function runPlanGeneration(args: {
   // engolido pelo `String(err)` do chamador e virava "[object Object]".
   const failPersistence = async (where: string, err: unknown): Promise<never> => {
     const message = errorToMessage(err) || "erro desconhecido";
+    // Também nos logs do servidor: o diagnóstico não pode depender só do job.
+    console.error(`[monthly-plan] persistência falhou em ${where}: ${message}`);
     await logPlanEvent(supabase, scope, {
       step: "conclusao",
       ok: false,

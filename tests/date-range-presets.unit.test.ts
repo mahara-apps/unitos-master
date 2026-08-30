@@ -7,6 +7,13 @@ import {
 } from "@/components/ui/date-range-picker";
 import { inclusiveDayCount, lastNDays, resolveInclusiveRange } from "@/lib/date-range";
 import { normalizedRangeIso } from "@/lib/range-key";
+import { zonedParts, zonedTimeToUtc } from "@/lib/timezone";
+
+/** Data/hora de PAREDE em Brasília (fuso oficial), independente do host. */
+const sp = (y: number, m: number, d: number, h = 12, min = 0, s2 = 0, ms = 0) =>
+  zonedTimeToUtc(y, m, d, h, min, s2, ms);
+/** Componentes lidos no fuso oficial, não no fuso do host. */
+const part = (d: Date) => zonedParts(d);
 
 const preset = (key: string) => {
   const p = DEFAULT_PRESETS.find((x) => x.key === key);
@@ -16,7 +23,7 @@ const preset = (key: string) => {
 
 // Dia com horário "quebrado" no meio da tarde: expõe erros de horário
 // inicial/final e de contagem exclusiva.
-const TODAY = new Date(2026, 7, 28, 14, 37, 12, 456); // 28/08/2026 local
+const TODAY = sp(2026, 8, 28, 14, 37, 12, 456); // 28/08/2026 em Brasília
 
 /** Dias efetivamente consultados = os que o servidor recebe no payload. */
 function queriedDays(range: { from?: Date; to?: Date }) {
@@ -50,39 +57,41 @@ describe("filtros de período — preset gera exatamente o intervalo corresponde
 
     it(`${c.label}: intervalo é fechado nos limites do dia`, () => {
       const r = preset(c.key).build(TODAY);
-      expect([r.from!.getHours(), r.from!.getMinutes(), r.from!.getSeconds()]).toEqual([0, 0, 0]);
-      expect([r.to!.getHours(), r.to!.getMinutes(), r.to!.getSeconds()]).toEqual([23, 59, 59]);
+      const f = part(r.from!);
+      const t = part(r.to!);
+      expect([f.hour, f.minute, f.second]).toEqual([0, 0, 0]);
+      expect([t.hour, t.minute, t.second]).toEqual([23, 59, 59]);
       expect(r.from!.getTime()).toBeLessThanOrEqual(r.to!.getTime());
     });
   }
 
   it("“Últimos 30 dias” termina hoje e começa 29 dias antes (30 dias inclusivos)", () => {
     const r = preset("30d").build(TODAY);
-    expect(r.to!.getDate()).toBe(28);
-    expect(r.from!.getDate()).toBe(30); // 30/07/2026
-    expect(r.from!.getMonth()).toBe(6);
+    expect(part(r.to!).day).toBe(28);
+    expect(part(r.from!).day).toBe(30); // 30/07/2026
+    expect(part(r.from!).month).toBe(7);
   });
 
   it("“Ontem” consulta apenas o dia anterior", () => {
     const r = preset("yesterday").build(TODAY);
-    expect(r.from!.getDate()).toBe(27);
-    expect(r.to!.getDate()).toBe(27);
+    expect(part(r.from!).day).toBe(27);
+    expect(part(r.to!).day).toBe(27);
     expect(dateRangeToDays(r)).toBe(1);
   });
 });
 
 describe("contagem inclusiva é imune a horário e fuso", () => {
   it("horas diferentes no mesmo par de dias não mudam a contagem", () => {
-    const a = inclusiveDayCount(new Date(2026, 7, 1, 0, 0), new Date(2026, 7, 30, 23, 59));
-    const b = inclusiveDayCount(new Date(2026, 7, 1, 23, 59), new Date(2026, 7, 30, 0, 1));
+    const a = inclusiveDayCount(sp(2026, 8, 1, 0, 0), sp(2026, 8, 30, 23, 59));
+    const b = inclusiveDayCount(sp(2026, 8, 1, 23, 59), sp(2026, 8, 30, 0, 1));
     expect(a).toBe(30);
     expect(b).toBe(30);
   });
 
   it("atravessar horário de verão não gera 29 nem 31 dias", () => {
     // Brasil/EUA: qualquer transição dentro do intervalo permanece 30 dias.
-    expect(inclusiveDayCount(new Date(2026, 1, 15), new Date(2026, 2, 16))).toBe(30);
-    expect(inclusiveDayCount(new Date(2026, 9, 20), new Date(2026, 10, 18))).toBe(30);
+    expect(inclusiveDayCount(sp(2026, 2, 15), sp(2026, 3, 16))).toBe(30);
+    expect(inclusiveDayCount(sp(2026, 10, 20), sp(2026, 11, 18))).toBe(30);
   });
 
   it("mesmo dia é 1 dia (nunca 0)", () => {
@@ -104,8 +113,8 @@ describe("servidor usa a mesma fonte de verdade", () => {
 
   it("intervalo invertido é corrigido em vez de gerar contagem negativa", () => {
     const r = resolveInclusiveRange({
-      from: new Date(2026, 7, 28).toISOString(),
-      to: new Date(2026, 7, 1).toISOString(),
+      from: sp(2026, 8, 28).toISOString(),
+      to: sp(2026, 8, 1).toISOString(),
     });
     expect(r.days).toBeGreaterThanOrEqual(1);
     expect(r.fromMs).toBeLessThanOrEqual(r.toMs);

@@ -23,7 +23,7 @@ import {
   normalizeCohorts,
   describePayloadKeys,
 } from "@/lib/ai-payload-coerce";
-import { withPtBr } from "@/lib/ai-language";
+import { withPtBr, assertPtBrPayload } from "@/lib/ai-language";
 
 
 // Two-phase pipeline — Phase 1 (Strategy).
@@ -646,6 +646,9 @@ function assertValidOutput(step: Step, payload: unknown): void {
   const fail = (why: string): never => {
     throw new Error(`ai_invalid_output: ${why}`);
   };
+  // Idioma faz parte do contrato: saída predominantemente em inglês é output
+  // inválido e o runJson retenta (nada em inglês chega a ser persistido).
+  assertPtBrPayload(payload, step);
   if (step === "briefing") {
     const b = payload as z.infer<typeof BriefingSchema>;
     const hasAny =

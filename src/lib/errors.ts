@@ -90,6 +90,12 @@ export function describeError(err: unknown): string {
     return "O provedor configurado não oferece um modelo para esta função. Ajuste o provedor em Conexões.";
   }
 
+  // Falha ao gravar a pauta: mostra o motivo real, não "erro inesperado".
+  if (lower.includes("plan_persistence_failed")) {
+    const detail = raw.split(/plan_persistence_failed:[^:]*:\s*/)[1]?.trim();
+    return `Não foi possível salvar a pauta gerada${detail ? `: ${detail}` : "."}`;
+  }
+
   // Erros comuns do PostgREST / Supabase
   if (lower.includes("row-level security") || lower.includes("permission denied")) {
     return "Você não tem permissão para executar esta ação.";

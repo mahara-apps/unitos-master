@@ -133,6 +133,28 @@ function pickString(o: Record<string, unknown>, keys: string[]): string {
   return "";
 }
 
+/** Primeiro item textual de uma das chaves em formato de lista. */
+function firstOfList(o: Record<string, unknown>, keys: string[]): string {
+  for (const k of keys) {
+    const v = o[k];
+    if (Array.isArray(v)) {
+      for (const item of v) {
+        if (typeof item === "string" && item.trim()) return item;
+        if (item && typeof item === "object") {
+          const s = pickString(item as Record<string, unknown>, [
+            "descricao",
+            "texto",
+            "objecao",
+            "value",
+          ]);
+          if (s) return s;
+        }
+      }
+    }
+  }
+  return "";
+}
+
 function normalizePersonas(data: unknown): NormalizedPersona[] {
   const parsed = extractRaw<unknown>(data);
   if (!parsed) return [];
@@ -188,12 +210,11 @@ function normalizePersonas(data: unknown): NormalizedPersona[] {
         "processo_decisao",
         "processo_decisorio",
       ]),
-      objecao_dominante: pickString(p, [
-        "objecao_dominante",
-        "objecao",
-        "main_objection",
-        "objecao_principal",
-      ]),
+      // A IA às vezes devolve as objeções como LISTA (`objecoes_comuns`);
+      // sem este fallback o card "Barreira principal" ficava vazio.
+      objecao_dominante:
+        pickString(p, ["objecao_dominante", "objecao", "main_objection", "objecao_principal"]) ||
+        firstOfList(p, ["objecoes_comuns", "objecoes", "objections", "common_objections"]),
       estilo_comunicacao: pickString(p, [
         "estilo_comunicacao",
         "communication_style",
@@ -891,7 +912,10 @@ function summarizeDiagnostic(personas: NormalizedPersona[]) {
   return {
     consciencia:
       first((p) => p.nivel_consciencia) || (personas.length ? "Consciência do problema" : ""),
-    barreira: first((p) => p.objecao_dominante) || first((p) => p.dor_principal),
+    barreira:
+      first((p) => p.objecao_dominante) ||
+      first((p) => p.dor_principal) ||
+      first((p) => p.dores[0] ?? ""),
     ciclo: first((p) => p.ciclo_compra) || (personas.length ? "Decisão considerada" : ""),
   };
 }
