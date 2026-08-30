@@ -12,6 +12,7 @@ import {
   type BriefingAnalysis,
 } from "@/lib/briefing-analysis-schema";
 import { waitUntil } from "@/lib/wait-until.server";
+import type { ProviderAttempt } from "@/lib/ai-provider.server";
 
 // Worker que lê um documento (PDF, imagem, DOC) do bucket `brand-documents`,
 // extrai o texto principal e sugere campos para o briefing do cliente.
@@ -50,6 +51,7 @@ async function runAnalysis(params: {
   const { token, input, runId } = params;
   const supabase = buildUserClient(token);
   const runScope = { id: runId, brand_id: input.brandId, client_id: input.clientId };
+  let providerAttempts: ProviderAttempt[] = [];
 
   const {
     claimImportRun,
@@ -142,7 +144,7 @@ async function runAnalysis(params: {
     });
 
     await setRunStep(supabase as never, runScope, "interpret", "running");
-    const { model, modelId, provider, providerAttempts } = await getBrandAiModelAdmin(
+    const resolved = await getBrandAiModelAdmin(
       input.brandId,
       "text",
       "operational",
@@ -151,6 +153,8 @@ async function runAnalysis(params: {
         clientId: input.clientId ?? null,
       },
     );
+    const { model, modelId, provider } = resolved;
+    providerAttempts = resolved.providerAttempts;
     // Modelo/provedor REAIS da execução (antes ficava hardcoded).
     await setRunModel(supabase as never, runId, { model: modelId, provider });
 
@@ -270,7 +274,9 @@ async function runAnalysis(params: {
       output: { material_type: summary.material_type },
     });
   } catch (err) {
-    const technical = err instanceof Error ? err.message : String(err);
+    const baseTechnical = err instanceof Error ? err.message : String(err);
+    const trace = describeProviderAttempts(providerAttempts);
+    const technical = trace ? `${baseTechnical}\nProvider attempts: ${trace}` : baseTechnical;
     // Erro técnico completo fica no log e no step da execução; o usuário vê
     // uma mensagem amigável.
     console.error("[analyze-document] failed:", technical, err);
@@ -306,8 +312,12 @@ export const Route = createFileRoute("/api/jobs/analyze-document")({
         }
 
         const supabase = buildUserClient(token);
-        const { data: claims } = await supabase.auth.getClaims(token);
-        const userId = claims?.claims?.sub;
+        const { data: claims } = await supabase.auth.getClaims(token).catch(() => ({ data: null }));
+        let userId = claims?.claims?.sub as string | undefined;
+        if (!userId) {
+          const { data: userData } = await supabase.auth.getUser(token);
+          userId = userData?.user?.id;
+        }
         if (!userId) return new Response("Unauthorized", { status: 401 });
 
         // Fase 2: escopo de cliente validado antes de baixar o documento.

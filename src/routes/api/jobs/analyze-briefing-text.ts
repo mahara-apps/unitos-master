@@ -12,6 +12,7 @@ import {
 } from "@/lib/briefing-analysis-schema";
 import { guardClientScope } from "@/lib/http-scope.server";
 import { waitUntil } from "@/lib/wait-until.server";
+import type { ProviderAttempt } from "@/lib/ai-provider.server";
 
 /**
  * Worker de importação a partir de TEXTO (colado, notas, e-mails, transcrição
@@ -51,6 +52,7 @@ async function runTextAnalysis(params: {
   const supabase = buildUserClient(token);
   const runScope = { id: runId, brand_id: input.brandId, client_id: input.clientId };
   const isTranscript = (input.sourceKind ?? "paste") === "transcript";
+  let providerAttempts: ProviderAttempt[] = [];
 
   const { claimImportRun, setRunStep, setRunModel, saveImportProposal, failImportRun, classifyChange } =
     await import("@/lib/briefing-import.server");
@@ -64,12 +66,14 @@ async function runTextAnalysis(params: {
     });
 
     await setRunStep(supabase as never, runScope, "interpret", "running");
-    const { model, modelId, provider, providerAttempts } = await getBrandAiModelAdmin(
+    const resolved = await getBrandAiModelAdmin(
       input.brandId,
       "text",
       "operational",
       { agent: "briefing.import.text", clientId: input.clientId ?? null },
     );
+    const { model, modelId, provider } = resolved;
+    providerAttempts = resolved.providerAttempts;
     await setRunModel(supabase as never, runId, { model: modelId, provider });
 
     const { loadCanonicalBriefing } = await import("@/lib/briefing-source.server");
@@ -171,7 +175,9 @@ async function runTextAnalysis(params: {
       output: { material_type: analysis.material_type },
     });
   } catch (err) {
-    const technical = err instanceof Error ? err.message : String(err);
+    const baseTechnical = err instanceof Error ? err.message : String(err);
+    const trace = describeProviderAttempts(providerAttempts);
+    const technical = trace ? `${baseTechnical}\nProvider attempts: ${trace}` : baseTechnical;
     console.error("[analyze-briefing-text] failed:", technical, err);
     const { friendlyAnalysisError } = await import("@/lib/briefing-import-ui");
     const friendly = friendlyAnalysisError(err) || "Não foi possível analisar este material.";
