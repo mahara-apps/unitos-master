@@ -209,7 +209,9 @@ function PautaDetail({ planId, onBack }: { planId: string; onBack: () => void })
       qc.invalidateQueries({ queryKey: ["portal", "plans", api.scopeKey] });
       qc.invalidateQueries({ queryKey: ["portal", "metrics", api.scopeKey] });
     },
-    onError: (e: Error) => toast.error(e.message || "Não foi possível registrar sua decisão."),
+    onError: (e: Error) =>
+      toast.error(DECISION_ERRORS[e.message] ?? "Não foi possível registrar sua decisão."),
+
   });
 
   const setDecision = (topicId: string, decision: Decision, comment = "") =>
