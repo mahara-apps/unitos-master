@@ -215,8 +215,11 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
               instagramBusinessId: p.instagramBusinessId ?? null,
               instagramUsername: p.instagramUsername ?? null,
               instagramPictureUrl: p.instagramPictureUrl ?? null,
+              businessId: p.businessId ?? null,
+              businessName: p.businessName ?? null,
               pageAccessToken: p.pageAccessToken,
             }));
+
             // A varredura é a fonte de verdade: contas que a Meta não devolve
             // mais para este token deixam de existir na descoberta (nada de
             // manter contas antigas como válidas). Tokens já capturados são
