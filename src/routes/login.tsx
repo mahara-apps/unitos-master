@@ -10,6 +10,11 @@ export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): { next?: string } => ({
     next: typeof search.next === "string" ? search.next : undefined,
   }),
+  // A navegação para /login pode ocorrer enquanto o chunk da rota ainda está
+  // sendo resolvido. Renderizar a própria tela como pending mantém a árvore
+  // inicial idêntica entre SSR e hidratação, em vez de alternar para o skeleton
+  // global do dashboard.
+  pendingComponent: LoginPage,
 
   head: () => ({
     meta: [
