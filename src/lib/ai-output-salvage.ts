@@ -7,7 +7,7 @@
  * mesmo que o conteúdo gerado esteja perfeito em `failed_generation`.
  * Este helper recupera esse conteúdo em vez de descartar a análise.
  */
-import { APICallError, NoObjectGeneratedError } from "ai";
+import { APICallError, NoObjectGeneratedError, NoOutputGeneratedError } from "ai";
 import type { z } from "zod";
 
 function extractJsonObject(text: string): unknown | null {
@@ -27,8 +27,9 @@ function candidateTexts(error: unknown, seen = new Set<unknown>()): string[] {
   const out: string[] = [];
   if (error == null || seen.has(error)) return out;
   seen.add(error);
-  if (NoObjectGeneratedError.isInstance(error)) {
-    if (typeof error.text === "string" && error.text) out.push(error.text);
+  if (NoObjectGeneratedError.isInstance(error) || NoOutputGeneratedError.isInstance(error)) {
+    const text = (error as { text?: unknown }).text;
+    if (typeof text === "string" && text) out.push(text);
     const cause = (error as { cause?: unknown }).cause;
     if (cause) out.push(...candidateTexts(cause, seen));
   }

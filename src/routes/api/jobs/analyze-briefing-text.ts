@@ -1,22 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
-import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
-import { describeProviderAttempts, getBrandAiModelAdmin } from "@/lib/ai-provider.server";
-import {
-  BriefingAnalysisSchema,
-  effectiveProviderAttempt,
-  normalizeBriefingAnalysis,
-  type BriefingAnalysis,
-} from "@/lib/briefing-analysis-schema";
+import { describeProviderAttempts } from "@/lib/ai-provider.server";
 import { guardClientScope } from "@/lib/http-scope.server";
 import { waitUntil } from "@/lib/wait-until.server";
 import type { ProviderAttempt } from "@/lib/ai-provider.server";
 import {
-  BRIEFING_MAX_OUTPUT_TOKENS,
   BRIEFING_OUTPUT_INSTRUCTIONS,
-  BRIEFING_PROVIDER_OPTIONS,
 } from "@/lib/briefing-generation.server";
 
 /**
@@ -71,16 +62,6 @@ async function runTextAnalysis(params: {
     });
 
     await setRunStep(supabase as never, runScope, "interpret", "running");
-    const resolved = await getBrandAiModelAdmin(
-      input.brandId,
-      "text",
-      "operational",
-      { agent: "briefing.import.text", clientId: input.clientId ?? null },
-    );
-    const { model, modelId, provider } = resolved;
-    providerAttempts = resolved.providerAttempts;
-    await setRunModel(supabase as never, runId, { model: modelId, provider });
-
     const { loadCanonicalBriefing } = await import("@/lib/briefing-source.server");
     const canonical = await loadCanonicalBriefing(supabase as never, {
       brandId: input.brandId,
@@ -109,37 +90,16 @@ ${BRIEFING_OUTPUT_INSTRUCTIONS}`,
       .filter(Boolean)
       .join("\n");
 
-    let analysis: BriefingAnalysis;
-    try {
-      const { output } = await generateText({
-        model,
-        system,
-        maxOutputTokens: BRIEFING_MAX_OUTPUT_TOKENS,
-        providerOptions: BRIEFING_PROVIDER_OPTIONS,
-        output: Output.object({ schema: BriefingAnalysisSchema }),
-        messages: [{ role: "user", content: [{ type: "text", text: userPrompt }] }],
-      });
-      analysis = normalizeBriefingAnalysis(output) ?? output;
-    } catch (err) {
-      // Alguns provedores descartam a geração por validação de schema mesmo
-      // com conteúdo perfeito — tenta recuperar antes de falhar a execução.
-      const { salvageStructuredOutput } = await import("@/lib/ai-output-salvage");
-      const salvaged = salvageStructuredOutput(
-        err,
-        BriefingAnalysisSchema,
-        normalizeBriefingAnalysis,
-      );
-      if (salvaged) {
-        analysis = salvaged;
-      } else if (NoObjectGeneratedError.isInstance(err)) {
-        throw new Error(
-          "A IA não conseguiu estruturar o material. Revise o conteúdo enviado e tente novamente.",
-        );
-      } else {
-        throw err;
-      }
-    }
-    const effective = effectiveProviderAttempt(providerAttempts, { provider, model: modelId });
+    const { generateBriefingAnalysis } = await import("@/lib/briefing-ai-executor.server");
+    const generated = await generateBriefingAnalysis({
+      brandId: input.brandId,
+      usage: { agent: "briefing.import.text", clientId: input.clientId ?? null },
+      system,
+      messages: [{ role: "user", content: [{ type: "text", text: userPrompt }] }],
+    });
+    const analysis = generated.analysis;
+    providerAttempts = generated.attempts;
+    const effective = { provider: generated.provider, model: generated.model };
     await setRunModel(supabase as never, runId, effective);
     await setRunStep(supabase as never, runScope, "interpret", "done", {
       output: {
