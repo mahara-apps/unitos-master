@@ -10,7 +10,14 @@ import { amISuperAdmin } from "@/lib/feature-flags.functions";
  */
 export const Route = createFileRoute("/_authenticated/settings/branding")({
   beforeLoad: async () => {
-    const { isSuperAdmin } = await amISuperAdmin();
+    let isSuperAdmin = false;
+    if (typeof window !== "undefined") {
+      try {
+        ({ isSuperAdmin } = await amISuperAdmin());
+      } catch {
+        isSuperAdmin = false;
+      }
+    }
     throw redirect({ to: isSuperAdmin ? "/admin/identidade" : "/settings/identity" });
   },
 });

@@ -17,7 +17,15 @@ import { cn } from "@/lib/utils";
  */
 export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: async () => {
-    const { isSuperAdmin } = await amISuperAdmin();
+    // O token de sessão só é anexado no cliente; durante SSR/prerender a
+    // chamada protegida falharia com 401. O bloqueio real é no servidor.
+    if (typeof window === "undefined") return;
+    let isSuperAdmin = false;
+    try {
+      ({ isSuperAdmin } = await amISuperAdmin());
+    } catch {
+      return;
+    }
     if (!isSuperAdmin) throw redirect({ to: "/dashboard" });
   },
   component: AdminLayout,
