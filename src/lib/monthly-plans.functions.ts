@@ -1306,6 +1306,21 @@ export const deleteMonthlyPlanFn = createServerFn({ method: "POST" })
     });
   });
 
+/** Autoridade do usuário atual para excluir pautas do workspace. */
+export const canDeletePlansFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }): Promise<{ canDelete: boolean }> => {
+    const { isBrandAdmin } = await import("@/lib/monthly-plan-delete.server");
+    return {
+      canDelete: await isBrandAdmin(
+        context.supabase as unknown as SupabaseClient,
+        context.userId,
+        data.brandId,
+      ),
+    };
+  });
+
 
 /** Listagem da dashboard de pautas, escopada em brand + cliente. */
 export const listPlanBoardFn = createServerFn({ method: "POST" })
