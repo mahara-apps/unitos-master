@@ -595,6 +595,25 @@ function ApprovalView({
     onError: (e) => toast.error(`Falha ao descartar: ${describeError(e)}`),
   });
 
+  const canDeleteQ = useQuery({
+    queryKey: ["plan-can-delete", brandId],
+    queryFn: () => canDeleteAuthority({ data: { brandId } }),
+    staleTime: 5 * 60_000,
+  });
+  const hardDelete = useMutation({
+    mutationFn: () => deletePlan({ data: { planId, brandId, clientId } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["plan-board", brandId, clientId] });
+      qc.invalidateQueries({ queryKey: ["monthly-plans", "list", brandId, clientId] });
+      setDeleteOpen(false);
+      toast.success("Pauta excluída definitivamente.");
+      onDiscarded();
+    },
+    onError: (e) => toast.error(describePlanDeleteError(e)),
+  });
+
+
+
   if (q.isLoading || !q.data) {
     return (
       <PlanShell embedded={embedded} className="space-y-4">
