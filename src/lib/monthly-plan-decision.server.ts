@@ -148,18 +148,20 @@ export async function decidePlanAsClient(
 
   const { data: planRow } = await sb
     .from("monthly_plans")
-    .select("id, status, created_by, client_id, brand_id")
+    .select("id, title, status, created_by, client_id, brand_id")
     .eq("id", input.planId)
     .eq("client_id", input.clientId)
     .maybeSingle();
   if (!planRow) throw new Error("plan_not_found");
   const plan = planRow as unknown as {
     id: string;
+    title: string | null;
     status: string;
     created_by: string | null;
     client_id: string;
     brand_id: string;
   };
+
   if (plan.status !== PLAN_PENDING_CLIENT_STATUS) throw new Error("plan_not_pending");
 
   const { data: topicRows } = await sb
@@ -205,7 +207,7 @@ export async function decidePlanAsClient(
     for (const t of topics) perItem.set(t.id, { decision: mapped, comment: "" });
   }
 
-  await Promise.all(
+  const topicResults = await Promise.all(
     [...perItem.entries()].map(([topicId, v]) =>
       sb
         .from("monthly_plan_topics")
@@ -218,6 +220,17 @@ export async function decidePlanAsClient(
         .eq("monthly_plan_id", plan.id),
     ),
   );
+  // Falha silenciosa aqui deixaria a pauta em estado parcial: aborta explícito.
+  const topicErr = topicResults.find((r) => r.error)?.error;
+  if (topicErr) {
+    console.error("[plan-decision] falha ao gravar decisão dos temas", {
+      planId: plan.id,
+      code: topicErr.code,
+      message: topicErr.message,
+    });
+    throw new Error("decision_items_failed");
+  }
+
 
   const decisions = [...perItem.values()];
   const approvedIds = [...perItem.entries()]
@@ -245,7 +258,16 @@ export async function decidePlanAsClient(
     } as never)
     .eq("id", plan.id)
     .eq("status", PLAN_PENDING_CLIENT_STATUS);
-  if (upErr) throw new Error("decision_failed");
+  if (upErr) {
+    console.error("[plan-decision] falha ao registrar decisão da pauta", {
+      planId: plan.id,
+      status,
+      code: upErr.code,
+      message: upErr.message,
+    });
+    throw new Error("decision_failed");
+  }
+
 
   // Itens aprovados pelo cliente vão automaticamente para o Kanban.
   let cardsCreated = 0;
@@ -268,5 +290,32 @@ export async function decidePlanAsClient(
     }
   }
 
+  // Avisa a equipe (sino + /notifications). Best-effort.
+  try {
+    const { notifyPlanClientDecision } = await import("@/lib/monthly-plan-decision-notify.server");
+    const { data: clientRow } = await sb
+      .from("clients")
+      .select("name")
+      .eq("id", input.clientId)
+      .maybeSingle();
+    await notifyPlanClientDecision(sb, {
+      planId: plan.id,
+      planTitle: plan.title,
+      clientId: input.clientId,
+      clientName: (clientRow as { name?: string } | null)?.name ?? null,
+      brandId: input.brandId || plan.brand_id,
+      createdBy: plan.created_by,
+      status: status as "client_approved" | "changes_requested" | "client_rejected",
+      ...counts,
+      feedback,
+    });
+  } catch (err) {
+    console.error("[plan-decision] falha ao notificar equipe", {
+      planId: plan.id,
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   return { ok: true, status, ...counts, cardsCreated };
+
 }
