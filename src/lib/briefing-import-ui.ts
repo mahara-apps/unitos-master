@@ -358,7 +358,12 @@ export function confidenceLabel(confidence: number | null | undefined): string |
  * amigável. O erro técnico completo continua nos logs/steps da execução.
  */
 export function friendlyAnalysisError(error: unknown): string {
-  const raw = error instanceof Error ? error.message : String(error ?? "");
+  const root = error as { message?: unknown; responseBody?: unknown; cause?: unknown } | null;
+  const raw = [
+    error instanceof Error ? error.message : String(error ?? ""),
+    typeof root?.responseBody === "string" ? root.responseBody : "",
+    root?.cause instanceof Error ? root.cause.message : "",
+  ].join(" ");
   if (/ai_provider_not_configured|ai_provider_key_missing/i.test(raw)) {
     return "A IA ainda não está configurada para este workspace.";
   }
@@ -370,6 +375,9 @@ export function friendlyAnalysisError(error: unknown): string {
   }
   if (/ai_payload_invalid|inline_data|inlineData|Invalid value at|Starting an object/i.test(raw)) {
     return "Não foi possível preparar este arquivo para a IA. Tente outro formato (PDF, DOCX, XLSX, CSV, TXT ou imagem).";
+  }
+  if (/ai_output_truncated|max completion tokens|maximum context length|finish.?reason.{0,20}length/i.test(raw)) {
+    return "A análise ficou maior que o limite de resposta da IA. O material foi preservado; tente reprocessar após o ajuste ou envie um conteúdo menor.";
   }
   if (/json_validate_failed|jsonschema|does not validate|failed_generation|não conseguiu estruturar/i.test(raw)) {
     return "A IA leu o material, mas não conseguiu organizar a análise. Tente novamente em alguns instantes.";

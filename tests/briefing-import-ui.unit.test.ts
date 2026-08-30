@@ -173,6 +173,15 @@ describe("erros do fluxo", () => {
     expect(importErrorMessage(new Error("boom"))).toBe("boom");
     expect(importErrorMessage(null)).toBe("Falha na importação.");
   });
+
+  it("explica quando o provider corta a saída estruturada", () => {
+    const error = Object.assign(new Error("Failed to generate JSON"), {
+      responseBody: JSON.stringify({
+        error: { failed_generation: "max completion tokens reached before generating a valid document" },
+      }),
+    });
+    expect(importErrorMessage(error)).toContain("maior que o limite de resposta");
+  });
 });
 
 describe("entrada de material (texto + arquivos)", () => {

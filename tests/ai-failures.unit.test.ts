@@ -22,4 +22,20 @@ describe("classificação de falhas da IA", () => {
       retryable: true,
     });
   });
+
+  it("classifica limite de saída como terminal e não como indisponibilidade", () => {
+    expect(
+      classifyAiError({
+        statusCode: 400,
+        message: "failed_generation: max completion tokens reached before generating a valid document",
+      }),
+    ).toEqual({ kind: "output_truncated", retryable: false });
+  });
+
+  it("não troca provider quando a saída gerada é inválida", () => {
+    expect(classifyAiError(new Error("ai_invalid_output: empty JSON"))).toEqual({
+      kind: "invalid_output",
+      retryable: false,
+    });
+  });
 });

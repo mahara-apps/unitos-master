@@ -1,26 +1,26 @@
 import { z } from "zod";
 
 export const BriefingFieldsSchema = z.object({
-  description: z.string().nullable(),
-  mission: z.string().nullable(),
-  positioning: z.string().nullable(),
-  values: z.string().nullable(),
-  audience: z.string().nullable(),
-  pain_points: z.string().nullable(),
-  demographics: z.string().nullable(),
-  offer: z.string().nullable(),
-  differentials: z.string().nullable(),
-  objections: z.string().nullable(),
-  journey: z.string().nullable(),
-  desires: z.string().nullable(),
-  tone_text: z.string().nullable(),
-  hashtags: z.array(z.string()).nullable(),
-  goals: z.string().nullable(),
+  description: z.string().max(700).nullable(),
+  mission: z.string().max(700).nullable(),
+  positioning: z.string().max(700).nullable(),
+  values: z.string().max(700).nullable(),
+  audience: z.string().max(700).nullable(),
+  pain_points: z.string().max(700).nullable(),
+  demographics: z.string().max(700).nullable(),
+  offer: z.string().max(700).nullable(),
+  differentials: z.string().max(700).nullable(),
+  objections: z.string().max(700).nullable(),
+  journey: z.string().max(700).nullable(),
+  desires: z.string().max(700).nullable(),
+  tone_text: z.string().max(700).nullable(),
+  hashtags: z.array(z.string().max(80)).max(30).nullable(),
+  goals: z.string().max(700).nullable(),
 });
 
 export const BriefingEvidenceSchema = z.object({
   field: z.string(),
-  excerpt: z.string().nullable(),
+  excerpt: z.string().max(300).nullable(),
   conflict: z.boolean().nullable(),
   confidence: z.number().min(0).max(1).nullable(),
 });
@@ -38,7 +38,7 @@ export const BriefingSpeakerSchema = z.object({
       "indefinido",
     ])
     .nullable(),
-  evidence: z.string().nullable(),
+  evidence: z.string().max(300).nullable(),
   needs_review: z.boolean().nullable(),
 });
 
@@ -48,23 +48,44 @@ export const BriefingSpeakerSchema = z.object({
  * response_format portátil entre Gemini e providers OpenAI-compatible.
  */
 export const BriefingAnalysisSchema = z.object({
-  executive_summary: z.string().nullable(),
-  material_type: z.string().nullable(),
-  extracted_text: z.string().nullable(),
+  executive_summary: z.string().max(400).nullable(),
+  material_type: z.string().max(120).nullable(),
+  extracted_text: z.string().max(4_000).nullable(),
   briefing: BriefingFieldsSchema,
-  evidence: z.array(BriefingEvidenceSchema),
-  speakers: z.array(BriefingSpeakerSchema),
+  evidence: z.array(BriefingEvidenceSchema).max(20),
+  speakers: z.array(BriefingSpeakerSchema).max(20),
   confidence: z.number().min(0).max(1).nullable(),
 });
 
 export type BriefingAnalysis = z.infer<typeof BriefingAnalysisSchema>;
 
-const RecoverableBriefingAnalysisSchema = BriefingAnalysisSchema.partial({
-  extracted_text: true,
-  evidence: true,
-  speakers: true,
-  confidence: true,
+const RecoverableBriefingAnalysisSchema = z.object({
+  executive_summary: z.string().max(400).nullable(),
+  material_type: z.string().max(120).nullable(),
+  extracted_text: z.string().max(4_000).nullable().optional(),
+  briefing: BriefingFieldsSchema.partial(),
+  evidence: z.array(BriefingEvidenceSchema.partial()).max(20).optional(),
+  speakers: z.array(BriefingSpeakerSchema.partial()).max(20).optional(),
+  confidence: z.number().min(0).max(1).nullable().optional(),
 });
+
+const EMPTY_BRIEFING: z.infer<typeof BriefingFieldsSchema> = {
+  description: null,
+  mission: null,
+  positioning: null,
+  values: null,
+  audience: null,
+  pain_points: null,
+  demographics: null,
+  offer: null,
+  differentials: null,
+  objections: null,
+  journey: null,
+  desires: null,
+  tone_text: null,
+  hashtags: null,
+  goals: null,
+};
 
 /** Normaliza apenas metadados historicamente omitidos; campos centrais seguem obrigatórios. */
 export function normalizeBriefingAnalysis(value: unknown): BriefingAnalysis | null {
@@ -72,9 +93,22 @@ export function normalizeBriefingAnalysis(value: unknown): BriefingAnalysis | nu
   if (!parsed.success) return null;
   return BriefingAnalysisSchema.parse({
     ...parsed.data,
+    briefing: { ...EMPTY_BRIEFING, ...parsed.data.briefing },
     extracted_text: parsed.data.extracted_text ?? null,
-    evidence: parsed.data.evidence ?? [],
-    speakers: parsed.data.speakers ?? [],
+    evidence: (parsed.data.evidence ?? [])
+      .filter((item) => typeof item.field === "string" && item.field.length > 0)
+      .map((item) => ({
+        field: item.field as string,
+        excerpt: item.excerpt ?? null,
+        conflict: item.conflict ?? null,
+        confidence: item.confidence ?? null,
+      })),
+    speakers: (parsed.data.speakers ?? []).map((item) => ({
+      name: item.name ?? null,
+      role: item.role ?? null,
+      evidence: item.evidence ?? null,
+      needs_review: item.needs_review ?? null,
+    })),
     confidence: parsed.data.confidence ?? null,
   });
 }

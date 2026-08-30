@@ -13,6 +13,11 @@ import {
 import { guardClientScope } from "@/lib/http-scope.server";
 import { waitUntil } from "@/lib/wait-until.server";
 import type { ProviderAttempt } from "@/lib/ai-provider.server";
+import {
+  BRIEFING_MAX_OUTPUT_TOKENS,
+  BRIEFING_OUTPUT_INSTRUCTIONS,
+  BRIEFING_PROVIDER_OPTIONS,
+} from "@/lib/briefing-generation.server";
 
 /**
  * Worker de importação a partir de TEXTO (colado, notas, e-mails, transcrição
@@ -98,7 +103,8 @@ async function runTextAnalysis(params: {
 3) Preencha \`briefing\` com o que o material sustenta; compare com o briefing atual e proponha valores completos e finais para cada campo que precise mudar. Deixe null o que não tiver base.
 4) Em \`evidence\`, para cada campo proposto, informe o trecho literal de origem (excerpt), se contradiz o briefing atual (conflict) e a confiança do campo.
 5) \`confidence\` global de 0 a 1 ou null.
-6) \`extracted_text\` deve ser null neste fluxo. \`evidence\` e \`speakers\` devem ser arrays, mesmo quando vazios.`,
+6) \`extracted_text\` deve ser null neste fluxo. \`evidence\` e \`speakers\` devem ser arrays, mesmo quando vazios.
+${BRIEFING_OUTPUT_INSTRUCTIONS}`,
     ]
       .filter(Boolean)
       .join("\n");
@@ -108,6 +114,8 @@ async function runTextAnalysis(params: {
       const { output } = await generateText({
         model,
         system,
+        maxOutputTokens: BRIEFING_MAX_OUTPUT_TOKENS,
+        providerOptions: BRIEFING_PROVIDER_OPTIONS,
         output: Output.object({ schema: BriefingAnalysisSchema }),
         messages: [{ role: "user", content: [{ type: "text", text: userPrompt }] }],
       });
