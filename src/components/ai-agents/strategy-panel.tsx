@@ -912,7 +912,10 @@ function summarizeDiagnostic(personas: NormalizedPersona[]) {
   return {
     consciencia:
       first((p) => p.nivel_consciencia) || (personas.length ? "Consciência do problema" : ""),
-    barreira: first((p) => p.objecao_dominante) || first((p) => p.dor_principal),
+    barreira:
+      first((p) => p.objecao_dominante) ||
+      first((p) => p.dor_principal) ||
+      first((p) => p.dores[0] ?? ""),
     ciclo: first((p) => p.ciclo_compra) || (personas.length ? "Decisão considerada" : ""),
   };
 }
