@@ -407,9 +407,11 @@ export function AvailableAccountsTable({
                   <TableHead className="min-w-[220px] text-xs">Conta</TableHead>
                   <TableHead className="text-xs">Canal</TableHead>
                   <TableHead className="min-w-[180px] text-xs">ID Meta</TableHead>
-                  <TableHead className="text-xs">Autorização</TableHead>
+                  <TableHead className="text-xs">Status</TableHead>
+                  <TableHead className="min-w-[140px] text-xs">Cliente</TableHead>
                   <TableHead className="w-[180px]" />
                 </TableRow>
+              </TableHeader>
               </TableHeader>
               <TableBody>
                 {visible.map((a) => {
