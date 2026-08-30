@@ -1,52 +1,93 @@
-# Correção definitiva da Importação de Briefing via IA
+# Solução definitiva — Importação de Briefing por IA
 
-## Diagnóstico confirmado
+## O que aprendemos com o pipeline NEXUS
 
-A execução mais recente (`feba8a36-8493-4b21-bc96-ee8c6e3547d5`, iniciada em 30/08/2026 às 02:46 UTC) confirma o fluxo real:
+O NEXUS confirma que o arquivo não é o problema: a estabilidade vem de separar claramente ingestão, contrato do provider, normalização e aplicação.
 
-- a ingestão terminou corretamente e registrou 65.546 caracteres;
-- o Gemini primário (`gemini-flash-latest`) respondeu 503 por alta demanda;
-- o fallback Groq (`openai/gpt-oss-20b`) recebeu `reasoning_effort: "none"`;
-- esse modelo aceita somente `low`, `medium` ou `high`, portanto o Groq encerrou a chamada com HTTP 400 antes de analisar o conteúdo;
-- o erro técnico completo foi persistido no step `interpret`, mas a interface caiu na mensagem genérica “Não foi possível analisar este material”.
+Aplicaremos estes princípios:
 
-Há ainda uma segunda incompatibilidade confirmada no código: as rotas usam `generateText` com `Output.object`, cujo erro é `NoOutputGeneratedError`, mas atualmente verificam apenas `NoObjectGeneratedError`. Isso impede o tratamento e a recuperação corretos quando a saída estruturada falha.
+- cada provider recebe somente parâmetros e schema compatíveis com seu protocolo;
+- saída estruturada não depende de um único objeto de opções reutilizado entre providers;
+- schema enviado ao modelo é simples, sem `.min()`, `.max()`, `pattern`, `format` ou enums desnecessariamente rígidos;
+- limites ficam no prompt e são aplicados novamente em código após a resposta;
+- erros 4xx são terminais; apenas 429/5xx entram em retry/fallback limitado;
+- texto extraído preserva parágrafos e informa truncamento/qualidade;
+- valores ausentes nunca apagam dados existentes.
 
-As chamadas não aparecem nos logs do Lovable AI Gateway porque este fluxo usa diretamente os providers BYOK já configurados no workspace.
+Não copiaremos os pontos incompatíveis com o Unitos: não criaremos Edge Function, não usaremos service role para aplicar briefing, não faremos atualização automática e não removeremos import runs, histórico, RBAC/RLS ou seleção BYOK do workspace.
+
+## Diagnóstico confirmado no Unitos
+
+A execução real mais recente (`feba8a36-8493-4b21-bc96-ee8c6e3547d5`) concluiu a ingestão e falhou somente em `interpret`:
+
+1. Gemini `gemini-flash-latest` respondeu 503 por alta demanda.
+2. O wrapper interno trocou para Groq `openai/gpt-oss-20b` mantendo o mesmo `providerOptions` da chamada.
+3. O Groq recebeu `reasoning_effort: "none"`, embora GPT-OSS aceite apenas `low`, `medium` ou `high`, e respondeu HTTP 400.
+4. As rotas usam `generateText + Output.object`, mas tratam `NoObjectGeneratedError`; nessa combinação o AI SDK lança `NoOutputGeneratedError`, fazendo falhas estruturadas escaparem para a mensagem genérica.
+5. O schema atual ainda contém bounds (`.max()`, `.min()` e enum), aumentando a fragilidade entre dialetos de structured output.
+
+Portanto, a causa arquitetural é o fallback ocorrer dentro do modelo, depois que a chamada já foi montada para outro provider. Apenas trocar `none` por `low` corrigiria o erro atual, mas manteria aberta a mesma classe de falhas.
 
 ## Implementação
 
-### 1. Corrigir o contrato do fallback Groq
+### 1. Separar seleção de provider da execução estruturada
 
-- Substituir `reasoningEffort: "none"` por `reasoningEffort: "low"` exclusivamente para o Groq/GPT-OSS.
-- Manter o limite explícito de saída e structured output suportado pelo modelo.
-- Tornar a configuração dependente do provider/model efetivamente selecionado, evitando enviar opções de um modelo para outro.
-- Preservar a regra atual: fallback somente para 429/5xx/indisponibilidade; erros 400 permanecem terminais e nunca entram em loop.
+- Criar um executor específico de análise de briefing que receba os candidatos configurados do workspace em ordem: primário e, se habilitado, fallback.
+- Executar cada tentativa separadamente; o fallback não reutilizará a requisição já montada para o provider anterior.
+- Registrar em cada tentativa provider, modelo, resultado e causa, preservando o provider/model efetivamente bem-sucedido na import run.
+- Manter o wrapper genérico atual para outros recursos; a mudança fica restrita à importação de briefing.
 
-### 2. Tornar o schema portátil sem validação frágil
+### 2. Usar contrato específico por provider
 
-- Remover limites `.max()` do schema enviado ao provider; limites de tamanho permanecerão no prompt e serão aplicados por normalização/clamp após a resposta.
-- Manter todas as propriedades obrigatórias e nullable/arrays vazios para compatibilidade com JSON Schema estrito.
-- Preservar os campos de briefing, evidências, conflitos, confiança e participantes, sem inventar identidades.
+- **Gemini:** usar tool/function calling forçado pelo adapter Google, com schema normalizado para o dialeto aceito pelo Gemini e leitura dos argumentos da tool.
+- **Groq/GPT-OSS:** usar structured output estrito do adapter Groq, com `reasoningEffort: "low"`, `strictJsonSchema: true` e orçamento explícito de 8.192 tokens.
+- Nunca enviar opções Groq ao Gemini, nem opções Gemini ao Groq.
+- Não introduzir Lovable AI/Cloud AI nem trocar as chaves BYOK configuradas no workspace.
 
-### 3. Corrigir o tratamento de saída do AI SDK
+### 3. Simplificar e normalizar o schema
 
-- Tratar `NoOutputGeneratedError`, que é o erro correto de `generateText + Output.object`, nas duas rotas e no salvage.
-- Continuar aceitando `NoObjectGeneratedError` apenas como compatibilidade defensiva.
-- Recuperar JSON parcial válido quando disponível, normalizar campos omitidos e rejeitar conteúdo truncado ou sentinelas que não sejam JSON.
-- Mapear `reasoning_effort` inválido, ausência de saída e truncamento para mensagens específicas, mantendo o erro técnico completo apenas nos logs e steps.
+- Manter todos os campos top-level obrigatórios; ausência semântica será `null` ou array vazio.
+- Remover bounds do schema enviado aos providers e reduzir enums frágeis; regras de tamanho e papéis permitidos ficam no prompt e na normalização local.
+- Após a resposta, validar tipos, limitar textos/arrays em código, normalizar metadados omitidos e transformar papel desconhecido em `indefinido` com revisão necessária.
+- Não inventar participante, identidade, valor ou informação sem evidência.
 
-### 4. Preservar o fluxo de produto e segurança
+### 4. Corrigir parsing e erros do AI SDK
 
-- Não alterar upload, extração DOCX, PDF/imagens, planilhas, texto colado ou detecção de transcrição.
-- Manter import run, fingerprint, concorrência, histórico, proposta campo a campo, revisão obrigatória e aplicação idempotente.
-- Não alterar banco, migrations, RBAC, RLS, autenticação, tenants/workspaces, instalação ou arquitetura BYOK.
+- Tratar `NoOutputGeneratedError` nas duas rotas e no salvage; manter `NoObjectGeneratedError` somente como compatibilidade defensiva.
+- Recuperar JSON parcial apenas quando houver objeto completo e validável; rejeitar JSON truncado, prosa ou sentinelas.
+- Mapear separadamente: provider não configurado, indisponibilidade 503, rate limit 429, request inválido, schema incompatível, truncamento e ausência de saída.
+- Manter o erro técnico integral nos logs/steps, mas mostrar ao usuário mensagem objetiva e acionável.
+
+### 5. Consolidar ingestão sem alterar o fluxo funcional
+
+- DOCX continua por extração textual, preservando parágrafos; XLS/XLSX/CSV por abas/estrutura; TXT/MD/JSON/VTT/SRT como texto; PDF e imagens pelo caminho multimodal já existente.
+- Adicionar metadados de extração por arquivo: método, caracteres, qualidade e eventual truncamento.
+- Definir orçamento total previsível para material combinado; quando excedido, dividir em blocos com merge determinístico ou informar claramente o corte — nunca truncar silenciosamente.
+- Preservar detecção de transcrição, múltiplos arquivos e comparação com briefing atual.
+
+### 6. Preservar revisão, segurança e idempotência
+
+- A IA produz somente proposta; nada é aplicado automaticamente.
+- Campos `null`, vazios ou não selecionados nunca sobrescrevem dados existentes.
+- Manter fingerprint/reuso, claim de concorrência, retry explícito, histórico, revisão campo a campo e apply idempotente.
+- Não alterar banco, migrations, RBAC, RLS, autenticação, tenants/workspaces, instalação ou separação Instalação × Workspace.
 
 ## Validação obrigatória
 
-- Testar a configuração provider-aware: Gemini não recebe opções Groq e GPT-OSS recebe `reasoningEffort: "low"`.
-- Cobrir `NoOutputGeneratedError`, `NoObjectGeneratedError`, JSON recuperável, JSON truncado e HTTP 400 terminal.
-- Rodar os testes de extração com o DOCX real, import runs, schema, salvage e mensagens da UI.
-- Rodar typecheck, suíte completa e confirmar build de produção.
-- Usar a sessão já aberta no preview para acionar uma nova tentativa real e consultar a nova run até o estado terminal.
-- Considerar concluído somente quando a run atingir `proposed`, com `ingest` e `interpret` concluídos, provider/model efetivos registrados e a revisão campo a campo exibida; se o Gemini responder 503, comprovar que o fallback Groq conclui sem o erro de `reasoning_effort`.
+### Testes automatizados
+
+- Provider-aware: Gemini não recebe opções Groq; GPT-OSS recebe somente `reasoningEffort: "low"`.
+- Gemini 503 → fallback Groq com nova requisição compatível → proposta válida.
+- HTTP 400 não faz retry/fallback; 429/5xx respeitam backoff e limite de tentativas.
+- `NoOutputGeneratedError`, `NoObjectGeneratedError`, JSON recuperável, JSON truncado e ausência de saída.
+- Schema sem bounds no wire e normalização/clamp pós-resposta.
+- DOCX real da Use do Avesso, texto colado, transcrição, PDF, imagem, XLS/XLSX, CSV, TXT e múltiplos arquivos.
+- Briefing vazio, preenchido, informações novas, repetidas e contraditórias.
+- Idempotência da análise, clique concorrente, retry e aplicação manual idempotente.
+
+### Prova real de conclusão
+
+- Rodar typecheck, testes direcionados, suíte completa e build.
+- Acionar nova importação pelo preview e acompanhar a nova run até estado terminal.
+- Considerar resolvido somente quando a run chegar a `proposed`, com `ingest` e `interpret` concluídos, provider/model efetivos registrados e revisão campo a campo exibida.
+- Aplicar somente campos selecionados e confirmar que o histórico permanece íntegro.
