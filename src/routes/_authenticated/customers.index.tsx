@@ -153,6 +153,7 @@ function CustomersIndexPage() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editing, setEditing] = useState<ClientRow | null>(null);
   const [toDelete, setToDelete] = useState<ClientRow | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
 
   const clientsQ = useQuery({
     queryKey: ["clients", brandId],
@@ -548,13 +549,20 @@ function CustomersIndexPage() {
                             <PowerOff className="mr-2 h-3.5 w-3.5" />
                             {active ? "Desativar" : "Ativar"}
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onSelect={() => setToDelete(c)}
-                          >
-                            <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir
-                          </DropdownMenuItem>
+                          {accessRole === "admin" && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onSelect={() => {
+                                  setDeleteConfirmName("");
+                                  setToDelete(c);
+                                }}
+                              >
+                                <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -577,13 +585,43 @@ function CustomersIndexPage() {
         onSubmit={(patch) => editing && updateMut.mutate({ clientId: editing.id, patch })}
       />
 
-      <AlertDialog open={!!toDelete} onOpenChange={(v) => !v && setToDelete(null)}>
+      <AlertDialog
+        open={!!toDelete}
+        onOpenChange={(v) => {
+          if (!v) {
+            setToDelete(null);
+            setDeleteConfirmName("");
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir cliente?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir <strong>{toDelete?.name}</strong>? Esta ação não pode
-              ser desfeita.
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Você está prestes a excluir <strong>{toDelete?.name}</strong>.
+                </p>
+                <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive">
+                  Todos os dados deste cliente serão excluídos permanentemente: briefing, documentos
+                  e arquivos, pautas e planejamentos, posts, projetos, tarefas, conexões e
+                  histórico. <strong>Esta ação é irreversível e os dados não poderão ser
+                  recuperados.</strong>
+                </p>
+                <div className="space-y-1.5">
+                  <Label htmlFor="delete-client-confirm" className="text-xs">
+                    Para confirmar, digite o nome do cliente: <strong>{toDelete?.name}</strong>
+                  </Label>
+                  <Input
+                    id="delete-client-confirm"
+                    value={deleteConfirmName}
+                    onChange={(e) => setDeleteConfirmName(e.target.value)}
+                    placeholder={toDelete?.name ?? ""}
+                    autoComplete="off"
+                    disabled={deleteMut.isPending}
+                  />
+                </div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -591,13 +629,19 @@ function CustomersIndexPage() {
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
-                if (toDelete) deleteMut.mutate(toDelete.id);
+                if (toDelete && deleteConfirmName.trim() === toDelete.name.trim()) {
+                  deleteMut.mutate(toDelete.id);
+                }
               }}
-              disabled={deleteMut.isPending}
+              disabled={
+                deleteMut.isPending ||
+                !toDelete ||
+                deleteConfirmName.trim() !== toDelete.name.trim()
+              }
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleteMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Excluir
+              Excluir permanentemente
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
