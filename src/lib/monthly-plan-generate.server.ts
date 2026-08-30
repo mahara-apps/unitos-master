@@ -1,3 +1,4 @@
+import { errorToMessage } from "@/lib/error-message";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { brain, type BrainContext } from "@/lib/brain/api";
