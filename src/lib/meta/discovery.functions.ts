@@ -54,6 +54,9 @@ export const listDiscoveredMetaAccountsFn = createServerFn({ method: "POST" })
         "id, brand_id, meta_user_id, meta_user_name, user_token_ciphertext, user_token_expires_at, pages, portfolio_loaded_at",
       )
       .eq("brand_id", data.brandId)
+      // Autorização revogada (portfólio desconectado) nunca alimenta
+      // "Contas disponíveis" — nem pelo cache de `pages`.
+      .is("revoked_at", null)
       .order("created_at", { ascending: false })
       .limit(5);
     if (error) return { ...empty, error: error.message };
