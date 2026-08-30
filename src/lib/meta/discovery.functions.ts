@@ -59,7 +59,7 @@ export const listDiscoveredMetaAccountsFn = createServerFn({ method: "POST" })
     const { data: sessions, error } = await context.supabase
       .from("meta_oauth_sessions")
       .select(
-        "id, brand_id, meta_user_id, meta_user_name, user_token_ciphertext, user_token_expires_at, pages, portfolio_loaded_at",
+        "id, brand_id, meta_user_id, meta_user_name, user_token_ciphertext, user_token_expires_at, pages, businesses, portfolio_loaded_at",
       )
       .eq("brand_id", data.brandId)
       // Autorização revogada (portfólio desconectado) nunca alimenta
@@ -98,28 +98,41 @@ export const listDiscoveredMetaAccountsFn = createServerFn({ method: "POST" })
       discoveryError = outcome.error;
     }
 
+    // Disponível = descoberto AGORA e ainda não conectado. Uma conta revogada
+    // volta a ficar disponível (o usuário pode reconectá-la); uma conta ativa
+    // vive em "Canais conectados".
     const { data: saved } = await context.supabase
       .from("social_connections")
-      .select("external_id")
+      .select("external_id, status")
       .eq("brand_id", data.brandId)
       .eq("provider", "meta");
-    const savedIds = new Set(
-      ((saved ?? []) as Array<{ external_id: string }>).map((r) => r.external_id),
+    const connectedIds = new Set(
+      ((saved ?? []) as Array<{ external_id: string; status: string }>)
+        .filter((r) => r.status !== "revoked")
+        .map((r) => r.external_id),
     );
 
     const all = toDiscoveredAccounts(payload);
-    const accounts = all.filter((a) => !savedIds.has(a.externalId));
+    const accounts = all.filter((a) => !connectedIds.has(a.externalId));
+
+    const businesses =
+      payload.businesses && payload.businesses.length > 0
+        ? payload.businesses
+        : readSessionBusinesses(session.businesses);
 
     return {
       sessionId: session.id as string,
       metaUserName: (session.meta_user_name as string | null) ?? null,
+      metaUserId: (session.meta_user_id as string | null) ?? null,
       discoveredAt,
       needsAuthorization: false,
       accounts,
       alreadyLinked: all.length - accounts.length,
+      businesses,
       warnings: payload.warnings,
       error: discoveryError,
     };
+
   });
 
 const ReconcileInput = z.object({
