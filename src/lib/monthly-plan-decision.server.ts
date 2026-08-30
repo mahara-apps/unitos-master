@@ -205,7 +205,7 @@ export async function decidePlanAsClient(
     for (const t of topics) perItem.set(t.id, { decision: mapped, comment: "" });
   }
 
-  await Promise.all(
+  const topicResults = await Promise.all(
     [...perItem.entries()].map(([topicId, v]) =>
       sb
         .from("monthly_plan_topics")
@@ -218,6 +218,17 @@ export async function decidePlanAsClient(
         .eq("monthly_plan_id", plan.id),
     ),
   );
+  // Falha silenciosa aqui deixaria a pauta em estado parcial: aborta explícito.
+  const topicErr = topicResults.find((r) => r.error)?.error;
+  if (topicErr) {
+    console.error("[plan-decision] falha ao gravar decisão dos temas", {
+      planId: plan.id,
+      code: topicErr.code,
+      message: topicErr.message,
+    });
+    throw new Error("decision_items_failed");
+  }
+
 
   const decisions = [...perItem.values()];
   const approvedIds = [...perItem.entries()]
