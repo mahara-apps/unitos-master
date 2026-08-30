@@ -220,3 +220,63 @@ export const decidePlanOverageFn = createServerFn({ method: "POST" })
 
     return { ok: true as const };
   });
+
+/* ---------- Política de volumetria (bloquear × livre) ---------- */
+
+/**
+ * Política efetiva do cliente + override próprio. Padrão do workspace vem de
+ * `brands.overage_policy`; o cliente pode sobrescrever.
+ */
+export const getOveragePolicyFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ brandId: z.string().uuid(), clientId: z.string().uuid() }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const [{ data: brand }, { data: client }] = await Promise.all([
+      context.supabase.from("brands").select("overage_policy").eq("id", data.brandId).maybeSingle(),
+      context.supabase
+        .from("clients")
+        .select("overage_policy")
+        .eq("id", data.clientId)
+        .maybeSingle(),
+    ]);
+    const brandPolicy =
+      ((brand as { overage_policy?: string | null } | null)?.overage_policy as
+        | "block"
+        | "warn"
+        | null) ?? "block";
+    const clientPolicy =
+      ((client as { overage_policy?: string | null } | null)?.overage_policy as
+        | "block"
+        | "warn"
+        | null) ?? null;
+    return {
+      brandPolicy,
+      clientPolicy,
+      effective: clientPolicy ?? brandPolicy,
+    };
+  });
+
+/** Ativa/desativa volumetria livre para o cliente (ato administrativo). */
+export const setClientOveragePolicyFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+        policy: z.enum(["block", "warn"]).nullable(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    await assertBrandAdmin(context.supabase, context.userId, data.brandId);
+    const { error } = await context.supabase
+      .from("clients")
+      .update({ overage_policy: data.policy } as never)
+      .eq("id", data.clientId)
+      .eq("brand_id", data.brandId);
+    if (error) throw error;
+    return { ok: true as const, policy: data.policy };
+  });
