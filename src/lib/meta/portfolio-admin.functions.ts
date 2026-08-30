@@ -28,91 +28,46 @@ const DisconnectInput = z.object({
   ownerExternalId: z.string().max(120).nullable(),
 });
 
-export type MetaPortfolioSummary = {
-  ownerExternalId: string | null;
-  ownerName: string | null;
-  channelCount: number;
-  activeCount: number;
-  attentionCount: number;
-  clientCount: number;
-  channels: string[];
-  connectedAt: string | null;
-};
-
-export type MetaPortfolioStatus = {
-  /** Identidade Meta da última autorização válida deste usuário no workspace. */
-  metaUserName: string | null;
-  metaUserEmail: string | null;
-  authorizedAt: string | null;
-  portfolios: MetaPortfolioSummary[];
-};
-
-const ACTIVE_STATUSES = new Set(["active", "attention", "needs_reauth", "error", "expired"]);
+export type {
+  MetaPortfolioSummary,
+  MetaPortfolioStatus,
+} from "@/lib/meta/authorization-state";
 
 export const getMetaPortfolioStatusFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => BrandInput.parse(input))
-  .handler(async ({ data, context }): Promise<MetaPortfolioStatus> => {
-    const { data: rows, error } = await context.supabase
-      .from("social_connections")
-      .select(
-        "id, channel, status, owner_external_id, owner_name, client_id, created_at, external_name",
-      )
-      .eq("brand_id", data.brandId)
-      .eq("provider", "meta")
-      .order("created_at", { ascending: true });
-    if (error) throw error;
+  .handler(async ({ data, context }) => {
+    const { buildMetaPortfolioStatus } = await import("@/lib/meta/authorization-state");
 
-    const byPortfolio = new Map<string, MetaPortfolioSummary & { clientIds: Set<string> }>();
-    for (const r of rows ?? []) {
-      if (r.status === "revoked") continue;
-      if (!ACTIVE_STATUSES.has(r.status)) continue;
-      const key = r.owner_external_id ?? "__unknown__";
-      let entry = byPortfolio.get(key);
-      if (!entry) {
-        entry = {
-          ownerExternalId: r.owner_external_id ?? null,
-          ownerName: r.owner_name ?? null,
-          channelCount: 0,
-          activeCount: 0,
-          attentionCount: 0,
-          clientCount: 0,
-          channels: [],
-          connectedAt: r.created_at,
-          clientIds: new Set<string>(),
-        };
-        byPortfolio.set(key, entry);
-      }
-      if (!entry.ownerName && r.owner_name) entry.ownerName = r.owner_name;
-      entry.channelCount += 1;
-      if (r.status === "active") entry.activeCount += 1;
-      else entry.attentionCount += 1;
-      if (!entry.channels.includes(r.channel)) entry.channels.push(r.channel);
-      if (r.client_id) entry.clientIds.add(r.client_id);
-    }
+    // Autorização (meta_oauth_sessions) e canais (social_connections) são
+    // fontes de verdade DISTINTAS. O painel reconhece a autorização mesmo com
+    // zero conexões — o mesmo filtro usado na descoberta de contas.
+    const [connRes, sessRes] = await Promise.all([
+      context.supabase
+        .from("social_connections")
+        .select("channel, status, owner_external_id, owner_name, client_id, created_at")
+        .eq("brand_id", data.brandId)
+        .eq("provider", "meta")
+        .order("created_at", { ascending: true }),
+      context.supabase
+        .from("meta_oauth_sessions")
+        .select(
+          "meta_user_id, meta_user_name, meta_user_email, user_token_ciphertext, user_token_expires_at, revoked_at, created_at",
+        )
+        .eq("brand_id", data.brandId)
+        .is("revoked_at", null)
+        .order("created_at", { ascending: false })
+        .limit(10),
+    ]);
+    if (connRes.error) throw connRes.error;
+    if (sessRes.error) throw sessRes.error;
 
-    const nowIso = new Date().toISOString();
-    const { data: sess } = await context.supabase
-      .from("meta_oauth_sessions")
-      .select("meta_user_name, meta_user_email, created_at")
-      .eq("brand_id", data.brandId)
-      .eq("user_id", context.userId)
-      .is("revoked_at", null)
-      .or(`user_token_expires_at.is.null,user_token_expires_at.gt.${nowIso}`)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    return {
-      metaUserName: sess?.meta_user_name ?? null,
-      metaUserEmail: sess?.meta_user_email ?? null,
-      authorizedAt: sess?.created_at ?? null,
-      portfolios: [...byPortfolio.values()].map(({ clientIds, ...p }) => ({
-        ...p,
-        clientCount: clientIds.size,
-      })),
-    };
+    return buildMetaPortfolioStatus(
+      (connRes.data ?? []) as never,
+      (sessRes.data ?? []) as never,
+    );
   });
+
 
 export const disconnectMetaPortfolioFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
