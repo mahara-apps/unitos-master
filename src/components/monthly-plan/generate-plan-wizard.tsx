@@ -455,7 +455,7 @@ export function GeneratePlanWizard({
                     !organization ||
                     total === 0 ||
                     missingFormats.length > 0 ||
-                    overageItems.length > 0
+                    (overageItems.length > 0 && !overageAllowed)
                   }
                   onClick={submit}
                 >
