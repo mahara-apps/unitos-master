@@ -304,6 +304,32 @@ export function PautaBoard({
           planTitle={linkTarget.title}
         />
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta pauta definitivamente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              “{deleteTarget?.title}” e todos os seus itens serão apagados. Esta ação é
+              irreversível. O projeto vinculado é preservado. Pautas que já geraram peças de
+              conteúdo não podem ser excluídas — arquive-as.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteM.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteM.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (deleteTarget) deleteM.mutate(deleteTarget.id);
+              }}
+            >
+              {deleteM.isPending ? "Excluindo…" : "Excluir definitivamente"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
