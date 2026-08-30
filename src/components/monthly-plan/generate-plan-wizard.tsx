@@ -315,7 +315,10 @@ export function GeneratePlanWizard({
                     {overageItems
                       .map((it) => `${PLAN_CHANNEL_LABEL[it.channel]} (+${it.overage})`)
                       .join(", ")}
-                    . Será necessário solicitar liberação do gestor.
+                    .{" "}
+                    {overageAllowed
+                      ? "Você pode gerar acima da volumetria; o excedente será registrado."
+                      : "Será necessário solicitar liberação do gestor."}
                   </p>
                 ) : null}
               </div>
