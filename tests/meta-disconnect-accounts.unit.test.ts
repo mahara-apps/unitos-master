@@ -103,6 +103,11 @@ describe("desconexão do portfólio Meta revoga a autorização", () => {
       fake.ops.some((o) => o.table === "social_connections" && o.payload?.status === "revoked"),
     ).toBe(true);
 
+    const sessionSelects = fake.ops.filter(
+      (o) => o.table === "meta_oauth_sessions" && o.kind === "select",
+    );
+    expect(sessionSelects[0]!.filters).toContainEqual(["is:revoked_at", null]);
+
     // autorização revogada — é isso que zera "Contas disponíveis"
     const sessionUpdates = fake.ops.filter(
       (o) => o.table === "meta_oauth_sessions" && o.kind === "update",
@@ -111,7 +116,8 @@ describe("desconexão do portfólio Meta revoga a autorização", () => {
     for (const op of sessionUpdates) {
       expect(op.payload?.revoked_at).toBeTruthy();
       expect(op.filters).toContainEqual(["eq:brand_id", BRAND_A]);
-      expect(op.filters).toContainEqual(["is:revoked_at", null]);
+      // A seleção das sessões já filtra `revoked_at is null`; o update é por id.
+      expect(op.filters).toContainEqual(["eq:id", "s1"]);
     }
   });
 
