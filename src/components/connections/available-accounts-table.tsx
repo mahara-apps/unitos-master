@@ -41,12 +41,22 @@ type Account = DiscoveredAccountsResult["accounts"][number];
 type SortKey = "name_asc" | "name_desc" | "recent";
 
 export type AvailableFilters = {
-  channel: "all" | "facebook" | "instagram";
+  channel: "all" | "facebook" | "instagram" | "whatsapp" | "ads" | "other";
   status: "all" | "ready" | "attention";
   kind: "all" | "page" | "instagram";
   auth: "all" | "authorized" | "problem";
   sort: SortKey;
 };
+
+/** Abas de tipo de ativo (WhatsApp/Ads ainda não são descobertos pela Meta). */
+const CHANNEL_TABS: Array<{ value: AvailableFilters["channel"]; label: string }> = [
+  { value: "all", label: "Todos" },
+  { value: "facebook", label: "Facebook" },
+  { value: "instagram", label: "Instagram" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "ads", label: "Ads" },
+  { value: "other", label: "Outros" },
+];
 
 const DEFAULT_FILTERS: AvailableFilters = {
   channel: "all",
