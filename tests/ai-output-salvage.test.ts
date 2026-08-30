@@ -28,7 +28,7 @@ function apiErrorWithFailedGeneration(): APICallError {
         message: "Generated JSON does not match the expected schema.",
         type: "invalid_request_error",
         code: "json_validate_failed",
-        failed_generation: GENERATION.replaceAll("\\", "\\\\").replaceAll('"', '\\"'),
+        failed_generation: GENERATION,
       },
     }),
     isRetryable: false,
