@@ -126,6 +126,10 @@ export async function seed(): Promise<Fixture> {
   const userB = await createUser("b");
   const userNoLink = await createUser("nolink");
   const userPortal = await createUser("portal");
+  // Criador dedicado da segunda brand: o trigger add_brand_owner promove o
+  // created_by a Owner, e a "outra brand" precisa ser um workspace em que
+  // userOwner NÃO tem nenhum vínculo (cenário de cross-workspace).
+  const userOtherOwner = await createUser("owner2");
 
   const brand = await admin
     .from("brands")
@@ -135,7 +139,7 @@ export async function seed(): Promise<Fixture> {
   if (brand.error) throw new Error(`brand: ${brand.error.message}`);
   const otherBrand = await admin
     .from("brands")
-    .insert({ name: `QA Brand2 ${TAG}`, slug: `qa-brand2-${TAG}`, created_by: userOwner.id })
+    .insert({ name: `QA Brand2 ${TAG}`, slug: `qa-brand2-${TAG}`, created_by: userOtherOwner.id })
     .select("id")
     .single();
   if (otherBrand.error) throw new Error(`brand2: ${otherBrand.error.message}`);
