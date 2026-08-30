@@ -71,6 +71,31 @@ export const requestPlanOverageFn = createServerFn({ method: "POST" })
       .from("plan_overage_requests" as never)
       .insert(rows as never);
     if (error) throw error;
+
+    // Aprovadores precisam ver o pedido no sino e em /notifications.
+    try {
+      const [{ data: client }, { data: profile }] = await Promise.all([
+        context.supabase.from("clients").select("name").eq("id", data.clientId).maybeSingle(),
+        context.supabase
+          .from("user_profiles")
+          .select("full_name")
+          .eq("user_id", context.userId)
+          .maybeSingle(),
+      ]);
+      await notifyOverageRequested(context.supabase, {
+        brandId: data.brandId,
+        clientId: data.clientId,
+        clientName: (client as { name?: string | null } | null)?.name ?? null,
+        requestedBy: context.userId,
+        requesterName: (profile as { full_name?: string | null } | null)?.full_name ?? null,
+        items: data.items,
+        justification: data.justification || null,
+        periodMonth: period,
+      });
+    } catch (err) {
+      console.warn("[plan-overage] notify requested failed", err);
+    }
+
     return { ok: true as const, count: rows.length };
   });
 
