@@ -148,18 +148,20 @@ export async function decidePlanAsClient(
 
   const { data: planRow } = await sb
     .from("monthly_plans")
-    .select("id, status, created_by, client_id, brand_id")
+    .select("id, title, status, created_by, client_id, brand_id")
     .eq("id", input.planId)
     .eq("client_id", input.clientId)
     .maybeSingle();
   if (!planRow) throw new Error("plan_not_found");
   const plan = planRow as unknown as {
     id: string;
+    title: string | null;
     status: string;
     created_by: string | null;
     client_id: string;
     brand_id: string;
   };
+
   if (plan.status !== PLAN_PENDING_CLIENT_STATUS) throw new Error("plan_not_pending");
 
   const { data: topicRows } = await sb
