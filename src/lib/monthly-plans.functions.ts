@@ -58,7 +58,8 @@ export type GenerateFailureCode =
   | "ai_invalid_request"
   | "ai_generation_failed"
   | "incomplete_generation"
-  | "generation_in_progress";
+  | "generation_in_progress"
+  | "briefing_version_invalid";
 
 export type GenerateMonthlyPlanResult =
   | { ok: true; data: MonthlyPlanWithTopics; resumed?: boolean }
@@ -94,6 +95,7 @@ export type MonthlyPlan = {
   /** Fontes cruzadas na geração (estratégia IA, métricas por canal, brain). */
   context_sources?: {
     model?: string;
+    briefing_version_id?: string | null;
     strategy_blocks?: string[];
     strategy_generated_at?: string | null;
     metrics_channels?: string[];
@@ -517,7 +519,8 @@ export const regenerateTopicFn = createServerFn({ method: "POST" })
         .select("topic_title, id")
         .eq("monthly_plan_id", plan.id),
       loadBriefingContext(context.supabase, plan.client_id, {
-        briefingId: plan.input_briefing_id,
+        briefingId:
+          plan.context_sources?.briefing_version_id ?? plan.input_briefing_id,
       }),
       loadStrategyContext(context.supabase, plan.brand_id, plan.client_id).catch((err: unknown) => {
         console.warn("[monthly-plan] strategy context failed", err);
