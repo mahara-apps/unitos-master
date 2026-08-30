@@ -20,13 +20,18 @@ import { readPagesPayload } from "./portfolio-shared";
 export type DiscoveredAccountsResult = {
   sessionId: string | null;
   metaUserName: string | null;
+  /** Usuário Meta que concedeu a autorização usada nesta descoberta. */
+  metaUserId: string | null;
   discoveredAt: string | null;
   needsAuthorization: boolean;
   accounts: DiscoveredAccount[];
   alreadyLinked: number;
+  /** Business Portfolios alcançados por esta autorização. */
+  businesses: Array<{ id: string; name: string | null }>;
   warnings: string[];
   error: string | null;
 };
+
 
 const ListInput = z.object({
   brandId: z.string().uuid(),
