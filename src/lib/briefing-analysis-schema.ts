@@ -1,44 +1,34 @@
 import { z } from "zod";
 
 export const BriefingFieldsSchema = z.object({
-  description: z.string().max(700).nullable(),
-  mission: z.string().max(700).nullable(),
-  positioning: z.string().max(700).nullable(),
-  values: z.string().max(700).nullable(),
-  audience: z.string().max(700).nullable(),
-  pain_points: z.string().max(700).nullable(),
-  demographics: z.string().max(700).nullable(),
-  offer: z.string().max(700).nullable(),
-  differentials: z.string().max(700).nullable(),
-  objections: z.string().max(700).nullable(),
-  journey: z.string().max(700).nullable(),
-  desires: z.string().max(700).nullable(),
-  tone_text: z.string().max(700).nullable(),
-  hashtags: z.array(z.string().max(80)).max(30).nullable(),
-  goals: z.string().max(700).nullable(),
+  description: z.string().nullable(),
+  mission: z.string().nullable(),
+  positioning: z.string().nullable(),
+  values: z.string().nullable(),
+  audience: z.string().nullable(),
+  pain_points: z.string().nullable(),
+  demographics: z.string().nullable(),
+  offer: z.string().nullable(),
+  differentials: z.string().nullable(),
+  objections: z.string().nullable(),
+  journey: z.string().nullable(),
+  desires: z.string().nullable(),
+  tone_text: z.string().nullable(),
+  hashtags: z.array(z.string()).nullable(),
+  goals: z.string().nullable(),
 });
 
 export const BriefingEvidenceSchema = z.object({
   field: z.string(),
-  excerpt: z.string().max(300).nullable(),
+  excerpt: z.string().nullable(),
   conflict: z.boolean().nullable(),
-  confidence: z.number().min(0).max(1).nullable(),
+  confidence: z.number().nullable(),
 });
 
 export const BriefingSpeakerSchema = z.object({
   name: z.string().nullable(),
-  role: z
-    .enum([
-      "cliente",
-      "gestor",
-      "usuario",
-      "fornecedor",
-      "especialista",
-      "interno",
-      "indefinido",
-    ])
-    .nullable(),
-  evidence: z.string().max(300).nullable(),
+  role: z.string().nullable(),
+  evidence: z.string().nullable(),
   needs_review: z.boolean().nullable(),
 });
 
@@ -48,25 +38,25 @@ export const BriefingSpeakerSchema = z.object({
  * response_format portátil entre Gemini e providers OpenAI-compatible.
  */
 export const BriefingAnalysisSchema = z.object({
-  executive_summary: z.string().max(400).nullable(),
-  material_type: z.string().max(120).nullable(),
-  extracted_text: z.string().max(4_000).nullable(),
+  executive_summary: z.string().nullable(),
+  material_type: z.string().nullable(),
+  extracted_text: z.string().nullable(),
   briefing: BriefingFieldsSchema,
-  evidence: z.array(BriefingEvidenceSchema).max(20),
-  speakers: z.array(BriefingSpeakerSchema).max(20),
-  confidence: z.number().min(0).max(1).nullable(),
+  evidence: z.array(BriefingEvidenceSchema),
+  speakers: z.array(BriefingSpeakerSchema),
+  confidence: z.number().nullable(),
 });
 
 export type BriefingAnalysis = z.infer<typeof BriefingAnalysisSchema>;
 
 const RecoverableBriefingAnalysisSchema = z.object({
-  executive_summary: z.string().max(400).nullable(),
-  material_type: z.string().max(120).nullable(),
-  extracted_text: z.string().max(4_000).nullable().optional(),
+  executive_summary: z.string().nullable(),
+  material_type: z.string().nullable(),
+  extracted_text: z.string().nullable().optional(),
   briefing: BriefingFieldsSchema.partial(),
-  evidence: z.array(BriefingEvidenceSchema.partial()).max(20).optional(),
-  speakers: z.array(BriefingSpeakerSchema.partial()).max(20).optional(),
-  confidence: z.number().min(0).max(1).nullable().optional(),
+  evidence: z.array(BriefingEvidenceSchema.partial()).optional(),
+  speakers: z.array(BriefingSpeakerSchema.partial()).optional(),
+  confidence: z.number().nullable().optional(),
 });
 
 const EMPTY_BRIEFING: z.infer<typeof BriefingFieldsSchema> = {
@@ -91,25 +81,52 @@ const EMPTY_BRIEFING: z.infer<typeof BriefingFieldsSchema> = {
 export function normalizeBriefingAnalysis(value: unknown): BriefingAnalysis | null {
   const parsed = RecoverableBriefingAnalysisSchema.safeParse(value);
   if (!parsed.success) return null;
+  const clip = (text: string | null | undefined, max: number) =>
+    typeof text === "string" ? text.slice(0, max) : null;
+  const clampConfidence = (confidence: number | null | undefined) =>
+    typeof confidence === "number" && Number.isFinite(confidence)
+      ? Math.max(0, Math.min(1, confidence))
+      : null;
+  const roles = new Set([
+    "cliente",
+    "gestor",
+    "usuario",
+    "fornecedor",
+    "especialista",
+    "interno",
+    "indefinido",
+  ]);
+  const briefing = { ...EMPTY_BRIEFING, ...parsed.data.briefing };
+  for (const [key, field] of Object.entries(briefing)) {
+    if (key === "hashtags") {
+      briefing.hashtags = Array.isArray(field)
+        ? field.slice(0, 30).map((tag) => tag.slice(0, 80))
+        : null;
+    } else {
+      (briefing as Record<string, unknown>)[key] = clip(field as string | null, 700);
+    }
+  }
   return BriefingAnalysisSchema.parse({
     ...parsed.data,
-    briefing: { ...EMPTY_BRIEFING, ...parsed.data.briefing },
-    extracted_text: parsed.data.extracted_text ?? null,
-    evidence: (parsed.data.evidence ?? [])
+    executive_summary: clip(parsed.data.executive_summary, 400),
+    material_type: clip(parsed.data.material_type, 120),
+    briefing,
+    extracted_text: clip(parsed.data.extracted_text, 4_000),
+    evidence: (parsed.data.evidence ?? []).slice(0, 20)
       .filter((item) => typeof item.field === "string" && item.field.length > 0)
       .map((item) => ({
         field: item.field as string,
-        excerpt: item.excerpt ?? null,
+        excerpt: clip(item.excerpt, 300),
         conflict: item.conflict ?? null,
-        confidence: item.confidence ?? null,
+        confidence: clampConfidence(item.confidence),
       })),
-    speakers: (parsed.data.speakers ?? []).map((item) => ({
-      name: item.name ?? null,
-      role: item.role ?? null,
-      evidence: item.evidence ?? null,
-      needs_review: item.needs_review ?? null,
+    speakers: (parsed.data.speakers ?? []).slice(0, 20).map((item) => ({
+      name: clip(item.name, 160),
+      role: item.role && roles.has(item.role) ? item.role : "indefinido",
+      evidence: clip(item.evidence, 300),
+      needs_review: item.needs_review ?? !(item.role && roles.has(item.role)),
     })),
-    confidence: parsed.data.confidence ?? null,
+    confidence: clampConfidence(parsed.data.confidence),
   });
 }
 
