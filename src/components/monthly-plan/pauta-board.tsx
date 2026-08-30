@@ -136,10 +136,23 @@ export function PautaBoard({
     onError: (e) => toast.error(`Não foi possível restaurar: ${describeError(e)}`),
   });
 
+  const deleteFn = useServerFn(deleteMonthlyPlanFn);
+  const deleteM = useMutation({
+    mutationFn: (planId: string) => deleteFn({ data: { planId, brandId, clientId } }),
+    onSuccess: () => {
+      invalidate();
+      setDeleteTarget(null);
+      toast.success("Pauta excluída definitivamente.");
+    },
+    onError: (e) => toast.error(describePlanDeleteError(e)),
+  });
+
   const summary = boardQ.data?.summary;
   const projects = boardQ.data?.projects ?? [];
   const items = boardQ.data?.items ?? [];
-  const busy = archiveM.isPending || restoreM.isPending;
+  const canDelete = boardQ.data?.canDelete ?? false;
+  const busy = archiveM.isPending || restoreM.isPending || deleteM.isPending;
+
 
   return (
     <section className="mt-8 space-y-3">
