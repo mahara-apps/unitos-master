@@ -64,10 +64,11 @@ export async function deletePlanHard(
 
   // Desfaz o vínculo do projeto (FK sem cascade): o projeto é preservado.
   if (plan.project_id) {
-    await supabase
+    const { error: unlinkErr } = await supabase
       .from("projects")
       .update({ monthly_plan_id: null } as never)
       .eq("monthly_plan_id", args.planId);
+    if (unlinkErr) throw unlinkErr;
   }
 
   const { error: delErr } = await supabase
