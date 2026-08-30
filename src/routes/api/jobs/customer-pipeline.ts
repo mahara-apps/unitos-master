@@ -539,33 +539,9 @@ function normalizePersonasPayload(raw: unknown): z.infer<typeof PersonasSchema> 
 }
 
 function normalizeCohortsPayload(raw: unknown): z.infer<typeof CohortsSchema> {
-  const r = raw as AnyRec | AnyRec[] | undefined;
-  const arr: AnyRec[] = Array.isArray(r)
-    ? (r as AnyRec[])
-    : Array.isArray((r as AnyRec | undefined)?.cohorts)
-      ? ((r as AnyRec).cohorts as AnyRec[])
-      : [];
-  return {
-    cohorts: arr.map((c) => ({
-      name: asStr(c.name) || asStr(c.nome) || "Cohort",
-      target_personas: asArr(c.target_personas).length
-        ? asArr(c.target_personas)
-        : asArr(c.personas_alvo).length
-          ? asArr(c.personas_alvo)
-          : asArr(c.personas),
-      behavioral_traits:
-        asStr(c.behavioral_traits) || asStr(c.comportamento) || asStr(c.tracos_comportamentais),
-      content_strategy:
-        asStr(c.content_strategy) ||
-        asStr(c.estrategia_conteudo) ||
-        asStr(c.estrategia_de_conteudo),
-      conversion_criteria:
-        asStr(c.conversion_criteria) ||
-        asStr(c.criterio_conversao) ||
-        asStr(c.criterio_de_conversao),
-    })),
-  };
+  return normalizeCohorts(raw);
 }
+
 
 function normalizeSwotPayload(raw: unknown): z.infer<typeof SwotSchema> {
   const r = (raw ?? {}) as AnyRec;
