@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useRouter } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { getCachedUser } from "@/lib/auth-cache";
+import { describeError } from "@/lib/errors";
 import {
   listMyAiJobs,
   dismissAiJob,
