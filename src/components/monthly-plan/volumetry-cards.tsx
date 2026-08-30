@@ -31,6 +31,10 @@ export type PlanVolumetry = {
   generatedTotal: number;
   /** Excedentes autorizados pelo gestor no mês corrente, por canal. */
   approvedOverage?: Record<string, number>;
+  /** `block` = excedente exige liberação; `warn` = volumetria livre (só aviso). */
+  overagePolicy?: "block" | "warn";
+  /** Super Admin/Owner/Admin geram acima da cota sem pedir liberação. */
+  canBypassOverage?: boolean;
 };
 
 const CHANNEL_ICON: Partial<Record<PlanChannel, typeof Instagram>> = {
