@@ -29,7 +29,7 @@ const STALE_LOCK_MS = 10 * 60 * 1000;
 
 const CopySchema = z.object({
   caption: z.string(),
-  reasoning_summary: z.string().nullable(),
+  reasoning_summary: z.string().nullable().optional(),
 });
 const ScriptSchema = z.object({ script: z.string() });
 const VisualSchema = z.object({ visual_direction: z.string() });
@@ -583,6 +583,7 @@ export async function generatePostContent(
           `${contextBlock}\n\nEscreva o roteiro completo desta peça de vídeo (${format} / ${channel}).\n` +
           `Responda EXCLUSIVAMENTE em JSON: {"script":"roteiro completo em texto, com cenas e falas"}`,
         schema: ScriptSchema,
+        textFallbackKey: "script",
         onAttempt: onAttempt("roteirista_social", "script"),
       });
       scriptText = (output.script ?? "").trim();
@@ -628,6 +629,7 @@ export async function generatePostContent(
           `${contextBlock}\n\nDescreva a direção visual desta peça (${format} / ${channel}).\n` +
           `Responda EXCLUSIVAMENTE em JSON: {"visual_direction":"orientação visual objetiva para o designer"}`,
         schema: VisualSchema,
+        textFallbackKey: "visual_direction",
         onAttempt: onAttempt("art_director_social", "visual_direction"),
       });
       const vd = (output.visual_direction ?? "").trim();
