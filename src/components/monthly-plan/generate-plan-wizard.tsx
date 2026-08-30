@@ -369,7 +369,11 @@ export function GeneratePlanWizard({
                     <div className="flex gap-2 text-xs text-amber-400">
                       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                       <div>
-                        <p className="font-medium">Excedente de volumetria</p>
+                        <p className="font-medium">
+                          {overageAllowed
+                            ? "Excedente de volumetria (liberado)"
+                            : "Excedente de volumetria"}
+                        </p>
                         <ul className="mt-1 space-y-0.5 tabular-nums">
                           {overageItems.map((it) => (
                             <li key={it.channel}>
