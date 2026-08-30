@@ -188,12 +188,11 @@ function normalizePersonas(data: unknown): NormalizedPersona[] {
         "processo_decisao",
         "processo_decisorio",
       ]),
-      objecao_dominante: pickString(p, [
-        "objecao_dominante",
-        "objecao",
-        "main_objection",
-        "objecao_principal",
-      ]),
+      // A IA às vezes devolve as objeções como LISTA (`objecoes_comuns`);
+      // sem este fallback o card "Barreira principal" ficava vazio.
+      objecao_dominante:
+        pickString(p, ["objecao_dominante", "objecao", "main_objection", "objecao_principal"]) ||
+        firstOfList(p, ["objecoes_comuns", "objecoes", "objections", "common_objections"]),
       estilo_comunicacao: pickString(p, [
         "estilo_comunicacao",
         "communication_style",
