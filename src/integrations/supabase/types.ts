@@ -2517,6 +2517,7 @@ export type Database = {
           name: string
           nome_fantasia: string | null
           numero: string | null
+          overage_policy: string
           razao_social: string | null
           rua: string | null
           slug: string
@@ -2544,6 +2545,7 @@ export type Database = {
           name: string
           nome_fantasia?: string | null
           numero?: string | null
+          overage_policy?: string
           razao_social?: string | null
           rua?: string | null
           slug: string
@@ -2571,6 +2573,7 @@ export type Database = {
           name?: string
           nome_fantasia?: string | null
           numero?: string | null
+          overage_policy?: string
           razao_social?: string | null
           rua?: string | null
           slug?: string
@@ -3606,6 +3609,7 @@ export type Database = {
           monthly_contract_value: number | null
           name: string
           niche: string | null
+          overage_policy: string | null
           owner_user_id: string | null
           palette: Json | null
           portal_theme: Json
@@ -3644,6 +3648,7 @@ export type Database = {
           monthly_contract_value?: number | null
           name: string
           niche?: string | null
+          overage_policy?: string | null
           owner_user_id?: string | null
           palette?: Json | null
           portal_theme?: Json
@@ -3682,6 +3687,7 @@ export type Database = {
           monthly_contract_value?: number | null
           name?: string
           niche?: string | null
+          overage_policy?: string | null
           owner_user_id?: string | null
           palette?: Json | null
           portal_theme?: Json

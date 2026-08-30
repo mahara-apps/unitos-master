@@ -2,7 +2,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { PLAN_CHANNELS } from "@/lib/monthly-plan-fields";
+import { assertBrandAdmin } from "@/lib/access-guard";
 import { currentPeriodMonth } from "@/lib/plan-overage.server";
+import {
+  notifyOverageDecided,
+  notifyOverageRequested,
+} from "@/lib/plan-overage-notify.server";
 
 export type OverageStatus = "pending" | "approved" | "rejected";
 
@@ -66,6 +71,31 @@ export const requestPlanOverageFn = createServerFn({ method: "POST" })
       .from("plan_overage_requests" as never)
       .insert(rows as never);
     if (error) throw error;
+
+    // Aprovadores precisam ver o pedido no sino e em /notifications.
+    try {
+      const [{ data: client }, { data: profile }] = await Promise.all([
+        context.supabase.from("clients").select("name").eq("id", data.clientId).maybeSingle(),
+        context.supabase
+          .from("user_profiles")
+          .select("full_name")
+          .eq("id", context.userId)
+          .maybeSingle(),
+      ]);
+      await notifyOverageRequested(context.supabase, {
+        brandId: data.brandId,
+        clientId: data.clientId,
+        clientName: (client as { name?: string | null } | null)?.name ?? null,
+        requestedBy: context.userId,
+        requesterName: (profile as { full_name?: string | null } | null)?.full_name ?? null,
+        items: data.items,
+        justification: data.justification || null,
+        periodMonth: period,
+      });
+    } catch (err) {
+      console.warn("[plan-overage] notify requested failed", err);
+    }
+
     return { ok: true as const, count: rows.length };
   });
 
@@ -135,6 +165,25 @@ export const decidePlanOverageFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
+    // Decisão é ato administrativo: exige autoridade no workspace da solicitação.
+    const { data: req, error: readErr } = await context.supabase
+      .from("plan_overage_requests" as never)
+      .select("id, brand_id, client_id, channel, quota, requested, overage, requested_by")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (readErr) throw readErr;
+    if (!req) throw new Error("overage_request_not_found");
+    const row = req as unknown as {
+      brand_id: string;
+      client_id: string;
+      channel: string;
+      quota: number;
+      requested: number;
+      overage: number;
+      requested_by: string | null;
+    };
+    await assertBrandAdmin(context.supabase, context.userId, row.brand_id);
+
     const { error } = await context.supabase
       .from("plan_overage_requests" as never)
       .update({
@@ -144,5 +193,90 @@ export const decidePlanOverageFn = createServerFn({ method: "POST" })
       } as never)
       .eq("id", data.id);
     if (error) throw error;
+
+    try {
+      const { data: client } = await context.supabase
+        .from("clients")
+        .select("name")
+        .eq("id", row.client_id)
+        .maybeSingle();
+      await notifyOverageDecided(context.supabase, {
+        requestId: data.id,
+        brandId: row.brand_id,
+        clientId: row.client_id,
+        clientName: (client as { name?: string | null } | null)?.name ?? null,
+        requestedBy: row.requested_by,
+        decision: data.decision,
+        item: {
+          channel: row.channel,
+          quota: row.quota,
+          requested: row.requested,
+          overage: row.overage,
+        },
+      });
+    } catch (err) {
+      console.warn("[plan-overage] notify decided failed", err);
+    }
+
     return { ok: true as const };
+  });
+
+/* ---------- Política de volumetria (bloquear × livre) ---------- */
+
+/**
+ * Política efetiva do cliente + override próprio. Padrão do workspace vem de
+ * `brands.overage_policy`; o cliente pode sobrescrever.
+ */
+export const getOveragePolicyFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ brandId: z.string().uuid(), clientId: z.string().uuid() }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const [{ data: brand }, { data: client }] = await Promise.all([
+      context.supabase.from("brands").select("overage_policy").eq("id", data.brandId).maybeSingle(),
+      context.supabase
+        .from("clients")
+        .select("overage_policy")
+        .eq("id", data.clientId)
+        .maybeSingle(),
+    ]);
+    const brandPolicy =
+      ((brand as { overage_policy?: string | null } | null)?.overage_policy as
+        | "block"
+        | "warn"
+        | null) ?? "block";
+    const clientPolicy =
+      ((client as { overage_policy?: string | null } | null)?.overage_policy as
+        | "block"
+        | "warn"
+        | null) ?? null;
+    return {
+      brandPolicy,
+      clientPolicy,
+      effective: clientPolicy ?? brandPolicy,
+    };
+  });
+
+/** Ativa/desativa volumetria livre para o cliente (ato administrativo). */
+export const setClientOveragePolicyFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+        policy: z.enum(["block", "warn"]).nullable(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    await assertBrandAdmin(context.supabase, context.userId, data.brandId);
+    const { error } = await context.supabase
+      .from("clients")
+      .update({ overage_policy: data.policy } as never)
+      .eq("id", data.clientId)
+      .eq("brand_id", data.brandId);
+    if (error) throw error;
+    return { ok: true as const, policy: data.policy };
   });

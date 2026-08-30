@@ -14,9 +14,12 @@ import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { describeError } from "@/lib/errors";
 import { PLAN_CHANNEL_LABEL, type PlanChannel } from "@/lib/monthly-plan-fields";
+import { Switch } from "@/components/ui/switch";
 import {
   decidePlanOverageFn,
+  getOveragePolicyFn,
   listPlanOverageRequestsFn,
+  setClientOveragePolicyFn,
   type OverageRequestRow,
 } from "@/lib/plan-overage.functions";
 
@@ -62,6 +65,30 @@ export function ProductionOverages({ brandId, clientId }: { brandId: string; cli
   });
 
   const rows = (listQ.data ?? []) as OverageRequestRow[];
+  const pendingCount = rows.filter((r) => r.status === "pending").length;
+
+  const getPolicy = useServerFn(getOveragePolicyFn);
+  const policyQ = useQuery({
+    queryKey: ["plan-overage-policy", brandId, clientId],
+    queryFn: () => getPolicy({ data: { brandId, clientId } }),
+    staleTime: 60_000,
+  });
+  const setPolicy = useServerFn(setClientOveragePolicyFn);
+  const policyM = useMutation({
+    mutationFn: (policy: "block" | "warn") =>
+      setPolicy({ data: { brandId, clientId, policy } }),
+    onSuccess: (_r, policy) => {
+      toast.success(
+        policy === "warn"
+          ? "Volumetria livre ativada para este cliente."
+          : "Excedente volta a exigir liberação.",
+      );
+      qc.invalidateQueries({ queryKey: ["plan-overage-policy"] });
+      qc.invalidateQueries({ queryKey: ["monthly-plan", "volumetry"] });
+    },
+    onError: (err) => toast.error(describeError(err)),
+  });
+  const freeVolume = policyQ.data?.effective === "warn";
 
   return (
     <section className="space-y-3">
@@ -72,15 +99,35 @@ export function ProductionOverages({ brandId, clientId }: { brandId: string; cli
             Peças pedidas acima da volumetria contratada, com data e autorização.
           </p>
         </div>
-        <Tabs value={status} onValueChange={(v) => setStatus(v as typeof status)}>
-          <TabsList>
-            <TabsTrigger value="pending">Pendentes</TabsTrigger>
-            <TabsTrigger value="approved">Autorizados</TabsTrigger>
-            <TabsTrigger value="rejected">Recusados</TabsTrigger>
-            <TabsTrigger value="all">Todos</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex flex-wrap items-center gap-3">
+          {canDecide ? (
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Switch
+                checked={freeVolume}
+                disabled={policyQ.isLoading || policyM.isPending}
+                onCheckedChange={(v) => policyM.mutate(v ? "warn" : "block")}
+              />
+              Volumetria livre
+            </label>
+          ) : null}
+          <Tabs value={status} onValueChange={(v) => setStatus(v as typeof status)}>
+            <TabsList>
+              <TabsTrigger value="pending">
+                Pendentes{pendingCount ? ` (${pendingCount})` : ""}
+              </TabsTrigger>
+              <TabsTrigger value="approved">Autorizados</TabsTrigger>
+              <TabsTrigger value="rejected">Recusados</TabsTrigger>
+              <TabsTrigger value="all">Todos</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
+      {freeVolume ? (
+        <p className="text-[11px] text-muted-foreground">
+          Volumetria livre ativa: a equipe pode gerar acima da cota e o excedente fica registrado
+          aqui automaticamente.
+        </p>
+      ) : null}
 
       {listQ.isLoading ? (
         <div className="space-y-2">

@@ -160,6 +160,11 @@ export function GeneratePlanWizard({
       return { channel: c, quota: allowance, requested, overage: requested - allowance };
     })
     .filter((it) => it.overage > 0);
+  /**
+   * Excedente liberado sem aprovação: autoridade do usuário (Super Admin /
+   * Owner / Admin) ou política de volumetria livre no cliente/workspace.
+   */
+  const overageAllowed = Boolean(volumetry?.canBypassOverage) || volumetry?.overagePolicy === "warn";
   const missingFormats = channels.filter((c) => enabled[c] && qtyOf(c) === 0);
 
   const setFormatQty = (c: string, f: ContentFormat, n: number) =>
@@ -310,7 +315,10 @@ export function GeneratePlanWizard({
                     {overageItems
                       .map((it) => `${PLAN_CHANNEL_LABEL[it.channel]} (+${it.overage})`)
                       .join(", ")}
-                    . Será necessário solicitar liberação do gestor.
+                    .{" "}
+                    {overageAllowed
+                      ? "Você pode gerar acima da volumetria; o excedente será registrado."
+                      : "Será necessário solicitar liberação do gestor."}
                   </p>
                 ) : null}
               </div>
@@ -361,7 +369,11 @@ export function GeneratePlanWizard({
                     <div className="flex gap-2 text-xs text-amber-400">
                       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                       <div>
-                        <p className="font-medium">Excedente de volumetria</p>
+                        <p className="font-medium">
+                          {overageAllowed
+                            ? "Excedente de volumetria (liberado)"
+                            : "Excedente de volumetria"}
+                        </p>
                         <ul className="mt-1 space-y-0.5 tabular-nums">
                           {overageItems.map((it) => (
                             <li key={it.channel}>
@@ -372,22 +384,34 @@ export function GeneratePlanWizard({
                         </ul>
                       </div>
                     </div>
-                    <Input
-                      value={justification}
-                      onChange={(e) => setJustification(e.target.value)}
-                      placeholder="Justificativa para o gestor (opcional)"
-                      className="h-9"
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={requestingOverage}
-                      onClick={() => onRequestOverage?.(overageItems, justification.trim())}
-                      className="gap-1.5"
-                    >
-                      {requestingOverage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                      Solicitar liberação
-                    </Button>
+                    {overageAllowed ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        {volumetry?.canBypassOverage
+                          ? "Seu nível de acesso permite gerar acima da volumetria. O excedente fica registrado no histórico de Produção."
+                          : "Volumetria livre está ativa para este cliente. O excedente fica registrado no histórico de Produção."}
+                      </p>
+                    ) : (
+                      <>
+                        <Input
+                          value={justification}
+                          onChange={(e) => setJustification(e.target.value)}
+                          placeholder="Justificativa para o gestor (opcional)"
+                          className="h-9"
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={requestingOverage}
+                          onClick={() => onRequestOverage?.(overageItems, justification.trim())}
+                          className="gap-1.5"
+                        >
+                          {requestingOverage ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : null}
+                          Solicitar liberação
+                        </Button>
+                      </>
+                    )}
                   </div>
                 ) : null}
                 {generationError ? (
@@ -431,7 +455,7 @@ export function GeneratePlanWizard({
                     !organization ||
                     total === 0 ||
                     missingFormats.length > 0 ||
-                    overageItems.length > 0
+                    (overageItems.length > 0 && !overageAllowed)
                   }
                   onClick={submit}
                 >
