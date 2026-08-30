@@ -298,6 +298,17 @@ export const getPlanVolumetryFn = createServerFn({ method: "POST" })
       generatedThisMonth,
       generatedTotal,
       approvedOverage,
+      /** `block` = excedente exige liberação; `warn` = volumetria livre. */
+      overagePolicy: await resolveOveragePolicy(context.supabase, {
+        brandId: data.brandId,
+        clientId: data.clientId,
+      }),
+      /** Super Admin/Owner/Admin geram acima da cota sem pedir liberação. */
+      canBypassOverage: await canBypassOverage(
+        context.supabase,
+        context.userId,
+        data.brandId,
+      ),
     };
   });
 
