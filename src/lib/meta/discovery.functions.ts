@@ -251,6 +251,8 @@ export const reconcileMetaConnectionFn = createServerFn({ method: "POST" })
       account_id?: string | null;
       account_username?: string | null;
       access_token_ciphertext?: string;
+      meta_business_id?: string | null;
+      meta_business_name?: string | null;
     } = {
       status: "active",
       last_error: null,
@@ -261,6 +263,8 @@ export const reconcileMetaConnectionFn = createServerFn({ method: "POST" })
 
     if (page) {
       patch.page_id = page.pageId;
+      patch.meta_business_id = page.businessId ?? null;
+      patch.meta_business_name = page.businessName ?? null;
       patch.external_name =
         channel === "instagram" ? (page.instagramUsername ?? page.pageName) : page.pageName;
       if (page.instagramBusinessId) {
@@ -268,6 +272,7 @@ export const reconcileMetaConnectionFn = createServerFn({ method: "POST" })
         patch.account_id = page.instagramBusinessId;
         patch.account_username = page.instagramUsername ?? null;
       }
+
       if (page.pageAccessToken) {
         const { encryptCredential } = await import("@/lib/credentials-crypto.server");
         patch.access_token_ciphertext = await encryptCredential(page.pageAccessToken);
