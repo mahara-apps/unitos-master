@@ -79,12 +79,20 @@ const StartInput = z.object({
 /**
  * Kicks off Meta OAuth. State is a signed HMAC token carrying brand + user
  * (no auxiliary state table needed) so it survives the round-trip safely.
+ *
+ * RBAC: autorizar a Meta é uma ação administrativa do workspace
+ * (Owner/Admin/Super Admin). Qualquer administrador pode autorizar — a
+ * autorização pertence ao WORKSPACE, não ao usuário que a criou.
  */
 export const startMetaOAuth = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => StartInput.parse(input))
   .handler(async ({ data, context }) => {
-    const { MetaProvider, getMetaScopesForChannel, signOAuthState } =
+    const { isBrandAdmin } = await import("@/lib/monthly-plan-delete.server");
+    if (!(await isBrandAdmin(context.supabase, context.userId, data.brandId))) {
+      throw new Error("Apenas Owner, Admin ou Super Admin podem autorizar a Meta neste workspace.");
+    }
+    const { MetaProvider, getMetaScopesForChannel, signOAuthState, metaBusinessConfigId } =
       await import("./provider.server");
     const { getRequest } = await import("@tanstack/react-start/server");
     let origin: string | null = null;
@@ -101,41 +109,51 @@ export const startMetaOAuth = createServerFn({ method: "POST" })
       channel: data.channel ?? null,
     });
     const scopes = getMetaScopesForChannel(data.channel ?? null);
+    const configId = metaBusinessConfigId();
     return {
       authorizeUrl: provider.buildAuthorizeUrl({
         state,
         scopes,
         display: "popup",
         authType: data.forceReauth ? "reauthenticate" : "rerequest",
+        configId,
       }),
       redirectUri: provider.redirectUri,
+      /** Modo do consentimento: com `config_id` a Meta pede escolha de portfólio. */
+      businessLogin: !!configId,
     };
   });
 
 /**
- * Reuses the most recent unexpired Meta user-token session for the current
- * user on this brand and hands back its id, so the account-selector dialog
- * can open without triggering a new OAuth popup. Returns `null` when no
- * valid session exists (caller should fall back to `startMetaOAuth`).
+ * Reuses the most recent unexpired Meta user-token session OF THE WORKSPACE and
+ * hands back its id, so the account-selector dialog can open without triggering
+ * a new OAuth popup. Returns `null` when no valid session exists (caller should
+ * fall back to `startMetaOAuth`).
  *
- * Reusing the session avoids re-scanning the Graph API on every click and
- * keeps us well under Meta's rate limits.
+ * A autorização pertence ao WORKSPACE: um Admin da agência usa a autorização
+ * concedida por outro administrador do mesmo Business Portfolio (era exatamente
+ * o bloqueio de `jose@` × contas já disponíveis). Somente Owner/Admin/Super
+ * Admin podem reutilizá-la.
  */
 export const getActiveMetaSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => BrandInput.parse(input))
   .handler(async ({ data, context }) => {
+    const { isBrandAdmin } = await import("@/lib/monthly-plan-delete.server");
+    if (!(await isBrandAdmin(context.supabase, context.userId, data.brandId))) {
+      return { sessionId: null as string | null };
+    }
     const nowIso = new Date().toISOString();
     const { data: rows, error } = await context.supabase
       .from("meta_oauth_sessions")
       .select("id, user_token_ciphertext, user_token_expires_at, expires_at")
       .eq("brand_id", data.brandId)
-      .eq("user_id", context.userId)
       .is("revoked_at", null)
       .or(`user_token_expires_at.is.null,user_token_expires_at.gt.${nowIso}`)
       .order("created_at", { ascending: false })
       .limit(5);
     if (error) throw error;
+
     if (!rows?.length) return { sessionId: null as string | null };
 
     const { decryptCredential } = await import("@/lib/credentials-crypto.server");
@@ -185,7 +203,12 @@ export const disconnectMeta = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => ConnIdInput.parse(input))
   .handler(async ({ data, context }) => {
+    const { isBrandAdmin } = await import("@/lib/monthly-plan-delete.server");
+    if (!(await isBrandAdmin(context.supabase, context.userId, data.brandId))) {
+      throw new Error("Apenas Owner, Admin ou Super Admin podem remover canais Meta.");
+    }
     const { error: linkErr } = await context.supabase
+
       .from("client_social_accounts")
       .delete()
       .eq("connection_id", data.connectionId)

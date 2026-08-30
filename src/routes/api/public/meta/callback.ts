@@ -145,6 +145,18 @@ function htmlResult(result: {
   missingScopes?: string[];
 }): Response {
   const target = result.redirectTo ?? "/connections";
+  /**
+   * Origem confiável para o `postMessage`: a URL canônica registrada em
+   * META_REDIRECT_URI é a própria instalação, então usamos o origin dela em vez
+   * do curinga "*" (que entregaria a mensagem a qualquer opener).
+   */
+  let targetOrigin = "/";
+  try {
+    const configured = process.env.META_REDIRECT_URI;
+    if (configured) targetOrigin = new URL(configured).origin;
+  } catch {
+    targetOrigin = "/";
+  }
   const title = result.ok ? "Meta conectada" : "Falha ao conectar Meta";
   const detail = result.ok
     ? (result.message ?? "Conexão concluída.")
@@ -170,10 +182,10 @@ function htmlResult(result: {
 <script>
   try {
     if (window.opener) {
-      window.opener.postMessage(${JSON.stringify({ source: "meta-oauth", ok: result.ok, error: result.error, message: result.message, sessionId: result.sessionId ?? null, channel: result.channel ?? null })}, "*");
+      window.opener.postMessage(${JSON.stringify({ source: "meta-oauth", ok: result.ok, error: result.error, message: result.message, sessionId: result.sessionId ?? null, channel: result.channel ?? null })}, ${JSON.stringify(targetOrigin)});
       ${
         result.missingScopes && result.missingScopes.length > 0
-          ? `window.opener.postMessage(${JSON.stringify({ source: "meta-oauth", type: "missing-scopes", scopes: result.missingScopes })}, "*");`
+          ? `window.opener.postMessage(${JSON.stringify({ source: "meta-oauth", type: "missing-scopes", scopes: result.missingScopes })}, ${JSON.stringify(targetOrigin)});`
           : ""
       }
       window.close();

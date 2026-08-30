@@ -421,6 +421,11 @@ export function AvailableAccountsTable({
                       </TableCell>
                       <TableCell className="py-2.5">
                         <AuthBadge ready={isReady(a)} />
+                        {!isReady(a) && a.statusReason ? (
+                          <p className="mt-1 max-w-[220px] text-[11px] text-muted-foreground">
+                            {a.statusReason}
+                          </p>
+                        ) : null}
                       </TableCell>
                       <TableCell className="py-2.5 text-right">
                         {canManage ? (

@@ -4384,6 +4384,7 @@ export type Database = {
         Row: {
           ad_accounts: Json
           brand_id: string
+          businesses: Json
           consumed_at: string | null
           created_at: string
           expires_at: string
@@ -4410,6 +4411,7 @@ export type Database = {
         Insert: {
           ad_accounts?: Json
           brand_id: string
+          businesses?: Json
           consumed_at?: string | null
           created_at?: string
           expires_at?: string
@@ -4436,6 +4438,7 @@ export type Database = {
         Update: {
           ad_accounts?: Json
           brand_id?: string
+          businesses?: Json
           consumed_at?: string | null
           created_at?: string
           expires_at?: string
@@ -5593,6 +5596,8 @@ export type Database = {
           instagram_business_id: string | null
           last_error: string | null
           last_synced_at: string | null
+          meta_business_id: string | null
+          meta_business_name: string | null
           meta_user_id: string | null
           metadata: Json
           owner_external_id: string | null
@@ -5621,6 +5626,8 @@ export type Database = {
           instagram_business_id?: string | null
           last_error?: string | null
           last_synced_at?: string | null
+          meta_business_id?: string | null
+          meta_business_name?: string | null
           meta_user_id?: string | null
           metadata?: Json
           owner_external_id?: string | null
@@ -5649,6 +5656,8 @@ export type Database = {
           instagram_business_id?: string | null
           last_error?: string | null
           last_synced_at?: string | null
+          meta_business_id?: string | null
+          meta_business_name?: string | null
           meta_user_id?: string | null
           metadata?: Json
           owner_external_id?: string | null

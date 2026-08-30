@@ -65,6 +65,9 @@ export type MetaPageAsset = {
   instagramUsername?: string;
   pagePictureUrl?: string;
   instagramPictureUrl?: string;
+  /** Business Portfolio (Business Manager) que detém/compartilha o ativo. */
+  businessId?: string | null;
+  businessName?: string | null;
 };
 
 /** Instagram Business account assigned to a portfolio with no manageable Page. */
@@ -77,17 +80,23 @@ export type MetaInstagramAsset = {
   businessName: string | null;
 };
 
+/** Business Portfolio (Business Manager) acessível pela autorização atual. */
+export type MetaBusiness = { id: string; name: string | null };
+
 export type MetaPortfolioScan = {
   pages: MetaPageAsset[];
   standaloneInstagram: MetaInstagramAsset[];
   /** Non-fatal problems (e.g. a portfolio edge we could not read). */
   warnings: string[];
   businessCount: number;
+  /** Portfólios empresariais acessíveis por esta autorização. */
+  businesses: MetaBusiness[];
   /** Graph requests actually performed by this scan (observability). */
   requestCount: number;
-  /** Whether the Business Portfolio traversal ran (opt-in "deep" mode). */
+  /** Whether the Business Portfolio traversal ran. */
   deep: boolean;
 };
+
 
 /**
  * Rate limits and expired tokens must abort the whole scan; permission errors
@@ -186,6 +195,44 @@ export function resolveMetaRedirectUri(origin?: string | null): string {
     return configured;
   }
 }
+
+/**
+ * Facebook Login for Business — `config_id` de uma "Configuração de login"
+ * criada no App Meta Dashboard (Facebook Login for Business → Configurations).
+ *
+ * Com `config_id`, a Meta apresenta o consentimento de portfólio empresarial:
+ * o usuário escolhe o Business Portfolio e os ativos que o app pode usar. Sem
+ * ele, o app cai no modo LEGADO (somente `scope`), no qual o consentimento
+ * costuma expor apenas Páginas em que o usuário é admin direto.
+ */
+export function metaBusinessConfigId(): string | null {
+  const v = process.env.META_BUSINESS_CONFIG_ID?.trim();
+  return v ? v : null;
+}
+
+export type MetaOAuthModeDiagnostics = {
+  mode: "business_login" | "legacy_scopes";
+  configId: string | null;
+  /** Explica a limitação quando o modo legado está em uso. */
+  note: string;
+};
+
+export function metaOAuthModeDiagnostics(): MetaOAuthModeDiagnostics {
+  const configId = metaBusinessConfigId();
+  return configId
+    ? {
+        mode: "business_login",
+        configId,
+        note: "Facebook Login for Business ativo: o consentimento inclui a escolha do Business Portfolio e dos ativos.",
+      }
+    : {
+        mode: "legacy_scopes",
+        configId: null,
+        note: 'Modo legado (apenas "scope"). Configure META_BUSINESS_CONFIG_ID com o ID de uma configuração de Facebook Login for Business para que administradores da agência autorizem ativos do Business Portfolio.',
+      };
+}
+
+
 
 
 export class MetaProvider {
@@ -298,26 +345,27 @@ export class MetaProvider {
   }
 
   /**
-   * Lists the Facebook Pages the user manages together with each page's
-   * page-scoped access token and the connected Instagram Business account.
+   * Descoberta de ativos Meta para uma AGÊNCIA.
    *
-   * Normal discovery (`deep: false`, the default) uses ONE source of truth:
-   * `/me/accounts` — which already returns the Page id/name/token plus
-   * `instagram_business_account`. That is 1–2 Graph requests.
+   * Duas fontes combinadas, sempre deduplicadas por ID Meta:
+   *  1. `/me/accounts` — Páginas em que o usuário é admin direto (rápido).
+   *  2. `/me/businesses` → `owned_pages` / `client_pages` /
+   *     `owned_instagram_accounts` — ativos acessíveis via Business Portfolio.
+   *     É o caminho de uma agência: o usuário costuma NÃO ser admin direto da
+   *     Página, e sim ter acesso pelo portfólio.
    *
-   * `deep: true` additionally traverses Business Portfolios
-   * (`/me/businesses` → `owned_pages` / `client_pages` /
-   * `owned_instagram_accounts`). This costs hundreds of requests on large
-   * portfolios, so it is NEVER triggered automatically — it is kept only as an
-   * explicit opt-in capability. `client_instagram_accounts` is not requested at
-   * all: that edge does not exist in this Graph version (error #100).
+   * O modo profundo é o PADRÃO (`deep` default `true`). `deep: false` existe
+   * apenas como modo "rápido" para atualizações incrementais/refresh barato.
+   * `client_instagram_accounts` não é solicitado: a aresta não existe nesta
+   * versão da Graph (erro #100).
    */
   async scanPortfolio(
     userAccessToken: string,
     opts?: { deep?: boolean },
   ): Promise<MetaPortfolioScan> {
-    const deep = opts?.deep === true;
+    const deep = opts?.deep !== false;
     let requestCount = 0;
+
 
     type PageRow = {
       id: string;
@@ -336,6 +384,7 @@ export class MetaProvider {
         profile_picture_url?: string;
       };
       picture?: { data?: { url?: string } };
+      business?: { id?: string; name?: string };
     };
     type IgRow = {
       id: string;
@@ -370,21 +419,39 @@ export class MetaProvider {
     };
 
     const PAGE_FIELDS =
-      "id,name,access_token,category,tasks,picture.type(large){url}," +
+      "id,name,access_token,category,tasks,picture.type(large){url},business{id,name}," +
       "instagram_business_account{id,username,profile_picture_url}," +
       "connected_instagram_account{id,username,profile_picture_url}";
     const COMPAT_PAGE_FIELDS =
-      "id,name,access_token,category,tasks,picture.type(large){url}," +
+      "id,name,access_token,category,tasks,picture.type(large){url},business{id,name}," +
       "instagram_business_account{id,username,profile_picture_url}";
     const MINIMAL_PAGE_FIELDS =
       "id,name,access_token,category,tasks,instagram_business_account{id,username}";
     const IG_FIELDS = "id,username,name,profile_picture_url";
 
-    const ingestPages = (rows: PageRow[]) => {
+    /**
+     * Ingestão deduplicada. `ctx` carrega o portfólio quando a Página veio de
+     * uma aresta de Business Portfolio (a aresta não repete `business`).
+     */
+    const ingestPages = (rows: PageRow[], ctx?: { id: string; name: string | null }) => {
       for (const p of rows) {
         const ig = p.instagram_business_account ?? p.connected_instagram_account;
         if (ig?.id) seenIg.add(ig.id);
-        if (seenPages.has(p.id)) continue;
+        const businessId = p.business?.id ?? ctx?.id ?? null;
+        const businessName = p.business?.name ?? ctx?.name ?? null;
+        const known = seenPages.has(p.id);
+        if (known) {
+          // Já vista por outra aresta: só completa a identidade do portfólio.
+          const prev = pages.find((x) => x.pageId === p.id);
+          if (prev && !prev.businessId && businessId) {
+            prev.businessId = businessId;
+            prev.businessName = businessName;
+          }
+          if (prev && !prev.pageAccessToken && p.access_token) {
+            prev.pageAccessToken = p.access_token;
+          }
+          continue;
+        }
         seenPages.add(p.id);
         pages.push({
           pageId: p.id,
@@ -396,9 +463,12 @@ export class MetaProvider {
           instagramUsername: ig?.username,
           pagePictureUrl: p.picture?.data?.url,
           instagramPictureUrl: ig?.profile_picture_url,
+          businessId,
+          businessName,
         });
       }
     };
+
 
     /** Follows every `paging.next` page for a Graph edge. */
     const loop = async <T>(
@@ -449,9 +519,9 @@ export class MetaProvider {
         : new MetaGraphError("Não foi possível listar as Páginas da Meta.", 500);
     }
 
-    // 2) OPT-IN DEEP SCAN — Business Portfolios. Costs hundreds of requests on
-    //    large accounts, so it only runs when explicitly requested. Never
-    //    triggered by opening the selector or by "Sincronizar".
+    // 2) BUSINESS PORTFOLIOS — caminho canônico de uma agência: o usuário tem
+    //    acesso ao ativo pelo portfólio, não como admin direto da Página.
+    //    Roda por padrão; `deep: false` só é usado em refresh rápido.
     const businesses: BusinessRow[] = [];
     if (deep) {
       const seenBusinesses = new Set<string>();
@@ -479,18 +549,20 @@ export class MetaProvider {
       for (const biz of businesses) {
         if (outOfTime()) break;
         const label = biz.name ?? biz.id;
+        const ctx = { id: biz.id, name: biz.name ?? null };
         for (const edge of ["owned_pages", "client_pages"] as const) {
           try {
             await loop<PageRow>(
               `/${biz.id}/${edge}`,
               { fields: COMPAT_PAGE_FIELDS, limit: "100" },
-              ingestPages,
+              (rows) => ingestPages(rows, ctx),
             );
           } catch (err) {
             if (isFatalScanError(err)) throw err;
             recordEdgeFailure(edge, label, err);
           }
         }
+
         // NOTE: only `owned_instagram_accounts` exists. `client_instagram_accounts`
         // is not a valid edge in this Graph version and must not be requested.
         try {
@@ -538,9 +610,11 @@ export class MetaProvider {
       standaloneInstagram,
       warnings,
       businessCount: businesses.length,
+      businesses: businesses.map((b) => ({ id: b.id, name: b.name ?? null })),
       requestCount,
       deep,
     };
+
   }
 
   /**

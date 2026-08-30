@@ -74,6 +74,8 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
     let cachedStandaloneIg = pagesPayload.standaloneInstagram;
     let scanWarnings = pagesPayload.warnings;
     let businessCount = pagesPayload.businessCount;
+    let cachedBusinesses = pagesPayload.businesses ?? [];
+
     let publishAuthorization = pagesPayload.publishAuthorization ?? null;
     let cachedThreads =
       (session.threads_accounts as unknown as Array<
@@ -134,6 +136,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
           cachedStandaloneIg = payload.standaloneInstagram;
           scanWarnings = payload.warnings;
           businessCount = payload.businessCount;
+          cachedBusinesses = payload.businesses ?? cachedBusinesses;
           publishAuthorization = payload.publishAuthorization ?? publishAuthorization;
         }
         portfolioStatus =
@@ -215,8 +218,11 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
               instagramBusinessId: p.instagramBusinessId ?? null,
               instagramUsername: p.instagramUsername ?? null,
               instagramPictureUrl: p.instagramPictureUrl ?? null,
+              businessId: p.businessId ?? null,
+              businessName: p.businessName ?? null,
               pageAccessToken: p.pageAccessToken,
             }));
+
             // A varredura é a fonte de verdade: contas que a Meta não devolve
             // mais para este token deixam de existir na descoberta (nada de
             // manter contas antigas como válidas). Tokens já capturados são
@@ -236,6 +242,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
 
             scanWarnings = scan.warnings;
             businessCount = scan.businessCount || businessCount;
+            cachedBusinesses = scan.businesses?.length ? scan.businesses : cachedBusinesses;
 
             // RECONEXÃO FAIL-CLOSED: conexões salvas deste mesmo usuário Meta que
             // não aparecem mais na nova descoberta perdem o status "active" — não
@@ -318,11 +325,14 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
                 standaloneInstagram: cachedStandaloneIg,
                 warnings: scanWarnings,
                 businessCount,
+                businesses: cachedBusinesses,
                 publishAuthorization,
               } as unknown as import("@/integrations/supabase/types").Json,
               threads_accounts:
                 cachedThreads as unknown as import("@/integrations/supabase/types").Json,
               ad_accounts: cachedAds as unknown as import("@/integrations/supabase/types").Json,
+              businesses:
+                cachedBusinesses as unknown as import("@/integrations/supabase/types").Json,
               portfolio_loaded_at: loadedAt,
               portfolio_load_status: nextStatus,
               portfolio_error: null,
@@ -389,6 +399,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
                   standaloneInstagram: cachedStandaloneIg,
                   warnings: scanWarnings,
                   businessCount,
+                  businesses: cachedBusinesses,
                   publishAuthorization,
                 } as unknown as import("@/integrations/supabase/types").Json,
               })
@@ -457,7 +468,10 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
         .select("id, channel, external_id")
         .eq("brand_id", data.brandId)
         .eq("provider", "meta")
+        // Conta revogada NÃO é "conectada": ela pode ser reconectada.
+        .neq("status", "revoked")
         .in("external_id", externalIds);
+
       for (const r of rows ?? []) {
         if (r.channel === "facebook") connected.facebook[r.external_id] = r.id;
         if (r.channel === "instagram") connected.instagram[r.external_id] = r.id;
@@ -589,6 +603,8 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
             instagram_username: ig.username,
             instagram_picture_url: ig.pictureUrl,
             business_name: ig.businessName,
+            meta_business_id: null,
+            meta_business_name: ig.businessName ?? null,
             standalone_instagram: true,
           },
         });
@@ -601,6 +617,8 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
           instagram_username: page.instagramUsername ?? null,
           page_picture_url: page.pagePictureUrl ?? null,
           instagram_picture_url: page.instagramPictureUrl ?? null,
+          meta_business_id: page.businessId ?? null,
+          meta_business_name: page.businessName ?? null,
         };
         const pageToken = await resolvePageToken(page);
 
@@ -691,6 +709,10 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
       const md = spec.metadata as Record<string, unknown>;
       const pageIdCol = (md["page_id"] as string | null | undefined) ?? null;
       const igIdCol = (md["instagram_business_id"] as string | null | undefined) ?? null;
+      // Identidade do Business Portfolio: separa "usuário Meta que autorizou"
+      // de "portfólio empresarial dono do ativo".
+      const businessIdCol = (md["meta_business_id"] as string | null | undefined) ?? null;
+      const businessNameCol = (md["meta_business_name"] as string | null | undefined) ?? null;
 
       const { data: upserted, error: upErr } = await context.supabase
         .from("social_connections")
@@ -707,6 +729,8 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
             instagram_business_id: igIdCol,
             owner_external_id: session.meta_user_id,
             owner_name: session.meta_user_name ?? null,
+            meta_business_id: businessIdCol,
+            meta_business_name: businessNameCol,
             access_token_ciphertext: ciphertext,
             scopes: session.scopes ?? [],
             status: "active",

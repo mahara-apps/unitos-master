@@ -1827,7 +1827,15 @@ function MetaPortfolioPanel({
 
   const disconnectMut = useMutation({
     mutationFn: (p: MetaPortfolioSummary) =>
-      disconnectFn({ data: { brandId: brandId!, ownerExternalId: p.ownerExternalId } }),
+      disconnectFn({
+        data: {
+          brandId: brandId!,
+          // Identidade real do portfólio empresarial; `ownerExternalId` só é
+          // usado em linhas legadas sem `meta_business_id`.
+          businessId: p.businessId,
+          ownerExternalId: p.legacyIdentity ? p.ownerExternalId : null,
+        },
+      }),
     onSuccess: (res) => {
       if (!res.ok) {
         toast.error(res.message);
@@ -1860,7 +1868,7 @@ function MetaPortfolioPanel({
             {connectedState
               ? "A autorização pertence ao workspace; os canais abaixo atendem clientes específicos."
               : "Nenhum portfólio Meta autorizado neste workspace ainda."}
-            {metaUserName ? ` Autorizado por ${metaUserName}.` : ""}
+            {metaUserName ? ` Autorização mais recente: ${metaUserName}.` : ""}
           </p>
         </div>
         {canManage ? (
@@ -1898,19 +1906,28 @@ function MetaPortfolioPanel({
         <div className="mt-3 space-y-2">
           {portfolios.map((p) => (
             <div
-              key={p.ownerExternalId ?? "unknown"}
+              key={p.businessId ?? `user:${p.ownerExternalId ?? "unknown"}`}
               className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2.5"
             >
               <div className="min-w-0">
                 <p className="truncate text-xs font-medium">
-                  {p.ownerName ?? "Portfólio sem nome na Meta"}
+                  {p.businessName ?? p.ownerName ?? "Portfólio sem nome na Meta"}
                 </p>
                 <p className="text-[11px] text-muted-foreground">
                   {p.authorized ? "Autorizado · " : "Sem autorização ativa · "}
                   {p.channelCount} canal(is) · {p.clientCount} cliente(s)
                   {p.attentionCount ? ` · ${p.attentionCount} com atenção` : ""}
-                  {p.ownerExternalId ? ` · ID ${p.ownerExternalId}` : ""}
+                  {p.businessId
+                    ? ` · Business ID ${p.businessId}`
+                    : p.ownerExternalId
+                      ? ` · Usuário Meta ${p.ownerExternalId}`
+                      : ""}
                 </p>
+                {p.authorizedByMetaUserIds.length > 1 ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    Autorizado por {p.authorizedByMetaUserIds.length} administradores Meta.
+                  </p>
+                ) : null}
                 {p.authorized && p.channelCount === 0 ? (
                   <p className="text-[11px] text-muted-foreground">
                     Nenhuma conta vinculada ainda — selecione contas em “Contas disponíveis”.

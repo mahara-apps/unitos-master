@@ -16,7 +16,11 @@ export type PortfolioPage = {
   instagramBusinessId: string | null;
   instagramUsername: string | null;
   instagramPictureUrl: string | null;
+  /** Business Portfolio (Business Manager) dono/compartilhador do ativo. */
+  businessId?: string | null;
+  businessName?: string | null;
 };
+
 
 export type PortfolioThreadsAccount = {
   threadsUserId: string;
@@ -135,11 +139,15 @@ export type PortfolioStandaloneInstagram = {
   businessName: string | null;
 };
 
+export type CachedBusiness = { id: string; name: string | null };
+
 export type CachedPagesPayload = {
   pages: Array<PortfolioPage & { pageAccessToken?: string }>;
   standaloneInstagram: PortfolioStandaloneInstagram[];
   warnings: string[];
   businessCount: number;
+  /** Business Portfolios que esta autorização alcança. */
+  businesses?: CachedBusiness[];
   publishAuthorization?: PublishAuthorizationInfo | null;
 };
 
@@ -153,6 +161,7 @@ export function readPagesPayload(raw: unknown): CachedPagesPayload {
     standaloneInstagram: [],
     warnings: [],
     businessCount: 0,
+    businesses: [],
     publishAuthorization: null,
   };
   if (!raw) return empty;
@@ -166,12 +175,14 @@ export function readPagesPayload(raw: unknown): CachedPagesPayload {
       standaloneInstagram: Array.isArray(o.standaloneInstagram) ? o.standaloneInstagram : [],
       warnings: Array.isArray(o.warnings) ? o.warnings : [],
       businessCount: typeof o.businessCount === "number" ? o.businessCount : 0,
+      businesses: Array.isArray(o.businesses) ? o.businesses : [],
       publishAuthorization:
         (o.publishAuthorization as PublishAuthorizationInfo | undefined) ?? null,
     };
   }
   return empty;
 }
+
 
 /**
  * Guard against concurrent discovery for the same session/channel. A double
@@ -242,3 +253,26 @@ export function accountDiscoveryStatus(
   if (ch.broad) return "ready";
   return ch.targets.includes(String(targetId)) ? "ready" : "authorization_required";
 }
+
+/**
+ * Motivo acionável do status — o usuário precisa saber O QUE FAZER, não apenas
+ * que a conta está "Não disponível".
+ */
+export function accountStatusReason(
+  auth: PublishAuthorizationInfo | null | undefined,
+  channel: "instagram" | "facebook",
+  targetId: string | null | undefined,
+): string | null {
+  const label = channel === "instagram" ? "Instagram" : "Página";
+  if (!targetId) return `${label} sem ID válido retornado pela Meta.`;
+  if (!auth || auth.unavailable) {
+    return "Não foi possível confirmar a autorização granular do app junto à Meta agora. Tente sincronizar novamente.";
+  }
+  const ch = auth[channel];
+  if (!ch.granted) {
+    return `O app não recebeu a permissão necessária para ${label}. Reautorize na Meta concedendo as permissões solicitadas.`;
+  }
+  if (ch.broad || ch.targets.includes(String(targetId))) return null;
+  return `Este ativo existe no Business Portfolio, mas não foi selecionado durante o consentimento. Clique em "Autorizar na Meta" e marque este ${label} na tela de escolha de ativos.`;
+}
+

@@ -1,6 +1,7 @@
 import {
   readPagesPayload,
   accountDiscoveryStatus,
+  accountStatusReason,
   type CachedPagesPayload,
   type PublishAuthorizationInfo,
   type DiscoveredAccountStatus,
@@ -27,7 +28,13 @@ export type DiscoveredAccount = {
   /** Página irmã (para vincular Página + Instagram juntos). */
   pairPageId: string | null;
   status: DiscoveredAccountStatus;
+  /** Explicação acionável quando o status não é "ready". */
+  statusReason: string | null;
+  /** Business Portfolio de origem do ativo. */
+  businessId: string | null;
+  businessName: string | null;
 };
+
 
 type SupabaseLike = {
   from: (table: string) => any;
@@ -97,6 +104,8 @@ export async function runMetaDiscovery(
         instagramBusinessId: p.instagramBusinessId ?? null,
         instagramUsername: p.instagramUsername ?? null,
         instagramPictureUrl: p.instagramPictureUrl ?? null,
+        businessId: p.businessId ?? null,
+        businessName: p.businessName ?? null,
         pageAccessToken: p.pageAccessToken || tokenById.get(p.pageId) || undefined,
       })),
       standaloneInstagram: scan.standaloneInstagram.map((i) => ({
@@ -108,6 +117,7 @@ export async function runMetaDiscovery(
       })),
       warnings: scan.warnings,
       businessCount: scan.businessCount ?? 0,
+      businesses: scan.businesses ?? [],
       publishAuthorization,
     };
 
@@ -116,6 +126,7 @@ export async function runMetaDiscovery(
       .from("meta_oauth_sessions")
       .update({
         pages: payload as unknown as Record<string, unknown>,
+        businesses: (payload.businesses ?? []) as unknown as Record<string, unknown>,
         portfolio_loaded_at: loadedAt,
         portfolio_load_status:
           payload.pages.length + payload.standaloneInstagram.length > 0 ? "loaded" : "empty",
@@ -123,6 +134,7 @@ export async function runMetaDiscovery(
         portfolio_rate_limited_until: null,
       })
       .eq("id", session.id);
+
 
     await revokeUndiscoveredConnections(
       supabase,
@@ -191,8 +203,14 @@ async function revokeUndiscoveredConnections(
 /** Converte o portfólio bruto em contas apresentáveis (identidade = ID Meta). */
 export function toDiscoveredAccounts(payload: CachedPagesPayload): DiscoveredAccount[] {
   const auth = payload.publishAuthorization ?? null;
+  const businessNameById = new Map(
+    (payload.businesses ?? []).map((b) => [b.id, b.name] as const),
+  );
   const out: DiscoveredAccount[] = [];
   for (const p of payload.pages) {
+    const businessId = p.businessId ?? null;
+    const businessName =
+      p.businessName ?? (businessId ? businessNameById.get(businessId) ?? null : null);
     out.push({
       channel: "facebook",
       externalId: p.pageId,
@@ -203,6 +221,9 @@ export function toDiscoveredAccounts(payload: CachedPagesPayload): DiscoveredAcc
       instagramBusinessId: p.instagramBusinessId ?? null,
       pairPageId: p.pageId,
       status: accountDiscoveryStatus(auth, "facebook", p.pageId),
+      statusReason: accountStatusReason(auth, "facebook", p.pageId),
+      businessId,
+      businessName,
     });
     if (p.instagramBusinessId) {
       out.push({
@@ -215,6 +236,9 @@ export function toDiscoveredAccounts(payload: CachedPagesPayload): DiscoveredAcc
         instagramBusinessId: p.instagramBusinessId,
         pairPageId: p.pageId,
         status: accountDiscoveryStatus(auth, "instagram", p.instagramBusinessId),
+        statusReason: accountStatusReason(auth, "instagram", p.instagramBusinessId),
+        businessId,
+        businessName,
       });
     }
   }
@@ -229,7 +253,11 @@ export function toDiscoveredAccounts(payload: CachedPagesPayload): DiscoveredAcc
       instagramBusinessId: i.instagramId,
       pairPageId: null,
       status: accountDiscoveryStatus(auth, "instagram", i.instagramId),
+      statusReason: accountStatusReason(auth, "instagram", i.instagramId),
+      businessId: null,
+      businessName: i.businessName ?? null,
     });
   }
   return out;
+
 }
