@@ -13,6 +13,7 @@ import {
   MoreHorizontal,
   Search,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,6 +28,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -37,6 +48,7 @@ import { PLAN_STATUS_META } from "@/lib/monthly-plan-status";
 import { describeError } from "@/lib/errors";
 import {
   archiveMonthlyPlanFn,
+  deleteMonthlyPlanFn,
   listPlanBoardFn,
   restoreMonthlyPlanFn,
   type PlanArchiveFilter,
@@ -44,11 +56,23 @@ import {
 } from "@/lib/monthly-plans.functions";
 import { LinkPautaProjectDialog } from "@/components/monthly-plan/new-pauta-dialog";
 
+/** Mensagens de negócio da exclusão definitiva. */
+export function describePlanDeleteError(e: unknown): string {
+  const m = describeError(e);
+  if (m.includes("plan_has_content"))
+    return "Esta pauta já gerou peças de conteúdo. Arquive-a para preservar o histórico.";
+  if (m.includes("forbidden"))
+    return "Somente Owner, Admin ou Super Admin podem excluir pautas.";
+  if (m.includes("plan_not_found")) return "Pauta não encontrada neste cliente.";
+  return `Não foi possível excluir: ${m}`;
+}
+
 const ARCHIVE_TABS: Array<{ key: PlanArchiveFilter; label: string }> = [
   { key: "active", label: "Ativas" },
   { key: "archived", label: "Arquivadas" },
   { key: "all", label: "Todas" },
 ];
+
 
 export function PautaBoard({
   brandId,
