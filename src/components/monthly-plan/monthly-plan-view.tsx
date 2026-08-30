@@ -72,6 +72,7 @@ import {
   type GenerateMonthlyPlanResult,
   type MonthlyPlanTopic,
   type MonthlyPlanWithTopics,
+  type PlanOrganizationInput,
 } from "@/lib/monthly-plans.functions";
 
 /* --------------------------------------------------------------- */
