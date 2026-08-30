@@ -104,6 +104,8 @@ export async function runMetaDiscovery(
         instagramBusinessId: p.instagramBusinessId ?? null,
         instagramUsername: p.instagramUsername ?? null,
         instagramPictureUrl: p.instagramPictureUrl ?? null,
+        businessId: p.businessId ?? null,
+        businessName: p.businessName ?? null,
         pageAccessToken: p.pageAccessToken || tokenById.get(p.pageId) || undefined,
       })),
       standaloneInstagram: scan.standaloneInstagram.map((i) => ({
@@ -115,6 +117,7 @@ export async function runMetaDiscovery(
       })),
       warnings: scan.warnings,
       businessCount: scan.businessCount ?? 0,
+      businesses: scan.businesses ?? [],
       publishAuthorization,
     };
 
@@ -123,6 +126,7 @@ export async function runMetaDiscovery(
       .from("meta_oauth_sessions")
       .update({
         pages: payload as unknown as Record<string, unknown>,
+        businesses: (payload.businesses ?? []) as unknown as Record<string, unknown>,
         portfolio_loaded_at: loadedAt,
         portfolio_load_status:
           payload.pages.length + payload.standaloneInstagram.length > 0 ? "loaded" : "empty",
@@ -130,6 +134,7 @@ export async function runMetaDiscovery(
         portfolio_rate_limited_until: null,
       })
       .eq("id", session.id);
+
 
     await revokeUndiscoveredConnections(
       supabase,
