@@ -90,8 +90,43 @@ type RunTrace = {
 };
 
 /**
+ * Escapa quebras de linha e tabs literais que aparecem DENTRO de strings JSON.
+ * Modelos frequentemente devolvem roteiros com `\n` reais, o que invalida o
+ * JSON — a estrutura está correta, só a serialização está errada.
+ */
+function repairJsonStringLiterals(input: string): string {
+  let out = "";
+  let inString = false;
+  let escaped = false;
+  for (const ch of input) {
+    if (escaped) {
+      out += ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      out += ch;
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      out += ch;
+      continue;
+    }
+    if (inString && (ch === "\n" || ch === "\r" || ch === "\t")) {
+      out += ch === "\n" ? "\\n" : ch === "\r" ? "\\r" : "\\t";
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
+/**
  * Extrai o primeiro objeto JSON de uma resposta em texto, tolerando cercas de
- * código e comentários antes/depois. Devolve `null` se não houver JSON válido.
+ * código, comentários antes/depois e quebras de linha literais dentro das
+ * strings. Devolve `null` se não houver JSON aproveitável.
  */
 function extractJsonObject(text: string): unknown {
   const cleaned = (text ?? "")
@@ -106,9 +141,28 @@ function extractJsonObject(text: string): unknown {
   try {
     return JSON.parse(candidate);
   } catch {
-    return null;
+    try {
+      return JSON.parse(repairJsonStringLiterals(candidate));
+    } catch {
+      return null;
+    }
   }
 }
+
+/**
+ * Último recurso para agentes de campo textual único (roteiro, direção
+ * visual): o modelo escreveu o conteúdo pedido, mas em prosa, sem JSON.
+ * Usa o próprio texto como valor do campo — nunca inventa conteúdo.
+ */
+function coerceSingleField(text: string, key: string): unknown | null {
+  const cleaned = (text ?? "")
+    .replace(/```(?:json)?/gi, "")
+    .replace(/```/g, "")
+    .trim();
+  if (cleaned.length < 20) return null;
+  return { [key]: cleaned };
+}
+
 
 /**
  * Chamada estruturada agnóstica de provedor: pede JSON no prompt e valida o
