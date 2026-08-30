@@ -158,42 +158,35 @@ export const META_CALLBACK_PATH = "/api/public/meta/callback";
 /**
  * Resolves the OAuth redirect URI for the current request origin.
  *
- * The URI must match EXACTLY one of the entries registered in the Meta App
- * Dashboard. Each installation owns its own domain, so we only accept the
- * request's own origin when its host is explicitly trusted for THIS
- * installation: the host of `META_REDIRECT_URI` (or a subdomain of it) or a
- * host listed in `META_EXTRA_REDIRECT_HOSTS` (comma separated — use it for
- * preview domains). Anything else falls back to `META_REDIRECT_URI`.
+ * Deterministic by design: the URI must match EXACTLY one of the entries
+ * registered in the Meta App Dashboard, so we only ever return
+ * `META_REDIRECT_URI` unless the request host is *explicitly* allow-listed:
+ *  - it is exactly the host of `META_REDIRECT_URI`, or
+ *  - it is listed in `META_EXTRA_REDIRECT_HOSTS` (comma separated — put here
+ *    only hosts that are also registered in the Meta App).
+ *
+ * No subdomain wildcards, no preview/hosting heuristics: those produced URIs
+ * that Meta rejects with "URL bloqueada".
  */
 export function resolveMetaRedirectUri(origin?: string | null): string {
   const configured = requireEnv("META_REDIRECT_URI");
   if (!origin) return configured;
   try {
     const candidate = new URL(origin);
-    const configuredHost = new URL(configured).host;
+    if (candidate.protocol !== "https:") return configured;
+    const configuredHost = new URL(configured).host.toLowerCase();
     const extraHosts = (process.env.META_EXTRA_REDIRECT_HOSTS ?? "")
       .split(/[,\s]+/)
       .map((h) => h.trim().toLowerCase())
       .filter(Boolean);
     const host = candidate.host.toLowerCase();
-    const trusted =
-      host === configuredHost.toLowerCase() ||
-      host.endsWith(`.${configuredHost.toLowerCase()}`) ||
-      extraHosts.includes(host) ||
-      // Lovable preview/production hosts are only trusted when this
-      // installation is itself hosted on a Lovable domain.
-      (isLovableHost(configuredHost) && isLovableHost(host));
-    if (candidate.protocol !== "https:" || !trusted) return configured;
+    if (host !== configuredHost && !extraHosts.includes(host)) return configured;
     return `${candidate.origin}${META_CALLBACK_PATH}`;
   } catch {
     return configured;
   }
 }
 
-function isLovableHost(host: string): boolean {
-  const h = host.toLowerCase();
-  return h.endsWith(".lovable.app") || h.endsWith(".lovableproject.com");
-}
 
 export class MetaProvider {
   private appId: string;

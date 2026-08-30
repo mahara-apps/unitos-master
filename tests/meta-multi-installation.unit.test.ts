@@ -71,7 +71,23 @@ describe("OAuth redirect URI is derived per installation", () => {
       `https://preview.agencia-a.com${META_CALLBACK_PATH}`,
     );
   });
+
+  it("never derives the URI from an unregistered preview/hosting subdomain", async () => {
+    const { resolveMetaRedirectUri, META_CALLBACK_PATH } = await loadProvider();
+    process.env.META_REDIRECT_URI = `https://unitos-master.lovable.app${META_CALLBACK_PATH}`;
+    delete process.env.META_EXTRA_REDIRECT_HOSTS;
+    // The Meta App allow-list only contains the configured URI, so the preview
+    // host must NOT be used (that produced "URL bloqueada").
+    expect(resolveMetaRedirectUri("https://id-preview--abc123.lovable.app")).toBe(
+      `https://unitos-master.lovable.app${META_CALLBACK_PATH}`,
+    );
+    // Subdomains of the configured host are not implicitly trusted either.
+    expect(resolveMetaRedirectUri("https://sub.unitos-master.lovable.app")).toBe(
+      `https://unitos-master.lovable.app${META_CALLBACK_PATH}`,
+    );
+  });
 });
+
 
 describe("OAuth state is isolated per installation even with a shared Meta App", () => {
   it("a state signed by installation A is rejected by installation B", async () => {
