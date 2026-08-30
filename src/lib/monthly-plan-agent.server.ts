@@ -108,67 +108,145 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
     .filter((s): s is string => !!s && s.trim().length > 0)
     .join("\n\n---\n\n");
 
-  // Orçamento e medição de tokens/custo são aplicados pelo provider.
-  const { model, modelId, providerAttempts } = await getBrandAiModel(
+  // Candidatos BYOK isolados por provedor: assim cada tentativa usa o contrato
+  // nativo do provedor (Gemini via tool calling, Groq/OpenAI via structured
+  // output estrito) em vez de um payload único que só serve ao primário.
+  const candidates = await getBrandAiCandidates(
     opts.supabase,
     opts.brandId,
-    "text",
     "operational",
     { agent: opts.agent, clientId: opts.clientId, userId: opts.userId },
   );
 
-  let lastErr: unknown = null;
-  let lastKind: FailureKind = "unknown";
+  const providerAttempts: ProviderAttempt[] = [];
+  let lastErr: unknown = new Error("ai_provider_not_configured");
+  let lastKind: FailureKind = "config";
+  let attemptCounter = 0;
 
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    // Espaçamento único entre chamadas — evita rajadas no provedor.
-    await sleep(SPACING_MS);
-    try {
-      let output: unknown = null;
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index];
+    if (!candidate) continue;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      attemptCounter += 1;
+      // Espaçamento único entre chamadas — evita rajadas no provedor.
+      await sleep(SPACING_MS);
       try {
-        const res = await generateText({
-          model,
-          ...(system ? { system } : {}),
-          prompt: opts.prompt,
-          output: Output.object({ schema: opts.schema }),
-        });
-        output = res.output;
-      } catch (error) {
-        if (NoObjectGeneratedError.isInstance(error)) {
-          const safe = opts.schema.safeParse(tryParseFallback(error.text));
-          if (!safe.success) throw error;
-          output = safe.data;
-        } else {
-          throw error;
+        let output: unknown = null;
+        try {
+          if (candidate.provider === "gemini") {
+            const res = await generateText({
+              model: candidate.model,
+              ...(system ? { system } : {}),
+              maxOutputTokens: PLAN_MAX_OUTPUT_TOKENS,
+              tools: {
+                emit_plan: tool({
+                  description: "Entrega a pauta estruturada no schema contratado.",
+                  inputSchema: opts.schema,
+                }),
+              },
+              toolChoice: { type: "tool", toolName: "emit_plan" },
+              prompt: opts.prompt,
+            });
+            output = res.toolCalls.find((call) => call.toolName === "emit_plan")?.input ?? null;
+            if (output == null) {
+              throw new Error("ai_no_structured_output: Gemini não chamou a ferramenta");
+            }
+          } else {
+            const res = await generateText({
+              model: candidate.model,
+              ...(system ? { system } : {}),
+              maxOutputTokens: PLAN_MAX_OUTPUT_TOKENS,
+              providerOptions: planProviderOptions(candidate.provider),
+              prompt: opts.prompt,
+              output: Output.object({ schema: opts.schema }),
+            });
+            output = res.output;
+          }
+        } catch (error) {
+          if (
+            NoObjectGeneratedError.isInstance(error) ||
+            NoOutputGeneratedError.isInstance(error)
+          ) {
+            const salvaged =
+              salvageStructuredOutput(error, opts.schema, (value) => {
+                const safe = opts.schema.safeParse(value);
+                return safe.success ? safe.data : null;
+              }) ??
+              (() => {
+                const safe = opts.schema.safeParse(
+                  tryParseFallback(
+                    NoObjectGeneratedError.isInstance(error) ? error.text : undefined,
+                  ),
+                );
+                return safe.success ? safe.data : null;
+              })();
+            if (salvaged == null) throw error;
+            output = salvaged;
+          } else {
+            throw error;
+          }
         }
+        const safeOutput = opts.schema.safeParse(output);
+        if (!safeOutput.success) {
+          throw new Error("ai_invalid_output: a pauta gerada não corresponde ao schema");
+        }
+        providerAttempts.push(...candidate.providerAttempts);
+        const trace = describeProviderAttempts(providerAttempts);
+        await opts.onAttempt?.({
+          attempt: attemptCounter,
+          ok: true,
+          ...(trace ? { message: trace } : {}),
+        });
+        return {
+          output: safeOutput.data as z.infer<T>,
+          modelId: candidate.modelId,
+          brandBlueprintUsed: !!brandBlueprint,
+          attempts: attemptCounter,
+        };
+      } catch (error) {
+        lastErr = error;
+        const { kind, retryable } = classifyAiError(error);
+        lastKind = kind;
+        const { text } = unwrapAiError(error);
+        const detail = text.replace(/\s+/g, " ").slice(0, 500);
+        providerAttempts.push({
+          provider: candidate.provider,
+          model: candidate.modelId,
+          attempt: attemptCounter,
+          result: kind,
+          detail,
+        });
+        await opts.onAttempt?.({
+          attempt: attemptCounter,
+          ok: false,
+          kind,
+          retryable,
+          message: `${candidate.provider}/${candidate.modelId} | ${detail}`.slice(0, 500),
+        });
+        // Falha permanente (schema/config/truncamento): não repete a mesma
+        // chamada no mesmo provedor — apenas multiplicaria custo.
+        if (!retryable) break;
+        if (attempt === MAX_ATTEMPTS) break;
+        await sleep(BACKOFF_MS[attempt - 1] ?? BACKOFF_MS[BACKOFF_MS.length - 1]!);
       }
-      const trace = describeProviderAttempts(providerAttempts);
-      await opts.onAttempt?.({ attempt, ok: true, ...(trace ? { message: trace } : {}) });
-      return {
-        output: output as z.infer<T>,
-        modelId: providerAttempts[providerAttempts.length - 1]?.model ?? modelId,
-        brandBlueprintUsed: !!brandBlueprint,
-        attempts: attempt,
-      };
-    } catch (error) {
-      lastErr = error;
-      const { kind, retryable } = classifyAiError(error);
-      lastKind = kind;
-      const { text } = unwrapAiError(error);
-      await opts.onAttempt?.({
-        attempt,
-        ok: false,
-        kind,
-        retryable,
-        message: `${describeProviderAttempts(providerAttempts)} | ${text}`.slice(0, 500),
-      });
-      if (!retryable || attempt === MAX_ATTEMPTS) break;
-      await sleep(BACKOFF_MS[attempt - 1]!);
     }
+
+    // Só troca de provedor em falha transitória (429/5xx/quota).
+    const transient =
+      lastKind === "provider_unavailable" ||
+      lastKind === "provider_rate_limit" ||
+      lastKind === "provider_quota";
+    if (!transient) break;
   }
 
   // Erro tipado: o chamador decide o código devolvido à UI.
-  const err = new Error(`ai_failure:${lastKind} — ${describeFailure(lastKind)}`) as Error & {
+  const err = new Error(
+    `ai_failure:${lastKind} — ${describeFailure(lastKind)} | ${describeProviderAttempts(providerAttempts)}`.slice(
+      0,
+      1200,
+    ),
+  ) as Error & {
     failureKind: FailureKind;
     cause?: unknown;
   };
@@ -176,3 +254,4 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
   err.cause = lastErr;
   throw err;
 }
+
