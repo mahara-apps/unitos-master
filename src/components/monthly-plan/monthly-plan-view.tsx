@@ -43,7 +43,10 @@ import { requestPlanOverageFn } from "@/lib/plan-overage.functions";
 import { VolumetryCards, type PlanVolumetry } from "@/components/monthly-plan/volumetry-cards";
 import { ContextSourcesRow } from "@/components/monthly-plan/context-sources-row";
 import { PautaBoard } from "@/components/monthly-plan/pauta-board";
-import { NewPautaDialog } from "@/components/monthly-plan/new-pauta-dialog";
+import {
+  LinkPautaProjectDialog,
+  NewPautaDialog,
+} from "@/components/monthly-plan/new-pauta-dialog";
 import { PLAN_CHANNELS, PLAN_CHANNEL_LABEL as CHANNEL_LABEL } from "@/lib/monthly-plan-fields";
 import {
   CONTENT_FORMATS,
@@ -55,7 +58,6 @@ import {
   createTopicFn,
   deleteTopicFn,
   discardMonthlyPlanFn,
-  ensurePlanProjectFn,
   generateMonthlyPlanFn,
   getMonthlyPlanFn,
   getPlanClientLinkFn,
@@ -301,6 +303,8 @@ export function MonthlyPlanView({
         <GeneratePlanWizard
           open={wizardOpen}
           onOpenChange={setWizardOpen}
+          brandId={brandId}
+          clientId={clientId}
           volumetry={volumetry}
           briefings={briefingsQ.data ?? []}
           pending={generateM.isPending}
@@ -367,7 +371,6 @@ function ApprovalView({
   const undoRegen = useServerFn(undoTopicRegenerationFn);
   const submitToClient = useServerFn(submitPlanToClientFn);
   const getLink = useServerFn(getPlanClientLinkFn);
-  const ensureProject = useServerFn(ensurePlanProjectFn);
 
   const q = useQuery({
     queryKey: ["monthly-plan", planId],
@@ -508,7 +511,11 @@ function ApprovalView({
   });
 
   const submitM = useMutation({
-    mutationFn: () => submitToClient({ data: { planId } }),
+    mutationFn: async () => {
+      // Pauta antiga sem projeto: pede a escolha antes de gerar o link.
+      if (!q.data?.plan.project_id) throw new Error("project_required");
+      return submitToClient({ data: { planId } });
+    },
     onSuccess: (link) => {
       invalidate();
       void qc.invalidateQueries({ queryKey: ["monthly-plan-link", planId] });
@@ -519,6 +526,12 @@ function ApprovalView({
     },
     onError: (e) => {
       const m = describeError(e);
+      if (m.includes("project_required")) {
+        setProjectDialogReason("submit");
+        setProjectDialogOpen(true);
+        toast.error("Escolha o projeto desta pauta antes de enviar ao cliente.");
+        return;
+      }
       toast.error(
         m.includes("topics_pending_decision")
           ? "Ainda há itens sem decisão interna (aprovar ou descartar)."
@@ -537,26 +550,9 @@ function ApprovalView({
     enabled: q.data?.plan.status === "pending_client" || q.data?.plan.status === "client_approved",
   });
 
-  const ensureProjectM = useMutation({
-    mutationFn: () => ensureProject({ data: { planId } }),
-    onSuccess: (res) => {
-      invalidate();
-      if (res.created) toast.success("Projeto da pauta criado.");
-    },
-    onError: (e) => toast.error(`Falha ao criar projeto: ${describeError(e)}`),
-  });
-
-  // Auto-cura: pauta aprovada internamente sem projeto vinculado.
-  const healedRef = useRef(false);
-  const planForHeal = q.data?.plan;
-  useEffect(() => {
-    if (!planForHeal?.internal_approved_at) return;
-    if (planForHeal.project_id) return;
-    if (healedRef.current) return;
-    healedRef.current = true;
-    ensureProjectM.mutate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planForHeal?.id, planForHeal?.internal_approved_at, planForHeal?.project_id]);
+  // Projeto é escolhido explicitamente: nunca criado automaticamente aqui.
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [projectDialogReason, setProjectDialogReason] = useState<"organize" | "submit">("organize");
 
   const approve = useMutation({
     mutationFn: () => approvePlan({ data: { planId, brandId, clientId } }),
@@ -631,11 +627,13 @@ function ApprovalView({
             ) : (
               <button
                 type="button"
-                className="underline underline-offset-2 hover:text-foreground disabled:opacity-50"
-                onClick={() => ensureProjectM.mutate()}
-                disabled={ensureProjectM.isPending}
+                className="underline underline-offset-2 hover:text-foreground"
+                onClick={() => {
+                  setProjectDialogReason("organize");
+                  setProjectDialogOpen(true);
+                }}
               >
-                {ensureProjectM.isPending ? "Criando projeto…" : "Criar projeto"}
+                Escolher projeto
               </button>
             )}
           </div>
@@ -824,6 +822,20 @@ function ApprovalView({
           )}
         </div>
       </div>
+
+      <LinkPautaProjectDialog
+        open={projectDialogOpen}
+        onOpenChange={setProjectDialogOpen}
+        brandId={brandId}
+        clientId={clientId}
+        planId={planId}
+        planTitle={plan.title ?? "Pauta"}
+        requireProject
+        onLinked={() => {
+          invalidate();
+          if (projectDialogReason === "submit") submitM.mutate();
+        }}
+      />
     </div>
   );
 }

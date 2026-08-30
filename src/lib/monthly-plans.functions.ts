@@ -183,6 +183,16 @@ const GenerateInput = z.object({
     .optional(),
   /** Semanas de produção no mês-alvo (4 ou 5 conforme o calendário). */
   weeksPerMonth: z.number().int().min(1).max(6).optional(),
+  /** Projeto da pauta: obrigatório e explícito (existente ou novo). */
+  organization: z.discriminatedUnion("mode", [
+    z.object({ mode: z.literal("existing"), projectId: z.string().uuid() }),
+    z.object({
+      mode: z.literal("new"),
+      name: z.string().trim().min(1).max(120),
+      description: z.string().max(2000).nullable().optional(),
+      due_at: z.string().min(4).nullable().optional(),
+    }),
+  ]),
 });
 
 export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
@@ -210,6 +220,16 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
         ok: result.ok,
         ...(result.ok ? { planId: result.data.plan.id } : { error: result.code }),
       });
+      // Projeto resolvido só após a geração dar certo — nunca sobra projeto órfão.
+      if (result.ok) {
+        await linkPlanToProject(context.supabase as PlanSupabaseClient, {
+          planId: result.data.plan.id,
+          brandId: data.brandId,
+          clientId: data.clientId,
+          userId: context.userId,
+          organization: data.organization,
+        });
+      }
       return result;
     } catch (err) {
       await releasePlanGenerationLock(context.supabase, lock.jobId, {
@@ -220,6 +240,7 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       throw err;
     }
   });
+
 
 /* ---------- Volumetria (pré-geração) ---------- */
 
@@ -745,6 +766,9 @@ export const submitPlanToClientFn = createServerFn({ method: "POST" })
       project_id: string | null;
     };
 
+    // Projeto é obrigatório e explícito: nada é gravado antes dessa checagem.
+    if (!plan.project_id) throw new Error("project_required");
+
     const { data: topics } = await context.supabase
       .from("monthly_plan_topics" as never)
       .select("id, status, channel, content_format")
@@ -755,6 +779,7 @@ export const submitPlanToClientFn = createServerFn({ method: "POST" })
     const approved = list.filter((t) => t.status === "approved");
     if (approved.length === 0) throw new Error("no_approved_topics");
     if (approved.some((t) => !isTopicComplete(t))) throw new Error("topics_incomplete");
+
 
     // Reaproveita um link válido, se existir.
     const { data: existing } = await context.supabase
@@ -802,50 +827,39 @@ export const submitPlanToClientFn = createServerFn({ method: "POST" })
       .eq("monthly_plan_id", plan.id)
       .neq("client_status", "approved");
 
-    // Aprovação interna → a pauta passa a existir como projeto ativo (idempotente).
-    const { ensurePlanProject } = await import("@/lib/monthly-plan-project.server");
-    await ensurePlanProject(context.supabase as never, {
+    // Reconcilia o vínculo do projeto já escolhido (nunca cria projeto sozinho).
+    const { reconcilePlanProjectLink } = await import("@/lib/monthly-plan-project.server");
+    await reconcilePlanProjectLink(context.supabase as never, {
       planId: plan.id,
-      brandId: plan.brand_id,
-      clientId: plan.client_id,
-      title: plan.title,
-      userId: context.userId,
+      projectId: plan.project_id,
     });
 
     return { token, url: `/pauta/${plan.id}?token=${token}`, expires_at: expiresAt };
   });
 
-/** Cria/vincula o projeto ativo da pauta aprovada internamente (idempotente). */
+/** Reconcilia o vínculo pauta ↔ projeto já escolhido. Não cria projeto. */
 export const ensurePlanProjectFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ planId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }): Promise<{ projectId: string | null; created: boolean }> => {
     const { data: planRow } = await context.supabase
       .from("monthly_plans" as never)
-      .select("id, brand_id, client_id, title, status, internal_approved_at, project_id")
+      .select("id, project_id")
       .eq("id", data.planId)
       .maybeSingle();
     if (!planRow) throw new Error("plan_not_found");
-    const plan = planRow as unknown as {
-      id: string;
-      brand_id: string;
-      client_id: string | null;
-      title: string | null;
-      status: MonthlyPlanStatus;
-      internal_approved_at: string | null;
-      project_id: string | null;
-    };
-    if (!plan.internal_approved_at) return { projectId: plan.project_id, created: false };
+    const plan = planRow as unknown as { id: string; project_id: string | null };
+    if (!plan.project_id) throw new Error("project_required");
 
-    const { ensurePlanProject } = await import("@/lib/monthly-plan-project.server");
-    return await ensurePlanProject(context.supabase as never, {
+    const { reconcilePlanProjectLink } = await import("@/lib/monthly-plan-project.server");
+    await reconcilePlanProjectLink(context.supabase as never, {
       planId: plan.id,
-      brandId: plan.brand_id,
-      clientId: plan.client_id,
-      title: plan.title,
-      userId: context.userId,
+      projectId: plan.project_id,
     });
+    return { projectId: plan.project_id, created: false };
   });
+
+
 
 export const getPlanClientLinkFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -1027,6 +1041,40 @@ async function resolveProjectForPlan(
   return (created as { id: string }).id;
 }
 
+/**
+ * Resolve a organização escolhida e grava o vínculo nos dois lados.
+ * Usado pela geração por IA, onde o projeto é resolvido após o sucesso.
+ */
+async function linkPlanToProject(
+  supabase: PlanSupabaseClient,
+  args: {
+    planId: string;
+    brandId: string;
+    clientId: string;
+    userId: string | null;
+    organization: PlanOrganizationInput;
+  },
+): Promise<string | null> {
+  const projectId = await resolveProjectForPlan(supabase, {
+    brandId: args.brandId,
+    clientId: args.clientId,
+    userId: args.userId,
+    organization: args.organization,
+  });
+  if (!projectId) return null;
+  const { error } = await supabase
+    .from("monthly_plans")
+    .update({ project_id: projectId } as never)
+    .eq("id", args.planId);
+  if (error) throw error;
+  await supabase
+    .from("projects")
+    .update({ monthly_plan_id: args.planId } as never)
+    .eq("id", projectId)
+    .is("monthly_plan_id", null);
+  return projectId;
+}
+
 /** Criação manual de pauta — fluxo único, com organização explícita. */
 export const createMonthlyPlanFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -1043,12 +1091,16 @@ export const createMonthlyPlanFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }): Promise<{ planId: string; projectId: string | null }> => {
+    // Projeto obrigatório na criação: existente ou novo, nunca "nenhum".
+    if (data.organization.mode === "none") throw new Error("project_required");
+
     const projectId = await resolveProjectForPlan(context.supabase as PlanSupabaseClient, {
       brandId: data.brandId,
       clientId: data.clientId,
       userId: context.userId,
       organization: data.organization,
     });
+
 
     const { data: row, error } = await context.supabase
       .from("monthly_plans" as never)

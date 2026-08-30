@@ -29,6 +29,13 @@ import {
   sumChannelBreakdown,
   type ContentFormat,
 } from "@/lib/content-formats";
+import {
+  PautaOrganizationField,
+  requiredOrganization,
+  toOrganizationInput,
+  type OrganizationDraft,
+} from "@/components/monthly-plan/pauta-organization-field";
+import type { PlanOrganizationInput } from "@/lib/monthly-plans.functions";
 import type { PlanVolumetry } from "./volumetry-cards";
 
 export type GenerateSelection = {
@@ -51,6 +58,8 @@ const STEPS = ["Escopo", "Canais", "Volumetria por formato"] as const;
 export function GeneratePlanWizard({
   open,
   onOpenChange,
+  brandId,
+  clientId,
   volumetry,
   briefings,
   pending,
@@ -62,6 +71,8 @@ export function GeneratePlanWizard({
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  brandId: string;
+  clientId: string;
   volumetry: PlanVolumetry | undefined;
   briefings: Array<{ id: string; label: string }>;
   pending: boolean;
@@ -71,6 +82,7 @@ export function GeneratePlanWizard({
     theme: string;
     briefingId: string | null;
     selection: GenerateSelection[];
+    organization: PlanOrganizationInput;
   }) => void;
   onRequestOverage?: (items: OverageItem[], justification: string) => void;
   requestingOverage?: boolean;
@@ -78,10 +90,15 @@ export function GeneratePlanWizard({
   const [step, setStep] = useState(0);
   const [theme, setTheme] = useState("");
   const [briefingId, setBriefingId] = useState("__none");
+  const [org, setOrg] = useState<OrganizationDraft>(requiredOrganization);
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
   /** Fonte de verdade da seleção: canal → formato → quantidade. */
   const [fmtQty, setFmtQty] = useState<Record<string, Partial<Record<ContentFormat, number>>>>({});
   const [justification, setJustification] = useState("");
+
+  // Projeto é obrigatório na criação da pauta: "nenhum" não é aceito.
+  const organization = toOrganizationInput(org, false);
+
 
   const channels = useMemo(
     () => PLAN_CHANNELS.filter((c) => (volumetry?.monthlyQuota[c] ?? 0) > 0),
@@ -122,6 +139,7 @@ export function GeneratePlanWizard({
     }
     setEnabled(nextEnabled);
     setFmtQty(nextFmt);
+    setOrg(requiredOrganization);
     setStep(0);
   }, [open, volumetry, channels]);
 
@@ -153,8 +171,10 @@ export function GeneratePlanWizard({
       return { ...prev, [c]: bucket };
     });
 
-  const submit = () =>
+  const submit = () => {
+    if (!organization) return;
     onGenerate({
+      organization,
       theme: theme.trim(),
       briefingId: briefingId === "__none" ? null : briefingId,
       selection: activeChannels.map((c) => ({
@@ -164,6 +184,7 @@ export function GeneratePlanWizard({
         formatQuotas: fmtQty[c] ?? {},
       })),
     });
+  };
 
   return (
     <Dialog open={open} onOpenChange={(v) => (pending ? null : onOpenChange(v))}>
@@ -230,6 +251,21 @@ export function GeneratePlanWizard({
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="h-px bg-border/60" />
+
+                <PautaOrganizationField
+                  brandId={brandId}
+                  clientId={clientId}
+                  value={org}
+                  onChange={setOrg}
+                  allowNone={false}
+                />
+                {!organization ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    Escolha um projeto existente ou informe o nome do novo projeto para continuar.
+                  </p>
+                ) : null}
               </div>
             ) : null}
 
@@ -383,7 +419,7 @@ export function GeneratePlanWizard({
               {step < STEPS.length - 1 ? (
                 <Button
                   className="gap-1"
-                  disabled={step === 1 && total === 0}
+                  disabled={(step === 0 && !organization) || (step === 1 && total === 0)}
                   onClick={() => setStep(step + 1)}
                 >
                   Continuar <ArrowRight className="h-4 w-4" />
@@ -391,7 +427,12 @@ export function GeneratePlanWizard({
               ) : (
                 <Button
                   className="gap-2"
-                  disabled={total === 0 || missingFormats.length > 0 || overageItems.length > 0}
+                  disabled={
+                    !organization ||
+                    total === 0 ||
+                    missingFormats.length > 0 ||
+                    overageItems.length > 0
+                  }
                   onClick={submit}
                 >
                   <Sparkles className="h-4 w-4" /> Gerar {total} peças
