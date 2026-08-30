@@ -253,3 +253,26 @@ export function accountDiscoveryStatus(
   if (ch.broad) return "ready";
   return ch.targets.includes(String(targetId)) ? "ready" : "authorization_required";
 }
+
+/**
+ * Motivo acionável do status — o usuário precisa saber O QUE FAZER, não apenas
+ * que a conta está "Não disponível".
+ */
+export function accountStatusReason(
+  auth: PublishAuthorizationInfo | null | undefined,
+  channel: "instagram" | "facebook",
+  targetId: string | null | undefined,
+): string | null {
+  const label = channel === "instagram" ? "Instagram" : "Página";
+  if (!targetId) return `${label} sem ID válido retornado pela Meta.`;
+  if (!auth || auth.unavailable) {
+    return "Não foi possível confirmar a autorização granular do app junto à Meta agora. Tente sincronizar novamente.";
+  }
+  const ch = auth[channel];
+  if (!ch.granted) {
+    return `O app não recebeu a permissão necessária para ${label}. Reautorize na Meta concedendo as permissões solicitadas.`;
+  }
+  if (ch.broad || ch.targets.includes(String(targetId))) return null;
+  return `Este ativo existe no Business Portfolio, mas não foi selecionado durante o consentimento. Clique em "Autorizar na Meta" e marque este ${label} na tela de escolha de ativos.`;
+}
+
