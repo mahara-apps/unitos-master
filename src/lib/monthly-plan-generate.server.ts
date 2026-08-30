@@ -94,6 +94,10 @@ function codeForFailure(kind: FailureKind): GenerateFailureCode {
       return "ai_provider_unavailable";
     case "invalid_output":
       return "ai_invalid_output";
+    case "output_truncated":
+      return "ai_output_truncated";
+    case "invalid_request":
+      return "ai_invalid_request";
     case "config":
       return "ai_provider_not_configured";
     default:

@@ -53,6 +53,8 @@ export type GenerateFailureCode =
   | "ai_provider_rate_limit"
   | "ai_provider_unavailable"
   | "ai_invalid_output"
+  | "ai_output_truncated"
+  | "ai_invalid_request"
   | "ai_generation_failed"
   | "incomplete_generation"
   | "generation_in_progress";
