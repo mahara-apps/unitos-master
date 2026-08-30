@@ -13,6 +13,7 @@ import {
   MoreHorizontal,
   Search,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,6 +28,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -37,6 +48,7 @@ import { PLAN_STATUS_META } from "@/lib/monthly-plan-status";
 import { describeError } from "@/lib/errors";
 import {
   archiveMonthlyPlanFn,
+  deleteMonthlyPlanFn,
   listPlanBoardFn,
   restoreMonthlyPlanFn,
   type PlanArchiveFilter,
@@ -44,11 +56,23 @@ import {
 } from "@/lib/monthly-plans.functions";
 import { LinkPautaProjectDialog } from "@/components/monthly-plan/new-pauta-dialog";
 
+/** Mensagens de negócio da exclusão definitiva. */
+export function describePlanDeleteError(e: unknown): string {
+  const m = describeError(e);
+  if (m.includes("plan_has_content"))
+    return "Esta pauta já gerou peças de conteúdo. Arquive-a para preservar o histórico.";
+  if (m.includes("forbidden"))
+    return "Somente Owner, Admin ou Super Admin podem excluir pautas.";
+  if (m.includes("plan_not_found")) return "Pauta não encontrada neste cliente.";
+  return `Não foi possível excluir: ${m}`;
+}
+
 const ARCHIVE_TABS: Array<{ key: PlanArchiveFilter; label: string }> = [
   { key: "active", label: "Ativas" },
   { key: "archived", label: "Arquivadas" },
   { key: "all", label: "Todas" },
 ];
+
 
 export function PautaBoard({
   brandId,
@@ -69,6 +93,7 @@ export function PautaBoard({
   const [projectFilter, setProjectFilter] = React.useState<string>("all");
   const [q, setQ] = React.useState("");
   const [linkTarget, setLinkTarget] = React.useState<PlanBoardItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<PlanBoardItem | null>(null);
 
   const list = useServerFn(listPlanBoardFn);
   const boardQ = useQuery({
@@ -112,10 +137,23 @@ export function PautaBoard({
     onError: (e) => toast.error(`Não foi possível restaurar: ${describeError(e)}`),
   });
 
+  const deleteFn = useServerFn(deleteMonthlyPlanFn);
+  const deleteM = useMutation({
+    mutationFn: (planId: string) => deleteFn({ data: { planId, brandId, clientId } }),
+    onSuccess: () => {
+      invalidate();
+      setDeleteTarget(null);
+      toast.success("Pauta excluída definitivamente.");
+    },
+    onError: (e) => toast.error(describePlanDeleteError(e)),
+  });
+
   const summary = boardQ.data?.summary;
   const projects = boardQ.data?.projects ?? [];
   const items = boardQ.data?.items ?? [];
-  const busy = archiveM.isPending || restoreM.isPending;
+  const canDelete = boardQ.data?.canDelete ?? false;
+  const busy = archiveM.isPending || restoreM.isPending || deleteM.isPending;
+
 
   return (
     <section className="mt-8 space-y-3">
@@ -244,10 +282,12 @@ export function PautaBoard({
                 key={p.id}
                 item={p}
                 busy={busy}
+                canDelete={canDelete}
                 onOpen={() => onOpen(p.id)}
                 onArchive={() => archiveM.mutate(p.id)}
                 onRestore={() => restoreM.mutate(p.id)}
                 onLinkProject={() => setLinkTarget(p)}
+                onDelete={() => setDeleteTarget(p)}
               />
             ))}
           </ul>
@@ -264,6 +304,32 @@ export function PautaBoard({
           planTitle={linkTarget.title}
         />
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta pauta definitivamente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              “{deleteTarget?.title}” e todos os seus itens serão apagados. Esta ação é
+              irreversível. O projeto vinculado é preservado. Pautas que já geraram peças de
+              conteúdo não podem ser excluídas — arquive-as.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteM.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteM.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (deleteTarget) deleteM.mutate(deleteTarget.id);
+              }}
+            >
+              {deleteM.isPending ? "Excluindo…" : "Excluir definitivamente"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
@@ -289,17 +355,21 @@ function SummaryCell({ label, value, muted }: { label: string; value: number; mu
 function PautaRow({
   item,
   busy,
+  canDelete,
   onOpen,
   onArchive,
   onRestore,
   onLinkProject,
+  onDelete,
 }: {
   item: PlanBoardItem;
   busy: boolean;
+  canDelete: boolean;
   onOpen: () => void;
   onArchive: () => void;
   onRestore: () => void;
   onLinkProject: () => void;
+  onDelete: () => void;
 }) {
   const meta = PLAN_STATUS_META[item.status] ?? PLAN_STATUS_META.draft;
   const archived = item.status === "archived";
@@ -386,6 +456,19 @@ function PautaRow({
             <DropdownMenuItem onSelect={onArchive}>
               <Archive className="mr-2 h-3.5 w-3.5" /> Arquivar
             </DropdownMenuItem>
+          )}
+          {canDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={onDelete}
+                disabled={item.posts_count > 0}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-3.5 w-3.5" />
+                {item.posts_count > 0 ? "Excluir (bloqueado)" : "Excluir definitivamente"}
+              </DropdownMenuItem>
+            </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>

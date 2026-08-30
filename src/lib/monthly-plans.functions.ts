@@ -1277,7 +1277,50 @@ export type PlanBoard = {
     archived: number;
   };
   projects: Array<{ id: string; name: string; status: string }>;
+  /** Autoridade do usuário atual para excluir pautas definitivamente. */
+  canDelete: boolean;
 };
+
+/**
+ * Exclusão definitiva da pauta. Só Owner/Admin/Super Admin; recusada quando a
+ * pauta já gerou peças de conteúdo (nesse caso o caminho correto é arquivar).
+ */
+export const deleteMonthlyPlanFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        planId: z.string().uuid(),
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }): Promise<{ ok: true }> => {
+    const { deletePlanHard } = await import("@/lib/monthly-plan-delete.server");
+    return deletePlanHard(context.supabase as unknown as SupabaseClient, {
+      planId: data.planId,
+      brandId: data.brandId,
+      clientId: data.clientId,
+      userId: context.userId,
+    });
+  });
+
+/** Autoridade do usuário atual para excluir pautas do workspace. */
+export const canDeletePlansFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }): Promise<{ canDelete: boolean }> => {
+    const { isBrandAdmin } = await import("@/lib/monthly-plan-delete.server");
+    return {
+      canDelete: await isBrandAdmin(
+        context.supabase as unknown as SupabaseClient,
+        context.userId,
+        data.brandId,
+      ),
+    };
+  });
+
 
 /** Listagem da dashboard de pautas, escopada em brand + cliente. */
 export const listPlanBoardFn = createServerFn({ method: "POST" })
@@ -1343,7 +1386,15 @@ export const listPlanBoardFn = createServerFn({ method: "POST" })
     }>;
     const projectMap = new Map(projects.map((p) => [p.id, p]));
 
-    if (rows.length === 0) return { items: [], summary, projects };
+    const { isBrandAdmin } = await import("@/lib/monthly-plan-delete.server");
+    const canDelete = await isBrandAdmin(
+      context.supabase as unknown as SupabaseClient,
+      context.userId,
+      data.brandId,
+    );
+
+    if (rows.length === 0) return { items: [], summary, projects, canDelete };
+
 
     const planIds = rows.map((r) => r.id);
 
@@ -1447,5 +1498,5 @@ export const listPlanBoardFn = createServerFn({ method: "POST" })
       };
     });
 
-    return { items, summary, projects };
+    return { items, summary, projects, canDelete };
   });

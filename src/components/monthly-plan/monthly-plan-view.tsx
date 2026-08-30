@@ -54,8 +54,21 @@ import {
   normalizeContentFormat,
 } from "@/lib/content-formats";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { describePlanDeleteError } from "@/components/monthly-plan/pauta-board";
+import {
   approveMonthlyPlanFn,
+  canDeletePlansFn,
   createTopicFn,
+  deleteMonthlyPlanFn,
   deleteTopicFn,
   discardMonthlyPlanFn,
   generateMonthlyPlanFn,
@@ -374,6 +387,8 @@ function ApprovalView({
   const undoRegen = useServerFn(undoTopicRegenerationFn);
   const submitToClient = useServerFn(submitPlanToClientFn);
   const getLink = useServerFn(getPlanClientLinkFn);
+  const deletePlan = useServerFn(deleteMonthlyPlanFn);
+  const canDeleteAuthority = useServerFn(canDeletePlansFn);
 
   const q = useQuery({
     queryKey: ["monthly-plan", planId],
@@ -556,6 +571,7 @@ function ApprovalView({
   // Projeto é escolhido explicitamente: nunca criado automaticamente aqui.
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [projectDialogReason, setProjectDialogReason] = useState<"organize" | "submit">("organize");
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const approve = useMutation({
     mutationFn: () => approvePlan({ data: { planId, brandId, clientId } }),
@@ -581,6 +597,25 @@ function ApprovalView({
     },
     onError: (e) => toast.error(`Falha ao descartar: ${describeError(e)}`),
   });
+
+  const canDeleteQ = useQuery({
+    queryKey: ["plan-can-delete", brandId],
+    queryFn: () => canDeleteAuthority({ data: { brandId } }),
+    staleTime: 5 * 60_000,
+  });
+  const hardDelete = useMutation({
+    mutationFn: () => deletePlan({ data: { planId, brandId, clientId } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["plan-board", brandId, clientId] });
+      qc.invalidateQueries({ queryKey: ["monthly-plans", "list", brandId, clientId] });
+      setDeleteOpen(false);
+      toast.success("Pauta excluída definitivamente.");
+      onDiscarded();
+    },
+    onError: (e) => toast.error(describePlanDeleteError(e)),
+  });
+
+
 
   if (q.isLoading || !q.data) {
     return (
@@ -768,6 +803,19 @@ function ApprovalView({
             <X className="h-4 w-4" /> Descartar pauta
           </Button>
 
+          {canDeleteQ.data?.canDelete && (
+            <Button
+              variant="outline"
+              className="gap-1.5 border-destructive/40 text-destructive bg-destructive/5 hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => setDeleteOpen(true)}
+              disabled={hardDelete.isPending}
+            >
+              <Trash2 className="h-4 w-4" /> Excluir definitivamente
+            </Button>
+          )}
+
+
+
           {clientLink ? (
             <Button
               variant="secondary"
@@ -839,6 +887,32 @@ function ApprovalView({
           if (projectDialogReason === "submit") submitM.mutate();
         }}
       />
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta pauta definitivamente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              “{plan.title ?? "Pauta"}” e todos os seus itens serão apagados. Esta ação é
+              irreversível. O projeto vinculado é preservado. Se a pauta já gerou peças de conteúdo,
+              a exclusão é bloqueada — arquive-a para preservar o histórico.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={hardDelete.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={hardDelete.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                hardDelete.mutate();
+              }}
+            >
+              {hardDelete.isPending ? "Excluindo…" : "Excluir definitivamente"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
