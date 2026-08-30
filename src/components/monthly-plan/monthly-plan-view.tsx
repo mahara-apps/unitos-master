@@ -571,6 +571,7 @@ function ApprovalView({
   // Projeto é escolhido explicitamente: nunca criado automaticamente aqui.
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [projectDialogReason, setProjectDialogReason] = useState<"organize" | "submit">("organize");
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const approve = useMutation({
     mutationFn: () => approvePlan({ data: { planId, brandId, clientId } }),
