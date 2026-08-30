@@ -146,7 +146,13 @@ export function classifyAiError(err: unknown): { kind: FailureKind; retryable: b
   ) {
     return { kind: "provider_unavailable", retryable: true };
   }
-  if (status === 400 || msg.includes("ai_invalid_output") || msg.includes("empty_caption") || msg.includes("json")) {
+  // 400 (Bad Request) ou erros de schema explícitos são tratados como invalid_output (retryable).
+  if (
+    status === 400 ||
+    msg.includes("ai_invalid_output") ||
+    msg.includes("empty_caption") ||
+    msg.includes("json")
+  ) {
     return { kind: "invalid_output", retryable: true };
   }
   // Sem pista alguma, mas o SDK relatou stream sem saída: tratar como saída
