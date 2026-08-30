@@ -204,12 +204,19 @@ async function runTextAnalysis(params: {
       output: { material_type: analysis.material_type },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[analyze-briefing-text] failed:", message);
-    await failImportRun(supabase as never, runScope, { message, kind: "analysis" }).catch(
+    const technical = err instanceof Error ? err.message : String(err);
+    console.error("[analyze-briefing-text] failed:", technical, err);
+    const { friendlyAnalysisError } = await import("@/lib/briefing-import-ui");
+    const friendly = friendlyAnalysisError(err) || "Não foi possível analisar este material.";
+    await setRunStep(supabase as never, runScope, "interpret", "failed", {
+      error: technical.slice(0, 2000),
+      errorKind: "analysis",
+    }).catch(() => undefined);
+    await failImportRun(supabase as never, runScope, { message: friendly, kind: "analysis" }).catch(
       () => undefined,
     );
   }
+
 }
 
 export const Route = createFileRoute("/api/jobs/analyze-briefing-text")({

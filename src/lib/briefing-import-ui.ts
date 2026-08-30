@@ -353,6 +353,42 @@ export function confidenceLabel(confidence: number | null | undefined): string |
   return `${Math.round(confidence * 100)}% de confiança`;
 }
 
+/**
+ * Traduz falhas técnicas da análise (provider, payload, formato) em mensagem
+ * amigável. O erro técnico completo continua nos logs/steps da execução.
+ */
+export function friendlyAnalysisError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error ?? "");
+  if (/ai_provider_not_configured|ai_provider_key_missing/i.test(raw)) {
+    return "A IA ainda não está configurada para este workspace.";
+  }
+  if (/ai_budget_exceeded/i.test(raw)) {
+    return "O limite de consumo de IA deste workspace foi atingido.";
+  }
+  if (/ai_model_unavailable/i.test(raw)) {
+    return "O modelo de IA configurado não está disponível. Revise a configuração de IA.";
+  }
+  if (/ai_payload_invalid|inline_data|inlineData|Invalid value at|Starting an object/i.test(raw)) {
+    return "Não foi possível preparar este arquivo para a IA. Tente outro formato (PDF, DOCX, XLSX, CSV, TXT ou imagem).";
+  }
+  if (/document_format_unsupported/i.test(raw)) {
+    return "Formato não suportado. Envie PDF, DOCX, XLS/XLSX, CSV, TXT ou imagem (.doc antigo não é lido).";
+  }
+  if (/document_no_text|document_empty/i.test(raw)) {
+    return "Não encontramos texto legível neste arquivo. Envie um arquivo com conteúdo ou cole o texto.";
+  }
+  if (/document_not_found|download_failed/i.test(raw)) {
+    return "Não foi possível ler o arquivo enviado. Faça o upload novamente.";
+  }
+  if (/rate.?limit|429/i.test(raw)) {
+    return "O provedor de IA está limitando as requisições. Tente novamente em alguns instantes.";
+  }
+  if (/timeout|ETIMEDOUT|aborted/i.test(raw)) {
+    return "A análise excedeu o tempo limite. Tente novamente com um arquivo menor.";
+  }
+  return "";
+}
+
 /** Mensagem de erro amigável para as falhas conhecidas da camada de import. */
 export function importErrorMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error ?? "");
@@ -368,8 +404,11 @@ export function importErrorMessage(error: unknown): string {
   for (const [key, message] of Object.entries(map)) {
     if (raw.includes(key)) return message;
   }
+  const friendly = friendlyAnalysisError(error);
+  if (friendly) return friendly;
   if (/unauthorized|forbidden|permission|denied|row-level security|\brls\b/i.test(raw)) {
     return "Você não tem permissão para importar o briefing deste cliente.";
   }
   return raw || "Falha na importação.";
 }
+
