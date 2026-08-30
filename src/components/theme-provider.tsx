@@ -10,9 +10,32 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+const STORAGE_KEY = "theme";
+
 function getSystemTheme(): "light" | "dark" {
   if (typeof window === "undefined") return "light";
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+/**
+ * Tema salvo pelo usuário. PADRÃO DE FÁBRICA: "light" — o dark NUNCA entra
+ * por conta própria (nem via prefers-color-scheme); só quando o usuário
+ * escolhe explicitamente no toggle. "system" continua válido apenas se já
+ * estiver salvo de uma escolha anterior.
+ */
+function getStoredTheme(): Theme {
+  if (typeof window === "undefined") return "light";
+  try {
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    if (saved === "light" || saved === "dark" || saved === "system") return saved;
+  } catch {
+    // storage indisponível → padrão claro
+  }
+  return "light";
+}
+
+function resolve(theme: Theme): "light" | "dark" {
+  return theme === "system" ? getSystemTheme() : theme;
 }
 
 function applyTheme(theme: "light" | "dark") {
@@ -22,20 +45,15 @@ function applyTheme(theme: "light" | "dark") {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("system");
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
-
-  useEffect(() => {
-    const savedTheme = window.localStorage.getItem("theme") as Theme | null;
-    if (savedTheme === "light" || savedTheme === "dark" || savedTheme === "system") {
-      setThemeState(savedTheme);
-    }
-  }, []);
+  // Inicialização SÍNCRONA: lê a escolha salva já no primeiro render para
+  // não haver troca de tema pós-hidratação (flicker na tela de auth/login).
+  const [theme, setThemeState] = useState<Theme>(() => getStoredTheme());
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">(() => resolve(theme));
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const update = () => {
-      const nextResolvedTheme = theme === "system" ? getSystemTheme() : theme;
+      const nextResolvedTheme = resolve(theme);
       setResolvedTheme(nextResolvedTheme);
       applyTheme(nextResolvedTheme);
     };
@@ -50,7 +68,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       theme,
       resolvedTheme,
       setTheme: (nextTheme) => {
-        window.localStorage.setItem("theme", nextTheme);
+        try {
+          window.localStorage.setItem(STORAGE_KEY, nextTheme);
+        } catch {
+          // storage indisponível: mantém apenas em memória
+        }
         setThemeState(nextTheme);
       },
     }),
