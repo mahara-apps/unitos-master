@@ -1,5 +1,6 @@
 import { contentFormatLabel } from "@/lib/content-formats";
 import { generateText, NoObjectGeneratedError } from "ai";
+import { withPtBr } from "@/lib/ai-language";
 import { z } from "zod";
 import { getBrandAiModelAdmin, describeProviderAttempts } from "@/lib/ai-provider.server";
 import { loadAgentPrompts, fillTemplate } from "@/lib/agent-prompts.server";
@@ -150,7 +151,7 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
       };
       const res = await generateText({
         model: handle.model,
-        system: opts.system,
+        system: withPtBr(opts.system),
         prompt: opts.prompt,
         // Retry é controlado aqui (backoff próprio) para respeitar a quota do provedor.
         maxRetries: 0,

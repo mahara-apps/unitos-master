@@ -1,60 +1,33 @@
-# Garantir que toda geração de IA saia em português (Brasil)
+# Correção: geração de pauta com IA falhando
 
-## Por que saiu em inglês
+## O que está acontecendo (confirmado nos logs e no código)
 
-Os prompts das etapas de estratégia (`Estratégia IA`, Voice Card, Personas, Cohorts, SWOT)
-instruem o modelo a usar **os nomes dos campos em inglês** — o que é correto, pois o schema
-salvo no banco usa essas chaves — mas **nunca dizem em que idioma o conteúdo deve ser
-escrito**. Exemplo real do prompt atual da etapa de voz:
+Nos logs do servidor a sequência real é:
 
-```text
-Use EXATAMENTE as chaves do schema em inglês: voice_card.brand_personality, ...
-Não traduza nomes de campos. Responda SOMENTE JSON.
-```
+1. O provedor primário (Gemini) responde **429 — quota do free tier esgotada** ("Quota exceeded for … generate_content_free_tier_requests, limit: 20").
+2. O fallback funciona e alterna para Groq (`openai/gpt-oss-120b` / `gpt-oss-20b`).
+3. A tentativa no Groq falha e o pipeline encerra classificando como `invalid_request` e, em outra execução, `invalid_output`.
+4. A UI mostra apenas `ai_generation_failed` / "A IA não conseguiu concluir a geração", sem dizer que o limite do Gemini foi atingido.
 
-Sem instrução de idioma, o modelo tende a seguir o idioma das chaves e devolve valores em
-inglês — exatamente o que aparece na tela: chips "Refined / Warm / Conversational" e frases
-como "Elevate your day with effortless elegance."
+Causa provável do erro no fallback: o schema enviado ao provedor tem limites de tamanho (`topics` com mínimo 1 e máximo 60) em `src/lib/monthly-plan-generate.server.ts`. Provedores com JSON Schema estrito (Groq/OpenAI) rejeitam esse tipo de bound — exatamente a mesma classe de problema já corrigida no fluxo de Importação de Briefing, onde a regra virou "schema simples no wire, limites aplicados em código". A chamada da pauta também não define orçamento de saída explícito nem opções por provedor, o que reproduz o outro modo de falha já visto (`max completion tokens reached before generating a valid document`).
 
-O problema é sistêmico: alguns fluxos já pedem português explicitamente (pauta mensal,
-plano de mídia, chat do Brain, resumo do dashboard), mas outros não — estratégia do cliente,
-análise/importação de briefing, agentes de post, templates de projeto.
+## Correção proposta
 
-## O que será feito
-
-1. **Diretriz de idioma única e obrigatória** — um texto padrão reutilizável
-   ("Escreva TODO o conteúdo em português do Brasil; nomes de campos permanecem em inglês;
-   preserve nomes próprios, marcas e termos técnicos consagrados como estão").
-2. **Aplicar em todos os prompts de geração** que hoje não têm instrução de idioma:
-   etapas do pipeline de estratégia (briefing, voz, personas, cohorts, SWOT), análise e
-   importação de briefing por IA, agentes de post, agentes gerais e templates de projeto.
-3. **Regressão automatizada** para impedir reincidência: um teste que varre os prompts de
-   geração e falha se algum não incluir a diretriz de idioma — assim, um prompt novo sem
-   português quebra a suíte antes de chegar à produção.
-4. **Conteúdo em inglês já salvo**: nada é apagado. Basta usar "gerar novamente" na
-   Estratégia IA do cliente para substituir o conteúdo ativo pela versão em português; o
-   histórico/versionamento existente é preservado.
+1. **Schema de wire simples** (`monthly-plan-generate.server.ts`): remover `.min()/.max()` do array de tópicos no schema enviado ao modelo; a quantidade contratada continua sendo garantida depois, na alocação determinística por vaga (que já existe) e por clamp em código. Nada de cast para esconder erro.
+2. **Execução provider-aware** (`monthly-plan-agent.server.ts`): definir orçamento de saída explícito e as opções corretas por provedor (Groq com `reasoningEffort` válido — nunca `"none"`), reaproveitando o mesmo padrão já validado no executor do briefing, sem criar um fluxo paralelo.
+3. **Classificação e mensagem honesta**: quando a causa raiz da execução for quota/rate limit do provedor primário, a UI deve dizer isso ("Limite de IA do provedor atingido — tente em alguns minutos ou revise o provedor primário em Conexões"), em vez de `ai_generation_failed`. Preservar o botão "Abrir Conexões" quando o problema é de provedor/chave.
+4. **Detecção de truncamento** tratada como falha própria com mensagem clara, sem salvar pauta parcial.
+5. **Fallback só para falhas transitórias** (429/5xx/quota) — comportamento atual mantido; 4xx do provedor continua terminal, sem multiplicar custo.
+6. **Nada incompleto é salvo**: a garantia atual de não persistir pauta parcial é mantida.
 
 ## Fora de escopo
 
-- RBAC, RLS, autenticação, tenants/workspaces, instalação, migrations e schema.
-- Renomear chaves de campos no banco ou na UI (continuam em inglês por contrato).
-- Tradução automática de conteúdo já persistido.
+Sem alterações em RBAC/RLS/auth, migrations, schema do banco, tenants/workspaces ou Instalação × Workspace. Sem trocar o provedor configurado pelo usuário e sem usar Cloud AI/gateway.
 
-## Detalhes técnicos
+## Validação
 
-- Novo constante compartilhado (ex. `src/lib/ai-language.ts`) com a diretriz pt-BR,
-  concatenada aos `system` prompts.
-- Arquivos a ajustar: `src/routes/api/jobs/customer-pipeline.ts` (objeto `P`),
-  `src/lib/briefing-ai-executor.server.ts`, `src/routes/api/jobs/analyze-briefing-text.ts`,
-  `src/routes/api/jobs/analyze-document.ts`, `src/lib/post-agents.server.ts`,
-  `src/lib/agents.functions.ts`, `src/lib/project-templates.functions.ts`.
-- Novo teste `tests/ai-language.test.ts` verificando a presença da diretriz nos prompts.
-- Validação: `npx tsgo --noEmit`, suíte completa e build.
+Testes direcionados de geração de pauta (schema sem bounds, clamp em código, classificação de quota/truncamento), suíte completa, typecheck e build. Depois, gerar uma pauta real: se o Gemini estiver em quota, o Groq deve concluir; se ambos falharem, a mensagem deve nomear a causa.
 
-## Status do ajuste anterior (cohorts)
+## Observação importante
 
-A correção da etapa "Construindo cohorts" já foi aplicada e validada: normalização
-tolerante (lista/objeto/aliases PT-BR), uma retentativa em output inesperado e log de
-diagnóstico sem conteúdo sensível. Suíte completa: 679 testes aprovados. O build final será
-executado junto com este ajuste de idioma.
+Independentemente da correção, a chave do Gemini está no **free tier com 20 requisições/dia** já esgotado. Mesmo com o fallback funcionando, o ideal é habilitar cobrança nessa chave ou deixar um provedor com cota real como primário.
