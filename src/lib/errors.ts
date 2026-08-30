@@ -1,4 +1,5 @@
 import { ZodError } from "zod";
+import { errorToMessage } from "./error-message";
 
 /**
  * Traduz mensagens de erro (Zod, Supabase/Postgres, fetch) para pt-BR
