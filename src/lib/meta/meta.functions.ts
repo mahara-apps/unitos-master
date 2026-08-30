@@ -203,7 +203,12 @@ export const disconnectMeta = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => ConnIdInput.parse(input))
   .handler(async ({ data, context }) => {
+    const { isBrandAdmin } = await import("@/lib/monthly-plan-delete.server");
+    if (!(await isBrandAdmin(context.supabase, context.userId, data.brandId))) {
+      throw new Error("Apenas Owner, Admin ou Super Admin podem remover canais Meta.");
+    }
     const { error: linkErr } = await context.supabase
+
       .from("client_social_accounts")
       .delete()
       .eq("connection_id", data.connectionId)
