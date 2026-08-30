@@ -133,6 +133,28 @@ function pickString(o: Record<string, unknown>, keys: string[]): string {
   return "";
 }
 
+/** Primeiro item textual de uma das chaves em formato de lista. */
+function firstOfList(o: Record<string, unknown>, keys: string[]): string {
+  for (const k of keys) {
+    const v = o[k];
+    if (Array.isArray(v)) {
+      for (const item of v) {
+        if (typeof item === "string" && item.trim()) return item;
+        if (item && typeof item === "object") {
+          const s = pickString(item as Record<string, unknown>, [
+            "descricao",
+            "texto",
+            "objecao",
+            "value",
+          ]);
+          if (s) return s;
+        }
+      }
+    }
+  }
+  return "";
+}
+
 function normalizePersonas(data: unknown): NormalizedPersona[] {
   const parsed = extractRaw<unknown>(data);
   if (!parsed) return [];
