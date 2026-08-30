@@ -196,6 +196,44 @@ export function resolveMetaRedirectUri(origin?: string | null): string {
   }
 }
 
+/**
+ * Facebook Login for Business — `config_id` de uma "Configuração de login"
+ * criada no App Meta Dashboard (Facebook Login for Business → Configurations).
+ *
+ * Com `config_id`, a Meta apresenta o consentimento de portfólio empresarial:
+ * o usuário escolhe o Business Portfolio e os ativos que o app pode usar. Sem
+ * ele, o app cai no modo LEGADO (somente `scope`), no qual o consentimento
+ * costuma expor apenas Páginas em que o usuário é admin direto.
+ */
+export function metaBusinessConfigId(): string | null {
+  const v = process.env.META_BUSINESS_CONFIG_ID?.trim();
+  return v ? v : null;
+}
+
+export type MetaOAuthModeDiagnostics = {
+  mode: "business_login" | "legacy_scopes";
+  configId: string | null;
+  /** Explica a limitação quando o modo legado está em uso. */
+  note: string;
+};
+
+export function metaOAuthModeDiagnostics(): MetaOAuthModeDiagnostics {
+  const configId = metaBusinessConfigId();
+  return configId
+    ? {
+        mode: "business_login",
+        configId,
+        note: "Facebook Login for Business ativo: o consentimento inclui a escolha do Business Portfolio e dos ativos.",
+      }
+    : {
+        mode: "legacy_scopes",
+        configId: null,
+        note: 'Modo legado (apenas "scope"). Configure META_BUSINESS_CONFIG_ID com o ID de uma configuração de Facebook Login for Business para que administradores da agência autorizem ativos do Business Portfolio.',
+      };
+}
+
+
+
 
 export class MetaProvider {
   private appId: string;
