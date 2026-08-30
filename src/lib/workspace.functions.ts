@@ -109,6 +109,21 @@ export const createBrand = createServerFn({ method: "POST" })
       throw new Error(guardErr.message);
     }
     if (allowed === false) {
+      // Regra do produto: 1 workspace por conta. Quem já é Owner não cria
+      // outro; usuários exclusivos do Portal nunca criam. Super admin não
+      // tem limite (a função can_create_brand já o libera).
+      const { data: ownerMembership } = await context.supabase
+        .from("brand_members")
+        .select("id")
+        .eq("user_id", context.userId)
+        .eq("role", "owner")
+        .eq("is_active", true)
+        .limit(1);
+      if (ownerMembership && ownerMembership.length > 0) {
+        throw new Error(
+          "Sua conta já possui um workspace. O Unitos permite 1 workspace por conta.",
+        );
+      }
       throw new Error("Usuários do Portal do Cliente não podem criar workspaces.");
     }
 
