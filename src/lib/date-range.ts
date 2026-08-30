@@ -16,25 +16,29 @@
  *    horas, minutos e a mudanças de horário de verão.
  */
 
+import { endOfDayInTz, startOfDayInTz, zonedParts, zonedTimeToUtc } from "@/lib/timezone";
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Fronteiras de dia SEMPRE no fuso oficial de Brasília (GMT-3), nunca no fuso
+ * do host: no servidor (UTC) o dia virava 3h mais cedo que para o usuário.
+ */
 export function startOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
+  return startOfDayInTz(d);
 }
 
 export function endOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(23, 59, 59, 999);
-  return x;
+  return endOfDayInTz(d);
 }
 
 /** Dias de calendário decorridos entre duas datas (imune a horário/DST). */
 function calendarDayDiff(from: Date, to: Date): number {
-  // Usa UTC dos componentes locais: elimina o erro de ±1h do horário de verão.
-  const a = Date.UTC(from.getFullYear(), from.getMonth(), from.getDate());
-  const b = Date.UTC(to.getFullYear(), to.getMonth(), to.getDate());
+  // Dias de calendário de Brasília: imune a fuso do host e a horário de verão.
+  const f = zonedParts(from);
+  const t = zonedParts(to);
+  const a = Date.UTC(f.year, f.month - 1, f.day);
+  const b = Date.UTC(t.year, t.month - 1, t.day);
   return Math.round((b - a) / DAY_MS);
 }
 
@@ -55,7 +59,8 @@ export function inclusiveDayCountFromMs(fromMs: number, toMs: number): number {
 export function lastNDays(n: number, today: Date = new Date()): { from: Date; to: Date } {
   const days = Math.max(1, Math.round(n));
   const to = endOfDay(today);
-  const from = startOfDay(new Date(to.getFullYear(), to.getMonth(), to.getDate() - (days - 1)));
+  const p = zonedParts(today);
+  const from = zonedTimeToUtc(p.year, p.month, p.day - (days - 1), 0, 0, 0, 0);
   return { from, to };
 }
 

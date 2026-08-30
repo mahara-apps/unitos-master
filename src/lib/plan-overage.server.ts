@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { PLAN_CHANNELS, type PlanChannel } from "@/lib/monthly-plan-fields";
+import { currentMonthStartISO } from "@/lib/timezone";
 
 /**
  * Primeiro dia do mês corrente no fuso oficial de Brasília (YYYY-MM-DD).
