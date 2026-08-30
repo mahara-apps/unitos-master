@@ -290,5 +290,32 @@ export async function decidePlanAsClient(
     }
   }
 
+  // Avisa a equipe (sino + /notifications). Best-effort.
+  try {
+    const { notifyPlanClientDecision } = await import("@/lib/monthly-plan-decision-notify.server");
+    const { data: clientRow } = await sb
+      .from("clients")
+      .select("name")
+      .eq("id", input.clientId)
+      .maybeSingle();
+    await notifyPlanClientDecision(sb, {
+      planId: plan.id,
+      planTitle: plan.title,
+      clientId: input.clientId,
+      clientName: (clientRow as { name?: string } | null)?.name ?? null,
+      brandId: input.brandId || plan.brand_id,
+      createdBy: plan.created_by,
+      status: status as "client_approved" | "changes_requested" | "client_rejected",
+      ...counts,
+      feedback,
+    });
+  } catch (err) {
+    console.error("[plan-decision] falha ao notificar equipe", {
+      planId: plan.id,
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   return { ok: true, status, ...counts, cardsCreated };
+
 }
