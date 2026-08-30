@@ -387,6 +387,8 @@ function ApprovalView({
   const undoRegen = useServerFn(undoTopicRegenerationFn);
   const submitToClient = useServerFn(submitPlanToClientFn);
   const getLink = useServerFn(getPlanClientLinkFn);
+  const deletePlan = useServerFn(deleteMonthlyPlanFn);
+  const canDeleteAuthority = useServerFn(canDeletePlansFn);
 
   const q = useQuery({
     queryKey: ["monthly-plan", planId],
