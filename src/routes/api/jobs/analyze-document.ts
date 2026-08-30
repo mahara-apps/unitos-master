@@ -140,7 +140,7 @@ async function runAnalysis(params: {
 
     await setRunStep(supabase as never, runScope, "interpret", "running");
     const isTranscript = input.sourceKind === "transcript";
-    const system = `Você é um analista sênior de marca. Interprete o material e devolva um JSON estrito em pt-BR, mapeando cada informação para os campos de briefing. Preencha TODAS as propriedades do schema: use null para texto/confiança ausente e [] para evidence/speakers sem itens. Nunca invente dados. Todos os textos devem ser objetivos e prontos para uso no briefing (sem introduções como "o documento diz").${
+    const system = withPtBr(`Você é um analista sênior de marca. Interprete o material e devolva um JSON estrito em pt-BR, mapeando cada informação para os campos de briefing. Preencha TODAS as propriedades do schema: use null para texto/confiança ausente e [] para evidence/speakers sem itens. Nunca invente dados. Todos os textos devem ser objetivos e prontos para uso no briefing (sem introduções como "o documento diz").${
       isTranscript
         ? ` Este material é uma transcrição de reunião: identifique os participantes citados e, quando o contexto permitir, infira o papel de cada um (cliente, gestor, usuário, fornecedor etc.). Nunca invente nomes, cargos ou identidades que não apareçam no material — deixe o papel como desconhecido quando não houver evidência.`
         : ""

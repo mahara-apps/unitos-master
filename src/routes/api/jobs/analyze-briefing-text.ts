@@ -69,7 +69,7 @@ async function runTextAnalysis(params: {
     });
     const current = (canonical.hub ?? {}) as Record<string, unknown>;
 
-    const system = `Você é um analista sênior de marca. Interprete o material recebido e devolva JSON estrito em pt-BR mapeando informações para os campos de briefing. Preencha TODAS as propriedades do schema: use null para texto/confiança ausente e [] para evidence/speakers sem itens. Nunca invente dados nem participantes. Todos os textos devem ser objetivos e prontos para uso no briefing.`;
+    const system = withPtBr(`Você é um analista sênior de marca. Interprete o material recebido e devolva JSON estrito em pt-BR mapeando informações para os campos de briefing. Preencha TODAS as propriedades do schema: use null para texto/confiança ausente e [] para evidence/speakers sem itens. Nunca invente dados nem participantes. Todos os textos devem ser objetivos e prontos para uso no briefing.`;
 
     const userPrompt = [
       `Material: ${input.label ?? (isTranscript ? "Transcrição de reunião" : "Texto colado")}`,

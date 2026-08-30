@@ -23,6 +23,7 @@ import {
   normalizeCohorts,
   describePayloadKeys,
 } from "@/lib/ai-payload-coerce";
+import { withPtBr } from "@/lib/ai-language";
 
 
 // Two-phase pipeline — Phase 1 (Strategy).
@@ -461,7 +462,7 @@ async function runJson(opts: {
   throw new StepFailure(lastKind, lastRetryable, unwrapAiError(lastErr).text.slice(0, 800));
 }
 
-const P = {
+const P_RAW = {
   briefing:
     "Você é um estrategista de marketing sênior. Estruture o briefing bruto em JSON limpo. Nunca invente informação. Responda SOMENTE JSON, sem markdown, com as chaves: publico_alvo, tom_de_voz, dores_do_cliente_final[], diferenciais[], hashtags_sugeridas[], concorrentes_mencionados[], volume_semanal_estimado (número ou null), completude_percentual (0-100).",
   voice:
@@ -472,6 +473,12 @@ const P = {
     "Você é estrategista sênior. Gere 3–5 cohorts comportamentais. Use EXATAMENTE as chaves em inglês: cohorts[] com name, target_personas, behavioral_traits, content_strategy, conversion_criteria. Não traduza chaves. Responda SOMENTE JSON.",
   swot: "Você é estrategista sênior. Gere SWOT + matriz competitiva. Use EXATAMENTE as chaves em inglês: swot_analysis.strengths, weaknesses, opportunities, threats; competitive_matrix[] com competitor_name, our_advantages, vulnerabilities. Não traduza chaves. Responda SOMENTE JSON.",
 };
+
+// Toda etapa recebe a diretriz de idioma pt-BR (ver src/lib/ai-language.ts).
+const P = Object.fromEntries(
+  Object.entries(P_RAW).map(([k, v]) => [k, withPtBr(v)]),
+) as typeof P_RAW;
+
 
 // ---------------- Normalizers ----------------
 // Coerce PT-BR aliases into the canonical shape before persisting so the
