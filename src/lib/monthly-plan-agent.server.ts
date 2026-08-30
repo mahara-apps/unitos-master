@@ -253,13 +253,26 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
     if (!transient) break;
   }
 
+  // Causa acionável para o usuário: se o provedor primário estourou cota/limite,
+  // isso é o que precisa ser dito na UI — não o erro derivado do fallback.
+  const quotaAttempt = providerAttempts.find(
+    (a) => a.result === "provider_quota" || a.result === "provider_rate_limit",
+  );
+  const reportedKind: FailureKind =
+    lastKind === "provider_quota" || lastKind === "provider_rate_limit"
+      ? lastKind
+      : quotaAttempt
+        ? (quotaAttempt.result as FailureKind)
+        : lastKind;
+
   // Erro tipado: o chamador decide o código devolvido à UI.
   const err = new Error(
-    `ai_failure:${lastKind} — ${describeFailure(lastKind)} | ${describeProviderAttempts(providerAttempts)}`.slice(
+    `ai_failure:${reportedKind} — ${describeFailure(reportedKind)} | ${describeProviderAttempts(providerAttempts)}`.slice(
       0,
       1200,
     ),
   ) as Error & {
+
     failureKind: FailureKind;
     cause?: unknown;
   };
