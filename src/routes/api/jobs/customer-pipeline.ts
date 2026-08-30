@@ -832,6 +832,7 @@ async function runStep(params: {
         brandId: state.brandId,
         step,
         onAttempt,
+        validate: (v) => assertValidOutput(step, normalizeBriefingPayload(v)),
       });
       const briefing = normalizeBriefingPayload(value);
       assertValidOutput(step, briefing);
@@ -856,6 +857,7 @@ async function runStep(params: {
         brandId: state.brandId,
         step,
         onAttempt,
+        validate: (v) => assertValidOutput(step, normalizeVoicePayload(v)),
       });
       const voice = normalizeVoicePayload(value);
       assertValidOutput(step, voice);
@@ -870,6 +872,7 @@ async function runStep(params: {
         brandId: state.brandId,
         step,
         onAttempt,
+        validate: (v) => assertValidOutput(step, normalizePersonasPayload(v)),
       });
       const personas = normalizePersonasPayload(value);
       assertValidOutput(step, personas);
@@ -884,6 +887,7 @@ async function runStep(params: {
         brandId: state.brandId,
         step,
         onAttempt,
+        validate: (v) => assertValidOutput(step, normalizeCohortsPayload(v)),
       });
       const cohorts = normalizeCohortsPayload(value);
       assertValidOutput(step, cohorts);
@@ -902,6 +906,7 @@ async function runStep(params: {
         brandId: state.brandId,
         step,
         onAttempt,
+        validate: (v) => assertValidOutput(step, normalizeSwotPayload(v)),
       });
       const swot = normalizeSwotPayload(value);
       assertValidOutput(step, swot);
