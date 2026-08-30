@@ -309,15 +309,18 @@ describe("escrita: INSERT / UPDATE / DELETE via RLS", () => {
     expect(up.data ?? []).toHaveLength(1);
   });
 
-  it("MANAGER cria e exclui cliente (autoridade administrativa)", async () => {
+  it("MANAGER cria cliente, mas só ADMIN/OWNER exclui", async () => {
     const ins = await cx.manager.client
       .from("clients")
       .insert({ brand_id: cx.brandId, name: `DoManager2 ${TAG}` })
       .select("id");
     expect(ins.error).toBeNull();
     const id = (ins.data ?? [])[0]!.id as string;
-    const del = await cx.manager.client.from("clients").delete().eq("id", id).select("id");
-    expect(del.data ?? []).toHaveLength(1);
+    // Exclusão de cliente é irreversível: restrita a admin/owner (RLS).
+    const delManager = await cx.manager.client.from("clients").delete().eq("id", id).select("id");
+    expect(delManager.data ?? []).toHaveLength(0);
+    const delAdmin = await cx.owner.client.from("clients").delete().eq("id", id).select("id");
+    expect(delAdmin.data ?? []).toHaveLength(1);
   });
 
   // Regra canônica (Fase 1 — blindagem do Settings): identidade/dados da marca
