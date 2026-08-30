@@ -203,8 +203,14 @@ async function revokeUndiscoveredConnections(
 /** Converte o portfólio bruto em contas apresentáveis (identidade = ID Meta). */
 export function toDiscoveredAccounts(payload: CachedPagesPayload): DiscoveredAccount[] {
   const auth = payload.publishAuthorization ?? null;
+  const businessNameById = new Map(
+    (payload.businesses ?? []).map((b) => [b.id, b.name] as const),
+  );
   const out: DiscoveredAccount[] = [];
   for (const p of payload.pages) {
+    const businessId = p.businessId ?? null;
+    const businessName =
+      p.businessName ?? (businessId ? businessNameById.get(businessId) ?? null : null);
     out.push({
       channel: "facebook",
       externalId: p.pageId,
@@ -215,6 +221,9 @@ export function toDiscoveredAccounts(payload: CachedPagesPayload): DiscoveredAcc
       instagramBusinessId: p.instagramBusinessId ?? null,
       pairPageId: p.pageId,
       status: accountDiscoveryStatus(auth, "facebook", p.pageId),
+      statusReason: accountStatusReason(auth, "facebook", p.pageId),
+      businessId,
+      businessName,
     });
     if (p.instagramBusinessId) {
       out.push({
@@ -227,6 +236,9 @@ export function toDiscoveredAccounts(payload: CachedPagesPayload): DiscoveredAcc
         instagramBusinessId: p.instagramBusinessId,
         pairPageId: p.pageId,
         status: accountDiscoveryStatus(auth, "instagram", p.instagramBusinessId),
+        statusReason: accountStatusReason(auth, "instagram", p.instagramBusinessId),
+        businessId,
+        businessName,
       });
     }
   }
@@ -241,7 +253,11 @@ export function toDiscoveredAccounts(payload: CachedPagesPayload): DiscoveredAcc
       instagramBusinessId: i.instagramId,
       pairPageId: null,
       status: accountDiscoveryStatus(auth, "instagram", i.instagramId),
+      statusReason: accountStatusReason(auth, "instagram", i.instagramId),
+      businessId: null,
+      businessName: i.businessName ?? null,
     });
   }
   return out;
+
 }
