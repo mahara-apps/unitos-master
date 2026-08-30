@@ -3,18 +3,20 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /**
- * Gestão do PORTFÓLIO Meta no nível do workspace.
+ * Gestão dos PORTFÓLIOS Meta no nível do workspace.
  *
- * Portfólio (Business/Portfólio empresarial da Meta) é a identidade que
- * autoriza o workspace; cada Página/conta IG conectada vive em
- * `social_connections` com `owner_external_id`/`owner_name` apontando para ele.
+ * Modelo conceitual (três coisas distintas):
+ * - AUTORIZAÇÃO: `meta_oauth_sessions` — cada administrador Meta que consentiu.
+ * - BUSINESS PORTFOLIO: `meta_business_id` — dono dos ativos; um workspace pode
+ *   ter vários, e vários administradores podem autorizar o mesmo portfólio.
+ * - CANAL CONECTADO: `social_connections` (+ `client_social_accounts`).
  *
- * - Troca de portfólio = novo OAuth (`startMetaOAuth` com `forceReauth`) e nova
- *   seleção de contas. Nada é gravado até a seleção, então a conexão atual
- *   permanece intacta se a nova autorização falhar.
- * - Desconectar portfólio = revoga (logicamente) as conexões daquele portfólio
- *   no workspace, remove os vínculos com clientes e expira as sessões OAuth
- *   quando não resta nenhum portfólio ativo.
+ * - Adicionar/trocar portfólio = novo OAuth (`startMetaOAuth`) e nova seleção
+ *   de contas. Nada é gravado até a seleção: a conexão atual permanece intacta
+ *   se a nova autorização falhar.
+ * - Desconectar portfólio = revoga os canais daquele portfólio, remove os
+ *   vínculos com clientes e revoga só as autorizações que não alcançam mais
+ *   nenhum portfólio ativo.
  *
  * Todas as leituras/escritas são filtradas por `brand_id` e passam pelo cliente
  * autenticado (RLS). Ações de escrita exigem Owner/Admin/Super Admin.
@@ -24,13 +26,21 @@ const BrandInput = z.object({ brandId: z.string().uuid() });
 
 const DisconnectInput = z.object({
   brandId: z.string().uuid(),
-  /** `null` agrupa conexões antigas sem portfólio identificado. */
-  ownerExternalId: z.string().max(120).nullable(),
+  /** Identidade real do Business Portfolio. */
+  businessId: z.string().max(120).nullable().optional(),
+  /** Compatibilidade com linhas antigas agrupadas pelo usuário Meta. */
+  ownerExternalId: z.string().max(120).nullable().optional(),
+});
+
+const RevokeAuthInput = z.object({
+  brandId: z.string().uuid(),
+  metaUserId: z.string().min(1).max(120),
 });
 
 export type {
   MetaPortfolioSummary,
   MetaPortfolioStatus,
+  MetaAuthorizationSummary,
 } from "@/lib/meta/authorization-state";
 
 export const getMetaPortfolioStatusFn = createServerFn({ method: "POST" })
@@ -41,67 +51,102 @@ export const getMetaPortfolioStatusFn = createServerFn({ method: "POST" })
 
     // Autorização (meta_oauth_sessions) e canais (social_connections) são
     // fontes de verdade DISTINTAS. O painel reconhece a autorização mesmo com
-    // zero conexões — o mesmo filtro usado na descoberta de contas.
+    // zero conexões — o mesmo filtro usado na descoberta de contas. Sessões de
+    // QUALQUER administrador do workspace contam (não filtramos por user_id).
     const [connRes, sessRes] = await Promise.all([
       context.supabase
         .from("social_connections")
-        .select("channel, status, owner_external_id, owner_name, client_id, created_at")
+        .select(
+          "channel, status, owner_external_id, owner_name, client_id, created_at, meta_business_id, meta_business_name",
+        )
         .eq("brand_id", data.brandId)
         .eq("provider", "meta")
         .order("created_at", { ascending: true }),
       context.supabase
         .from("meta_oauth_sessions")
         .select(
-          "meta_user_id, meta_user_name, meta_user_email, user_token_ciphertext, user_token_expires_at, revoked_at, created_at",
+          "meta_user_id, meta_user_name, meta_user_email, user_token_ciphertext, user_token_expires_at, revoked_at, created_at, businesses",
         )
         .eq("brand_id", data.brandId)
         .is("revoked_at", null)
         .order("created_at", { ascending: false })
-        .limit(10),
+        .limit(20),
     ]);
     if (connRes.error) throw connRes.error;
     if (sessRes.error) throw sessRes.error;
 
-    return buildMetaPortfolioStatus(
-      (connRes.data ?? []) as never,
-      (sessRes.data ?? []) as never,
-    );
+    return buildMetaPortfolioStatus((connRes.data ?? []) as never, (sessRes.data ?? []) as never);
   });
 
+/** Diagnóstico do modo de login Meta (Business Login × escopos legados). */
+export const getMetaOAuthModeFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { metaOAuthModeDiagnostics } = await import("@/lib/meta/provider.server");
+  return metaOAuthModeDiagnostics();
+});
 
 export const disconnectMetaPortfolioFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => DisconnectInput.parse(input))
-  .handler(
-    async ({
-      data,
-      context,
-    }): Promise<{ ok: boolean; removed: number; message: string }> => {
-      const { isBrandAdmin } = await import("@/lib/monthly-plan-delete.server");
-      if (!(await isBrandAdmin(context.supabase, context.userId, data.brandId))) {
-        return {
-          ok: false,
-          removed: 0,
-          message: "Apenas Owner, Admin ou Super Admin podem desconectar um portfólio Meta.",
-        };
-      }
-
-      // A autorização Meta é revogada SEMPRE, mesmo quando o portfólio não
-      // tinha nenhum canal vinculado: sem isso as contas descobertas por
-      // aquela autorização continuariam listadas como "disponíveis".
-      // Histórico preservado (linhas marcadas, nunca apagadas).
-      const { revokeMetaPortfolio } = await import("@/lib/meta/authorization.server");
-      const { removed } = await revokeMetaPortfolio(context.supabase, {
-        brandId: data.brandId,
-        ownerExternalId: data.ownerExternalId,
-      });
-
+  .handler(async ({ data, context }): Promise<{ ok: boolean; removed: number; message: string }> => {
+    const { isBrandAdmin } = await import("@/lib/monthly-plan-delete.server");
+    if (!(await isBrandAdmin(context.supabase, context.userId, data.brandId))) {
       return {
-        ok: true,
-        removed,
-        message: removed
-          ? `${removed} canal(is) desconectado(s) e autorização Meta revogada.`
-          : "Autorização Meta revogada. Nenhum canal estava vinculado a este portfólio.",
+        ok: false,
+        removed: 0,
+        message: "Apenas Owner, Admin ou Super Admin podem desconectar um portfólio Meta.",
       };
-    },
-  );
+    }
+
+    // A autorização é revogada mesmo sem canais vinculados (senão as contas
+    // descobertas continuariam "disponíveis"), mas somente quando ela não serve
+    // outro portfólio. Histórico preservado (linhas marcadas, nunca apagadas).
+    const { revokeMetaPortfolio } = await import("@/lib/meta/authorization.server");
+    const { removed, sessionsRevoked, sessionsKept } = await revokeMetaPortfolio(
+      context.supabase,
+      {
+        brandId: data.brandId,
+        businessId: data.businessId ?? null,
+        ownerExternalId: data.ownerExternalId ?? null,
+      },
+    );
+
+    const authNote = sessionsRevoked
+      ? "Autorização Meta revogada."
+      : sessionsKept
+        ? "Autorização mantida para os demais portfólios."
+        : "Nenhuma autorização ativa restava.";
+
+    return {
+      ok: true,
+      removed,
+      message: removed
+        ? `${removed} canal(is) desconectado(s). ${authNote}`
+        : `Portfólio desconectado. ${authNote}`,
+    };
+  });
+
+/** Revoga a autorização de UM administrador Meta, sem afetar os demais. */
+export const revokeMetaAuthorizationFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => RevokeAuthInput.parse(input))
+  .handler(async ({ data, context }): Promise<{ ok: boolean; message: string }> => {
+    const { isBrandAdmin } = await import("@/lib/monthly-plan-delete.server");
+    if (!(await isBrandAdmin(context.supabase, context.userId, data.brandId))) {
+      return {
+        ok: false,
+        message: "Apenas Owner, Admin ou Super Admin podem revogar autorizações Meta.",
+      };
+    }
+    const { revokeMetaAuthorization } = await import("@/lib/meta/authorization.server");
+    const { sessionsRevoked } = await revokeMetaAuthorization(context.supabase, {
+      brandId: data.brandId,
+      metaUserId: data.metaUserId,
+    });
+    return {
+      ok: true,
+      message: sessionsRevoked
+        ? "Autorização revogada. Os canais já conectados permanecem, mas novas descobertas exigem nova autorização."
+        : "Nenhuma autorização ativa encontrada para este usuário Meta.",
+    };
+  });
+
