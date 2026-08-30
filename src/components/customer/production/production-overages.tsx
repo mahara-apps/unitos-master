@@ -14,9 +14,12 @@ import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { describeError } from "@/lib/errors";
 import { PLAN_CHANNEL_LABEL, type PlanChannel } from "@/lib/monthly-plan-fields";
+import { Switch } from "@/components/ui/switch";
 import {
   decidePlanOverageFn,
+  getOveragePolicyFn,
   listPlanOverageRequestsFn,
+  setClientOveragePolicyFn,
   type OverageRequestRow,
 } from "@/lib/plan-overage.functions";
 
