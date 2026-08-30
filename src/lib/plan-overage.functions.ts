@@ -165,6 +165,25 @@ export const decidePlanOverageFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
+    // Decisão é ato administrativo: exige autoridade no workspace da solicitação.
+    const { data: req, error: readErr } = await context.supabase
+      .from("plan_overage_requests" as never)
+      .select("id, brand_id, client_id, channel, quota, requested, overage, requested_by")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (readErr) throw readErr;
+    if (!req) throw new Error("overage_request_not_found");
+    const row = req as unknown as {
+      brand_id: string;
+      client_id: string;
+      channel: string;
+      quota: number;
+      requested: number;
+      overage: number;
+      requested_by: string | null;
+    };
+    await assertBrandAdmin(context.supabase, context.userId, row.brand_id);
+
     const { error } = await context.supabase
       .from("plan_overage_requests" as never)
       .update({
@@ -174,5 +193,30 @@ export const decidePlanOverageFn = createServerFn({ method: "POST" })
       } as never)
       .eq("id", data.id);
     if (error) throw error;
+
+    try {
+      const { data: client } = await context.supabase
+        .from("clients")
+        .select("name")
+        .eq("id", row.client_id)
+        .maybeSingle();
+      await notifyOverageDecided(context.supabase, {
+        requestId: data.id,
+        brandId: row.brand_id,
+        clientId: row.client_id,
+        clientName: (client as { name?: string | null } | null)?.name ?? null,
+        requestedBy: row.requested_by,
+        decision: data.decision,
+        item: {
+          channel: row.channel,
+          quota: row.quota,
+          requested: row.requested,
+          overage: row.overage,
+        },
+      });
+    } catch (err) {
+      console.warn("[plan-overage] notify decided failed", err);
+    }
+
     return { ok: true as const };
   });
