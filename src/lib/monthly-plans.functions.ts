@@ -53,6 +53,8 @@ export type GenerateFailureCode =
   | "ai_provider_rate_limit"
   | "ai_provider_unavailable"
   | "ai_invalid_output"
+  | "ai_output_truncated"
+  | "ai_invalid_request"
   | "ai_generation_failed"
   | "incomplete_generation"
   | "generation_in_progress";
@@ -467,9 +469,12 @@ export const updateTopicFn = createServerFn({ method: "POST" })
 const RegenSchema = z.object({
   topic_title: z.string(),
   angle: z.string(),
-  target_audience: z.string().optional().nullable(),
-  rationale: z.string().optional().nullable(),
+  // `.nullable()` sem `.optional()`: JSON Schema estrito (Groq/OpenAI) rejeita
+  // o `not` gerado por campos opcionais.
+  target_audience: z.string().nullable(),
+  rationale: z.string().nullable(),
 });
+
 
 export const regenerateTopicFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

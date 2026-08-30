@@ -47,23 +47,27 @@ const AiPlanSchema = z.object({
   title: z.string(),
   description: z.string(),
   objectives: z.string(),
-  topics: z
-    .array(
-      z.object({
-        topic_title: z.string(),
-        // Formato canônico obrigatório — sem vocabulário legado na escrita.
-        content_format: z.enum(["feed", "stories", "reels", "carrossel"]),
-        angle: z.string(),
-        // Nullable (sem `.optional()`): provedores com JSON Schema estrito
-        // (Groq/OpenAI) rejeitam o `not` que o `.optional()` gera.
-        channel: z.string().nullable(),
-        target_audience: z.string().nullable(),
-        rationale: z.string().nullable(),
-      }),
-    )
-    .min(1)
-    .max(60),
+  // Sem `.min()/.max()` no schema do wire: provedores com JSON Schema estrito
+  // (Groq/OpenAI) rejeitam bounds de array. A quantidade contratada é garantida
+  // depois, pela alocação determinística por vaga + clamp em código.
+  topics: z.array(
+    z.object({
+      topic_title: z.string(),
+      // Formato canônico obrigatório — sem vocabulário legado na escrita.
+      content_format: z.enum(["feed", "stories", "reels", "carrossel"]),
+      angle: z.string(),
+      // Nullable (sem `.optional()`): provedores com JSON Schema estrito
+      // (Groq/OpenAI) rejeitam o `not` que o `.optional()` gera.
+      channel: z.string().nullable(),
+      target_audience: z.string().nullable(),
+      rationale: z.string().nullable(),
+    }),
+  ),
 });
+
+/** Teto defensivo aplicado em código (antes vivia no schema do wire). */
+const MAX_AI_TOPICS = 60;
+
 
 export type GeneratePlanInput = {
   brandId: string;
@@ -90,6 +94,10 @@ function codeForFailure(kind: FailureKind): GenerateFailureCode {
       return "ai_provider_unavailable";
     case "invalid_output":
       return "ai_invalid_output";
+    case "output_truncated":
+      return "ai_output_truncated";
+    case "invalid_request":
+      return "ai_invalid_request";
     case "config":
       return "ai_provider_not_configured";
     default:
@@ -461,7 +469,9 @@ export async function runPlanGeneration(args: {
   }> = [];
 
   const consume = (topics: AiPlan["topics"]) => {
-    for (const t of topics) {
+    // Clamp em código no lugar do bound de schema (que quebrava provedores estritos).
+    for (const t of topics.slice(0, MAX_AI_TOPICS)) {
+
       if (allocator.left() <= 0) break;
       const wanted = normalizeContentFormat(t.content_format);
       const { channel, format } = allocator.allocate(t.channel, t.content_format);

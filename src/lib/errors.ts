@@ -75,6 +75,12 @@ export function describeError(err: unknown): string {
   if (lower.includes("incomplete_generation")) {
     return "A IA não preencheu todas as vagas da volumetria. Nada incompleto foi salvo — ao tentar novamente, a geração é retomada de onde parou.";
   }
+  if (lower.includes("ai_output_truncated")) {
+    return "A resposta da IA foi interrompida antes de ficar completa. Nada incompleto foi salvo — reduza a volumetria ou tente novamente.";
+  }
+  if (lower.includes("ai_invalid_request")) {
+    return "O provedor de IA recusou o formato da solicitação. Nada foi salvo — revise o provedor em Conexões e tente novamente.";
+  }
   if (lower.includes("ai_generation_failed")) {
     return "Não foi possível concluir a geração. Nada incompleto foi salvo — tente novamente.";
   }

@@ -1,33 +1,26 @@
-# Correção: geração de pauta com IA falhando
+# Correção: cohorts em inglês e "Barreira principal" vazia
 
-## O que está acontecendo (confirmado nos logs e no código)
+## 1. Cohorts ainda em inglês
 
-Nos logs do servidor a sequência real é:
+O que foi verificado no código: o prompt de cohorts já recebe a diretriz de idioma, mas ele continua dizendo apenas "use EXATAMENTE as chaves em inglês", sem exigir que **nomes de cohort e títulos** também sejam em português. É exatamente por isso que os valores voltam como "Corporate Elegance Seekers", "Startup Trailblazers", "Busy Mom Essentials" — o modelo trata o nome do cohort como rótulo/nome próprio e mantém em inglês, e o mesmo acontece nos textos de comportamento/estratégia gerados na mesma resposta.
 
-1. O provedor primário (Gemini) responde **429 — quota do free tier esgotada** ("Quota exceeded for … generate_content_free_tier_requests, limit: 20").
-2. O fallback funciona e alterna para Groq (`openai/gpt-oss-120b` / `gpt-oss-20b`).
-3. A tentativa no Groq falha e o pipeline encerra classificando como `invalid_request` e, em outra execução, `invalid_output`.
-4. A UI mostra apenas `ai_generation_failed` / "A IA não conseguiu concluir a geração", sem dizer que o limite do Gemini foi atingido.
+Correção:
+1. Reforçar a diretriz nos prompts das etapas de estratégia: além de "valores em pt-BR", explicitar que **nome/rótulo de cohort, título de persona e frases de exemplo são conteúdo e devem estar em português**; a exceção continua sendo marca do cliente, nomes de pessoas reais, hashtags e termos técnicos consagrados (feed, reels, briefing).
+2. Adicionar uma verificação pós-resposta simples: se os valores textuais da etapa vierem predominantemente em inglês, a etapa faz **uma** nova tentativa com a instrução de idioma reforçada, antes de aceitar. Nada em inglês é salvo silenciosamente e nada incompleto é persistido.
+3. Cobrir isso com teste de regressão junto ao teste de idioma já existente (a etapa cohorts precisa exigir português também nos nomes).
 
-Causa provável do erro no fallback: o schema enviado ao provedor tem limites de tamanho (`topics` com mínimo 1 e máximo 60) em `src/lib/monthly-plan-generate.server.ts`. Provedores com JSON Schema estrito (Groq/OpenAI) rejeitam esse tipo de bound — exatamente a mesma classe de problema já corrigida no fluxo de Importação de Briefing, onde a regra virou "schema simples no wire, limites aplicados em código". A chamada da pauta também não define orçamento de saída explícito nem opções por provedor, o que reproduz o outro modo de falha já visto (`max completion tokens reached before generating a valid document`).
+Importante: o conteúdo em inglês **já salvo** não é traduzido automaticamente nem apagado. Depois da correção, basta regerar a Estratégia do cliente para que voice, personas, cohorts e SWOT venham em português.
 
-## Correção proposta
+## 2. "Barreira principal" sem conteúdo em Personas & Público IA
 
-1. **Schema de wire simples** (`monthly-plan-generate.server.ts`): remover `.min()/.max()` do array de tópicos no schema enviado ao modelo; a quantidade contratada continua sendo garantida depois, na alocação determinística por vaga (que já existe) e por clamp em código. Nada de cast para esconder erro.
-2. **Execução provider-aware** (`monthly-plan-agent.server.ts`): definir orçamento de saída explícito e as opções corretas por provedor (Groq com `reasoningEffort` válido — nunca `"none"`), reaproveitando o mesmo padrão já validado no executor do briefing, sem criar um fluxo paralelo.
-3. **Classificação e mensagem honesta**: quando a causa raiz da execução for quota/rate limit do provedor primário, a UI deve dizer isso ("Limite de IA do provedor atingido — tente em alguns minutos ou revise o provedor primário em Conexões"), em vez de `ai_generation_failed`. Preservar o botão "Abrir Conexões" quando o problema é de provedor/chave.
-4. **Detecção de truncamento** tratada como falha própria com mensagem clara, sem salvar pauta parcial.
-5. **Fallback só para falhas transitórias** (429/5xx/quota) — comportamento atual mantido; 4xx do provedor continua terminal, sem multiplicar custo.
-6. **Nada incompleto é salvo**: a garantia atual de não persistir pauta parcial é mantida.
+Causa confirmada: o card lê o campo `objecao_dominante` (com fallback em `dor_principal`) da persona, mas a etapa de personas do pipeline gera `objecoes_comuns` (lista) e `dores` (lista) — nenhum dos dois nomes está na lista de sinônimos aceitos pelo painel. Resultado: o card fica com "—" mesmo com as objeções geradas corretamente.
+
+Correção: aceitar os nomes que o pipeline realmente produz — usar o primeiro item de `objecoes_comuns` (e de `dores` como fallback) quando não houver campo singular. Isso vale tanto para o card "Barreira principal" quanto para a exibição da objeção dentro de cada persona, sem alterar o schema de geração nem os dados já salvos.
 
 ## Fora de escopo
 
-Sem alterações em RBAC/RLS/auth, migrations, schema do banco, tenants/workspaces ou Instalação × Workspace. Sem trocar o provedor configurado pelo usuário e sem usar Cloud AI/gateway.
+Sem alterações em RBAC/RLS/auth, migrations, schema do banco, tenants/workspaces ou Instalação × Workspace. Sem tradução automática de dados já persistidos.
 
 ## Validação
 
-Testes direcionados de geração de pauta (schema sem bounds, clamp em código, classificação de quota/truncamento), suíte completa, typecheck e build. Depois, gerar uma pauta real: se o Gemini estiver em quota, o Groq deve concluir; se ambos falharem, a mensagem deve nomear a causa.
-
-## Observação importante
-
-Independentemente da correção, a chave do Gemini está no **free tier com 20 requisições/dia** já esgotado. Mesmo com o fallback funcionando, o ideal é habilitar cobrança nessa chave ou deixar um provedor com cota real como primário.
+Testes de idioma e de coerção do pipeline, teste do mapeamento de personas do painel, suíte completa, typecheck e build. Depois, regerar a estratégia de um cliente e confirmar: cohorts com nomes e textos em português e "Barreira principal" preenchida.
