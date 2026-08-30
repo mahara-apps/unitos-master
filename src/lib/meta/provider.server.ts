@@ -346,6 +346,7 @@ export class MetaProvider {
         profile_picture_url?: string;
       };
       picture?: { data?: { url?: string } };
+      business?: { id?: string; name?: string };
     };
     type IgRow = {
       id: string;
@@ -380,21 +381,39 @@ export class MetaProvider {
     };
 
     const PAGE_FIELDS =
-      "id,name,access_token,category,tasks,picture.type(large){url}," +
+      "id,name,access_token,category,tasks,picture.type(large){url},business{id,name}," +
       "instagram_business_account{id,username,profile_picture_url}," +
       "connected_instagram_account{id,username,profile_picture_url}";
     const COMPAT_PAGE_FIELDS =
-      "id,name,access_token,category,tasks,picture.type(large){url}," +
+      "id,name,access_token,category,tasks,picture.type(large){url},business{id,name}," +
       "instagram_business_account{id,username,profile_picture_url}";
     const MINIMAL_PAGE_FIELDS =
       "id,name,access_token,category,tasks,instagram_business_account{id,username}";
     const IG_FIELDS = "id,username,name,profile_picture_url";
 
-    const ingestPages = (rows: PageRow[]) => {
+    /**
+     * Ingestão deduplicada. `ctx` carrega o portfólio quando a Página veio de
+     * uma aresta de Business Portfolio (a aresta não repete `business`).
+     */
+    const ingestPages = (rows: PageRow[], ctx?: { id: string; name: string | null }) => {
       for (const p of rows) {
         const ig = p.instagram_business_account ?? p.connected_instagram_account;
         if (ig?.id) seenIg.add(ig.id);
-        if (seenPages.has(p.id)) continue;
+        const businessId = p.business?.id ?? ctx?.id ?? null;
+        const businessName = p.business?.name ?? ctx?.name ?? null;
+        const known = seenPages.has(p.id);
+        if (known) {
+          // Já vista por outra aresta: só completa a identidade do portfólio.
+          const prev = pages.find((x) => x.pageId === p.id);
+          if (prev && !prev.businessId && businessId) {
+            prev.businessId = businessId;
+            prev.businessName = businessName;
+          }
+          if (prev && !prev.pageAccessToken && p.access_token) {
+            prev.pageAccessToken = p.access_token;
+          }
+          continue;
+        }
         seenPages.add(p.id);
         pages.push({
           pageId: p.id,
@@ -406,9 +425,12 @@ export class MetaProvider {
           instagramUsername: ig?.username,
           pagePictureUrl: p.picture?.data?.url,
           instagramPictureUrl: ig?.profile_picture_url,
+          businessId,
+          businessName,
         });
       }
     };
+
 
     /** Follows every `paging.next` page for a Graph edge. */
     const loop = async <T>(
