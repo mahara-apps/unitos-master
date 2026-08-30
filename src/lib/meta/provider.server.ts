@@ -307,26 +307,27 @@ export class MetaProvider {
   }
 
   /**
-   * Lists the Facebook Pages the user manages together with each page's
-   * page-scoped access token and the connected Instagram Business account.
+   * Descoberta de ativos Meta para uma AGÊNCIA.
    *
-   * Normal discovery (`deep: false`, the default) uses ONE source of truth:
-   * `/me/accounts` — which already returns the Page id/name/token plus
-   * `instagram_business_account`. That is 1–2 Graph requests.
+   * Duas fontes combinadas, sempre deduplicadas por ID Meta:
+   *  1. `/me/accounts` — Páginas em que o usuário é admin direto (rápido).
+   *  2. `/me/businesses` → `owned_pages` / `client_pages` /
+   *     `owned_instagram_accounts` — ativos acessíveis via Business Portfolio.
+   *     É o caminho de uma agência: o usuário costuma NÃO ser admin direto da
+   *     Página, e sim ter acesso pelo portfólio.
    *
-   * `deep: true` additionally traverses Business Portfolios
-   * (`/me/businesses` → `owned_pages` / `client_pages` /
-   * `owned_instagram_accounts`). This costs hundreds of requests on large
-   * portfolios, so it is NEVER triggered automatically — it is kept only as an
-   * explicit opt-in capability. `client_instagram_accounts` is not requested at
-   * all: that edge does not exist in this Graph version (error #100).
+   * O modo profundo é o PADRÃO (`deep` default `true`). `deep: false` existe
+   * apenas como modo "rápido" para atualizações incrementais/refresh barato.
+   * `client_instagram_accounts` não é solicitado: a aresta não existe nesta
+   * versão da Graph (erro #100).
    */
   async scanPortfolio(
     userAccessToken: string,
     opts?: { deep?: boolean },
   ): Promise<MetaPortfolioScan> {
-    const deep = opts?.deep === true;
+    const deep = opts?.deep !== false;
     let requestCount = 0;
+
 
     type PageRow = {
       id: string;
