@@ -355,17 +355,21 @@ function SummaryCell({ label, value, muted }: { label: string; value: number; mu
 function PautaRow({
   item,
   busy,
+  canDelete,
   onOpen,
   onArchive,
   onRestore,
   onLinkProject,
+  onDelete,
 }: {
   item: PlanBoardItem;
   busy: boolean;
+  canDelete: boolean;
   onOpen: () => void;
   onArchive: () => void;
   onRestore: () => void;
   onLinkProject: () => void;
+  onDelete: () => void;
 }) {
   const meta = PLAN_STATUS_META[item.status] ?? PLAN_STATUS_META.draft;
   const archived = item.status === "archived";
