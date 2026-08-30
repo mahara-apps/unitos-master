@@ -79,7 +79,7 @@ export const requestPlanOverageFn = createServerFn({ method: "POST" })
         context.supabase
           .from("user_profiles")
           .select("full_name")
-          .eq("user_id", context.userId)
+          .eq("id", context.userId)
           .maybeSingle(),
       ]);
       await notifyOverageRequested(context.supabase, {
