@@ -569,7 +569,7 @@ export async function runPlanGeneration(args: {
       .eq("id", resume.planId)
       .select("*")
       .single();
-    if (upErr) throw upErr;
+    if (upErr) await failPersistence("monthly_plans.update", upErr);
     plan = planRow as unknown as MonthlyPlan;
   } else {
     const { data: planRow, error: planErr } = await supabase
@@ -588,7 +588,7 @@ export async function runPlanGeneration(args: {
       } as never)
       .select("*")
       .single();
-    if (planErr) throw planErr;
+    if (planErr) await failPersistence("monthly_plans.insert", planErr);
     plan = planRow as unknown as MonthlyPlan;
   }
 
@@ -610,7 +610,7 @@ export async function runPlanGeneration(args: {
     .from("monthly_plan_topics" as never)
     .insert(topicRows as never)
     .select("*");
-  if (topErr) throw topErr;
+  if (topErr) await failPersistence("monthly_plan_topics.insert", topErr);
 
   const topics = [...existingTopics, ...((inserted ?? []) as unknown as MonthlyPlanTopic[])].sort(
     (a, b) => a.position - b.position,
