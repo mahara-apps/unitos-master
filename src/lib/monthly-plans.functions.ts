@@ -1483,5 +1483,5 @@ export const listPlanBoardFn = createServerFn({ method: "POST" })
       };
     });
 
-    return { items, summary, projects };
+    return { items, summary, projects, canDelete };
   });
