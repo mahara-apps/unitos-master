@@ -803,6 +803,19 @@ function ApprovalView({
             <X className="h-4 w-4" /> Descartar pauta
           </Button>
 
+          {canDeleteQ.data?.canDelete && (
+            <Button
+              variant="outline"
+              className="gap-1.5 border-destructive/40 text-destructive bg-destructive/5 hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => setDeleteOpen(true)}
+              disabled={hardDelete.isPending}
+            >
+              <Trash2 className="h-4 w-4" /> Excluir definitivamente
+            </Button>
+          )}
+
+
+
           {clientLink ? (
             <Button
               variant="secondary"
