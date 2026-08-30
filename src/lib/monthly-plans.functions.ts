@@ -469,9 +469,12 @@ export const updateTopicFn = createServerFn({ method: "POST" })
 const RegenSchema = z.object({
   topic_title: z.string(),
   angle: z.string(),
-  target_audience: z.string().optional().nullable(),
-  rationale: z.string().optional().nullable(),
+  // `.nullable()` sem `.optional()`: JSON Schema estrito (Groq/OpenAI) rejeita
+  // o `not` gerado por campos opcionais.
+  target_audience: z.string().nullable(),
+  rationale: z.string().nullable(),
 });
+
 
 export const regenerateTopicFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
