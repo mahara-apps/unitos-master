@@ -17,6 +17,13 @@ import {
 } from "@/lib/ai-failures.server";
 import { loadCanonicalBriefing } from "@/lib/briefing-source.server";
 import { filterRowsByPrefs } from "@/lib/notification-prefs";
+import {
+  asText,
+  asList,
+  normalizeCohorts,
+  describePayloadKeys,
+} from "@/lib/ai-payload-coerce";
+
 
 // Two-phase pipeline — Phase 1 (Strategy).
 // Executa briefing → voz → personas → cohorts → SWOT, mas UMA etapa por
