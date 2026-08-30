@@ -159,7 +159,7 @@ export function classifyAiError(err: unknown): { kind: FailureKind; retryable: b
   ) {
     return { kind: "provider_unavailable", retryable: true };
   }
-  // 400 (Bad Request) ou erros de schema explícitos são tratados como invalid_output (retryable).
+  // Saída ausente/malformada pode variar entre modelos e admite fallback.
   if (
     status === 400 ||
     msg.includes("ai_invalid_output") ||
