@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { errorToMessage } from "@/lib/error-message";
 import { brain, type BrainContext } from "@/lib/brain/api";
 import { loadBriefingContext } from "@/lib/monthly-plan-context.server";
 import { loadStrategyContext } from "@/lib/monthly-plan-strategy.server";
