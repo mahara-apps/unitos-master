@@ -99,15 +99,35 @@ export function ProductionOverages({ brandId, clientId }: { brandId: string; cli
             Peças pedidas acima da volumetria contratada, com data e autorização.
           </p>
         </div>
-        <Tabs value={status} onValueChange={(v) => setStatus(v as typeof status)}>
-          <TabsList>
-            <TabsTrigger value="pending">Pendentes</TabsTrigger>
-            <TabsTrigger value="approved">Autorizados</TabsTrigger>
-            <TabsTrigger value="rejected">Recusados</TabsTrigger>
-            <TabsTrigger value="all">Todos</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex flex-wrap items-center gap-3">
+          {canDecide ? (
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Switch
+                checked={freeVolume}
+                disabled={policyQ.isLoading || policyM.isPending}
+                onCheckedChange={(v) => policyM.mutate(v ? "warn" : "block")}
+              />
+              Volumetria livre
+            </label>
+          ) : null}
+          <Tabs value={status} onValueChange={(v) => setStatus(v as typeof status)}>
+            <TabsList>
+              <TabsTrigger value="pending">
+                Pendentes{pendingCount ? ` (${pendingCount})` : ""}
+              </TabsTrigger>
+              <TabsTrigger value="approved">Autorizados</TabsTrigger>
+              <TabsTrigger value="rejected">Recusados</TabsTrigger>
+              <TabsTrigger value="all">Todos</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
+      {freeVolume ? (
+        <p className="text-[11px] text-muted-foreground">
+          Volumetria livre ativa: a equipe pode gerar acima da cota e o excedente fica registrado
+          aqui automaticamente.
+        </p>
+      ) : null}
 
       {listQ.isLoading ? (
         <div className="space-y-2">
