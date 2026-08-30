@@ -222,6 +222,7 @@ export async function seed(): Promise<Fixture> {
     userB,
     userNoLink,
     userPortal,
+    userOtherOwner,
   };
 }
 
