@@ -11,6 +11,7 @@ export type FailureKind =
   | "provider_rate_limit"
   | "provider_unavailable"
   | "invalid_output"
+  | "output_truncated"
   | "invalid_request"
   | "config"
   | "unknown";
@@ -125,6 +126,14 @@ export function classifyAiError(err: unknown): { kind: FailureKind; retryable: b
   // Payload/schema inválido é permanente. Não deve trocar de provider nem
   // repetir a mesma chamada: isso apenas multiplica custo sem chance de êxito.
   if (
+    msg.includes("max completion tokens") ||
+    msg.includes("maximum context length") ||
+    msg.includes("finish_reason\":\"length")
+  ) {
+    return { kind: "output_truncated", retryable: false };
+  }
+
+  if (
     status === 400 ||
     msg.includes("invalid json schema") ||
     msg.includes("invalid_request_error") ||
@@ -192,6 +201,10 @@ export const FAILURE_MESSAGE_PT: Record<FailureKind, { title: string; body: stri
   invalid_output: {
     title: "A IA não conseguiu concluir esta etapa",
     body: "Nenhum conteúdo inválido foi salvo. Tente gerar novamente.",
+  },
+  output_truncated: {
+    title: "A resposta da IA excedeu o limite",
+    body: "O material foi preservado, mas a resposta terminou antes de concluir a análise.",
   },
   invalid_request: {
     title: "A IA não aceitou o formato da solicitação",

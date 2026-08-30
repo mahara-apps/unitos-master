@@ -11,6 +11,11 @@ import {
   normalizeBriefingAnalysis,
   type BriefingAnalysis,
 } from "@/lib/briefing-analysis-schema";
+import {
+  BRIEFING_MAX_OUTPUT_TOKENS,
+  BRIEFING_OUTPUT_INSTRUCTIONS,
+  BRIEFING_PROVIDER_OPTIONS,
+} from "@/lib/briefing-generation.server";
 import { waitUntil } from "@/lib/wait-until.server";
 import type { ProviderAttempt } from "@/lib/ai-provider.server";
 
@@ -165,7 +170,7 @@ async function runAnalysis(params: {
         : ""
     }`;
 
-    const taskPrompt = `Documento: ${doc.name}\n\nSua tarefa:\n1) Extraia o texto principal (até 8000 caracteres) para \`extracted_text\`.\n2) Classifique o tipo em \`material_type\` (ex.: "Brandbook", "Manual de marca", "Pesquisa", "Deck comercial", "Transcrição de reunião").\n3) Faça um resumo executivo em até 400 caracteres.\n4) Mapeie cada campo de \`briefing\` com o que estiver explícito. Para \`hashtags\`, devolva array de strings sem o "#".\n5) Para cada campo proposto, registre evidência literal e conflito em \`evidence\`.\n6) Atribua \`confidence\` de 0 a 1 ou null. \`evidence\` e \`speakers\` devem ser arrays, mesmo quando vazios.`;
+    const taskPrompt = `Documento: ${doc.name}\n\nSua tarefa:\n1) ${prepared.mode === "text" ? "O texto já foi extraído pelo sistema; devolva `extracted_text` como null e não o repita." : "Extraia somente os trechos essenciais (até 4000 caracteres) para `extracted_text`."}\n2) Classifique o tipo em \`material_type\` (ex.: "Brandbook", "Manual de marca", "Pesquisa", "Deck comercial", "Transcrição de reunião").\n3) Faça um resumo executivo em até 400 caracteres.\n4) Mapeie cada campo de \`briefing\` com o que estiver explícito. Para \`hashtags\`, devolva array de strings sem o "#".\n5) Para cada campo proposto, registre uma única evidência literal curta e o conflito em \`evidence\`.\n6) Atribua \`confidence\` de 0 a 1 ou null. \`evidence\` e \`speakers\` devem ser arrays, mesmo quando vazios.\n${BRIEFING_OUTPUT_INSTRUCTIONS}`;
 
     // Payload multimodal montado conforme o contrato real do provider:
     // `file`/`image` recebem SOMENTE string Base64 + mediaType separado.
@@ -193,6 +198,8 @@ async function runAnalysis(params: {
       const { output } = await generateText({
         model,
         system,
+        maxOutputTokens: BRIEFING_MAX_OUTPUT_TOKENS,
+        providerOptions: BRIEFING_PROVIDER_OPTIONS,
         output: Output.object({ schema: BriefingAnalysisSchema }),
         messages: [{ role: "user", content }],
       });
@@ -231,7 +238,7 @@ async function runAnalysis(params: {
       ai_status: "done",
       ai_model: effective.model,
       ai_error: null,
-      extracted_text: summary.extracted_text ?? null,
+      extracted_text: prepared.mode === "text" ? prepared.text : (summary.extracted_text ?? null),
       ai_summary: summary as unknown as Record<string, unknown>,
       analyzed_at: new Date().toISOString(),
     });

@@ -59,7 +59,7 @@ describe("contrato portátil da análise de briefing", () => {
     }
   });
 
-  it("normaliza metadados omitidos sem aceitar briefing incompleto", () => {
+  it("normaliza metadados e campos internos omitidos sem inventar conteúdo", () => {
     const normalized = normalizeBriefingAnalysis({
       executive_summary: "Resumo",
       material_type: "Transcrição de reunião",
@@ -72,6 +72,19 @@ describe("contrato portátil da análise de briefing", () => {
       confidence: null,
     });
     expect(BriefingAnalysisSchema.safeParse(normalized).success).toBe(true);
+    expect(
+      normalizeBriefingAnalysis({
+        executive_summary: "Resumo",
+        material_type: "Transcrição",
+        briefing: { description: "Marca de moda" },
+        evidence: [{ field: "description", excerpt: "marca de moda" }],
+        speakers: [{ name: "Ana" }],
+      }),
+    ).toMatchObject({
+      briefing: { description: "Marca de moda", mission: null, goals: null },
+      evidence: [{ field: "description", conflict: null, confidence: null }],
+      speakers: [{ name: "Ana", role: null, needs_review: null }],
+    });
     expect(normalizeBriefingAnalysis({ executive_summary: "incompleto" })).toBeNull();
   });
 
