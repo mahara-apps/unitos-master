@@ -153,6 +153,7 @@ function CustomersIndexPage() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editing, setEditing] = useState<ClientRow | null>(null);
   const [toDelete, setToDelete] = useState<ClientRow | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
 
   const clientsQ = useQuery({
     queryKey: ["clients", brandId],
