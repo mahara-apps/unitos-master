@@ -30,6 +30,7 @@ import {
   setPlanJobStep,
 } from "@/lib/monthly-plan-observability.server";
 import { findResumableGeneration } from "@/lib/monthly-plan-resume.server";
+import { resolvePlanBriefingVersion } from "@/lib/monthly-plan-briefing.server";
 import type { FailureKind } from "@/lib/ai-failures.server";
 import type {
   GenerateFailureCode,
@@ -119,10 +120,23 @@ export async function runPlanGeneration(args: {
   const scope = { brandId: input.brandId, clientId: input.clientId, userId };
 
   await setPlanJobStep(supabase, jobId, "contexto");
+  let briefingVersionId: string | null;
+  try {
+    briefingVersionId = await resolvePlanBriefingVersion(supabase, {
+      briefingVersionId: input.briefingId,
+      brandId: input.brandId,
+      clientId: input.clientId,
+    });
+  } catch (err) {
+    if (errorToMessage(err).includes("briefing_version_invalid")) {
+      return { ok: false, code: "briefing_version_invalid" };
+    }
+    throw err;
+  }
   const [{ data: brand }, briefingCtx] = await Promise.all([
     supabase.from("brands").select("name").eq("id", input.brandId).maybeSingle(),
     loadBriefingContext(supabase, input.clientId, {
-      briefingId: input.briefingId ?? null,
+      briefingId: briefingVersionId,
       weeksPerMonth: input.weeksPerMonth,
     }),
   ]);
@@ -189,6 +203,7 @@ export async function runPlanGeneration(args: {
     brandId: input.brandId,
     clientId: input.clientId,
     period,
+    briefingVersionId,
   });
   let existingTopics: MonthlyPlanTopic[] = [];
   if (resume) {
@@ -536,7 +551,7 @@ export async function runPlanGeneration(args: {
 
   const contextSources = {
     model: modelId,
-    briefing_id: input.briefingId ?? null,
+    briefing_version_id: briefingVersionId,
     strategy_blocks: strategy?.blocks ?? [],
     strategy_generated_at: strategy?.generatedAt ?? null,
     metrics_channels: performance?.channelsWithMetrics ?? [],
@@ -581,7 +596,9 @@ export async function runPlanGeneration(args: {
         brand_id: input.brandId,
         client_id: input.clientId,
         input_theme: input.theme || null,
-        input_briefing_id: input.briefingId ?? null,
+        // Campo legado referencia `brand_briefings`; versões atuais vivem em
+        // `brand_briefing_versions` e são registradas em `context_sources`.
+        input_briefing_id: null,
         title: parsed.title.slice(0, 200),
         description: parsed.description.slice(0, 4000),
         objectives: parsed.objectives.slice(0, 4000),

@@ -56,6 +56,9 @@ export function describeError(err: unknown): string {
   if (lower.includes("generation_in_progress")) {
     return "Já existe uma geração de pauta em andamento para este cliente neste período. Aguarde a conclusão.";
   }
+  if (lower.includes("briefing_version_invalid")) {
+    return "A versão de briefing selecionada não existe ou não pertence a este cliente. Atualize a lista e selecione outra versão.";
+  }
   if (lower.includes("volumetry_required")) {
     return "Defina a volumetria (canal + formato + quantidade) no briefing antes de gerar a pauta.";
   }

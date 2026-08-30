@@ -20,7 +20,12 @@ export type PlanResumeState = {
 
 export async function findResumableGeneration(
   supabase: SupabaseClient,
-  args: { brandId: string; clientId: string; period: string },
+  args: {
+    brandId: string;
+    clientId: string;
+    period: string;
+    briefingVersionId?: string | null;
+  },
 ): Promise<PlanResumeState | null> {
   const { data: jobs, error } = await supabase
     .from("ai_jobs")
@@ -43,12 +48,28 @@ export async function findResumableGeneration(
 
     const { data: plan } = await supabase
       .from("monthly_plans" as never)
-      .select("id, status, client_id")
+      .select("id, status, brand_id, client_id, context_sources")
       .eq("id", planId)
       .maybeSingle();
-    const row = plan as { id: string; status: string; client_id: string } | null;
+    const row = plan as {
+      id: string;
+      status: string;
+      brand_id: string;
+      client_id: string;
+      context_sources: Record<string, unknown> | null;
+    } | null;
     // Só é retomável enquanto ninguém aprovou/arquivou o rascunho.
-    if (!row || row.client_id !== args.clientId || row.status !== "draft") continue;
+    if (
+      !row ||
+      row.brand_id !== args.brandId ||
+      row.client_id !== args.clientId ||
+      row.status !== "draft"
+    ) {
+      continue;
+    }
+    const savedVersion = row.context_sources?.["briefing_version_id"];
+    const savedVersionId = typeof savedVersion === "string" ? savedVersion : null;
+    if (savedVersionId !== (args.briefingVersionId ?? null)) continue;
 
     const { data: topics } = await supabase
       .from("monthly_plan_topics" as never)

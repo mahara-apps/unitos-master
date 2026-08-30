@@ -334,15 +334,20 @@ export async function generatePostContent(
     if (topic?.monthly_plan_id) {
       const { data: plan } = await admin
         .from("monthly_plans")
-        .select("title, input_briefing_id")
+        .select("title, input_briefing_id, context_sources")
         .eq("id", topic.monthly_plan_id)
         .maybeSingle();
       const p = plan as unknown as {
         title: string | null;
         input_briefing_id: string | null;
+        context_sources: Record<string, unknown> | null;
       } | null;
       planTitle = p?.title ?? null;
-      planBriefingId = p?.input_briefing_id ?? null;
+      const currentVersion = p?.context_sources?.["briefing_version_id"];
+      planBriefingId =
+        (typeof currentVersion === "string" ? currentVersion : null) ??
+        p?.input_briefing_id ??
+        null;
     }
   } else {
     degraded.push("topic:missing (peça sem tópico de pauta vinculado)");
