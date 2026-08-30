@@ -446,11 +446,16 @@ const P = {
 // strategy panel always finds what it expects.
 
 type AnyRec = Record<string, unknown>;
-const asStr = (v: unknown, d = ""): string => (typeof v === "string" ? v : d);
-const asArr = (v: unknown): string[] =>
-  Array.isArray(v) ? (v as string[]).filter((x) => typeof x === "string") : [];
+// Tolerante a string | lista | objeto aninhado (ver ai-payload-coerce).
+const asStr = (v: unknown, d = ""): string => asText(v) || d;
+const asArr = (v: unknown): string[] => asList(v);
 const asNum = (v: unknown): number | null =>
-  typeof v === "number" && Number.isFinite(v) ? v : null;
+  typeof v === "number" && Number.isFinite(v)
+    ? v
+    : typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v))
+      ? Number(v)
+      : null;
+
 
 function normalizeBriefingPayload(raw: unknown): z.infer<typeof BriefingSchema> {
   const r = (raw ?? {}) as AnyRec;
