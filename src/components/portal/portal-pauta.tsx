@@ -35,7 +35,23 @@ import { PLAN_PENDING_CLIENT_STATUS } from "@/lib/monthly-plan-client.types";
 type Decision = PlanDecisionItem["decision"];
 type Filter = "awaiting" | "approved" | "changes" | "all";
 
+const DECISION_ERRORS: Record<string, string> = {
+  feedback_required: "Descreva o motivo ou o que deseja ajustar.",
+  item_comment_required: "Explique o motivo nas publicações rejeitadas ou com ajuste.",
+  items_incomplete: "Revise todas as publicações antes de enviar.",
+  invalid_topic: "Uma das publicações não pertence mais a esta pauta. Recarregue a página.",
+  plan_not_pending: "Esta pauta já foi respondida.",
+  plan_not_found: "Pauta não encontrada. Avise a agência.",
+  plan_has_no_topics: "Esta pauta não tem publicações para aprovar. Avise a agência.",
+  invalid_token: "Seu acesso expirou. Solicite um novo link à agência.",
+  token_revoked: "Este acesso foi cancelado. Solicite um novo link à agência.",
+  token_expired: "Este acesso expirou. Solicite um novo link à agência.",
+  decision_items_failed: "Não conseguimos salvar as decisões. Tente novamente.",
+  decision_failed: "Não conseguimos salvar sua decisão. Tente novamente em instantes.",
+};
+
 const FILTERS: Array<{ id: Filter; label: string }> = [
+
   { id: "awaiting", label: "Aguardando você" },
   { id: "approved", label: "Aprovadas" },
   { id: "changes", label: "Ajustes" },
