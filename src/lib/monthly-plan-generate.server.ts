@@ -465,7 +465,9 @@ export async function runPlanGeneration(args: {
   }> = [];
 
   const consume = (topics: AiPlan["topics"]) => {
-    for (const t of topics) {
+    // Clamp em código no lugar do bound de schema (que quebrava provedores estritos).
+    for (const t of topics.slice(0, MAX_AI_TOPICS)) {
+
       if (allocator.left() <= 0) break;
       const wanted = normalizeContentFormat(t.content_format);
       const { channel, format } = allocator.allocate(t.channel, t.content_format);
