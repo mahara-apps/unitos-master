@@ -65,6 +65,9 @@ export type MetaPageAsset = {
   instagramUsername?: string;
   pagePictureUrl?: string;
   instagramPictureUrl?: string;
+  /** Business Portfolio (Business Manager) que detém/compartilha o ativo. */
+  businessId?: string | null;
+  businessName?: string | null;
 };
 
 /** Instagram Business account assigned to a portfolio with no manageable Page. */
@@ -77,17 +80,23 @@ export type MetaInstagramAsset = {
   businessName: string | null;
 };
 
+/** Business Portfolio (Business Manager) acessível pela autorização atual. */
+export type MetaBusiness = { id: string; name: string | null };
+
 export type MetaPortfolioScan = {
   pages: MetaPageAsset[];
   standaloneInstagram: MetaInstagramAsset[];
   /** Non-fatal problems (e.g. a portfolio edge we could not read). */
   warnings: string[];
   businessCount: number;
+  /** Portfólios empresariais acessíveis por esta autorização. */
+  businesses: MetaBusiness[];
   /** Graph requests actually performed by this scan (observability). */
   requestCount: number;
-  /** Whether the Business Portfolio traversal ran (opt-in "deep" mode). */
+  /** Whether the Business Portfolio traversal ran. */
   deep: boolean;
 };
+
 
 /**
  * Rate limits and expired tokens must abort the whole scan; permission errors
