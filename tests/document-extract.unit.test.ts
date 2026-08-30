@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as XLSX from "xlsx";
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import {
   assertInlinePayload,
   bytesToBase64,
@@ -56,8 +57,7 @@ describe("assertInlinePayload", () => {
 
 describe("prepareDocumentContent", () => {
   it("DOCX real enviado → texto de briefing e reunião", async () => {
-    const path =
-      "/mnt/user-uploads/Reunião_de_briefing_-_Use_do_Avesso_-_2026_04_07_10_26_GMT-03_00_-_Anotações_do_Gemini-2.docx";
+    const path = fileURLToPath(new URL("./fixtures/briefing-use-do-avesso.docx", import.meta.url));
     const bytes = new Uint8Array(await readFile(path));
     const out = await prepareDocumentContent({
       bytes,
