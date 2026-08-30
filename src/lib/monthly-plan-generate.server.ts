@@ -555,7 +555,7 @@ export async function runPlanGeneration(args: {
     await logPlanEvent(supabase, scope, {
       step: "conclusao",
       ok: false,
-      kind: "persistence",
+      kind: "unknown",
       retryable: true,
       message: `persistencia_falhou (${where}): ${message}`.slice(0, 1000),
     });
