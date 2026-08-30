@@ -29,6 +29,8 @@ export type ProviderAttempt = {
   model: string;
   attempt: number;
   result: "success" | string;
+  /** Diagnóstico técnico limitado; nunca contém a chave do provider. */
+  detail?: string;
 };
 
 export type BrandAiModel = {
@@ -46,7 +48,12 @@ export type BrandAiModel = {
 
 /** Resumo curto (sem segredos) para gravar em ai_jobs. */
 export function describeProviderAttempts(attempts: ProviderAttempt[]): string {
-  return attempts.map((a) => `${a.provider}/${a.model}#${a.attempt}:${a.result}`).join(" → ");
+  return attempts
+    .map(
+      (a) =>
+        `${a.provider}/${a.model}#${a.attempt}:${a.result}${a.detail ? ` (${a.detail})` : ""}`,
+    )
+    .join(" → ");
 }
 
 export type BrandProviderKey = {
@@ -355,7 +362,13 @@ function withModelInstrumentation(
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         const { kind, retryable } = classifyAiError(err);
-        ctx.attempts.push({ provider, model: modelId, attempt: call, result: kind });
+        ctx.attempts.push({
+          provider,
+          model: modelId,
+          attempt: call,
+          result: kind,
+          detail: unwrapAiError(err).text.replace(/\s+/g, " ").slice(0, 500),
+        });
 
         // 1) Modelo descontinuado/indisponível no MESMO provedor: promove o
         //    próximo da cadeia do papel (comportamento já existente).
@@ -385,7 +398,7 @@ function withModelInstrumentation(
           retryable &&
           (kind === "provider_unavailable" ||
             kind === "provider_rate_limit" ||
-            kind === "provider_quota");
+            kind === "provider_quota" || kind === "invalid_output");
         if (transient && ctx.fallback && !switchedProvider) {
           switchedProvider = true;
           console.warn(

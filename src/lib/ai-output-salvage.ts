@@ -23,24 +23,37 @@ function extractJsonObject(text: string): unknown | null {
 }
 
 /** Candidatos de texto onde a geração descartada pode estar preservada. */
-function candidateTexts(error: unknown): string[] {
+function candidateTexts(error: unknown, seen = new Set<unknown>()): string[] {
   const out: string[] = [];
+  if (error == null || seen.has(error)) return out;
+  seen.add(error);
   if (NoObjectGeneratedError.isInstance(error)) {
     if (typeof error.text === "string" && error.text) out.push(error.text);
     const cause = (error as { cause?: unknown }).cause;
-    if (cause) out.push(...candidateTexts(cause));
+    if (cause) out.push(...candidateTexts(cause, seen));
   }
   if (APICallError.isInstance(error)) {
     const body = (error as { responseBody?: unknown }).responseBody;
     if (typeof body === "string" && body) {
       try {
-        const parsed = JSON.parse(body) as { error?: { failed_generation?: unknown } };
-        const failed = parsed?.error?.failed_generation;
+        const parsed = JSON.parse(body) as {
+          error?: { failed_generation?: unknown; data?: { failed_generation?: unknown } };
+          failed_generation?: unknown;
+        };
+        const failed =
+          parsed?.error?.failed_generation ??
+          parsed?.error?.data?.failed_generation ??
+          parsed?.failed_generation;
         if (typeof failed === "string" && failed) out.push(failed);
       } catch {
         /* responseBody não é JSON — ignora */
       }
     }
+  }
+  if (typeof error === "object") {
+    const value = error as { cause?: unknown; text?: unknown; responseBody?: unknown };
+    if (typeof value.text === "string" && value.text) out.push(value.text);
+    if (value.cause) out.push(...candidateTexts(value.cause, seen));
   }
   return out;
 }
@@ -52,10 +65,16 @@ function candidateTexts(error: unknown): string[] {
 export function salvageStructuredOutput<S extends z.ZodTypeAny>(
   error: unknown,
   schema: S,
+  normalize?: (value: unknown) => z.infer<S> | null,
 ): z.infer<S> | null {
   for (const text of candidateTexts(error)) {
     const parsed = extractJsonObject(text);
     if (parsed == null) continue;
+    const normalized = normalize?.(parsed);
+    if (normalized != null) {
+      console.warn("[ai-output-salvage] saída normalizada de failed_generation");
+      return normalized;
+    }
     const result = schema.safeParse(parsed);
     if (result.success) {
       console.warn("[ai-output-salvage] saída recuperada de failed_generation");

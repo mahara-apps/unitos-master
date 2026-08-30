@@ -11,6 +11,7 @@ export type FailureKind =
   | "provider_rate_limit"
   | "provider_unavailable"
   | "invalid_output"
+  | "invalid_request"
   | "config"
   | "unknown";
 
@@ -121,6 +122,18 @@ export function classifyAiError(err: unknown): { kind: FailureKind; retryable: b
     return { kind: "config", retryable: false };
   }
 
+  // Payload/schema inválido é permanente. Não deve trocar de provider nem
+  // repetir a mesma chamada: isso apenas multiplica custo sem chance de êxito.
+  if (
+    status === 400 ||
+    msg.includes("invalid json schema") ||
+    msg.includes("invalid_request_error") ||
+    msg.includes("response_format") ||
+    msg.includes("jsonschema")
+  ) {
+    return { kind: "invalid_request", retryable: false };
+  }
+
   if (
     status === 402 ||
     msg.includes("quota") ||
@@ -146,7 +159,13 @@ export function classifyAiError(err: unknown): { kind: FailureKind; retryable: b
   ) {
     return { kind: "provider_unavailable", retryable: true };
   }
-  if (msg.includes("ai_invalid_output") || msg.includes("empty_caption") || msg.includes("json")) {
+  // Saída ausente/malformada pode variar entre modelos e admite fallback.
+  if (
+    status === 400 ||
+    msg.includes("ai_invalid_output") ||
+    msg.includes("empty_caption") ||
+    msg.includes("json")
+  ) {
     return { kind: "invalid_output", retryable: true };
   }
   // Sem pista alguma, mas o SDK relatou stream sem saída: tratar como saída
@@ -173,6 +192,10 @@ export const FAILURE_MESSAGE_PT: Record<FailureKind, { title: string; body: stri
   invalid_output: {
     title: "A IA não conseguiu concluir esta etapa",
     body: "Nenhum conteúdo inválido foi salvo. Tente gerar novamente.",
+  },
+  invalid_request: {
+    title: "A IA não aceitou o formato da solicitação",
+    body: "O material foi preservado, mas a análise não pôde ser iniciada. Tente novamente após a correção da integração.",
   },
   config: {
     title: "Configuração de IA necessária",

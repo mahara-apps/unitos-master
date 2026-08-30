@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { APICallError } from "ai";
 import { z } from "zod";
 import { salvageStructuredOutput } from "@/lib/ai-output-salvage";
+import {
+  BriefingAnalysisSchema,
+  normalizeBriefingAnalysis,
+} from "@/lib/briefing-analysis-schema";
 
 // Espelha a tolerância do schema de análise: campos de metadados opcionais.
 const Schema = z.object({
@@ -72,5 +76,57 @@ describe("salvageStructuredOutput", () => {
 
   it("ignora erros que não são de IA", () => {
     expect(salvageStructuredOutput(new Error("boom"), Schema)).toBeNull();
+  });
+
+  it("normaliza metadados omitidos sem inventar conteúdo", () => {
+    const generation = JSON.stringify({
+      executive_summary: "Resumo",
+      material_type: "Transcrição",
+      briefing: {
+        description: "Marca de moda",
+        mission: null,
+        positioning: null,
+        values: null,
+        audience: null,
+        pain_points: null,
+        demographics: null,
+        offer: null,
+        differentials: null,
+        objections: null,
+        journey: null,
+        desires: null,
+        tone_text: null,
+        hashtags: null,
+        goals: null,
+      },
+    });
+    const err = new APICallError({
+      message: "json_validate_failed",
+      url: "https://example.com",
+      requestBodyValues: {},
+      statusCode: 400,
+      responseBody: JSON.stringify({ error: { data: { failed_generation: generation } } }),
+      isRetryable: false,
+    });
+    const salvaged = salvageStructuredOutput(
+      err,
+      BriefingAnalysisSchema,
+      normalizeBriefingAnalysis,
+    );
+    expect(salvaged).toMatchObject({ evidence: [], speakers: [], confidence: null });
+  });
+
+  it("não aceita JSON truncado", () => {
+    const err = new APICallError({
+      message: "json_validate_failed",
+      url: "https://example.com",
+      requestBodyValues: {},
+      statusCode: 400,
+      responseBody: JSON.stringify({ error: { failed_generation: '{"briefing": {' } }),
+      isRetryable: false,
+    });
+    expect(
+      salvageStructuredOutput(err, BriefingAnalysisSchema, normalizeBriefingAnalysis),
+    ).toBeNull();
   });
 });

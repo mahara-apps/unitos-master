@@ -3,9 +3,16 @@ import { createClient } from "@supabase/supabase-js";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
-import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
+import { describeProviderAttempts, getBrandAiModelAdmin } from "@/lib/ai-provider.server";
+import {
+  BriefingAnalysisSchema,
+  effectiveProviderAttempt,
+  normalizeBriefingAnalysis,
+  type BriefingAnalysis,
+} from "@/lib/briefing-analysis-schema";
 import { guardClientScope } from "@/lib/http-scope.server";
 import { waitUntil } from "@/lib/wait-until.server";
+import type { ProviderAttempt } from "@/lib/ai-provider.server";
 
 /**
  * Worker de importação a partir de TEXTO (colado, notas, e-mails, transcrição
@@ -27,66 +34,6 @@ const BodySchema = z.object({
   force: z.boolean().optional(),
 });
 
-const BriefingFields = z.object({
-  description: z.string().nullable(),
-  mission: z.string().nullable(),
-  positioning: z.string().nullable(),
-  values: z.string().nullable(),
-  audience: z.string().nullable(),
-  pain_points: z.string().nullable(),
-  demographics: z.string().nullable(),
-  offer: z.string().nullable(),
-  differentials: z.string().nullable(),
-  objections: z.string().nullable(),
-  journey: z.string().nullable(),
-  desires: z.string().nullable(),
-  tone_text: z.string().nullable(),
-  hashtags: z.array(z.string()).nullable(),
-  goals: z.string().nullable(),
-});
-
-const AnalysisSchema = z.object({
-  executive_summary: z.string().nullable(),
-  material_type: z.string().nullable(),
-  briefing: BriefingFields,
-  /** Evidência por campo: trecho literal do material e se contradiz o atual. */
-  evidence: z
-    .array(
-      z.object({
-        field: z.string(),
-        excerpt: z.string().nullable(),
-        conflict: z.boolean().nullable(),
-        confidence: z.number().min(0).max(1).nullable(),
-      }),
-    )
-    // Opcional de propósito: providers que validam o JSON contra o schema
-    // (ex.: OpenRouter) rejeitam a resposta inteira quando o modelo omite
-    // campos "required". Ausentes, aplicamos defaults em código.
-    .optional(),
-  /** Participantes só quando o material é transcrição e há evidência real. */
-  speakers: z
-    .array(
-      z.object({
-        name: z.string().nullable(),
-        role: z
-          .enum([
-            "cliente",
-            "gestor",
-            "usuario",
-            "fornecedor",
-            "especialista",
-            "interno",
-            "indefinido",
-          ])
-          .nullable(),
-        evidence: z.string().nullable(),
-        needs_review: z.boolean().nullable(),
-      }),
-    )
-    .optional(),
-  confidence: z.number().min(0).max(1).optional(),
-});
-
 function buildUserClient(token: string) {
   const url = process.env["SUPABASE_URL"]!;
   const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
@@ -105,6 +52,7 @@ async function runTextAnalysis(params: {
   const supabase = buildUserClient(token);
   const runScope = { id: runId, brand_id: input.brandId, client_id: input.clientId };
   const isTranscript = (input.sourceKind ?? "paste") === "transcript";
+  let providerAttempts: ProviderAttempt[] = [];
 
   const { claimImportRun, setRunStep, setRunModel, saveImportProposal, failImportRun, classifyChange } =
     await import("@/lib/briefing-import.server");
@@ -118,12 +66,14 @@ async function runTextAnalysis(params: {
     });
 
     await setRunStep(supabase as never, runScope, "interpret", "running");
-    const { model, modelId, provider } = await getBrandAiModelAdmin(
+    const resolved = await getBrandAiModelAdmin(
       input.brandId,
       "text",
       "operational",
       { agent: "briefing.import.text", clientId: input.clientId ?? null },
     );
+    const { model, modelId, provider } = resolved;
+    providerAttempts = resolved.providerAttempts;
     await setRunModel(supabase as never, runId, { model: modelId, provider });
 
     const { loadCanonicalBriefing } = await import("@/lib/briefing-source.server");
@@ -133,7 +83,7 @@ async function runTextAnalysis(params: {
     });
     const current = (canonical.hub ?? {}) as Record<string, unknown>;
 
-    const system = `Você é um analista sênior de marca. Interprete o material recebido e devolva JSON estrito em pt-BR mapeando informações para os campos de briefing. Use null quando o campo não estiver claramente descrito. Nunca invente dados nem participantes. Todos os textos devem ser objetivos e prontos para uso no briefing.`;
+    const system = `Você é um analista sênior de marca. Interprete o material recebido e devolva JSON estrito em pt-BR mapeando informações para os campos de briefing. Preencha TODAS as propriedades do schema: use null para texto/confiança ausente e [] para evidence/speakers sem itens. Nunca invente dados nem participantes. Todos os textos devem ser objetivos e prontos para uso no briefing.`;
 
     const userPrompt = [
       `Material: ${input.label ?? (isTranscript ? "Transcrição de reunião" : "Texto colado")}`,
@@ -147,25 +97,30 @@ async function runTextAnalysis(params: {
 2) Classifique o tipo do material em material_type.
 3) Preencha \`briefing\` com o que o material sustenta; compare com o briefing atual e proponha valores completos e finais para cada campo que precise mudar. Deixe null o que não tiver base.
 4) Em \`evidence\`, para cada campo proposto, informe o trecho literal de origem (excerpt), se contradiz o briefing atual (conflict) e a confiança do campo.
-5) \`confidence\` global de 0 a 1.`,
+5) \`confidence\` global de 0 a 1 ou null.
+6) \`extracted_text\` deve ser null neste fluxo. \`evidence\` e \`speakers\` devem ser arrays, mesmo quando vazios.`,
     ]
       .filter(Boolean)
       .join("\n");
 
-    let analysis: z.infer<typeof AnalysisSchema>;
+    let analysis: BriefingAnalysis;
     try {
       const { output } = await generateText({
         model,
         system,
-        output: Output.object({ schema: AnalysisSchema }),
+        output: Output.object({ schema: BriefingAnalysisSchema }),
         messages: [{ role: "user", content: [{ type: "text", text: userPrompt }] }],
       });
-      analysis = output;
+      analysis = normalizeBriefingAnalysis(output) ?? output;
     } catch (err) {
       // Alguns provedores descartam a geração por validação de schema mesmo
       // com conteúdo perfeito — tenta recuperar antes de falhar a execução.
       const { salvageStructuredOutput } = await import("@/lib/ai-output-salvage");
-      const salvaged = salvageStructuredOutput(err, AnalysisSchema);
+      const salvaged = salvageStructuredOutput(
+        err,
+        BriefingAnalysisSchema,
+        normalizeBriefingAnalysis,
+      );
       if (salvaged) {
         analysis = salvaged;
       } else if (NoObjectGeneratedError.isInstance(err)) {
@@ -176,13 +131,19 @@ async function runTextAnalysis(params: {
         throw err;
       }
     }
+    const effective = effectiveProviderAttempt(providerAttempts, { provider, model: modelId });
+    await setRunModel(supabase as never, runId, effective);
     await setRunStep(supabase as never, runScope, "interpret", "done", {
-      output: { material_type: analysis.material_type, confidence: analysis.confidence },
+      output: {
+        material_type: analysis.material_type,
+        confidence: analysis.confidence,
+        provider_attempts: describeProviderAttempts(providerAttempts),
+      },
     });
 
     await setRunStep(supabase as never, runScope, "diff", "running");
     const evidenceByField = new Map(
-      (analysis.evidence ?? []).map((e) => [e.field, e] as const),
+      analysis.evidence.map((e) => [e.field, e] as const),
     );
     const changes = Object.entries(analysis.briefing).map(([field, proposed]) => {
       const ev = evidenceByField.get(field);
@@ -208,13 +169,15 @@ async function runTextAnalysis(params: {
       changes,
       summary: analysis.executive_summary ?? null,
       confidence: analysis.confidence ?? null,
-      ...(isTranscript && analysis.speakers ? { speakers: analysis.speakers } : {}),
+      ...(isTranscript ? { speakers: analysis.speakers } : {}),
     });
     await setRunStep(supabase as never, runScope, "propose", "done", {
       output: { material_type: analysis.material_type },
     });
   } catch (err) {
-    const technical = err instanceof Error ? err.message : String(err);
+    const baseTechnical = err instanceof Error ? err.message : String(err);
+    const trace = describeProviderAttempts(providerAttempts);
+    const technical = trace ? `${baseTechnical}\nProvider attempts: ${trace}` : baseTechnical;
     console.error("[analyze-briefing-text] failed:", technical, err);
     const { friendlyAnalysisError } = await import("@/lib/briefing-import-ui");
     const friendly = friendlyAnalysisError(err) || "Não foi possível analisar este material.";

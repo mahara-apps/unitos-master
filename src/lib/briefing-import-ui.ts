@@ -372,7 +372,7 @@ export function friendlyAnalysisError(error: unknown): string {
     return "Não foi possível preparar este arquivo para a IA. Tente outro formato (PDF, DOCX, XLSX, CSV, TXT ou imagem).";
   }
   if (/json_validate_failed|jsonschema|does not validate|failed_generation|não conseguiu estruturar/i.test(raw)) {
-    return "A IA respondeu em formato inesperado. Tente novamente; se persistir, envie o material em outro formato.";
+    return "A IA leu o material, mas não conseguiu organizar a análise. Tente novamente em alguns instantes.";
   }
   if (/document_format_unsupported/i.test(raw)) {
     return "Formato não suportado. Envie PDF, DOCX, XLS/XLSX, CSV, TXT ou imagem (.doc antigo não é lido).";
@@ -385,6 +385,9 @@ export function friendlyAnalysisError(error: unknown): string {
   }
   if (/rate.?limit|429/i.test(raw)) {
     return "O provedor de IA está limitando as requisições. Tente novamente em alguns instantes.";
+  }
+  if (/provider_unavailable|overloaded|unavailable|503/i.test(raw)) {
+    return "A IA está temporariamente indisponível. O material foi preservado; tente novamente em alguns instantes.";
   }
   if (/timeout|ETIMEDOUT|aborted/i.test(raw)) {
     return "A análise excedeu o tempo limite. Tente novamente com um arquivo menor.";

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as XLSX from "xlsx";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import {
   assertInlinePayload,
   bytesToBase64,
@@ -54,6 +56,22 @@ describe("assertInlinePayload", () => {
 });
 
 describe("prepareDocumentContent", () => {
+  it("DOCX real enviado → texto de briefing e reunião", async () => {
+    const path = fileURLToPath(new URL("./fixtures/briefing-use-do-avesso.docx", import.meta.url));
+    const bytes = new Uint8Array(await readFile(path));
+    const out = await prepareDocumentContent({
+      bytes,
+      mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      filename: "Reunião de briefing - Use do Avesso.docx",
+    });
+    expect(out.mode).toBe("text");
+    if (out.mode === "text") {
+      expect(out.text.length).toBeGreaterThan(16_000);
+      expect(out.text).toContain("Use do Avesso");
+      expect(out.text).toMatch(/reunião|briefing/i);
+    }
+  });
+
   it("imagem → inline com Base64 string", async () => {
     const out = await prepareDocumentContent({
       bytes: enc("fake-png"),

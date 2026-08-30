@@ -4,8 +4,15 @@ import { createClient } from "@supabase/supabase-js";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
-import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
+import { describeProviderAttempts, getBrandAiModelAdmin } from "@/lib/ai-provider.server";
+import {
+  BriefingAnalysisSchema,
+  effectiveProviderAttempt,
+  normalizeBriefingAnalysis,
+  type BriefingAnalysis,
+} from "@/lib/briefing-analysis-schema";
 import { waitUntil } from "@/lib/wait-until.server";
+import type { ProviderAttempt } from "@/lib/ai-provider.server";
 
 // Worker que lê um documento (PDF, imagem, DOC) do bucket `brand-documents`,
 // extrai o texto principal e sugere campos para o briefing do cliente.
@@ -31,31 +38,7 @@ function buildUserClient(token: string) {
   });
 }
 
-const AiSummarySchema = z.object({
-  document_type: z.string().nullable(),
-  executive_summary: z.string().nullable(),
-  extracted_text: z.string().nullable(),
-  briefing: z.object({
-    description: z.string().nullable(),
-    mission: z.string().nullable(),
-    positioning: z.string().nullable(),
-    values: z.string().nullable(),
-    audience: z.string().nullable(),
-    pain_points: z.string().nullable(),
-    demographics: z.string().nullable(),
-    offer: z.string().nullable(),
-    differentials: z.string().nullable(),
-    objections: z.string().nullable(),
-    journey: z.string().nullable(),
-    desires: z.string().nullable(),
-    tone_text: z.string().nullable(),
-    hashtags: z.array(z.string()).nullable(),
-    goals: z.string().nullable(),
-  }),
-  confidence: z.number().min(0).max(1).optional(),
-});
-
-export type DocumentAiSummary = z.infer<typeof AiSummarySchema>;
+export type DocumentAiSummary = BriefingAnalysis;
 
 
 
@@ -68,6 +51,7 @@ async function runAnalysis(params: {
   const { token, input, runId } = params;
   const supabase = buildUserClient(token);
   const runScope = { id: runId, brand_id: input.brandId, client_id: input.clientId };
+  let providerAttempts: ProviderAttempt[] = [];
 
   const {
     claimImportRun,
@@ -160,7 +144,7 @@ async function runAnalysis(params: {
     });
 
     await setRunStep(supabase as never, runScope, "interpret", "running");
-    const { model, modelId, provider } = await getBrandAiModelAdmin(
+    const resolved = await getBrandAiModelAdmin(
       input.brandId,
       "text",
       "operational",
@@ -169,17 +153,19 @@ async function runAnalysis(params: {
         clientId: input.clientId ?? null,
       },
     );
+    const { model, modelId, provider } = resolved;
+    providerAttempts = resolved.providerAttempts;
     // Modelo/provedor REAIS da execução (antes ficava hardcoded).
     await setRunModel(supabase as never, runId, { model: modelId, provider });
 
     const isTranscript = input.sourceKind === "transcript";
-    const system = `Você é um analista sênior de marca. Interprete o material e devolva um JSON estrito em pt-BR, mapeando cada informação para os campos de briefing. Use null quando o campo não estiver claramente descrito. Nunca invente dados. Todos os textos devem ser objetivos e prontos para uso no briefing (sem introduções como "o documento diz").${
+    const system = `Você é um analista sênior de marca. Interprete o material e devolva um JSON estrito em pt-BR, mapeando cada informação para os campos de briefing. Preencha TODAS as propriedades do schema: use null para texto/confiança ausente e [] para evidence/speakers sem itens. Nunca invente dados. Todos os textos devem ser objetivos e prontos para uso no briefing (sem introduções como "o documento diz").${
       isTranscript
         ? ` Este material é uma transcrição de reunião: identifique os participantes citados e, quando o contexto permitir, infira o papel de cada um (cliente, gestor, usuário, fornecedor etc.). Nunca invente nomes, cargos ou identidades que não apareçam no material — deixe o papel como desconhecido quando não houver evidência.`
         : ""
     }`;
 
-    const taskPrompt = `Documento: ${doc.name}\n\nSua tarefa:\n1) Extraia o texto principal (até 8000 caracteres) para \`extracted_text\`.\n2) Classifique o tipo em \`document_type\` (ex.: "Brandbook", "Manual de marca", "Pesquisa", "Deck comercial", "Transcrição de reunião").\n3) Faça um resumo executivo em até 400 caracteres.\n4) Mapeie cada campo de \`briefing\` com o que estiver explícito. Para \`hashtags\`, devolva array de strings sem o "#".\n5) Atribua um \`confidence\` (0 a 1) refletindo quão bem o material cobriu o briefing.`;
+    const taskPrompt = `Documento: ${doc.name}\n\nSua tarefa:\n1) Extraia o texto principal (até 8000 caracteres) para \`extracted_text\`.\n2) Classifique o tipo em \`material_type\` (ex.: "Brandbook", "Manual de marca", "Pesquisa", "Deck comercial", "Transcrição de reunião").\n3) Faça um resumo executivo em até 400 caracteres.\n4) Mapeie cada campo de \`briefing\` com o que estiver explícito. Para \`hashtags\`, devolva array de strings sem o "#".\n5) Para cada campo proposto, registre evidência literal e conflito em \`evidence\`.\n6) Atribua \`confidence\` de 0 a 1 ou null. \`evidence\` e \`speakers\` devem ser arrays, mesmo quando vazios.`;
 
     // Payload multimodal montado conforme o contrato real do provider:
     // `file`/`image` recebem SOMENTE string Base64 + mediaType separado.
@@ -207,14 +193,18 @@ async function runAnalysis(params: {
       const { output } = await generateText({
         model,
         system,
-        output: Output.object({ schema: AiSummarySchema }),
+        output: Output.object({ schema: BriefingAnalysisSchema }),
         messages: [{ role: "user", content }],
       });
-      summary = output;
+      summary = normalizeBriefingAnalysis(output) ?? output;
     } catch (err) {
       // Recupera geração descartada por validação de schema do provider.
       const { salvageStructuredOutput } = await import("@/lib/ai-output-salvage");
-      const salvaged = salvageStructuredOutput(err, AiSummarySchema);
+      const salvaged = salvageStructuredOutput(
+        err,
+        BriefingAnalysisSchema,
+        normalizeBriefingAnalysis,
+      );
       if (salvaged) {
         summary = salvaged;
       } else if (NoObjectGeneratedError.isInstance(err)) {
@@ -226,13 +216,20 @@ async function runAnalysis(params: {
       }
     }
 
+    const effective = effectiveProviderAttempt(providerAttempts, { provider, model: modelId });
+    await setRunModel(supabase as never, runId, effective);
+
     await setRunStep(supabase as never, runScope, "interpret", "done", {
-      output: { document_type: summary.document_type, confidence: summary.confidence },
+      output: {
+        material_type: summary.material_type,
+        confidence: summary.confidence,
+        provider_attempts: describeProviderAttempts(providerAttempts),
+      },
     });
 
     await patch({
       ai_status: "done",
-      ai_model: modelId,
+      ai_model: effective.model,
       ai_error: null,
       extracted_text: summary.extracted_text ?? null,
       ai_summary: summary as unknown as Record<string, unknown>,
@@ -247,30 +244,39 @@ async function runAnalysis(params: {
       clientId: input.clientId,
     });
     const current = (canonical.hub ?? {}) as Record<string, unknown>;
-    const changes = Object.entries(summary.briefing).map(([field, proposed]) => ({
-      field,
-      currentValue: current[field] ?? null,
-      proposedValue: proposed,
-      action: classifyChange(current[field] ?? null, proposed),
-      confidence: summary.confidence ?? null,
-      evidence: {
-        source: "document",
-        document_id: input.documentId,
-        document_name: doc.name,
-      },
-    }));
+    const evidenceByField = new Map(summary.evidence.map((e) => [e.field, e] as const));
+    const changes = Object.entries(summary.briefing).map(([field, proposed]) => {
+      const evidence = evidenceByField.get(field);
+      return {
+        field,
+        currentValue: current[field] ?? null,
+        proposedValue: proposed,
+        action: classifyChange(current[field] ?? null, proposed),
+        confidence: evidence?.confidence ?? summary.confidence ?? null,
+        evidence: {
+          source: input.sourceKind === "transcript" ? "transcript" : "document",
+          document_id: input.documentId,
+          document_name: doc.name,
+          excerpt: evidence?.excerpt ?? null,
+          conflict: evidence?.conflict === true,
+        },
+      };
+    });
     await setRunStep(supabase as never, runScope, "diff", "done", { output: { fields: changes.length } });
 
     await saveImportProposal(supabase as never, runScope, {
       changes,
       summary: summary.executive_summary ?? null,
       confidence: summary.confidence ?? null,
+      ...(isTranscript ? { speakers: summary.speakers } : {}),
     });
     await setRunStep(supabase as never, runScope, "propose", "done", {
-      output: { document_type: summary.document_type },
+      output: { material_type: summary.material_type },
     });
   } catch (err) {
-    const technical = err instanceof Error ? err.message : String(err);
+    const baseTechnical = err instanceof Error ? err.message : String(err);
+    const trace = describeProviderAttempts(providerAttempts);
+    const technical = trace ? `${baseTechnical}\nProvider attempts: ${trace}` : baseTechnical;
     // Erro técnico completo fica no log e no step da execução; o usuário vê
     // uma mensagem amigável.
     console.error("[analyze-document] failed:", technical, err);
@@ -306,8 +312,12 @@ export const Route = createFileRoute("/api/jobs/analyze-document")({
         }
 
         const supabase = buildUserClient(token);
-        const { data: claims } = await supabase.auth.getClaims(token);
-        const userId = claims?.claims?.sub;
+        const { data: claims } = await supabase.auth.getClaims(token).catch(() => ({ data: null }));
+        let userId = claims?.claims?.sub as string | undefined;
+        if (!userId) {
+          const { data: userData } = await supabase.auth.getUser(token);
+          userId = userData?.user?.id;
+        }
         if (!userId) return new Response("Unauthorized", { status: 401 });
 
         // Fase 2: escopo de cliente validado antes de baixar o documento.
