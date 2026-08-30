@@ -93,6 +93,7 @@ export function PautaBoard({
   const [projectFilter, setProjectFilter] = React.useState<string>("all");
   const [q, setQ] = React.useState("");
   const [linkTarget, setLinkTarget] = React.useState<PlanBoardItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<PlanBoardItem | null>(null);
 
   const list = useServerFn(listPlanBoardFn);
   const boardQ = useQuery({
