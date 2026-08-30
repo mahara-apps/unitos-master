@@ -446,13 +446,17 @@ export function ChannelsCenter({
         brandId={brandId}
         canManage={canManage}
         loading={loadingPortfolio}
+        authorized={portfolioStatus?.authorized ?? false}
+        availableCount={available.length}
         metaUserName={portfolioStatus?.metaUserName ?? null}
         portfolios={portfolioStatus?.portfolios ?? []}
         switching={connecting !== null}
         onConnect={() => void connectMeta("facebook")}
         onSwitch={() => void connectMeta("facebook", true)}
+        onSelectAccounts={() => setTab("accounts")}
         onChanged={invalidate}
       />
+
 
 
 
@@ -1794,21 +1798,28 @@ function MetaPortfolioPanel({
   brandId,
   canManage,
   loading,
+  authorized,
+  availableCount,
   metaUserName,
   portfolios,
   switching,
   onConnect,
   onSwitch,
+  onSelectAccounts,
   onChanged,
 }: {
   brandId: string | null;
   canManage: boolean;
   loading: boolean;
+  /** Autorização Meta válida (`meta_oauth_sessions`), independente de canais. */
+  authorized: boolean;
+  availableCount: number;
   metaUserName: string | null;
   portfolios: MetaPortfolioSummary[];
   switching: boolean;
   onConnect: () => void;
   onSwitch: () => void;
+  onSelectAccounts: () => void;
   onChanged: () => void;
 }) {
   const disconnectFn = useServerFn(disconnectMetaPortfolioFn);
@@ -1838,33 +1849,48 @@ function MetaPortfolioPanel({
     );
   }
 
+  const connectedState = authorized || portfolios.length > 0;
+
   return (
     <Card className="p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold">Portfólio Meta do workspace</p>
           <p className="text-xs text-muted-foreground">
-            {portfolios.length
+            {connectedState
               ? "A autorização pertence ao workspace; os canais abaixo atendem clientes específicos."
               : "Nenhum portfólio Meta autorizado neste workspace ainda."}
             {metaUserName ? ` Autorizado por ${metaUserName}.` : ""}
           </p>
         </div>
         {canManage ? (
-          <Button
-            size="sm"
-            variant={portfolios.length ? "outline" : "default"}
-            className="h-8 gap-1.5 text-xs"
-            disabled={switching}
-            onClick={portfolios.length ? onSwitch : onConnect}
-          >
-            {switching ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5" />
-            )}
-            {portfolios.length ? "Trocar portfólio" : "Conectar Meta"}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {connectedState && availableCount ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-8 gap-1.5 text-xs"
+                onClick={onSelectAccounts}
+              >
+                <Link2 className="h-3.5 w-3.5" />
+                Selecionar contas ({availableCount})
+              </Button>
+            ) : null}
+            <Button
+              size="sm"
+              variant={connectedState ? "outline" : "default"}
+              className="h-8 gap-1.5 text-xs"
+              disabled={switching}
+              onClick={connectedState ? onSwitch : onConnect}
+            >
+              {switching ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              {connectedState ? "Trocar portfólio" : "Conectar Meta"}
+            </Button>
+          </div>
         ) : null}
       </div>
 
@@ -1880,10 +1906,16 @@ function MetaPortfolioPanel({
                   {p.ownerName ?? "Portfólio sem nome na Meta"}
                 </p>
                 <p className="text-[11px] text-muted-foreground">
+                  {p.authorized ? "Autorizado · " : "Sem autorização ativa · "}
                   {p.channelCount} canal(is) · {p.clientCount} cliente(s)
                   {p.attentionCount ? ` · ${p.attentionCount} com atenção` : ""}
                   {p.ownerExternalId ? ` · ID ${p.ownerExternalId}` : ""}
                 </p>
+                {p.authorized && p.channelCount === 0 ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    Nenhuma conta vinculada ainda — selecione contas em “Contas disponíveis”.
+                  </p>
+                ) : null}
               </div>
               {canManage ? (
                 <Button
@@ -1899,6 +1931,7 @@ function MetaPortfolioPanel({
             </div>
           ))}
         </div>
+
       ) : null}
 
       <AlertDialog open={!!target} onOpenChange={(v) => !v && setTarget(null)}>
