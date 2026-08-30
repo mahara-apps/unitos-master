@@ -572,9 +572,11 @@ export class MetaProvider {
       standaloneInstagram,
       warnings,
       businessCount: businesses.length,
+      businesses: businesses.map((b) => ({ id: b.id, name: b.name ?? null })),
       requestCount,
       deep,
     };
+
   }
 
   /**
