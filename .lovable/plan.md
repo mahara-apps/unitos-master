@@ -61,6 +61,41 @@ o que ela apontar.
   de `objecao_dominante` / `dor_principal`, para "Barreira principal" deixar de
   aparecer como "—".
 
+## Fuso horário oficial: Brasília (America/Sao_Paulo, GMT-3)
+
+O que verifiquei hoje:
+
+- Não existe uma fonte única de fuso. `src/lib/date-range.ts` usa a hora **local
+  do host** (`setHours`, `getFullYear`) — no servidor isso é UTC, então "hoje"
+  vira o dia seguinte a partir das 21:00 de Brasília.
+- `currentPeriodMonth` (`src/lib/plan-overage.server.ts`) calcula o mês em UTC,
+  o que joga a virada de mês 3h antes.
+- `America/Sao_Paulo` aparece hardcoded em pontos isolados (perfil, templates de
+  mensagem), sem um constante compartilhada.
+
+Correções:
+
+1. Novo `src/lib/timezone.ts`: `APP_TIMEZONE = "America/Sao_Paulo"` como fuso
+   oficial do sistema, com helpers puros — `nowInAppTz()`, `startOfDayAppTz()`,
+   `endOfDayAppTz()`, `appTzDateKey()` (YYYY-MM-DD), `formatAppTz()` — usando
+   `Intl.DateTimeFormat` (respeita GMT-3 e qualquer regra futura sem hardcode de
+   offset).
+2. `date-range.ts` passa a derivar dia/mês pelo fuso oficial, mantendo a regra
+   atual de intervalo fechado/inclusivo e a contagem de dias.
+3. `currentPeriodMonth` e demais chaves de período/mês passam a usar o fuso
+   oficial (a pauta do mês vira à meia-noite de Brasília, não às 21:00).
+4. Agendamento e cron: publicação agendada, timers, due dates e jobs
+   `/api/public/cron/*` comparam instantes em UTC (correto) mas exibem e
+   agrupam por dia usando o fuso oficial; entradas de data/hora vindas da UI são
+   interpretadas como Brasília antes de virar instante UTC.
+5. Formatação e exports (CSV, e-mails, notificações, KPIs, histórico) usam
+   `formatAppTz`, substituindo os `America/Sao_Paulo` hardcoded pela constante.
+6. Persistência continua em `timestamptz`/UTC — o fuso é regra de apresentação e
+   de fronteira de dia, nunca de armazenamento.
+7. Testes: fronteiras 23:00/00:30 de Brasília, virada de mês, contagem de "30
+   dias" e chave de dia, com o `TZ` do processo forçado para UTC para provar que
+   o resultado não depende do host.
+
 ## Fora de escopo
 
 RBAC, RLS, autenticação, tenants/workspaces, Instalação × Workspace, migrations
