@@ -332,9 +332,13 @@ export const deleteClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => DeleteClientInput.parse(input))
   .handler(async ({ data, context }) => {
-    // Autoridade no workspace + ESCOPO do cliente: manager/user não podem
-    // excluir cliente que não lhes foi atribuído (mesma regra da RLS).
-    await assertBrandAdmin(context.supabase, context.userId, data.brandId);
+    // Excluir cliente é irreversível (cascata total): SOMENTE super_admin /
+    // admin do workspace (owner resolve como admin). Manager NÃO exclui,
+    // mesmo com o cliente atribuído — mesma regra da RLS
+    // "clients delete admins only".
+    await assertBrandAdmin(context.supabase, context.userId, data.brandId, {
+      allowManager: false,
+    });
     await assertClientInBrand(context.supabase, context.userId, data.brandId, data.clientId);
     const { data: removed, error } = await context.supabase
       .from("clients")
