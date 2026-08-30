@@ -4398,6 +4398,8 @@ export type Database = {
           portfolio_rate_limited_until: string | null
           portfolio_source_session_id: string | null
           requested_scopes: string[]
+          revoked_at: string | null
+          revoked_reason: string | null
           scopes: string[]
           state_nonce: string | null
           threads_accounts: Json
@@ -4422,6 +4424,8 @@ export type Database = {
           portfolio_rate_limited_until?: string | null
           portfolio_source_session_id?: string | null
           requested_scopes?: string[]
+          revoked_at?: string | null
+          revoked_reason?: string | null
           scopes?: string[]
           state_nonce?: string | null
           threads_accounts?: Json
@@ -4446,6 +4450,8 @@ export type Database = {
           portfolio_rate_limited_until?: string | null
           portfolio_source_session_id?: string | null
           requested_scopes?: string[]
+          revoked_at?: string | null
+          revoked_reason?: string | null
           scopes?: string[]
           state_nonce?: string | null
           threads_accounts?: Json
