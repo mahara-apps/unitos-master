@@ -204,7 +204,8 @@ export function ChannelsCenter({
   const clientsFn = useServerFn(listClients);
   const startMetaFn = useServerFn(startMetaOAuth);
 
-  const [tab, setTab] = useState<"channels" | "accounts" | "whatsapp" | "history">("channels");
+  const [tab, setTab] = useState<"meta" | "whatsapp">("meta");
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [stateFilter, setStateFilter] = useState<"all" | ChannelState>("all");
   const [connectOpen, setConnectOpen] = useState(false);
