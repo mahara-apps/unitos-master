@@ -457,6 +457,19 @@ function PautaRow({
               <Archive className="mr-2 h-3.5 w-3.5" /> Arquivar
             </DropdownMenuItem>
           )}
+          {canDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={onDelete}
+                disabled={item.posts_count > 0}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-3.5 w-3.5" />
+                {item.posts_count > 0 ? "Excluir (bloqueado)" : "Excluir definitivamente"}
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </li>
