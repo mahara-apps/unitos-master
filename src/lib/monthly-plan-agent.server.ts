@@ -272,12 +272,12 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
       1200,
     ),
   ) as Error & {
-
     failureKind: FailureKind;
     cause?: unknown;
   };
-  err.failureKind = lastKind;
+  err.failureKind = reportedKind;
   err.cause = lastErr;
+
   throw err;
 }
 
