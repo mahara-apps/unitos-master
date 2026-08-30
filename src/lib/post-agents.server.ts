@@ -246,9 +246,7 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
         lastErr = err;
       }
 
-      } else {
-        lastErr = err;
-      }
+
 
       const { retryable, kind } = classifyAiError(lastErr);
       const message = lastErr instanceof Error ? lastErr.message : String(lastErr);
