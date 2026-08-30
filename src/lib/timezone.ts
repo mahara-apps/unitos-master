@@ -100,3 +100,39 @@ export function isoDateInTz(d: Date = new Date()): string {
   const p = zonedParts(d);
   return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
 }
+
+/** Início do mês (00:00 Brasília) do instante informado. */
+export function startOfMonthInTz(d: Date = new Date()): Date {
+  const p = zonedParts(d);
+  return zonedTimeToUtc(p.year, p.month, 1, 0, 0, 0, 0);
+}
+
+/** Fim do mês (23:59:59.999 Brasília) do instante informado. */
+export function endOfMonthInTz(d: Date = new Date()): Date {
+  const p = zonedParts(d);
+  return zonedTimeToUtc(p.year, p.month + 1, 0, 23, 59, 59, 999);
+}
+
+/** Início do ano (00:00 Brasília). */
+export function startOfYearInTz(d: Date = new Date()): Date {
+  const p = zonedParts(d);
+  return zonedTimeToUtc(p.year, 1, 1, 0, 0, 0, 0);
+}
+
+/** Fim do ano (23:59:59.999 Brasília). */
+export function endOfYearInTz(d: Date = new Date()): Date {
+  const p = zonedParts(d);
+  return zonedTimeToUtc(p.year, 12, 31, 23, 59, 59, 999);
+}
+
+/** Soma meses mantendo o dia 1 (usado nos presets de mês). */
+export function addMonthsInTz(d: Date, months: number): Date {
+  const p = zonedParts(d);
+  return zonedTimeToUtc(p.year, p.month + months, Math.min(p.day, 28), 12, 0, 0, 0);
+}
+
+/** Soma anos preservando a data de parede em Brasília. */
+export function addYearsInTz(d: Date, years: number): Date {
+  const p = zonedParts(d);
+  return zonedTimeToUtc(p.year + years, p.month, Math.min(p.day, 28), 12, 0, 0, 0);
+}
