@@ -377,6 +377,12 @@ async function runJson(opts: {
   strategic: boolean;
   brandId: string;
   step: Step;
+  /**
+   * Normalização + validação da etapa. Roda DENTRO da tentativa para que um
+   * output estruturalmente inesperado possa ser retentado uma vez (modelos de
+   * fallback às vezes devolvem outra forma na primeira resposta).
+   */
+  validate?: (value: unknown) => void;
   onAttempt?: (info: {
     attempt: number;
     ok: boolean;
@@ -390,6 +396,7 @@ async function runJson(opts: {
   let lastErr: unknown = null;
   let lastKind: FailureKind = "unknown";
   let lastRetryable = false;
+  let invalidOutputRetries = 0;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -413,6 +420,16 @@ async function runJson(opts: {
       const text = (res.text ?? "").trim();
       if (!text) throw new Error("ai_invalid_output: o provedor não retornou conteúdo.");
       const value = parseJsonLoose(text);
+      if (opts.validate) {
+        try {
+          opts.validate(value);
+        } catch (invalid) {
+          console.error(
+            `[customer-pipeline] etapa=${opts.step} output inesperado — chaves recebidas: ${describePayloadKeys(value)}`,
+          );
+          throw invalid;
+        }
+      }
       const trace = describeProviderAttempts(providerAttempts);
       await opts.onAttempt?.({ attempt, ok: true, ...(trace ? { message: trace } : {}) });
       // Provedor efetivamente usado (pode ter havido fallback de provedor).
@@ -420,7 +437,14 @@ async function runJson(opts: {
       return { value, provider: used?.provider ?? provider, modelId: used?.model ?? modelId };
     } catch (err) {
       lastErr = err;
-      const { kind, retryable } = classifyAiError(err);
+      const { kind } = classifyAiError(err);
+      let { retryable } = classifyAiError(err);
+      // Output inválido ganha UMA retentativa: normalmente é forma inesperada
+      // do modelo, não um problema permanente. Nada inválido é persistido.
+      if (kind === "invalid_output" && invalidOutputRetries === 0 && attempt < maxAttempts) {
+        invalidOutputRetries += 1;
+        retryable = true;
+      }
       lastKind = kind;
       lastRetryable = retryable;
       const detail = unwrapAiError(err).text.slice(0, 800);
@@ -432,6 +456,7 @@ async function runJson(opts: {
       await sleep(BACKOFF_MS[attempt - 1]!);
     }
   }
+
 
   throw new StepFailure(lastKind, lastRetryable, unwrapAiError(lastErr).text.slice(0, 800));
 }
