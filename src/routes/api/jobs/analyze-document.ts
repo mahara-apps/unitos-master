@@ -52,7 +52,7 @@ const AiSummarySchema = z.object({
     hashtags: z.array(z.string()).nullable(),
     goals: z.string().nullable(),
   }),
-  confidence: z.number().min(0).max(1),
+  confidence: z.number().min(0).max(1).optional(),
 });
 
 export type DocumentAiSummary = z.infer<typeof AiSummarySchema>;
@@ -212,12 +212,18 @@ async function runAnalysis(params: {
       });
       summary = output;
     } catch (err) {
-      if (NoObjectGeneratedError.isInstance(err)) {
+      // Recupera geração descartada por validação de schema do provider.
+      const { salvageStructuredOutput } = await import("@/lib/ai-output-salvage");
+      const salvaged = salvageStructuredOutput(err, AiSummarySchema);
+      if (salvaged) {
+        summary = salvaged;
+      } else if (NoObjectGeneratedError.isInstance(err)) {
         throw new Error(
           "A IA não conseguiu estruturar o documento. Tente novamente ou envie um arquivo mais legível.",
         );
+      } else {
+        throw err;
       }
-      throw err;
     }
 
     await setRunStep(supabase as never, runScope, "interpret", "done", {

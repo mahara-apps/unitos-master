@@ -59,7 +59,10 @@ const AnalysisSchema = z.object({
         confidence: z.number().min(0).max(1).nullable(),
       }),
     )
-    .nullable(),
+    // Opcional de propósito: providers que validam o JSON contra o schema
+    // (ex.: OpenRouter) rejeitam a resposta inteira quando o modelo omite
+    // campos "required". Ausentes, aplicamos defaults em código.
+    .optional(),
   /** Participantes só quando o material é transcrição e há evidência real. */
   speakers: z
     .array(
@@ -80,8 +83,8 @@ const AnalysisSchema = z.object({
         needs_review: z.boolean().nullable(),
       }),
     )
-    .nullable(),
-  confidence: z.number().min(0).max(1),
+    .optional(),
+  confidence: z.number().min(0).max(1).optional(),
 });
 
 function buildUserClient(token: string) {
@@ -159,12 +162,19 @@ async function runTextAnalysis(params: {
       });
       analysis = output;
     } catch (err) {
-      if (NoObjectGeneratedError.isInstance(err)) {
+      // Alguns provedores descartam a geração por validação de schema mesmo
+      // com conteúdo perfeito — tenta recuperar antes de falhar a execução.
+      const { salvageStructuredOutput } = await import("@/lib/ai-output-salvage");
+      const salvaged = salvageStructuredOutput(err, AnalysisSchema);
+      if (salvaged) {
+        analysis = salvaged;
+      } else if (NoObjectGeneratedError.isInstance(err)) {
         throw new Error(
           "A IA não conseguiu estruturar o material. Revise o conteúdo enviado e tente novamente.",
         );
+      } else {
+        throw err;
       }
-      throw err;
     }
     await setRunStep(supabase as never, runScope, "interpret", "done", {
       output: { material_type: analysis.material_type, confidence: analysis.confidence },

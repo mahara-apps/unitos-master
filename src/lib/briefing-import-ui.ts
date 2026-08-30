@@ -371,6 +371,9 @@ export function friendlyAnalysisError(error: unknown): string {
   if (/ai_payload_invalid|inline_data|inlineData|Invalid value at|Starting an object/i.test(raw)) {
     return "Não foi possível preparar este arquivo para a IA. Tente outro formato (PDF, DOCX, XLSX, CSV, TXT ou imagem).";
   }
+  if (/json_validate_failed|jsonschema|does not validate|failed_generation|não conseguiu estruturar/i.test(raw)) {
+    return "A IA respondeu em formato inesperado. Tente novamente; se persistir, envie o material em outro formato.";
+  }
   if (/document_format_unsupported/i.test(raw)) {
     return "Formato não suportado. Envie PDF, DOCX, XLS/XLSX, CSV, TXT ou imagem (.doc antigo não é lido).";
   }

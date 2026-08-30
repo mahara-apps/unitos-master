@@ -434,16 +434,14 @@ describe("6b. Matriz de papéis (isolamento por cliente)", () => {
   });
 
   it("ADMIN/MANAGER não atravessam a fronteira de marca", async () => {
+    // Regra de 1 workspace por conta: cada brand de QA tem owner dedicado
+    // (userOwner → brand A, userOtherOwner → brand B). Ninguém da brand A
+    // enxerga dados da brand B.
     for (const u of [fx.userOwner, fx.userManager]) {
       const other = await u.client.from("clients").select("id").eq("id", fx.otherBrandClient);
       const otherProj = await u.client.from("projects").select("id").eq("id", fx.otherBrandProject);
-      if (u.id === fx.userOwner.id) {
-        // userOwner criou as duas brands de QA: é owner de ambas (esperado).
-        expect(other.data ?? []).toHaveLength(1);
-      } else {
-        expect(other.data ?? [], "manager não é membro da outra marca").toHaveLength(0);
-        expect(otherProj.data ?? []).toHaveLength(0);
-      }
+      expect(other.data ?? [], "sem acesso à outra marca").toHaveLength(0);
+      expect(otherProj.data ?? []).toHaveLength(0);
     }
   });
 
