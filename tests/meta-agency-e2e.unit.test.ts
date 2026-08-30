@@ -145,11 +145,12 @@ describe("Meta para agências — multi-admin e multi-portfólio", () => {
   });
 
   it("conta não autorizada recebe motivo acionável", () => {
-    const reason = accountStatusReason(
-      { granted: true, pageIds: [], instagramIds: [], missing: [] },
-      "facebook",
-      "p-999",
-    );
-    expect(typeof reason === "string" ? reason.length : 0).toBeGreaterThan(0);
+    const auth = {
+      unavailable: false,
+      facebook: { granted: true, broad: false, targets: ["p-1"] },
+      instagram: { granted: true, broad: false, targets: [] },
+    } as never;
+    expect(accountStatusReason(auth, "facebook", "p-999")).toContain("não foi selecionado");
+    expect(accountStatusReason(auth, "facebook", "p-1")).toBeNull();
   });
 });
