@@ -196,6 +196,7 @@ export function MonthlyPlanView({
       theme: string;
       briefingId: string | null;
       selection: GenerateSelection[];
+      organization: PlanOrganizationInput;
     }) =>
       generate({
         data: {
@@ -204,6 +205,7 @@ export function MonthlyPlanView({
           theme: input.theme,
           briefingId: input.briefingId ?? undefined,
           selection: input.selection.length ? input.selection : undefined,
+          organization: input.organization,
         },
       }),
     onMutate: () => {
