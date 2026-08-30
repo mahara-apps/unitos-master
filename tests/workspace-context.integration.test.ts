@@ -93,9 +93,11 @@ afterAll(async () => {
 }, 60_000);
 
 describe("ADMIN — workspace é o contexto superior", () => {
-  it("pertence aos dois workspaces de QA", async () => {
+  it("cada owner pertence ao próprio workspace de QA", async () => {
     await allowed(() => assertBrandMember(sb(fx.userOwner), fx.userOwner.id, fx.brandId));
-    await allowed(() => assertBrandMember(sb(fx.userOwner), fx.userOwner.id, fx.otherBrandId));
+    await allowed(() =>
+      assertBrandMember(sb(fx.userOtherOwner), fx.userOtherOwner.id, fx.otherBrandId),
+    );
   });
 
   it("papel é resolvido POR workspace (nunca global)", async () => {
@@ -120,7 +122,7 @@ describe("ADMIN — workspace é o contexto superior", () => {
   });
 
   it("troca de workspace muda o conjunto de clientes", async () => {
-    const idsB = await visibleClients(fx.userOwner, fx.otherBrandId);
+    const idsB = await visibleClients(fx.userOtherOwner, fx.otherBrandId);
     expect(idsB).toEqual([fx.otherBrandClient]);
   });
 

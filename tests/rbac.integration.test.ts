@@ -21,7 +21,7 @@ if (!url || !publishable) {
 
 const PASSWORD = "Qa!23456789";
 const TAG = `rbac${Date.now().toString(36)}`;
-const emailOf = (slot: string) => `rbac.${slot}@unitos-qa.test`;
+const emailOf = (slot: string) => `rbac.${slot}.${TAG}@unitos-qa.test`;
 
 type Actor = { id: string; email: string; client: SupabaseClient };
 
