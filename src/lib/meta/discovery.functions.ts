@@ -154,6 +154,7 @@ export const reconcileMetaConnectionFn = createServerFn({ method: "POST" })
       .select("id, brand_id, meta_user_id, user_token_ciphertext, pages")
       .eq("id", data.sessionId)
       .eq("brand_id", data.brandId)
+      .is("revoked_at", null)
       .maybeSingle();
     if (!session) {
       return {
