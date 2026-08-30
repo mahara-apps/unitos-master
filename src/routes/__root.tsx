@@ -128,6 +128,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { rel: "icon", type: "image/png", href: "/favicon.png" },
     ],
+    scripts: [
+      {
+        // Anti-flicker: aplica a classe de tema no <html> ANTES do primeiro
+        // paint. Padrão "light" — dark só quando o usuário escolheu e salvou.
+        children: `(function(){try{var t=window.localStorage.getItem("theme");var r=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";var d=document.documentElement;d.classList.remove("light","dark");d.classList.add(r);d.style.colorScheme=r;}catch(e){document.documentElement.classList.add("light");}})();`,
+      },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
