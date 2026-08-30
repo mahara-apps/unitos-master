@@ -17,6 +17,13 @@ import {
 } from "@/lib/ai-failures.server";
 import { loadCanonicalBriefing } from "@/lib/briefing-source.server";
 import { filterRowsByPrefs } from "@/lib/notification-prefs";
+import {
+  asText,
+  asList,
+  normalizeCohorts,
+  describePayloadKeys,
+} from "@/lib/ai-payload-coerce";
+
 
 // Two-phase pipeline — Phase 1 (Strategy).
 // Executa briefing → voz → personas → cohorts → SWOT, mas UMA etapa por
@@ -370,6 +377,12 @@ async function runJson(opts: {
   strategic: boolean;
   brandId: string;
   step: Step;
+  /**
+   * Normalização + validação da etapa. Roda DENTRO da tentativa para que um
+   * output estruturalmente inesperado possa ser retentado uma vez (modelos de
+   * fallback às vezes devolvem outra forma na primeira resposta).
+   */
+  validate?: (value: unknown) => void;
   onAttempt?: (info: {
     attempt: number;
     ok: boolean;
@@ -383,6 +396,7 @@ async function runJson(opts: {
   let lastErr: unknown = null;
   let lastKind: FailureKind = "unknown";
   let lastRetryable = false;
+  let invalidOutputRetries = 0;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -406,6 +420,16 @@ async function runJson(opts: {
       const text = (res.text ?? "").trim();
       if (!text) throw new Error("ai_invalid_output: o provedor não retornou conteúdo.");
       const value = parseJsonLoose(text);
+      if (opts.validate) {
+        try {
+          opts.validate(value);
+        } catch (invalid) {
+          console.error(
+            `[customer-pipeline] etapa=${opts.step} output inesperado — chaves recebidas: ${describePayloadKeys(value)}`,
+          );
+          throw invalid;
+        }
+      }
       const trace = describeProviderAttempts(providerAttempts);
       await opts.onAttempt?.({ attempt, ok: true, ...(trace ? { message: trace } : {}) });
       // Provedor efetivamente usado (pode ter havido fallback de provedor).
@@ -413,7 +437,14 @@ async function runJson(opts: {
       return { value, provider: used?.provider ?? provider, modelId: used?.model ?? modelId };
     } catch (err) {
       lastErr = err;
-      const { kind, retryable } = classifyAiError(err);
+      const { kind } = classifyAiError(err);
+      let { retryable } = classifyAiError(err);
+      // Output inválido ganha UMA retentativa: normalmente é forma inesperada
+      // do modelo, não um problema permanente. Nada inválido é persistido.
+      if (kind === "invalid_output" && invalidOutputRetries === 0 && attempt < maxAttempts) {
+        invalidOutputRetries += 1;
+        retryable = true;
+      }
       lastKind = kind;
       lastRetryable = retryable;
       const detail = unwrapAiError(err).text.slice(0, 800);
@@ -425,6 +456,7 @@ async function runJson(opts: {
       await sleep(BACKOFF_MS[attempt - 1]!);
     }
   }
+
 
   throw new StepFailure(lastKind, lastRetryable, unwrapAiError(lastErr).text.slice(0, 800));
 }
@@ -446,11 +478,16 @@ const P = {
 // strategy panel always finds what it expects.
 
 type AnyRec = Record<string, unknown>;
-const asStr = (v: unknown, d = ""): string => (typeof v === "string" ? v : d);
-const asArr = (v: unknown): string[] =>
-  Array.isArray(v) ? (v as string[]).filter((x) => typeof x === "string") : [];
+// Tolerante a string | lista | objeto aninhado (ver ai-payload-coerce).
+const asStr = (v: unknown, d = ""): string => asText(v) || d;
+const asArr = (v: unknown): string[] => asList(v);
 const asNum = (v: unknown): number | null =>
-  typeof v === "number" && Number.isFinite(v) ? v : null;
+  typeof v === "number" && Number.isFinite(v)
+    ? v
+    : typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v))
+      ? Number(v)
+      : null;
+
 
 function normalizeBriefingPayload(raw: unknown): z.infer<typeof BriefingSchema> {
   const r = (raw ?? {}) as AnyRec;
@@ -534,33 +571,9 @@ function normalizePersonasPayload(raw: unknown): z.infer<typeof PersonasSchema> 
 }
 
 function normalizeCohortsPayload(raw: unknown): z.infer<typeof CohortsSchema> {
-  const r = raw as AnyRec | AnyRec[] | undefined;
-  const arr: AnyRec[] = Array.isArray(r)
-    ? (r as AnyRec[])
-    : Array.isArray((r as AnyRec | undefined)?.cohorts)
-      ? ((r as AnyRec).cohorts as AnyRec[])
-      : [];
-  return {
-    cohorts: arr.map((c) => ({
-      name: asStr(c.name) || asStr(c.nome) || "Cohort",
-      target_personas: asArr(c.target_personas).length
-        ? asArr(c.target_personas)
-        : asArr(c.personas_alvo).length
-          ? asArr(c.personas_alvo)
-          : asArr(c.personas),
-      behavioral_traits:
-        asStr(c.behavioral_traits) || asStr(c.comportamento) || asStr(c.tracos_comportamentais),
-      content_strategy:
-        asStr(c.content_strategy) ||
-        asStr(c.estrategia_conteudo) ||
-        asStr(c.estrategia_de_conteudo),
-      conversion_criteria:
-        asStr(c.conversion_criteria) ||
-        asStr(c.criterio_conversao) ||
-        asStr(c.criterio_de_conversao),
-    })),
-  };
+  return normalizeCohorts(raw);
 }
+
 
 function normalizeSwotPayload(raw: unknown): z.infer<typeof SwotSchema> {
   const r = (raw ?? {}) as AnyRec;
@@ -819,6 +832,7 @@ async function runStep(params: {
         brandId: state.brandId,
         step,
         onAttempt,
+        validate: (v) => assertValidOutput(step, normalizeBriefingPayload(v)),
       });
       const briefing = normalizeBriefingPayload(value);
       assertValidOutput(step, briefing);
@@ -843,6 +857,7 @@ async function runStep(params: {
         brandId: state.brandId,
         step,
         onAttempt,
+        validate: (v) => assertValidOutput(step, normalizeVoicePayload(v)),
       });
       const voice = normalizeVoicePayload(value);
       assertValidOutput(step, voice);
@@ -857,6 +872,7 @@ async function runStep(params: {
         brandId: state.brandId,
         step,
         onAttempt,
+        validate: (v) => assertValidOutput(step, normalizePersonasPayload(v)),
       });
       const personas = normalizePersonasPayload(value);
       assertValidOutput(step, personas);
@@ -871,6 +887,7 @@ async function runStep(params: {
         brandId: state.brandId,
         step,
         onAttempt,
+        validate: (v) => assertValidOutput(step, normalizeCohortsPayload(v)),
       });
       const cohorts = normalizeCohortsPayload(value);
       assertValidOutput(step, cohorts);
@@ -889,6 +906,7 @@ async function runStep(params: {
         brandId: state.brandId,
         step,
         onAttempt,
+        validate: (v) => assertValidOutput(step, normalizeSwotPayload(v)),
       });
       const swot = normalizeSwotPayload(value);
       assertValidOutput(step, swot);

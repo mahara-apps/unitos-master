@@ -1,58 +1,60 @@
-# Corrigir falha da etapa "Construindo cohorts" na geração por IA
+# Garantir que toda geração de IA saia em português (Brasil)
 
-## O que aconteceu
+## Por que saiu em inglês
 
-Os logs do último preenchimento mostram a sequência real:
+Os prompts das etapas de estratégia (`Estratégia IA`, Voice Card, Personas, Cohorts, SWOT)
+instruem o modelo a usar **os nomes dos campos em inglês** — o que é correto, pois o schema
+salvo no banco usa essas chaves — mas **nunca dizem em que idioma o conteúdo deve ser
+escrito**. Exemplo real do prompt atual da etapa de voz:
 
 ```text
-[ai-provider] gemini falhou (provider_unavailable) — alternando para groq/openai/gpt-oss-120b
-[customer-pipeline] etapa=cohorts FALHOU motivo=invalid_output retryable=false: ai_invalid_output: cohorts sem conteúdo
+Use EXATAMENTE as chaves do schema em inglês: voice_card.brand_personality, ...
+Não traduza nomes de campos. Responda SOMENTE JSON.
 ```
 
-Ou seja: o provedor primário (Gemini) estava indisponível, o fallback (Groq) respondeu
-normalmente, mas o conteúdo devolvido não passou pela validação da etapa de cohorts.
+Sem instrução de idioma, o modelo tende a seguir o idioma das chaves e devolve valores em
+inglês — exatamente o que aparece na tela: chips "Refined / Warm / Conversational" e frases
+como "Elevate your day with effortless elegance."
 
-A causa está na normalização: `normalizeCohortsPayload` só aceita **texto** nos campos
-`behavioral_traits`, `content_strategy` e `conversion_criteria` (usa `asStr`, que devolve
-string vazia para qualquer outro tipo). Modelos diferentes descrevem esses campos como
-**lista** ou como **objeto aninhado** — nesse caso todos os campos ficam vazios, a
-validação `assertValidOutput` dispara "cohorts sem conteúdo" e a etapa é marcada como
-falha permanente (sem retry). As etapas anteriores (briefing, voz, personas) já haviam
-sido salvas, então o usuário perdeu apenas a estratégia final — mas o erro aparece como
-falha genérica.
+O problema é sistêmico: alguns fluxos já pedem português explicitamente (pauta mensal,
+plano de mídia, chat do Brain, resumo do dashboard), mas outros não — estratégia do cliente,
+análise/importação de briefing, agentes de post, templates de projeto.
 
-## O que será corrigido
+## O que será feito
 
-1. **Normalização tolerante de cohorts** — aceitar, nos campos de texto:
-   - string (comportamento atual);
-   - array de strings (unir em texto legível);
-   - objeto com campos de texto (achatar em texto);
-   - mais aliases de chave em PT-BR/EN (ex. `traits`, `perfil_comportamental`,
-     `estrategia`, `criterios_de_conversao`, `criterio`).
-   `target_personas` também aceita string única convertida em lista.
-2. **Mesma tolerância nas outras etapas** (voz, personas, SWOT), pelos mesmos helpers,
-   para o problema não reaparecer em outra etapa com outro modelo.
-3. **Diagnóstico útil quando ainda faltar conteúdo** — se após a normalização o payload
-   continuar vazio, registrar no log as chaves recebidas (sem conteúdo sensível) e
-   devolver mensagem mais clara na UI do que "não conseguiu concluir esta etapa".
-4. **Retry de uma etapa com output inválido**: permitir uma nova tentativa quando o
-   modelo devolve estrutura inesperada (hoje é falha imediata e definitiva), mantendo o
-   limite de tentativas existente e sem persistir conteúdo inválido.
+1. **Diretriz de idioma única e obrigatória** — um texto padrão reutilizável
+   ("Escreva TODO o conteúdo em português do Brasil; nomes de campos permanecem em inglês;
+   preserve nomes próprios, marcas e termos técnicos consagrados como estão").
+2. **Aplicar em todos os prompts de geração** que hoje não têm instrução de idioma:
+   etapas do pipeline de estratégia (briefing, voz, personas, cohorts, SWOT), análise e
+   importação de briefing por IA, agentes de post, agentes gerais e templates de projeto.
+3. **Regressão automatizada** para impedir reincidência: um teste que varre os prompts de
+   geração e falha se algum não incluir a diretriz de idioma — assim, um prompt novo sem
+   português quebra a suíte antes de chegar à produção.
+4. **Conteúdo em inglês já salvo**: nada é apagado. Basta usar "gerar novamente" na
+   Estratégia IA do cliente para substituir o conteúdo ativo pela versão em português; o
+   histórico/versionamento existente é preservado.
 
-## Fora de escopo (não será alterado)
+## Fora de escopo
 
 - RBAC, RLS, autenticação, tenants/workspaces, instalação, migrations e schema.
-- Substituição do provedor primário, chaves BYOK ou catálogo de modelos.
-- Aplicação automática de conteúdo: nada inválido é salvo, e o conteúdo ativo anterior
-  do cliente permanece intacto.
+- Renomear chaves de campos no banco ou na UI (continuam em inglês por contrato).
+- Tradução automática de conteúdo já persistido.
 
 ## Detalhes técnicos
 
-- Arquivo principal: `src/routes/api/jobs/customer-pipeline.ts`
-  (`asStr`/`asArr`, `normalizeCohortsPayload`, `normalizeVoicePayload`,
-  `normalizePersonasPayload`, `normalizeSwotPayload`, `assertValidOutput`).
-- Classificação de falha em `src/lib/ai-failures.server.ts`: `invalid_output` passa a
-  permitir uma retentativa dentro do mesmo limite de tentativas da etapa.
-- Testes: novos casos cobrindo cohorts em formato lista, objeto aninhado e aliases
-  PT-BR, além do caso genuinamente vazio (que deve continuar falhando).
-- Validação final: `npx tsgo --noEmit`, suíte de testes completa e build.
+- Novo constante compartilhado (ex. `src/lib/ai-language.ts`) com a diretriz pt-BR,
+  concatenada aos `system` prompts.
+- Arquivos a ajustar: `src/routes/api/jobs/customer-pipeline.ts` (objeto `P`),
+  `src/lib/briefing-ai-executor.server.ts`, `src/routes/api/jobs/analyze-briefing-text.ts`,
+  `src/routes/api/jobs/analyze-document.ts`, `src/lib/post-agents.server.ts`,
+  `src/lib/agents.functions.ts`, `src/lib/project-templates.functions.ts`.
+- Novo teste `tests/ai-language.test.ts` verificando a presença da diretriz nos prompts.
+- Validação: `npx tsgo --noEmit`, suíte completa e build.
+
+## Status do ajuste anterior (cohorts)
+
+A correção da etapa "Construindo cohorts" já foi aplicada e validada: normalização
+tolerante (lista/objeto/aliases PT-BR), uma retentativa em output inesperado e log de
+diagnóstico sem conteúdo sensível. Suíte completa: 679 testes aprovados. O build final será
+executado junto com este ajuste de idioma.
