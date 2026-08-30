@@ -65,6 +65,30 @@ export function ProductionOverages({ brandId, clientId }: { brandId: string; cli
   });
 
   const rows = (listQ.data ?? []) as OverageRequestRow[];
+  const pendingCount = rows.filter((r) => r.status === "pending").length;
+
+  const getPolicy = useServerFn(getOveragePolicyFn);
+  const policyQ = useQuery({
+    queryKey: ["plan-overage-policy", brandId, clientId],
+    queryFn: () => getPolicy({ data: { brandId, clientId } }),
+    staleTime: 60_000,
+  });
+  const setPolicy = useServerFn(setClientOveragePolicyFn);
+  const policyM = useMutation({
+    mutationFn: (policy: "block" | "warn") =>
+      setPolicy({ data: { brandId, clientId, policy } }),
+    onSuccess: (_r, policy) => {
+      toast.success(
+        policy === "warn"
+          ? "Volumetria livre ativada para este cliente."
+          : "Excedente volta a exigir liberação.",
+      );
+      qc.invalidateQueries({ queryKey: ["plan-overage-policy"] });
+      qc.invalidateQueries({ queryKey: ["monthly-plan", "volumetry"] });
+    },
+    onError: (err) => toast.error(describeError(err)),
+  });
+  const freeVolume = policyQ.data?.effective === "warn";
 
   return (
     <section className="space-y-3">
