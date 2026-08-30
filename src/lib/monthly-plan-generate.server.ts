@@ -47,23 +47,27 @@ const AiPlanSchema = z.object({
   title: z.string(),
   description: z.string(),
   objectives: z.string(),
-  topics: z
-    .array(
-      z.object({
-        topic_title: z.string(),
-        // Formato canônico obrigatório — sem vocabulário legado na escrita.
-        content_format: z.enum(["feed", "stories", "reels", "carrossel"]),
-        angle: z.string(),
-        // Nullable (sem `.optional()`): provedores com JSON Schema estrito
-        // (Groq/OpenAI) rejeitam o `not` que o `.optional()` gera.
-        channel: z.string().nullable(),
-        target_audience: z.string().nullable(),
-        rationale: z.string().nullable(),
-      }),
-    )
-    .min(1)
-    .max(60),
+  // Sem `.min()/.max()` no schema do wire: provedores com JSON Schema estrito
+  // (Groq/OpenAI) rejeitam bounds de array. A quantidade contratada é garantida
+  // depois, pela alocação determinística por vaga + clamp em código.
+  topics: z.array(
+    z.object({
+      topic_title: z.string(),
+      // Formato canônico obrigatório — sem vocabulário legado na escrita.
+      content_format: z.enum(["feed", "stories", "reels", "carrossel"]),
+      angle: z.string(),
+      // Nullable (sem `.optional()`): provedores com JSON Schema estrito
+      // (Groq/OpenAI) rejeitam o `not` que o `.optional()` gera.
+      channel: z.string().nullable(),
+      target_audience: z.string().nullable(),
+      rationale: z.string().nullable(),
+    }),
+  ),
 });
+
+/** Teto defensivo aplicado em código (antes vivia no schema do wire). */
+const MAX_AI_TOPICS = 60;
+
 
 export type GeneratePlanInput = {
   brandId: string;
