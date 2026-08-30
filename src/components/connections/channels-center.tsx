@@ -15,6 +15,7 @@ import {
   Search,
   Settings2,
   Unlink,
+  Unplug,
   Users,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -269,6 +270,25 @@ export function ChannelsCenter({
     qc.invalidateQueries({ queryKey: ["meta-portfolio-status", brandId] });
   };
 
+
+  /**
+   * Revoga a autorização Meta do workspace mesmo quando nenhum canal foi
+   * vinculado. Sem isso, as contas descobertas pela autorização anterior
+   * continuariam listadas como "disponíveis".
+   */
+  const revokeAuthFn = useServerFn(disconnectMetaPortfolioFn);
+  const revokeAuthMut = useMutation({
+    mutationFn: () => revokeAuthFn({ data: { brandId: brandId!, ownerExternalId: null } }),
+    onSuccess: (res) => {
+      if (!res.ok) {
+        toast.error(res.message);
+        return;
+      }
+      toast.success("Autorização Meta revogada.", { description: res.message });
+      invalidate();
+    },
+    onError: () => toast.error("Não foi possível revogar a autorização Meta."),
+  });
 
   /** Nova varredura na Meta (mesma operação de antes, agora reutilizável). */
   function refreshDiscovery() {
@@ -632,6 +652,20 @@ export function ChannelsCenter({
                         <RefreshCw className="h-3.5 w-3.5" />
                       )}
                       Sincronizar com a Meta
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-9 gap-1.5 text-xs"
+                      disabled={revokeAuthMut.isPending}
+                      onClick={() => revokeAuthMut.mutate()}
+                    >
+                      {revokeAuthMut.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Unplug className="h-3.5 w-3.5" />
+                      )}
+                      Revogar autorização
                     </Button>
                     <Button
                       size="sm"

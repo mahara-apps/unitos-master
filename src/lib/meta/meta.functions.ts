@@ -131,6 +131,7 @@ export const getActiveMetaSession = createServerFn({ method: "POST" })
       .select("id, user_token_ciphertext, user_token_expires_at, expires_at")
       .eq("brand_id", data.brandId)
       .eq("user_id", context.userId)
+      .is("revoked_at", null)
       .or(`user_token_expires_at.is.null,user_token_expires_at.gt.${nowIso}`)
       .order("created_at", { ascending: false })
       .limit(5);
