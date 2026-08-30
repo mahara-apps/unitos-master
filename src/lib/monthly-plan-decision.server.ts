@@ -256,7 +256,16 @@ export async function decidePlanAsClient(
     } as never)
     .eq("id", plan.id)
     .eq("status", PLAN_PENDING_CLIENT_STATUS);
-  if (upErr) throw new Error("decision_failed");
+  if (upErr) {
+    console.error("[plan-decision] falha ao registrar decisão da pauta", {
+      planId: plan.id,
+      status,
+      code: upErr.code,
+      message: upErr.message,
+    });
+    throw new Error("decision_failed");
+  }
+
 
   // Itens aprovados pelo cliente vão automaticamente para o Kanban.
   let cardsCreated = 0;
