@@ -139,11 +139,15 @@ export type PortfolioStandaloneInstagram = {
   businessName: string | null;
 };
 
+export type CachedBusiness = { id: string; name: string | null };
+
 export type CachedPagesPayload = {
   pages: Array<PortfolioPage & { pageAccessToken?: string }>;
   standaloneInstagram: PortfolioStandaloneInstagram[];
   warnings: string[];
   businessCount: number;
+  /** Business Portfolios que esta autorização alcança. */
+  businesses?: CachedBusiness[];
   publishAuthorization?: PublishAuthorizationInfo | null;
 };
 
@@ -157,6 +161,7 @@ export function readPagesPayload(raw: unknown): CachedPagesPayload {
     standaloneInstagram: [],
     warnings: [],
     businessCount: 0,
+    businesses: [],
     publishAuthorization: null,
   };
   if (!raw) return empty;
@@ -170,12 +175,14 @@ export function readPagesPayload(raw: unknown): CachedPagesPayload {
       standaloneInstagram: Array.isArray(o.standaloneInstagram) ? o.standaloneInstagram : [],
       warnings: Array.isArray(o.warnings) ? o.warnings : [],
       businessCount: typeof o.businessCount === "number" ? o.businessCount : 0,
+      businesses: Array.isArray(o.businesses) ? o.businesses : [],
       publishAuthorization:
         (o.publishAuthorization as PublishAuthorizationInfo | undefined) ?? null,
     };
   }
   return empty;
 }
+
 
 /**
  * Guard against concurrent discovery for the same session/channel. A double
