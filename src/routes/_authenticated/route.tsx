@@ -42,6 +42,10 @@ const fallbackTitles: Record<string, string> = {
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
+  // O servidor não executa o gate desta subárvore. Evitar serializar o
+  // skeleton global no HTML impede mismatch quando o cliente redireciona uma
+  // sessão ausente diretamente para /login durante a hidratação.
+  pendingComponent: () => null,
   beforeLoad: async ({ location }) => {
     // Usuário e escopo de portal vêm de cache deduplicado: o gate roda em toda
     // navegação e sem cache pagava 2 roundtrips seriais antes de renderizar.

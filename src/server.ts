@@ -22,18 +22,45 @@ async function getServerEntry(): Promise<ServerEntry> {
 
 // h3 swallows in-handler throws into a normal 500 Response with body
 // {"unhandled":true,"message":"HTTPError"} — try/catch alone never fires for those.
-async function normalizeCatastrophicSsrResponse(response: Response): Promise<Response> {
+function createErrorId(): string {
+  return crypto.randomUUID().slice(0, 8);
+}
+
+function logServerFailure(request: Request, errorId: string, error: unknown) {
+  const url = new URL(request.url);
+  console.error(`[server-error:${errorId}] ${request.method} ${url.pathname}`, error);
+}
+
+async function normalizeCatastrophicSsrResponse(
+  request: Request,
+  response: Response,
+): Promise<Response> {
   if (response.status < 500) return response;
+  const errorId = createErrorId();
   const contentType = response.headers.get("content-type") ?? "";
-  if (!contentType.includes("application/json")) return response;
+  if (!contentType.includes("application/json")) {
+    logServerFailure(request, errorId, new Error(`Server returned HTTP ${response.status}`));
+    const headers = new Headers(response.headers);
+    headers.set("x-error-id", errorId);
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  }
 
   const body = await response.clone().text();
-  if (!isH3SwallowedErrorBody(body)) return response;
+  if (!isH3SwallowedErrorBody(body)) {
+    logServerFailure(request, errorId, new Error(`Server returned HTTP ${response.status}`));
+    const headers = new Headers(response.headers);
+    headers.set("x-error-id", errorId);
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  }
 
-  console.error(consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`));
-  return new Response(renderErrorPage(), {
+  logServerFailure(
+    request,
+    errorId,
+    consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`),
+  );
+  return new Response(renderErrorPage(errorId), {
     status: 500,
-    headers: { "content-type": "text/html; charset=utf-8" },
+    headers: { "content-type": "text/html; charset=utf-8", "x-error-id": errorId },
   });
 }
 
@@ -51,12 +78,13 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      return await normalizeCatastrophicSsrResponse(request, response);
     } catch (error) {
-      console.error(error);
-      return new Response(renderErrorPage(), {
+      const errorId = createErrorId();
+      logServerFailure(request, errorId, error);
+      return new Response(renderErrorPage(errorId), {
         status: 500,
-        headers: { "content-type": "text/html; charset=utf-8" },
+        headers: { "content-type": "text/html; charset=utf-8", "x-error-id": errorId },
       });
     }
   },

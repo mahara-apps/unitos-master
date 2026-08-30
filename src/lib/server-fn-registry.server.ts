@@ -10,6 +10,19 @@
  * server function esteja registrada antes da primeira chamada. É código de
  * servidor apenas — nada disso entra no bundle do cliente.
  */
-const modules = import.meta.glob("/src/lib/**/*.functions.ts", { eager: true });
+// Rotas públicas com SSR já registram suas próprias funções no grafo normal.
+// O registro complementar cobre somente funções que podem ser alcançadas pelas
+// subárvores `/_authenticated` e `/_portal`, ambas com `ssr: false`.
+const modules = import.meta.glob(
+  [
+    "/src/lib/**/*.functions.ts",
+    "!/src/lib/approval.functions.ts",
+    "!/src/lib/password.functions.ts",
+    "!/src/lib/portal-public.functions.ts",
+    "!/src/lib/media-plan-public.functions.ts",
+    "!/src/lib/monthly-plan-public.functions.ts",
+  ],
+  { eager: true },
+);
 
 export const registeredServerFnModules = Object.keys(modules).length;

@@ -98,10 +98,14 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
     if (error != null && typeof error === "object" && "statusCode" in error) {
       throw error;
     }
-    console.error(error);
-    return new Response(renderErrorPage(), {
+    const errorId = crypto.randomUUID().slice(0, 8);
+    const { getRequest } = await import("@tanstack/react-start/server");
+    const request = getRequest();
+    const url = new URL(request.url);
+    console.error(`[server-error:${errorId}] ${request.method} ${url.pathname}`, error);
+    return new Response(renderErrorPage(errorId), {
       status: 500,
-      headers: { "content-type": "text/html; charset=utf-8" },
+      headers: { "content-type": "text/html; charset=utf-8", "x-error-id": errorId },
     });
   }
 });
