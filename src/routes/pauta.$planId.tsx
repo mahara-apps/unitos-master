@@ -54,8 +54,18 @@ const ERRORS: Record<string, string> = {
   feedback_required: "Descreva o motivo ou o que deseja ajustar.",
   item_comment_required: "Explique o motivo nos itens rejeitados ou com ajuste.",
   items_incomplete: "Decida todos os itens antes de enviar.",
+  invalid_topic: "Um dos itens não pertence mais a esta pauta. Recarregue a página.",
   plan_not_pending: "Esta pauta já foi respondida.",
+  plan_not_found: "Pauta não encontrada. Solicite um novo link à agência.",
+  plan_has_no_topics: "Esta pauta não tem temas para aprovar. Avise a agência.",
+  invalid_token: "Link inválido. Solicite um novo link de aprovação à agência.",
+  token_revoked: "Este link foi cancelado. Solicite um novo link à agência.",
+  token_expired: "Este link expirou. Solicite um novo link à agência.",
+  token_lookup_failed: "Não conseguimos validar seu link agora. Tente novamente em instantes.",
+  decision_items_failed: "Não conseguimos salvar as decisões dos itens. Tente novamente.",
+  decision_failed: "Não conseguimos salvar sua resposta. Tente novamente em instantes.",
 };
+
 
 const PILL = "inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium";
 
