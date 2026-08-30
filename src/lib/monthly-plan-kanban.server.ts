@@ -151,27 +151,22 @@ export async function materializePlanToKanban(
 
   const pipelineId = await ensureDefaultPipeline(sb, args.brandId, args.clientId, args.userId);
 
-  // Garante o projeto da pauta e vincula as peças a ele (projeto = execução da pauta).
-  // Peça originada de pauta NUNCA fica sem projeto: se o projeto não puder
-  // ser garantido, a materialização falha em vez de gravar estado inválido.
+  // Vincula as peças ao projeto da pauta (projeto = execução da pauta).
+  // O projeto é escolhido na criação da pauta; aqui nunca criamos um sozinho.
   let projectId: string | null = null;
   {
-    const { ensurePlanProject } = await import("@/lib/monthly-plan-project.server");
+    const { reconcilePlanProjectLink } = await import("@/lib/monthly-plan-project.server");
     const { data: planRow } = await sb
       .from("monthly_plans")
-      .select("title")
+      .select("project_id")
       .eq("id", args.planId)
       .maybeSingle();
-    const res = await ensurePlanProject(sb, {
-      planId: args.planId,
-      brandId: args.brandId,
-      clientId: args.clientId,
-      title: (planRow as unknown as { title: string | null } | null)?.title ?? null,
-      userId: args.userId,
-    });
-    projectId = res.projectId;
+    projectId = (planRow as unknown as { project_id: string | null } | null)?.project_id ?? null;
+    if (!projectId) throw new Error("project_required");
+    await reconcilePlanProjectLink(sb, { planId: args.planId, projectId });
   }
   if (!projectId) throw new Error("plan_project_missing");
+
 
   const { data: stages } = await sb
     .from("content_pipeline_stages")

@@ -23,9 +23,18 @@ export type OrganizationDraft =
 
 export const emptyOrganization: OrganizationDraft = { mode: "none" };
 
-/** Converte o rascunho da UI no payload do servidor; null = ainda inválido. */
-export function toOrganizationInput(draft: OrganizationDraft): PlanOrganizationInput | null {
-  if (draft.mode === "none") return { mode: "none" };
+/** Criação de pauta começa sem modo escolhido, já que "nenhum" não é opção. */
+export const requiredOrganization: OrganizationDraft = { mode: "existing", projectId: null };
+
+/**
+ * Converte o rascunho da UI no payload do servidor; null = ainda inválido.
+ * Com `allowNone = false` (criação de pauta), "nenhum projeto" é inválido.
+ */
+export function toOrganizationInput(
+  draft: OrganizationDraft,
+  allowNone = true,
+): PlanOrganizationInput | null {
+  if (draft.mode === "none") return allowNone ? { mode: "none" } : null;
   if (draft.mode === "existing")
     return draft.projectId ? { mode: "existing", projectId: draft.projectId } : null;
   const name = draft.name.trim();
@@ -37,6 +46,7 @@ export function toOrganizationInput(draft: OrganizationDraft): PlanOrganizationI
     due_at: draft.due_at || null,
   };
 }
+
 
 const MODES: Array<{
   mode: OrganizationDraft["mode"];
@@ -69,11 +79,14 @@ export function PautaOrganizationField({
   clientId,
   value,
   onChange,
+  allowNone = true,
 }: {
   brandId: string;
   clientId: string;
   value: OrganizationDraft;
   onChange: (next: OrganizationDraft) => void;
+  /** Na criação de pauta o projeto é obrigatório: "Nenhum projeto" não aparece. */
+  allowNone?: boolean;
 }) {
   const listProjects = useServerFn(listPlanProjectOptionsFn);
   const projectsQ = useQuery({
@@ -88,6 +101,10 @@ export function PautaOrganizationField({
     const t = search.trim().toLowerCase();
     return t ? projects.filter((p) => p.name.toLowerCase().includes(t)) : projects;
   }, [projects, search]);
+  const modes = React.useMemo(
+    () => (allowNone ? MODES : MODES.filter((m) => m.mode !== "none")),
+    [allowNone],
+  );
 
   const setMode = (mode: OrganizationDraft["mode"]) => {
     if (mode === value.mode) return;
@@ -99,14 +116,19 @@ export function PautaOrganizationField({
   return (
     <div className="space-y-3">
       <div>
-        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Projeto</Label>
+        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+          Projeto {allowNone ? null : <span className="text-primary">*</span>}
+        </Label>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Projeto é a iniciativa que agrupa o trabalho. A pauta é a unidade editorial.
+          {allowNone
+            ? "Projeto é a iniciativa que agrupa o trabalho. A pauta é a unidade editorial."
+            : "Toda pauta pertence a um projeto: vincule a um existente ou crie um novo agora."}
         </p>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-3">
-        {MODES.map((m) => {
+      <div className={cn("grid gap-2", allowNone ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
+        {modes.map((m) => {
+
           const active = value.mode === m.mode;
           return (
             <button

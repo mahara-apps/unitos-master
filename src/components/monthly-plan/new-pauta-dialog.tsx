@@ -22,6 +22,7 @@ import { createMonthlyPlanFn, setPlanProjectFn } from "@/lib/monthly-plans.funct
 import {
   PautaOrganizationField,
   emptyOrganization,
+  requiredOrganization,
   toOrganizationInput,
   type OrganizationDraft,
 } from "@/components/monthly-plan/pauta-organization-field";
@@ -41,20 +42,22 @@ export function NewPautaDialog({
 }) {
   const [title, setTitle] = React.useState("");
   const [description, setDescription] = React.useState("");
-  const [org, setOrg] = React.useState<OrganizationDraft>(emptyOrganization);
+  const [org, setOrg] = React.useState<OrganizationDraft>(requiredOrganization);
 
   React.useEffect(() => {
     if (open) {
       setTitle("");
       setDescription("");
-      setOrg(emptyOrganization);
+      setOrg(requiredOrganization);
     }
   }, [open]);
 
   const qc = useQueryClient();
   const createPlan = useServerFn(createMonthlyPlanFn);
-  const organization = toOrganizationInput(org);
+  // Projeto é obrigatório na criação: "nenhum" não é aceito.
+  const organization = toOrganizationInput(org, false);
   const canSave = title.trim().length > 0 && organization !== null;
+
 
   const m = useMutation({
     mutationFn: async () => {
@@ -125,7 +128,9 @@ export function NewPautaDialog({
             clientId={clientId}
             value={org}
             onChange={setOrg}
+            allowNone={false}
           />
+
         </div>
 
         <DialogFooter>
@@ -150,6 +155,8 @@ export function LinkPautaProjectDialog({
   clientId,
   planId,
   planTitle,
+  requireProject = false,
+  onLinked,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -157,15 +164,20 @@ export function LinkPautaProjectDialog({
   clientId: string;
   planId: string;
   planTitle: string;
+  /** Quando true, "nenhum projeto" não é aceito (pauta precisa de projeto). */
+  requireProject?: boolean;
+  onLinked?: (projectId: string | null) => void;
 }) {
-  const [org, setOrg] = React.useState<OrganizationDraft>(emptyOrganization);
+  const [org, setOrg] = React.useState<OrganizationDraft>(
+    requireProject ? requiredOrganization : emptyOrganization,
+  );
   React.useEffect(() => {
-    if (open) setOrg(emptyOrganization);
-  }, [open]);
+    if (open) setOrg(requireProject ? requiredOrganization : emptyOrganization);
+  }, [open, requireProject]);
 
   const qc = useQueryClient();
   const setPlanProject = useServerFn(setPlanProjectFn);
-  const organization = toOrganizationInput(org);
+  const organization = toOrganizationInput(org, !requireProject);
 
   const m = useMutation({
     mutationFn: async () => {
@@ -176,8 +188,10 @@ export function LinkPautaProjectDialog({
       qc.invalidateQueries({ queryKey: ["plan-board", brandId, clientId] });
       qc.invalidateQueries({ queryKey: ["plan-project-options", brandId, clientId] });
       qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.invalidateQueries({ queryKey: ["monthly-plan", planId] });
       toast.success(res.projectId ? "Pauta vinculada ao projeto." : "Pauta sem projeto.");
       onOpenChange(false);
+      onLinked?.(res.projectId);
     },
     onError: (err) => toast.error(`Não foi possível vincular: ${describeError(err)}`),
   });
@@ -194,6 +208,7 @@ export function LinkPautaProjectDialog({
           clientId={clientId}
           value={org}
           onChange={setOrg}
+          allowNone={!requireProject}
         />
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={m.isPending}>

@@ -59,6 +59,12 @@ export function describeError(err: unknown): string {
   if (lower.includes("briefing_version_invalid")) {
     return "A versão de briefing selecionada não existe ou não pertence a este cliente. Atualize a lista e selecione outra versão.";
   }
+  if (lower.includes("project_required")) {
+    return "Toda pauta precisa de um projeto. Vincule a um projeto existente ou crie um novo.";
+  }
+  if (lower.includes("project_not_in_scope")) {
+    return "O projeto selecionado não pertence a este cliente. Atualize a lista e escolha outro.";
+  }
   if (lower.includes("volumetry_required")) {
     return "Defina a volumetria (canal + formato + quantidade) no briefing antes de gerar a pauta.";
   }
