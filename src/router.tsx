@@ -1,7 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
-import { RoutePending } from "./components/route-pending";
 import { RouteError } from "./components/route-error";
 
 export const getRouter = () => {
@@ -30,11 +29,11 @@ export const getRouter = () => {
     defaultPreload: "intent",
     defaultPreloadDelay: 0,
     defaultPreloadStaleTime: 0,
-    // Evita exibir o skeleton global durante redirects rápidos de autenticação,
-    // sem deixar navegações realmente lentas parecerem sem resposta.
+    // As telas possuem estados locais de carregamento. Sem um fallback global,
+    // redirects de autenticação podem resolver dentro do próprio Suspense sem
+    // hidratar um skeleton de outra rota.
     defaultPendingMs: 200,
     defaultPendingMinMs: 200,
-    defaultPendingComponent: RoutePending,
     defaultErrorComponent: RouteError,
   });
 
