@@ -481,9 +481,9 @@ export class MetaProvider {
         : new MetaGraphError("Não foi possível listar as Páginas da Meta.", 500);
     }
 
-    // 2) OPT-IN DEEP SCAN — Business Portfolios. Costs hundreds of requests on
-    //    large accounts, so it only runs when explicitly requested. Never
-    //    triggered by opening the selector or by "Sincronizar".
+    // 2) BUSINESS PORTFOLIOS — caminho canônico de uma agência: o usuário tem
+    //    acesso ao ativo pelo portfólio, não como admin direto da Página.
+    //    Roda por padrão; `deep: false` só é usado em refresh rápido.
     const businesses: BusinessRow[] = [];
     if (deep) {
       const seenBusinesses = new Set<string>();
@@ -511,18 +511,20 @@ export class MetaProvider {
       for (const biz of businesses) {
         if (outOfTime()) break;
         const label = biz.name ?? biz.id;
+        const ctx = { id: biz.id, name: biz.name ?? null };
         for (const edge of ["owned_pages", "client_pages"] as const) {
           try {
             await loop<PageRow>(
               `/${biz.id}/${edge}`,
               { fields: COMPAT_PAGE_FIELDS, limit: "100" },
-              ingestPages,
+              (rows) => ingestPages(rows, ctx),
             );
           } catch (err) {
             if (isFatalScanError(err)) throw err;
             recordEdgeFailure(edge, label, err);
           }
         }
+
         // NOTE: only `owned_instagram_accounts` exists. `client_instagram_accounts`
         // is not a valid edge in this Graph version and must not be requested.
         try {
