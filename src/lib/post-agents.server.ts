@@ -29,7 +29,7 @@ const STALE_LOCK_MS = 10 * 60 * 1000;
 
 const CopySchema = z.object({
   caption: z.string(),
-  reasoning_summary: z.string().nullable(),
+  reasoning_summary: z.string().nullable().optional(),
 });
 const ScriptSchema = z.object({ script: z.string() });
 const VisualSchema = z.object({ visual_direction: z.string() });
@@ -90,8 +90,43 @@ type RunTrace = {
 };
 
 /**
+ * Escapa quebras de linha e tabs literais que aparecem DENTRO de strings JSON.
+ * Modelos frequentemente devolvem roteiros com `\n` reais, o que invalida o
+ * JSON — a estrutura está correta, só a serialização está errada.
+ */
+function repairJsonStringLiterals(input: string): string {
+  let out = "";
+  let inString = false;
+  let escaped = false;
+  for (const ch of input) {
+    if (escaped) {
+      out += ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      out += ch;
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      out += ch;
+      continue;
+    }
+    if (inString && (ch === "\n" || ch === "\r" || ch === "\t")) {
+      out += ch === "\n" ? "\\n" : ch === "\r" ? "\\r" : "\\t";
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
+/**
  * Extrai o primeiro objeto JSON de uma resposta em texto, tolerando cercas de
- * código e comentários antes/depois. Devolve `null` se não houver JSON válido.
+ * código, comentários antes/depois e quebras de linha literais dentro das
+ * strings. Devolve `null` se não houver JSON aproveitável.
  */
 function extractJsonObject(text: string): unknown {
   const cleaned = (text ?? "")
@@ -106,9 +141,28 @@ function extractJsonObject(text: string): unknown {
   try {
     return JSON.parse(candidate);
   } catch {
-    return null;
+    try {
+      return JSON.parse(repairJsonStringLiterals(candidate));
+    } catch {
+      return null;
+    }
   }
 }
+
+/**
+ * Último recurso para agentes de campo textual único (roteiro, direção
+ * visual): o modelo escreveu o conteúdo pedido, mas em prosa, sem JSON.
+ * Usa o próprio texto como valor do campo — nunca inventa conteúdo.
+ */
+function coerceSingleField(text: string, key: string): unknown | null {
+  const cleaned = (text ?? "")
+    .replace(/```(?:json)?/gi, "")
+    .replace(/```/g, "")
+    .trim();
+  if (cleaned.length < 20) return null;
+  return { [key]: cleaned };
+}
+
 
 /**
  * Chamada estruturada agnóstica de provedor: pede JSON no prompt e valida o
@@ -121,6 +175,8 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
   system: string;
   prompt: string;
   schema: T;
+  /** Campo único do schema — permite aceitar resposta em prosa (sem JSON). */
+  textFallbackKey?: string;
   onAttempt?: (
     attempt: number,
     kind: FailureKind,
@@ -135,6 +191,22 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
     model: null,
     fallbackProvider: null,
     providerTrace: null,
+  };
+
+  const parseAny = (text: string): z.infer<T> | null => {
+    const raw = extractJsonObject(text);
+    if (raw !== null) {
+      const parsed = opts.schema.safeParse(raw);
+      if (parsed.success) return parsed.data as z.infer<T>;
+    }
+    if (opts.textFallbackKey) {
+      const coerced = coerceSingleField(text, opts.textFallbackKey);
+      if (coerced !== null) {
+        const parsed = opts.schema.safeParse(coerced);
+        if (parsed.success) return parsed.data as z.infer<T>;
+      }
+    }
+    return null;
   };
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -158,24 +230,23 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
       });
       trace.providerTrace = describeProviderAttempts(handle.providerAttempts) || null;
 
-      const raw = extractJsonObject(res.text ?? "");
-      if (raw === null) throw new Error("ai_invalid_output");
-      const parsed = opts.schema.safeParse(raw);
-      if (!parsed.success) throw new Error("ai_invalid_output");
-      return { output: parsed.data as z.infer<T>, attempts: attempt, trace };
+      const output = parseAny(res.text ?? "");
+      if (output === null) throw new Error("ai_invalid_output");
+      return { output, attempts: attempt, trace };
     } catch (err) {
       if (handle) trace.providerTrace = describeProviderAttempts(handle.providerAttempts) || null;
       // Saída malformada emitida como erro do SDK: tenta recuperar o JSON bruto.
       if (NoObjectGeneratedError.isInstance(err)) {
-        const recovered = extractJsonObject(err.text ?? "");
-        const parsed = recovered === null ? null : opts.schema.safeParse(recovered);
-        if (parsed?.success) {
-          return { output: parsed.data as z.infer<T>, attempts: attempt, trace };
+        const recovered = parseAny(err.text ?? "");
+        if (recovered !== null) {
+          return { output: recovered, attempts: attempt, trace };
         }
         lastErr = new Error("ai_invalid_output");
       } else {
         lastErr = err;
       }
+
+
 
       const { retryable, kind } = classifyAiError(lastErr);
       const message = lastErr instanceof Error ? lastErr.message : String(lastErr);
@@ -510,6 +581,7 @@ export async function generatePostContent(
           `${contextBlock}\n\nEscreva o roteiro completo desta peça de vídeo (${format} / ${channel}).\n` +
           `Responda EXCLUSIVAMENTE em JSON: {"script":"roteiro completo em texto, com cenas e falas"}`,
         schema: ScriptSchema,
+        textFallbackKey: "script",
         onAttempt: onAttempt("roteirista_social", "script"),
       });
       scriptText = (output.script ?? "").trim();
@@ -555,6 +627,7 @@ export async function generatePostContent(
           `${contextBlock}\n\nDescreva a direção visual desta peça (${format} / ${channel}).\n` +
           `Responda EXCLUSIVAMENTE em JSON: {"visual_direction":"orientação visual objetiva para o designer"}`,
         schema: VisualSchema,
+        textFallbackKey: "visual_direction",
         onAttempt: onAttempt("art_director_social", "visual_direction"),
       });
       const vd = (output.visual_direction ?? "").trim();
@@ -631,6 +704,8 @@ export async function generatePostContent(
         `Não use rótulos como "Hook:", "CTA:" ou "Hashtags:".\n` +
         `Responda EXCLUSIVAMENTE em JSON: {"caption":"legenda completa","reasoning_summary":"1 frase explicando a escolha"}`,
       schema: CopySchema,
+      textFallbackKey: "caption",
+
       onAttempt: onAttempt("copywriter_senior", "caption"),
     });
     const caption = (output.caption ?? "").trim();
