@@ -42,11 +42,12 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
       )
       .eq("id", data.sessionId)
       .eq("brand_id", data.brandId)
+      .is("revoked_at", null)
       .maybeSingle();
     if (error) throw error;
     if (!session)
       throw new Error(
-        `${SESSION_INVALID_PREFIX} Sessão da Meta não encontrada. Faça login novamente.`,
+        `${SESSION_INVALID_PREFIX} Sessão da Meta não encontrada ou revogada. Autorize novamente na Meta.`,
       );
     if (new Date(session.expires_at).getTime() < Date.now()) {
       throw new Error(`${SESSION_INVALID_PREFIX} Sessão da Meta expirou. Faça login novamente.`);
@@ -510,9 +511,11 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
       )
       .eq("id", data.sessionId)
       .eq("brand_id", data.brandId)
+      .is("revoked_at", null)
       .maybeSingle();
     if (error) throw error;
-    if (!session) throw new Error("Sessão da Meta não encontrada.");
+    if (!session)
+      throw new Error("Autorização da Meta não encontrada ou revogada. Autorize novamente.");
     if (new Date(session.expires_at).getTime() < Date.now()) {
       throw new Error("Sessão da Meta expirou. Refaça o login.");
     }
