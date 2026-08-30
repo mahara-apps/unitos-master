@@ -22,7 +22,7 @@ import {
   totalSlots,
   type ChannelFormatQuota,
 } from "@/lib/monthly-plan-distribution";
-import { loadApprovedOverage } from "@/lib/plan-overage.server";
+import { loadApprovedOverage, tryAutoAuthorizeOverage } from "@/lib/plan-overage.server";
 import { countGeneratedThisMonth } from "@/lib/monthly-plan-generated-count.server";
 import {
   logPlanEvent,
