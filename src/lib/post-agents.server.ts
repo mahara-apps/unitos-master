@@ -706,6 +706,8 @@ export async function generatePostContent(
         `Não use rótulos como "Hook:", "CTA:" ou "Hashtags:".\n` +
         `Responda EXCLUSIVAMENTE em JSON: {"caption":"legenda completa","reasoning_summary":"1 frase explicando a escolha"}`,
       schema: CopySchema,
+      textFallbackKey: "caption",
+
       onAttempt: onAttempt("copywriter_senior", "caption"),
     });
     const caption = (output.caption ?? "").trim();
