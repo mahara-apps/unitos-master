@@ -11,10 +11,9 @@ export const Route = createFileRoute("/login")({
     next: typeof search.next === "string" ? search.next : undefined,
   }),
   // A navegação para /login pode ocorrer enquanto o chunk da rota ainda está
-  // sendo resolvido. Renderizar a própria tela como pending mantém a árvore
-  // inicial idêntica entre SSR e hidratação, em vez de alternar para o skeleton
-  // global do dashboard.
-  pendingComponent: LoginPage,
+  // sendo resolvido. Não herdar o skeleton global do dashboard evita que SSR e
+  // hidratação iniciem com árvores diferentes durante o redirect de sessão.
+  pendingComponent: () => null,
 
   head: () => ({
     meta: [

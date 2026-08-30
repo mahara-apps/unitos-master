@@ -30,9 +30,9 @@ export const getRouter = () => {
     defaultPreload: "intent",
     defaultPreloadDelay: 0,
     defaultPreloadStaleTime: 0,
-    // Mostra o skeleton logo após ~80ms para navegações que ainda estão
-    // carregando dados — evita a sensação de "clique morto" na sidebar.
-    defaultPendingMs: 80,
+    // Evita exibir o skeleton global durante redirects rápidos de autenticação,
+    // sem deixar navegações realmente lentas parecerem sem resposta.
+    defaultPendingMs: 200,
     defaultPendingMinMs: 200,
     defaultPendingComponent: RoutePending,
     defaultErrorComponent: RouteError,
