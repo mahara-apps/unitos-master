@@ -887,6 +887,32 @@ function ApprovalView({
           if (projectDialogReason === "submit") submitM.mutate();
         }}
       />
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta pauta definitivamente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              “{plan.title ?? "Pauta"}” e todos os seus itens serão apagados. Esta ação é
+              irreversível. O projeto vinculado é preservado. Se a pauta já gerou peças de conteúdo,
+              a exclusão é bloqueada — arquive-a para preservar o histórico.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={hardDelete.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={hardDelete.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                hardDelete.mutate();
+              }}
+            >
+              {hardDelete.isPending ? "Excluindo…" : "Excluir definitivamente"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
