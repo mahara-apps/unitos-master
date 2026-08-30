@@ -232,17 +232,19 @@ export function ContextSwitcher() {
                     {b.id === brandId && <Check className="h-3.5 w-3.5" />}
                   </CommandItem>
                 ))}
-                <CommandItem
-                  value="create workspace"
-                  onSelect={() => {
-                    setPopoverOpen(false);
-                    setDialogOpen(true);
-                  }}
-                  className="text-muted-foreground"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Novo workspace</span>
-                </CommandItem>
+                {canCreateWorkspace && (
+                  <CommandItem
+                    value="create workspace"
+                    onSelect={() => {
+                      setPopoverOpen(false);
+                      setDialogOpen(true);
+                    }}
+                    className="text-muted-foreground"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Novo workspace</span>
+                  </CommandItem>
+                )}
               </CommandGroup>
               <CommandSeparator />
               <CommandGroup

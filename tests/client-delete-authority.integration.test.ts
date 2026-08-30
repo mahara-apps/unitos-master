@@ -65,9 +65,9 @@ describe("RLS de DELETE em clients — somente administradores", () => {
     const { error } = await fx!.userOwner.client
       .from("clients")
       .delete()
-      .eq("id", fx!.otherBrandClientId);
+      .eq("id", fx!.otherBrandClient);
     expect(error).toBeNull();
-    expect(await clientExists(fx!.otherBrandClientId)).toBe(true);
+    expect(await clientExists(fx!.otherBrandClient)).toBe(true);
   });
 
   it("Admin do workspace exclui somente o cliente alvo", async () => {
