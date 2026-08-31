@@ -708,6 +708,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       for (const { destination: d, connection: conn } of validatedScheduleTargets) {
         const isStory = d.format === "stories";
         const isReel = d.format === "reels";
+        const isCarousel = d.format === "carrossel";
         // Stories NUNCA carrega caption (Meta API ignora / retorna erro).
         const caption = isStory
           ? null
@@ -722,7 +723,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
               .trim() || null;
 
         // Stories multi-frame: 1 social_posts por mídia, +1 minuto por frame.
-        // Feed/Reels: 1 linha (usa a primeira mídia).
+        // Carrossel: 1 linha com todas as mídias. Feed/Reels: 1 linha.
         const frames =
           isStory && data.mediaPaths.length > 0
             ? data.mediaPaths
@@ -734,21 +735,27 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         let frameErr: string | null = null;
         for (let i = 0; i < frames.length; i++) {
           const path = frames[i];
-          const media = path
+          const media = isCarousel
             ? {
-                storagePath: path,
-                ...(isStory ? {} : data.linkUrl ? { link: data.linkUrl } : {}),
+                storagePaths: data.mediaPaths.slice(0, 10),
+                ...(data.linkUrl ? { link: data.linkUrl } : {}),
               }
-            : !isStory && data.linkUrl
-              ? { link: data.linkUrl }
-              : {};
+            : path
+              ? {
+                  storagePath: path,
+                  ...(isStory ? {} : data.linkUrl ? { link: data.linkUrl } : {}),
+                }
+              : !isStory && data.linkUrl
+                ? { link: data.linkUrl }
+                : {};
           const frameIso = new Date(baseMs + i * 60_000).toISOString();
           const { error: spErr } = await supabase.from("social_posts").insert({
             brand_id: data.brandId,
             client_id: data.clientId,
             connection_id: d.connectionId,
             provider: conn.provider,
-            placement: isStory ? "story" : isReel ? "reel" : "feed",
+            placement: isStory ? "story" : isReel ? "reel" : isCarousel ? "carousel" : "feed",
+
             caption: isStory ? null : caption,
             hashtags: isStory ? [] : data.hashtags,
             mentions: [],
