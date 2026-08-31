@@ -232,6 +232,91 @@ export function metaOAuthModeDiagnostics(): MetaOAuthModeDiagnostics {
       };
 }
 
+export type MetaBusinessConfigCheck = {
+  configId: string | null;
+  valid: boolean;
+  /** Motivo em pt-BR quando a configuração não pode ser usada. */
+  reason: string | null;
+};
+
+/**
+ * Valida o `config_id` do Facebook Login for Business ANTES de montar a URL de
+ * consentimento.
+ *
+ * Sem esta checagem, um `config_id` de outro App, inexistente ou sem permissões
+ * selecionadas produz uma URL que a Meta rejeita com
+ * "This app needs at least one supported permission" — erro que parece de RBAC
+ * mas é de configuração do App Meta. Quando a configuração é inválida o
+ * chamador cai para o modo legado (`scope`) e o motivo é propagado, nunca
+ * mascarado.
+ */
+export async function validateBusinessConfig(opts?: {
+  appId?: string;
+  appSecret?: string;
+  configId?: string | null;
+  fetchImpl?: typeof fetch;
+}): Promise<MetaBusinessConfigCheck> {
+  const configId = opts?.configId !== undefined ? opts.configId : metaBusinessConfigId();
+  if (!configId) return { configId: null, valid: false, reason: null };
+
+  let appId: string;
+  let appSecret: string;
+  try {
+    appId = opts?.appId ?? requireEnv("META_APP_ID");
+    appSecret = opts?.appSecret ?? requireEnv("META_APP_SECRET");
+  } catch (err) {
+    return {
+      configId,
+      valid: false,
+      reason: err instanceof Error ? err.message : "App Meta não configurado.",
+    };
+  }
+
+  const doFetch = opts?.fetchImpl ?? fetch;
+  const url = new URL(`${GRAPH_BASE}/${configId}`);
+  url.searchParams.set("fields", "id,name,permissions,access_type,login_variation");
+  url.searchParams.set("access_token", `${appId}|${appSecret}`);
+
+  try {
+    const res = await doFetch(url.toString());
+    const body = (await res.json().catch(() => null)) as
+      | { id?: string; permissions?: unknown; error?: { message?: string } }
+      | null;
+    if (!res.ok || !body?.id) {
+      const detail = body?.error?.message ?? `HTTP ${res.status}`;
+      return {
+        configId,
+        valid: false,
+        reason: `Configuração de login (config_id) inválida para este App Meta: ${detail}`,
+      };
+    }
+    const perms = body.permissions;
+    const permCount = Array.isArray(perms)
+      ? perms.length
+      : Array.isArray((perms as { data?: unknown[] } | undefined)?.data)
+        ? ((perms as { data: unknown[] }).data.length)
+        : null;
+    if (permCount === 0) {
+      return {
+        configId,
+        valid: false,
+        reason:
+          "A configuração de login existe, mas não tem nenhuma permissão selecionada no App Meta.",
+      };
+    }
+    return { configId, valid: true, reason: null };
+  } catch (err) {
+    return {
+      configId,
+      valid: false,
+      reason: `Não foi possível validar a configuração de login na Meta: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    };
+  }
+}
+
+
 
 
 
