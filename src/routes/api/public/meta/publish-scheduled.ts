@@ -353,21 +353,54 @@ function buildCaption(
 async function resolveMediaForPublish(
   supabaseAdmin: any,
   brandId: string,
-  media: { imageUrl?: string; videoUrl?: string; storagePath?: string; link?: string },
-): Promise<{ imageUrl?: string; videoUrl?: string; link?: string }> {
-  const out: { imageUrl?: string; videoUrl?: string; link?: string } = {};
+  media: {
+    imageUrl?: string;
+    videoUrl?: string;
+    storagePath?: string;
+    storagePaths?: string[];
+    link?: string;
+  },
+): Promise<{
+  imageUrl?: string;
+  videoUrl?: string;
+  link?: string;
+  items?: Array<{ imageUrl?: string; videoUrl?: string }>;
+}> {
+  const out: {
+    imageUrl?: string;
+    videoUrl?: string;
+    link?: string;
+    items?: Array<{ imageUrl?: string; videoUrl?: string }>;
+  } = {};
   if (media?.link) out.link = media.link;
 
-  if (media?.storagePath) {
-    if (!media.storagePath.startsWith(`${brandId}/`)) {
+  const signPath = async (path: string) => {
+    if (!path.startsWith(`${brandId}/`)) {
       throw new Error("storagePath fora do escopo da marca");
     }
     const { data, error } = await supabaseAdmin.storage
       .from("brand-media")
-      .createSignedUrl(media.storagePath, 3600);
+      .createSignedUrl(path, 3600);
     if (error) throw new Error(`Falha ao assinar mídia: ${error.message}`);
-    if (isVideoPath(media.storagePath)) out.videoUrl = data.signedUrl;
-    else out.imageUrl = data.signedUrl;
+    return data.signedUrl as string;
+  };
+
+  // Carrossel: todas as mídias, na ordem gravada pela peça.
+  if (Array.isArray(media?.storagePaths) && media.storagePaths.length > 0) {
+    const items: Array<{ imageUrl?: string; videoUrl?: string }> = [];
+    for (const path of media.storagePaths.slice(0, 10)) {
+      const url = await signPath(path);
+      items.push(isVideoPath(path) ? { videoUrl: url } : { imageUrl: url });
+    }
+    out.items = items;
+    if (items[0]?.imageUrl) out.imageUrl = items[0].imageUrl;
+    return out;
+  }
+
+  if (media?.storagePath) {
+    const url = await signPath(media.storagePath);
+    if (isVideoPath(media.storagePath)) out.videoUrl = url;
+    else out.imageUrl = url;
     return out;
   }
 
@@ -375,6 +408,7 @@ async function resolveMediaForPublish(
   if (media?.imageUrl) out.imageUrl = media.imageUrl;
   return out;
 }
+
 
 function isVideoPath(path: string): boolean {
   return /\.(mp4|mov|m4v|webm|3gp)$/i.test(path);
