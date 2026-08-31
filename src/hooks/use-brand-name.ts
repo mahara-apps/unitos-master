@@ -8,7 +8,7 @@ export function useBrandName(brandId: string | null | undefined): string | null 
   const list = useServerFn(listMyBrands);
   const { userId } = useSessionUser();
   const q = useQuery({
-    queryKey: ["brands", userId],
+    queryKey: ["brands"],
     queryFn: () => list(),
     enabled: Boolean(userId),
     staleTime: 5 * 60_000,

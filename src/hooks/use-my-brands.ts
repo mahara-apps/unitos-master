@@ -20,7 +20,7 @@ export function useMyBrandsQuery(): UseQueryResult<MyBrand[], Error> {
   const list = useServerFn(listMyBrands);
   const { userId } = useSessionUser();
   return useQuery({
-    queryKey: ["brands", userId],
+    queryKey: ["brands"],
     queryFn: () => list(),
     // Sem sessão resolvida a server function é chamada sem bearer e o
     // middleware lança "Unauthorized: No authorization header provided".
