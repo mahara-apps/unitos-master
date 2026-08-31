@@ -47,6 +47,9 @@ import { PublicationCard, PublicationRow } from "@/components/calendar/board/pub
 import { OperationsPanel } from "@/components/calendar/board/operations-panel";
 import { ScheduleApprovalPanel } from "@/components/calendar/board/schedule-approval-panel";
 import { UndatedTray } from "@/components/calendar/board/undated-tray";
+import { DraftsDrawer } from "@/components/calendar/board/drafts-drawer";
+import { BulkApplyDialog } from "@/components/calendar/board/bulk-apply-dialog";
+
 import {
   listUndatedPostsFn,
   suggestSchedulesFn,
