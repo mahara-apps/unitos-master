@@ -137,6 +137,9 @@ export function ScheduleWizard({
   seed,
   defaultDate,
   onSaved,
+  queueTotal,
+  queueIndex,
+  onQueueNavigate,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -145,7 +148,14 @@ export function ScheduleWizard({
   seed?: WizardSeed | null;
   defaultDate?: Date | null;
   onSaved?: () => void;
+  /** Fila de rascunhos: total de itens navegáveis (opcional). */
+  queueTotal?: number;
+  /** Índice atual dentro da fila (0-based). */
+  queueIndex?: number;
+  /** Navega para outro item da fila (o pai troca o seed). */
+  onQueueNavigate?: (index: number) => void;
 }) {
+
   const qc = useQueryClient();
   const listConnections = useServerFn(listClientSocialConnectionsFn);
   const listMedia = useServerFn(listBrandMediaFn);
