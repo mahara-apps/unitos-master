@@ -386,26 +386,46 @@ function CalendarPage() {
   }
   function openWizardForPost(item: PublicationItem) {
     setDetail(null);
+    setQueueIndex(null);
     setWizardSeed({ postId: item.postId });
     setWizardDate(null);
     setWizardOpen(true);
   }
-  function openWizardForDraft(d: PendingSchedulePost) {
-    setWizardSeed({
+  function seedFromDraft(d: PendingSchedulePost): WizardSeed {
+    return {
       postId: d.postId,
       title: d.title,
       copy: d.copy,
       coverUrl: d.coverUrl,
       targetConnectionIds: d.targetConnectionIds,
-    });
+    };
+  }
+  function openWizardForDraft(d: PendingSchedulePost, index?: number) {
+    const i = index ?? drafts.findIndex((x) => x.postId === d.postId);
+    setQueueIndex(i >= 0 ? i : null);
+    setWizardSeed(seedFromDraft(d));
     setWizardDate(null);
     setWizardOpen(true);
   }
+  /** Setas do wizard: troca a peça em edição sem fechar o modal. */
+  function navigateQueue(index: number) {
+    const next = drafts[index];
+    if (!next) return;
+    setQueueIndex(index);
+    setWizardSeed(seedFromDraft(next));
+  }
+  function toggleDraftSelection(postId: string) {
+    setSelectedDrafts((prev) =>
+      prev.includes(postId) ? prev.filter((x) => x !== postId) : [...prev, postId],
+    );
+  }
   function newPublication(date?: Date) {
+    setQueueIndex(null);
     setWizardSeed(null);
     setWizardDate(date ?? null);
     setWizardOpen(true);
   }
+
   function refresh() {
     qc.invalidateQueries({ queryKey: ["publication-board"] });
     qc.invalidateQueries({ queryKey: ["calendar-drafts"] });
