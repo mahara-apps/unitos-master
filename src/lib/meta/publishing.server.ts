@@ -132,12 +132,10 @@ export class MetaPublishingService {
       },
     });
 
-    // Step 2: publish the container
-    const publish = await this.provider.graph<{ id: string }>(`/${igId}/media_publish`, {
-      accessToken: pageToken,
-      method: "POST",
-      query: { creation_id: container.id },
-    });
+    // Step 2: aguardar processamento (imagens grandes também levam tempo) e publicar
+    await this.waitForContainerReady(container.id, pageToken);
+    const publish = await this.publishContainer(igId, container.id, pageToken);
+
 
     // Step 3: fetch permalink (best-effort)
     let permalink: string | null = null;
