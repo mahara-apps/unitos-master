@@ -360,3 +360,8 @@ async function resolveMediaForPublish(
 function isVideoPath(path: string): boolean {
   return /\.(mp4|mov|m4v|webm|3gp)$/i.test(path);
 }
+
+/** Pausa curta entre destinos da mesma conexão (anti-throttling). */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
