@@ -127,7 +127,14 @@ function CalendarPage() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardSeed, setWizardSeed] = useState<WizardSeed | null>(null);
   const [wizardDate, setWizardDate] = useState<Date | null>(null);
+  // Fila de rascunhos: índice do item aberto no wizard (setas anterior/próximo).
+  const [queueIndex, setQueueIndex] = useState<number | null>(null);
+  // Seleção múltipla para ações em massa.
+  const [selectedDrafts, setSelectedDrafts] = useState<string[]>([]);
+  const [draftsDrawerOpen, setDraftsDrawerOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [detail, setDetail] = useState<PublicationItem | null>(null);
+
   const [openEvent, setOpenEvent] = useState<CalendarEvent | null>(null);
   const [newEventCtx, setNewEventCtx] = useState<{
     type: "appointment" | "seasonal";
