@@ -805,9 +805,11 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         connectionId?: string;
       }> = [];
       for (const d of data.destinations) {
-        // Publicação direta: Feed IG/FB, Stories IG (multi-frame) e Reels IG.
+        // Publicação direta: Feed IG/FB, Stories IG (multi-frame), Reels IG e
+        // Carrossel (IG: até 10 mídias; FB: álbum de fotos via attached_media).
         const supported =
           (d.format === "feed" && (d.channel === "instagram" || d.channel === "facebook")) ||
+          (d.format === "carrossel" && (d.channel === "instagram" || d.channel === "facebook")) ||
           (d.format === "stories" && d.channel === "instagram") ||
           (d.format === "reels" && d.channel === "instagram");
         if (!supported) {
@@ -815,12 +817,13 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             channel: d.channel,
             format: d.format,
             ok: false,
-            error: "Formato ainda não publicável (Feed IG/FB, Stories IG ou Reels IG)",
+            error: "Formato ainda não publicável (Feed IG/FB, Carrossel IG/FB, Stories IG ou Reels IG)",
           });
           continue;
         }
         const isStory = d.format === "stories";
         const isReel = d.format === "reels";
+        const isCarousel = d.format === "carrossel";
         if (isReel && !data.mediaPaths.some((m) => IS_VIDEO_PATH.test(m))) {
           results.push({
             channel: d.channel,
@@ -830,20 +833,42 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           });
           continue;
         }
+        if (isCarousel && data.mediaPaths.length < 2) {
+          results.push({
+            channel: d.channel,
+            format: d.format,
+            ok: false,
+            error: "Carrossel exige pelo menos 2 mídias. Anexe mais mídias antes de publicar.",
+          });
+          continue;
+        }
         // Valor persistido em social_posts.placement (CHECK constraint) e enviado
         // ao provider como identificador de superfície.
         const providerPlacement:
           | "instagram_feed"
           | "facebook_feed"
           | "instagram_story"
-          | "instagram_reels" = isStory
+          | "instagram_reels"
+          | "instagram_carousel"
+          | "facebook_carousel" = isStory
           ? "instagram_story"
           : isReel
             ? "instagram_reels"
-            : d.channel === "instagram"
-              ? "instagram_feed"
-              : "facebook_feed";
-        const dbPlacement: "feed" | "story" | "reel" = isStory ? "story" : isReel ? "reel" : "feed";
+            : isCarousel
+              ? d.channel === "instagram"
+                ? "instagram_carousel"
+                : "facebook_carousel"
+              : d.channel === "instagram"
+                ? "instagram_feed"
+                : "facebook_feed";
+        const dbPlacement: "feed" | "story" | "reel" | "carousel" = isStory
+          ? "story"
+          : isReel
+            ? "reel"
+            : isCarousel
+              ? "carousel"
+              : "feed";
+
         try {
           // Carrega conexão do workspace (a marca é a dona do canal)
           const { data: conn, error: connErr } = await supabase
