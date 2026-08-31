@@ -35,7 +35,7 @@ export async function listUndatedPosts(
   sb: SupabaseClient,
   args: { brandId: string; clientId: string | null; limit?: number },
 ): Promise<UndatedPost[]> {
-  let q = sb
+  const q = sb
     .from("posts")
     .select(UNDATED_SELECT)
     .eq("brand_id", args.brandId)
@@ -89,7 +89,7 @@ export async function suggestSchedulesForUndated(
   const now = args.now ?? new Date();
   const monthAnchor = args.monthAnchor ?? now;
 
-  let q = sb
+  const q = sb
     .from("posts")
     .select(UNDATED_SELECT)
     .eq("brand_id", args.brandId)
