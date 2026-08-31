@@ -6,6 +6,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ProposedScheduleItem, ScheduleActionResult } from "@/lib/schedule-approval.server";
 
 const tokenIn = z.object({ token: z.string().min(8) });
@@ -34,12 +35,15 @@ export const decidePortalSessionScheduleFn = createServerFn({ method: "POST" })
     const { resolveSessionScope, scopedAdmin } = await import("@/lib/portal-scope.server");
     const { clientDecideSchedule } = await import("@/lib/schedule-approval.server");
     const scope = await resolveSessionScope(context.supabase, data.clientId);
-    return clientDecideSchedule(await scopedAdmin(), {
+    const admin = await scopedAdmin();
+    const res = await clientDecideSchedule(admin, {
       ...scope,
       postIds: data.postIds,
       decision: data.decision,
       comment: data.comment,
     });
+    await notifyDecisionSafely(admin, scope, data, res.updated);
+    return res;
   });
 
 export const listPortalScheduleFn = createServerFn({ method: "POST" })
@@ -57,10 +61,35 @@ export const decidePortalScheduleFn = createServerFn({ method: "POST" })
     const { resolveTokenScope, scopedAdmin } = await import("@/lib/portal-scope.server");
     const { clientDecideSchedule } = await import("@/lib/schedule-approval.server");
     const scope = await resolveTokenScope(data.token);
-    return clientDecideSchedule(await scopedAdmin(), {
+    const admin = await scopedAdmin();
+    const res = await clientDecideSchedule(admin, {
       ...scope,
       postIds: data.postIds,
       decision: data.decision,
       comment: data.comment,
     });
+    await notifyDecisionSafely(admin, scope, data, res.updated);
+    return res;
   });
+
+/** Notificação interna da decisão do cliente — best-effort. */
+async function notifyDecisionSafely(
+  admin: SupabaseClient,
+  scope: { brandId: string; clientId: string },
+  data: { decision: "approve" | "changes"; comment?: string },
+  updated: number,
+): Promise<void> {
+  if (updated <= 0) return;
+  try {
+    const { notifyScheduleClientDecision } = await import("@/lib/schedule-notify.server");
+    await notifyScheduleClientDecision(admin, {
+      brandId: scope.brandId,
+      clientId: scope.clientId,
+      decision: data.decision,
+      count: updated,
+      ...(data.comment ? { comment: data.comment } : {}),
+    });
+  } catch {
+    // silencioso: a decisão do cliente prevalece
+  }
+}
