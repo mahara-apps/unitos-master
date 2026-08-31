@@ -250,10 +250,11 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
               });
               await (supabaseAdmin as any).rpc("mark_social_post_deferred", {
                 p_post_id: post.id,
-                p_error: rateLimitMessage(retryAt, msg),
+                p_error: rateLimitMessage(retryAt, msg, err),
                 p_retry_at: retryAt.toISOString(),
               });
-              results.push({ id: post.id, ok: false, error: rateLimitMessage(retryAt) });
+              results.push({ id: post.id, ok: false, error: rateLimitMessage(retryAt, undefined, err) });
+
               continue;
             }
 

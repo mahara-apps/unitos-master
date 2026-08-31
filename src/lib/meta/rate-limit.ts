@@ -22,6 +22,17 @@ export type MetaErrorLike = {
   message?: string;
 };
 
+/**
+ * true quando a Meta ainda não terminou de processar a mídia
+ * (`Media ID is not available`, code 9007). É transitório: adiar, não falhar.
+ */
+export function isMediaNotReady(err: unknown): boolean {
+  const e = err as MetaErrorLike | null;
+  if (e?.graph?.code === 9007) return true;
+  const msg = typeof e?.message === "string" ? e.message.toLowerCase() : "";
+  return msg.includes("media id is not available") || msg.includes("code 9007");
+}
+
 /** true quando o erro é limite temporário da Meta (deve ser adiado, não falhado). */
 export function isMetaRateLimit(err: unknown): boolean {
   const e = err as MetaErrorLike | null;
@@ -29,6 +40,7 @@ export function isMetaRateLimit(err: unknown): boolean {
   if (typeof code === "number" && RATE_LIMIT_CODES.has(code)) return true;
   const sub = e?.graph?.error_subcode;
   if (typeof sub === "number" && RATE_LIMIT_SUBCODES.has(sub)) return true;
+  if (isMediaNotReady(err)) return true;
   const msg = typeof e?.message === "string" ? e.message.toLowerCase() : "";
   if (!msg) return false;
   return (
@@ -36,9 +48,11 @@ export function isMetaRateLimit(err: unknown): boolean {
     msg.includes("rate limit") ||
     msg.includes("too many calls") ||
     msg.includes("please retry your request later") ||
-    msg.includes("user request limit")
+    msg.includes("user request limit") ||
+    msg.includes("ainda está sendo processada pela meta")
   );
 }
+
 
 /** Espera progressiva por número de adiamentos já feitos (minutos). */
 const BACKOFF_MINUTES = [2, 5, 15, 30, 60, 60, 120, 120];
@@ -51,12 +65,16 @@ export function nextRateLimitRetryAt(previousRetries: number, now: Date = new Da
 }
 
 /** Mensagem em pt-BR mostrada na UI enquanto o destino aguarda nova tentativa. */
-export function rateLimitMessage(retryAt: Date, detail?: string): string {
+export function rateLimitMessage(retryAt: Date, detail?: string, err?: unknown): string {
   const hhmm = new Intl.DateTimeFormat("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
     timeZone: "America/Sao_Paulo",
   }).format(retryAt);
-  const base = `Limite temporário da Meta — nova tentativa automática às ${hhmm}.`;
+  const cause = isMediaNotReady(err)
+    ? "A Meta ainda está processando a mídia"
+    : "Limite temporário da Meta";
+  const base = `${cause} — nova tentativa automática às ${hhmm}.`;
   return detail ? `${base} Detalhe: ${detail}` : base;
+
 }

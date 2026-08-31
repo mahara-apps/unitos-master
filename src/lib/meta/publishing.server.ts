@@ -8,7 +8,9 @@
 //   placement: instagram_feed | facebook_feed | instagram_story | instagram_reels
 
 import { MetaProvider, MetaGraphError } from "./provider.server";
+import { isMediaNotReady } from "./rate-limit";
 import { decryptCredential } from "@/lib/credentials-crypto.server";
+
 
 export type SupportedPlacement =
   | "instagram_feed"
@@ -132,12 +134,10 @@ export class MetaPublishingService {
       },
     });
 
-    // Step 2: publish the container
-    const publish = await this.provider.graph<{ id: string }>(`/${igId}/media_publish`, {
-      accessToken: pageToken,
-      method: "POST",
-      query: { creation_id: container.id },
-    });
+    // Step 2: aguardar processamento (imagens grandes também levam tempo) e publicar
+    await this.waitForContainerReady(container.id, pageToken);
+    const publish = await this.publishContainer(igId, container.id, pageToken);
+
 
     // Step 3: fetch permalink (best-effort)
     let permalink: string | null = null;
@@ -228,32 +228,22 @@ export class MetaPublishingService {
       },
     });
 
-    const publish = await this.provider.graph<{ id: string }>(`/${igId}/media_publish`, {
-      accessToken: pageToken,
-      method: "POST",
-      query: { creation_id: container.id },
-    });
+    // Stories também passa por processamento na Meta. Publicar antes de
+    // `FINISHED` devolve "Media ID is not available (code 9007)".
+    await this.waitForContainerReady(container.id, pageToken);
+    const publish = await this.publishContainer(igId, container.id, pageToken);
 
-    let permalink: string | null = null;
-    try {
-      const meta = await this.provider.graph<{ permalink?: string }>(`/${publish.id}`, {
-        accessToken: pageToken,
-        query: { fields: "permalink" },
-      });
-      permalink = meta.permalink ?? null;
-    } catch {
-      /* permalink é opcional em Stories */
-    }
-
+    // Stories NÃO expõem permalink na Graph API — não consultamos.
     return {
       externalPostId: publish.id,
-      externalPermalink: permalink,
+      externalPermalink: null,
       providerResponse: {
         container_id: container.id,
         media_id: publish.id,
         media_type: "STORIES",
       },
     };
+
   }
 
   // -------------------------------------------------------------- IG Reels ---
@@ -286,11 +276,7 @@ export class MetaPublishingService {
 
     await this.waitForContainerReady(container.id, pageToken);
 
-    const publish = await this.provider.graph<{ id: string }>(`/${igId}/media_publish`, {
-      accessToken: pageToken,
-      method: "POST",
-      query: { creation_id: container.id },
-    });
+    const publish = await this.publishContainer(igId, container.id, pageToken);
 
     let permalink: string | null = null;
     try {
@@ -315,8 +301,10 @@ export class MetaPublishingService {
   }
 
   /**
-   * Aguarda o processamento do vídeo pela Meta. Erros de estado são traduzidos
-   * para pt-BR; timeout falha explicitamente (o item volta para retry da fila).
+   * Aguarda o processamento da mídia pela Meta (Stories, Reels e Feed).
+   * Erros de estado são traduzidos para pt-BR; timeout falha explicitamente
+   * (o item volta para retry da fila). Container sem `status_code` é tratado
+   * como pronto — a Meta não expõe estado para toda mídia.
    */
   private async waitForContainerReady(
     containerId: string,
@@ -326,27 +314,64 @@ export class MetaPublishingService {
     const attempts = opts.attempts ?? 20;
     const intervalMs = opts.intervalMs ?? 3000;
     for (let i = 0; i < attempts; i++) {
-      const st = await this.provider.graph<{ status_code?: string; status?: string }>(
-        `/${containerId}`,
-        { accessToken: pageToken, query: { fields: "status_code,status" } },
-      );
+      let st: { status_code?: string; status?: string } = {};
+      try {
+        st = await this.provider.graph<{ status_code?: string; status?: string }>(
+          `/${containerId}`,
+          { accessToken: pageToken, query: { fields: "status_code,status" } },
+        );
+      } catch {
+        // Consulta de estado é best-effort: seguimos para a publicação, que
+        // devolve 9007 e é reprocessada com espera.
+        return;
+      }
       const code = (st.status_code ?? "").toUpperCase();
-      if (code === "FINISHED") return;
+      if (!code || code === "FINISHED" || code === "PUBLISHED") return;
       if (code === "ERROR") {
         throw new Error(
-          `A Meta recusou o vídeo do Reels durante o processamento${st.status ? `: ${st.status}` : "."}`,
+          `A Meta recusou a mídia durante o processamento${st.status ? `: ${st.status}` : "."}`,
         );
       }
       if (code === "EXPIRED") {
-        throw new Error("O envio do vídeo expirou na Meta. Tente publicar novamente.");
+        throw new Error("O envio da mídia expirou na Meta. Tente publicar novamente.");
       }
       await new Promise((r) => setTimeout(r, intervalMs));
     }
     throw new Error(
-      "O vídeo do Reels ainda está sendo processado pela Meta. A publicação será tentada novamente.",
+      "A mídia ainda está sendo processada pela Meta. A publicação será tentada novamente.",
     );
   }
+
+  /**
+   * Publica um container já criado. A Meta pode devolver
+   * `Media ID is not available (code 9007)` quando o processamento acabou de
+   * terminar; nesse caso repetimos com espera crescente antes de desistir.
+   */
+  private async publishContainer(
+    igId: string,
+    creationId: string,
+    pageToken: string,
+    opts: { attempts?: number } = {},
+  ): Promise<{ id: string }> {
+    const attempts = opts.attempts ?? 4;
+    let lastErr: unknown = null;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        return await this.provider.graph<{ id: string }>(`/${igId}/media_publish`, {
+          accessToken: pageToken,
+          method: "POST",
+          query: { creation_id: creationId },
+        });
+      } catch (err) {
+        lastErr = err;
+        if (!isMediaNotReady(err) || i === attempts - 1) throw err;
+        await new Promise((r) => setTimeout(r, 4000 * (i + 1)));
+      }
+    }
+    throw lastErr as Error;
+  }
 }
+
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -362,10 +387,14 @@ export function assertSupported(placement: string): asserts placement is Support
 
 /** Serialises Graph errors into a message safe to store in `last_error`. */
 export function formatPublishError(err: unknown): string {
+  if (isMediaNotReady(err)) {
+    return "A Meta ainda está processando a mídia. Tentaremos publicar novamente em instantes.";
+  }
   if (err instanceof MetaGraphError) {
     const code = err.graph?.code ? ` (code ${err.graph.code})` : "";
     return `Meta: ${err.message}${code}`;
   }
+
   if (err instanceof Error) return err.message;
   return "Erro desconhecido ao publicar";
 }
