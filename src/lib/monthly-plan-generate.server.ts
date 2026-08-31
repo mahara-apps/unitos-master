@@ -551,6 +551,13 @@ export async function runPlanGeneration(args: {
         channel,
         target_audience: (t.target_audience ?? "").toString().trim().slice(0, 240) || null,
         rationale: (t.rationale ?? "").toString().trim().slice(0, 600) || null,
+        suggested_weekday: parseSuggestedWeekday(t.suggested_weekday),
+        suggested_time: (() => {
+          const p = parseSuggestedTime(t.suggested_time);
+          return p ? `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}` : null;
+        })(),
+        suggested_slot_rationale:
+          (t.slot_rationale ?? "").toString().trim().slice(0, 600) || null,
       });
     }
   };
