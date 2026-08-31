@@ -522,6 +522,9 @@ export async function runPlanGeneration(args: {
     channel: string;
     target_audience: string | null;
     rationale: string | null;
+    suggested_weekday: number | null;
+    suggested_time: string | null;
+    suggested_slot_rationale: string | null;
   }> = [];
 
   const consume = (topics: AiPlan["topics"]) => {
