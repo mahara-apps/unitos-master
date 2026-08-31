@@ -6,6 +6,10 @@ import {
   deriveChannelsFromDestinations,
   deriveTargetConnectionIds,
 } from "@/lib/placements.server";
+import {
+  hasPlacementOptions,
+  normalizePlacementOptions,
+} from "@/lib/placement-options";
 import { resolveStageIdByKey } from "@/lib/post-stage.server";
 import { assertScheduleLead } from "@/lib/schedule-rules";
 import { describeQueueInsertError } from "@/lib/social/queue-conflict";
@@ -751,19 +755,27 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         let frameErr: string | null = null;
         for (let i = 0; i < frames.length; i++) {
           const path = frames[i];
+          const destOptions = normalizePlacementOptions(
+            d.channel as never,
+            d.format as never,
+            (d as { options?: unknown }).options,
+          );
+          const optionsPart = hasPlacementOptions(destOptions) ? { options: destOptions } : {};
           const media = isCarousel
             ? {
                 storagePaths: data.mediaPaths.slice(0, 10),
                 ...(data.linkUrl ? { link: data.linkUrl } : {}),
+                ...optionsPart,
               }
             : path
               ? {
                   storagePath: path,
                   ...(isStory ? {} : data.linkUrl ? { link: data.linkUrl } : {}),
+                  ...optionsPart,
                 }
               : !isStory && data.linkUrl
-                ? { link: data.linkUrl }
-                : {};
+                ? { link: data.linkUrl, ...optionsPart }
+                : { ...optionsPart };
           const frameIso = new Date(baseMs + i * 60_000).toISOString();
           const { error: spErr } = await supabase.from("social_posts").insert({
             brand_id: data.brandId,
