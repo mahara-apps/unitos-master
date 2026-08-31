@@ -65,12 +65,16 @@ export function nextRateLimitRetryAt(previousRetries: number, now: Date = new Da
 }
 
 /** Mensagem em pt-BR mostrada na UI enquanto o destino aguarda nova tentativa. */
-export function rateLimitMessage(retryAt: Date, detail?: string): string {
+export function rateLimitMessage(retryAt: Date, detail?: string, err?: unknown): string {
   const hhmm = new Intl.DateTimeFormat("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
     timeZone: "America/Sao_Paulo",
   }).format(retryAt);
-  const base = `Limite temporário da Meta — nova tentativa automática às ${hhmm}.`;
+  const cause = isMediaNotReady(err)
+    ? "A Meta ainda está processando a mídia"
+    : "Limite temporário da Meta";
+  const base = `${cause} — nova tentativa automática às ${hhmm}.`;
   return detail ? `${base} Detalhe: ${detail}` : base;
+
 }
