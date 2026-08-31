@@ -226,32 +226,22 @@ export class MetaPublishingService {
       },
     });
 
-    const publish = await this.provider.graph<{ id: string }>(`/${igId}/media_publish`, {
-      accessToken: pageToken,
-      method: "POST",
-      query: { creation_id: container.id },
-    });
+    // Stories também passa por processamento na Meta. Publicar antes de
+    // `FINISHED` devolve "Media ID is not available (code 9007)".
+    await this.waitForContainerReady(container.id, pageToken);
+    const publish = await this.publishContainer(igId, container.id, pageToken);
 
-    let permalink: string | null = null;
-    try {
-      const meta = await this.provider.graph<{ permalink?: string }>(`/${publish.id}`, {
-        accessToken: pageToken,
-        query: { fields: "permalink" },
-      });
-      permalink = meta.permalink ?? null;
-    } catch {
-      /* permalink é opcional em Stories */
-    }
-
+    // Stories NÃO expõem permalink na Graph API — não consultamos.
     return {
       externalPostId: publish.id,
-      externalPermalink: permalink,
+      externalPermalink: null,
       providerResponse: {
         container_id: container.id,
         media_id: publish.id,
         media_type: "STORIES",
       },
     };
+
   }
 
   // -------------------------------------------------------------- IG Reels ---
