@@ -93,7 +93,15 @@ async function loadPostContext(sb: SupabaseClient, postId: string) {
     const connectionId = str((pl as PostRow).connection_id);
     const channel = str(co.channel);
     if (connectionId && channel && (pl as PostRow).status !== "published") {
-      existing.push({ connectionId, channel, format: String((pl as PostRow).format) });
+      const fmt = String((pl as PostRow).format);
+      existing.push({
+        connectionId,
+        channel,
+        format: (["feed", "stories", "reels", "carrossel"].includes(fmt)
+          ? fmt
+          : "feed") as BulkDestination["format"],
+      });
+
     }
     if (Array.isArray(co.hashtags) && hashtags.length === 0) {
       hashtags = (co.hashtags as unknown[]).filter((h): h is string => typeof h === "string");
