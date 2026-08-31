@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import {
@@ -41,9 +42,25 @@ type Props = {
   board: Board;
   posts: BoardPost[];
   onOpenPost: (id: string) => void;
+  /** Modo seleção em massa (mudança de estágio em lote). */
+  selectionMode?: boolean;
+  selected?: string[];
+  onToggleSelect?: (postId: string) => void;
+  onSelectMany?: (ids: string[]) => void;
 };
 
-export function ContentList({ board, posts, onOpenPost }: Props) {
+export function ContentList({
+  board,
+  posts,
+  onOpenPost,
+  selectionMode,
+  selected = [],
+  onToggleSelect,
+  onSelectMany,
+}: Props) {
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
+  const allVisibleSelected =
+    posts.length > 0 && posts.every((p) => selectedSet.has(p.id));
   const stageById = useMemo(() => {
     const m = new Map<string, PipelineStage>();
     for (const s of board.stages) m.set(s.id, s);
@@ -74,6 +91,23 @@ export function ContentList({ board, posts, onOpenPost }: Props) {
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur">
             <TableRow>
+              {selectionMode ? (
+                <TableHead className="w-[40px]">
+                  <Checkbox
+                    checked={allVisibleSelected}
+                    aria-label="Selecionar todos os visíveis"
+                    onCheckedChange={() => {
+                      const ids = posts.map((p) => p.id);
+                      // Preserva itens selecionados fora do filtro atual.
+                      onSelectMany?.(
+                        allVisibleSelected
+                          ? selected.filter((id) => !ids.includes(id))
+                          : Array.from(new Set([...selected, ...ids])),
+                      );
+                    }}
+                  />
+                </TableHead>
+              ) : null}
               <TableHead className="w-[76px]">Mídia</TableHead>
               <TableHead>Título</TableHead>
               <TableHead className="w-[160px]">Estágio</TableHead>
@@ -105,7 +139,20 @@ export function ContentList({ board, posts, onOpenPost }: Props) {
               const schedule = scheduleDisplay(p);
               const member = members?.find((m) => m.id === p.assignee_id);
               return (
-                <TableRow key={p.id} className="cursor-pointer" onClick={() => onOpenPost(p.id)}>
+                <TableRow
+                  key={p.id}
+                  className="cursor-pointer"
+                  onClick={() => (selectionMode ? onToggleSelect?.(p.id) : onOpenPost(p.id))}
+                >
+                  {selectionMode ? (
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedSet.has(p.id)}
+                        aria-label="Selecionar conteúdo"
+                        onCheckedChange={() => onToggleSelect?.(p.id)}
+                      />
+                    </TableCell>
+                  ) : null}
                   <TableCell>
                     {p.cover_url ? (
                       <img
