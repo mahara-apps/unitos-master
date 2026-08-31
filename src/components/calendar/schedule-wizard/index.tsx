@@ -623,13 +623,43 @@ export function ScheduleWizard({
       qc.invalidateQueries({ queryKey: ["pending-schedule"] });
       qc.invalidateQueries({ queryKey: ["wizard-drafts"] });
       onSaved?.();
-      if (action !== "publish" || (res?.published ?? 0) > 0) onOpenChange(false);
+      // "Salvar e próximo" mantém o modal aberto para seguir na fila.
+      if (!opts?.keepOpen && (action !== "publish" || (res?.published ?? 0) > 0)) {
+        onOpenChange(false);
+      }
+      dirtyRef.current = false;
+      return true;
     } catch (e) {
       toast.error(describeError(e));
+      return false;
     } finally {
       setSubmitting(null);
     }
   }
+
+  // ---------------------------------------------------------------- fila
+  const hasQueue = (queueTotal ?? 0) > 1 && typeof queueIndex === "number" && !!onQueueNavigate;
+  const canPrev = hasQueue && (queueIndex ?? 0) > 0;
+  const canNext = hasQueue && (queueIndex ?? 0) < (queueTotal ?? 0) - 1;
+
+  function goQueue(dir: -1 | 1) {
+    if (!onQueueNavigate || typeof queueIndex !== "number") return;
+    const next = queueIndex + dir;
+    if (next < 0 || next >= (queueTotal ?? 0)) return;
+    if (dirtyRef.current) {
+      setPendingNav(next);
+      return;
+    }
+    onQueueNavigate(next);
+  }
+
+  async function saveAndNext() {
+    const ok = await persist("save_draft", { keepOpen: true });
+    if (!ok) return;
+    if (canNext) onQueueNavigate?.((queueIndex ?? 0) + 1);
+    else onOpenChange(false);
+  }
+
 
   const primaryConn =
     (previewPair ? connByChannel.get(previewPair.channel) : null) ?? connectionsQ.data?.[0];
