@@ -739,11 +739,22 @@ function ProjectsIndexPage() {
 
       {/* Lista de projetos */}
       {projectsQ.isLoading ? (
-        <DashboardPanelSurface className="space-y-2 p-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-10 animate-pulse rounded-md bg-muted/60" />
-          ))}
-        </DashboardPanelSurface>
+        view === "cards" ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-[104px] animate-pulse rounded-lg border border-border/60 bg-muted/50"
+              />
+            ))}
+          </div>
+        ) : (
+          <DashboardPanelSurface className="space-y-2 p-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-10 animate-pulse rounded-md bg-muted/60" />
+            ))}
+          </DashboardPanelSurface>
+        )
       ) : rows.length === 0 ? (
         <DashboardPanelSurface>
           <PanelEmptyState
@@ -751,7 +762,53 @@ function ProjectsIndexPage() {
             text="Nenhum projeto encontrado. Crie o primeiro clicando em Novo projeto."
           />
         </DashboardPanelSurface>
+      ) : view === "cards" ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {rows.map((p) => {
+            const stats: ProjectStats = projectsQ.data?.stats?.[p.id] ?? {
+              total: 0,
+              approved: 0,
+              published: 0,
+              pending: 0,
+            };
+            const client = clients.find((c) => c.id === p.client_id);
+            const meta = STATUS_META[p.status] ?? STATUS_META.active;
+            const accent =
+              colorBy === "status"
+                ? (STATUS_ACCENT[p.status] ?? "#8b5cf6")
+                : colorBy === "client"
+                  ? (client?.color ?? "#8b5cf6")
+                  : (p.color ?? "#8b5cf6");
+            const period =
+              p.start_date || p.due_at
+                ? p.due_at
+                  ? `Entrega ${fmtDate(p.due_at)}`
+                  : `Início ${fmtDate(p.start_date)}`
+                : "Sem datas";
+            return (
+              <ProjectCard
+                key={p.id}
+                name={p.name}
+                accentColor={accent}
+                clientName={client?.name ?? null}
+                clientColor={client?.color ?? null}
+                statusLabel={meta.label}
+                statusClassName={meta.className}
+                planBadge={
+                  p.plan ? <PlanStatusBadge status={p.plan.status} prefix="Pauta:" /> : null
+                }
+                periodLabel={period}
+                published={stats.published}
+                total={stats.total || 0}
+                onOpen={() =>
+                  navigate({ to: "/projects/$projectId", params: { projectId: p.id } })
+                }
+              />
+            );
+          })}
+        </div>
       ) : (
+
         <DashboardPanelSurface className="overflow-hidden p-0">
           <Table>
             <TableHeader>
