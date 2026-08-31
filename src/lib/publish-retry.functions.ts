@@ -23,7 +23,7 @@ export type PublicationDestinationState = {
   channel: string;
   accountLabel: string;
   format: string;
-  /** published | failed | scheduled | publishing | draft */
+  /** published | failed | awaiting_retry | scheduled | publishing | draft */
   status: string;
   publishedAt: string | null;
   permalink: string | null;
@@ -38,7 +38,12 @@ export type PublicationDestinationState = {
   historical: boolean;
   /** Destino histórico recuperável: falhou e precisa de conta atual. */
   needsRebind: boolean;
+  /** Quando o item na fila está aguardando nova tentativa, o horário previsto. */
+  nextAttemptAt: string | null;
+  /** Item pendente pode ser cancelado da fila (libera reagendamento imediato). */
+  canCancelQueue: boolean;
 };
+
 
 /** Conta atualmente vinculada ao cliente (única fonte de destinos atuais). */
 export type AvailableTarget = {
