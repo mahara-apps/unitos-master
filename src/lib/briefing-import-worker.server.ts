@@ -90,7 +90,7 @@ export async function processImportQueue(
       // Falha recuperável com tentativas restantes volta para a fila; o resto
       // termina em estado terminal explícito (com retry manual disponível).
       const terminal = status !== "failed" || attempt >= maxAttempts;
-      const { friendlyAnalysisError } = await import("@/lib/briefing-import-errors");
+      const { friendlyAnalysisError } = await import("@/lib/briefing-import-ui");
       const friendly = friendlyAnalysisError(err);
       if (terminal) {
         await failImportRun(supabaseAdmin as never, run, {
