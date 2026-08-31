@@ -1604,7 +1604,57 @@ export function ScheduleWizard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Fila de rascunhos: proteção contra perder edições ao navegar. */}
+      <AlertDialog
+        open={pendingNav !== null}
+        onOpenChange={(v) => {
+          if (!v) setPendingNav(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Você tem alterações não salvas</AlertDialogTitle>
+            <AlertDialogDescription>
+              Salve esta peça antes de abrir a próxima, ou descarte as alterações e continue na
+              fila.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!submitting}>Voltar</AlertDialogCancel>
+            <Button
+              variant="outline"
+              disabled={!!submitting}
+              onClick={() => {
+                const target = pendingNav;
+                setPendingNav(null);
+                dirtyRef.current = false;
+                if (target !== null) onQueueNavigate?.(target);
+              }}
+            >
+              Descartar e continuar
+            </Button>
+            <AlertDialogAction
+              disabled={!!submitting}
+              onClick={async (e) => {
+                e.preventDefault();
+                const target = pendingNav;
+                const ok = await persist("save_draft", { keepOpen: true });
+                if (!ok) return;
+                setPendingNav(null);
+                if (target !== null) onQueueNavigate?.(target);
+              }}
+            >
+              {submitting === "save_draft" ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Salvar e continuar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
+
   );
 }
 
