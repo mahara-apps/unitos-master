@@ -9,7 +9,7 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { CalendarClock, Check, Loader2, Sparkles, Trash2 } from "lucide-react";
+import { CalendarClock, Check, Copy, ExternalLink, Loader2, Lock, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -20,14 +20,17 @@ import type { PublicationItem } from "@/lib/calendar-board.functions";
 import {
   approveScheduleFn,
   clearScheduleSlotFn,
+  getClientScheduleLinkFn,
+  reserveScheduleFn,
   updateScheduleSlotFn,
 } from "@/lib/schedule-approval.functions";
+import { useAccessRole } from "@/hooks/use-access-role";
 import { PUBLICATION_STATUS, formatLabel } from "@/lib/publication-status-tokens";
 
 const SCHEDULE_LABEL: Record<string, string> = {
   proposed: "Sugerida pela IA",
   internal_approved: "Aprovada internamente",
-  client_pending: "Aguardando o cliente",
+  client_pending: "Aguardando o cliente confirmar no Portal",
   client_changes: "Cliente pediu outra data",
   reserved: "Data reservada",
 };
@@ -52,6 +55,12 @@ export function ScheduleApprovalPanel({
 }) {
   const qc = useQueryClient();
   const approve = useServerFn(approveScheduleFn);
+  const reserve = useServerFn(reserveScheduleFn);
+  const getLink = useServerFn(getClientScheduleLinkFn);
+  const { authorityRole } = useAccessRole();
+  // Owner mapeia para `admin` na autoridade canônica; manager/user não reservam.
+  const canReserveDirect = authorityRole === "admin" || authorityRole === "super_admin";
+  const [linkPath, setLinkPath] = useState<string | null>(null);
   const updateSlot = useServerFn(updateScheduleSlotFn);
   const clearSlot = useServerFn(clearScheduleSlotFn);
 
@@ -74,6 +83,54 @@ export function ScheduleApprovalPanel({
 
   if (pending.length === 0) return null;
 
+  const absoluteLink = linkPath
+    ? `${typeof window === "undefined" ? "" : window.location.origin}${linkPath}`
+    : null;
+
+  const copyLink = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copiado. Envie ao cliente pelo canal que preferir.");
+    } catch {
+      toast.error("Não foi possível copiar", { description: url });
+    }
+  };
+
+  const loadLink = async () => {
+    setBusy(true);
+    try {
+      const link = await getLink({ data: { brandId, clientId } });
+      if (link) setLinkPath(link.path);
+      else toast.error("Não foi possível gerar o link do Portal para este cliente.");
+    } catch (err) {
+      toast.error("Não foi possível gerar o link", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runReserve = async (postIds: string[]) => {
+    if (postIds.length === 0) return;
+    setBusy(true);
+    try {
+      const res = await reserve({ data: { brandId, clientId, postIds } });
+      toast.success(
+        res.updated === 1 ? "Data reservada." : `${res.updated} datas reservadas.`,
+        { description: "Reservar apenas fixa a data — nada é publicado." },
+      );
+      setSelected([]);
+      refresh();
+    } catch (err) {
+      toast.error("Não foi possível reservar", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["publication-board"] });
   };
@@ -83,13 +140,21 @@ export function ScheduleApprovalPanel({
     setBusy(true);
     try {
       const res = await approve({ data: { brandId, clientId, postIds } });
+      const path = res.link?.path ?? null;
+      if (path) setLinkPath(path);
+      const url = path
+        ? `${typeof window === "undefined" ? "" : window.location.origin}${path}`
+        : null;
       toast.success(
         res.updated === 1
-          ? "Agenda enviada para o cliente confirmar."
-          : `${res.updated} datas enviadas para o cliente confirmar.`,
-        res.skipped > 0
-          ? { description: `${res.skipped} item(ns) já não estavam aguardando aprovação interna.` }
-          : undefined,
+          ? "Agenda aprovada — envie o link do Portal para o cliente confirmar."
+          : `${res.updated} datas aprovadas — envie o link do Portal para o cliente confirmar.`,
+        {
+          ...(res.skipped > 0
+            ? { description: `${res.skipped} item(ns) já não estavam aguardando aprovação interna.` }
+            : {}),
+          ...(url ? { action: { label: "Copiar link", onClick: () => void copyLink(url) } } : {}),
+        },
       );
       setSelected([]);
       refresh();
@@ -150,7 +215,8 @@ export function ScheduleApprovalPanel({
             Agenda sugerida ({pending.length})
           </h2>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Aprovar apenas reserva a data e envia para o cliente confirmar — nada é publicado.
+            Aprovar gera o link do Portal para o cliente confirmar a data — nada é publicado nem
+            agendado automaticamente.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -170,8 +236,66 @@ export function ScheduleApprovalPanel({
             <CalendarClock className="h-3.5 w-3.5" />
             Aprovar todas ({approvable.length})
           </Button>
+          {canReserveDirect ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 gap-1.5"
+              disabled={busy || pending.length === 0}
+              onClick={() =>
+                runReserve((selected.length > 0 ? selected : pending.map((i) => i.postId)))
+              }
+              title="Reserva a data sem esperar o cliente (Owner/Admin)"
+            >
+              <Lock className="h-3.5 w-3.5" />
+              Reservar sem cliente
+              {selected.length > 0 ? ` (${selected.length})` : ""}
+            </Button>
+          ) : null}
         </div>
       </header>
+
+      <div className="flex flex-wrap items-center gap-2 border-b border-primary/20 bg-background/60 px-4 py-2.5">
+        <span className="text-[11px] font-medium text-muted-foreground">Link do cliente</span>
+        {absoluteLink ? (
+          <>
+            <code className="min-w-0 flex-1 truncate rounded border border-border/60 bg-muted/40 px-2 py-1 text-[11px]">
+              {absoluteLink}
+            </code>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1.5"
+              onClick={() => void copyLink(absoluteLink)}
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Copiar link
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 gap-1.5" asChild>
+              <a href={absoluteLink} target="_blank" rel="noreferrer">
+                <ExternalLink className="h-3.5 w-3.5" />
+                Abrir
+              </a>
+            </Button>
+          </>
+        ) : (
+          <>
+            <span className="min-w-0 flex-1 text-[11px] text-muted-foreground">
+              O cliente confirma as datas no Portal. Gere o link e envie manualmente.
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1.5"
+              disabled={busy}
+              onClick={() => void loadLink()}
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Gerar link
+            </Button>
+          </>
+        )}
+      </div>
 
       <ul className="divide-y divide-primary/10">
         {pending.map((item) => {
@@ -258,6 +382,19 @@ export function ScheduleApprovalPanel({
                     >
                       <Check className="h-3.5 w-3.5" />
                       Aprovar
+                    </Button>
+                  ) : null}
+                  {canReserveDirect && item.scheduleStatus !== "reserved" ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 gap-1"
+                      disabled={busy}
+                      title="Reservar esta data sem o cliente"
+                      onClick={() => runReserve([item.postId])}
+                    >
+                      <Lock className="h-3.5 w-3.5" />
+                      Reservar
                     </Button>
                   ) : null}
                   <Button
