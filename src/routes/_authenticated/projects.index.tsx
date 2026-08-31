@@ -357,17 +357,17 @@ function ProjectsIndexPage() {
     (v: ViewMode) => {
       setViewState(v);
       if (typeof window !== "undefined") window.localStorage.setItem(VIEW_STORAGE_KEY, v);
-      navigate({ to: "/projects", search: (s) => ({ ...s, view: v }), replace: true });
+      navigate({ to: "/projects", search: { ...search, view: v }, replace: true });
     },
-    [navigate],
+    [navigate, search],
   );
   const setColorBy = useCallback(
     (v: ColorBy) => {
       setColorByState(v);
       if (typeof window !== "undefined") window.localStorage.setItem(COLORBY_STORAGE_KEY, v);
-      navigate({ to: "/projects", search: (s) => ({ ...s, colorBy: v }), replace: true });
+      navigate({ to: "/projects", search: { ...search, colorBy: v }, replace: true });
     },
-    [navigate],
+    [navigate, search],
   );
 
 
