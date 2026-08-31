@@ -80,16 +80,31 @@ export const getMetaPortfolioStatusFn = createServerFn({ method: "POST" })
 
 /** Diagnóstico do modo de login Meta (Business Login × escopos legados). */
 export const getMetaOAuthModeFn = createServerFn({ method: "GET" }).handler(async () => {
-  const { metaOAuthModeDiagnostics } = await import("@/lib/meta/provider.server");
-  return metaOAuthModeDiagnostics();
+  const { metaOAuthModeDiagnostics, validateBusinessConfig } = await import(
+    "@/lib/meta/provider.server"
+  );
+  const diag = metaOAuthModeDiagnostics();
+  const check = await validateBusinessConfig();
+  // Modo efetivo: um `config_id` inválido cai para escopos legados em runtime,
+  // então o diagnóstico precisa mostrar exatamente isso (sem mascarar o erro).
+  return {
+    ...diag,
+    mode: diag.mode === "business_login" && !check.valid ? ("legacy_scopes" as const) : diag.mode,
+    configValid: check.valid,
+    configError: check.reason,
+    note:
+      diag.mode === "business_login" && !check.valid
+        ? `Configuração de login inválida — usando escopos legados. ${check.reason ?? ""}`.trim()
+        : diag.note,
+  };
 });
 
 export const disconnectMetaPortfolioFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => DisconnectInput.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: boolean; removed: number; message: string }> => {
-    const { isBrandAdmin } = await import("@/lib/monthly-plan-delete.server");
-    if (!(await isBrandAdmin(context.supabase, context.userId, data.brandId))) {
+    const { hasIntegrationAuthority } = await import("@/lib/access-guard");
+    if (!(await hasIntegrationAuthority(context.supabase, context.userId, data.brandId))) {
       return {
         ok: false,
         removed: 0,
@@ -130,8 +145,8 @@ export const revokeMetaAuthorizationFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => RevokeAuthInput.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: boolean; message: string }> => {
-    const { isBrandAdmin } = await import("@/lib/monthly-plan-delete.server");
-    if (!(await isBrandAdmin(context.supabase, context.userId, data.brandId))) {
+    const { hasIntegrationAuthority } = await import("@/lib/access-guard");
+    if (!(await hasIntegrationAuthority(context.supabase, context.userId, data.brandId))) {
       return {
         ok: false,
         message: "Apenas Owner, Admin ou Super Admin podem revogar autorizações Meta.",

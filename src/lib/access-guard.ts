@@ -85,6 +85,46 @@ export async function assertAdminAuthority(
   return assertBrandAdmin(supabase, userId, brandId);
 }
 
+/* ------------------------------------------------------------------ */
+/* Autoridade de INTEGRAÇÃO (Meta/Instagram/Facebook/WhatsApp/Ads)     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Autoridade de integração = SUPER ADMIN, OWNER ou ADMIN do workspace.
+ *
+ * MANAGER **não** entra: `is_brand_admin_level` (RLS legada) incluía manager e
+ * divergia da regra de produto. A fonte canônica única — usada tanto pela RLS
+ * quanto pelo servidor — é `public.is_brand_integration_authority`.
+ */
+export async function hasIntegrationAuthority(
+  supabase: RpcClient,
+  userId: string,
+  brandId: string,
+): Promise<boolean> {
+  if (!brandId) return false;
+  const { data, error } = await callRpc(supabase, "is_brand_integration_authority", {
+    _brand_id: brandId,
+    _user_id: userId,
+  });
+  if (error) return false;
+  return data === true;
+}
+
+/** Defesa em profundidade: exige autoridade de integração antes de qualquer
+ * leitura/escrita de autorização, portfólio, contas ou vínculos. */
+export async function assertIntegrationAuthority(
+  supabase: RpcClient,
+  userId: string,
+  brandId: string,
+): Promise<void> {
+  if (!(await hasIntegrationAuthority(supabase, userId, brandId))) {
+    throw new Error(
+      "Apenas Owner, Admin ou Super Admin podem gerenciar integrações deste workspace.",
+    );
+  }
+}
+
+
 
 /**
  * Exige que o ator possa CONCEDER `role` na marca — fonte canônica única:

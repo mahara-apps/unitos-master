@@ -219,7 +219,9 @@ const MESSAGING_CHANNELS: ChannelDef[] = [
 function ConnectionsPage() {
   const { brandId } = useActiveContext();
   const qc = useQueryClient();
-  const { role, isReady } = useAccessRole();
+  // Autoridade de integração = super_admin | admin (owner normaliza para admin).
+  // NÃO usar o `role` legado: ele funde MANAGER em "admin".
+  const { canManageIntegrations, isReady } = useAccessRole();
   const search = Route.useSearch();
   const aiSection = ["providers", "usage", "logs", "prompts"].includes(search.section ?? "")
     ? search.section!
@@ -340,7 +342,7 @@ function ConnectionsPage() {
   // IMPORTANTE: este early-return fica DEPOIS de todos os hooks — colocá-lo
   // antes fazia a segunda renderização (isReady: false → true) executar menos
   // hooks e derrubar a tela com "Rendered fewer hooks than expected".
-  if (isReady && role !== "admin") {
+  if (isReady && !canManageIntegrations) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -436,7 +438,7 @@ function ConnectionsPage() {
           <Tabs defaultValue={aiSection} className="space-y-4">
             <TabsList>
               <TabsTrigger value="providers">Provedores & Modelos</TabsTrigger>
-              {role === "admin" ? (
+              {canManageIntegrations ? (
                 <>
                   <TabsTrigger value="usage">Limites & Consumo</TabsTrigger>
                   <TabsTrigger value="logs">Execuções</TabsTrigger>
@@ -458,7 +460,7 @@ function ConnectionsPage() {
               />
             </TabsContent>
 
-            {role === "admin" ? (
+            {canManageIntegrations ? (
               <>
                 <TabsContent value="usage" className="space-y-4">
                   <AiUsagePanel brandId={brandId} />
@@ -483,7 +485,7 @@ function ConnectionsPage() {
 
         {/* Tab: Canais */}
         <TabsContent value="channels" className="space-y-3">
-          <ChannelsCenter brandId={brandId} canManage={role === "admin"} />
+          <ChannelsCenter brandId={brandId} canManage={canManageIntegrations} />
         </TabsContent>
 
         {/* Tab: Mensageria */}
@@ -499,7 +501,7 @@ function ConnectionsPage() {
             channels={data?.channels ?? {}}
             isLoading={isLoading}
             onChanged={invalidate}
-            canManage={role === "admin"}
+            canManage={canManageIntegrations}
           />
         </TabsContent>
       </Tabs>

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Lock, Search } from "lucide-react";
 
 import { useActiveContext } from "@/hooks/use-active-context";
-import { listBrandFeatures, setBrandFeature } from "@/lib/feature-flags.functions";
+import { listBrandFeaturesForAdmin, setBrandFeature } from "@/lib/feature-flags.functions";
 import { clearAccessCaches } from "@/lib/access-cache";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,11 +30,11 @@ export const Route = createFileRoute("/_authenticated/admin/recursos")({
   component: AdminFeaturesPage,
 });
 
-type Feature = Awaited<ReturnType<typeof listBrandFeatures>>[number];
+type Feature = Awaited<ReturnType<typeof listBrandFeaturesForAdmin>>[number];
 
 function AdminFeaturesPage() {
   const { brandId } = useActiveContext();
-  const listFn = useServerFn(listBrandFeatures);
+  const listFn = useServerFn(listBrandFeaturesForAdmin);
   const [search, setSearch] = React.useState("");
   const [category, setCategory] = React.useState<string>("all");
   const [pendingOff, setPendingOff] = React.useState<Feature | null>(null);

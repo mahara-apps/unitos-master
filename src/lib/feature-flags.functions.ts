@@ -32,47 +32,97 @@ export const listFeatureCatalog = createServerFn({ method: "GET" })
 
 const BrandIdInput = z.object({ brandId: z.string().uuid() });
 
+type CatalogRow = {
+  key: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  icon: string | null;
+  is_core: boolean;
+  sort_order: number | null;
+  is_available: boolean;
+  default_enabled: boolean;
+};
+type BrandFeatureRow = {
+  feature_key: string;
+  enabled: boolean;
+  enabled_at: string | null;
+  enabled_by: string | null;
+  notes: string | null;
+  updated_at: string | null;
+};
+type FeatureReaderClient = {
+  from: (table: string) => {
+    select: (cols: string) => any;
+  };
+};
+
+/**
+ * Leitura do estado de features de um ambiente.
+ *
+ * Continua acessível a membros porque alimenta o GATE de navegação
+ * (`useBrandFeatures`). A tela **Administração do Cliente → Recursos** usa a
+ * variante `listBrandFeaturesForAdmin`, exclusiva de Super Admin.
+ */
+async function readBrandFeatures(supabase: FeatureReaderClient, brandId: string) {
+  const { data: catalog, error: catErr } = await supabase
+    .from("feature_catalog")
+    .select(
+      "key, name, description, category, icon, is_core, sort_order, is_available, default_enabled",
+    )
+    .order("sort_order")
+    .order("name");
+  if (catErr) throw catErr;
+
+  const { data: rows, error } = await supabase
+    .from("brand_features")
+    .select("id, brand_id, feature_key, enabled, enabled_at, enabled_by, notes, updated_at")
+    .eq("brand_id", brandId);
+  if (error) throw error;
+
+  const byKey = new Map<string, BrandFeatureRow>(
+    ((rows ?? []) as BrandFeatureRow[]).map((r) => [r.feature_key, r]),
+  );
+  return ((catalog ?? []) as CatalogRow[]).map((c) => {
+    const row = byKey.get(c.key);
+    const configured = row?.enabled ?? null;
+    return {
+      key: c.key,
+      name: c.name,
+      description: c.description,
+      category: c.category,
+      icon: c.icon,
+      is_core: c.is_core,
+      sort_order: c.sort_order,
+      is_available: c.is_available,
+      default_enabled: c.default_enabled,
+      enabled: c.is_core ? true : (configured ?? c.default_enabled),
+      configured,
+      enabled_at: row?.enabled_at ?? null,
+      enabled_by: row?.enabled_by ?? null,
+      notes: row?.notes ?? null,
+      updated_at: row?.updated_at ?? null,
+    };
+  });
+}
+
+
 export const listBrandFeatures = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => BrandIdInput.parse(i))
+  .handler(async ({ data, context }) => readBrandFeatures(context.supabase, data.brandId));
+
+/**
+ * Mesma leitura, mas restrita a SUPER ADMIN — usada pela tela
+ * Administração do Cliente → Recursos. Owner/Admin/Manager/User recebem erro
+ * mesmo forçando a rota ou chamando a RPC diretamente.
+ */
+export const listBrandFeaturesForAdmin = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => BrandIdInput.parse(i))
   .handler(async ({ data, context }) => {
-    const { data: catalog, error: catErr } = await context.supabase
-      .from("feature_catalog")
-      .select(
-        "key, name, description, category, icon, is_core, sort_order, is_available, default_enabled",
-      )
-      .order("sort_order")
-      .order("name");
-    if (catErr) throw catErr;
-
-    const { data: rows, error } = await context.supabase
-      .from("brand_features")
-      .select("id, brand_id, feature_key, enabled, enabled_at, enabled_by, notes, updated_at")
-      .eq("brand_id", data.brandId);
-    if (error) throw error;
-
-    const byKey = new Map((rows ?? []).map((r) => [r.feature_key, r]));
-    return (catalog ?? []).map((c) => {
-      const row = byKey.get(c.key);
-      const configured = row?.enabled ?? null;
-      return {
-        key: c.key,
-        name: c.name,
-        description: c.description,
-        category: c.category,
-        icon: c.icon,
-        is_core: c.is_core,
-        sort_order: c.sort_order,
-        is_available: c.is_available,
-        default_enabled: c.default_enabled,
-        enabled: c.is_core ? true : (configured ?? c.default_enabled),
-        configured,
-        enabled_at: row?.enabled_at ?? null,
-        enabled_by: row?.enabled_by ?? null,
-        notes: row?.notes ?? null,
-        updated_at: row?.updated_at ?? null,
-      };
-    });
+    await assertSuperAdmin(context.supabase as unknown as RpcClient, context.userId);
+    return readBrandFeatures(context.supabase, data.brandId);
   });
 
 const SetFeatureInput = z.object({
