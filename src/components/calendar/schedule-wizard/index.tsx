@@ -549,14 +549,13 @@ export function ScheduleWizard({
     action: "draft" | "publish" | "schedule" | "save_draft",
     opts?: { keepOpen?: boolean },
   ): Promise<boolean> {
-
     if (action !== "save_draft" && !pairs.length) {
       toast.error("Selecione pelo menos um canal.");
-      return;
+      return false;
     }
     if (action === "schedule" && (!scheduleDate || !scheduleTime)) {
       toast.error("Defina data e horário para agendar.");
-      return;
+      return false;
     }
     // Regra dos 5 minutos: feedback antes de enviar (o servidor revalida).
     if (
@@ -564,13 +563,14 @@ export function ScheduleWizard({
       !isScheduleLeadValid(new Date(`${scheduleDate}T${scheduleTime}`))
     ) {
       toast.error(MIN_SCHEDULE_LEAD_MESSAGE);
-      return;
+      return false;
     }
-    if (submitting) return;
+    if (submitting) return false;
     if (hydrating) {
       toast.error("Aguarde o carregamento da peça.");
-      return;
+      return false;
     }
+
     setSubmitting(action);
     try {
       const scheduledIso =
