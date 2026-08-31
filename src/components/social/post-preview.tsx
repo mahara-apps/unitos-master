@@ -64,7 +64,7 @@ export function PostPreview({
     return (
       <div
         className={cn(
-          "relative w-full max-w-[300px] overflow-hidden rounded-2xl border border-border/60 bg-foreground shadow-lg",
+          "relative w-full max-w-[300px] overflow-hidden rounded-2xl border border-border/60 bg-black shadow-lg",
           className,
         )}
         style={{ aspectRatio: "9 / 16" }}
