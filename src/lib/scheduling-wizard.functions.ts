@@ -468,16 +468,18 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         ((links ?? []) as Array<{ connection_id: string }>).map((l) => l.connection_id),
       );
       for (const d of data.destinations) {
-        // Suportado hoje: Feed IG/FB, Stories IG (multi-frame) e Reels IG.
+        // Suportado hoje: Feed IG/FB, Carrossel IG/FB, Stories IG e Reels IG.
         const supported =
           (d.format === "feed" && (d.channel === "instagram" || d.channel === "facebook")) ||
+          (d.format === "carrossel" && (d.channel === "instagram" || d.channel === "facebook")) ||
           (d.format === "stories" && d.channel === "instagram") ||
           (d.format === "reels" && d.channel === "instagram");
         if (!supported) {
           scheduleWarnings.push({
             channel: d.channel,
             format: d.format,
-            error: "Formato ainda não agendável (Feed IG/FB, Stories IG ou Reels IG)",
+            error:
+              "Formato ainda não agendável (Feed IG/FB, Carrossel IG/FB, Stories IG ou Reels IG)",
           });
           continue;
         }
@@ -491,6 +493,15 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           });
           continue;
         }
+        if (d.format === "carrossel" && data.mediaPaths.length < 2) {
+          scheduleWarnings.push({
+            channel: d.channel,
+            format: d.format,
+            error: "Carrossel exige pelo menos 2 mídias. Anexe mais mídias antes de agendar.",
+          });
+          continue;
+        }
+
         const conn = connMap.get(d.connectionId);
         if (!conn) {
           throw new Error(
