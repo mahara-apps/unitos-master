@@ -435,6 +435,13 @@ export async function runPlanGeneration(args: {
         ? `  * target_audience: OBRIGATÓRIO — persona ou cohort da estratégia ativa (${audienceOptions.slice(0, 8).join(", ")})`
         : `  * target_audience: público-alvo principal da ideia, derivado do briefing`,
       `  * rationale: 1 frase citando a evidência usada (métrica do canal, insight do briefing ou item da estratégia)`,
+      `  * suggested_weekday: OBRIGATÓRIO — melhor dia da semana para publicar (0=domingo … 6=sábado), no fuso de Brasília`,
+      `  * suggested_time: OBRIGATÓRIO — melhor horário no formato "HH:MM" (fuso de Brasília)`,
+      `  * slot_rationale: 1 frase curta justificando o dia/hora (hábito da persona ou histórico de publicação do cliente)`,
+      bestTimes && bestTimes.top.length
+        ? `- Para dia/hora, use o histórico de publicação do cliente acima como evidência principal; ajuste conforme o formato (Stories mais cedo, Reels no fim do dia).`
+        : `- Sem histórico de publicação disponível: derive dia/hora dos hábitos da persona no briefing e diga isso no slot_rationale.`,
+      `- Distribua os dias/horários ao longo do mês; evite concentrar tudo no mesmo dia da semana e no mesmo horário.`,
       `- A quantidade por canal + formato é contratual: cumpra exatamente, sem trocar formatos.`,
       `- Dentro de cada cota, priorize os temas que performaram melhor no canal.`,
       avoid.length
