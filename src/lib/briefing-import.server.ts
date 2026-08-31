@@ -95,6 +95,11 @@ export function classifyRunFailure(error: unknown): {
   kind: string;
 } {
   const raw = error instanceof Error ? `${error.message}` : String(error ?? "");
+  // Timeout de etapa é sempre recuperável: nada foi perdido e os checkpoints
+  // concluídos permitem retomar sem repagar as etapas anteriores.
+  if (/step_timeout|aborterror|\baborted\b|etimedout|timeout/i.test(raw)) {
+    return { status: "failed", kind: "timeout" };
+  }
   if (
     /ai_provider_not_configured|no_provider|api[_ ]?key|unauthorized|invalid[_ ]api|credit|quota|billing|\b40[123]\b|insufficient/i.test(
       raw,
@@ -111,6 +116,47 @@ export function classifyRunFailure(error: unknown): {
   }
   return { status: "failed", kind: "analysis" };
 }
+
+/**
+ * Erro que carrega a ETAPA real em que a run falhou.
+ *
+ * Sem isso o worker marcava sempre `interpret` como falha, o que fazia um
+ * retry de falha pós-interpret (diff/propose/apply) repagar a chamada de IA.
+ */
+export class ImportStepError extends Error {
+  readonly importStep: ImportStep;
+  constructor(step: ImportStep, message: string, options?: { cause?: unknown }) {
+    super(message, options as ErrorOptions);
+    this.name = "ImportStepError";
+    this.importStep = step;
+  }
+}
+
+/** Anexa a etapa ao erro (sem trocar o erro original) e o devolve. */
+export function tagImportStep(error: unknown, step: ImportStep): unknown {
+  if (error && typeof error === "object" && !("importStep" in error)) {
+    try {
+      Object.defineProperty(error, "importStep", { value: step, enumerable: false });
+    } catch {
+      /* erro congelado: ignora */
+    }
+  }
+  return error;
+}
+
+/** Recupera a etapa real da falha percorrendo a cadeia de `cause`. */
+export function stepFromError(error: unknown): ImportStep | null {
+  let node: unknown = error;
+  for (let depth = 0; depth < 8 && node != null; depth += 1) {
+    const step = (node as { importStep?: unknown }).importStep;
+    if (typeof step === "string" && (IMPORT_STEPS as readonly string[]).includes(step)) {
+      return step as ImportStep;
+    }
+    node = (node as { cause?: unknown }).cause;
+  }
+  return null;
+}
+
 
 
 export type ImportRunRow = {
