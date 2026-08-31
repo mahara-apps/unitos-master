@@ -80,8 +80,23 @@ export const getMetaPortfolioStatusFn = createServerFn({ method: "POST" })
 
 /** Diagnóstico do modo de login Meta (Business Login × escopos legados). */
 export const getMetaOAuthModeFn = createServerFn({ method: "GET" }).handler(async () => {
-  const { metaOAuthModeDiagnostics } = await import("@/lib/meta/provider.server");
-  return metaOAuthModeDiagnostics();
+  const { metaOAuthModeDiagnostics, validateBusinessConfig } = await import(
+    "@/lib/meta/provider.server"
+  );
+  const diag = metaOAuthModeDiagnostics();
+  const check = await validateBusinessConfig();
+  // Modo efetivo: um `config_id` inválido cai para escopos legados em runtime,
+  // então o diagnóstico precisa mostrar exatamente isso (sem mascarar o erro).
+  return {
+    ...diag,
+    mode: diag.mode === "business_login" && !check.valid ? ("legacy_scopes" as const) : diag.mode,
+    configValid: check.valid,
+    configError: check.reason,
+    note:
+      diag.mode === "business_login" && !check.valid
+        ? `Configuração de login inválida — usando escopos legados. ${check.reason ?? ""}`.trim()
+        : diag.note,
+  };
 });
 
 export const disconnectMetaPortfolioFn = createServerFn({ method: "POST" })
