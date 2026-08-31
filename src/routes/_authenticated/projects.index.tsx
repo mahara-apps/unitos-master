@@ -625,7 +625,76 @@ function ProjectsIndexPage() {
               sidebarClientId={null}
             />
           )}
+
+          <div className="ml-auto flex items-center gap-2">
+            {view === "cards" ? (
+              <>
+                <Select
+                  value={colorBy}
+                  onValueChange={(v) => setColorBy(v as ColorBy)}
+                >
+                  <SelectTrigger className="h-9 w-[168px] text-xs">
+                    <Palette className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COLOR_BYS.map((k) => (
+                      <SelectItem key={k} value={k}>
+                        {COLOR_BY_LABELS[k]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={`${sortKey}:${sortDir}`}
+                  onValueChange={(v) => {
+                    const [k, d] = v.split(":") as [SortKey, SortDir];
+                    setSortKey(k);
+                    setSortDir(d);
+                  }}
+                >
+                  <SelectTrigger className="h-9 w-[190px] text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+                      <SelectItem key={k} value={`${k}:${k === "progress" ? "desc" : "asc"}`}>
+                        {SORT_LABELS[k]}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="due:desc">Entrega mais distante</SelectItem>
+                  </SelectContent>
+                </Select>
+              </>
+            ) : null}
+            <div className="inline-flex h-9 shrink-0 items-center rounded-md border border-border/60 bg-muted/40 p-0.5">
+              <Button
+                type="button"
+                size="sm"
+                variant={view === "cards" ? "secondary" : "ghost"}
+                aria-pressed={view === "cards"}
+                onClick={() => setView("cards")}
+                className="h-8 gap-1.5 px-2.5 text-xs"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Cards</span>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={view === "list" ? "secondary" : "ghost"}
+                aria-pressed={view === "list"}
+                onClick={() => setView("list")}
+                className="h-8 gap-1.5 px-2.5 text-xs"
+              >
+                <ListIcon className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Lista</span>
+              </Button>
+            </div>
+          </div>
         </div>
+
+
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[11px] text-muted-foreground">
