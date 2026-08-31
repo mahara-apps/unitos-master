@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import {
   CalendarDays,
@@ -45,6 +46,12 @@ import { EventChip } from "@/components/calendar/event-chip";
 import { PublicationCard, PublicationRow } from "@/components/calendar/board/publication-card";
 import { OperationsPanel } from "@/components/calendar/board/operations-panel";
 import { ScheduleApprovalPanel } from "@/components/calendar/board/schedule-approval-panel";
+import { UndatedTray } from "@/components/calendar/board/undated-tray";
+import {
+  listUndatedPostsFn,
+  suggestSchedulesFn,
+  updateScheduleSlotFn,
+} from "@/lib/schedule-approval.functions";
 import { PublicationDetailModal } from "@/components/calendar/board/publication-detail";
 import {
   StatusFilterBar,
@@ -113,6 +120,7 @@ function CalendarPage() {
   const [channelFilter, setChannelFilter] = useState<SocialNetworkKey[]>([]);
   const [formatFilter, setFormatFilter] = useState<string | null>(null);
 
+  const [pendingUndated, setPendingUndated] = useState<string | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardSeed, setWizardSeed] = useState<WizardSeed | null>(null);
   const [wizardDate, setWizardDate] = useState<Date | null>(null);
@@ -169,6 +177,68 @@ function CalendarPage() {
     queryFn: () => listDrafts({ data: { brandId: brandId!, clientId: clientId ?? null } }),
     staleTime: 60_000,
   });
+
+  const loadUndated = useServerFn(listUndatedPostsFn);
+  const updateSlot = useServerFn(updateScheduleSlotFn);
+  const suggestSchedules = useServerFn(suggestSchedulesFn);
+
+  const undatedQ = useQuery({
+    enabled: !!brandId,
+    queryKey: ["calendar-undated", brandId, clientId],
+    queryFn: () => loadUndated({ data: { brandId: brandId!, clientId: clientId ?? null } }),
+    staleTime: 30_000,
+  });
+
+  const invalidateSchedule = () => {
+    void qc.invalidateQueries({ queryKey: ["publication-board"] });
+    void qc.invalidateQueries({ queryKey: ["calendar-undated"] });
+    void qc.invalidateQueries({ queryKey: ["calendar-drafts"] });
+  };
+
+  const suggestMut = useMutation({
+    mutationFn: () =>
+      suggestSchedules({
+        data: { brandId: brandId!, clientId: clientId!, monthAnchor: anchor.toISOString() },
+      }),
+    onSuccess: (res) => {
+      invalidateSchedule();
+      toast.success(
+        res.updated > 0
+          ? `${res.updated} peça(s) receberam agenda sugerida.`
+          : "Nenhuma peça sem data para sugerir.",
+      );
+    },
+    onError: (e) => toast.error(describeError(e)),
+  });
+
+  const assignMut = useMutation({
+    mutationFn: (vars: { postId: string; proposedAt: string }) =>
+      updateSlot({
+        data: {
+          brandId: brandId!,
+          clientId: clientId!,
+          postId: vars.postId,
+          proposedAt: vars.proposedAt,
+        },
+      }),
+    onSuccess: () => {
+      setPendingUndated(null);
+      invalidateSchedule();
+      toast.success("Data proposta. Aprove a agenda para reservar.");
+    },
+    onError: (e) => toast.error(describeError(e)),
+  });
+
+  /** Clique num dia: posiciona a peça selecionada ou abre a criação. */
+  const handleDayAdd = (d: Date) => {
+    if (pendingUndated && clientId) {
+      const at = new Date(d);
+      at.setHours(19, 0, 0, 0);
+      assignMut.mutate({ postId: pendingUndated, proposedAt: at.toISOString() });
+      return;
+    }
+    newPublication(d);
+  };
 
   const items = useMemo(() => boardQ.data?.items ?? [], [boardQ.data]);
   const awaiting = useMemo(() => boardQ.data?.awaitingApproval ?? [], [boardQ.data]);
@@ -493,14 +563,7 @@ function CalendarPage() {
         ) : null}
 
         <div className="space-y-2">
-          <StatusFilterBar
-            counts={counts}
-            value={status}
-            onChange={(v) => {
-              setStatus(v);
-              if (v === "drafts") setView("list");
-            }}
-          />
+          <StatusFilterBar counts={counts} value={status} onChange={setStatus} />
           <div className="flex flex-wrap items-center justify-between gap-2">
             <SecondaryFilters
               channelOptions={channelOptions}
@@ -522,6 +585,18 @@ function CalendarPage() {
           </div>
         </div>
 
+        {brandId ? (
+          <UndatedTray
+            items={undatedQ.data ?? []}
+            loading={undatedQ.isLoading}
+            selectedId={pendingUndated}
+            onSelect={setPendingUndated}
+            onSuggest={() => suggestMut.mutate()}
+            suggesting={suggestMut.isPending}
+            canSuggest={!!clientId}
+          />
+        ) : null}
+
         {brandId && clientId ? (
           <ScheduleApprovalPanel
             brandId={brandId}
@@ -530,6 +605,7 @@ function CalendarPage() {
             onOpen={openDetail}
           />
         ) : null}
+
 
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
           {/* ---------------------------------------------------- AGENDA / LISTA */}
@@ -550,7 +626,7 @@ function CalendarPage() {
               empty={emptyAgenda}
               onOpen={openDetail}
               onOpenEvent={setOpenEvent}
-              onNewOnDay={clientId ? (d) => newPublication(d) : undefined}
+              onNewOnDay={clientId ? handleDayAdd : undefined}
             />
           ) : (
             <MonthView
@@ -561,7 +637,7 @@ function CalendarPage() {
               empty={emptyAgenda}
               onOpen={openDetail}
               onOpenEvent={setOpenEvent}
-              onNewOnDay={clientId ? (d) => newPublication(d) : undefined}
+              onNewOnDay={clientId ? handleDayAdd : undefined}
             />
           )}
 
@@ -574,10 +650,7 @@ function CalendarPage() {
             draftsLoading={draftsQ.isLoading}
             onOpen={openDetail}
             onOpenDraft={openWizardForDraft}
-            onSeeAllDrafts={() => {
-              setStatus("drafts");
-              setView("list");
-            }}
+            onSeeAllDrafts={() => setStatus("drafts")}
           />
         </div>
       </DashboardPageShell>

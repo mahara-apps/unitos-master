@@ -55,3 +55,38 @@ export const clearScheduleSlotFn = createServerFn({ method: "POST" })
     });
     return { ok: true as const };
   });
+
+/** Peças sem nenhuma data — alimentam a faixa "Sem data" do calendário. */
+export const listUndatedPostsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid().nullable().optional(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { listUndatedPosts } = await import("@/lib/schedule-suggest.server");
+    return listUndatedPosts(context.supabase, {
+      brandId: data.brandId,
+      clientId: data.clientId ?? null,
+    });
+  });
+
+/** Sugere dia/hora em massa para as peças sem data do cliente. */
+export const suggestSchedulesFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    scope.extend({ monthAnchor: z.string().datetime().optional() }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { suggestSchedulesForUndated } = await import("@/lib/schedule-suggest.server");
+    return suggestSchedulesForUndated(context.supabase, {
+      brandId: data.brandId,
+      clientId: data.clientId,
+      monthAnchor: data.monthAnchor ? new Date(data.monthAnchor) : undefined,
+      userId: context.userId,
+    });
+  });
