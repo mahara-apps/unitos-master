@@ -493,14 +493,7 @@ function CalendarPage() {
         ) : null}
 
         <div className="space-y-2">
-          <StatusFilterBar
-            counts={counts}
-            value={status}
-            onChange={(v) => {
-              setStatus(v);
-              if (v === "drafts") setView("list");
-            }}
-          />
+          <StatusFilterBar counts={counts} value={status} onChange={setStatus} />
           <div className="flex flex-wrap items-center justify-between gap-2">
             <SecondaryFilters
               channelOptions={channelOptions}
@@ -522,6 +515,18 @@ function CalendarPage() {
           </div>
         </div>
 
+        {brandId ? (
+          <UndatedTray
+            items={undatedQ.data ?? []}
+            loading={undatedQ.isLoading}
+            selectedId={pendingUndated}
+            onSelect={setPendingUndated}
+            onSuggest={() => suggestMut.mutate()}
+            suggesting={suggestMut.isPending}
+            canSuggest={!!clientId}
+          />
+        ) : null}
+
         {brandId && clientId ? (
           <ScheduleApprovalPanel
             brandId={brandId}
@@ -530,6 +535,7 @@ function CalendarPage() {
             onOpen={openDetail}
           />
         ) : null}
+
 
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
           {/* ---------------------------------------------------- AGENDA / LISTA */}
