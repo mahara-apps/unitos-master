@@ -1,6 +1,7 @@
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { listMyBrands } from "@/lib/workspace.functions";
+import { useSessionUser } from "@/hooks/use-session-user";
 
 export type MyBrand = Awaited<ReturnType<typeof listMyBrands>>[number];
 
@@ -17,9 +18,13 @@ export type MyBrand = Awaited<ReturnType<typeof listMyBrands>>[number];
  */
 export function useMyBrandsQuery(): UseQueryResult<MyBrand[], Error> {
   const list = useServerFn(listMyBrands);
+  const { userId } = useSessionUser();
   return useQuery({
     queryKey: ["brands"],
     queryFn: () => list(),
+    // Sem sessão resolvida a server function é chamada sem bearer e o
+    // middleware lança "Unauthorized: No authorization header provided".
+    enabled: Boolean(userId),
     staleTime: 60_000,
     retry: 3,
     retryDelay: (attempt) => Math.min(400 * 2 ** attempt, 3_000),
