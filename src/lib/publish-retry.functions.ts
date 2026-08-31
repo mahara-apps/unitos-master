@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { describeQueueInsertError } from "@/lib/social/queue-conflict";
 
 /**
  * Publicação parcial e republicação por DESTINO.
@@ -23,7 +24,7 @@ export type PublicationDestinationState = {
   channel: string;
   accountLabel: string;
   format: string;
-  /** published | failed | scheduled | publishing | draft */
+  /** published | failed | awaiting_retry | scheduled | publishing | draft */
   status: string;
   publishedAt: string | null;
   permalink: string | null;
@@ -38,7 +39,12 @@ export type PublicationDestinationState = {
   historical: boolean;
   /** Destino histórico recuperável: falhou e precisa de conta atual. */
   needsRebind: boolean;
+  /** Quando o item na fila está aguardando nova tentativa, o horário previsto. */
+  nextAttemptAt: string | null;
+  /** Item pendente pode ser cancelado da fila (libera reagendamento imediato). */
+  canCancelQueue: boolean;
 };
+
 
 /** Conta atualmente vinculada ao cliente (única fonte de destinos atuais). */
 export type AvailableTarget = {
@@ -92,8 +98,9 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
     const { data: queue, error: qErr } = await supabase
       .from("social_posts")
       .select(
-        "id, connection_id, placement, status, last_error, publish_attempts, published_at, external_permalink",
+        "id, connection_id, placement, status, last_error, publish_attempts, published_at, external_permalink, next_attempt_at, deferred_since, publish_locked_at",
       )
+
       .eq("post_id", data.postId)
       .eq("brand_id", data.brandId);
     if (qErr) throw new Error(qErr.message);
@@ -178,17 +185,30 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
       const blocked = mine.find((r) => r.status === "blocked");
       const inFlight = mine.find((r) => r.status === "scheduled" || r.status === "publishing");
       const plStatus = (pl.status as string) ?? "draft";
+      // AGUARDANDO NOVA TENTATIVA: item continua na fila após um erro temporário
+      // (limite de requisições da rede social). Não é falha e não pode ser
+      // reenfileirado — o índice de destino ativo recusaria a nova linha.
+      const awaitingRetry =
+        !published &&
+        !!inFlight &&
+        (inFlight.status as string) === "scheduled" &&
+        (!!inFlight.next_attempt_at ||
+          !!inFlight.deferred_since ||
+          Number(inFlight.publish_attempts ?? 0) > 0 ||
+          !!inFlight.last_error);
       const status = published
         ? "published"
-        : inFlight
-          ? (inFlight.status as string)
-          : blocked || plStatus === "connection_required" || plStatus === "authorization_required"
-            ? plStatus === "authorization_required"
-              ? "authorization_required"
-              : "connection_required"
-            : failed
-              ? "failed"
-              : plStatus;
+        : awaitingRetry
+          ? "awaiting_retry"
+          : inFlight
+            ? (inFlight.status as string)
+            : blocked || plStatus === "connection_required" || plStatus === "authorization_required"
+              ? plStatus === "authorization_required"
+                ? "authorization_required"
+                : "connection_required"
+              : failed
+                ? "failed"
+                : plStatus;
       // HISTÓRICO: conexão inexistente, inativa ou sem vínculo atual com o
       // cliente. Nunca tratado como destino publicável (fail-closed).
       const historical = !connectionId || !currentByConnection.has(connectionId);
@@ -206,8 +226,8 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
           ? null
           : ((blocked?.last_error as string | null) ??
             (failed?.last_error as string | null) ??
-            null),
-        attempts: Number(failed?.publish_attempts ?? 0),
+            (awaitingRetry ? ((inFlight?.last_error as string | null) ?? null) : null)),
+        attempts: Number(failed?.publish_attempts ?? inFlight?.publish_attempts ?? 0),
         canRetry:
           !published &&
           !inFlight &&
@@ -218,7 +238,11 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
           !!connectionId,
         historical,
         needsRebind: !published && !inFlight && historical,
+        nextAttemptAt: awaitingRetry ? ((inFlight?.next_attempt_at as string | null) ?? null) : null,
+        canCancelQueue:
+          !published && !!inFlight && !inFlight.publish_locked_at && !historical && !!connectionId,
       };
+
     });
 
     const anyPublished = destinations.some((d) => d.status === "published");
@@ -573,11 +597,10 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
       location_id: (failedRow?.location_id as string | null) ?? null,
     });
     if (insErr) {
-      // Índice único de destino ativo = alguém já reenfileirou (duplo clique).
-      if (/duplicate key|social_posts_active_dest_key/i.test(insErr.message)) {
-        throw new Error("Já existe uma republicação na fila para este destino.");
-      }
-      throw new Error(insErr.message);
+      // Índice único de destino ativo = já existe item pendente para o destino.
+      throw new Error(
+        describeQueueInsertError(insErr.message, conn.channel as string, pl.format as string),
+      );
     }
 
     // 8) Placement volta para "agendado" (histórico publicado nunca é tocado)
@@ -588,4 +611,84 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
       .neq("status", "published");
 
     return { ok: true, queuedAt: nowIso, channel: conn.channel as string };
+  });
+
+// ============================================================
+// cancelQueuedPlacementFn — cancela o item PENDENTE da fila de um destino
+// ============================================================
+
+/**
+ * Libera o destino para reagendamento imediato quando existe item aguardando
+ * nova tentativa (por exemplo, adiado por limite de requisições da rede).
+ * Nunca toca em linha publicada nem em linha travada por worker em execução.
+ */
+export const cancelQueuedPlacementFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        postId: z.string().uuid(),
+        brandId: z.string().uuid(),
+        placementId: z.string().uuid(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase;
+
+    const { data: pl, error: plErr } = await supabase
+      .from("post_placements")
+      .select("id, format, status, connection_id, client_id")
+      .eq("id", data.placementId)
+      .eq("post_id", data.postId)
+      .eq("brand_id", data.brandId)
+      .maybeSingle();
+    if (plErr) throw new Error(plErr.message);
+    if (!pl) throw new Error("Destino não encontrado nesta peça.");
+    if (!pl.connection_id) throw new Error("Destino sem conta vinculada.");
+    if ((pl.status as string) === "published") {
+      throw new Error("Este destino já foi publicado — nada a cancelar.");
+    }
+
+    const dbPlacement: "feed" | "story" = familyOf(pl.format as string) === "story" ? "story" : "feed";
+
+    const { data: cancelled, error: cErr } = await supabase
+      .from("social_posts")
+      .update({ status: "cancelled" })
+      .eq("post_id", data.postId)
+      .eq("brand_id", data.brandId)
+      .eq("connection_id", pl.connection_id)
+      .eq("placement", dbPlacement)
+      .in("status", ["scheduled", "publishing"])
+      .is("publish_locked_at", null)
+      .select("id");
+    if (cErr) throw new Error(cErr.message);
+    if (!cancelled?.length) {
+      throw new Error(
+        "Nenhum item pendente para cancelar — a publicação já está em execução ou finalizada.",
+      );
+    }
+
+    await supabase
+      .from("post_placements")
+      .update({ status: "failed" })
+      .eq("id", data.placementId)
+      .neq("status", "published");
+
+    await supabase.from("activity_events").insert({
+      brand_id: data.brandId,
+      client_id: (pl.client_id as string | null) ?? null,
+      actor_id: context.userId,
+      entity_type: "post_placement",
+      entity_id: data.placementId,
+      verb: "queue_item_cancelled",
+      payload: {
+        post_id: data.postId,
+        placement: dbPlacement,
+        connection_id: pl.connection_id,
+        cancelled_rows: cancelled.length,
+      },
+    });
+
+    return { ok: true, cancelled: cancelled.length };
   });

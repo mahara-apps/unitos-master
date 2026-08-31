@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { describeError } from "@/lib/errors";
 import {
+  cancelQueuedPlacementFn,
   listPostPublicationStateFn,
   rebindPlacementConnectionFn,
   retryFailedPlacementFn,
@@ -62,6 +63,7 @@ export function PublicationStatusPanel({ postId, brandId }: { postId: string; br
   const listState = useServerFn(listPostPublicationStateFn);
   const retryFn = useServerFn(retryFailedPlacementFn);
   const rebindFn = useServerFn(rebindPlacementConnectionFn);
+  const cancelQueueFn = useServerFn(cancelQueuedPlacementFn);
   const [retrying, setRetrying] = useState<string | null>(null);
   const [picked, setPicked] = useState<Record<string, string>>({});
 
@@ -70,7 +72,8 @@ export function PublicationStatusPanel({ postId, brandId }: { postId: string; br
     queryFn: () => listState({ data: { postId, brandId } }),
     refetchInterval: (q) =>
       (q.state.data?.destinations ?? []).some(
-        (d) => d.status === "scheduled" || d.status === "publishing",
+        (d) =>
+          d.status === "scheduled" || d.status === "publishing" || d.status === "awaiting_retry",
       )
         ? 15_000
         : false,
@@ -80,7 +83,9 @@ export function PublicationStatusPanel({ postId, brandId }: { postId: string; br
   // Só interessa quando houve tentativa real de publicação.
   const relevant =
     !!state &&
-    state.destinations.some((d) => ["published", "failed", "publishing"].includes(d.status));
+    state.destinations.some((d) =>
+      ["published", "failed", "publishing", "awaiting_retry"].includes(d.status),
+    );
   if (!relevant) return null;
 
   async function refresh() {
@@ -95,6 +100,21 @@ export function PublicationStatusPanel({ postId, brandId }: { postId: string; br
     try {
       await retryFn({ data: { postId, brandId, placementId } });
       toast.success(`${label} recolocado na fila de publicação.`);
+      await refresh();
+    } catch (e) {
+      toast.error(describeError(e));
+    } finally {
+      setRetrying(null);
+    }
+  }
+
+  /** Cancela o item pendente na fila para liberar reagendamento imediato. */
+  async function handleCancelQueue(placementId: string, label: string) {
+    if (retrying) return;
+    setRetrying(placementId);
+    try {
+      await cancelQueueFn({ data: { postId, brandId, placementId } });
+      toast.success(`${label} removido da fila. Você já pode reagendar.`);
       await refresh();
     } catch (e) {
       toast.error(describeError(e));
@@ -213,6 +233,10 @@ export function PublicationStatusPanel({ postId, brandId }: { postId: string; br
                     <Badge variant="outline" className="h-5 shrink-0 text-[10px]">
                       Publicado
                     </Badge>
+                  ) : d.status === "awaiting_retry" ? (
+                    <Badge variant="outline" className="h-5 shrink-0 text-[10px]">
+                      Aguardando nova tentativa
+                    </Badge>
                   ) : d.historical ? (
                     <Badge variant="outline" className="h-5 shrink-0 text-[10px]">
                       Histórico
@@ -244,6 +268,22 @@ export function PublicationStatusPanel({ postId, brandId }: { postId: string; br
                         <RefreshCw className="mr-1 h-3 w-3" />
                       )}
                       Republicar {label}
+                    </Button>
+                  ) : null}
+                  {d.status === "awaiting_retry" && d.canCancelQueue ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-6 px-2 text-[11px]"
+                      disabled={!!retrying}
+                      onClick={() => handleCancelQueue(d.placementId, label)}
+                    >
+                      {retrying === d.placementId ? (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      ) : (
+                        <XCircle className="mr-1 h-3 w-3" />
+                      )}
+                      Cancelar da fila
                     </Button>
                   ) : null}
                 </div>
@@ -301,6 +341,17 @@ export function PublicationStatusPanel({ postId, brandId }: { postId: string; br
 
               {d.status === "failed" && d.error ? (
                 <p className="mt-1 pl-5 text-[11px] leading-snug text-destructive">{d.error}</p>
+              ) : null}
+              {d.status === "awaiting_retry" ? (
+                <p className="mt-1 pl-5 text-[11px] leading-snug text-muted-foreground">
+                  {d.error ? `${d.error} · ` : ""}
+                  {d.nextAttemptAt
+                    ? `Próxima tentativa automática às ${new Date(d.nextAttemptAt).toLocaleString(
+                        "pt-BR",
+                        { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" },
+                      )}.`
+                    : "A publicação segue na fila e será tentada novamente."}
+                </p>
               ) : null}
               {d.status === "published" && d.publishedAt ? (
                 <p className="mt-1 pl-5 text-[11px] text-muted-foreground">
