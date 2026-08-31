@@ -198,11 +198,41 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
               continue;
             }
             const msg = formatPublishError(err);
+
+            // Limite temporário da Meta (code 4/17/32/613 e afins) NÃO é falha:
+            // o destino volta para a fila com espera progressiva e sem consumir
+            // tentativa. Sem isso, o cron de 1 minuto queima as 5 tentativas em
+            // poucos minutos e a peça vira `failed` sem motivo real.
+            if (isMetaRateLimit(err)) {
+              const { data: cur } = await supabaseAdmin
+                .from("social_posts")
+                .select("rate_limit_retries")
+                .eq("id", post.id)
+                .maybeSingle();
+              const retries = Number((cur as any)?.rate_limit_retries ?? 0);
+              const retryAt = nextRateLimitRetryAt(retries);
+              console.warn("[publish-scheduled] rate limited", {
+                social_post_id: post.id,
+                connection_id: post.connection_id,
+                placement: post.placement,
+                retries,
+                retry_at: retryAt.toISOString(),
+              });
+              await (supabaseAdmin as any).rpc("mark_social_post_deferred", {
+                p_post_id: post.id,
+                p_error: rateLimitMessage(retryAt, msg),
+                p_retry_at: retryAt.toISOString(),
+              });
+              results.push({ id: post.id, ok: false, error: rateLimitMessage(retryAt) });
+              continue;
+            }
+
             await (supabaseAdmin as any).rpc("mark_social_post_failed", {
               p_post_id: post.id,
               p_error: msg,
             });
             results.push({ id: post.id, ok: false, error: msg });
+
           }
         }
 
