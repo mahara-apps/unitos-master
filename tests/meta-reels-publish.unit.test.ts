@@ -83,7 +83,7 @@ describe("Reels no Instagram", () => {
         placement: "instagram_reels",
         media: { videoUrl: "https://cdn/x.mp4" },
       }),
-    ).rejects.toThrow(/recusou o vídeo/i);
+    ).rejects.toThrow(/recusou a mídia/i);
   });
 
   it("nunca publica container que não terminou o processamento", async () => {
@@ -93,7 +93,7 @@ describe("Reels no Instagram", () => {
       waitForContainerReady: (id: string, t: string, o?: unknown) => Promise<void>;
     };
     await expect(spy.waitForContainerReady("container-1", "tok", { attempts: 2, intervalMs: 0 }))
-      .rejects.toThrow(/ainda está sendo processado/i);
+      .rejects.toThrow(/ainda está sendo processada/i);
     expect(calls.some((c) => c.path === "/ig-1/media_publish")).toBe(false);
   });
 });

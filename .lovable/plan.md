@@ -1,72 +1,54 @@
-# Carrossel: publicação no Instagram e Facebook
+# Prévia de carrossel navegável + Opções avançadas por destino (canais)
 
-## O que está acontecendo
+Três frentes, na ordem de entrega. O backend de carrossel (Instagram e Facebook) já está implementado e validado nesta rodada — este plano trata da camada de experiência e das opções por canal.
 
-O erro da tela ("Formato ainda não publicável (Feed IG/FB, Stories IG ou Reels IG)")
-não vem da Meta: é o próprio Unitos barrando o formato antes de qualquer chamada.
-A matriz de formatos publicáveis em `src/lib/scheduling-wizard.functions.ts:809`
-aceita apenas `feed`, `stories` e `reels`; `carrossel` cai no bloqueio.
+## 1. Prévia de carrossel navegável (rápido)
 
-O banco já aceita `placement = 'carousel'` em `social_posts`, e o serviço da Meta
-(`src/lib/meta/publishing.server.ts`) ainda não tem caminho de carrossel — o
-comentário no topo do arquivo diz explicitamente que carrossel está fora de escopo.
+Hoje a prévia mostra apenas a primeira mídia e uns "dots" decorativos.
 
-Ou seja: falta implementar o formato, ponta a ponta.
+- `PostPreview` passa a receber a lista completa de mídias (não só a capa) quando o formato é Carrossel.
+- Navegação: arrastar para o lado (swipe/drag do mouse e do toque), setas laterais no hover, clique nos dots e teclado (setas esquerda/direita).
+- Indicador "3/5" e os dots refletindo o slide atual, na mesma ordem em que a peça vai publicar.
+- A ordem exibida é exatamente a ordem das mídias anexadas (que é a ordem enviada à Meta). Reordenar mídias continua sendo feito na lista "Mídia da publicação"; o slide atual acompanha.
+- Nenhuma mudança de dados: componente puramente visual, usado pelo composer e pelo detalhe da publicação no calendário.
 
-## Como o carrossel será publicado
+## 2. Destinos por canal (reorganização da seleção)
 
-**Instagram (2 a 10 mídias)** — padrão da Graph API em três etapas: um container
-por mídia com `is_carousel_item=true`, um container-pai `media_type=CAROUSEL` com
-a lista de filhos e a legenda, e a publicação do pai. Vídeos entre os itens exigem
-espera de processamento (a mesma espera que estamos aplicando a Stories/Reels).
+A seleção atual mistura conta e formato em uma lista única dentro de um popover.
 
-**Facebook (2 ou mais fotos)** — publicação de fotos não publicadas
-(`published=false`) e um post no feed com `attached_media`, que é como o Facebook
-representa um álbum/carrossel. Vídeo no carrossel do Facebook fica fora de escopo
-(mensagem clara em pt-BR).
+- A área de Destinos passa a ter uma fileira de canais (Instagram, Instagram Stories, Reels, Facebook, Facebook Stories, Facebook Reels, e os canais ainda não conectados em cinza com aviso), no espírito do exemplo enviado.
+- Clicar em um canal adiciona/remove o destino; canais sem conta vinculada aparecem desabilitados com o motivo ("nenhuma conta vinculada a este cliente") e atalho para Conexões.
+- Formatos incompatíveis com a mídia anexada continuam bloqueados com a explicação atual (ex.: Carrossel exige 2+ imagens; Reels exige vídeo).
+- Cada destino selecionado vira um "chip" com conta, formato, estado (Pronto / Bloqueado) e um botão de engrenagem que abre as opções avançadas daquele destino.
+- Regras de negócio, escopo por cliente, RBAC/RLS e o formato salvo em `post_placements` não mudam — só a apresentação e o caminho de seleção.
 
-## Regras do formato
+## 3. Opções avançadas por destino (aparecem conforme o destino)
 
-- Mínimo 2 mídias, máximo 10 (Instagram). Menos de 2: mensagem em pt-BR pedindo
-  mais mídias, sem chamar a Meta.
-- A ordem dos itens é a ordem das mídias da peça.
-- Legenda e hashtags vão no container-pai (não nos filhos).
-- Um único registro em `social_posts` por destino, com `placement = 'carousel'`
-  e a lista de mídias em `media`, respeitando o índice de destino ativo já
-  existente.
-- Vale para "publicar agora" e para o agendado (worker) — mesmo serviço.
-- Pré-flight de autorização granular por conta continua obrigatório.
+Um painel por destino, exibindo somente o que aquele canal/formato aceita. Divisão honesta entre o que a API da Meta publica de fato e o que é apenas anotação operacional:
 
-## Onde aparece
+Publicáveis via API (efeito real na publicação):
+- Primeiro comentário — Instagram Feed/Carrossel/Reels e Facebook Feed (postado logo após a publicação).
+- Localização — Instagram Feed/Carrossel/Reels (já existe hoje, passa para o painel do destino).
+- Marcação de pessoas — Instagram Feed/Carrossel (tags por usuário; no carrossel, por slide).
+- Colaborador — Instagram Feed/Carrossel/Reels (convite de coautoria).
+- Compartilhar Reels no Feed — Instagram Reels (já suportado internamente, passa a ser opção visível).
+- Desativar comentários — Instagram Feed/Carrossel/Reels.
+- Configuração de áudio (nome da faixa/áudio original) — Instagram Reels.
 
-- Wizard de agendamento: carrossel deixa de ser bloqueado; validação de
-  quantidade de mídias antes do envio.
-- Prévia (`post-preview.tsx`) já desenha os pontos do carrossel — só passa a
-  refletir a peça publicável.
-- Calendário/Conteúdo: formato `carrossel` com os mesmos estados de fila,
-  adiamento e reenvio dos outros formatos.
+Anotação operacional (fica salvo na peça e visível para a equipe, sem efeito na API):
+- Parceria paga, Instagram Shop / marcação de produto, Texto alternativo, Menção em Stories.
+  Estes ficam marcados como "não aplicado automaticamente" com nota curta, para ninguém achar que foi enviado.
+
+Comportamento:
+- Nada é obrigatório; sem preenchimento o comportamento atual continua idêntico.
+- Cada opção é validada no servidor no momento da publicação; opção inválida gera aviso em português e não derruba a publicação principal (ex.: primeiro comentário falha → post publicado + aviso registrado).
+- Opções aparecem também no detalhe da publicação no calendário (leitura), para conferência antes de aprovar.
 
 ## Detalhes técnicos
 
-- `src/lib/meta/publishing.server.ts`: novo placement `instagram_carousel` e
-  `facebook_carousel`; criação de filhos, container-pai e publicação com a espera
-  de processamento e o retry de `code 9007` já introduzidos nesta rodada.
-- `src/lib/scheduling-wizard.functions.ts`: matriz de formatos aceita
-  `carrossel` (IG e FB), assina todas as mídias da peça (não só a primeira),
-  monta o array de mídias, grava 1 linha com `placement: 'carousel'`.
-- `src/routes/api/public/meta/publish-scheduled.ts`: mapear `carousel` para o
-  provider correspondente e validar a quantidade de mídias.
-- `src/lib/meta/publish-capability.server.ts`, `publish-retry.functions.ts`,
-  `calendar-board.functions.ts`: reconhecer a família `carousel` (readiness,
-  reenvio, cancelamento e rótulos).
-- Sem migration (o CHECK já permite `carousel`), sem mudança de RBAC/RLS/auth,
-  sem publicação automática nova. Fuso `America/Sao_Paulo` preservado.
-- Testes: carrossel IG cria filhos + pai e publica o pai; menos de 2 mídias é
-  bloqueado com mensagem pt-BR; carrossel FB usa `attached_media`; vídeo no
-  carrossel FB é recusado com mensagem clara.
-
-## Em andamento nesta mesma rodada
-
-A correção do Stories `Media ID is not available (code 9007)` já está aplicada
-(espera de processamento antes de publicar, retry do 9007 e classificação como
-erro transitório). O carrossel reutiliza exatamente essa espera.
+- Prévia: novo estado de slide em `src/components/social/post-preview.tsx` (drag por pointer events, sem dependência nova), e o composer/detalhe passam a lista de mídias em vez de apenas a capa.
+- Destinos: reescrita apresentacional da seção Destinos em `src/components/calendar/schedule-wizard/index.tsx`, reutilizando `FORMATS_BY_CHANNEL`, `isFormatCompatibleWithMedia` e `togglePair` já existentes.
+- Persistência das opções: `post_placements.copy_override` já é `jsonb` — as opções entram como um bloco `options` dentro dele, por destino. Sem migration.
+- Fila de publicação: `social_posts.media`/campos existentes seguem inalterados; as opções são lidas do placement no momento do disparo em `src/lib/meta/publishing.server.ts` (primeiro comentário, tags, colaborador, comentários desativados, áudio) e no worker `src/routes/api/public/meta/publish-scheduled.ts`.
+- Sem alteração de RBAC, RLS, auth ou schema. Fuso oficial `America/Sao_Paulo` mantido. Nenhuma publicação automática nova.
+- Testes: unitários para navegação do carrossel na prévia, matriz de opções por canal/formato e aplicação das opções na publicação (incluindo falha isolada do primeiro comentário).

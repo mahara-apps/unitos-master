@@ -66,7 +66,13 @@ export type PublicationState = {
 };
 
 const familyOf = (format: string) =>
-  format === "stories" ? "story" : format === "reels" ? "reel" : "feed";
+  format === "stories"
+    ? "story"
+    : format === "reels"
+      ? "reel"
+      : format === "carrossel"
+        ? "carousel"
+        : "feed";
 
 // ============================================================
 // listPostPublicationStateFn
@@ -184,7 +190,9 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
               ? "stories"
               : (r.placement as string) === "reel"
                 ? "reels"
-                : "feed",
+                : (r.placement as string) === "carousel"
+                  ? "carrossel"
+                  : "feed",
           ) === family,
       );
       const published = mine.find((r) => r.status === "published");
@@ -436,7 +444,11 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
     }
     const clientId = pl.client_id as string | null;
     const family = familyOf(pl.format as string);
-    const dbPlacement: "feed" | "story" | "reel" = family as "feed" | "story" | "reel";
+    const dbPlacement: "feed" | "story" | "reel" | "carousel" = family as
+      | "feed"
+      | "story"
+      | "reel"
+      | "carousel";
 
     // 2) Não pode existir publicação bem-sucedida nem item ativo para o destino
     const { data: queue, error: qErr } = await supabase
@@ -509,14 +521,28 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
     // 4) Mídia: reaproveita exatamente a mesma da tentativa anterior
     const prevMedia = (failedRow?.media ?? null) as {
       storagePath?: string;
+      storagePaths?: string[];
       link?: string;
       imageUrl?: string;
       videoUrl?: string;
     } | null;
-    let storagePath: string | null = prevMedia?.storagePath ?? null;
+    const plMediaArr = Array.isArray(pl.media)
+      ? (pl.media as Array<{ storagePath?: string }>)
+      : [];
+    // Carrossel: a peça é UMA publicação com N mídias; preservamos a lista.
+    let storagePaths: string[] =
+      prevMedia?.storagePaths && prevMedia.storagePaths.length
+        ? prevMedia.storagePaths
+        : dbPlacement === "carousel"
+          ? plMediaArr.map((m) => m?.storagePath).filter((v): v is string => Boolean(v))
+          : [];
+    storagePaths = storagePaths.slice(0, 10);
+    let storagePath: string | null = prevMedia?.storagePath ?? storagePaths[0] ?? null;
     if (!storagePath) {
-      const arr = Array.isArray(pl.media) ? (pl.media as Array<{ storagePath?: string }>) : [];
-      storagePath = arr.find((m) => m?.storagePath)?.storagePath ?? null;
+      storagePath = plMediaArr.find((m) => m?.storagePath)?.storagePath ?? null;
+    }
+    if (dbPlacement === "carousel" && storagePaths.length < 2) {
+      throw new Error("Carrossel exige pelo menos 2 mídias na peça — reabra a peça e anexe.");
     }
     const link = prevMedia?.link ?? null;
     if (!storagePath && !link) {
@@ -597,7 +623,11 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
       hashtags: dbPlacement === "story" ? [] : hashtags,
       mentions: [],
       media: {
-        ...(storagePath ? { storagePath } : {}),
+        ...(dbPlacement === "carousel"
+          ? { storagePaths }
+          : storagePath
+            ? { storagePath }
+            : {}),
         ...(link && dbPlacement !== "story" ? { link } : {}),
       },
       post_id: data.postId,
@@ -660,10 +690,11 @@ export const cancelQueuedPlacementFn = createServerFn({ method: "POST" })
       throw new Error("Este destino já foi publicado — nada a cancelar.");
     }
 
-    const dbPlacement: "feed" | "story" | "reel" = familyOf(pl.format as string) as
+    const dbPlacement: "feed" | "story" | "reel" | "carousel" = familyOf(pl.format as string) as
       | "feed"
       | "story"
-      | "reel";
+      | "reel"
+      | "carousel";
 
     const { data: cancelled, error: cErr } = await supabase
       .from("social_posts")

@@ -92,6 +92,7 @@ const familyOf = (format: string) => {
   const f = (format ?? "").toLowerCase();
   if (f.includes("stor")) return "story";
   if (f.includes("reel")) return "reel";
+  if (f.includes("carrossel") || f.includes("carousel")) return "carousel";
   return "feed";
 };
 
@@ -308,7 +309,9 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
                 ? "stories"
                 : (r.placement as string) === "reel"
                   ? "reels"
-                  : "feed",
+                  : (r.placement as string) === "carousel"
+                    ? "carrossel"
+                    : "feed",
             ) === family,
         );
         const published = mine.find((r) => r.status === "published");

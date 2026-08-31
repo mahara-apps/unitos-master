@@ -468,16 +468,18 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         ((links ?? []) as Array<{ connection_id: string }>).map((l) => l.connection_id),
       );
       for (const d of data.destinations) {
-        // Suportado hoje: Feed IG/FB, Stories IG (multi-frame) e Reels IG.
+        // Suportado hoje: Feed IG/FB, Carrossel IG/FB, Stories IG e Reels IG.
         const supported =
           (d.format === "feed" && (d.channel === "instagram" || d.channel === "facebook")) ||
+          (d.format === "carrossel" && (d.channel === "instagram" || d.channel === "facebook")) ||
           (d.format === "stories" && d.channel === "instagram") ||
           (d.format === "reels" && d.channel === "instagram");
         if (!supported) {
           scheduleWarnings.push({
             channel: d.channel,
             format: d.format,
-            error: "Formato ainda não agendável (Feed IG/FB, Stories IG ou Reels IG)",
+            error:
+              "Formato ainda não agendável (Feed IG/FB, Carrossel IG/FB, Stories IG ou Reels IG)",
           });
           continue;
         }
@@ -491,6 +493,15 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           });
           continue;
         }
+        if (d.format === "carrossel" && data.mediaPaths.length < 2) {
+          scheduleWarnings.push({
+            channel: d.channel,
+            format: d.format,
+            error: "Carrossel exige pelo menos 2 mídias. Anexe mais mídias antes de agendar.",
+          });
+          continue;
+        }
+
         const conn = connMap.get(d.connectionId);
         if (!conn) {
           throw new Error(
@@ -697,6 +708,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       for (const { destination: d, connection: conn } of validatedScheduleTargets) {
         const isStory = d.format === "stories";
         const isReel = d.format === "reels";
+        const isCarousel = d.format === "carrossel";
         // Stories NUNCA carrega caption (Meta API ignora / retorna erro).
         const caption = isStory
           ? null
@@ -711,7 +723,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
               .trim() || null;
 
         // Stories multi-frame: 1 social_posts por mídia, +1 minuto por frame.
-        // Feed/Reels: 1 linha (usa a primeira mídia).
+        // Carrossel: 1 linha com todas as mídias. Feed/Reels: 1 linha.
         const frames =
           isStory && data.mediaPaths.length > 0
             ? data.mediaPaths
@@ -723,21 +735,27 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         let frameErr: string | null = null;
         for (let i = 0; i < frames.length; i++) {
           const path = frames[i];
-          const media = path
+          const media = isCarousel
             ? {
-                storagePath: path,
-                ...(isStory ? {} : data.linkUrl ? { link: data.linkUrl } : {}),
+                storagePaths: data.mediaPaths.slice(0, 10),
+                ...(data.linkUrl ? { link: data.linkUrl } : {}),
               }
-            : !isStory && data.linkUrl
-              ? { link: data.linkUrl }
-              : {};
+            : path
+              ? {
+                  storagePath: path,
+                  ...(isStory ? {} : data.linkUrl ? { link: data.linkUrl } : {}),
+                }
+              : !isStory && data.linkUrl
+                ? { link: data.linkUrl }
+                : {};
           const frameIso = new Date(baseMs + i * 60_000).toISOString();
           const { error: spErr } = await supabase.from("social_posts").insert({
             brand_id: data.brandId,
             client_id: data.clientId,
             connection_id: d.connectionId,
             provider: conn.provider,
-            placement: isStory ? "story" : isReel ? "reel" : "feed",
+            placement: isStory ? "story" : isReel ? "reel" : isCarousel ? "carousel" : "feed",
+
             caption: isStory ? null : caption,
             hashtags: isStory ? [] : data.hashtags,
             mentions: [],
@@ -805,9 +823,11 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         connectionId?: string;
       }> = [];
       for (const d of data.destinations) {
-        // Publicação direta: Feed IG/FB, Stories IG (multi-frame) e Reels IG.
+        // Publicação direta: Feed IG/FB, Stories IG (multi-frame), Reels IG e
+        // Carrossel (IG: até 10 mídias; FB: álbum de fotos via attached_media).
         const supported =
           (d.format === "feed" && (d.channel === "instagram" || d.channel === "facebook")) ||
+          (d.format === "carrossel" && (d.channel === "instagram" || d.channel === "facebook")) ||
           (d.format === "stories" && d.channel === "instagram") ||
           (d.format === "reels" && d.channel === "instagram");
         if (!supported) {
@@ -815,12 +835,13 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             channel: d.channel,
             format: d.format,
             ok: false,
-            error: "Formato ainda não publicável (Feed IG/FB, Stories IG ou Reels IG)",
+            error: "Formato ainda não publicável (Feed IG/FB, Carrossel IG/FB, Stories IG ou Reels IG)",
           });
           continue;
         }
         const isStory = d.format === "stories";
         const isReel = d.format === "reels";
+        const isCarousel = d.format === "carrossel";
         if (isReel && !data.mediaPaths.some((m) => IS_VIDEO_PATH.test(m))) {
           results.push({
             channel: d.channel,
@@ -830,20 +851,42 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           });
           continue;
         }
+        if (isCarousel && data.mediaPaths.length < 2) {
+          results.push({
+            channel: d.channel,
+            format: d.format,
+            ok: false,
+            error: "Carrossel exige pelo menos 2 mídias. Anexe mais mídias antes de publicar.",
+          });
+          continue;
+        }
         // Valor persistido em social_posts.placement (CHECK constraint) e enviado
         // ao provider como identificador de superfície.
         const providerPlacement:
           | "instagram_feed"
           | "facebook_feed"
           | "instagram_story"
-          | "instagram_reels" = isStory
+          | "instagram_reels"
+          | "instagram_carousel"
+          | "facebook_carousel" = isStory
           ? "instagram_story"
           : isReel
             ? "instagram_reels"
-            : d.channel === "instagram"
-              ? "instagram_feed"
-              : "facebook_feed";
-        const dbPlacement: "feed" | "story" | "reel" = isStory ? "story" : isReel ? "reel" : "feed";
+            : isCarousel
+              ? d.channel === "instagram"
+                ? "instagram_carousel"
+                : "facebook_carousel"
+              : d.channel === "instagram"
+                ? "instagram_feed"
+                : "facebook_feed";
+        const dbPlacement: "feed" | "story" | "reel" | "carousel" = isStory
+          ? "story"
+          : isReel
+            ? "reel"
+            : isCarousel
+              ? "carousel"
+              : "feed";
+
         try {
           // Carrega conexão do workspace (a marca é a dona do canal)
           const { data: conn, error: connErr } = await supabase
@@ -906,6 +949,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
 
 
           // Stories multi-frame: publica cada mídia como um Story separado.
+          // Carrossel: 1 chamada com todas as mídias (na ordem da peça).
           // Feed/Reels: 1 chamada, primeira mídia.
           const frames =
             isStory && data.mediaPaths.length > 0
@@ -913,6 +957,25 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
               : isReel
                 ? [data.mediaPaths.find((m) => IS_VIDEO_PATH.test(m))]
                 : [data.mediaPaths[0] as string | undefined];
+
+          // Assina TODAS as mídias do carrossel (a peça inteira é um post só).
+          const signPath = async (p: string) => {
+            if (!p.startsWith(`${data.brandId}/`))
+              throw new Error("Mídia fora do escopo da marca");
+            const { data: signed, error: sErr } = await supabase.storage
+              .from("brand-media")
+              .createSignedUrl(p, 3600);
+            if (sErr) throw new Error(`Falha ao assinar mídia: ${sErr.message}`);
+            return signed.signedUrl;
+          };
+          const carouselItems: Array<{ imageUrl?: string; videoUrl?: string }> = [];
+          if (isCarousel) {
+            for (const p of data.mediaPaths.slice(0, 10)) {
+              const url = await signPath(p);
+              carouselItems.push(IS_VIDEO_PATH.test(p) ? { videoUrl: url } : { imageUrl: url });
+            }
+          }
+
 
           const caption = isStory
             ? undefined
@@ -929,17 +992,20 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           let lastPermalink: string | null = null;
           for (const path of frames) {
             // Resolve mídia por frame (signed URL curta).
-            const mediaOut: { imageUrl?: string; videoUrl?: string; link?: string } = {};
+            const mediaOut: {
+              imageUrl?: string;
+              videoUrl?: string;
+              link?: string;
+              items?: Array<{ imageUrl?: string; videoUrl?: string }>;
+            } = {};
             if (!isStory && data.linkUrl) mediaOut.link = data.linkUrl;
-            if (path) {
-              if (!path.startsWith(`${data.brandId}/`))
-                throw new Error("Mídia fora do escopo da marca");
-              const { data: signed, error: sErr } = await supabase.storage
-                .from("brand-media")
-                .createSignedUrl(path, 3600);
-              if (sErr) throw new Error(`Falha ao assinar mídia: ${sErr.message}`);
-              if (IS_VIDEO_PATH.test(path)) mediaOut.videoUrl = signed.signedUrl;
-              else mediaOut.imageUrl = signed.signedUrl;
+            if (isCarousel) {
+              mediaOut.items = carouselItems;
+              if (carouselItems[0]?.imageUrl) mediaOut.imageUrl = carouselItems[0].imageUrl;
+            } else if (path) {
+              const url = await signPath(path);
+              if (IS_VIDEO_PATH.test(path)) mediaOut.videoUrl = url;
+              else mediaOut.imageUrl = url;
             }
             if (providerPlacement === "instagram_feed" && !mediaOut.imageUrl) {
               throw new Error("Feed do Instagram exige uma imagem");
@@ -954,6 +1020,9 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             if (providerPlacement === "instagram_reels" && !mediaOut.videoUrl) {
               throw new Error("Reels exige um vídeo (MP4) na peça.");
             }
+            if (isCarousel && carouselItems.length < 2) {
+              throw new Error("Carrossel exige pelo menos 2 mídias na peça.");
+            }
 
             // Registro de auditoria em social_posts (1 por frame)
             const { data: sp, error: spErr } = await supabase
@@ -967,14 +1036,20 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
                 caption: caption ?? null,
                 hashtags: isStory ? [] : data.hashtags,
                 mentions: [],
-                media: path
+                media: isCarousel
                   ? {
-                      storagePath: path,
-                      ...(!isStory && data.linkUrl ? { link: data.linkUrl } : {}),
+                      storagePaths: data.mediaPaths.slice(0, 10),
+                      ...(data.linkUrl ? { link: data.linkUrl } : {}),
                     }
-                  : !isStory && data.linkUrl
-                    ? { link: data.linkUrl }
-                    : {},
+                  : path
+                    ? {
+                        storagePath: path,
+                        ...(!isStory && data.linkUrl ? { link: data.linkUrl } : {}),
+                      }
+                    : !isStory && data.linkUrl
+                      ? { link: data.linkUrl }
+                      : {},
+
                 post_id: postId,
                 status: "publishing",
                 created_by: context.userId,
