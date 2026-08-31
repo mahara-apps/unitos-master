@@ -6,6 +6,12 @@ import { loadBrainAgentContext } from "@/lib/brain/agent-context.server";
 import { loadBriefingContext } from "@/lib/monthly-plan-context.server";
 import { loadStrategyContext } from "@/lib/monthly-plan-strategy.server";
 import { loadPerformanceContext } from "@/lib/monthly-plan-performance.server";
+import { loadBestTimesContext } from "@/lib/client-best-times.server";
+import {
+  resolveMonthlySchedule,
+  parseSuggestedWeekday,
+  parseSuggestedTime,
+} from "@/lib/monthly-plan-schedule.server";
 import { runPlanAgent } from "@/lib/monthly-plan-agent.server";
 import { PLAN_CHANNELS, type PlanChannel } from "@/lib/monthly-plan-fields";
 import {
