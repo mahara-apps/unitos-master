@@ -191,7 +191,7 @@ export function PublicationDetailModal({
     <ExpandedModal
       open={open}
       onOpenChange={onOpenChange}
-      size="md"
+      size="lg"
       title={item.title}
       description={
         item.overall === "partial"
