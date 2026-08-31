@@ -103,6 +103,7 @@ export const DESTINATION_STATUS_LABEL: Record<string, string> = {
   publishing: "Publicando",
   published: "Publicado",
   failed: "Falhou",
+  awaiting_retry: "Aguardando nova tentativa",
   cancelled: "Cancelado",
 };
 

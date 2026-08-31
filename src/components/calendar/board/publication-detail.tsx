@@ -25,7 +25,10 @@ import {
 } from "@/lib/publication-status-tokens";
 import { SOCIAL_NETWORKS, classifySocialNetwork } from "@/lib/calendar-tokens";
 import type { PublicationItem } from "@/lib/calendar-board.functions";
-import { retryFailedPlacementFn } from "@/lib/publish-retry.functions";
+import {
+  cancelQueuedPlacementFn,
+  retryFailedPlacementFn,
+} from "@/lib/publish-retry.functions";
 import { cancelPostScheduleFn } from "@/lib/scheduling-wizard.functions";
 import { PostPreview } from "@/components/social/post-preview";
 import type { PlacementFormat } from "@/lib/scheduling-formats";
@@ -125,6 +128,7 @@ export function PublicationDetailModal({
 }) {
   const qc = useQueryClient();
   const retry = useServerFn(retryFailedPlacementFn);
+  const cancelQueue = useServerFn(cancelQueuedPlacementFn);
   const cancel = useServerFn(cancelPostScheduleFn);
   const [busy, setBusy] = useState<string | null>(null);
   const [tabKey, setTabKey] = useState<string | null>(null);
@@ -161,6 +165,22 @@ export function PublicationDetailModal({
     try {
       await retry({ data: { postId: item!.postId, brandId: item!.brandId, placementId } });
       toast.success(`${label} recolocado na fila de publicação.`);
+      await qc.invalidateQueries({ queryKey: ["publication-board"] });
+      onChanged();
+    } catch (e) {
+      toast.error(describeError(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Remove o item pendente da fila para liberar reagendamento imediato. */
+  async function handleCancelQueue(placementId: string, label: string) {
+    if (busy) return;
+    setBusy(placementId);
+    try {
+      await cancelQueue({ data: { postId: item!.postId, brandId: item!.brandId, placementId } });
+      toast.success(`${label} removido da fila. Você já pode reagendar.`);
       await qc.invalidateQueries({ queryKey: ["publication-board"] });
       onChanged();
     } catch (e) {
@@ -386,6 +406,8 @@ export function PublicationDetailModal({
                             <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
                           ) : d.status === "failed" ? (
                             <XCircle className="h-3.5 w-3.5 shrink-0 text-destructive" />
+                          ) : d.status === "awaiting_retry" ? (
+                            <Clock className="h-3.5 w-3.5 shrink-0 text-amber-500" />
                           ) : d.status === "publishing" ? (
                             <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-sky-500" />
                           ) : (
@@ -415,6 +437,24 @@ export function PublicationDetailModal({
                               Ver <ExternalLink className="h-3 w-3" />
                             </a>
                           ) : null}
+                          {d.status === "awaiting_retry" &&
+                          d.canCancelQueue &&
+                          d.placementId ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-6 px-2 text-[11px]"
+                              disabled={!!busy}
+                              onClick={() => handleCancelQueue(d.placementId!, net.label)}
+                            >
+                              {busy === d.placementId ? (
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              ) : (
+                                <XCircle className="mr-1 h-3 w-3" />
+                              )}
+                              Cancelar da fila
+                            </Button>
+                          ) : null}
                           {d.canRetry && d.placementId ? (
                             <Button
                               variant="outline"
@@ -439,6 +479,14 @@ export function PublicationDetailModal({
                           {d.attempts
                             ? ` (${d.attempts} tentativa${d.attempts > 1 ? "s" : ""})`
                             : ""}
+                        </p>
+                      ) : null}
+                      {d.status === "awaiting_retry" ? (
+                        <p className="mt-1 pl-5 text-[11px] leading-snug text-muted-foreground">
+                          {d.error ? `${d.error} · ` : ""}
+                          {d.nextAttemptAt
+                            ? `Próxima tentativa automática em ${dt(d.nextAttemptAt)}.`
+                            : "A publicação segue na fila e será tentada novamente."}
                         </p>
                       ) : null}
                       {d.status === "published" && d.publishedAt ? (
