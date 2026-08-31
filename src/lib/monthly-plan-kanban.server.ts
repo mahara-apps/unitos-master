@@ -16,6 +16,9 @@ export type PlanTopicForKanban = {
   angle: string | null;
   target_audience?: string | null;
   rationale?: string | null;
+  /** Data/hora sugerida pela IA (proposta de agenda, ainda não aprovada). */
+  suggested_at?: string | null;
+  suggested_slot_rationale?: string | null;
   position: number;
 };
 
