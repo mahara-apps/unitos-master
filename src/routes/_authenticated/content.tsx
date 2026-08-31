@@ -65,6 +65,8 @@ import {
   type ViewMode,
 } from "@/components/content/content-toolbar";
 import { ContentList } from "@/components/content/content-list";
+import { BulkStageBar } from "@/components/content/bulk-stage-bar";
+import { listProjectsFn } from "@/lib/tasks.functions";
 import type { StageSort, SortBy } from "@/components/content/content-board";
 
 export const Route = createFileRoute("/_authenticated/content")({
@@ -416,6 +418,15 @@ function BoardView({
 
   const [filters, setFilters] = useState<ContentFilters>(DEFAULT_CONTENT_FILTERS);
   const [view, setView] = useState<ViewMode>("kanban");
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+
+  const listProjects = useServerFn(listProjectsFn);
+  const { data: projectOptions } = useQuery({
+    queryKey: ["content-project-options", brandId],
+    queryFn: () => listProjects({ data: { brandId } }),
+    staleTime: 60_000,
+  });
   const [sortByStage, setSortByStage] = useState<Record<string, StageSort>>({});
 
   const filteredPosts = useMemo(
@@ -448,7 +459,24 @@ function BoardView({
         onViewChange={setView}
         total={data.posts.length}
         filtered={filteredPosts.length}
+        projectOptions={(projectOptions ?? []).map((p) => ({ id: p.id, name: p.name }))}
+        selectionMode={selectionMode}
+        onToggleSelectionMode={() => {
+          setSelectionMode((v) => !v);
+          setSelected([]);
+        }}
       />
+      {selectionMode ? (
+        <BulkStageBar
+          brandId={brandId}
+          clientId={clientId}
+          pipelineId={pipelineId}
+          stages={data.stages}
+          selected={selected}
+          onClear={() => setSelected([])}
+          invalidateKey={queryKey}
+        />
+      ) : null}
       {view === "kanban" ? (
         <ContentBoard
           board={filteredBoard}
@@ -460,7 +488,19 @@ function BoardView({
           onCycleSort={handleCycleSort}
         />
       ) : (
-        <ContentList board={data} posts={filteredPosts} onOpenPost={onOpenPost} />
+        <ContentList
+          board={data}
+          posts={filteredPosts}
+          onOpenPost={onOpenPost}
+          selectionMode={selectionMode}
+          selected={selected}
+          onToggleSelect={(id) =>
+            setSelected((prev) =>
+              prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+            )
+          }
+          onSelectMany={setSelected}
+        />
       )}
     </div>
   );
