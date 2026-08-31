@@ -16,12 +16,15 @@ import {
   syncPostPlacements,
   deriveChannelsFromDestinations,
   deriveTargetConnectionIds,
+  type PlacementDestination,
 } from "@/lib/placements.server";
 import { resolveStageIdByKey } from "@/lib/post-stage.server";
 import { loadBestTimesContext } from "@/lib/client-best-times.server";
 import { resolveMonthlySchedule, type SlotSuggestion } from "@/lib/monthly-plan-schedule.server";
 
-export type BulkDestination = { connectionId: string; channel: string; format: string };
+/** Destino de placement no lote — mesmo contrato do save individual. */
+export type BulkDestination = PlacementDestination;
+
 
 export type BulkApplyInput = {
   brandId: string;
