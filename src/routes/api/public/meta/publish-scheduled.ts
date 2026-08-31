@@ -118,7 +118,12 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
               brandId: post.brand_id,
               clientId: post.client_id,
               connectionId: post.connection_id,
-              format: post.placement === "story" ? "stories" : "feed",
+              format:
+                post.placement === "story"
+                  ? "stories"
+                  : post.placement === "reel"
+                    ? "reels"
+                    : "feed",
               force: true,
             });
             if (!capability.publishReady) {
@@ -150,13 +155,26 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
             // Mapeamento placement (DB) → providerPlacement:
             //   feed  → instagram_feed | facebook_feed (por canal)
             //   story → instagram_story (Stories NUNCA carrega caption)
+            //   reel  → instagram_reels (exige vídeo; processamento assíncrono)
             const channel = (conn as any).channel as string | undefined;
-            const providerPlacement: "instagram_feed" | "facebook_feed" | "instagram_story" =
+            const providerPlacement:
+              | "instagram_feed"
+              | "facebook_feed"
+              | "instagram_story"
+              | "instagram_reels" =
               post.placement === "story"
                 ? "instagram_story"
-                : channel === "facebook"
-                  ? "facebook_feed"
-                  : "instagram_feed";
+                : post.placement === "reel"
+                  ? "instagram_reels"
+                  : channel === "facebook"
+                    ? "facebook_feed"
+                    : "instagram_feed";
+            if (providerPlacement === "instagram_reels" && !media.videoUrl) {
+              throw new DeterministicBlock(
+                "Reels exige um vídeo (MP4) na peça. Anexe o vídeo e reagende a publicação.",
+                "media_required",
+              );
+            }
             const result = await svc.publish(conn as any, {
               placement: providerPlacement,
               caption: providerPlacement === "instagram_story" ? undefined : caption,

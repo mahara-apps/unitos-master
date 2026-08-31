@@ -65,7 +65,8 @@ export type PublicationState = {
   availableTargets: AvailableTarget[];
 };
 
-const familyOf = (format: string) => (format === "stories" ? "story" : "feed");
+const familyOf = (format: string) =>
+  format === "stories" ? "story" : format === "reels" ? "reel" : "feed";
 
 // ============================================================
 // listPostPublicationStateFn
@@ -178,7 +179,13 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
       const mine = rows.filter(
         (r) =>
           r.connection_id === connectionId &&
-          familyOf((r.placement as string) === "story" ? "stories" : "feed") === family,
+          familyOf(
+            (r.placement as string) === "story"
+              ? "stories"
+              : (r.placement as string) === "reel"
+                ? "reels"
+                : "feed",
+          ) === family,
       );
       const published = mine.find((r) => r.status === "published");
       const failed = mine.find((r) => r.status === "failed");
@@ -429,7 +436,7 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
     }
     const clientId = pl.client_id as string | null;
     const family = familyOf(pl.format as string);
-    const dbPlacement: "feed" | "story" = family === "story" ? "story" : "feed";
+    const dbPlacement: "feed" | "story" | "reel" = family as "feed" | "story" | "reel";
 
     // 2) Não pode existir publicação bem-sucedida nem item ativo para o destino
     const { data: queue, error: qErr } = await supabase
@@ -476,6 +483,9 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
     }
     if (dbPlacement === "story" && conn.channel !== "instagram") {
       throw new Error("Stories só é suportado em conexões Instagram.");
+    }
+    if (dbPlacement === "reel" && conn.channel !== "instagram") {
+      throw new Error("Reels só é suportado em conexões Instagram.");
     }
     if (conn.channel === "instagram" && !conn.account_id) {
       throw new Error("Conexão sem conta Instagram Business vinculada.");
@@ -650,7 +660,10 @@ export const cancelQueuedPlacementFn = createServerFn({ method: "POST" })
       throw new Error("Este destino já foi publicado — nada a cancelar.");
     }
 
-    const dbPlacement: "feed" | "story" = familyOf(pl.format as string) === "story" ? "story" : "feed";
+    const dbPlacement: "feed" | "story" | "reel" = familyOf(pl.format as string) as
+      | "feed"
+      | "story"
+      | "reel";
 
     const { data: cancelled, error: cErr } = await supabase
       .from("social_posts")

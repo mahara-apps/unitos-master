@@ -1,20 +1,25 @@
 // Meta Publishing Service — server-only.
 // Publishes/schedules Feed posts to Facebook Pages and Instagram Business
-// via the Graph API. Reels, Stories and Carousels are intentionally out of
-// scope for v1 (validated at the placement layer).
+// via the Graph API. Suporta Feed (IG/FB), Stories IG e Reels IG.
+// Carrossel segue fora de escopo (validado na camada de placement).
 //
 // State lives in `social_posts`:
 //   status: draft | scheduled | publishing | published | failed | canceled
-//   placement: instagram_feed | facebook_feed
+//   placement: instagram_feed | facebook_feed | instagram_story | instagram_reels
 
 import { MetaProvider, MetaGraphError } from "./provider.server";
 import { decryptCredential } from "@/lib/credentials-crypto.server";
 
-export type SupportedPlacement = "instagram_feed" | "facebook_feed" | "instagram_story";
+export type SupportedPlacement =
+  | "instagram_feed"
+  | "facebook_feed"
+  | "instagram_story"
+  | "instagram_reels";
 export const SUPPORTED_PLACEMENTS: SupportedPlacement[] = [
   "instagram_feed",
   "facebook_feed",
   "instagram_story",
+  "instagram_reels",
 ];
 
 export type PublishMedia = {
@@ -30,6 +35,8 @@ export type PublishInput = {
   placement: SupportedPlacement;
   caption?: string;
   media: PublishMedia;
+  /** Reels: também publicar no Feed do Instagram (padrão: true). */
+  shareToFeed?: boolean;
 };
 
 export type PublishResult = {
@@ -71,6 +78,9 @@ export class MetaPublishingService {
     if (input.placement === "instagram_story") {
       return this.publishInstagramStory(connection, pageToken, input);
     }
+    if (input.placement === "instagram_reels") {
+      return this.publishInstagramReels(connection, pageToken, input);
+    }
     return this.publishFacebookFeed(connection, pageToken, input);
   }
 
@@ -91,6 +101,9 @@ export class MetaPublishingService {
     }
     if (input.placement === "instagram_story") {
       return this.publishInstagramStory(row, pageToken, input);
+    }
+    if (input.placement === "instagram_reels") {
+      return this.publishInstagramReels(row, pageToken, input);
     }
     return this.publishFacebookFeed(row, pageToken, input);
   }
@@ -241,6 +254,97 @@ export class MetaPublishingService {
         media_type: "STORIES",
       },
     };
+  }
+
+  // -------------------------------------------------------------- IG Reels ---
+  // Reels exige VÍDEO e processamento assíncrono: criamos o container
+  // (media_type=REELS), aguardamos `status_code = FINISHED` e só então
+  // publicamos. Timeout explícito evita worker preso.
+  private async publishInstagramReels(
+    connection: MetaConnectionRow,
+    pageToken: string,
+    input: PublishInput,
+  ): Promise<PublishResult> {
+    if (!connection.account_id) {
+      throw new Error("Esta Página do Facebook não tem conta Instagram Business vinculada.");
+    }
+    if (!input.media.videoUrl) {
+      throw new Error("Reels exige um vídeo (MP4) na peça. Anexe o vídeo antes de publicar.");
+    }
+    const igId = connection.account_id;
+
+    const container = await this.provider.graph<{ id: string }>(`/${igId}/media`, {
+      accessToken: pageToken,
+      method: "POST",
+      query: {
+        media_type: "REELS",
+        video_url: input.media.videoUrl,
+        share_to_feed: input.shareToFeed === false ? "false" : "true",
+        ...(input.caption ? { caption: input.caption } : {}),
+      },
+    });
+
+    await this.waitForContainerReady(container.id, pageToken);
+
+    const publish = await this.provider.graph<{ id: string }>(`/${igId}/media_publish`, {
+      accessToken: pageToken,
+      method: "POST",
+      query: { creation_id: container.id },
+    });
+
+    let permalink: string | null = null;
+    try {
+      const meta = await this.provider.graph<{ permalink?: string }>(`/${publish.id}`, {
+        accessToken: pageToken,
+        query: { fields: "permalink" },
+      });
+      permalink = meta.permalink ?? null;
+    } catch {
+      /* permalink é opcional */
+    }
+
+    return {
+      externalPostId: publish.id,
+      externalPermalink: permalink,
+      providerResponse: {
+        container_id: container.id,
+        media_id: publish.id,
+        media_type: "REELS",
+      },
+    };
+  }
+
+  /**
+   * Aguarda o processamento do vídeo pela Meta. Erros de estado são traduzidos
+   * para pt-BR; timeout falha explicitamente (o item volta para retry da fila).
+   */
+  private async waitForContainerReady(
+    containerId: string,
+    pageToken: string,
+    opts: { attempts?: number; intervalMs?: number } = {},
+  ): Promise<void> {
+    const attempts = opts.attempts ?? 20;
+    const intervalMs = opts.intervalMs ?? 3000;
+    for (let i = 0; i < attempts; i++) {
+      const st = await this.provider.graph<{ status_code?: string; status?: string }>(
+        `/${containerId}`,
+        { accessToken: pageToken, query: { fields: "status_code,status" } },
+      );
+      const code = (st.status_code ?? "").toUpperCase();
+      if (code === "FINISHED") return;
+      if (code === "ERROR") {
+        throw new Error(
+          `A Meta recusou o vídeo do Reels durante o processamento${st.status ? `: ${st.status}` : "."}`,
+        );
+      }
+      if (code === "EXPIRED") {
+        throw new Error("O envio do vídeo expirou na Meta. Tente publicar novamente.");
+      }
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+    throw new Error(
+      "O vídeo do Reels ainda está sendo processado pela Meta. A publicação será tentada novamente.",
+    );
   }
 }
 
