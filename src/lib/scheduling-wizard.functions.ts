@@ -942,7 +942,8 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
               })
               .select("id")
               .single();
-            if (spErr) throw new Error(spErr.message);
+            if (spErr) throw new Error(describeQueueInsertError(spErr.message, d.channel, d.format));
+
 
             try {
               const result = await svc.publish(conn as any, {
