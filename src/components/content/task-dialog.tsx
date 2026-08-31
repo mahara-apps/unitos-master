@@ -70,6 +70,10 @@ import {
   normalizeContentFormat,
 } from "@/lib/content-formats";
 import {
+  updateScheduleSlotFn,
+  clearScheduleSlotFn,
+} from "@/lib/schedule-approval.functions";
+import {
   scheduleDisplay,
   scheduleFullLabel,
   hasProposalTrack,
