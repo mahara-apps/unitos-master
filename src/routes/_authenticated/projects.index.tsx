@@ -77,12 +77,33 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, Sparkles } from "lucide-react";
+import { ChevronDown, LayoutGrid, List as ListIcon, Palette, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ProjectCard } from "@/components/projects/project-card";
+
+const VIEWS = ["cards", "list"] as const;
+type ViewMode = (typeof VIEWS)[number];
+const COLOR_BYS = ["project", "status", "client"] as const;
+type ColorBy = (typeof COLOR_BYS)[number];
+
+const VIEW_STORAGE_KEY = "projects:view";
+const COLORBY_STORAGE_KEY = "projects:colorBy";
+
+const projectsSearchSchema = z.object({
+  view: z.enum(VIEWS).optional(),
+  colorBy: z.enum(COLOR_BYS).optional(),
+});
 
 export const Route = createFileRoute("/_authenticated/projects/")({
+  validateSearch: projectsSearchSchema,
   component: ProjectsIndexPage,
 });
+
+function readStored<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  const raw = window.localStorage.getItem(key);
+  return allowed.includes(raw as T) ? (raw as T) : fallback;
+}
 
 const COLORS = [
   "#8b5cf6", // violet
