@@ -20,14 +20,17 @@ export const Route = createFileRoute("/_authenticated/admin")({
     // O token de sessão só é anexado no cliente; durante SSR/prerender a
     // chamada protegida falharia com 401. O bloqueio real é no servidor.
     if (typeof window === "undefined") return;
+    // FAIL-CLOSED: qualquer falha na verificação nega o acesso. Um erro de
+    // rede/401 transitório NÃO pode liberar a área de Super Admin.
     let isSuperAdmin = false;
     try {
       ({ isSuperAdmin } = await amISuperAdmin());
     } catch {
-      return;
+      isSuperAdmin = false;
     }
     if (!isSuperAdmin) throw redirect({ to: "/dashboard" });
   },
+
   component: AdminLayout,
 });
 
