@@ -437,8 +437,15 @@ export class MetaPublishingService {
     const items = assertCarouselItems(input.media.items);
     const igId = connection.account_id;
 
+    // Marcação de pessoas no carrossel vale por item: aplicamos no PRIMEIRO
+    // slide (a Meta não aceita tags no container-pai).
+    const tagOpts = this.igContainerOptions(input, { withUserTags: true });
+    const firstChildTags = tagOpts.query.user_tags
+      ? { user_tags: tagOpts.query.user_tags }
+      : ({} as Record<string, string>);
+
     const childIds: string[] = [];
-    for (const item of items) {
+    for (const [i, item] of items.entries()) {
       const child = await this.provider.graph<{ id: string }>(`/${igId}/media`, {
         accessToken: pageToken,
         method: "POST",
@@ -447,12 +454,14 @@ export class MetaPublishingService {
           ...(item.videoUrl
             ? { media_type: "VIDEO", video_url: item.videoUrl }
             : { image_url: item.imageUrl! }),
+          ...(i === 0 ? firstChildTags : {}),
         },
       });
       await this.waitForContainerReady(child.id, pageToken);
       childIds.push(child.id);
     }
 
+    const parentOpts = this.igContainerOptions(input);
     const parent = await this.provider.graph<{ id: string }>(`/${igId}/media`, {
       accessToken: pageToken,
       method: "POST",
@@ -460,6 +469,7 @@ export class MetaPublishingService {
         media_type: "CAROUSEL",
         children: childIds.join(","),
         ...(input.caption ? { caption: input.caption } : {}),
+        ...parentOpts.query,
       },
     });
     await this.waitForContainerReady(parent.id, pageToken);
@@ -486,7 +496,9 @@ export class MetaPublishingService {
         media_id: publish.id,
         media_type: "CAROUSEL",
       },
+      ...(parentOpts.warnings.length ? { warnings: parentOpts.warnings } : {}),
     };
+
   }
 
   // ---------------------------------------------------------- FB Carousel ---
