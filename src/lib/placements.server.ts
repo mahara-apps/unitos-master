@@ -1,4 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  hasPlacementOptions,
+  normalizePlacementOptions,
+  type PlacementOptions,
+} from "@/lib/placement-options";
 
 /**
  * Shared helper — reconciliação de `post_placements` a partir de destinos
@@ -18,6 +23,8 @@ export type PlacementDestination = {
   channel: string;
   format: PlacementFormatEnum;
   copyOverride?: string | null;
+  /** Opções avançadas do destino (cru — normalizado aqui). */
+  options?: unknown;
 };
 
 export type SyncPostPlacementsInput = {
@@ -88,7 +95,13 @@ export async function syncPostPlacements(
     byDestination.set(key, d);
   }
 
-  const rows = Array.from(byDestination.values()).map((d, i) => ({
+  const rows = Array.from(byDestination.values()).map((d, i) => {
+    const options: PlacementOptions = normalizePlacementOptions(
+      d.channel as never,
+      d.format,
+      d.options,
+    );
+    return {
     post_id: postId,
     brand_id: brandId,
     client_id: clientId,
@@ -106,11 +119,13 @@ export async function syncPostPlacements(
       ...(linkUrl ? { link: linkUrl } : {}),
       ...(locationName ? { location_name: locationName } : {}),
       ...(locationId ? { location_id: locationId } : {}),
+      ...(hasPlacementOptions(options) ? { options } : {}),
     },
     media: mediaJson,
     status,
     is_primary: i === 0,
-  }));
+    };
+  });
 
   if (!rows.length) return;
   const { error: insErr } = await supabase.from("post_placements").insert(rows);
