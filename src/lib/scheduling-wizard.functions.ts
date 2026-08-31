@@ -10,6 +10,10 @@ import { resolveStageIdByKey } from "@/lib/post-stage.server";
 import { assertScheduleLead } from "@/lib/schedule-rules";
 import { describeQueueInsertError } from "@/lib/social/queue-conflict";
 
+/** Extensões tratadas como vídeo ao resolver mídia de destino. */
+const IS_VIDEO_PATH = /\.(mp4|mov|m4v|webm|3gp)$/i;
+
+
 
 /**
  * Server functions do wizard de agendamento (/calendar).
@@ -464,15 +468,26 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         ((links ?? []) as Array<{ connection_id: string }>).map((l) => l.connection_id),
       );
       for (const d of data.destinations) {
-        // Suportado hoje: Feed IG/FB e Stories no IG (multi-frame automático).
+        // Suportado hoje: Feed IG/FB, Stories IG (multi-frame) e Reels IG.
         const supported =
           (d.format === "feed" && (d.channel === "instagram" || d.channel === "facebook")) ||
-          (d.format === "stories" && d.channel === "instagram");
+          (d.format === "stories" && d.channel === "instagram") ||
+          (d.format === "reels" && d.channel === "instagram");
         if (!supported) {
           scheduleWarnings.push({
             channel: d.channel,
             format: d.format,
-            error: "Formato ainda não agendável (Feed IG/FB ou Stories IG)",
+            error: "Formato ainda não agendável (Feed IG/FB, Stories IG ou Reels IG)",
+          });
+          continue;
+        }
+        // Reels exige vídeo — sem isso o agendamento falharia só na hora do
+        // disparo, deixando o operador achando que estava tudo certo.
+        if (d.format === "reels" && !data.mediaPaths.some((m) => IS_VIDEO_PATH.test(m))) {
+          scheduleWarnings.push({
+            channel: d.channel,
+            format: d.format,
+            error: "Reels exige um vídeo (MP4) na peça. Anexe o vídeo antes de agendar.",
           });
           continue;
         }
@@ -524,7 +539,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       if (validatedScheduleTargets.length === 0) {
         throw new Error(
           scheduleWarnings[0]?.error ??
-            "Nenhum destino suportado para agendamento (Feed IG/FB ou Stories IG).",
+            "Nenhum destino suportado para agendamento (Feed IG/FB, Stories IG ou Reels IG).",
         );
       }
     }
@@ -681,6 +696,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
 
       for (const { destination: d, connection: conn } of validatedScheduleTargets) {
         const isStory = d.format === "stories";
+        const isReel = d.format === "reels";
         // Stories NUNCA carrega caption (Meta API ignora / retorna erro).
         const caption = isStory
           ? null
@@ -699,7 +715,9 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         const frames =
           isStory && data.mediaPaths.length > 0
             ? data.mediaPaths
-            : [data.mediaPaths[0] as string | undefined];
+            : isReel
+              ? [data.mediaPaths.find((m) => IS_VIDEO_PATH.test(m))]
+              : [data.mediaPaths[0] as string | undefined];
         const baseMs = new Date(scheduledIso!).getTime();
 
         let frameErr: string | null = null;
@@ -719,7 +737,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             client_id: data.clientId,
             connection_id: d.connectionId,
             provider: conn.provider,
-            placement: isStory ? "story" : "feed",
+            placement: isStory ? "story" : isReel ? "reel" : "feed",
             caption: isStory ? null : caption,
             hashtags: isStory ? [] : data.hashtags,
             mentions: [],
