@@ -25,6 +25,12 @@ import {
   listPortalSessionBriefingRequestsFn,
   submitPortalSessionBriefingProposalFn,
 } from "@/lib/portal-briefing.functions";
+import {
+  listPortalScheduleFn,
+  decidePortalScheduleFn,
+  listPortalSessionScheduleFn,
+  decidePortalSessionScheduleFn,
+} from "@/lib/portal-schedule.functions";
 import { getPortalBrandHubFn, getPortalSessionBrandHubFn } from "@/lib/portal-brand.functions";
 import {
   listPortalPlansFn,
@@ -101,6 +107,8 @@ export function usePortalApi() {
   const tPlan = useServerFn(getPortalPlanFn);
   const tDecidePlan = useServerFn(decidePortalPlanFn);
   const tBrandHub = useServerFn(getPortalBrandHubFn);
+  const tSchedule = useServerFn(listPortalScheduleFn);
+  const tDecideSchedule = useServerFn(decidePortalScheduleFn);
 
   const sMetrics = useServerFn(getPortalSessionMetricsFn);
   const sApprovals = useServerFn(listPortalSessionApprovalsFn);
@@ -115,6 +123,8 @@ export function usePortalApi() {
   const sPlan = useServerFn(getPortalSessionPlanFn);
   const sDecidePlan = useServerFn(decidePortalSessionPlanFn);
   const sBrandHub = useServerFn(getPortalSessionBrandHubFn);
+  const sSchedule = useServerFn(listPortalSessionScheduleFn);
+  const sDecideSchedule = useServerFn(decidePortalSessionScheduleFn);
 
   return useMemo(() => {
     const isToken = mode.kind === "token";
@@ -167,6 +177,19 @@ export function usePortalApi() {
           ? tDecidePlan({ data: { token, ...input } })
           : sDecidePlan({ data: { ...base, ...input } }),
       brandHub: () => (isToken ? tBrandHub({ data: { token } }) : sBrandHub({ data: base })),
+      /** Datas propostas para o cliente confirmar (não publica nada). */
+      schedule: (from: string, to: string) =>
+        isToken
+          ? tSchedule({ data: { token, from, to } })
+          : sSchedule({ data: { ...base, from, to } }),
+      decideSchedule: (input: {
+        postIds: string[];
+        decision: "approve" | "changes";
+        comment?: string;
+      }) =>
+        isToken
+          ? tDecideSchedule({ data: { token, ...input } })
+          : sDecideSchedule({ data: { ...base, ...input } }),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode.kind, mode.kind === "token" ? mode.token : mode.clientId]);
