@@ -356,9 +356,17 @@ export function PublicationDetailModal({
 
         <Section title={`Destinos (${item.destinations.length})`}>
           {item.destinations.length === 0 ? (
-            <p className="rounded-md border border-dashed border-border/70 px-3 py-3 text-xs text-muted-foreground">
-              Nenhum destino configurado. Abra a edição para escolher as contas.
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border/70 px-3 py-3 text-xs text-muted-foreground">
+              <span>Nenhum destino configurado — a peça não pode publicar assim.</span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => onEdit(item)}
+              >
+                Definir canal e conta
+              </Button>
+            </div>
           ) : (
             <ul className="space-y-1.5">
               {item.destinations.map((d) => {
