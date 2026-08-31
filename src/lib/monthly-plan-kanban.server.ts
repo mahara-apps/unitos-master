@@ -16,6 +16,9 @@ export type PlanTopicForKanban = {
   angle: string | null;
   target_audience?: string | null;
   rationale?: string | null;
+  /** Data/hora sugerida pela IA (proposta de agenda, ainda não aprovada). */
+  suggested_at?: string | null;
+  suggested_slot_rationale?: string | null;
   position: number;
 };
 
@@ -120,7 +123,7 @@ export async function materializePlanToKanban(
     const { data, error } = await sb
       .from("monthly_plan_topics")
       .select(
-        "id, topic_title, content_format, channel, angle, target_audience, rationale, position",
+        "id, topic_title, content_format, channel, angle, target_audience, rationale, suggested_at, suggested_slot_rationale, position",
       )
       .eq("monthly_plan_id", args.planId)
       .eq("status", "approved")
@@ -213,6 +216,10 @@ export async function materializePlanToKanban(
         .filter(Boolean)
         .join("\n\n"),
       monthly_plan_topic_id: t.id,
+      // Proposta de agenda: reserva NADA e não publica — só entra no calendário
+      // como sugestão à espera de aprovação interna e do cliente.
+      proposed_at: t.suggested_at ?? null,
+      schedule_status: t.suggested_at ? "proposed" : "none",
       position: pos,
       created_by: args.userId,
       assignee_id: args.userId,

@@ -81,6 +81,20 @@ export const PUBLICATION_STATUS: Record<PublicationOverall, StatusToken> = {
     text: "text-muted-foreground",
     accent: "border-l-border",
   },
+  proposed: {
+    label: "Agenda sugerida",
+    chip: "border-dashed border-primary/40 bg-primary/5 text-primary",
+    dot: "bg-primary/50",
+    text: "text-primary",
+    accent: "border-l-primary/50",
+  },
+  reserved: {
+    label: "Data reservada",
+    chip: "border-teal-500/30 bg-teal-500/10 text-teal-700 dark:text-teal-300",
+    dot: "bg-teal-500",
+    text: "text-teal-600 dark:text-teal-300",
+    accent: "border-l-teal-500",
+  },
 };
 
 export const DESTINATION_STATUS_LABEL: Record<string, string> = {

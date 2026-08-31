@@ -44,6 +44,7 @@ import { EventDialog } from "@/components/calendar/event-dialog";
 import { EventChip } from "@/components/calendar/event-chip";
 import { PublicationCard, PublicationRow } from "@/components/calendar/board/publication-card";
 import { OperationsPanel } from "@/components/calendar/board/operations-panel";
+import { ScheduleApprovalPanel } from "@/components/calendar/board/schedule-approval-panel";
 import { PublicationDetailModal } from "@/components/calendar/board/publication-detail";
 import {
   StatusFilterBar,
@@ -105,7 +106,7 @@ function CalendarPage() {
   const { brandId, clientId } = useActiveContext();
   const qc = useQueryClient();
 
-  const [range, setRange] = useState<Range>("week");
+  const [range, setRange] = useState<Range>("month");
   const [view, setView] = useState<View>("agenda");
   const [anchor, setAnchor] = useState(() => new Date());
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -207,6 +208,7 @@ function CalendarPage() {
       scheduled: items.filter((i) => i.overall === "scheduled" || i.overall === "publishing")
         .length,
       awaiting_approval: awaiting.length,
+      proposed: items.filter((i) => i.overall === "proposed").length,
       published: items.filter((i) => i.overall === "published").length,
       failed: items.filter((i) => i.overall === "failed" || i.overall === "partial").length,
       drafts: drafts.length,
@@ -216,7 +218,8 @@ function CalendarPage() {
 
   const filtered = useMemo(() => {
     let list = items;
-    if (status === "scheduled")
+    if (status === "proposed") list = list.filter((i) => i.overall === "proposed");
+    else if (status === "scheduled")
       list = list.filter((i) => i.overall === "scheduled" || i.overall === "publishing");
     else if (status === "published") list = list.filter((i) => i.overall === "published");
     else if (status === "failed")
@@ -518,6 +521,15 @@ function CalendarPage() {
             </div>
           </div>
         </div>
+
+        {brandId && clientId ? (
+          <ScheduleApprovalPanel
+            brandId={brandId}
+            clientId={clientId}
+            items={items}
+            onOpen={openDetail}
+          />
+        ) : null}
 
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
           {/* ---------------------------------------------------- AGENDA / LISTA */}

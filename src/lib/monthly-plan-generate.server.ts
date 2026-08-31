@@ -6,6 +6,12 @@ import { loadBrainAgentContext } from "@/lib/brain/agent-context.server";
 import { loadBriefingContext } from "@/lib/monthly-plan-context.server";
 import { loadStrategyContext } from "@/lib/monthly-plan-strategy.server";
 import { loadPerformanceContext } from "@/lib/monthly-plan-performance.server";
+import { loadBestTimesContext } from "@/lib/client-best-times.server";
+import {
+  resolveMonthlySchedule,
+  parseSuggestedWeekday,
+  parseSuggestedTime,
+} from "@/lib/monthly-plan-schedule.server";
 import { runPlanAgent } from "@/lib/monthly-plan-agent.server";
 import { PLAN_CHANNELS, type PlanChannel } from "@/lib/monthly-plan-fields";
 import {
@@ -63,6 +69,12 @@ const AiPlanSchema = z.object({
       channel: z.string().nullable(),
       target_audience: z.string().nullable(),
       rationale: z.string().nullable(),
+      /** 0 = domingo … 6 = sábado (fuso Brasília). */
+      suggested_weekday: z.number().nullable(),
+      /** "HH:MM" no fuso de Brasília. */
+      suggested_time: z.string().nullable(),
+      /** Justificativa curta do dia/hora escolhido. */
+      slot_rationale: z.string().nullable(),
     }),
   ),
 });
@@ -363,9 +375,19 @@ export async function runPlanGeneration(args: {
     ...(strategy?.cohortNames ?? []),
   ].filter(Boolean);
 
+  // Horários com histórico real do cliente (evidência para o dia/hora sugerido).
+  const bestTimes = await loadBestTimesContext(supabase, {
+    brandId: input.brandId,
+    clientId: input.clientId,
+  }).catch((err) => {
+    console.warn("[monthly-plan] best times context failed", err);
+    return null;
+  });
+
   const extraContext = [
     strategy?.markdown,
     performance?.markdown,
+    bestTimes?.markdown,
     brainLearnings.markdown,
     brainMarkdown
       ? `## Contexto do Brain (memórias, insights e métricas desta marca)\n${brainMarkdown}\n\nUse esse contexto para evitar repetir erros passados e reforçar o que já funcionou.`
@@ -413,6 +435,13 @@ export async function runPlanGeneration(args: {
         ? `  * target_audience: OBRIGATÓRIO — persona ou cohort da estratégia ativa (${audienceOptions.slice(0, 8).join(", ")})`
         : `  * target_audience: público-alvo principal da ideia, derivado do briefing`,
       `  * rationale: 1 frase citando a evidência usada (métrica do canal, insight do briefing ou item da estratégia)`,
+      `  * suggested_weekday: OBRIGATÓRIO — melhor dia da semana para publicar (0=domingo … 6=sábado), no fuso de Brasília`,
+      `  * suggested_time: OBRIGATÓRIO — melhor horário no formato "HH:MM" (fuso de Brasília)`,
+      `  * slot_rationale: 1 frase curta justificando o dia/hora (hábito da persona ou histórico de publicação do cliente)`,
+      bestTimes && bestTimes.top.length
+        ? `- Para dia/hora, use o histórico de publicação do cliente acima como evidência principal; ajuste conforme o formato (Stories mais cedo, Reels no fim do dia).`
+        : `- Sem histórico de publicação disponível: derive dia/hora dos hábitos da persona no briefing e diga isso no slot_rationale.`,
+      `- Distribua os dias/horários ao longo do mês; evite concentrar tudo no mesmo dia da semana e no mesmo horário.`,
       `- A quantidade por canal + formato é contratual: cumpra exatamente, sem trocar formatos.`,
       `- Dentro de cada cota, priorize os temas que performaram melhor no canal.`,
       avoid.length
@@ -493,6 +522,9 @@ export async function runPlanGeneration(args: {
     channel: string;
     target_audience: string | null;
     rationale: string | null;
+    suggested_weekday: number | null;
+    suggested_time: string | null;
+    suggested_slot_rationale: string | null;
   }> = [];
 
   const consume = (topics: AiPlan["topics"]) => {
@@ -519,6 +551,13 @@ export async function runPlanGeneration(args: {
         channel,
         target_audience: (t.target_audience ?? "").toString().trim().slice(0, 240) || null,
         rationale: (t.rationale ?? "").toString().trim().slice(0, 600) || null,
+        suggested_weekday: parseSuggestedWeekday(t.suggested_weekday),
+        suggested_time: (() => {
+          const p = parseSuggestedTime(t.suggested_time);
+          return p ? `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}` : null;
+        })(),
+        suggested_slot_rationale:
+          (t.slot_rationale ?? "").toString().trim().slice(0, 600) || null,
       });
     }
   };
@@ -631,9 +670,29 @@ export async function runPlanGeneration(args: {
   });
 
   const basePosition = (resume?.maxPosition ?? -1) + 1;
+  // Sugestão de agenda: dia da semana + hora viram data concreta do mês da pauta,
+  // sem colisão de horário e sempre no fuso oficial.
+  const slots = new Map(
+    resolveMonthlySchedule({
+      monthAnchor: new Date(`${period.slice(0, 10)}T12:00:00.000Z`),
+      items: allocated.map((t, i) => ({
+        key: String(i),
+        weekday: t.suggested_weekday,
+        time: t.suggested_time,
+      })),
+    }).map((s) => [s.key, s.at]),
+  );
   const topicRows = allocated.map((t, i) => ({
     monthly_plan_id: plan.id,
-    ...t,
+    topic_title: t.topic_title,
+    content_format: t.content_format,
+    angle: t.angle,
+    channel: t.channel,
+    target_audience: t.target_audience,
+    rationale: t.rationale,
+    suggested_at: slots.get(String(i))?.toISOString() ?? null,
+    suggested_slot_rationale: t.suggested_slot_rationale,
+    suggested_confidence: t.suggested_weekday === null ? "low" : (bestTimes?.confidence ?? "low"),
     status: "pending" as const,
     position: basePosition + i * 1024,
   }));

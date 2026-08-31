@@ -5,6 +5,7 @@ import { PUBLICATION_STATUS } from "@/lib/publication-status-tokens";
 
 export type StatusFilter =
   | "all"
+  | "proposed"
   | "scheduled"
   | "awaiting_approval"
   | "published"
@@ -13,6 +14,7 @@ export type StatusFilter =
 
 export const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
   all: "Tudo",
+  proposed: "Agenda sugerida",
   scheduled: "Agendados",
   awaiting_approval: "Aguardando aprovação",
   published: "Publicados",
@@ -22,6 +24,7 @@ export const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
 
 const ACCENT: Record<StatusFilter, string> = {
   all: "bg-foreground/60",
+  proposed: PUBLICATION_STATUS.proposed.dot,
   scheduled: PUBLICATION_STATUS.scheduled.dot,
   awaiting_approval: PUBLICATION_STATUS.awaiting_approval.dot,
   published: PUBLICATION_STATUS.published.dot,
@@ -41,6 +44,7 @@ export function StatusFilterBar({
 }) {
   const order: StatusFilter[] = [
     "all",
+    "proposed",
     "scheduled",
     "awaiting_approval",
     "published",
