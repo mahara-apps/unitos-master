@@ -92,8 +92,9 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
     const { data: queue, error: qErr } = await supabase
       .from("social_posts")
       .select(
-        "id, connection_id, placement, status, last_error, publish_attempts, published_at, external_permalink",
+        "id, connection_id, placement, status, last_error, publish_attempts, published_at, external_permalink, next_attempt_at, deferred_since, publish_locked_at",
       )
+
       .eq("post_id", data.postId)
       .eq("brand_id", data.brandId);
     if (qErr) throw new Error(qErr.message);
