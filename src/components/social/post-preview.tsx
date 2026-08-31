@@ -1,5 +1,8 @@
+import { useMemo, useRef, useState } from "react";
 import {
   Bookmark,
+  ChevronLeft,
+  ChevronRight,
   Heart,
   Image as ImageIcon,
   MessageSquare,
@@ -10,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { PlacementFormat } from "@/lib/scheduling-formats";
 import type { SocialChannel } from "@/lib/social-core/capabilities";
+
 
 /**
  * PostPreview — mock visual da peça no canal escolhido (feed, reels, stories).
@@ -33,6 +37,7 @@ export function PostPreview({
   copy,
   hashtags = [],
   media,
+  mediaItems,
   mediaCount = 1,
   location = "",
   className,
@@ -44,6 +49,8 @@ export function PostPreview({
   copy: string;
   hashtags?: string[];
   media: PreviewMedia | undefined | null;
+  /** Lista completa de mídias, na MESMA ordem em que a peça será publicada. */
+  mediaItems?: PreviewMedia[] | null;
   mediaCount?: number;
   location?: string;
   className?: string;
@@ -58,6 +65,15 @@ export function PostPreview({
   const isStories = format === "stories";
   const isReels = format === "reels" || channel === "tiktok" || channel === "youtube";
   const chromeStyle = channelChromeStyle(channel);
+
+  // Slides do carrossel: usa a lista completa quando disponível; senão, a capa.
+  const slides = useMemo<PreviewMedia[]>(() => {
+    const list = (mediaItems ?? []).filter((m) => m && m.publicUrl);
+    if (list.length) return list;
+    return media?.publicUrl ? [media] : [];
+  }, [mediaItems, media]);
+  const isCarousel = format === "carrossel" && slides.length > 1;
+
 
   if (vertical) {
     // Reels/TikTok/Shorts/Stories — full-bleed 9:16 com overlay.
@@ -170,45 +186,50 @@ export function PostPreview({
       ) : null}
 
       {/* Media */}
-      <div
-        className="relative w-full bg-muted"
-        style={{ aspectRatio: wideMedia ? "1.91 / 1" : "1 / 1" }}
-      >
-        {media?.publicUrl ? (
-          media.kind === "video" ? (
-            <video
-              src={media.publicUrl}
-              className="h-full w-full object-cover"
-              muted
-              playsInline
-              loop
-              autoPlay
-            />
-          ) : (
-            <img
-              src={media.publicUrl}
-              alt="Prévia da peça"
-              className="h-full w-full object-cover"
-            />
-          )
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground">
-            <ImageIcon className="h-6 w-6" />
-            <span className="text-[10.5px]">Nenhuma mídia selecionada</span>
-          </div>
-        )}
-        {/* Carousel dots */}
-        {format === "carrossel" && mediaCount > 1 ? (
-          <div className="absolute inset-x-0 bottom-2 z-10 flex items-center justify-center gap-1">
-            {Array.from({ length: Math.min(mediaCount, 10) }).map((_, i) => (
-              <span
-                key={i}
-                className={cn("h-1.5 w-1.5 rounded-full", i === 0 ? "bg-white" : "bg-white/50")}
+      {isCarousel ? (
+        <CarouselPreview slides={slides} wide={wideMedia} />
+      ) : (
+        <div
+          className="relative w-full bg-muted"
+          style={{ aspectRatio: wideMedia ? "1.91 / 1" : "1 / 1" }}
+        >
+          {media?.publicUrl ? (
+            media.kind === "video" ? (
+              <video
+                src={media.publicUrl}
+                className="h-full w-full object-cover"
+                muted
+                playsInline
+                loop
+                autoPlay
               />
-            ))}
-          </div>
-        ) : null}
-      </div>
+            ) : (
+              <img
+                src={media.publicUrl}
+                alt="Prévia da peça"
+                className="h-full w-full object-cover"
+              />
+            )
+          ) : (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground">
+              <ImageIcon className="h-6 w-6" />
+              <span className="text-[10.5px]">Nenhuma mídia selecionada</span>
+            </div>
+          )}
+          {/* Carrossel sem lista de mídias — apenas indicadores */}
+          {format === "carrossel" && mediaCount > 1 ? (
+            <div className="absolute inset-x-0 bottom-2 z-10 flex items-center justify-center gap-1">
+              {Array.from({ length: Math.min(mediaCount, 10) }).map((_, i) => (
+                <span
+                  key={i}
+                  className={cn("h-1.5 w-1.5 rounded-full", i === 0 ? "bg-white" : "bg-white/50")}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+      )}
+
 
       {/* Actions bar — Instagram/Facebook only */}
       {channel === "instagram" || channel === "facebook" ? (
@@ -236,6 +257,125 @@ export function PostPreview({
     </div>
   );
 }
+
+/**
+ * Carrossel navegável — arraste lateral (mouse/toque), setas, dots e teclado.
+ * A ordem exibida é exatamente a ordem de publicação.
+ */
+function CarouselPreview({ slides, wide }: { slides: PreviewMedia[]; wide: boolean }) {
+  const [index, setIndex] = useState(0);
+  const dragStart = useRef<number | null>(null);
+  const total = slides.length;
+  const current = Math.min(index, total - 1);
+
+  const go = (next: number) => setIndex(Math.max(0, Math.min(total - 1, next)));
+
+  return (
+    <div
+      className="relative w-full select-none overflow-hidden bg-muted"
+      style={{ aspectRatio: wide ? "1.91 / 1" : "1 / 1" }}
+      role="group"
+      aria-roledescription="carrossel"
+      aria-label={`Prévia do carrossel — ${total} mídias`}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowRight") {
+          e.preventDefault();
+          go(current + 1);
+        } else if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          go(current - 1);
+        }
+      }}
+      onPointerDown={(e) => {
+        dragStart.current = e.clientX;
+      }}
+      onPointerUp={(e) => {
+        const start = dragStart.current;
+        dragStart.current = null;
+        if (start === null) return;
+        const delta = e.clientX - start;
+        if (Math.abs(delta) < 30) return;
+        go(delta < 0 ? current + 1 : current - 1);
+      }}
+      onPointerCancel={() => {
+        dragStart.current = null;
+      }}
+    >
+      <div
+        className="flex h-full w-full transition-transform duration-300 ease-out"
+        style={{ transform: `translateX(-${current * 100}%)` }}
+      >
+        {slides.map((slide, i) => (
+          <div key={`${slide.publicUrl ?? "slot"}-${i}`} className="h-full w-full shrink-0">
+            {slide.kind === "video" ? (
+              <video
+                src={slide.publicUrl ?? undefined}
+                className="pointer-events-none h-full w-full object-cover"
+                muted
+                playsInline
+                loop
+              />
+            ) : (
+              <img
+                src={slide.publicUrl ?? undefined}
+                alt={`Mídia ${i + 1} de ${total}`}
+                draggable={false}
+                className="pointer-events-none h-full w-full object-cover"
+              />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Contador de ordem */}
+      <div className="absolute right-2 top-2 z-10 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white">
+        {current + 1}/{total}
+      </div>
+
+      {/* Setas */}
+      {current > 0 ? (
+        <button
+          type="button"
+          aria-label="Mídia anterior"
+          onClick={() => go(current - 1)}
+          className="absolute left-1.5 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/50 p-1 text-white transition-opacity hover:bg-black/70"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+      ) : null}
+      {current < total - 1 ? (
+        <button
+          type="button"
+          aria-label="Próxima mídia"
+          onClick={() => go(current + 1)}
+          className="absolute right-1.5 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/50 p-1 text-white transition-opacity hover:bg-black/70"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      ) : null}
+
+      {/* Dots */}
+      <div className="absolute inset-x-0 bottom-2 z-10 flex items-center justify-center gap-1">
+        {slides.map((_, i) => (
+          <button
+            key={i}
+            type="button"
+            aria-label={`Ir para a mídia ${i + 1}`}
+            aria-current={i === current}
+            onClick={() => go(i)}
+            className={cn(
+              "h-1.5 w-1.5 rounded-full transition-colors",
+              i === current ? "bg-white" : "bg-white/50",
+            )}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
 
 function channelChromeStyle(channel: SocialChannel) {
   switch (channel) {

@@ -6,6 +6,11 @@ import {
   deriveChannelsFromDestinations,
   deriveTargetConnectionIds,
 } from "@/lib/placements.server";
+import {
+  hasPlacementOptions,
+  normalizePlacementOptions,
+  type PlacementOptions,
+} from "@/lib/placement-options";
 import { resolveStageIdByKey } from "@/lib/post-stage.server";
 import { assertScheduleLead } from "@/lib/schedule-rules";
 import { describeQueueInsertError } from "@/lib/social/queue-conflict";
@@ -241,7 +246,12 @@ export type WizardPostState = {
   locationId: string | null;
   scheduledAt: string | null;
   stage: string;
-  destinations: Array<{ connectionId: string; channel: string; format: string }>;
+  destinations: Array<{
+    connectionId: string;
+    channel: string;
+    format: string;
+    options?: PlacementOptions;
+  }>;
   media: Array<{
     id: string;
     storagePath: string;
@@ -311,7 +321,16 @@ export const loadPostStateFn = createServerFn({ method: "POST" })
       const connectionId = pl.connection_id as string | null;
       const channel = typeof co.channel === "string" ? (co.channel as string) : "";
       if (connectionId && channel && currentConnectionIds.has(connectionId)) {
-        destinations.push({ connectionId, channel, format: pl.format as string });
+        const options =
+          co.options && typeof co.options === "object"
+            ? normalizePlacementOptions(channel as never, pl.format as never, co.options)
+            : undefined;
+        destinations.push({
+          connectionId,
+          channel,
+          format: pl.format as string,
+          ...(options && hasPlacementOptions(options) ? { options } : {}),
+        });
       }
 
       if (Array.isArray(co.hashtags) && !hashtags.length) {
@@ -388,6 +407,8 @@ const DestinationSchema = z.object({
   channel: z.enum(["instagram", "facebook", "linkedin", "tiktok", "youtube", "x", "threads"]),
   format: z.enum(["feed", "stories", "reels", "carrossel"]),
   copyOverride: z.string().nullable().optional(),
+  /** Opções avançadas do destino — normalizadas no servidor. */
+  options: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 const SaveInput = z
@@ -735,19 +756,27 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         let frameErr: string | null = null;
         for (let i = 0; i < frames.length; i++) {
           const path = frames[i];
+          const destOptions = normalizePlacementOptions(
+            d.channel as never,
+            d.format as never,
+            (d as { options?: unknown }).options,
+          );
+          const optionsPart = hasPlacementOptions(destOptions) ? { options: destOptions } : {};
           const media = isCarousel
             ? {
                 storagePaths: data.mediaPaths.slice(0, 10),
                 ...(data.linkUrl ? { link: data.linkUrl } : {}),
+                ...optionsPart,
               }
             : path
               ? {
                   storagePath: path,
                   ...(isStory ? {} : data.linkUrl ? { link: data.linkUrl } : {}),
+                  ...optionsPart,
                 }
               : !isStory && data.linkUrl
-                ? { link: data.linkUrl }
-                : {};
+                ? { link: data.linkUrl, ...optionsPart }
+                : { ...optionsPart };
           const frameIso = new Date(baseMs + i * 60_000).toISOString();
           const { error: spErr } = await supabase.from("social_posts").insert({
             brand_id: data.brandId,
@@ -1061,10 +1090,16 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
 
 
             try {
+              const publishOptions = normalizePlacementOptions(
+                d.channel as never,
+                d.format as never,
+                (d as { options?: unknown }).options,
+              );
               const result = await svc.publish(conn as any, {
                 placement: providerPlacement,
                 caption,
                 media: mediaOut,
+                ...(hasPlacementOptions(publishOptions) ? { options: publishOptions } : {}),
               });
               await supabase
                 .from("social_posts")

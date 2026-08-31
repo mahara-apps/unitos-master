@@ -10,6 +10,7 @@
 import { MetaProvider, MetaGraphError } from "./provider.server";
 import { isMediaNotReady } from "./rate-limit";
 import { decryptCredential } from "@/lib/credentials-crypto.server";
+import type { PlacementOptions } from "@/lib/placement-options";
 
 
 export type SupportedPlacement =
@@ -48,6 +49,8 @@ export type PublishInput = {
   media: PublishMedia;
   /** Reels: também publicar no Feed do Instagram (padrão: true). */
   shareToFeed?: boolean;
+  /** Opções avançadas do destino (primeiro comentário, tags, colaborador…). */
+  options?: PlacementOptions;
 };
 
 
@@ -55,7 +58,10 @@ export type PublishResult = {
   externalPostId: string;
   externalPermalink: string | null;
   providerResponse: Record<string, unknown>;
+  /** Opções que não puderam ser aplicadas — nunca derrubam a publicação. */
+  warnings?: string[];
 };
+
 
 export type MetaConnectionRow = {
   id: string;
@@ -101,7 +107,23 @@ export class MetaPublishingService {
     return this.dispatch(row, pageToken, input);
   }
 
-  private dispatch(
+  private async dispatch(
+    connection: MetaConnectionRow,
+    pageToken: string,
+    input: PublishInput,
+  ): Promise<PublishResult> {
+    const result = await this.dispatchPlacement(connection, pageToken, input);
+    // Opções pós-publicação (primeiro comentário, comentários desativados):
+    // best-effort — falha aqui NUNCA invalida a publicação já feita.
+    const warnings = [
+      ...(result.warnings ?? []),
+      ...(await this.applyPostPublishOptions(connection, pageToken, input, result)),
+    ];
+    return warnings.length ? { ...result, warnings } : result;
+
+  }
+
+  private dispatchPlacement(
     connection: MetaConnectionRow,
     pageToken: string,
     input: PublishInput,
@@ -122,6 +144,82 @@ export class MetaPublishingService {
     }
   }
 
+  /**
+   * Parâmetros de container do Instagram derivados das opções do destino.
+   * Localização só é aplicada quando o ID numérico do local é informado —
+   * nome livre não é aceito pela Graph API.
+   */
+  private igContainerOptions(
+    input: PublishInput,
+    opts: { withUserTags?: boolean } = {},
+  ): { query: Record<string, string>; warnings: string[] } {
+    const o = input.options ?? {};
+    const query: Record<string, string> = {};
+    const warnings: string[] = [];
+
+    if (o.collaborators?.length) {
+      query.collaborators = JSON.stringify(o.collaborators.slice(0, 3));
+    }
+    if (o.location) {
+      if (/^\d+$/.test(o.location)) query.location_id = o.location;
+      else
+        warnings.push(
+          "Localização não aplicada: informe o ID numérico do local do Facebook para marcar na publicação.",
+        );
+    }
+    if (o.userTags?.length) {
+      if (opts.withUserTags) {
+        query.user_tags = JSON.stringify(
+          o.userTags.slice(0, 20).map((username) => ({ username, x: 0.5, y: 0.5 })),
+        );
+      } else {
+        warnings.push("Marcação de pessoas não aplicada neste formato.");
+      }
+    }
+    return { query, warnings };
+  }
+
+  private async applyPostPublishOptions(
+    connection: MetaConnectionRow,
+    pageToken: string,
+    input: PublishInput,
+    result: PublishResult,
+  ): Promise<string[]> {
+    const o = input.options ?? {};
+    const warnings: string[] = [];
+    const isInstagram = input.placement.startsWith("instagram");
+    const isStory = input.placement === "instagram_story";
+
+    if (o.disableComments && isInstagram && !isStory) {
+      try {
+        await this.provider.graph(`/${result.externalPostId}`, {
+          accessToken: pageToken,
+          method: "POST",
+          query: { comment_enabled: "false" },
+        });
+      } catch {
+        warnings.push("Não foi possível desativar os comentários desta publicação.");
+      }
+    }
+
+    if (o.firstComment && !isStory) {
+      try {
+        await this.provider.graph(`/${result.externalPostId}/comments`, {
+          accessToken: pageToken,
+          method: "POST",
+          query: { message: o.firstComment },
+        });
+      } catch {
+        warnings.push("A publicação foi feita, mas o primeiro comentário não pôde ser postado.");
+      }
+    }
+
+    // Anotações operacionais nunca são enviadas — apenas sinalizadas.
+    void connection;
+    return warnings;
+  }
+
+
 
   // ------------------------------------------------------------ Instagram ---
   private async publishInstagramFeed(
@@ -137,15 +235,18 @@ export class MetaPublishingService {
     }
     const igId = connection.account_id;
 
-    // Step 1: create media container
+    // Step 1: create media container (com opções do destino)
+    const igOpts = this.igContainerOptions(input, { withUserTags: true });
     const container = await this.provider.graph<{ id: string }>(`/${igId}/media`, {
       accessToken: pageToken,
       method: "POST",
       query: {
         image_url: input.media.imageUrl,
         ...(input.caption ? { caption: input.caption } : {}),
+        ...igOpts.query,
       },
     });
+
 
     // Step 2: aguardar processamento (imagens grandes também levam tempo) e publicar
     await this.waitForContainerReady(container.id, pageToken);
@@ -168,7 +269,9 @@ export class MetaPublishingService {
       externalPostId: publish.id,
       externalPermalink: permalink,
       providerResponse: { container_id: container.id, media_id: publish.id },
+      ...(igOpts.warnings.length ? { warnings: igOpts.warnings } : {}),
     };
+
   }
 
   // ------------------------------------------------------------- Facebook ---
@@ -276,14 +379,18 @@ export class MetaPublishingService {
     }
     const igId = connection.account_id;
 
+    const igOpts = this.igContainerOptions(input);
+    const shareToFeed = input.shareToFeed ?? input.options?.shareToFeed;
     const container = await this.provider.graph<{ id: string }>(`/${igId}/media`, {
       accessToken: pageToken,
       method: "POST",
       query: {
         media_type: "REELS",
         video_url: input.media.videoUrl,
-        share_to_feed: input.shareToFeed === false ? "false" : "true",
+        share_to_feed: shareToFeed === false ? "false" : "true",
         ...(input.caption ? { caption: input.caption } : {}),
+        ...(input.options?.audioName ? { audio_name: input.options.audioName } : {}),
+        ...igOpts.query,
       },
     });
 
@@ -310,7 +417,9 @@ export class MetaPublishingService {
         media_id: publish.id,
         media_type: "REELS",
       },
+      ...(igOpts.warnings.length ? { warnings: igOpts.warnings } : {}),
     };
+
   }
 
   // ---------------------------------------------------------- IG Carousel ---
@@ -328,8 +437,15 @@ export class MetaPublishingService {
     const items = assertCarouselItems(input.media.items);
     const igId = connection.account_id;
 
+    // Marcação de pessoas no carrossel vale por item: aplicamos no PRIMEIRO
+    // slide (a Meta não aceita tags no container-pai).
+    const tagOpts = this.igContainerOptions(input, { withUserTags: true });
+    const firstChildTags = tagOpts.query.user_tags
+      ? { user_tags: tagOpts.query.user_tags }
+      : ({} as Record<string, string>);
+
     const childIds: string[] = [];
-    for (const item of items) {
+    for (const [i, item] of items.entries()) {
       const child = await this.provider.graph<{ id: string }>(`/${igId}/media`, {
         accessToken: pageToken,
         method: "POST",
@@ -338,11 +454,15 @@ export class MetaPublishingService {
           ...(item.videoUrl
             ? { media_type: "VIDEO", video_url: item.videoUrl }
             : { image_url: item.imageUrl! }),
+          ...(i === 0 ? firstChildTags : {}),
         },
       });
       await this.waitForContainerReady(child.id, pageToken);
       childIds.push(child.id);
     }
+
+    const parentOpts = this.igContainerOptions(input, { withUserTags: true });
+    delete parentOpts.query.user_tags; // tags vivem no slide, não no pai
 
     const parent = await this.provider.graph<{ id: string }>(`/${igId}/media`, {
       accessToken: pageToken,
@@ -351,6 +471,7 @@ export class MetaPublishingService {
         media_type: "CAROUSEL",
         children: childIds.join(","),
         ...(input.caption ? { caption: input.caption } : {}),
+        ...parentOpts.query,
       },
     });
     await this.waitForContainerReady(parent.id, pageToken);
@@ -377,7 +498,9 @@ export class MetaPublishingService {
         media_id: publish.id,
         media_type: "CAROUSEL",
       },
+      ...(parentOpts.warnings.length ? { warnings: parentOpts.warnings } : {}),
     };
+
   }
 
   // ---------------------------------------------------------- FB Carousel ---

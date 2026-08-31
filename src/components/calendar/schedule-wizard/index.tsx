@@ -55,7 +55,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { PlacementOptions } from "@/lib/placement-options";
 import { cn } from "@/lib/utils";
+import { PlacementOptionsPopover } from "./placement-options-popover";
 import {
   FORMATS_BY_CHANNEL,
   FORMAT_LABEL,
@@ -129,6 +131,10 @@ export type WizardSeed = {
 
 type Pair = { channel: SocialChannel; format: PlacementFormat; connectionId: string };
 
+/** Chave estável das opções por destino. */
+const destKey = (p: { connectionId: string; format: PlacementFormat }) =>
+  `${p.connectionId}::${p.format}`;
+
 export function ScheduleWizard({
   open,
   onOpenChange,
@@ -167,6 +173,8 @@ export function ScheduleWizard({
   const [title, setTitle] = useState("");
   const [copy, setCopy] = useState("");
   const [pairs, setPairs] = useState<Pair[]>([]);
+  // Opções avançadas por destino (connectionId::format).
+  const [destOptions, setDestOptions] = useState<Record<string, PlacementOptions>>({});
   const [selectedMedia, setSelectedMedia] = useState<BrandMediaAsset[]>([]);
   const [scheduleDate, setScheduleDate] = useState<string>("");
   const [scheduleTime, setScheduleTime] = useState<string>("");
@@ -209,6 +217,7 @@ export function ScheduleWizard({
       setTitle(seed?.title ?? "");
       setCopy(seed?.copy ?? "");
       setPairs([]);
+      setDestOptions({});
       setSelectedMedia([]);
       setHashtags([]);
       setTagInput("");
@@ -299,6 +308,16 @@ export function ScheduleWizard({
             format: d.format as PlacementFormat,
             connectionId: d.connectionId,
           })),
+        );
+        setDestOptions(
+          Object.fromEntries(
+            (st.destinations ?? [])
+              .filter((d) => d.options && Object.keys(d.options).length > 0)
+              .map((d) => [
+                `${d.connectionId}::${d.format}`,
+                d.options as PlacementOptions,
+              ]),
+          ),
         );
         setSelectedMedia(
           (st.media ?? []).map((m) => ({
@@ -624,6 +643,7 @@ export function ScheduleWizard({
             connectionId: p.connectionId,
             channel: p.channel,
             format: p.format,
+            options: destOptions[destKey(p)] ?? null,
           })),
           scheduledAt: scheduledIso,
           action,
@@ -1133,6 +1153,20 @@ export function ScheduleWizard({
                                 ? "Desconectado"
                                 : "Autorização necessária"}
                         </Badge>
+                        <PlacementOptionsPopover
+                          channel={p.channel}
+                          format={p.format}
+                          value={destOptions[destKey(p)] ?? {}}
+                          onChange={(next) =>
+                            setDestOptions((prev) => {
+                              const draft = { ...prev };
+                              if (!next || Object.keys(next).length === 0)
+                                delete draft[destKey(p)];
+                              else draft[destKey(p)] = next;
+                              return draft;
+                            })
+                          }
+                        />
                         <button
                           type="button"
                           onClick={() => togglePair(p.channel, p.format)}
@@ -1561,7 +1595,12 @@ export function ScheduleWizard({
                 copy={copy}
                 hashtags={hashtags}
                 media={previewMedia}
+                mediaItems={selectedMedia.map((m) => ({
+                  publicUrl: m.publicUrl ?? null,
+                  kind: m.kind,
+                }))}
                 mediaCount={selectedMedia.length}
+
                 location={locationName}
               />
             </div>
