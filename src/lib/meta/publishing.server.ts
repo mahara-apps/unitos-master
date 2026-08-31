@@ -16,13 +16,20 @@ export type SupportedPlacement =
   | "instagram_feed"
   | "facebook_feed"
   | "instagram_story"
-  | "instagram_reels";
+  | "instagram_reels"
+  | "instagram_carousel"
+  | "facebook_carousel";
 export const SUPPORTED_PLACEMENTS: SupportedPlacement[] = [
   "instagram_feed",
   "facebook_feed",
   "instagram_story",
   "instagram_reels",
+  "instagram_carousel",
+  "facebook_carousel",
 ];
+
+/** Item de carrossel (ordem = ordem das mídias da peça). */
+export type CarouselItem = { imageUrl?: string; videoUrl?: string };
 
 export type PublishMedia = {
   /** Publicly reachable image URL. Required for IG Feed. */
@@ -31,6 +38,8 @@ export type PublishMedia = {
   videoUrl?: string;
   /** Optional external link (Facebook feed only). */
   link?: string;
+  /** Carrossel: 2 a 10 mídias, na ordem de exibição. */
+  items?: CarouselItem[];
 };
 
 export type PublishInput = {
@@ -40,6 +49,7 @@ export type PublishInput = {
   /** Reels: também publicar no Feed do Instagram (padrão: true). */
   shareToFeed?: boolean;
 };
+
 
 export type PublishResult = {
   externalPostId: string;
