@@ -315,36 +315,43 @@ ${BRIEFING_OUTPUT_INSTRUCTIONS}`,
 
   /* ---------------------------- diff / propose ---------------------------- */
 
-  await setRunStep(db, scope, "diff", "running");
-  const evidenceByField = new Map(analysis.evidence.map((e) => [e.field, e] as const));
-  const changes = Object.entries(analysis.briefing).map(([field, proposed]) => {
-    const ev = evidenceByField.get(field);
-    return {
-      field,
-      currentValue: current[field] ?? null,
-      proposedValue: proposed,
-      action: classifyChange(current[field] ?? null, proposed),
-      confidence: ev?.confidence ?? analysis.confidence ?? null,
-      evidence: {
-        source: run.source_kind,
-        document_id: run.document_id,
-        document_name: docName,
-        excerpt: ev?.excerpt ?? null,
-        conflict: ev?.conflict === true,
-      },
-    };
+  const analyzed = analysis;
+  const changes = await withStepDeadline("diff", undefined, async () => {
+    await setRunStep(db, scope, "diff", "running");
+    const evidenceByField = new Map(analyzed.evidence.map((e) => [e.field, e] as const));
+    const rows = Object.entries(analyzed.briefing).map(([field, proposed]) => {
+      const ev = evidenceByField.get(field);
+      return {
+        field,
+        currentValue: current[field] ?? null,
+        proposedValue: proposed,
+        action: classifyChange(current[field] ?? null, proposed),
+        confidence: ev?.confidence ?? analyzed.confidence ?? null,
+        evidence: {
+          source: run.source_kind,
+          document_id: run.document_id,
+          document_name: docName,
+          excerpt: ev?.excerpt ?? null,
+          conflict: ev?.conflict === true,
+        },
+      };
+    });
+    await setRunStep(db, scope, "diff", "done", { output: { fields: rows.length } });
+    return rows;
   });
-  await setRunStep(db, scope, "diff", "done", { output: { fields: changes.length } });
 
-  await saveImportProposal(db, scope, {
-    changes,
-    summary: analysis.executive_summary ?? null,
-    confidence: analysis.confidence ?? null,
-    ...(isTranscript ? { speakers: analysis.speakers } : {}),
+  await withStepDeadline("propose", undefined, async () => {
+    await saveImportProposal(db, scope, {
+      changes,
+      summary: analyzed.executive_summary ?? null,
+      confidence: analyzed.confidence ?? null,
+      ...(isTranscript ? { speakers: analyzed.speakers } : {}),
+    });
+    await setRunStep(db, scope, "propose", "done", {
+      output: { material_type: analyzed.material_type },
+    });
   });
-  await setRunStep(db, scope, "propose", "done", {
-    output: { material_type: analysis.material_type },
-  });
+
 
   return { status: "proposed", provider, model, reusedInterpret };
 }
