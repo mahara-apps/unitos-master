@@ -63,6 +63,12 @@ const AiPlanSchema = z.object({
       channel: z.string().nullable(),
       target_audience: z.string().nullable(),
       rationale: z.string().nullable(),
+      /** 0 = domingo … 6 = sábado (fuso Brasília). */
+      suggested_weekday: z.number().nullable(),
+      /** "HH:MM" no fuso de Brasília. */
+      suggested_time: z.string().nullable(),
+      /** Justificativa curta do dia/hora escolhido. */
+      slot_rationale: z.string().nullable(),
     }),
   ),
 });
