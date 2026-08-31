@@ -375,9 +375,19 @@ export async function runPlanGeneration(args: {
     ...(strategy?.cohortNames ?? []),
   ].filter(Boolean);
 
+  // Horários com histórico real do cliente (evidência para o dia/hora sugerido).
+  const bestTimes = await loadBestTimesContext(supabase, {
+    brandId: input.brandId,
+    clientId: input.clientId,
+  }).catch((err) => {
+    console.warn("[monthly-plan] best times context failed", err);
+    return null;
+  });
+
   const extraContext = [
     strategy?.markdown,
     performance?.markdown,
+    bestTimes?.markdown,
     brainLearnings.markdown,
     brainMarkdown
       ? `## Contexto do Brain (memórias, insights e métricas desta marca)\n${brainMarkdown}\n\nUse esse contexto para evitar repetir erros passados e reforçar o que já funcionou.`
