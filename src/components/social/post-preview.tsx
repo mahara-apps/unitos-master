@@ -1,5 +1,8 @@
+import { useMemo, useRef, useState } from "react";
 import {
   Bookmark,
+  ChevronLeft,
+  ChevronRight,
   Heart,
   Image as ImageIcon,
   MessageSquare,
@@ -10,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { PlacementFormat } from "@/lib/scheduling-formats";
 import type { SocialChannel } from "@/lib/social-core/capabilities";
+
 
 /**
  * PostPreview — mock visual da peça no canal escolhido (feed, reels, stories).
