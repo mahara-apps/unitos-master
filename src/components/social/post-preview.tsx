@@ -186,45 +186,50 @@ export function PostPreview({
       ) : null}
 
       {/* Media */}
-      <div
-        className="relative w-full bg-muted"
-        style={{ aspectRatio: wideMedia ? "1.91 / 1" : "1 / 1" }}
-      >
-        {media?.publicUrl ? (
-          media.kind === "video" ? (
-            <video
-              src={media.publicUrl}
-              className="h-full w-full object-cover"
-              muted
-              playsInline
-              loop
-              autoPlay
-            />
-          ) : (
-            <img
-              src={media.publicUrl}
-              alt="Prévia da peça"
-              className="h-full w-full object-cover"
-            />
-          )
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground">
-            <ImageIcon className="h-6 w-6" />
-            <span className="text-[10.5px]">Nenhuma mídia selecionada</span>
-          </div>
-        )}
-        {/* Carousel dots */}
-        {format === "carrossel" && mediaCount > 1 ? (
-          <div className="absolute inset-x-0 bottom-2 z-10 flex items-center justify-center gap-1">
-            {Array.from({ length: Math.min(mediaCount, 10) }).map((_, i) => (
-              <span
-                key={i}
-                className={cn("h-1.5 w-1.5 rounded-full", i === 0 ? "bg-white" : "bg-white/50")}
+      {isCarousel ? (
+        <CarouselPreview slides={slides} wide={wideMedia} />
+      ) : (
+        <div
+          className="relative w-full bg-muted"
+          style={{ aspectRatio: wideMedia ? "1.91 / 1" : "1 / 1" }}
+        >
+          {media?.publicUrl ? (
+            media.kind === "video" ? (
+              <video
+                src={media.publicUrl}
+                className="h-full w-full object-cover"
+                muted
+                playsInline
+                loop
+                autoPlay
               />
-            ))}
-          </div>
-        ) : null}
-      </div>
+            ) : (
+              <img
+                src={media.publicUrl}
+                alt="Prévia da peça"
+                className="h-full w-full object-cover"
+              />
+            )
+          ) : (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground">
+              <ImageIcon className="h-6 w-6" />
+              <span className="text-[10.5px]">Nenhuma mídia selecionada</span>
+            </div>
+          )}
+          {/* Carrossel sem lista de mídias — apenas indicadores */}
+          {format === "carrossel" && mediaCount > 1 ? (
+            <div className="absolute inset-x-0 bottom-2 z-10 flex items-center justify-center gap-1">
+              {Array.from({ length: Math.min(mediaCount, 10) }).map((_, i) => (
+                <span
+                  key={i}
+                  className={cn("h-1.5 w-1.5 rounded-full", i === 0 ? "bg-white" : "bg-white/50")}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+      )}
+
 
       {/* Actions bar — Instagram/Facebook only */}
       {channel === "instagram" || channel === "facebook" ? (
