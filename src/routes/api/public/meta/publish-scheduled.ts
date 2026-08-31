@@ -153,25 +153,42 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
               (post.media as any) ?? {},
             );
             // Mapeamento placement (DB) → providerPlacement:
-            //   feed  → instagram_feed | facebook_feed (por canal)
-            //   story → instagram_story (Stories NUNCA carrega caption)
-            //   reel  → instagram_reels (exige vídeo; processamento assíncrono)
+            //   feed     → instagram_feed | facebook_feed (por canal)
+            //   story    → instagram_story (Stories NUNCA carrega caption)
+            //   reel     → instagram_reels (exige vídeo; processamento assíncrono)
+            //   carousel → instagram_carousel | facebook_carousel (2 a 10 mídias)
             const channel = (conn as any).channel as string | undefined;
             const providerPlacement:
               | "instagram_feed"
               | "facebook_feed"
               | "instagram_story"
-              | "instagram_reels" =
+              | "instagram_reels"
+              | "instagram_carousel"
+              | "facebook_carousel" =
               post.placement === "story"
                 ? "instagram_story"
                 : post.placement === "reel"
                   ? "instagram_reels"
-                  : channel === "facebook"
-                    ? "facebook_feed"
-                    : "instagram_feed";
+                  : post.placement === "carousel"
+                    ? channel === "facebook"
+                      ? "facebook_carousel"
+                      : "instagram_carousel"
+                    : channel === "facebook"
+                      ? "facebook_feed"
+                      : "instagram_feed";
             if (providerPlacement === "instagram_reels" && !media.videoUrl) {
               throw new DeterministicBlock(
                 "Reels exige um vídeo (MP4) na peça. Anexe o vídeo e reagende a publicação.",
+                "media_required",
+              );
+            }
+            if (
+              (providerPlacement === "instagram_carousel" ||
+                providerPlacement === "facebook_carousel") &&
+              (media.items?.length ?? 0) < 2
+            ) {
+              throw new DeterministicBlock(
+                "Carrossel exige pelo menos 2 mídias na peça. Anexe as mídias e reagende a publicação.",
                 "media_required",
               );
             }
@@ -180,6 +197,7 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
               caption: providerPlacement === "instagram_story" ? undefined : caption,
               media,
             });
+
             const { error: okErr } = await (supabaseAdmin as any).rpc(
               "mark_social_post_published",
               {
