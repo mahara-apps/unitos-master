@@ -313,6 +313,123 @@ export class MetaPublishingService {
     };
   }
 
+  // ---------------------------------------------------------- IG Carousel ---
+  // Carrossel no Instagram: 1 container por item (`is_carousel_item=true`),
+  // container-pai `media_type=CAROUSEL` com os filhos e a legenda, e publicação
+  // do pai. Vídeos entre os itens exigem espera de processamento.
+  private async publishInstagramCarousel(
+    connection: MetaConnectionRow,
+    pageToken: string,
+    input: PublishInput,
+  ): Promise<PublishResult> {
+    if (!connection.account_id) {
+      throw new Error("Esta Página do Facebook não tem conta Instagram Business vinculada.");
+    }
+    const items = assertCarouselItems(input.media.items);
+    const igId = connection.account_id;
+
+    const childIds: string[] = [];
+    for (const item of items) {
+      const child = await this.provider.graph<{ id: string }>(`/${igId}/media`, {
+        accessToken: pageToken,
+        method: "POST",
+        query: {
+          is_carousel_item: "true",
+          ...(item.videoUrl
+            ? { media_type: "VIDEO", video_url: item.videoUrl }
+            : { image_url: item.imageUrl! }),
+        },
+      });
+      await this.waitForContainerReady(child.id, pageToken);
+      childIds.push(child.id);
+    }
+
+    const parent = await this.provider.graph<{ id: string }>(`/${igId}/media`, {
+      accessToken: pageToken,
+      method: "POST",
+      query: {
+        media_type: "CAROUSEL",
+        children: childIds.join(","),
+        ...(input.caption ? { caption: input.caption } : {}),
+      },
+    });
+    await this.waitForContainerReady(parent.id, pageToken);
+
+    const publish = await this.publishContainer(igId, parent.id, pageToken);
+
+    let permalink: string | null = null;
+    try {
+      const meta = await this.provider.graph<{ permalink?: string }>(`/${publish.id}`, {
+        accessToken: pageToken,
+        query: { fields: "permalink" },
+      });
+      permalink = meta.permalink ?? null;
+    } catch {
+      /* permalink é opcional */
+    }
+
+    return {
+      externalPostId: publish.id,
+      externalPermalink: permalink,
+      providerResponse: {
+        container_id: parent.id,
+        children: childIds,
+        media_id: publish.id,
+        media_type: "CAROUSEL",
+      },
+    };
+  }
+
+  // ---------------------------------------------------------- FB Carousel ---
+  // No Facebook o "carrossel" de página é um post com múltiplas fotos: cada
+  // foto é enviada como não publicada (`published=false`) e depois anexada ao
+  // post do feed via `attached_media`. Vídeo não é suportado nesse formato.
+  private async publishFacebookCarousel(
+    connection: MetaConnectionRow,
+    pageToken: string,
+    input: PublishInput,
+  ): Promise<PublishResult> {
+    const items = assertCarouselItems(input.media.items);
+    if (items.some((i) => i.videoUrl)) {
+      throw new Error(
+        "Carrossel no Facebook aceita apenas imagens. Remova o vídeo ou publique o vídeo separadamente.",
+      );
+    }
+    const pageId = connection.external_id;
+
+    const photoIds: string[] = [];
+    for (const item of items) {
+      const photo = await this.provider.graph<{ id: string }>(`/${pageId}/photos`, {
+        accessToken: pageToken,
+        method: "POST",
+        query: { url: item.imageUrl!, published: "false" },
+      });
+      photoIds.push(photo.id);
+    }
+
+    const query: Record<string, string> = {
+      ...(input.caption ? { message: input.caption } : {}),
+      ...(input.media.link ? { link: input.media.link } : {}),
+    };
+    photoIds.forEach((id, i) => {
+      query[`attached_media[${i}]`] = JSON.stringify({ media_fbid: id });
+    });
+
+    const res = await this.provider.graph<{ id: string }>(`/${pageId}/feed`, {
+      accessToken: pageToken,
+      method: "POST",
+      query,
+    });
+
+    return {
+      externalPostId: res.id,
+      externalPermalink: `https://www.facebook.com/${res.id}`,
+      providerResponse: { post_id: res.id, attached_media: photoIds },
+    };
+  }
+
+
+
   /**
    * Aguarda o processamento da mídia pela Meta (Stories, Reels e Feed).
    * Erros de estado são traduzidos para pt-BR; timeout falha explicitamente
