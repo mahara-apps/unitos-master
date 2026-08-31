@@ -6,11 +6,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type {
-  ProposedScheduleItem,
-  ScheduleActionResult,
-  clientDecideSchedule as ClientDecideScheduleType,
-} from "@/lib/schedule-approval.server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ProposedScheduleItem, ScheduleActionResult } from "@/lib/schedule-approval.server";
 
 const tokenIn = z.object({ token: z.string().min(8) });
 const scopeIn = z.object({ clientId: z.string().uuid() });
@@ -77,7 +74,7 @@ export const decidePortalScheduleFn = createServerFn({ method: "POST" })
 
 /** Notificação interna da decisão do cliente — best-effort. */
 async function notifyDecisionSafely(
-  admin: Parameters<typeof clientDecideSchedule>[0],
+  admin: SupabaseClient,
   scope: { brandId: string; clientId: string },
   data: { decision: "approve" | "changes"; comment?: string },
   updated: number,
