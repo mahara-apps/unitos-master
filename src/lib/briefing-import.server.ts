@@ -139,7 +139,14 @@ export type ImportRunRow = {
   updated_at: string;
   started_at: string | null;
   finished_at: string | null;
+  lease_owner?: string | null;
+  lease_expires_at?: string | null;
+  heartbeat_at?: string | null;
+  deadline_at?: string | null;
+  max_attempts?: number | null;
+  resume_step?: ImportStep | null;
 };
+
 
 export type ImportCounts = {
   created: number;
