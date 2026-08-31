@@ -96,7 +96,15 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
           mentions: string[] | null;
           media: any;
         }>) {
+          // Espaçamento por conexão: Instagram gasta várias chamadas por
+          // publicação (contêiner + status + publish). Publicar Instagram e
+          // Facebook da mesma conta em rajada é o que estoura o limite do app.
+          const seenBefore = seenConnections.get(post.connection_id) ?? 0;
+          if (seenBefore > 0) await sleep(Math.min(seenBefore, 3) * 1500);
+          seenConnections.set(post.connection_id, seenBefore + 1);
+
           try {
+
             // ---- PRÉ-FLIGHT (2ª barreira, fail closed) ----------------------
             // A autorização pode ter mudado depois do agendamento: revalidamos
             // toda a cadeia (marca → cliente → vínculo → conexão → canal →
