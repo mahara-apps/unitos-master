@@ -27,6 +27,9 @@ export const IMPORT_RUN_STATUSES = [
   "failed",
   "cancelled",
   "discarded",
+  "paused",
+  "needs_input",
+  "expired",
 ] as const;
 export type ImportRunStatus = (typeof IMPORT_RUN_STATUSES)[number];
 
@@ -52,13 +55,26 @@ export const ACTIVE_RUN_STATUSES: ImportRunStatus[] = [
   "applying",
 ];
 
+/** Estados terminais recuperáveis por retry explícito (retomando checkpoints). */
+export const RETRYABLE_RUN_STATUSES: ImportRunStatus[] = [
+  "failed",
+  "expired",
+  "paused",
+  "needs_input",
+];
+
 const TRANSITIONS: Record<ImportRunStatus, ImportRunStatus[]> = {
-  queued: ["running", "failed", "cancelled"],
-  running: ["proposed", "failed", "cancelled"],
+  queued: ["running", "failed", "cancelled", "expired"],
+  // `running` só existe com lease válida; sem heartbeat o reaper devolve para
+  // `queued` (nova tentativa) ou encerra em `expired`.
+  running: ["proposed", "failed", "cancelled", "paused", "needs_input", "queued", "expired"],
   proposed: ["applying", "discarded", "failed", "cancelled"],
   applying: ["applied", "proposed", "failed"],
   applied: [],
   failed: ["queued", "running"],
+  paused: ["queued", "cancelled"],
+  needs_input: ["queued", "cancelled"],
+  expired: ["queued"],
   cancelled: [],
   discarded: [],
 };
@@ -66,6 +82,36 @@ const TRANSITIONS: Record<ImportRunStatus, ImportRunStatus[]> = {
 export function canTransition(from: ImportRunStatus, to: ImportRunStatus): boolean {
   return TRANSITIONS[from]?.includes(to) ?? false;
 }
+
+/**
+ * Classifica a falha de execução para decidir o estado terminal:
+ * - `paused`: bloqueio do provedor (chave ausente, crédito, limite de conta) —
+ *   retomar sem ação humana só repetiria o mesmo erro;
+ * - `needs_input`: material inservível (arquivo ilegível, sem texto);
+ * - `failed`: falha recuperável por retry.
+ */
+export function classifyRunFailure(error: unknown): {
+  status: Extract<ImportRunStatus, "paused" | "needs_input" | "failed">;
+  kind: string;
+} {
+  const raw = error instanceof Error ? `${error.message}` : String(error ?? "");
+  if (
+    /ai_provider_not_configured|no_provider|api[_ ]?key|unauthorized|invalid[_ ]api|credit|quota|billing|\b40[123]\b|insufficient/i.test(
+      raw,
+    )
+  ) {
+    return { status: "paused", kind: "provider_blocked" };
+  }
+  if (
+    /document_not_found|download_failed|empty_input_text|no_text|unsupported_media|unsupported_file|empty_document|too_large/i.test(
+      raw,
+    )
+  ) {
+    return { status: "needs_input", kind: "input" };
+  }
+  return { status: "failed", kind: "analysis" };
+}
+
 
 export type ImportRunRow = {
   id: string;
