@@ -111,9 +111,15 @@ export function DraftsDrawer({
           <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
             <Checkbox
               checked={allVisibleSelected}
-              onCheckedChange={() =>
-                onSelectMany(allVisibleSelected ? [] : visible.map((d) => d.postId))
-              }
+              onCheckedChange={() => {
+                const ids = visible.map((d) => d.postId);
+                onSelectMany(
+                  allVisibleSelected
+                    ? selected.filter((id) => !ids.includes(id))
+                    : Array.from(new Set([...selected, ...ids])),
+                );
+              }}
+
             />
             Selecionar todos os visíveis ({visible.length})
           </label>
