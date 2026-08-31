@@ -670,9 +670,29 @@ export async function runPlanGeneration(args: {
   });
 
   const basePosition = (resume?.maxPosition ?? -1) + 1;
+  // Sugestão de agenda: dia da semana + hora viram data concreta do mês da pauta,
+  // sem colisão de horário e sempre no fuso oficial.
+  const slots = new Map(
+    resolveMonthlySchedule({
+      monthAnchor: new Date(`${period.slice(0, 10)}T12:00:00.000Z`),
+      items: allocated.map((t, i) => ({
+        key: String(i),
+        weekday: t.suggested_weekday,
+        time: t.suggested_time,
+      })),
+    }).map((s) => [s.key, s.at]),
+  );
   const topicRows = allocated.map((t, i) => ({
     monthly_plan_id: plan.id,
-    ...t,
+    topic_title: t.topic_title,
+    content_format: t.content_format,
+    angle: t.angle,
+    channel: t.channel,
+    target_audience: t.target_audience,
+    rationale: t.rationale,
+    suggested_at: slots.get(String(i))?.toISOString() ?? null,
+    suggested_slot_rationale: t.suggested_slot_rationale,
+    suggested_confidence: t.suggested_weekday === null ? "low" : (bestTimes?.confidence ?? "low"),
     status: "pending" as const,
     position: basePosition + i * 1024,
   }));
