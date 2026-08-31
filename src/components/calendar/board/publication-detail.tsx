@@ -110,7 +110,6 @@ function previewTabs(item: PublicationItem) {
   return tabs;
 }
 
-
 export function PublicationDetailModal({
   item,
   open,
@@ -353,151 +352,151 @@ export function PublicationDetailModal({
             </div>
           </Section>
 
-
-        <Section title={`Destinos (${item.destinations.length})`}>
-          {item.destinations.length === 0 ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border/70 px-3 py-3 text-xs text-muted-foreground">
-              <span>Nenhum destino configurado — a peça não pode publicar assim.</span>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 px-2 text-[11px]"
-                onClick={() => onEdit(item)}
-              >
-                Definir canal e conta
-              </Button>
-            </div>
-          ) : (
-            <ul className="space-y-1.5">
-              {item.destinations.map((d) => {
-                const net = SOCIAL_NETWORKS[classifySocialNetwork(d.channel)];
-                const Icon = net.Icon;
-                return (
-                  <li
-                    key={d.placementId ?? `${d.channel}-${d.format}`}
-                    className={cn(
-                      "rounded-md border px-2.5 py-2",
-                      d.status === "failed"
-                        ? "border-destructive/40 bg-destructive/5"
-                        : "border-border/60 bg-background",
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex min-w-0 items-center gap-2">
-                        {d.status === "published" ? (
-                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                        ) : d.status === "failed" ? (
-                          <XCircle className="h-3.5 w-3.5 shrink-0 text-destructive" />
-                        ) : d.status === "publishing" ? (
-                          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-sky-500" />
-                        ) : (
-                          <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        )}
-                        <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="truncate text-xs font-medium">
-                          {net.label} · {formatLabel(d.format)}
-                        </span>
-                        {d.accountLabel ? (
-                          <span className="truncate text-[11px] text-muted-foreground">
-                            @{d.accountLabel}
+          <Section title={`Destinos (${item.destinations.length})`}>
+            {item.destinations.length === 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border/70 px-3 py-3 text-xs text-muted-foreground">
+                <span>Nenhum destino configurado — a peça não pode publicar assim.</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-[11px]"
+                  onClick={() => onEdit(item)}
+                >
+                  Definir canal e conta
+                </Button>
+              </div>
+            ) : (
+              <ul className="space-y-1.5">
+                {item.destinations.map((d) => {
+                  const net = SOCIAL_NETWORKS[classifySocialNetwork(d.channel)];
+                  const Icon = net.Icon;
+                  return (
+                    <li
+                      key={d.placementId ?? `${d.channel}-${d.format}`}
+                      className={cn(
+                        "rounded-md border px-2.5 py-2",
+                        d.status === "failed"
+                          ? "border-destructive/40 bg-destructive/5"
+                          : "border-border/60 bg-background",
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          {d.status === "published" ? (
+                            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                          ) : d.status === "failed" ? (
+                            <XCircle className="h-3.5 w-3.5 shrink-0 text-destructive" />
+                          ) : d.status === "publishing" ? (
+                            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-sky-500" />
+                          ) : (
+                            <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          )}
+                          <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate text-xs font-medium">
+                            {net.label} · {formatLabel(d.format)}
                           </span>
-                        ) : null}
+                          {d.accountLabel ? (
+                            <span className="truncate text-[11px] text-muted-foreground">
+                              @{d.accountLabel}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <span className="text-[10px] font-medium text-muted-foreground">
+                            {DESTINATION_STATUS_LABEL[d.status] ?? d.status}
+                          </span>
+                          {d.permalink ? (
+                            <a
+                              href={d.permalink}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                            >
+                              Ver <ExternalLink className="h-3 w-3" />
+                            </a>
+                          ) : null}
+                          {d.canRetry && d.placementId ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-6 px-2 text-[11px]"
+                              disabled={!!busy}
+                              onClick={() => handleRetry(d.placementId!, net.label)}
+                            >
+                              {busy === d.placementId ? (
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              ) : (
+                                <RefreshCw className="mr-1 h-3 w-3" />
+                              )}
+                              Tentar novamente
+                            </Button>
+                          ) : null}
+                        </div>
                       </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <span className="text-[10px] font-medium text-muted-foreground">
-                          {DESTINATION_STATUS_LABEL[d.status] ?? d.status}
-                        </span>
-                        {d.permalink ? (
-                          <a
-                            href={d.permalink}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-                          >
-                            Ver <ExternalLink className="h-3 w-3" />
-                          </a>
-                        ) : null}
-                        {d.canRetry && d.placementId ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-6 px-2 text-[11px]"
-                            disabled={!!busy}
-                            onClick={() => handleRetry(d.placementId!, net.label)}
-                          >
-                            {busy === d.placementId ? (
-                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                            ) : (
-                              <RefreshCw className="mr-1 h-3 w-3" />
-                            )}
-                            Tentar novamente
-                          </Button>
-                        ) : null}
-                      </div>
-                    </div>
-                    {d.status === "failed" && d.error ? (
-                      <p className="mt-1 pl-5 text-[11px] leading-snug text-destructive">
-                        {d.error}
-                        {d.attempts ? ` (${d.attempts} tentativa${d.attempts > 1 ? "s" : ""})` : ""}
-                      </p>
-                    ) : null}
-                    {d.status === "published" && d.publishedAt ? (
-                      <p className="mt-1 pl-5 text-[11px] text-muted-foreground">
-                        Publicado em {dt(d.publishedAt)}
-                      </p>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Section>
+                      {d.status === "failed" && d.error ? (
+                        <p className="mt-1 pl-5 text-[11px] leading-snug text-destructive">
+                          {d.error}
+                          {d.attempts
+                            ? ` (${d.attempts} tentativa${d.attempts > 1 ? "s" : ""})`
+                            : ""}
+                        </p>
+                      ) : null}
+                      {d.status === "published" && d.publishedAt ? (
+                        <p className="mt-1 pl-5 text-[11px] text-muted-foreground">
+                          Publicado em {dt(d.publishedAt)}
+                        </p>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Section>
 
-        {item.overall === "partial" ? (
-          <div className="flex items-start gap-2 rounded-md border border-orange-500/40 bg-orange-500/5 px-3 py-2 text-[11px] text-orange-700 dark:text-orange-300">
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>
-              Publicação parcial: {item.publishedCount} de {item.totalDestinations} destinos
-              publicaram. A ação de republicar atua somente no destino com falha.
-            </span>
-          </div>
-        ) : null}
+          {item.overall === "partial" ? (
+            <div className="flex items-start gap-2 rounded-md border border-orange-500/40 bg-orange-500/5 px-3 py-2 text-[11px] text-orange-700 dark:text-orange-300">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                Publicação parcial: {item.publishedCount} de {item.totalDestinations} destinos
+                publicaram. A ação de republicar atua somente no destino com falha.
+              </span>
+            </div>
+          ) : null}
 
-        <Section title="Histórico">
-          <details className="group rounded-md border border-border/60 bg-muted/10 px-3 py-2">
-            <summary className="cursor-pointer list-none text-[11px] font-medium text-muted-foreground">
-              Ver histórico da peça
-            </summary>
-            <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
-              <li>Criado em {dt(item.createdAt)}</li>
-              {item.proposedAt ? <li>Agenda proposta para {dt(item.proposedAt)}</li> : null}
-              {item.scheduleApprovedAt ? (
-                <li>Agenda aprovada em {dt(item.scheduleApprovedAt)}</li>
-              ) : null}
-              {item.scheduledAt ? <li>Agendado para {dt(item.scheduledAt)}</li> : null}
-              {item.destinations
-                .filter((d) => d.publishedAt)
-                .map((d) => (
-                  <li key={`h-${d.placementId}`}>
-                    {SOCIAL_NETWORKS[classifySocialNetwork(d.channel)].label} publicado em{" "}
-                    {dt(d.publishedAt)}
-                  </li>
-                ))}
-              {item.destinations
-                .filter((d) => d.status === "failed")
-                .map((d) => (
-                  <li key={`hf-${d.placementId}`} className="text-destructive">
-                    {SOCIAL_NETWORKS[classifySocialNetwork(d.channel)].label} falhou —{" "}
-                    {d.error ?? "erro não informado"}
-                  </li>
-                ))}
-              <li>Última atualização em {dt(item.updatedAt)}</li>
-            </ul>
-          </details>
-        </Section>
+          <Section title="Histórico">
+            <details className="group rounded-md border border-border/60 bg-muted/10 px-3 py-2">
+              <summary className="cursor-pointer list-none text-[11px] font-medium text-muted-foreground">
+                Ver histórico da peça
+              </summary>
+              <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
+                <li>Criado em {dt(item.createdAt)}</li>
+                {item.proposedAt ? <li>Agenda proposta para {dt(item.proposedAt)}</li> : null}
+                {item.scheduleApprovedAt ? (
+                  <li>Agenda aprovada em {dt(item.scheduleApprovedAt)}</li>
+                ) : null}
+                {item.scheduledAt ? <li>Agendado para {dt(item.scheduledAt)}</li> : null}
+                {item.destinations
+                  .filter((d) => d.publishedAt)
+                  .map((d) => (
+                    <li key={`h-${d.placementId}`}>
+                      {SOCIAL_NETWORKS[classifySocialNetwork(d.channel)].label} publicado em{" "}
+                      {dt(d.publishedAt)}
+                    </li>
+                  ))}
+                {item.destinations
+                  .filter((d) => d.status === "failed")
+                  .map((d) => (
+                    <li key={`hf-${d.placementId}`} className="text-destructive">
+                      {SOCIAL_NETWORKS[classifySocialNetwork(d.channel)].label} falhou —{" "}
+                      {d.error ?? "erro não informado"}
+                    </li>
+                  ))}
+                <li>Última atualização em {dt(item.updatedAt)}</li>
+              </ul>
+            </details>
+          </Section>
         </div>
       </div>
-
     </ExpandedModal>
   );
 }
