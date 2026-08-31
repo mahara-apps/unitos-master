@@ -1,91 +1,122 @@
-# Auditoria (read-only) — RBAC, autorização Meta/OAuth e Administração do Cliente
+# Arquitetura definitiva — Onboarding Rápido com documentos
 
-Fonte de verdade: código e banco atuais (consultados nesta auditoria). As auditorias antigas foram usadas apenas como contexto.
+Proposta técnica (sem implementação). Vale para qualquer instalação: nada depende de conta, chave ou configuração específica de um cliente.
 
-## 1. O que já está CORRETO (não mexer)
+## 1. Princípios
 
-- `is_super_admin(_user_id)` lê apenas `user_profiles.is_super_admin OR role='super_admin'`. **Não existe hardcode por e-mail/ID** em nenhum ponto do código (busca por e-mail/allowlist não retornou nada; a única menção a `jose@` é comentário). Qualquer novo super admin funciona igual ao MASTER.
-- `app_access_role`: super admin → `super_admin` sem precisar de membership; `owner`/`admin` → `admin`; `manager` → `manager`.
-- `is_global_admin()` já retorna `false` (admin global extinto). Não há privilégio cross-workspace para ADMIN — coerente com a regra 5.
-- `my_access` devolve para super admin **todos** os `brand_ids`; `can_access_client_row` retorna `true` para super admin.
-- Administração do Cliente (Recursos/Identidade/Ambiente): escrita protegida no servidor por `assertSuperAdmin` (`admin-environment.functions.ts`, `feature-flags.functions.ts`, `branding.functions.ts`) e no banco (`brand_features`, `feature_catalog`, `installation` só escrevem com `is_super_admin(auth.uid())`). ADMIN realmente não escreve.
+- A import run é a única fonte de verdade do progresso; o processo HTTP é descartável.
+- Todo passo é um checkpoint persistido: reexecutar o passo já concluído é proibido, não apenas evitado.
+- Nenhum estado "running" existe sem lease com validade; sem heartbeat, a run é recuperada.
+- O consumidor da fila é um worker acionado por cron, não `waitUntil`.
+- Fallback de LLM é por candidato, com requisição remontada para o dialeto do provider.
 
-Hoje existe **1 único super admin** e ele tem **0 memberships ativas** em `brand_members` — importante para os testes (todo acesso dele depende exclusivamente do caminho super admin).
+## 2. Estados da import_run
 
-## 2. Lacunas de RBAC encontradas
+| Estado | Significado |
+|---|---|
+| `queued` | trabalho pendente, ninguém detém lease |
+| `leased` | worker detém lease válida (substitui o antigo "running" sem dono) |
+| `paused` | interrompido por causa não transitória do provider (crédito/limite/config) |
+| `needs_input` | falta ação humana (arquivo ilegível, sem texto extraível) |
+| `proposed` | proposta pronta para revisão campo a campo |
+| `applying` | aplicação idempotente em andamento |
+| `applied` | terminal de sucesso |
+| `failed` | terminal recuperável por retry explícito |
+| `canceled` | terminal por decisão do usuário |
+| `expired` | lease morta e tentativas esgotadas (terminal, libera o índice) |
 
-1. **Guard de rota da Administração do Cliente é fail-open**: em `src/routes/_authenticated/admin.tsx`, o `beforeLoad` faz `try { amISuperAdmin() } catch { return }` — qualquer erro de rede/401 transitório libera o render da área. Mesmo problema em `settings.branding.tsx`.
-2. **Leitura das três telas não exige super admin**: `listBrandFeatures` e as leituras de identidade/ambiente são acessíveis a membros (`brand_features` SELECT = `is_brand_member`), então ADMIN que force a URL/RPC ainda consegue *ler* dados dessas telas. A regra 3 pede bloqueio de UI + rota + servidor também na leitura.
-3. **Divergência ADMIN × MANAGER**: no código `isBrandAdmin` = `super_admin|admin`; na RLS `is_brand_admin_level` = `super_admin|admin|manager`. Logo MANAGER pode escrever `social_connections`, `client_social_accounts` e **atualizar `brands`** direto pela RLS, contrariando a matriz de papéis.
-4. `useAccessRole` colapsa `manager` em `role: "admin"` para a UI; menus de gestão aparecem para manager. Não bloqueia servidor, mas confunde a regra.
-5. `src/lib/permissions.ts` mantém matriz legada (`resolveAccessRole` trata `manager` como admin, `SIDEBAR_ALLOWED_URLS` sem noção de super admin) — hoje o sidebar compensa com `isSuper`, mas a fonte dupla é a origem das divergências.
+Transições válidas:
 
-## 3. Causa raiz do problema Meta (não é RBAC de aplicação — é RLS)
+```text
+queued  -> leased | canceled
+leased  -> queued (heartbeat perdido / backoff) | paused | needs_input
+         | proposed | failed | expired
+paused  -> queued (retomada do dono ou probe) | canceled
+needs_input -> queued (novo arquivo/texto) | canceled
+proposed -> applying | failed | canceled
+applying -> applied | proposed (falha de escrita, revisão intacta)
+failed  -> queued (retry explícito, preservando checkpoints) | canceled
+```
 
-`meta_oauth_sessions` tem **apenas** estas policies: SELECT/UPDATE/DELETE com `user_id = auth.uid()`. **Não existe policy de INSERT, nem de super admin, nem de administrador do workspace.**
+Qualquer outra transição é rejeitada por `UPDATE ... WHERE status = <esperado>` (CAS), nunca por leitura seguida de escrita.
 
-Consequências, confirmadas pelo código:
+## 3. Checkpoint por etapa
 
-- O callback grava a sessão com `supabaseAdmin` (bypassa RLS) e a atribui a `user_id = state.userId`.
-- Todo o resto (`meta.functions.ts:getActiveMetaSession`, `portfolio.functions.ts:getMetaPortfolio` e suas escritas de cache, `discovery.functions.ts`, `discovery.server.ts`, `portfolio-admin.functions.ts:getMetaPortfolioStatus`, `authorization.server.ts:revoke*`) usa o client **autenticado**. Resultado: quem não criou a sessão vê zero linhas → "Sessão da Meta não encontrada ou revogada", nenhuma conta/portfólio listado, e as escritas de cache do portfólio afetam 0 linhas silenciosamente.
-- Isso vale **inclusive para o SUPER ADMIN**, e para o ADMIN que deveria reutilizar a autorização do workspace — exatamente o contrário do que os comentários do código afirmam ("a autorização pertence ao WORKSPACE").
-- `revokeMetaPortfolio`/`revokeMetaAuthorization` também não conseguem revogar sessões de outro usuário.
+Etapas: `upload` → `extract` → `ingest` → `interpret` → `diff` → `propose` → `apply`.
 
-Portanto: **a arquitetura Meta está correta no código e quebrada na RLS.**
+- Cada etapa grava em `briefing_import_steps` seu `output_ref` (texto extraído no Storage, não em coluna) e `content_hash`.
+- Retry parte da primeira etapa não `done`. `extract`/`ingest` concluídos nunca são refeitos; só `interpret` é reexecutado — elimina o custo duplicado de IA de hoje.
+- `force` deixa de existir como caminho normal: passa a ser "reprocessar desde a etapa X", com X escolhido explicitamente.
 
-## 4. `This app needs at least one supported permission`
+## 4. Concorrência e duplicidade
 
-Não é RBAC. Em `MetaProvider.buildAuthorizeUrl`, quando `META_BUSINESS_CONFIG_ID` existe o código envia `config_id` e **omite `scope`** (comportamento correto do Facebook Login for Business). A Meta emite essa mensagem quando o diálogo não consegue derivar nenhuma permissão, ou seja:
+- Lease: colunas `lease_owner`, `lease_expires_at`, `heartbeat_at`. Aquisição é `UPDATE ... SET lease_* WHERE status='queued' AND (lease_expires_at IS NULL OR lease_expires_at < now()) RETURNING id` — um único vencedor, sem corrida.
+- Heartbeat a cada ~15s durante etapas longas; lease de 2 min renovada.
+- Índice parcial ativo passa a considerar só estados realmente vivos (`queued`, `leased`, `applying`, `proposed`). `expired`/`failed`/`canceled` não bloqueiam nova importação do mesmo arquivo — fim do travamento atual.
+- Idempotência de criação: `idempotency_key` = brand + client + fingerprint do conteúdo + etapa alvo; recriar retorna a run existente em vez de erro.
 
-- `config_id` inexistente/pertencente a outro App ID, ou de tipo errado (precisa ser configuração de *Facebook Login for Business*), ou
-- a configuração de login não tem permissões/ativos selecionados, ou
-- as permissões pedidas não estão disponíveis para o App (produto não adicionado / não aprovado — ex.: Threads, `business_management`).
+## 5. Timeout e reaper
 
-O que o código deve fazer: validar o `config_id` no boot da autorização (Graph `GET /{config_id}` com app access token), e em caso de configuração inválida **cair para o modo legado com `scope`** em vez de gerar uma URL que a Meta rejeita, registrando o motivo e expondo-o no diagnóstico já existente (`getMetaOAuthModeFn`). A correção final da lista de permissões é de configuração no App Meta, não de código.
+- Deadline por etapa (`extract` 60s, `interpret` 120s, `apply` 30s) via `AbortSignal`, propagado às chamadas de LLM e Storage.
+- Deadline total da run (ex. 15 min) gravado em `deadline_at`.
+- Reaper em `/api/public/cron/import-reaper` (autenticado por `CRON_SECRET`, padrão já do projeto), a cada minuto: leases expiradas voltam a `queued` até `max_attempts`; excedido, `expired` com `error_kind` explícito. Runs além do `deadline_at` vão direto a `expired`.
 
-## 5. Plano de correção (ordem segura)
+## 6. Worker e fim da dependência de waitUntil
 
-### Etapa 1 — Migration A: autorização Meta pertence ao workspace
-- Substituir as três policies `user_id = auth.uid()` de `meta_oauth_sessions` por:
-  - SELECT: `is_super_admin(auth.uid()) OR is_brand_owner_or_admin(brand_id, auth.uid())` (ver função nova abaixo) `OR user_id = auth.uid()`;
-  - INSERT/UPDATE/DELETE: `is_super_admin(auth.uid()) OR is_brand_owner_or_admin(brand_id, auth.uid())`;
-  - `GRANT SELECT, INSERT, UPDATE, DELETE ... TO authenticated` (revalidar grants existentes).
-- Criar `public.is_brand_owner_or_admin(_brand_id uuid, _user_id uuid)` = `app_access_role(...) IN ('super_admin','admin')` — fonte canônica única para "autoridade de integração", espelhando `isBrandAdmin` do código (exclui MANAGER, ao contrário de `is_brand_admin_level`).
-- Aceite: um ADMIN do workspace (que não autorizou) lista portfólios/contas; super admin lista em qualquer workspace; MANAGER/USER não leem nada; sessão de outro workspace nunca aparece.
+- `/api/public/cron/import-worker` processa um lote pequeno e limitado (ex. 3 runs) por invocação, com guarda de pausa global.
+- O enfileiramento pela UI apenas cria a run `queued`; opcionalmente dispara um "kick" imediato do worker — mas o cron garante o progresso mesmo se o kick falhar.
+- Escritas em background usam o cliente de serviço **após** validar escopo brand/cliente na entrada, para não depender do access token do usuário, que pode expirar no meio.
 
-### Etapa 2 — Migration B: coerência ADMIN × MANAGER nas integrações
-- Trocar `is_brand_admin_level` por `is_brand_owner_or_admin` nas policies de escrita de `social_connections`, `client_social_accounts` e no UPDATE de `brands`.
-- Manter `is_brand_admin_level` onde MANAGER realmente deve operar (não tocar nas demais tabelas nesta fase).
-- Aceite: MANAGER não conecta/desconecta canal nem edita o workspace; ADMIN faz tudo isso.
+## 7. LLM: tokens, 503 e structured output
 
-### Etapa 3 — Migration C: leitura da Administração do Cliente
-- `brand_features` SELECT passa a `is_super_admin(auth.uid())` + política separada de leitura mínima para o gate de features do app via função `SECURITY DEFINER` já existente (`listBrandFeatures` continua funcionando por RPC, sem expor a tabela a ADMIN), ou nova `public.my_brand_features(_brand_id)` retornando apenas `key/enabled`.
-- Aceite: ADMIN continua com os módulos habilitados funcionando, mas não lê a tabela de configuração nem as telas.
+- Tabela de capacidades por modelo (contexto, teto de saída, aceita/não aceita `reasoningEffort`, `strictJsonSchema`, tool calling). Sem hardcode de instalação: alimentada pelo catálogo de modelos + overrides do workspace.
+- Orçamento de entrada calculado por tokens estimados, não por corte fixo de caracteres. Excedendo, o material é dividido em blocos com merge determinístico; truncamento silencioso deixa de existir e fica registrado no step.
+- Cada candidato monta sua própria requisição: Gemini via tool calling; Groq/OpenAI via structured output do adapter, só com parâmetros que aquele provider aceita.
+- Schema no wire sem bounds/enums frágeis; limites aplicados na normalização local.
+- Classificação de erro: `400`/schema inválido é terminal (sem retry, sem fallback); `429`/`5xx` (503 do Gemini) tem backoff exponencial com jitter, tentativas limitadas e então fallback para o próximo candidato; crédito/limite/config → `paused`, nunca loop.
+- Degradação de contrato antes de trocar de provider: estrito → permissivo (JSON livre + validação local).
+- Circuit breaker persistido por provider/modelo (reaproveitando `ai_model_health`): provider em falha recente é despriorizado na seleção.
 
-### Etapa 4 — Servidor (sem UI)
-- `src/lib/super-admin.ts`: manter única fonte; adicionar `assertSuperAdmin` nas **leituras** das três telas (`admin-environment.functions.ts` get*, `feature-flags.functions.ts` listagens de catálogo/ambiente, `branding.functions.ts` leitura administrativa).
-- `src/lib/access-guard.ts`: adicionar `assertIntegrationAuthority(supabase, userId, brandId)` chamando a nova RPC `is_brand_owner_or_admin`, e substituir o import dinâmico de `isBrandAdmin` (hoje vindo de `monthly-plan-delete.server.ts`, acoplamento indevido) em `src/lib/meta/meta.functions.ts`, `portfolio-admin.functions.ts`, `schedule-approval.server.ts`.
-- `src/lib/meta/portfolio.functions.ts`, `discovery.functions.ts`: aplicar `assertIntegrationAuthority` no início dos handlers (defesa em profundidade além da RLS).
+## 8. UI: progresso confiável
 
-### Etapa 5 — OAuth Meta
-- `src/lib/meta/provider.server.ts`: função `validateBusinessConfig()` (Graph `GET /{config_id}` com `client_id|client_secret`); `metaOAuthModeDiagnostics()` passa a reportar `config_valid` e o motivo da rejeição.
-- `meta.functions.ts:startMetaOAuth`: se o `config_id` for inválido, gerar a URL legada com `scope` e devolver aviso em pt-BR na resposta (sem quebrar o fluxo).
-- Documentar em `docs/META_MULTI_INSTALACAO.md` a checklist do App Meta (produtos, permissões, configuração de login).
+- Realtime em `briefing_import_runs` + `briefing_import_steps` como canal primário; polling com backoff (2s→10s) como reserva.
+- A UI nunca decide "acabou" por tempo: só por estado terminal ou `expired`/`failed`, sempre com `error_kind` traduzido em pt-BR e ação sugerida (tentar de novo, enviar outro arquivo, avisar o administrador).
+- Barra de etapas espelha os steps persistidos, então recarregar a página ou trocar de dispositivo mostra o mesmo progresso.
 
-### Etapa 6 — Frontend (gating alinhado, sem redesenho)
-- `admin.tsx` e `settings.branding.tsx`: `beforeLoad` **fail-closed** (erro → redirect `/dashboard`), mantendo o skip em SSR.
-- `use-access-role.tsx` / `permissions.ts`: expor `canManageIntegrations` (super_admin|admin) e `canAccessClientAdmin` (super_admin) e usar esses flags no sidebar e na tela de Integrações, eliminando a matriz legada que confunde MANAGER com ADMIN.
+## 9. Payloads grandes
 
-### Etapa 7 — Testes
-- Novo `tests/meta-authorization-workspace.integration.test.ts`: ADMIN reutiliza sessão criada por outro admin; super admin idem em workspace onde não é membro; MANAGER/USER bloqueados; sessão de outro workspace invisível.
-- Novo `tests/client-admin-superadmin-only.integration.test.ts`: ADMIN recebe erro nas leituras/escritas de Recursos/Identidade/Ambiente; **segundo** super admin (criado no teste) tem acesso idêntico ao MASTER.
-- Novo `tests/integration-authority.integration.test.ts`: MANAGER não escreve `social_connections`/`brands`; ADMIN escreve.
-- `tests/meta-oauth-redirect-uri.unit.test.ts`: acrescentar casos de `config_id` válido/inválido e do fallback para `scope`.
-- Revisar `tests/global-admin.integration.test.ts` e `tests/rbac-scope.integration.test.ts` para refletirem a matriz final.
+- Upload direto ao Storage por URL assinada, substituindo Base64 no cliente (hoje ~33MB em memória para 25MB de arquivo).
+- Limite de tamanho e de páginas validado antes de criar a run; recusa explícita em vez de falha tardia.
+- Extração sempre no servidor (fonte única), eliminando a divergência navegador × servidor.
 
-## 6. Critérios de aceite globais
+## 10. Separação do trabalho
 
-- Qualquer usuário com `is_super_admin` acessa tudo (as três telas + toda a operação/integração), sem membership e sem privilégio hardcoded.
-- ADMIN opera toda a área de Integrações (conectar, listar portfólios/contas/ativos, sincronizar, vincular, desconectar) e é bloqueado nas três telas em UI, rota, server function e RLS.
-- MANAGER/USER seguem restritos aos clientes atribuídos e sem autoridade de integração.
-- Nenhuma migration destrutiva: apenas `CREATE OR REPLACE FUNCTION`, `DROP POLICY`/`CREATE POLICY` e `GRANT`.
+**Banco / migrations**
+- Novos estados no domínio de `status` (`leased`, `paused`, `needs_input`, `expired`, `canceled`).
+- Colunas: `lease_owner`, `lease_expires_at`, `heartbeat_at`, `deadline_at`, `max_attempts`, `resume_step`.
+- Steps: `output_ref`, `content_hash`, `deadline_at`.
+- Reescrita do índice parcial de run ativa; função de aquisição de lease (`security definer`) e função do reaper.
+- Realtime habilitado nas duas tabelas, mantendo as policies de escopo atuais.
+
+**Código**
+- Worker e reaper como rotas `/api/public/cron/*` com `CRON_SECRET`.
+- Remoção do caminho `waitUntil` como executor; enfileiramento + kick opcional.
+- Executor de LLM provider-aware com capacidades, orçamento de tokens, backoff/fallback e classificação de erro.
+- Retomada por etapa em `retryImportRun` (sem `force` cego) e checkpoints em `briefing-import.server.ts`.
+- Upload por URL assinada e extração unificada no servidor.
+- UI: realtime + polling com backoff, estados terminais e mensagens acionáveis.
+- Testes: transições inválidas, corrida de lease, reaper, retomada sem recomputar `ingest`, 503→fallback, 400 terminal, schema por provider, arquivo grande, arquivo ilegível.
+
+**Configuração externa**
+- Agendamento pg_cron para worker e reaper (por instalação).
+- `CRON_SECRET` definido em cada instalação.
+- Chaves BYOK dos providers no workspace, com pelo menos dois candidatos para o fallback ter efeito.
+- Limites de tamanho de arquivo no bucket do Storage.
+
+## 11. Política de recuperação
+
+- Falha transitória: backoff e reexecução automática do mesmo passo, dentro do limite de tentativas.
+- Isolate morto: reaper devolve a `queued` e o worker retoma do último checkpoint.
+- Falha terminal de provider: `paused`, visível ao administrador, retomada por ação explícita ou probe único.
+- Conteúdo inservível: `needs_input`, com orientação ao usuário.
+- Tentativas esgotadas: `expired`, sem bloquear novas importações; histórico e revisão anteriores permanecem íntegros.
