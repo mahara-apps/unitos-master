@@ -98,6 +98,7 @@ import { Route as ApiPublicHooksBrainConsolidateRouteImport } from './routes/api
 import { Route as ApiPublicHooksAiModelsHealthRouteImport } from './routes/api/public/hooks/ai-models-health'
 import { Route as ApiPublicCronSlaCheckRouteImport } from './routes/api/public/cron/sla-check'
 import { Route as ApiPublicCronImportWorkerRouteImport } from './routes/api/public/cron/import-worker'
+import { Route as ApiPublicCronImportReaperRouteImport } from './routes/api/public/cron/import-reaper'
 import { Route as ApiPublicApprovalTokenRouteImport } from './routes/api/public/approval.$token'
 import { Route as AuthenticatedCustomersCustomerIdPautaRouteImport } from './routes/_authenticated/customers.$customerId.pauta'
 import { Route as AuthenticatedCustomersCustomerIdMediaPlanRouteImport } from './routes/_authenticated/customers.$customerId.media-plan'
@@ -588,6 +589,12 @@ const ApiPublicCronImportWorkerRoute =
     path: '/api/public/cron/import-worker',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicCronImportReaperRoute =
+  ApiPublicCronImportReaperRouteImport.update({
+    id: '/api/public/cron/import-reaper',
+    path: '/api/public/cron/import-reaper',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicApprovalTokenRoute = ApiPublicApprovalTokenRouteImport.update({
   id: '/api/public/approval/$token',
   path: '/api/public/approval/$token',
@@ -707,6 +714,7 @@ export interface FileRoutesByFullPath {
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/customers/$customerId/pauta': typeof AuthenticatedCustomersCustomerIdPautaRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
+  '/api/public/cron/import-reaper': typeof ApiPublicCronImportReaperRoute
   '/api/public/cron/import-worker': typeof ApiPublicCronImportWorkerRoute
   '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
   '/api/public/hooks/ai-models-health': typeof ApiPublicHooksAiModelsHealthRoute
@@ -796,6 +804,7 @@ export interface FileRoutesByTo {
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/customers/$customerId/pauta': typeof AuthenticatedCustomersCustomerIdPautaRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
+  '/api/public/cron/import-reaper': typeof ApiPublicCronImportReaperRoute
   '/api/public/cron/import-worker': typeof ApiPublicCronImportWorkerRoute
   '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
   '/api/public/hooks/ai-models-health': typeof ApiPublicHooksAiModelsHealthRoute
@@ -895,6 +904,7 @@ export interface FileRoutesById {
   '/_authenticated/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/_authenticated/customers/$customerId/pauta': typeof AuthenticatedCustomersCustomerIdPautaRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
+  '/api/public/cron/import-reaper': typeof ApiPublicCronImportReaperRoute
   '/api/public/cron/import-worker': typeof ApiPublicCronImportWorkerRoute
   '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
   '/api/public/hooks/ai-models-health': typeof ApiPublicHooksAiModelsHealthRoute
@@ -993,6 +1003,7 @@ export interface FileRouteTypes {
     | '/customers/$customerId/media-plan'
     | '/customers/$customerId/pauta'
     | '/api/public/approval/$token'
+    | '/api/public/cron/import-reaper'
     | '/api/public/cron/import-worker'
     | '/api/public/cron/sla-check'
     | '/api/public/hooks/ai-models-health'
@@ -1082,6 +1093,7 @@ export interface FileRouteTypes {
     | '/customers/$customerId/media-plan'
     | '/customers/$customerId/pauta'
     | '/api/public/approval/$token'
+    | '/api/public/cron/import-reaper'
     | '/api/public/cron/import-worker'
     | '/api/public/cron/sla-check'
     | '/api/public/hooks/ai-models-health'
@@ -1180,6 +1192,7 @@ export interface FileRouteTypes {
     | '/_authenticated/customers/$customerId/media-plan'
     | '/_authenticated/customers/$customerId/pauta'
     | '/api/public/approval/$token'
+    | '/api/public/cron/import-reaper'
     | '/api/public/cron/import-worker'
     | '/api/public/cron/sla-check'
     | '/api/public/hooks/ai-models-health'
@@ -1219,6 +1232,7 @@ export interface RootRouteChildren {
   ApiJobsCustomerPipelineRoute: typeof ApiJobsCustomerPipelineRoute
   PBriefingTokenRoute: typeof PBriefingTokenRoute
   ApiPublicApprovalTokenRoute: typeof ApiPublicApprovalTokenRoute
+  ApiPublicCronImportReaperRoute: typeof ApiPublicCronImportReaperRoute
   ApiPublicCronImportWorkerRoute: typeof ApiPublicCronImportWorkerRoute
   ApiPublicCronSlaCheckRoute: typeof ApiPublicCronSlaCheckRoute
   ApiPublicHooksAiModelsHealthRoute: typeof ApiPublicHooksAiModelsHealthRoute
@@ -1864,6 +1878,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCronImportWorkerRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/import-reaper': {
+      id: '/api/public/cron/import-reaper'
+      path: '/api/public/cron/import-reaper'
+      fullPath: '/api/public/cron/import-reaper'
+      preLoaderRoute: typeof ApiPublicCronImportReaperRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/approval/$token': {
       id: '/api/public/approval/$token'
       path: '/api/public/approval/$token'
@@ -2185,6 +2206,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiJobsCustomerPipelineRoute: ApiJobsCustomerPipelineRoute,
   PBriefingTokenRoute: PBriefingTokenRoute,
   ApiPublicApprovalTokenRoute: ApiPublicApprovalTokenRoute,
+  ApiPublicCronImportReaperRoute: ApiPublicCronImportReaperRoute,
   ApiPublicCronImportWorkerRoute: ApiPublicCronImportWorkerRoute,
   ApiPublicCronSlaCheckRoute: ApiPublicCronSlaCheckRoute,
   ApiPublicHooksAiModelsHealthRoute: ApiPublicHooksAiModelsHealthRoute,
