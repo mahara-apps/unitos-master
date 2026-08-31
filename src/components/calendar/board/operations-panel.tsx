@@ -5,12 +5,15 @@ import {
   ChevronRight,
   FileText,
   ImageOff,
+  Layers,
   Loader2,
   XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DashboardPanelSurface, DashboardIconFrame } from "@/components/ui/dashboard-primitives";
+
 import {
   PUBLICATION_STATUS,
   dayLabel,
@@ -111,6 +114,9 @@ export function OperationsPanel({
   failures,
   drafts,
   draftsLoading,
+  selectedDrafts = [],
+  onToggleDraft,
+  onBulkDrafts,
   onOpen,
   onOpenDraft,
   onSeeAllDrafts,
@@ -120,10 +126,15 @@ export function OperationsPanel({
   failures: PublicationItem[];
   drafts: PendingSchedulePost[];
   draftsLoading?: boolean;
+  /** IDs marcados para ação em massa. */
+  selectedDrafts?: string[];
+  onToggleDraft?: (postId: string) => void;
+  onBulkDrafts?: () => void;
   onOpen: (item: PublicationItem) => void;
-  onOpenDraft: (draft: PendingSchedulePost) => void;
+  onOpenDraft: (draft: PendingSchedulePost, index: number) => void;
   onSeeAllDrafts?: () => void;
 }) {
+
   return (
     <div className="flex flex-col gap-3">
       <Block
@@ -302,16 +313,28 @@ export function OperationsPanel({
             : `${drafts.length} ${drafts.length === 1 ? "rascunho" : "rascunhos"}`
         }
         action={
-          drafts.length > 3 && onSeeAllDrafts ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-[10px]"
-              onClick={onSeeAllDrafts}
-            >
-              Ver todos
-            </Button>
-          ) : null
+          <div className="flex items-center gap-1">
+            {selectedDrafts.length && onBulkDrafts ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 gap-1 px-2 text-[10px]"
+                onClick={onBulkDrafts}
+              >
+                <Layers className="h-3 w-3" /> Em massa ({selectedDrafts.length})
+              </Button>
+            ) : null}
+            {onSeeAllDrafts ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-[10px]"
+                onClick={onSeeAllDrafts}
+              >
+                Ver todos
+              </Button>
+            ) : null}
+          </div>
         }
       >
         {draftsLoading ? (
@@ -322,12 +345,19 @@ export function OperationsPanel({
           <Empty title="Nenhum rascunho" hint="Peças em edição aparecem aqui." />
         ) : (
           <ul className="divide-y divide-border/60">
-            {drafts.slice(0, 4).map((d) => (
-              <li key={d.postId}>
+            {drafts.slice(0, 4).map((d, i) => (
+              <li key={d.postId} className="flex items-center gap-2 pl-3.5">
+                {onToggleDraft ? (
+                  <Checkbox
+                    checked={selectedDrafts.includes(d.postId)}
+                    onCheckedChange={() => onToggleDraft(d.postId)}
+                    aria-label={`Selecionar ${d.title}`}
+                  />
+                ) : null}
                 <button
                   type="button"
-                  onClick={() => onOpenDraft(d)}
-                  className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left transition-colors hover:bg-muted/40"
+                  onClick={() => onOpenDraft(d, i)}
+                  className="flex min-w-0 flex-1 items-center gap-2.5 py-2 pr-3.5 text-left transition-colors hover:bg-muted/40"
                 >
                   <Thumb url={d.coverUrl} />
                   <span className="min-w-0 flex-1">
@@ -367,6 +397,7 @@ export function OperationsPanel({
             ))}
           </ul>
         )}
+
       </Block>
     </div>
   );

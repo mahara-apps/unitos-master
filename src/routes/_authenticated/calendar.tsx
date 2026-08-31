@@ -47,6 +47,9 @@ import { PublicationCard, PublicationRow } from "@/components/calendar/board/pub
 import { OperationsPanel } from "@/components/calendar/board/operations-panel";
 import { ScheduleApprovalPanel } from "@/components/calendar/board/schedule-approval-panel";
 import { UndatedTray } from "@/components/calendar/board/undated-tray";
+import { DraftsDrawer } from "@/components/calendar/board/drafts-drawer";
+import { BulkApplyDialog } from "@/components/calendar/board/bulk-apply-dialog";
+
 import {
   listUndatedPostsFn,
   suggestSchedulesFn,
@@ -124,7 +127,14 @@ function CalendarPage() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardSeed, setWizardSeed] = useState<WizardSeed | null>(null);
   const [wizardDate, setWizardDate] = useState<Date | null>(null);
+  // Fila de rascunhos: índice do item aberto no wizard (setas anterior/próximo).
+  const [queueIndex, setQueueIndex] = useState<number | null>(null);
+  // Seleção múltipla para ações em massa.
+  const [selectedDrafts, setSelectedDrafts] = useState<string[]>([]);
+  const [draftsDrawerOpen, setDraftsDrawerOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [detail, setDetail] = useState<PublicationItem | null>(null);
+
   const [openEvent, setOpenEvent] = useState<CalendarEvent | null>(null);
   const [newEventCtx, setNewEventCtx] = useState<{
     type: "appointment" | "seasonal";
@@ -376,26 +386,46 @@ function CalendarPage() {
   }
   function openWizardForPost(item: PublicationItem) {
     setDetail(null);
+    setQueueIndex(null);
     setWizardSeed({ postId: item.postId });
     setWizardDate(null);
     setWizardOpen(true);
   }
-  function openWizardForDraft(d: PendingSchedulePost) {
-    setWizardSeed({
+  function seedFromDraft(d: PendingSchedulePost): WizardSeed {
+    return {
       postId: d.postId,
       title: d.title,
       copy: d.copy,
       coverUrl: d.coverUrl,
       targetConnectionIds: d.targetConnectionIds,
-    });
+    };
+  }
+  function openWizardForDraft(d: PendingSchedulePost, index?: number) {
+    const i = index ?? drafts.findIndex((x) => x.postId === d.postId);
+    setQueueIndex(i >= 0 ? i : null);
+    setWizardSeed(seedFromDraft(d));
     setWizardDate(null);
     setWizardOpen(true);
   }
+  /** Setas do wizard: troca a peça em edição sem fechar o modal. */
+  function navigateQueue(index: number) {
+    const next = drafts[index];
+    if (!next) return;
+    setQueueIndex(index);
+    setWizardSeed(seedFromDraft(next));
+  }
+  function toggleDraftSelection(postId: string) {
+    setSelectedDrafts((prev) =>
+      prev.includes(postId) ? prev.filter((x) => x !== postId) : [...prev, postId],
+    );
+  }
   function newPublication(date?: Date) {
+    setQueueIndex(null);
     setWizardSeed(null);
     setWizardDate(date ?? null);
     setWizardOpen(true);
   }
+
   function refresh() {
     qc.invalidateQueries({ queryKey: ["publication-board"] });
     qc.invalidateQueries({ queryKey: ["calendar-drafts"] });
@@ -648,9 +678,12 @@ function CalendarPage() {
             failures={failures}
             drafts={drafts}
             draftsLoading={draftsQ.isLoading}
+            selectedDrafts={selectedDrafts}
+            onToggleDraft={toggleDraftSelection}
+            onBulkDrafts={selectedDrafts.length ? () => setBulkOpen(true) : undefined}
             onOpen={openDetail}
             onOpenDraft={openWizardForDraft}
-            onSeeAllDrafts={() => setStatus("drafts")}
+            onSeeAllDrafts={() => setDraftsDrawerOpen(true)}
           />
         </div>
       </DashboardPageShell>
@@ -663,6 +696,33 @@ function CalendarPage() {
         onChanged={refresh}
       />
 
+      <DraftsDrawer
+        open={draftsDrawerOpen}
+        onOpenChange={setDraftsDrawerOpen}
+        drafts={drafts}
+        loading={draftsQ.isLoading}
+        selected={selectedDrafts}
+        onToggle={toggleDraftSelection}
+        onSelectMany={setSelectedDrafts}
+        onOpenDraft={(d, i) => {
+          setDraftsDrawerOpen(false);
+          openWizardForDraft(d, i);
+        }}
+        onBulk={() => setBulkOpen(true)}
+      />
+
+      {brandId && clientId ? (
+        <BulkApplyDialog
+          open={bulkOpen}
+          onOpenChange={setBulkOpen}
+          brandId={brandId}
+          clientId={clientId}
+          postIds={selectedDrafts}
+          monthAnchor={anchor}
+          onApplied={() => setSelectedDrafts([])}
+        />
+      ) : null}
+
       {brandId && clientId ? (
         <ScheduleWizard
           open={wizardOpen}
@@ -671,6 +731,7 @@ function CalendarPage() {
             if (!v) {
               setWizardSeed(null);
               setWizardDate(null);
+              setQueueIndex(null);
             }
           }}
           brandId={brandId}
@@ -678,8 +739,12 @@ function CalendarPage() {
           seed={wizardSeed ?? undefined}
           defaultDate={wizardDate ?? undefined}
           onSaved={refresh}
+          queueTotal={queueIndex !== null ? drafts.length : undefined}
+          queueIndex={queueIndex ?? undefined}
+          onQueueNavigate={queueIndex !== null ? navigateQueue : undefined}
         />
       ) : null}
+
 
       {openEvent ? (
         <EventDialog

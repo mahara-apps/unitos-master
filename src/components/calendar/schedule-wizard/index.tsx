@@ -137,6 +137,9 @@ export function ScheduleWizard({
   seed,
   defaultDate,
   onSaved,
+  queueTotal,
+  queueIndex,
+  onQueueNavigate,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -145,7 +148,14 @@ export function ScheduleWizard({
   seed?: WizardSeed | null;
   defaultDate?: Date | null;
   onSaved?: () => void;
+  /** Fila de rascunhos: total de itens navegáveis (opcional). */
+  queueTotal?: number;
+  /** Índice atual dentro da fila (0-based). */
+  queueIndex?: number;
+  /** Navega para outro item da fila (o pai troca o seed). */
+  onQueueNavigate?: (index: number) => void;
 }) {
+
   const qc = useQueryClient();
   const listConnections = useServerFn(listClientSocialConnectionsFn);
   const listMedia = useServerFn(listBrandMediaFn);
@@ -184,9 +194,13 @@ export function ScheduleWizard({
   const [destPickerOpen, setDestPickerOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [showExtras, setShowExtras] = useState(false);
+  // Navegação na fila de rascunhos: alterações não salvas pedem confirmação.
+  const dirtyRef = useRef(false);
+  const [pendingNav, setPendingNav] = useState<number | null>(null);
 
   const uploadRef = useRef<HTMLInputElement>(null);
   const wasOpenRef = useRef(false);
+
 
   useEffect(() => {
     // Só reseta na transição fechado → aberto para garantir tela limpa
@@ -222,6 +236,29 @@ export function ScheduleWizard({
     wasOpenRef.current = open;
   }, [open, seed, defaultDate]);
 
+  // Marca "alterações não salvas" a cada edição do composer. Declarado ANTES do
+  // efeito de reset abaixo para que hidratação/troca de peça limpe a flag.
+  useEffect(() => {
+    dirtyRef.current = true;
+  }, [
+    title,
+    copy,
+    pairs,
+    selectedMedia,
+    hashtags,
+    firstComment,
+    linkUrl,
+    locationName,
+    scheduleDate,
+    scheduleTime,
+  ]);
+
+  useEffect(() => {
+    if (!hydrating) dirtyRef.current = false;
+  }, [hydrating, seed?.postId, open]);
+
+
+
   const connectionsQ = useQuery({
     enabled: open,
     queryKey: ["wizard-connections", brandId, clientId],
@@ -239,8 +276,13 @@ export function ScheduleWizard({
     const id = seed?.postId;
     if (!id || hydratedForRef.current === id) return;
     hydratedForRef.current = id;
+    // Navegação na fila troca o seed com o wizard aberto: o postId em edição
+    // precisa acompanhar, senão o save escreveria na peça anterior.
+    setPostId(id);
+    setScheduledAtIso(null);
     let cancelled = false;
     setHydrating(true);
+
     loadPostState({ data: { postId: id, brandId } })
       .then((st) => {
         if (cancelled) return;
@@ -530,14 +572,17 @@ export function ScheduleWizard({
     );
   }
 
-  async function persist(action: "draft" | "publish" | "schedule" | "save_draft") {
+  async function persist(
+    action: "draft" | "publish" | "schedule" | "save_draft",
+    opts?: { keepOpen?: boolean },
+  ): Promise<boolean> {
     if (action !== "save_draft" && !pairs.length) {
       toast.error("Selecione pelo menos um canal.");
-      return;
+      return false;
     }
     if (action === "schedule" && (!scheduleDate || !scheduleTime)) {
       toast.error("Defina data e horário para agendar.");
-      return;
+      return false;
     }
     // Regra dos 5 minutos: feedback antes de enviar (o servidor revalida).
     if (
@@ -545,13 +590,14 @@ export function ScheduleWizard({
       !isScheduleLeadValid(new Date(`${scheduleDate}T${scheduleTime}`))
     ) {
       toast.error(MIN_SCHEDULE_LEAD_MESSAGE);
-      return;
+      return false;
     }
-    if (submitting) return;
+    if (submitting) return false;
     if (hydrating) {
       toast.error("Aguarde o carregamento da peça.");
-      return;
+      return false;
     }
+
     setSubmitting(action);
     try {
       const scheduledIso =
@@ -604,13 +650,43 @@ export function ScheduleWizard({
       qc.invalidateQueries({ queryKey: ["pending-schedule"] });
       qc.invalidateQueries({ queryKey: ["wizard-drafts"] });
       onSaved?.();
-      if (action !== "publish" || (res?.published ?? 0) > 0) onOpenChange(false);
+      // "Salvar e próximo" mantém o modal aberto para seguir na fila.
+      if (!opts?.keepOpen && (action !== "publish" || (res?.published ?? 0) > 0)) {
+        onOpenChange(false);
+      }
+      dirtyRef.current = false;
+      return true;
     } catch (e) {
       toast.error(describeError(e));
+      return false;
     } finally {
       setSubmitting(null);
     }
   }
+
+  // ---------------------------------------------------------------- fila
+  const hasQueue = (queueTotal ?? 0) > 1 && typeof queueIndex === "number" && !!onQueueNavigate;
+  const canPrev = hasQueue && (queueIndex ?? 0) > 0;
+  const canNext = hasQueue && (queueIndex ?? 0) < (queueTotal ?? 0) - 1;
+
+  function goQueue(dir: -1 | 1) {
+    if (!onQueueNavigate || typeof queueIndex !== "number") return;
+    const next = queueIndex + dir;
+    if (next < 0 || next >= (queueTotal ?? 0)) return;
+    if (dirtyRef.current) {
+      setPendingNav(next);
+      return;
+    }
+    onQueueNavigate(next);
+  }
+
+  async function saveAndNext() {
+    const ok = await persist("save_draft", { keepOpen: true });
+    if (!ok) return;
+    if (canNext) onQueueNavigate?.((queueIndex ?? 0) + 1);
+    else onOpenChange(false);
+  }
+
 
   const primaryConn =
     (previewPair ? connByChannel.get(previewPair.channel) : null) ?? connectionsQ.data?.[0];
@@ -642,8 +718,15 @@ export function ScheduleWizard({
       } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
         if (!submitting) void persist("save_draft");
+      } else if (e.altKey && e.key === "ArrowLeft") {
+        e.preventDefault();
+        if (!submitting) goQueue(-1);
+      } else if (e.altKey && e.key === "ArrowRight") {
+        e.preventDefault();
+        if (!submitting) goQueue(1);
       }
     };
+
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -689,6 +772,34 @@ export function ScheduleWizard({
         }
         headerExtra={
           <>
+            {hasQueue ? (
+              <span className="inline-flex items-center gap-1 rounded-md border border-border/70 px-1 py-0.5">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  disabled={!canPrev || busy}
+                  title="Rascunho anterior (Alt + ←)"
+                  onClick={() => goQueue(-1)}
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                <span className="px-1 text-[11px] tabular-nums text-muted-foreground">
+                  {(queueIndex ?? 0) + 1}/{queueTotal}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  disabled={!canNext || busy}
+                  title="Próximo rascunho (Alt + →)"
+                  onClick={() => goQueue(1)}
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </span>
+            ) : null}
+
             {hydrating ? (
               <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" /> Restaurando…
@@ -771,6 +882,19 @@ export function ScheduleWizard({
                 ) : null}
                 {postId ? "Salvar alterações" : "Salvar rascunho"}
               </Button>
+              {hasQueue ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy || uploading}
+                  onClick={() => void saveAndNext()}
+                  title="Salva esta peça e abre a próxima da fila"
+                >
+                  Salvar e próximo
+                  <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              ) : null}
+
               <Button
                 variant="outline"
                 size="sm"
@@ -1480,7 +1604,57 @@ export function ScheduleWizard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Fila de rascunhos: proteção contra perder edições ao navegar. */}
+      <AlertDialog
+        open={pendingNav !== null}
+        onOpenChange={(v) => {
+          if (!v) setPendingNav(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Você tem alterações não salvas</AlertDialogTitle>
+            <AlertDialogDescription>
+              Salve esta peça antes de abrir a próxima, ou descarte as alterações e continue na
+              fila.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!submitting}>Voltar</AlertDialogCancel>
+            <Button
+              variant="outline"
+              disabled={!!submitting}
+              onClick={() => {
+                const target = pendingNav;
+                setPendingNav(null);
+                dirtyRef.current = false;
+                if (target !== null) onQueueNavigate?.(target);
+              }}
+            >
+              Descartar e continuar
+            </Button>
+            <AlertDialogAction
+              disabled={!!submitting}
+              onClick={async (e) => {
+                e.preventDefault();
+                const target = pendingNav;
+                const ok = await persist("save_draft", { keepOpen: true });
+                if (!ok) return;
+                setPendingNav(null);
+                if (target !== null) onQueueNavigate?.(target);
+              }}
+            >
+              {submitting === "save_draft" ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Salvar e continuar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
+
   );
 }
 
