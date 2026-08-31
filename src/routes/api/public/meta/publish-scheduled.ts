@@ -123,7 +123,10 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
                   ? "stories"
                   : post.placement === "reel"
                     ? "reels"
-                    : "feed",
+                    : post.placement === "carousel"
+                      ? "carrossel"
+                      : "feed",
+
               force: true,
             });
             if (!capability.publishReady) {
