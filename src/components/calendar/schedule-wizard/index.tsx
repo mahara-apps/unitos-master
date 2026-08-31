@@ -882,6 +882,19 @@ export function ScheduleWizard({
                 ) : null}
                 {postId ? "Salvar alterações" : "Salvar rascunho"}
               </Button>
+              {hasQueue ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy || uploading}
+                  onClick={() => void saveAndNext()}
+                  title="Salva esta peça e abre a próxima da fila"
+                >
+                  Salvar e próximo
+                  <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              ) : null}
+
               <Button
                 variant="outline"
                 size="sm"
