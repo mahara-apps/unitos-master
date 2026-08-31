@@ -804,7 +804,15 @@ export async function applyImportRun(
 export async function failImportRun(
   supabase: Db,
   run: Pick<ImportRunRow, "id" | "brand_id" | "client_id">,
-  args: { message: string; kind?: string; step?: ImportStep },
+  args: {
+    message: string;
+    kind?: string;
+    step?: ImportStep;
+    /** Estado terminal: `failed` (retry), `paused` (bloqueio) ou `needs_input`. */
+    status?: Extract<ImportRunStatus, "failed" | "paused" | "needs_input" | "expired">;
+    /** Etapa em que o retry deve retomar. */
+    resumeStep?: ImportStep | null;
+  },
 ): Promise<void> {
   if (args.step) {
     await setRunStep(supabase, run, args.step, "failed", {
@@ -814,22 +822,30 @@ export async function failImportRun(
   }
   await table(supabase, "briefing_import_runs")
     .update({
-      status: "failed",
+      status: args.status ?? "failed",
       error: args.message.slice(0, 500),
       error_kind: args.kind ?? null,
       finished_at: new Date().toISOString(),
+      lease_owner: null,
+      lease_expires_at: null,
+      ...(args.resumeStep !== undefined ? { resume_step: args.resumeStep } : {}),
     })
     .eq("id", run.id);
 }
 
-/** Retry seguro: volta uma run `failed` para `queued`, incrementando a tentativa. */
+/**
+ * Retry seguro: devolve uma run terminal-recuperável (`failed`, `expired`,
+ * `paused`, `needs_input`) para `queued`, incrementando a tentativa. Os
+ * checkpoints das etapas concluídas são preservados, então o worker retoma de
+ * onde parou — sem repagar IA já concluída.
+ */
 export async function retryImportRun(
   supabase: Db,
   args: { brandId: string; clientId: string; runId: string },
 ): Promise<ImportRunRow> {
   const run = await getImportRun(supabase, args);
   if (!run) throw new Error("import_run_not_found");
-  if (run.status !== "failed") throw new Error("import_run_not_retryable");
+  if (!RETRYABLE_RUN_STATUSES.includes(run.status)) throw new Error("import_run_not_retryable");
   const { error } = await table(supabase, "briefing_import_runs")
     .update({
       status: "queued",
@@ -837,12 +853,16 @@ export async function retryImportRun(
       error: null,
       error_kind: null,
       finished_at: null,
+      lease_owner: null,
+      lease_expires_at: null,
+      deadline_at: null,
     })
     .eq("id", run.id)
-    .eq("status", "failed");
+    .eq("status", run.status);
   if (error) throw error as Error;
   return { ...run, status: "queued", attempt: (run.attempt ?? 0) + 1 };
 }
+
 
 /* ------------------------------------------------------------------ *
  * Brain (best-effort, nunca bloqueante)
