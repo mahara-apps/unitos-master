@@ -65,7 +65,8 @@ export type PublicationState = {
   availableTargets: AvailableTarget[];
 };
 
-const familyOf = (format: string) => (format === "stories" ? "story" : "feed");
+const familyOf = (format: string) =>
+  format === "stories" ? "story" : format === "reels" ? "reel" : "feed";
 
 // ============================================================
 // listPostPublicationStateFn
@@ -178,7 +179,13 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
       const mine = rows.filter(
         (r) =>
           r.connection_id === connectionId &&
-          familyOf((r.placement as string) === "story" ? "stories" : "feed") === family,
+          familyOf(
+            (r.placement as string) === "story"
+              ? "stories"
+              : (r.placement as string) === "reel"
+                ? "reels"
+                : "feed",
+          ) === family,
       );
       const published = mine.find((r) => r.status === "published");
       const failed = mine.find((r) => r.status === "failed");
@@ -650,7 +657,10 @@ export const cancelQueuedPlacementFn = createServerFn({ method: "POST" })
       throw new Error("Este destino já foi publicado — nada a cancelar.");
     }
 
-    const dbPlacement: "feed" | "story" = familyOf(pl.format as string) === "story" ? "story" : "feed";
+    const dbPlacement: "feed" | "story" | "reel" = familyOf(pl.format as string) as
+      | "feed"
+      | "story"
+      | "reel";
 
     const { data: cancelled, error: cErr } = await supabase
       .from("social_posts")
