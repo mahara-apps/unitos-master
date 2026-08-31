@@ -123,7 +123,7 @@ export async function materializePlanToKanban(
     const { data, error } = await sb
       .from("monthly_plan_topics")
       .select(
-        "id, topic_title, content_format, channel, angle, target_audience, rationale, position",
+        "id, topic_title, content_format, channel, angle, target_audience, rationale, suggested_at, suggested_slot_rationale, position",
       )
       .eq("monthly_plan_id", args.planId)
       .eq("status", "approved")
