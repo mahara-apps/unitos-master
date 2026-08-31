@@ -153,15 +153,15 @@ export async function executeImportRun(
   let extractionNote: string | null = null;
 
   if (run.source_kind === "document") {
-    if (!run.document_id) throw new Error("document_not_found");
+    if (!run.document_id) throw new ImportStepError("ingest", "document_not_found");
     const { data: doc, error: docErr } = await table(db, "client_documents")
       .select("storage_path, mime_type, name")
       .eq("id", run.document_id)
       .eq("brand_id", run.brand_id)
       .eq("client_id", run.client_id)
       .maybeSingle();
-    if (docErr) throw docErr as Error;
-    if (!doc) throw new Error("document_not_found");
+    if (docErr) throw tagImportStep(docErr as Error, "ingest");
+    if (!doc) throw new ImportStepError("ingest", "document_not_found");
     docName = (doc as { name: string }).name;
 
     if (!completed.has("ingest")) {
@@ -169,15 +169,24 @@ export async function executeImportRun(
     }
     const path = (doc as { storage_path: string }).storage_path;
     const dl = await db.storage.from("brand-documents").download(path);
-    if (dl.error || !dl.data) throw dl.error ?? new Error("download_failed");
+    if (dl.error || !dl.data) {
+      throw tagImportStep(dl.error ?? new Error("download_failed"), "ingest");
+    }
     const bytes = new Uint8Array(await dl.data.arrayBuffer());
     const mediaType = (doc as { mime_type: string | null }).mime_type ?? "application/octet-stream";
     const { prepareDocumentContent, assertInlinePayload } = await import(
       "@/lib/document-extract.server"
     );
-    const prepared = await prepareDocumentContent({ bytes, mediaType, filename: docName });
+    // Extração tem deadline próprio (60s): PDF/planilha corrompidos não podem
+    // manter a lease presa até o reaper.
+    const prepared = await withStepDeadline("extract", STEP_TIMEOUT_MS.extract, async () => {
+      const out = await prepareDocumentContent({ bytes, mediaType, filename: docName });
+      if (out.mode === "inline") {
+        assertInlinePayload({ mediaType: out.mediaType, base64: out.base64 });
+      }
+      return out;
+    });
     if (prepared.mode === "inline") {
-      assertInlinePayload({ mediaType: prepared.mediaType, base64: prepared.base64 });
       inlinePayload = { base64: prepared.base64, mediaType: prepared.mediaType };
     } else {
       extractedText = prepared.text;
@@ -195,10 +204,11 @@ export async function executeImportRun(
     });
   } else {
     const text = (run.raw_text ?? "").trim();
-    if (text.length < 40) throw new Error("empty_input_text");
+    if (text.length < 40) throw new ImportStepError("ingest", "empty_input_text");
     extractedText = text;
     await setRunStep(db, scope, "ingest", "done", { output: { chars: text.length } });
   }
+
   await beat();
 
   /* ------------------------------- interpret ------------------------------- */
