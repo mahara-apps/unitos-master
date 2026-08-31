@@ -216,6 +216,10 @@ export async function materializePlanToKanban(
         .filter(Boolean)
         .join("\n\n"),
       monthly_plan_topic_id: t.id,
+      // Proposta de agenda: reserva NADA e não publica — só entra no calendário
+      // como sugestão à espera de aprovação interna e do cliente.
+      proposed_at: t.suggested_at ?? null,
+      schedule_status: t.suggested_at ? "proposed" : "none",
       position: pos,
       created_by: args.userId,
       assignee_id: args.userId,
