@@ -342,6 +342,36 @@ function ProjectsIndexPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
 
+  // Visualização: cards é o padrão; URL manda, senão a última escolha salva.
+  const search = Route.useSearch();
+  const [view, setViewState] = useState<ViewMode>(search.view ?? "cards");
+  const [colorBy, setColorByState] = useState<ColorBy>(search.colorBy ?? "project");
+  useEffect(() => {
+    if (!search.view) setViewState(readStored(VIEW_STORAGE_KEY, VIEWS, "cards"));
+    if (!search.colorBy) setColorByState(readStored(COLORBY_STORAGE_KEY, COLOR_BYS, "project"));
+    // Só na montagem: depois disso a fonte da verdade é a interação do usuário.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const setView = useCallback(
+    (v: ViewMode) => {
+      setViewState(v);
+      if (typeof window !== "undefined") window.localStorage.setItem(VIEW_STORAGE_KEY, v);
+      navigate({ to: "/projects", search: (s) => ({ ...s, view: v }), replace: true });
+    },
+    [navigate],
+  );
+  const setColorBy = useCallback(
+    (v: ColorBy) => {
+      setColorByState(v);
+      if (typeof window !== "undefined") window.localStorage.setItem(COLORBY_STORAGE_KEY, v);
+      navigate({ to: "/projects", search: (s) => ({ ...s, colorBy: v }), replace: true });
+    },
+    [navigate],
+  );
+
+
+
   const projectsQ = useQuery({
     queryKey: ["projects", brandId, statusFilter, ownerFilter, effectiveClientId],
     queryFn: () =>
