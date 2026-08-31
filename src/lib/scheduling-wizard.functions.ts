@@ -241,7 +241,12 @@ export type WizardPostState = {
   locationId: string | null;
   scheduledAt: string | null;
   stage: string;
-  destinations: Array<{ connectionId: string; channel: string; format: string }>;
+  destinations: Array<{
+    connectionId: string;
+    channel: string;
+    format: string;
+    options?: Record<string, unknown>;
+  }>;
   media: Array<{
     id: string;
     storagePath: string;
@@ -311,7 +316,16 @@ export const loadPostStateFn = createServerFn({ method: "POST" })
       const connectionId = pl.connection_id as string | null;
       const channel = typeof co.channel === "string" ? (co.channel as string) : "";
       if (connectionId && channel && currentConnectionIds.has(connectionId)) {
-        destinations.push({ connectionId, channel, format: pl.format as string });
+        const options =
+          co.options && typeof co.options === "object"
+            ? (co.options as Record<string, unknown>)
+            : undefined;
+        destinations.push({
+          connectionId,
+          channel,
+          format: pl.format as string,
+          ...(options ? { options } : {}),
+        });
       }
 
       if (Array.isArray(co.hashtags) && !hashtags.length) {
@@ -1063,10 +1077,16 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
 
 
             try {
+              const publishOptions = normalizePlacementOptions(
+                d.channel as never,
+                d.format as never,
+                (d as { options?: unknown }).options,
+              );
               const result = await svc.publish(conn as any, {
                 placement: providerPlacement,
                 caption,
                 media: mediaOut,
+                ...(hasPlacementOptions(publishOptions) ? { options: publishOptions } : {}),
               });
               await supabase
                 .from("social_posts")
