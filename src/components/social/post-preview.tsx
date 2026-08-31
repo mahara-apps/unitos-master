@@ -37,6 +37,7 @@ export function PostPreview({
   copy,
   hashtags = [],
   media,
+  mediaItems,
   mediaCount = 1,
   location = "",
   className,
@@ -48,6 +49,8 @@ export function PostPreview({
   copy: string;
   hashtags?: string[];
   media: PreviewMedia | undefined | null;
+  /** Lista completa de mídias, na MESMA ordem em que a peça será publicada. */
+  mediaItems?: PreviewMedia[] | null;
   mediaCount?: number;
   location?: string;
   className?: string;
@@ -62,6 +65,15 @@ export function PostPreview({
   const isStories = format === "stories";
   const isReels = format === "reels" || channel === "tiktok" || channel === "youtube";
   const chromeStyle = channelChromeStyle(channel);
+
+  // Slides do carrossel: usa a lista completa quando disponível; senão, a capa.
+  const slides = useMemo<PreviewMedia[]>(() => {
+    const list = (mediaItems ?? []).filter((m) => m && m.publicUrl);
+    if (list.length) return list;
+    return media?.publicUrl ? [media] : [];
+  }, [mediaItems, media]);
+  const isCarousel = format === "carrossel" && slides.length > 1;
+
 
   if (vertical) {
     // Reels/TikTok/Shorts/Stories — full-bleed 9:16 com overlay.
