@@ -29,6 +29,10 @@ export type PublicationDestination = {
   error: string | null;
   attempts: number;
   canRetry: boolean;
+  /** Horário previsto da próxima tentativa automática, quando aguardando retry. */
+  nextAttemptAt: string | null;
+  /** Item pendente na fila pode ser cancelado (libera reagendamento). */
+  canCancelQueue: boolean;
 };
 
 export type PublicationOverall =
@@ -218,7 +222,7 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
     const { data: queue, error: qErr } = await supabase
       .from("social_posts")
       .select(
-        "post_id,connection_id,placement,status,last_error,publish_attempts,published_at,external_permalink,scheduled_at",
+        "post_id,connection_id,placement,status,last_error,publish_attempts,published_at,external_permalink,scheduled_at,next_attempt_at,deferred_since,publish_locked_at",
       )
       .eq("brand_id", data.brandId)
       .in("post_id", postIds);
@@ -295,20 +299,39 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
         const mine = rows.filter(
           (r) =>
             r.connection_id === connectionId &&
-            ((r.placement as string) === "story" ? "story" : "feed") === family,
+            familyOf(
+              (r.placement as string) === "story"
+                ? "stories"
+                : (r.placement as string) === "reel"
+                  ? "reels"
+                  : "feed",
+            ) === family,
         );
         const published = mine.find((r) => r.status === "published");
         const inFlight = mine.find((r) => r.status === "publishing" || r.status === "scheduled");
         const failed = mine.find((r) => r.status === "failed");
+        // AGUARDANDO NOVA TENTATIVA: item segue na fila após erro temporário
+        // (limite de requisições da rede). Não é falha e não pode ser
+        // reenfileirado enquanto existir — precisa ser cancelado da fila.
+        const awaitingRetry =
+          !published &&
+          !!inFlight &&
+          inFlight.status === "scheduled" &&
+          (!!inFlight.next_attempt_at ||
+            !!inFlight.deferred_since ||
+            Number(inFlight.publish_attempts ?? 0) > 0 ||
+            !!inFlight.last_error);
         const status = published
           ? "published"
-          : inFlight
-            ? inFlight.status === "publishing"
-              ? "publishing"
-              : "scheduled"
-            : failed
-              ? "failed"
-              : ((pl.status as string) ?? "draft");
+          : awaitingRetry
+            ? "awaiting_retry"
+            : inFlight
+              ? inFlight.status === "publishing"
+                ? "publishing"
+                : "scheduled"
+              : failed
+                ? "failed"
+                : ((pl.status as string) ?? "draft");
         return {
           placementId: pl.id as string,
           connectionId,
@@ -323,9 +346,17 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
             (pl.published_at as string | null) ??
             null,
           permalink: (published?.external_permalink as string | null) ?? null,
-          error: published ? null : ((failed?.last_error as string | null) ?? null),
-          attempts: Number(failed?.publish_attempts ?? 0),
+          error: published
+            ? null
+            : ((failed?.last_error as string | null) ??
+              (awaitingRetry ? ((inFlight?.last_error as string | null) ?? null) : null)),
+          attempts: Number(failed?.publish_attempts ?? inFlight?.publish_attempts ?? 0),
           canRetry: !published && !inFlight && status === "failed" && !!connectionId,
+          nextAttemptAt: awaitingRetry
+            ? ((inFlight?.next_attempt_at as string | null) ?? null)
+            : null,
+          canCancelQueue:
+            !published && !!inFlight && !inFlight.publish_locked_at && !!connectionId,
         };
       });
 
