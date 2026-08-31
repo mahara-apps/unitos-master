@@ -200,6 +200,9 @@ export function uiStepFromRun(status: ImportRunStatus | null | undefined): Impor
     case "applied":
       return "applied";
     case "failed":
+    case "expired":
+    case "paused":
+    case "needs_input":
       return "failed";
     default:
       return "upload";
@@ -209,6 +212,13 @@ export function uiStepFromRun(status: ImportRunStatus | null | undefined): Impor
 /** A run deve continuar sendo consultada enquanto a IA trabalha. */
 export function shouldPollRun(status: ImportRunStatus | null | undefined): boolean {
   return status === "queued" || status === "running" || status === "applying";
+}
+
+/** Estados terminais que o usuário pode retomar (retry retoma checkpoints). */
+export function canRetryRun(status: ImportRunStatus | null | undefined): boolean {
+  return (
+    status === "failed" || status === "expired" || status === "paused" || status === "needs_input"
+  );
 }
 
 export const STEP_LABELS: Record<ImportStep, string> = {
@@ -229,7 +239,11 @@ export const RUN_STATUS_LABELS: Record<ImportRunStatus, string> = {
   failed: "Falhou",
   cancelled: "Cancelado",
   discarded: "Descartado",
+  paused: "Pausado (configuração de IA)",
+  needs_input: "Material insuficiente",
+  expired: "Expirou por tempo",
 };
+
 
 /* ---------------------------- Revisão de campos ---------------------------- */
 
