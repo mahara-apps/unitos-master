@@ -407,7 +407,15 @@ export async function setRunStep(
   run: Pick<ImportRunRow, "id" | "brand_id" | "client_id">,
   step: ImportStep,
   status: ImportStepStatus,
-  extra?: { output?: unknown; error?: string | null; errorKind?: string | null; inputRef?: string | null },
+  extra?: {
+    output?: unknown;
+    error?: string | null;
+    errorKind?: string | null;
+    inputRef?: string | null;
+    outputRef?: string | null;
+    contentHash?: string | null;
+  },
+
 ): Promise<void> {
   const now = new Date().toISOString();
   await table(supabase, "briefing_import_runs")
