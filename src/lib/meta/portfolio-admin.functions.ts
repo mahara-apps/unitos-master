@@ -88,8 +88,8 @@ export const disconnectMetaPortfolioFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => DisconnectInput.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: boolean; removed: number; message: string }> => {
-    const { isBrandAdmin } = await import("@/lib/monthly-plan-delete.server");
-    if (!(await isBrandAdmin(context.supabase, context.userId, data.brandId))) {
+    const { hasIntegrationAuthority } = await import("@/lib/access-guard");
+    if (!(await hasIntegrationAuthority(context.supabase, context.userId, data.brandId))) {
       return {
         ok: false,
         removed: 0,
@@ -130,8 +130,8 @@ export const revokeMetaAuthorizationFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => RevokeAuthInput.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: boolean; message: string }> => {
-    const { isBrandAdmin } = await import("@/lib/monthly-plan-delete.server");
-    if (!(await isBrandAdmin(context.supabase, context.userId, data.brandId))) {
+    const { hasIntegrationAuthority } = await import("@/lib/access-guard");
+    if (!(await hasIntegrationAuthority(context.supabase, context.userId, data.brandId))) {
       return {
         ok: false,
         message: "Apenas Owner, Admin ou Super Admin podem revogar autorizações Meta.",
