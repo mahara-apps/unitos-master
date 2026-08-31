@@ -2678,16 +2678,22 @@ export type Database = {
           created_at: string
           created_by: string | null
           current_step: string | null
+          deadline_at: string | null
           document_id: string | null
           error: string | null
           error_kind: string | null
           finished_at: string | null
+          heartbeat_at: string | null
           id: string
           idempotency_key: string | null
           input_fingerprint: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
+          max_attempts: number
           model: string | null
           provider: string | null
           raw_text: string | null
+          resume_step: string | null
           source_kind: string
           speakers: Json
           started_at: string | null
@@ -2710,16 +2716,22 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           current_step?: string | null
+          deadline_at?: string | null
           document_id?: string | null
           error?: string | null
           error_kind?: string | null
           finished_at?: string | null
+          heartbeat_at?: string | null
           id?: string
           idempotency_key?: string | null
           input_fingerprint?: string | null
+          lease_expires_at?: string | null
+          lease_owner?: string | null
+          max_attempts?: number
           model?: string | null
           provider?: string | null
           raw_text?: string | null
+          resume_step?: string | null
           source_kind?: string
           speakers?: Json
           started_at?: string | null
@@ -2742,16 +2754,22 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           current_step?: string | null
+          deadline_at?: string | null
           document_id?: string | null
           error?: string | null
           error_kind?: string | null
           finished_at?: string | null
+          heartbeat_at?: string | null
           id?: string
           idempotency_key?: string | null
           input_fingerprint?: string | null
+          lease_expires_at?: string | null
+          lease_owner?: string | null
+          max_attempts?: number
           model?: string | null
           provider?: string | null
           raw_text?: string | null
+          resume_step?: string | null
           source_kind?: string
           speakers?: Json
           started_at?: string | null
@@ -2818,6 +2836,7 @@ export type Database = {
           attempt: number
           brand_id: string
           client_id: string
+          content_hash: string | null
           created_at: string
           duration_ms: number | null
           error: string | null
@@ -2826,6 +2845,7 @@ export type Database = {
           id: string
           input_ref: string | null
           output: Json | null
+          output_ref: string | null
           run_id: string
           started_at: string | null
           status: string
@@ -2836,6 +2856,7 @@ export type Database = {
           attempt?: number
           brand_id: string
           client_id: string
+          content_hash?: string | null
           created_at?: string
           duration_ms?: number | null
           error?: string | null
@@ -2844,6 +2865,7 @@ export type Database = {
           id?: string
           input_ref?: string | null
           output?: Json | null
+          output_ref?: string | null
           run_id: string
           started_at?: string | null
           status?: string
@@ -2854,6 +2876,7 @@ export type Database = {
           attempt?: number
           brand_id?: string
           client_id?: string
+          content_hash?: string | null
           created_at?: string
           duration_ms?: number | null
           error?: string | null
@@ -2862,6 +2885,7 @@ export type Database = {
           id?: string
           input_ref?: string | null
           output?: Json | null
+          output_ref?: string | null
           run_id?: string
           started_at?: string | null
           status?: string
@@ -6369,6 +6393,26 @@ export type Database = {
         Args: { _brand_id: string; _user_id: string }
         Returns: string
       }
+      briefing_import_claim_lease: {
+        Args: { _lease_seconds?: number; _limit?: number; _owner: string }
+        Returns: {
+          attempt: number
+          brand_id: string
+          client_id: string
+          created_by: string
+          document_id: string
+          id: string
+          max_attempts: number
+          raw_text: string
+          resume_step: string
+          source_kind: string
+        }[]
+      }
+      briefing_import_heartbeat: {
+        Args: { _lease_seconds?: number; _owner: string; _run_id: string }
+        Returns: boolean
+      }
+      briefing_import_reap: { Args: never; Returns: Json }
       can_access_client: {
         Args: { _client_id: string; _user_id: string }
         Returns: boolean
