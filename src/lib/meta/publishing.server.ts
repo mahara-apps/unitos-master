@@ -10,6 +10,7 @@
 import { MetaProvider, MetaGraphError } from "./provider.server";
 import { isMediaNotReady } from "./rate-limit";
 import { decryptCredential } from "@/lib/credentials-crypto.server";
+import type { PlacementOptions } from "@/lib/placement-options";
 
 
 export type SupportedPlacement =
@@ -48,6 +49,8 @@ export type PublishInput = {
   media: PublishMedia;
   /** Reels: também publicar no Feed do Instagram (padrão: true). */
   shareToFeed?: boolean;
+  /** Opções avançadas do destino (primeiro comentário, tags, colaborador…). */
+  options?: PlacementOptions;
 };
 
 
@@ -55,7 +58,10 @@ export type PublishResult = {
   externalPostId: string;
   externalPermalink: string | null;
   providerResponse: Record<string, unknown>;
+  /** Opções que não puderam ser aplicadas — nunca derrubam a publicação. */
+  warnings?: string[];
 };
+
 
 export type MetaConnectionRow = {
   id: string;
