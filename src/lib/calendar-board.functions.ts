@@ -40,7 +40,11 @@ export type PublicationOverall =
   | "published"
   | "partial"
   | "failed"
-  | "cancelled";
+  | "cancelled"
+  /** Agenda sugerida pela IA, aguardando aprovação (não reserva, não publica). */
+  | "proposed"
+  /** Agenda aprovada internamente e pelo cliente: data reservada, sem publicação. */
+  | "reserved";
 
 export type PublicationItem = {
   postId: string;
@@ -59,6 +63,12 @@ export type PublicationItem = {
   publishedAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  /** Data/hora proposta (agenda sugerida), quando existir. */
+  proposedAt: string | null;
+  /** none | proposed | internal_approved | client_pending | client_changes | reserved */
+  scheduleStatus: string;
+  scheduleApprovedAt: string | null;
+  scheduleClientComment: string | null;
   overall: PublicationOverall;
   channels: string[];
   formats: string[];
@@ -121,6 +131,19 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
     const { data: windowPosts, error: dErr } = await dq;
     if (dErr) throw new Error(dErr.message);
 
+    // 2.1) Peças com AGENDA PROPOSTA na janela (chips fantasma do calendário).
+    let pq = supabase
+      .from("posts")
+      .select("id")
+      .eq("brand_id", data.brandId)
+      .is("deleted_at", null)
+      .not("proposed_at", "is", null)
+      .gte("proposed_at", data.from)
+      .lte("proposed_at", data.to);
+    if (data.clientId) pq = pq.eq("client_id", data.clientId);
+    const { data: proposedPosts, error: pErr } = await pq;
+    if (pErr) throw new Error(pErr.message);
+
     // 3) Peças aguardando aprovação (sempre relevantes para a operação).
     let aq = supabase
       .from("posts")
@@ -139,6 +162,7 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
       new Set([
         ...(windowPlacements ?? []).map((p) => p.post_id as string),
         ...(windowPosts ?? []).map((p) => p.id as string),
+        ...(proposedPosts ?? []).map((p) => p.id as string),
         ...reviewIds,
       ]),
     );
@@ -147,7 +171,7 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
     const { data: posts, error: postErr } = await supabase
       .from("posts")
       .select(
-        "id,title,copy,cover_url,reference_media,channels,client_id,brand_id,pipeline_id,stage_id,stage,review_status,scheduled_at,published_at,created_at,updated_at,created_by",
+        "id,title,copy,cover_url,reference_media,channels,client_id,brand_id,pipeline_id,stage_id,stage,review_status,scheduled_at,published_at,created_at,updated_at,created_by,proposed_at,schedule_status,schedule_approved_at,schedule_client_comment",
       )
       .in("id", postIds)
       .is("deleted_at", null);
@@ -319,6 +343,18 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
       else if (stage === "published") overall = "published";
       else if (stage === "scheduled") overall = "scheduled";
       else if (stage === "approved") overall = "ready";
+      else if (
+        (post.schedule_status as string | null) === "reserved" &&
+        (post.proposed_at as string | null)
+      )
+        overall = "reserved";
+      else if (
+        (post.proposed_at as string | null) &&
+        ["proposed", "internal_approved", "client_pending", "client_changes"].includes(
+          (post.schedule_status as string | null) ?? "",
+        )
+      )
+        overall = "proposed";
       else overall = "draft";
 
       const when =
@@ -326,6 +362,8 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
         (post.published_at as string | null) ??
         (post.scheduled_at as string | null) ??
         destinations.map((d) => d.scheduledAt).find((v) => !!v) ??
+        // Agenda apenas proposta/reservada também aparece no calendário.
+        (post.proposed_at as string | null) ??
         // Destino que falhou numa publicação imediata não tem data própria:
         // herda o último toque da peça para ficar visível no dia da tentativa.
         (total > 0 && (overall === "failed" || overall === "publishing")
@@ -352,6 +390,10 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
         reviewStatus: (post.review_status as string | null) ?? null,
         when,
         scheduledAt: (post.scheduled_at as string | null) ?? null,
+        proposedAt: (post.proposed_at as string | null) ?? null,
+        scheduleStatus: ((post.schedule_status as string | null) ?? "none") as string,
+        scheduleApprovedAt: (post.schedule_approved_at as string | null) ?? null,
+        scheduleClientComment: (post.schedule_client_comment as string | null) ?? null,
         publishedAt: (post.published_at as string | null) ?? null,
         createdAt: (post.created_at as string | null) ?? null,
         updatedAt: (post.updated_at as string | null) ?? null,
