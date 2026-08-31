@@ -231,15 +231,18 @@ export class MetaPublishingService {
     }
     const igId = connection.account_id;
 
-    // Step 1: create media container
+    // Step 1: create media container (com opções do destino)
+    const igOpts = this.igContainerOptions(input, { withUserTags: true });
     const container = await this.provider.graph<{ id: string }>(`/${igId}/media`, {
       accessToken: pageToken,
       method: "POST",
       query: {
         image_url: input.media.imageUrl,
         ...(input.caption ? { caption: input.caption } : {}),
+        ...igOpts.query,
       },
     });
+
 
     // Step 2: aguardar processamento (imagens grandes também levam tempo) e publicar
     await this.waitForContainerReady(container.id, pageToken);
