@@ -458,6 +458,9 @@ export async function setRunStep(
       status,
       attempt: status === "running" ? (row.attempt ?? 0) + 1 : row.attempt,
       input_ref: extra?.inputRef ?? undefined,
+      output_ref: extra?.outputRef ?? undefined,
+      content_hash: extra?.contentHash ?? undefined,
+
       output: extra?.output === undefined ? undefined : (extra.output as never),
       error: extra?.error ?? null,
       error_kind: extra?.errorKind ?? null,
