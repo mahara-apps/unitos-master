@@ -88,8 +88,12 @@ export type PublicationBoard = {
   awaitingApproval: PublicationItem[];
 };
 
-const familyOf = (format: string) =>
-  (format ?? "").toLowerCase().includes("stor") ? "story" : "feed";
+const familyOf = (format: string) => {
+  const f = (format ?? "").toLowerCase();
+  if (f.includes("stor")) return "story";
+  if (f.includes("reel")) return "reel";
+  return "feed";
+};
 
 const ACTIVE_PLACEMENT_STATUS = ["draft", "scheduled", "publishing", "published", "failed"];
 
