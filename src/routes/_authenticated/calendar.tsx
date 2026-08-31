@@ -678,9 +678,12 @@ function CalendarPage() {
             failures={failures}
             drafts={drafts}
             draftsLoading={draftsQ.isLoading}
+            selectedDrafts={selectedDrafts}
+            onToggleDraft={toggleDraftSelection}
+            onBulkDrafts={selectedDrafts.length ? () => setBulkOpen(true) : undefined}
             onOpen={openDetail}
             onOpenDraft={openWizardForDraft}
-            onSeeAllDrafts={() => setStatus("drafts")}
+            onSeeAllDrafts={() => setDraftsDrawerOpen(true)}
           />
         </div>
       </DashboardPageShell>
@@ -693,6 +696,33 @@ function CalendarPage() {
         onChanged={refresh}
       />
 
+      <DraftsDrawer
+        open={draftsDrawerOpen}
+        onOpenChange={setDraftsDrawerOpen}
+        drafts={drafts}
+        loading={draftsQ.isLoading}
+        selected={selectedDrafts}
+        onToggle={toggleDraftSelection}
+        onSelectMany={setSelectedDrafts}
+        onOpenDraft={(d, i) => {
+          setDraftsDrawerOpen(false);
+          openWizardForDraft(d, i);
+        }}
+        onBulk={() => setBulkOpen(true)}
+      />
+
+      {brandId && clientId ? (
+        <BulkApplyDialog
+          open={bulkOpen}
+          onOpenChange={setBulkOpen}
+          brandId={brandId}
+          clientId={clientId}
+          postIds={selectedDrafts}
+          monthAnchor={anchor}
+          onApplied={() => setSelectedDrafts([])}
+        />
+      ) : null}
+
       {brandId && clientId ? (
         <ScheduleWizard
           open={wizardOpen}
@@ -701,6 +731,7 @@ function CalendarPage() {
             if (!v) {
               setWizardSeed(null);
               setWizardDate(null);
+              setQueueIndex(null);
             }
           }}
           brandId={brandId}
@@ -708,8 +739,12 @@ function CalendarPage() {
           seed={wizardSeed ?? undefined}
           defaultDate={wizardDate ?? undefined}
           onSaved={refresh}
+          queueTotal={queueIndex !== null ? drafts.length : undefined}
+          queueIndex={queueIndex ?? undefined}
+          onQueueNavigate={queueIndex !== null ? navigateQueue : undefined}
         />
       ) : null}
+
 
       {openEvent ? (
         <EventDialog
