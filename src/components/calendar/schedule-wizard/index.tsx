@@ -772,6 +772,34 @@ export function ScheduleWizard({
         }
         headerExtra={
           <>
+            {hasQueue ? (
+              <span className="inline-flex items-center gap-1 rounded-md border border-border/70 px-1 py-0.5">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  disabled={!canPrev || busy}
+                  title="Rascunho anterior (Alt + ←)"
+                  onClick={() => goQueue(-1)}
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                <span className="px-1 text-[11px] tabular-nums text-muted-foreground">
+                  {(queueIndex ?? 0) + 1}/{queueTotal}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  disabled={!canNext || busy}
+                  title="Próximo rascunho (Alt + →)"
+                  onClick={() => goQueue(1)}
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </span>
+            ) : null}
+
             {hydrating ? (
               <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" /> Restaurando…
