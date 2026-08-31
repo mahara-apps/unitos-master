@@ -102,3 +102,26 @@ export const FALLBACK_ROUTE: Record<AccessRole, string> = {
   admin: "/dashboard",
   user: "/dashboard",
 };
+
+/* ------------------------------------------------------------------ */
+/* Autoridade por área (fonte única para gating de UI)                */
+/* ------------------------------------------------------------------ */
+
+import type { AuthorityRole } from "@/lib/access-guard";
+
+/**
+ * Integrações (Meta/Instagram/Facebook/WhatsApp/Ads, portfólios, contas,
+ * ativos, vínculos e sincronização): SUPER ADMIN e ADMIN (owner→admin).
+ * MANAGER **não** tem autoridade de integração.
+ * Espelha `public.is_brand_integration_authority`.
+ */
+export const canManageIntegrations = (role: AuthorityRole | null | undefined) =>
+  role === "super_admin" || role === "admin";
+
+/**
+ * Administração do Cliente (Recursos, Identidade, Ambiente): SOMENTE
+ * SUPER ADMIN — nunca ADMIN. Espelha `assertSuperAdmin` no servidor e
+ * `is_super_admin(auth.uid())` na RLS.
+ */
+export const canAccessClientAdmin = (role: AuthorityRole | null | undefined) =>
+  role === "super_admin";

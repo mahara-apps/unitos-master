@@ -4,7 +4,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { getMyAccessFn } from "@/lib/access.functions";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { getCachedUser } from "@/lib/auth-cache";
-import { type AccessRole } from "@/lib/permissions";
+import {
+  canAccessClientAdmin,
+  canManageIntegrations,
+  type AccessRole,
+} from "@/lib/permissions";
 import type { AuthorityRole } from "@/lib/access-guard";
 
 
@@ -17,6 +21,10 @@ type Result = {
   userId: string | null;
   /** IDs de clientes que o usuário pode ver/selecionar (null = todos). */
   allowedClientIds: Set<string> | null;
+  /** Autoridade de integração (super_admin | admin). */
+  canManageIntegrations: boolean;
+  /** Administração do Cliente (Recursos/Identidade/Ambiente): só super_admin. */
+  canAccessClientAdmin: boolean;
   isReady: boolean;
 };
 
@@ -60,6 +68,8 @@ export function useAccessRole(): Result {
       brandRole: a?.isSuperAdmin ? "super_admin" : (a?.brandRole ?? null),
       userId: a?.userId ?? null,
       allowedClientIds: !a ? null : hasFullClientScope ? null : new Set(a.clientIds),
+      canManageIntegrations: canManageIntegrations(authorityRole),
+      canAccessClientAdmin: canAccessClientAdmin(authorityRole),
       isReady: !q.isLoading && !!a,
     };
   }, [q.data, q.isLoading]);
