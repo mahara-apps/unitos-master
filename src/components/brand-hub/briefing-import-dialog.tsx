@@ -119,6 +119,8 @@ export function BriefingImportDialog({
   const upload = useServerFn(uploadClientDocument);
   const getRun = useServerFn(getBriefingImportRun);
   const applyRun = useServerFn(applyBriefingImportRun);
+  const resumeRun = useServerFn(retryBriefingImportRun);
+
   const qc = useQueryClient();
   const inputRef = useRef<HTMLInputElement | null>(null);
 
