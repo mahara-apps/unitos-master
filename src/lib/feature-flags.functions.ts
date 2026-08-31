@@ -32,10 +32,19 @@ export const listFeatureCatalog = createServerFn({ method: "GET" })
 
 const BrandIdInput = z.object({ brandId: z.string().uuid() });
 
-export const listBrandFeatures = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => BrandIdInput.parse(i))
-  .handler(async ({ data, context }) => {
+type FeatureReaderClient = { from: (t: string) => any };
+
+/**
+ * Leitura do estado de features de um ambiente.
+ *
+ * Continua acessível a membros porque alimenta o GATE de navegação
+ * (`useBrandFeatures`). A tela **Administração do Cliente → Recursos** usa a
+ * variante `listBrandFeaturesForAdmin`, exclusiva de Super Admin.
+ */
+async function readBrandFeatures(supabase: FeatureReaderClient, brandId: string) {
+  const context = { supabase } as { supabase: any };
+  const data = { brandId };
+  {
     const { data: catalog, error: catErr } = await context.supabase
       .from("feature_catalog")
       .select(
@@ -73,6 +82,25 @@ export const listBrandFeatures = createServerFn({ method: "GET" })
         updated_at: row?.updated_at ?? null,
       };
     });
+  }
+}
+
+export const listBrandFeatures = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => BrandIdInput.parse(i))
+  .handler(async ({ data, context }) => readBrandFeatures(context.supabase, data.brandId));
+
+/**
+ * Mesma leitura, mas restrita a SUPER ADMIN — usada pela tela
+ * Administração do Cliente → Recursos. Owner/Admin/Manager/User recebem erro
+ * mesmo forçando a rota ou chamando a RPC diretamente.
+ */
+export const listBrandFeaturesForAdmin = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => BrandIdInput.parse(i))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase as unknown as RpcClient, context.userId);
+    return readBrandFeatures(context.supabase, data.brandId);
   });
 
 const SetFeatureInput = z.object({
