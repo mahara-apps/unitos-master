@@ -464,29 +464,40 @@ export function PublicationDetailModal({
         ) : null}
 
         <Section title="Histórico">
-          <ul className="space-y-1 text-[11px] text-muted-foreground">
-            <li>Criado em {dt(item.createdAt)}</li>
-            {item.scheduledAt ? <li>Agendado para {dt(item.scheduledAt)}</li> : null}
-            {item.destinations
-              .filter((d) => d.publishedAt)
-              .map((d) => (
-                <li key={`h-${d.placementId}`}>
-                  {SOCIAL_NETWORKS[classifySocialNetwork(d.channel)].label} publicado em{" "}
-                  {dt(d.publishedAt)}
-                </li>
-              ))}
-            {item.destinations
-              .filter((d) => d.status === "failed")
-              .map((d) => (
-                <li key={`hf-${d.placementId}`} className="text-destructive">
-                  {SOCIAL_NETWORKS[classifySocialNetwork(d.channel)].label} falhou —{" "}
-                  {d.error ?? "erro não informado"}
-                </li>
-              ))}
-            <li>Última atualização em {dt(item.updatedAt)}</li>
-          </ul>
+          <details className="group rounded-md border border-border/60 bg-muted/10 px-3 py-2">
+            <summary className="cursor-pointer list-none text-[11px] font-medium text-muted-foreground">
+              Ver histórico da peça
+            </summary>
+            <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
+              <li>Criado em {dt(item.createdAt)}</li>
+              {item.proposedAt ? <li>Agenda proposta para {dt(item.proposedAt)}</li> : null}
+              {item.scheduleApprovedAt ? (
+                <li>Agenda aprovada em {dt(item.scheduleApprovedAt)}</li>
+              ) : null}
+              {item.scheduledAt ? <li>Agendado para {dt(item.scheduledAt)}</li> : null}
+              {item.destinations
+                .filter((d) => d.publishedAt)
+                .map((d) => (
+                  <li key={`h-${d.placementId}`}>
+                    {SOCIAL_NETWORKS[classifySocialNetwork(d.channel)].label} publicado em{" "}
+                    {dt(d.publishedAt)}
+                  </li>
+                ))}
+              {item.destinations
+                .filter((d) => d.status === "failed")
+                .map((d) => (
+                  <li key={`hf-${d.placementId}`} className="text-destructive">
+                    {SOCIAL_NETWORKS[classifySocialNetwork(d.channel)].label} falhou —{" "}
+                    {d.error ?? "erro não informado"}
+                  </li>
+                ))}
+              <li>Última atualização em {dt(item.updatedAt)}</li>
+            </ul>
+          </details>
         </Section>
+        </div>
       </div>
+
     </ExpandedModal>
   );
 }
