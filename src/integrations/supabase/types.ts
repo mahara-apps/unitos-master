@@ -5729,6 +5729,7 @@ export type Database = {
           connection_id: string
           created_at: string
           created_by: string | null
+          deferred_since: string | null
           external_permalink: string | null
           external_post_id: string | null
           hashtags: string[]
@@ -5737,6 +5738,7 @@ export type Database = {
           location_id: string | null
           media: Json
           mentions: string[]
+          next_attempt_at: string | null
           placement: string
           post_id: string | null
           provider: string
@@ -5744,6 +5746,7 @@ export type Database = {
           publish_attempts: number
           publish_locked_at: string | null
           published_at: string | null
+          rate_limit_retries: number
           scheduled_at: string | null
           status: string
           updated_at: string
@@ -5755,6 +5758,7 @@ export type Database = {
           connection_id: string
           created_at?: string
           created_by?: string | null
+          deferred_since?: string | null
           external_permalink?: string | null
           external_post_id?: string | null
           hashtags?: string[]
@@ -5763,6 +5767,7 @@ export type Database = {
           location_id?: string | null
           media?: Json
           mentions?: string[]
+          next_attempt_at?: string | null
           placement?: string
           post_id?: string | null
           provider: string
@@ -5770,6 +5775,7 @@ export type Database = {
           publish_attempts?: number
           publish_locked_at?: string | null
           published_at?: string | null
+          rate_limit_retries?: number
           scheduled_at?: string | null
           status?: string
           updated_at?: string
@@ -5781,6 +5787,7 @@ export type Database = {
           connection_id?: string
           created_at?: string
           created_by?: string | null
+          deferred_since?: string | null
           external_permalink?: string | null
           external_post_id?: string | null
           hashtags?: string[]
@@ -5789,6 +5796,7 @@ export type Database = {
           location_id?: string | null
           media?: Json
           mentions?: string[]
+          next_attempt_at?: string | null
           placement?: string
           post_id?: string | null
           provider?: string
@@ -5796,6 +5804,7 @@ export type Database = {
           publish_attempts?: number
           publish_locked_at?: string | null
           published_at?: string | null
+          rate_limit_retries?: number
           scheduled_at?: string | null
           status?: string
           updated_at?: string
@@ -6557,6 +6566,10 @@ export type Database = {
       }
       mark_social_post_blocked: {
         Args: { p_error: string; p_post_id: string; p_reason?: string }
+        Returns: undefined
+      }
+      mark_social_post_deferred: {
+        Args: { p_error: string; p_post_id: string; p_retry_at: string }
         Returns: undefined
       }
       mark_social_post_failed: {

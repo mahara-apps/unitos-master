@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { assertCronRequest } from "@/lib/cron-auth.server";
+import { isMetaRateLimit, nextRateLimitRetryAt, rateLimitMessage } from "@/lib/meta/rate-limit";
+
 
 /**
  * Erro determinístico de autorização/vínculo: NUNCA deve consumir retries.
@@ -82,6 +84,8 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
 
         const svc = new MetaPublishingService();
         const results: Array<{ id: string; ok: boolean; error?: string }> = [];
+        const seenConnections = new Map<string, number>();
+
 
         for (const post of claimed as Array<{
           id: string;
@@ -94,7 +98,15 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
           mentions: string[] | null;
           media: any;
         }>) {
+          // Espaçamento por conexão: Instagram gasta várias chamadas por
+          // publicação (contêiner + status + publish). Publicar Instagram e
+          // Facebook da mesma conta em rajada é o que estoura o limite do app.
+          const seenBefore = seenConnections.get(post.connection_id) ?? 0;
+          if (seenBefore > 0) await sleep(Math.min(seenBefore, 3) * 1500);
+          seenConnections.set(post.connection_id, seenBefore + 1);
+
           try {
+
             // ---- PRÉ-FLIGHT (2ª barreira, fail closed) ----------------------
             // A autorização pode ter mudado depois do agendamento: revalidamos
             // toda a cadeia (marca → cliente → vínculo → conexão → canal →
@@ -198,11 +210,41 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
               continue;
             }
             const msg = formatPublishError(err);
+
+            // Limite temporário da Meta (code 4/17/32/613 e afins) NÃO é falha:
+            // o destino volta para a fila com espera progressiva e sem consumir
+            // tentativa. Sem isso, o cron de 1 minuto queima as 5 tentativas em
+            // poucos minutos e a peça vira `failed` sem motivo real.
+            if (isMetaRateLimit(err)) {
+              const { data: cur } = await supabaseAdmin
+                .from("social_posts")
+                .select("rate_limit_retries")
+                .eq("id", post.id)
+                .maybeSingle();
+              const retries = Number((cur as any)?.rate_limit_retries ?? 0);
+              const retryAt = nextRateLimitRetryAt(retries);
+              console.warn("[publish-scheduled] rate limited", {
+                social_post_id: post.id,
+                connection_id: post.connection_id,
+                placement: post.placement,
+                retries,
+                retry_at: retryAt.toISOString(),
+              });
+              await (supabaseAdmin as any).rpc("mark_social_post_deferred", {
+                p_post_id: post.id,
+                p_error: rateLimitMessage(retryAt, msg),
+                p_retry_at: retryAt.toISOString(),
+              });
+              results.push({ id: post.id, ok: false, error: rateLimitMessage(retryAt) });
+              continue;
+            }
+
             await (supabaseAdmin as any).rpc("mark_social_post_failed", {
               p_post_id: post.id,
               p_error: msg,
             });
             results.push({ id: post.id, ok: false, error: msg });
+
           }
         }
 
@@ -317,4 +359,9 @@ async function resolveMediaForPublish(
 
 function isVideoPath(path: string): boolean {
   return /\.(mp4|mov|m4v|webm|3gp)$/i.test(path);
+}
+
+/** Pausa curta entre destinos da mesma conexão (anti-throttling). */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

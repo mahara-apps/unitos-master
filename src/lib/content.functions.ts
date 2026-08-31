@@ -707,6 +707,102 @@ export const movePostFn = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Move vários posts de estágio de uma vez (Conteúdo → modo seleção).
+ *
+ * Mesma semântica do `movePostFn` individual: espelha o estágio legado
+ * (`posts.stage`) e registra evento Brain best-effort. RLS continua sendo a
+ * barreira de escopo — o update é filtrado por brand/client/pipeline e pelos
+ * IDs recebidos, e retorna resultado por item para a UI.
+ */
+export const bulkMoveStageFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+        pipelineId: z.string().uuid(),
+        postIds: z.array(z.string().uuid()).min(1).max(200),
+        toStageId: z.string().uuid(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    // Estágio precisa pertencer ao mesmo pipeline (evita mover para outro board).
+    const { data: stage, error: stErr } = await context.supabase
+      .from("content_pipeline_stages")
+      .select("id,pipeline_id,label")
+      .eq("id", data.toStageId)
+      .eq("pipeline_id", data.pipelineId)
+      .maybeSingle();
+    if (stErr) throw stErr;
+    if (!stage) throw new Error("Estágio inválido para este fluxo de conteúdo.");
+
+    const ids = Array.from(new Set(data.postIds));
+    const { data: rows, error: rowsErr } = await context.supabase
+      .from("posts")
+      .select("id,title,stage_id,position")
+      .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
+      .eq("pipeline_id", data.pipelineId)
+      .is("deleted_at", null)
+      .in("id", ids);
+    if (rowsErr) throw rowsErr;
+
+    const allowed = new Map((rows ?? []).map((r) => [r.id as string, r]));
+    const legacyStage = await resolveLegacyStage(context.supabase, data.toStageId);
+
+    // Posição: entra ao final do estágio de destino, preservando a ordem atual.
+    const { data: last } = await context.supabase
+      .from("posts")
+      .select("position")
+      .eq("stage_id", data.toStageId)
+      .is("deleted_at", null)
+      .order("position", { ascending: false })
+      .limit(1);
+    let nextPos = ((last?.[0]?.position ?? 0) as number) + 1024;
+
+    const results: Array<{ postId: string; ok: boolean; error?: string }> = [];
+    for (const id of ids) {
+      const row = allowed.get(id);
+      if (!row) {
+        results.push({ postId: id, ok: false, error: "Fora do escopo atual" });
+        continue;
+      }
+      if (row.stage_id === data.toStageId) {
+        results.push({ postId: id, ok: true });
+        continue;
+      }
+      const patch: Record<string, unknown> = { stage_id: data.toStageId, position: nextPos };
+      if (legacyStage) patch.stage = legacyStage;
+      const { error } = await context.supabase
+        .from("posts")
+        .update(patch as never)
+        .eq("id", id);
+      if (error) {
+        results.push({ postId: id, ok: false, error: error.message });
+        continue;
+      }
+      nextPos += 1024;
+      results.push({ postId: id, ok: true });
+      ingestBrainQuiet(context.supabase, data.brandId, "content_stage_changed", "editorial", {
+        title: row.title,
+        from_stage_id: row.stage_id,
+        to_stage_id: data.toStageId,
+        bulk: true,
+      });
+    }
+
+    return {
+      ok: true,
+      moved: results.filter((r) => r.ok).length,
+      failed: results.filter((r) => !r.ok).length,
+      results,
+    };
+  });
+
+
 // ---------- Stages CRUD ----------
 
 export const createStageFn = createServerFn({ method: "POST" })
