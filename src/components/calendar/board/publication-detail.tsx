@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
   Clock,
+  Copy,
   ExternalLink,
   Loader2,
   Pencil,
@@ -25,11 +27,19 @@ import { SOCIAL_NETWORKS, classifySocialNetwork } from "@/lib/calendar-tokens";
 import type { PublicationItem } from "@/lib/calendar-board.functions";
 import { retryFailedPlacementFn } from "@/lib/publish-retry.functions";
 import { cancelPostScheduleFn } from "@/lib/scheduling-wizard.functions";
+import { PostPreview } from "@/components/social/post-preview";
+import type { PlacementFormat } from "@/lib/scheduling-formats";
+import type { SocialChannel } from "@/lib/social-core/capabilities";
+import { APP_TIMEZONE } from "@/lib/timezone";
+import { scheduleDisplay, scheduleFullLabel } from "@/lib/post-schedule-display";
 
 /**
  * Detalhe da publicação. Reaproveita as ações já existentes do pipeline:
  * cancelamento de agendamento (`cancelPostScheduleFn`) e republicação POR
  * DESTINO (`retryFailedPlacementFn`) — nunca reenvia destino já publicado.
+ *
+ * Layout de leitura em 2 colunas: prévia real do canal (mesma do Composer) +
+ * legenda integral, agenda, destinos e histórico. Datas sempre no fuso oficial.
  */
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -44,8 +54,62 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function dt(iso: string | null | undefined) {
-  return iso ? new Date(iso).toLocaleString("pt-BR") : "—";
+  return iso ? scheduleFullLabel(iso) : "—";
 }
+
+const PREVIEW_FORMATS = ["feed", "reels", "stories", "carrossel"] as const;
+
+function asPreviewFormat(format: string | null | undefined): PlacementFormat {
+  const f = (format ?? "").toLowerCase();
+  const hit = PREVIEW_FORMATS.find((k) => f.includes(k));
+  if (hit) return hit as PlacementFormat;
+  if (f.includes("stor")) return "stories";
+  if (f.includes("short") || f.includes("video")) return "reels";
+  return "feed";
+}
+
+function asPreviewChannel(channel: string | null | undefined): SocialChannel {
+  return classifySocialNetwork(channel ?? "") as SocialChannel;
+}
+
+/** Abas de prévia: um par canal+formato por destino (ou pelos canais da peça). */
+function previewTabs(item: PublicationItem) {
+  const seen = new Set<string>();
+  const tabs: Array<{
+    key: string;
+    label: string;
+    channel: SocialChannel;
+    format: PlacementFormat;
+    handle: string;
+  }> = [];
+  for (const d of item.destinations) {
+    const channel = asPreviewChannel(d.channel);
+    const format = asPreviewFormat(d.format);
+    const key = `${channel}-${format}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    tabs.push({
+      key,
+      label: `${SOCIAL_NETWORKS[classifySocialNetwork(d.channel)].label} · ${formatLabel(d.format)}`,
+      channel,
+      format,
+      handle: d.accountLabel ?? SOCIAL_NETWORKS[classifySocialNetwork(d.channel)].label,
+    });
+  }
+  if (tabs.length === 0) {
+    const channel = asPreviewChannel(item.channels[0] ?? "instagram");
+    const format = asPreviewFormat(item.formats[0] ?? "feed");
+    tabs.push({
+      key: `${channel}-${format}`,
+      label: `${SOCIAL_NETWORKS[classifySocialNetwork(item.channels[0] ?? "instagram")].label} · ${formatLabel(item.formats[0] ?? "feed")}`,
+      channel,
+      format,
+      handle: SOCIAL_NETWORKS[classifySocialNetwork(item.channels[0] ?? "instagram")].label,
+    });
+  }
+  return tabs;
+}
+
 
 export function PublicationDetailModal({
   item,
