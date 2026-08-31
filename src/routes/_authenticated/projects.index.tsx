@@ -77,12 +77,33 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, Sparkles } from "lucide-react";
+import { ChevronDown, LayoutGrid, List as ListIcon, Palette, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ProjectCard } from "@/components/projects/project-card";
+
+const VIEWS = ["cards", "list"] as const;
+type ViewMode = (typeof VIEWS)[number];
+const COLOR_BYS = ["project", "status", "client"] as const;
+type ColorBy = (typeof COLOR_BYS)[number];
+
+const VIEW_STORAGE_KEY = "projects:view";
+const COLORBY_STORAGE_KEY = "projects:colorBy";
+
+const projectsSearchSchema = z.object({
+  view: z.enum(VIEWS).optional(),
+  colorBy: z.enum(COLOR_BYS).optional(),
+});
 
 export const Route = createFileRoute("/_authenticated/projects/")({
+  validateSearch: projectsSearchSchema,
   component: ProjectsIndexPage,
 });
+
+function readStored<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  const raw = window.localStorage.getItem(key);
+  return allowed.includes(raw as T) ? (raw as T) : fallback;
+}
 
 const COLORS = [
   "#8b5cf6", // violet
@@ -114,6 +135,32 @@ const STATUS_META: Record<string, { label: string; className: string }> = {
   },
   archived: { label: "Arquivada", className: "border-border/60 bg-muted text-muted-foreground" },
 };
+
+// Cor de destaque por status (leitura rápida no modo cards).
+const STATUS_ACCENT: Record<string, string> = {
+  planning: "#71717a",
+  active: "#10b981",
+  in_progress: "#0ea5e9",
+  paused: "#f59e0b",
+  done: "#10b981",
+  archived: "#a1a1aa",
+};
+
+const SORT_LABELS: Record<SortKey, string> = {
+  due: "Entrega mais próxima",
+  name: "Nome",
+  client: "Cliente",
+  status: "Status",
+  progress: "Progresso",
+};
+
+const COLOR_BY_LABELS: Record<ColorBy, string> = {
+  project: "Cor do projeto",
+  status: "Status",
+  client: "Cliente",
+};
+
+
 
 const ProjectSchema = z.object({
   name: z.string().trim().min(2, "Nome muito curto"),
@@ -294,6 +341,36 @@ function ProjectsIndexPage() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [formOpen, setFormOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
+
+  // Visualização: cards é o padrão; URL manda, senão a última escolha salva.
+  const search = Route.useSearch();
+  const [view, setViewState] = useState<ViewMode>(search.view ?? "cards");
+  const [colorBy, setColorByState] = useState<ColorBy>(search.colorBy ?? "project");
+  useEffect(() => {
+    if (!search.view) setViewState(readStored(VIEW_STORAGE_KEY, VIEWS, "cards"));
+    if (!search.colorBy) setColorByState(readStored(COLORBY_STORAGE_KEY, COLOR_BYS, "project"));
+    // Só na montagem: depois disso a fonte da verdade é a interação do usuário.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const setView = useCallback(
+    (v: ViewMode) => {
+      setViewState(v);
+      if (typeof window !== "undefined") window.localStorage.setItem(VIEW_STORAGE_KEY, v);
+      navigate({ to: "/projects", search: { ...search, view: v }, replace: true });
+    },
+    [navigate, search],
+  );
+  const setColorBy = useCallback(
+    (v: ColorBy) => {
+      setColorByState(v);
+      if (typeof window !== "undefined") window.localStorage.setItem(COLORBY_STORAGE_KEY, v);
+      navigate({ to: "/projects", search: { ...search, colorBy: v }, replace: true });
+    },
+    [navigate, search],
+  );
+
+
 
   const projectsQ = useQuery({
     queryKey: ["projects", brandId, statusFilter, ownerFilter, effectiveClientId],
@@ -548,7 +625,76 @@ function ProjectsIndexPage() {
               sidebarClientId={null}
             />
           )}
+
+          <div className="ml-auto flex items-center gap-2">
+            {view === "cards" ? (
+              <>
+                <Select
+                  value={colorBy}
+                  onValueChange={(v) => setColorBy(v as ColorBy)}
+                >
+                  <SelectTrigger className="h-9 w-[168px] text-xs">
+                    <Palette className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COLOR_BYS.map((k) => (
+                      <SelectItem key={k} value={k}>
+                        {COLOR_BY_LABELS[k]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={`${sortKey}:${sortDir}`}
+                  onValueChange={(v) => {
+                    const [k, d] = v.split(":") as [SortKey, SortDir];
+                    setSortKey(k);
+                    setSortDir(d);
+                  }}
+                >
+                  <SelectTrigger className="h-9 w-[190px] text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+                      <SelectItem key={k} value={`${k}:${k === "progress" ? "desc" : "asc"}`}>
+                        {SORT_LABELS[k]}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="due:desc">Entrega mais distante</SelectItem>
+                  </SelectContent>
+                </Select>
+              </>
+            ) : null}
+            <div className="inline-flex h-9 shrink-0 items-center rounded-md border border-border/60 bg-muted/40 p-0.5">
+              <Button
+                type="button"
+                size="sm"
+                variant={view === "cards" ? "secondary" : "ghost"}
+                aria-pressed={view === "cards"}
+                onClick={() => setView("cards")}
+                className="h-8 gap-1.5 px-2.5 text-xs"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Cards</span>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={view === "list" ? "secondary" : "ghost"}
+                aria-pressed={view === "list"}
+                onClick={() => setView("list")}
+                className="h-8 gap-1.5 px-2.5 text-xs"
+              >
+                <ListIcon className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Lista</span>
+              </Button>
+            </div>
+          </div>
         </div>
+
+
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[11px] text-muted-foreground">
@@ -593,11 +739,22 @@ function ProjectsIndexPage() {
 
       {/* Lista de projetos */}
       {projectsQ.isLoading ? (
-        <DashboardPanelSurface className="space-y-2 p-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-10 animate-pulse rounded-md bg-muted/60" />
-          ))}
-        </DashboardPanelSurface>
+        view === "cards" ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-[104px] animate-pulse rounded-lg border border-border/60 bg-muted/50"
+              />
+            ))}
+          </div>
+        ) : (
+          <DashboardPanelSurface className="space-y-2 p-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-10 animate-pulse rounded-md bg-muted/60" />
+            ))}
+          </DashboardPanelSurface>
+        )
       ) : rows.length === 0 ? (
         <DashboardPanelSurface>
           <PanelEmptyState
@@ -605,7 +762,53 @@ function ProjectsIndexPage() {
             text="Nenhum projeto encontrado. Crie o primeiro clicando em Novo projeto."
           />
         </DashboardPanelSurface>
+      ) : view === "cards" ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {rows.map((p) => {
+            const stats: ProjectStats = projectsQ.data?.stats?.[p.id] ?? {
+              total: 0,
+              approved: 0,
+              published: 0,
+              pending: 0,
+            };
+            const client = clients.find((c) => c.id === p.client_id);
+            const meta = STATUS_META[p.status] ?? STATUS_META.active;
+            const accent =
+              colorBy === "status"
+                ? (STATUS_ACCENT[p.status] ?? "#8b5cf6")
+                : colorBy === "client"
+                  ? (client?.color ?? "#8b5cf6")
+                  : (p.color ?? "#8b5cf6");
+            const period =
+              p.start_date || p.due_at
+                ? p.due_at
+                  ? `Entrega ${fmtDate(p.due_at)}`
+                  : `Início ${fmtDate(p.start_date)}`
+                : "Sem datas";
+            return (
+              <ProjectCard
+                key={p.id}
+                name={p.name}
+                accentColor={accent}
+                clientName={client?.name ?? null}
+                clientColor={client?.color ?? null}
+                statusLabel={meta.label}
+                statusClassName={meta.className}
+                planBadge={
+                  p.plan ? <PlanStatusBadge status={p.plan.status} prefix="Pauta:" /> : null
+                }
+                periodLabel={period}
+                published={stats.published}
+                total={stats.total || 0}
+                onOpen={() =>
+                  navigate({ to: "/projects/$projectId", params: { projectId: p.id } })
+                }
+              />
+            );
+          })}
+        </div>
       ) : (
+
         <DashboardPanelSurface className="overflow-hidden p-0">
           <Table>
             <TableHeader>
