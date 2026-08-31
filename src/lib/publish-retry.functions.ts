@@ -436,7 +436,7 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
     }
     const clientId = pl.client_id as string | null;
     const family = familyOf(pl.format as string);
-    const dbPlacement: "feed" | "story" = family === "story" ? "story" : "feed";
+    const dbPlacement: "feed" | "story" | "reel" = family as "feed" | "story" | "reel";
 
     // 2) Não pode existir publicação bem-sucedida nem item ativo para o destino
     const { data: queue, error: qErr } = await supabase
@@ -483,6 +483,9 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
     }
     if (dbPlacement === "story" && conn.channel !== "instagram") {
       throw new Error("Stories só é suportado em conexões Instagram.");
+    }
+    if (dbPlacement === "reel" && conn.channel !== "instagram") {
+      throw new Error("Reels só é suportado em conexões Instagram.");
     }
     if (conn.channel === "instagram" && !conn.account_id) {
       throw new Error("Conexão sem conta Instagram Business vinculada.");
