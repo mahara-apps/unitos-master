@@ -111,6 +111,9 @@ export function OperationsPanel({
   failures,
   drafts,
   draftsLoading,
+  selectedDrafts = [],
+  onToggleDraft,
+  onBulkDrafts,
   onOpen,
   onOpenDraft,
   onSeeAllDrafts,
@@ -120,10 +123,15 @@ export function OperationsPanel({
   failures: PublicationItem[];
   drafts: PendingSchedulePost[];
   draftsLoading?: boolean;
+  /** IDs marcados para ação em massa. */
+  selectedDrafts?: string[];
+  onToggleDraft?: (postId: string) => void;
+  onBulkDrafts?: () => void;
   onOpen: (item: PublicationItem) => void;
-  onOpenDraft: (draft: PendingSchedulePost) => void;
+  onOpenDraft: (draft: PendingSchedulePost, index: number) => void;
   onSeeAllDrafts?: () => void;
 }) {
+
   return (
     <div className="flex flex-col gap-3">
       <Block
