@@ -545,7 +545,11 @@ export function ScheduleWizard({
     );
   }
 
-  async function persist(action: "draft" | "publish" | "schedule" | "save_draft") {
+  async function persist(
+    action: "draft" | "publish" | "schedule" | "save_draft",
+    opts?: { keepOpen?: boolean },
+  ): Promise<boolean> {
+
     if (action !== "save_draft" && !pairs.length) {
       toast.error("Selecione pelo menos um canal.");
       return;
