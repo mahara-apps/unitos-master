@@ -465,6 +465,8 @@ export async function resolvePublishTarget(
   if (input.format) {
     const supported =
       (input.format === "feed" && (row.channel === "instagram" || row.channel === "facebook")) ||
+      (input.format === "carrossel" &&
+        (row.channel === "instagram" || row.channel === "facebook")) ||
       (input.format === "stories" && row.channel === "instagram") ||
       (input.format === "reels" && row.channel === "instagram");
     if (!supported) {
@@ -472,11 +474,12 @@ export async function resolvePublishTarget(
         connection: row,
         capability: block(
           "unsupported_format",
-          "Este formato ainda não é publicável automaticamente (Feed IG/FB, Stories IG ou Reels IG).",
+          "Este formato ainda não é publicável automaticamente (Feed IG/FB, Carrossel IG/FB, Stories IG ou Reels IG).",
           { action: "none" },
         ),
       };
     }
+
   }
 
   const capability = await getConnectionCapability(db, row, {
