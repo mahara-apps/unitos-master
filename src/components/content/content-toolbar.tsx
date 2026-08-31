@@ -3,6 +3,8 @@ import {
   AlarmClock,
   CalendarClock,
   CalendarPlus,
+  CheckSquare,
+  FolderKanban,
   Filter,
   Image as ImageIcon,
   LayoutGrid,
@@ -40,6 +42,8 @@ export type ContentFilters = {
   format: string; // "any" | Feed/Reels/...
   media: MediaFilter;
   sla: SlaFilter;
+  /** "any" | project_id | "none" (sem projeto) */
+  project: string;
 };
 
 export const DEFAULT_CONTENT_FILTERS: ContentFilters = {
@@ -49,6 +53,7 @@ export const DEFAULT_CONTENT_FILTERS: ContentFilters = {
   format: "any",
   media: "any",
   sla: "any",
+  project: "any",
 };
 
 export function isFiltersEmpty(f: ContentFilters) {
@@ -58,7 +63,8 @@ export function isFiltersEmpty(f: ContentFilters) {
     f.channel === "any" &&
     f.format === "any" &&
     f.media === "any" &&
-    f.sla === "any"
+    f.sla === "any" &&
+    f.project === "any"
   );
 }
 
@@ -69,6 +75,11 @@ type Props = {
   onViewChange: (v: ViewMode) => void;
   total: number;
   filtered: number;
+  /** Projetos da workspace para o filtro por projeto. */
+  projectOptions?: Array<{ id: string; name: string }>;
+  /** Modo seleção em massa (Conteúdo). */
+  selectionMode?: boolean;
+  onToggleSelectionMode?: () => void;
 };
 
 export function ContentToolbar({
@@ -78,6 +89,9 @@ export function ContentToolbar({
   onViewChange,
   total,
   filtered,
+  projectOptions,
+  selectionMode,
+  onToggleSelectionMode,
 }: Props) {
   const activeCount = useMemo(() => {
     let n = 0;
@@ -87,6 +101,7 @@ export function ContentToolbar({
     if (filters.format !== "any") n++;
     if (filters.media !== "any") n++;
     if (filters.sla !== "any") n++;
+    if (filters.project !== "any") n++;
     return n;
   }, [filters]);
 
@@ -181,6 +196,22 @@ export function ContentToolbar({
               </SelectContent>
             </Select>
 
+            <Select value={filters.project} onValueChange={(v) => set("project", v)}>
+              <SelectTrigger className="h-8 w-full text-xs">
+                <FolderKanban className="h-3.5 w-3.5 text-muted-foreground" />
+                <SelectValue placeholder="Projeto" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">Todos os projetos</SelectItem>
+                <SelectItem value="none">Sem projeto</SelectItem>
+                {(projectOptions ?? []).map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <Select value={filters.media} onValueChange={(v) => set("media", v as MediaFilter)}>
               <SelectTrigger className="h-8 w-full text-xs">
                 <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
@@ -208,6 +239,18 @@ export function ContentToolbar({
           </div>
         </PopoverContent>
       </Popover>
+
+      {onToggleSelectionMode ? (
+        <Button
+          size="sm"
+          variant={selectionMode ? "default" : "outline"}
+          className="h-8 gap-1.5 px-2.5 text-xs"
+          onClick={onToggleSelectionMode}
+        >
+          <CheckSquare className="h-3.5 w-3.5" />
+          {selectionMode ? "Sair da seleção" : "Selecionar"}
+        </Button>
+      ) : null}
 
       <div className="ml-auto flex items-center gap-3">
         <span className="text-[11px] tabular-nums text-muted-foreground">
@@ -243,6 +286,7 @@ export function applyContentFilters<
     cover_url: string | null;
     reference_media?: Array<{ path: string; type?: string }> | null;
     sla_status?: "none" | "on_track" | "at_risk" | "overdue";
+    project_id?: string | null;
   },
 >(posts: P[], f: ContentFilters): P[] {
   const now = Date.now();
@@ -268,6 +312,10 @@ export function applyContentFilters<
       if (f.scheduledRange === "7d") {
         if (sched < now || sched - now > 7 * DAY) return false;
       }
+    }
+    if (f.project !== "any") {
+      const pid = p.project_id ?? null;
+      if (f.project === "none" ? pid !== null : pid !== f.project) return false;
     }
     if (f.channel !== "any") {
       const ch = Array.isArray(p.channels) ? p.channels : [];
