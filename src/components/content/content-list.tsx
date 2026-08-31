@@ -24,6 +24,7 @@ import {
   normalizeContentFormat,
   type ContentFormat,
 } from "@/lib/content-formats";
+import { scheduleDisplay, scheduleFullLabel } from "@/lib/post-schedule-display";
 
 const COLOR_DOT: Record<string, string> = {
   muted: "bg-muted-foreground/60",
@@ -101,7 +102,7 @@ export function ContentList({ board, posts, onOpenPost }: Props) {
                 for (const pl of p.placements ?? []) push(normalizeContentFormat(pl.format));
                 return out.slice(0, 2);
               })();
-              const scheduled = p.scheduled_at ? new Date(p.scheduled_at) : null;
+              const schedule = scheduleDisplay(p);
               const member = members?.find((m) => m.id === p.assignee_id);
               return (
                 <TableRow key={p.id} className="cursor-pointer" onClick={() => onOpenPost(p.id)}>
@@ -143,7 +144,12 @@ export function ContentList({ board, posts, onOpenPost }: Props) {
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {channelDefs.length === 0 ? (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span
+                          className="inline-flex items-center rounded-full border border-dashed border-amber-500/50 bg-amber-500/5 px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400"
+                          title="Sem canal a peça não entra no calendário nem pode publicar."
+                        >
+                          Definir canal
+                        </span>
                       ) : (
                         channelDefs.slice(0, 3).map((c) => {
                           const Icon = c.icon;
@@ -163,7 +169,12 @@ export function ContentList({ board, posts, onOpenPost }: Props) {
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {formatKeys.length === 0 ? (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span
+                          className="inline-flex items-center rounded-full border border-dashed border-amber-500/50 bg-amber-500/5 px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400"
+                          title="Sem formato a peça não entra no calendário nem pode publicar."
+                        >
+                          Definir formato
+                        </span>
                       ) : (
                         formatKeys.map((f) => (
                           <span
@@ -177,22 +188,22 @@ export function ContentList({ board, posts, onOpenPost }: Props) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {scheduled ? (
-                      <span className="inline-flex items-center gap-1 text-xs tabular-nums text-foreground/80">
+                    <div className="flex flex-col gap-1">
+                      <span
+                        className="inline-flex items-center gap-1 text-xs tabular-nums text-foreground/80"
+                        title={
+                          schedule.iso ? scheduleFullLabel(schedule.iso) : "Sem data definida"
+                        }
+                      >
                         <CalendarDays className="h-3 w-3" />
-                        {scheduled.toLocaleDateString("pt-BR", {
-                          day: "2-digit",
-                          month: "2-digit",
-                        })}
-                        {" · "}
-                        {scheduled.toLocaleTimeString("pt-BR", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {schedule.iso ? schedule.label : "—"}
                       </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
+                      <span
+                        className={`inline-flex w-fit items-center rounded-full border px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wider ${schedule.chip}`}
+                      >
+                        {schedule.stateLabel}
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell>
                     {member ? (

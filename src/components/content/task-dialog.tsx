@@ -69,6 +69,17 @@ import {
   CONTENT_FORMAT_LABEL,
   normalizeContentFormat,
 } from "@/lib/content-formats";
+import {
+  updateScheduleSlotFn,
+  clearScheduleSlotFn,
+} from "@/lib/schedule-approval.functions";
+import {
+  scheduleDisplay,
+  scheduleFullLabel,
+  hasProposalTrack,
+  fromLocalInputValue,
+  toLocalInputValue as tzToLocalInputValue,
+} from "@/lib/post-schedule-display";
 import { type PlacementFormat } from "@/lib/placements.functions";
 import { listProjects } from "@/lib/projects.functions";
 import { FolderKanban } from "lucide-react";
@@ -345,8 +356,8 @@ function CreateBody({
           internal_briefing: state.internalBriefing.trim() || null,
           client_briefing: state.clientBriefing.trim() || null,
           script: state.script.trim() ? [{ cena: 1, fala: state.script.trim() }] : null,
-          scheduled_at: state.scheduledAt ? new Date(state.scheduledAt).toISOString() : null,
-          remind_at: state.remindAt ? new Date(state.remindAt).toISOString() : null,
+          scheduled_at: fromLocalInputValue(state.scheduledAt),
+          remind_at: fromLocalInputValue(state.remindAt),
           priority: state.priority === "none" ? null : state.priority,
           tags: state.tags.length ? state.tags : undefined,
           visible_in_portal: state.visibleInPortal,
@@ -512,8 +523,8 @@ function EditBody({
             priority: state.priority === "none" ? null : state.priority,
             tags: state.tags,
             visible_in_portal: state.visibleInPortal,
-            scheduled_at: state.scheduledAt ? new Date(state.scheduledAt).toISOString() : null,
-            remind_at: state.remindAt ? new Date(state.remindAt).toISOString() : null,
+            scheduled_at: fromLocalInputValue(state.scheduledAt),
+            remind_at: fromLocalInputValue(state.remindAt),
             stage_id: state.stageId || null,
             assignee_id: state.assigneeId,
             project_id: state.projectId,
@@ -586,7 +597,7 @@ function EditBody({
           mediaPaths: refs.map((r) => r.path).filter(Boolean),
           hashtags: [],
           destinations: state.destinations,
-          scheduledAt: new Date(state.scheduledAt).toISOString(),
+          scheduledAt: fromLocalInputValue(state.scheduledAt)!,
           action: "schedule",
         },
       });
@@ -854,6 +865,17 @@ function EditBody({
           }
           brandId={brandId}
           clientId={clientId}
+          scheduleSlot={
+            hasProposalTrack(post) ? (
+              <ScheduleAgendaBlock
+                post={post}
+                brandId={brandId}
+                clientId={clientId}
+                invalidateKey={invalidateKey}
+                postId={postId}
+              />
+            ) : null
+          }
           mediaSlot={
             <MediaReferenceBlock
               refs={refs}
@@ -967,13 +989,10 @@ function emptyState(stageId: string): TaskState {
   };
 }
 
-// Formats ISO string into <input type="datetime-local"> value in the user's
-// local timezone (YYYY-MM-DDTHH:mm).
+// Formats ISO string into <input type="datetime-local"> value no fuso oficial
+// (America/Sao_Paulo) — mesma leitura usada pelo calendário.
 function toLocalInputValue(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return tzToLocalInputValue(iso);
 }
 
 function stateFromPost(
@@ -1000,8 +1019,8 @@ function stateFromPost(
     internalBriefing: post.internal_briefing ?? "",
     clientBriefing: post.client_briefing ?? "",
     script: scriptText,
-    scheduledAt: post.scheduled_at ? post.scheduled_at.slice(0, 16) : "",
-    remindAt: post.remind_at ? post.remind_at.slice(0, 16) : "",
+    scheduledAt: post.scheduled_at ? tzToLocalInputValue(post.scheduled_at) : "",
+    remindAt: post.remind_at ? tzToLocalInputValue(post.remind_at) : "",
     priority: ["low", "medium", "high", "urgent"].includes(post.priority ?? "")
       ? (post.priority as Priority)
       : "none",
@@ -1021,6 +1040,7 @@ function TaskLayout({
   copyAutosaveStatus,
   captionActions,
   mediaSlot,
+  scheduleSlot,
   brandId,
   clientId,
 }: {
@@ -1033,6 +1053,7 @@ function TaskLayout({
   copyAutosaveStatus?: "idle" | "saving" | "saved";
   captionActions?: React.ReactNode;
   mediaSlot?: ReactNode;
+  scheduleSlot?: ReactNode;
   brandId?: string;
   clientId?: string;
 }) {
@@ -1282,6 +1303,8 @@ function TaskLayout({
             </Select>
           </div>
         ) : null}
+
+        {scheduleSlot ? <div className="col-span-2">{scheduleSlot}</div> : null}
 
         <div className="space-y-1.5">
           <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
@@ -2017,6 +2040,121 @@ function MediaReferenceBlock({
           </div>
         </div>
       </DashboardPanelSurface>
+    </div>
+  );
+}
+
+/**
+ * Agenda proposta pela pauta — mesma fonte lida pelo calendário.
+ * Editar aqui atualiza `proposed_at` via as funções de agenda (nunca
+ * grava `scheduled_at`, que é a publicação efetiva).
+ */
+function ScheduleAgendaBlock({
+  post,
+  brandId,
+  clientId,
+  postId,
+  invalidateKey,
+}: {
+  post: {
+    proposed_at?: string | null;
+    scheduled_at?: string | null;
+    published_at?: string | null;
+    schedule_status?: string | null;
+    schedule_client_comment?: string | null;
+  };
+  brandId: string;
+  clientId: string;
+  postId: string;
+  invalidateKey: readonly unknown[];
+}) {
+  const qc = useQueryClient();
+  const updateSlot = useServerFn(updateScheduleSlotFn);
+  const clearSlot = useServerFn(clearScheduleSlotFn);
+  const schedule = scheduleDisplay(post);
+  const [value, setValue] = useState(
+    post.proposed_at ? tzToLocalInputValue(post.proposed_at) : "",
+  );
+
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: invalidateKey });
+    qc.invalidateQueries({ queryKey: ["post-detail", postId] });
+    qc.invalidateQueries({ queryKey: ["calendar-board"] });
+  };
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const iso = fromLocalInputValue(value);
+      if (!iso) throw new Error("Informe data e hora da agenda");
+      await updateSlot({ data: { brandId, clientId, postId, proposedAt: iso } });
+    },
+    onSuccess: () => {
+      toast.success("Agenda atualizada");
+      refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const clear = useMutation({
+    mutationFn: async () => {
+      await clearSlot({ data: { brandId, clientId, postId } });
+    },
+    onSuccess: () => {
+      setValue("");
+      toast.success("Agenda removida");
+      refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+          Agenda da pauta
+        </Label>
+        <span
+          className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wider ${schedule.chip}`}
+        >
+          {schedule.stateLabel}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          type="datetime-local"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          className="h-9 w-[220px]"
+        />
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={save.isPending || !value}
+          onClick={() => save.mutate()}
+        >
+          Salvar agenda
+        </Button>
+        {post.proposed_at ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={clear.isPending}
+            onClick={() => clear.mutate()}
+          >
+            Remover
+          </Button>
+        ) : null}
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        {schedule.iso
+          ? `Data considerada no calendário: ${scheduleFullLabel(schedule.iso)} (America/Sao_Paulo).`
+          : "Sem data — a peça aparece na faixa “Sem data” do calendário."}
+      </p>
+      {post.schedule_client_comment ? (
+        <p className="text-[11px] text-amber-600 dark:text-amber-400">
+          Cliente pediu alteração: {post.schedule_client_comment}
+        </p>
+      ) : null}
     </div>
   );
 }
