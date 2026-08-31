@@ -265,7 +265,9 @@ export class MetaPublishingService {
       externalPostId: publish.id,
       externalPermalink: permalink,
       providerResponse: { container_id: container.id, media_id: publish.id },
+      ...(igOpts.warnings.length ? { warnings: igOpts.warnings } : {}),
     };
+
   }
 
   // ------------------------------------------------------------- Facebook ---
