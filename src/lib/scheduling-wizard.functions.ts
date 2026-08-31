@@ -8,6 +8,8 @@ import {
 } from "@/lib/placements.server";
 import { resolveStageIdByKey } from "@/lib/post-stage.server";
 import { assertScheduleLead } from "@/lib/schedule-rules";
+import { describeQueueInsertError } from "@/lib/social/queue-conflict";
+
 
 /**
  * Server functions do wizard de agendamento (/calendar).
