@@ -83,17 +83,7 @@ export class MetaPublishingService {
   async publish(connection: MetaConnectionRow, input: PublishInput): Promise<PublishResult> {
     assertSupported(input.placement);
     const pageToken = await decryptCredential(connection.access_token_ciphertext);
-
-    if (input.placement === "instagram_feed") {
-      return this.publishInstagramFeed(connection, pageToken, input);
-    }
-    if (input.placement === "instagram_story") {
-      return this.publishInstagramStory(connection, pageToken, input);
-    }
-    if (input.placement === "instagram_reels") {
-      return this.publishInstagramReels(connection, pageToken, input);
-    }
-    return this.publishFacebookFeed(connection, pageToken, input);
+    return this.dispatch(connection, pageToken, input);
   }
 
   /**
@@ -108,17 +98,30 @@ export class MetaPublishingService {
   ): Promise<PublishResult> {
     assertSupported(input.placement);
     const row = { ...connection, access_token_ciphertext: "" } as MetaConnectionRow;
-    if (input.placement === "instagram_feed") {
-      return this.publishInstagramFeed(row, pageToken, input);
-    }
-    if (input.placement === "instagram_story") {
-      return this.publishInstagramStory(row, pageToken, input);
-    }
-    if (input.placement === "instagram_reels") {
-      return this.publishInstagramReels(row, pageToken, input);
-    }
-    return this.publishFacebookFeed(row, pageToken, input);
+    return this.dispatch(row, pageToken, input);
   }
+
+  private dispatch(
+    connection: MetaConnectionRow,
+    pageToken: string,
+    input: PublishInput,
+  ): Promise<PublishResult> {
+    switch (input.placement) {
+      case "instagram_feed":
+        return this.publishInstagramFeed(connection, pageToken, input);
+      case "instagram_story":
+        return this.publishInstagramStory(connection, pageToken, input);
+      case "instagram_reels":
+        return this.publishInstagramReels(connection, pageToken, input);
+      case "instagram_carousel":
+        return this.publishInstagramCarousel(connection, pageToken, input);
+      case "facebook_carousel":
+        return this.publishFacebookCarousel(connection, pageToken, input);
+      default:
+        return this.publishFacebookFeed(connection, pageToken, input);
+    }
+  }
+
 
   // ------------------------------------------------------------ Instagram ---
   private async publishInstagramFeed(
