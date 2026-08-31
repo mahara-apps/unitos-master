@@ -1561,7 +1561,12 @@ export function ScheduleWizard({
                 copy={copy}
                 hashtags={hashtags}
                 media={previewMedia}
+                mediaItems={selectedMedia.map((m) => ({
+                  publicUrl: m.publicUrl ?? null,
+                  kind: m.kind,
+                }))}
                 mediaCount={selectedMedia.length}
+
                 location={locationName}
               />
             </div>
