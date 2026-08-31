@@ -65,6 +65,7 @@ import {
   normalizeContentFormat,
   type ContentFormat,
 } from "@/lib/content-formats";
+import { scheduleDisplay, scheduleFullLabel } from "@/lib/post-schedule-display";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Settings2, AlarmClock } from "lucide-react";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
@@ -181,14 +182,14 @@ export function ContentBoard({
       if (!sort || sort.by === "position") {
         list.sort((a, b) => a.position - b.position);
       } else {
-        const pick = (p: BoardPost) =>
-          sort.by === "created"
-            ? new Date(p.created_at).getTime()
-            : p.scheduled_at
-              ? new Date(p.scheduled_at).getTime()
-              : sort.dir === "asc"
-                ? Number.POSITIVE_INFINITY
-                : Number.NEGATIVE_INFINITY;
+        const pick = (p: BoardPost) => {
+          if (sort.by === "created") return new Date(p.created_at).getTime();
+          // Ordena pela data EFETIVA (publicação/agendamento/proposta da pauta).
+          const ts = scheduleDisplay(p).timestamp;
+          return (
+            ts ?? (sort.dir === "asc" ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY)
+          );
+        };
         list.sort((a, b) => {
           const diff = pick(a) - pick(b);
           return sort.dir === "asc" ? diff : -diff;
@@ -729,7 +730,9 @@ function PostCard({
     .replace(/^###\s+\w+\s*$/gm, "")
     .replace(/\s+/g, " ")
     .trim();
-  const scheduled = post.scheduled_at ? new Date(post.scheduled_at) : null;
+  // Data + estado de agenda: mesma derivação usada pelo calendário.
+  const schedule = scheduleDisplay(post);
+  const missingDestination = channelDefs.length === 0 || formatKeys.length === 0;
   const tags = Array.isArray(post.tags) ? post.tags.filter(Boolean) : [];
   return (
     <button
@@ -756,6 +759,7 @@ function PostCard({
         {post.sla_status === "overdue" ||
         post.sla_status === "at_risk" ||
         priority ||
+        missingDestination ||
         formatKeys.length > 0 ||
         channelDefs.length > 0 ? (
           <div className="mb-1 flex flex-wrap items-center gap-1">
@@ -803,6 +807,16 @@ function PostCard({
                 {CONTENT_FORMAT_LABEL[f]}
               </span>
             ))}
+            {missingDestination ? (
+              <span
+                className="inline-flex items-center rounded-full border border-dashed border-amber-500/50 bg-amber-500/5 px-1.5 py-0 text-[8px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400"
+                title="Sem canal e/ou formato a peça não entra no calendário nem pode publicar."
+              >
+                Definir {channelDefs.length === 0 ? "canal" : ""}
+                {channelDefs.length === 0 && formatKeys.length === 0 ? "/" : ""}
+                {formatKeys.length === 0 ? "formato" : ""}
+              </span>
+            ) : null}
             {priority ? (
               <span
                 className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[8px] font-semibold uppercase tracking-wider ${PRIORITY_STYLES[priority] ?? ""}`}
@@ -847,17 +861,17 @@ function PostCard({
                 <Paperclip className="h-3 w-3" /> {refCount}
               </DashboardCountBadge>
             ) : null}
-            {scheduled ? (
-              <span
-                className="inline-flex items-center gap-1 tabular-nums"
-                title={`Publicação: ${scheduled.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`}
-              >
-                <CalendarDays className="h-3 w-3" />
-                {scheduled.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
-                {" · "}
-                {scheduled.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-              </span>
-            ) : null}
+            <span
+              className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0 tabular-nums ${schedule.chip}`}
+              title={
+                schedule.iso
+                  ? `${schedule.stateLabel}: ${scheduleFullLabel(schedule.iso)}`
+                  : "Sem data definida"
+              }
+            >
+              <CalendarDays className="h-3 w-3" />
+              {schedule.iso ? schedule.label : "Sem data"}
+            </span>
           </div>
         </div>
       </div>
