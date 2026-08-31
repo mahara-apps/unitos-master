@@ -226,62 +226,133 @@ export function PublicationDetailModal({
         </>
       }
     >
-      <div className="space-y-5">
-        <Section title="Conteúdo">
-          <div className="flex gap-3">
-            {item.coverUrl ? (
-              <img
-                src={item.coverUrl}
-                alt=""
-                className="h-24 w-24 shrink-0 rounded-md border border-border/60 object-cover"
-              />
-            ) : (
-              <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-md border border-dashed border-border/70 text-[10px] text-muted-foreground">
-                Sem mídia
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium leading-tight">{item.title}</div>
-              <p className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
-                {item.copy?.trim() ? item.copy : "Sem legenda."}
-              </p>
-            </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)] lg:items-start">
+        {/* Coluna 1 — prévia real do canal */}
+        <div className="space-y-2">
+          <div className="flex justify-center lg:justify-start">
+            <PostPreview
+              channel={activeTab.channel}
+              format={activeTab.format}
+              handle={activeTab.handle}
+              avatarUrl={null}
+              copy={copyText}
+              media={item.coverUrl ? { publicUrl: item.coverUrl, kind: "image" } : null}
+              mediaCount={1}
+            />
           </div>
-        </Section>
+          {tabs.length > 1 ? (
+            <div className="flex flex-wrap justify-center gap-1.5 lg:justify-start">
+              {tabs.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setTabKey(t.key)}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                    t.key === activeTab.key
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : "border-border/60 bg-background text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-[11px] text-muted-foreground lg:text-left">
+              {activeTab.label}
+            </p>
+          )}
+        </div>
 
-        <Section title="Agenda">
-          <dl className="grid grid-cols-3 gap-2 text-xs">
-            <div className="rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
-              <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Data</dt>
-              <dd className="mt-0.5 font-medium">
-                {item.when
-                  ? new Date(item.when).toLocaleDateString("pt-BR", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    })
-                  : "—"}
-              </dd>
+        {/* Coluna 2 — leitura e operação */}
+        <div className="min-w-0 space-y-5">
+          <Section title="Legenda">
+            <div className="rounded-lg border border-border/60 bg-muted/10 px-3.5 py-3">
+              {copyText ? (
+                <>
+                  <p
+                    className={cn(
+                      "whitespace-pre-wrap text-[13px] leading-relaxed text-foreground/90",
+                      longCopy && !expanded && "line-clamp-[12]",
+                    )}
+                  >
+                    {copyText}
+                  </p>
+                  <div className="mt-2.5 flex items-center justify-between gap-2">
+                    <span className="text-[10.5px] text-muted-foreground">
+                      {copyText.length} caracteres ·{" "}
+                      {(copyText.match(/#[\p{L}\p{N}_]+/gu) ?? []).length} hashtags
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {longCopy ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-[11px]"
+                          onClick={() => setExpanded((v) => !v)}
+                        >
+                          <ChevronDown
+                            className={cn(
+                              "mr-1 h-3 w-3 transition-transform",
+                              expanded && "rotate-180",
+                            )}
+                          />
+                          {expanded ? "Recolher" : "Ver mais"}
+                        </Button>
+                      ) : null}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 px-2 text-[11px]"
+                        onClick={() => {
+                          void navigator.clipboard
+                            .writeText(copyText)
+                            .then(() => toast.success("Legenda copiada."))
+                            .catch(() => toast.error("Não foi possível copiar."));
+                        }}
+                      >
+                        <Copy className="mr-1 h-3 w-3" />
+                        Copiar legenda
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Sem legenda. Abra a edição para escrever o texto da peça.
+                </p>
+              )}
             </div>
-            <div className="rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
-              <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Hora</dt>
-              <dd className="mt-0.5 font-medium tabular-nums">
-                {item.when
-                  ? new Date(item.when).toLocaleTimeString("pt-BR", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-                  : "—"}
-              </dd>
+          </Section>
+
+          <Section title="Agenda">
+            <div className="rounded-lg border border-border/60 bg-muted/10 px-3.5 py-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={cn(
+                    "rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                    schedule.chip,
+                  )}
+                >
+                  {schedule.stateLabel}
+                </span>
+                <span className="text-sm font-medium">{schedule.label}</span>
+              </div>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Fuso oficial: {APP_TIMEZONE} (GMT-3)
+                {schedule.isProposal
+                  ? " · data proposta pela pauta, ainda não é agendamento de publicação"
+                  : ""}
+              </p>
+              {schedule.clientComment ? (
+                <p className="mt-2 rounded-md border border-rose-500/30 bg-rose-500/5 px-2.5 py-2 text-[11px] leading-snug text-rose-700 dark:text-rose-300">
+                  Cliente pediu alteração: {schedule.clientComment}
+                </p>
+              ) : null}
             </div>
-            <div className="rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
-              <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                Timezone
-              </dt>
-              <dd className="mt-0.5 truncate font-medium">{tz}</dd>
-            </div>
-          </dl>
-        </Section>
+          </Section>
+
 
         <Section title={`Destinos (${item.destinations.length})`}>
           {item.destinations.length === 0 ? (
