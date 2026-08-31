@@ -266,15 +266,22 @@ ${BRIEFING_OUTPUT_INSTRUCTIONS}`,
     }
 
     const { generateBriefingAnalysis } = await import("@/lib/briefing-ai-executor.server");
-    const generated = await generateBriefingAnalysis({
-      brandId: run.brand_id,
-      usage: {
-        agent: run.source_kind === "document" ? "document.analyze" : "briefing.import.text",
-        clientId: run.client_id,
-      },
-      system,
-      messages: [{ role: "user", content }],
-    });
+    const generated = await withStepDeadline(
+      "interpret",
+      STEP_TIMEOUT_MS.interpret,
+      (signal) =>
+        generateBriefingAnalysis({
+          brandId: run.brand_id,
+          usage: {
+            agent: run.source_kind === "document" ? "document.analyze" : "briefing.import.text",
+            clientId: run.client_id,
+          },
+          system,
+          messages: [{ role: "user", content }],
+          abortSignal: signal,
+        }),
+    );
+
     analysis = generated.analysis;
     providerAttempts = generated.attempts;
     provider = generated.provider;
