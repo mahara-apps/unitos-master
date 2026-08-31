@@ -136,6 +136,32 @@ const STATUS_META: Record<string, { label: string; className: string }> = {
   archived: { label: "Arquivada", className: "border-border/60 bg-muted text-muted-foreground" },
 };
 
+// Cor de destaque por status (leitura rápida no modo cards).
+const STATUS_ACCENT: Record<string, string> = {
+  planning: "#71717a",
+  active: "#10b981",
+  in_progress: "#0ea5e9",
+  paused: "#f59e0b",
+  done: "#10b981",
+  archived: "#a1a1aa",
+};
+
+const SORT_LABELS: Record<SortKey, string> = {
+  due: "Entrega mais próxima",
+  name: "Nome",
+  client: "Cliente",
+  status: "Status",
+  progress: "Progresso",
+};
+
+const COLOR_BY_LABELS: Record<ColorBy, string> = {
+  project: "Cor do projeto",
+  status: "Status",
+  client: "Cliente",
+};
+
+
+
 const ProjectSchema = z.object({
   name: z.string().trim().min(2, "Nome muito curto"),
   client_id: z.string().uuid().nullable(),
