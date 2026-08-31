@@ -387,10 +387,14 @@ export function assertSupported(placement: string): asserts placement is Support
 
 /** Serialises Graph errors into a message safe to store in `last_error`. */
 export function formatPublishError(err: unknown): string {
+  if (isMediaNotReady(err)) {
+    return "A Meta ainda está processando a mídia. Tentaremos publicar novamente em instantes.";
+  }
   if (err instanceof MetaGraphError) {
     const code = err.graph?.code ? ` (code ${err.graph.code})` : "";
     return `Meta: ${err.message}${code}`;
   }
+
   if (err instanceof Error) return err.message;
   return "Erro desconhecido ao publicar";
 }
