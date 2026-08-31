@@ -249,8 +249,13 @@ export function ScheduleWizard({
     const id = seed?.postId;
     if (!id || hydratedForRef.current === id) return;
     hydratedForRef.current = id;
+    // Navegação na fila troca o seed com o wizard aberto: o postId em edição
+    // precisa acompanhar, senão o save escreveria na peça anterior.
+    setPostId(id);
+    setScheduledAtIso(null);
     let cancelled = false;
     setHydrating(true);
+
     loadPostState({ data: { postId: id, brandId } })
       .then((st) => {
         if (cancelled) return;
