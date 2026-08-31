@@ -84,6 +84,8 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
 
         const svc = new MetaPublishingService();
         const results: Array<{ id: string; ok: boolean; error?: string }> = [];
+        const seenConnections = new Map<string, number>();
+
 
         for (const post of claimed as Array<{
           id: string;
