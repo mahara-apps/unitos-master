@@ -128,10 +128,29 @@ export function PublicationDetailModal({
   const retry = useServerFn(retryFailedPlacementFn);
   const cancel = useServerFn(cancelPostScheduleFn);
   const [busy, setBusy] = useState<string | null>(null);
+  const [tabKey, setTabKey] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  const tabs = useMemo(() => (item ? previewTabs(item) : []), [item]);
+  const schedule = useMemo(
+    () =>
+      scheduleDisplay({
+        scheduled_at: item?.scheduledAt ?? null,
+        proposed_at: item?.proposedAt ?? null,
+        published_at: item?.publishedAt ?? null,
+        schedule_status: item?.scheduleStatus ?? null,
+        schedule_approved_at: item?.scheduleApprovedAt ?? null,
+        schedule_client_comment: item?.scheduleClientComment ?? null,
+      }),
+    [item],
+  );
 
   if (!item) return null;
   const token = PUBLICATION_STATUS[item.overall];
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const activeTab = tabs.find((t) => t.key === tabKey) ?? tabs[0]!;
+  const copyText = item.copy?.trim() ?? "";
+  const longCopy = copyText.length > 900;
+
   const canCancel =
     (item.overall === "scheduled" || item.overall === "failed") &&
     item.destinations.some((d) => d.status !== "published");
