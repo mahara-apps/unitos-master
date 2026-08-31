@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { assertCronRequest } from "@/lib/cron-auth.server";
+import { isMetaRateLimit, nextRateLimitRetryAt, rateLimitMessage } from "@/lib/meta/rate-limit";
+
 
 /**
  * Erro determinístico de autorização/vínculo: NUNCA deve consumir retries.
