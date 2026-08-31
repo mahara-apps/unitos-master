@@ -236,6 +236,29 @@ export function ScheduleWizard({
     wasOpenRef.current = open;
   }, [open, seed, defaultDate]);
 
+  // Marca "alterações não salvas" a cada edição do composer. Declarado ANTES do
+  // efeito de reset abaixo para que hidratação/troca de peça limpe a flag.
+  useEffect(() => {
+    dirtyRef.current = true;
+  }, [
+    title,
+    copy,
+    pairs,
+    selectedMedia,
+    hashtags,
+    firstComment,
+    linkUrl,
+    locationName,
+    scheduleDate,
+    scheduleTime,
+  ]);
+
+  useEffect(() => {
+    if (!hydrating) dirtyRef.current = false;
+  }, [hydrating, seed?.postId, open]);
+
+
+
   const connectionsQ = useQuery({
     enabled: open,
     queryKey: ["wizard-connections", brandId, clientId],
