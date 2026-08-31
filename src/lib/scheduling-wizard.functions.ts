@@ -388,6 +388,8 @@ const DestinationSchema = z.object({
   channel: z.enum(["instagram", "facebook", "linkedin", "tiktok", "youtube", "x", "threads"]),
   format: z.enum(["feed", "stories", "reels", "carrossel"]),
   copyOverride: z.string().nullable().optional(),
+  /** Opções avançadas do destino — normalizadas no servidor. */
+  options: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 const SaveInput = z
