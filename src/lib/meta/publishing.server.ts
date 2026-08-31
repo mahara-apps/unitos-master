@@ -115,8 +115,12 @@ export class MetaPublishingService {
     const result = await this.dispatchPlacement(connection, pageToken, input);
     // Opções pós-publicação (primeiro comentário, comentários desativados):
     // best-effort — falha aqui NUNCA invalida a publicação já feita.
-    const warnings = await this.applyPostPublishOptions(connection, pageToken, input, result);
+    const warnings = [
+      ...(result.warnings ?? []),
+      ...(await this.applyPostPublishOptions(connection, pageToken, input, result)),
+    ];
     return warnings.length ? { ...result, warnings } : result;
+
   }
 
   private dispatchPlacement(
