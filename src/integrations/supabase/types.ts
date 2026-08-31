@@ -4570,6 +4570,9 @@ export type Database = {
           previous_title: string | null
           rationale: string | null
           status: string
+          suggested_at: string | null
+          suggested_confidence: string | null
+          suggested_slot_rationale: string | null
           target_audience: string | null
           topic_title: string
           updated_at: string
@@ -4589,6 +4592,9 @@ export type Database = {
           previous_title?: string | null
           rationale?: string | null
           status?: string
+          suggested_at?: string | null
+          suggested_confidence?: string | null
+          suggested_slot_rationale?: string | null
           target_audience?: string | null
           topic_title: string
           updated_at?: string
@@ -4608,6 +4614,9 @@ export type Database = {
           previous_title?: string | null
           rationale?: string | null
           status?: string
+          suggested_at?: string | null
+          suggested_confidence?: string | null
+          suggested_slot_rationale?: string | null
           target_audience?: string | null
           topic_title?: string
           updated_at?: string
@@ -5091,6 +5100,7 @@ export type Database = {
           position: number
           priority: string | null
           project_id: string | null
+          proposed_at: string | null
           published_at: string | null
           recurrence: Json | null
           reference_media: Json
@@ -5098,6 +5108,11 @@ export type Database = {
           remind_at: string | null
           review_status: string
           rework_notes: string | null
+          schedule_approved_at: string | null
+          schedule_approved_by: string | null
+          schedule_client_comment: string | null
+          schedule_client_decision_at: string | null
+          schedule_status: string
           scheduled_at: string | null
           script: Json | null
           stage: Database["public"]["Enums"]["post_stage"]
@@ -5134,6 +5149,7 @@ export type Database = {
           position?: number
           priority?: string | null
           project_id?: string | null
+          proposed_at?: string | null
           published_at?: string | null
           recurrence?: Json | null
           reference_media?: Json
@@ -5141,6 +5157,11 @@ export type Database = {
           remind_at?: string | null
           review_status?: string
           rework_notes?: string | null
+          schedule_approved_at?: string | null
+          schedule_approved_by?: string | null
+          schedule_client_comment?: string | null
+          schedule_client_decision_at?: string | null
+          schedule_status?: string
           scheduled_at?: string | null
           script?: Json | null
           stage?: Database["public"]["Enums"]["post_stage"]
@@ -5177,6 +5198,7 @@ export type Database = {
           position?: number
           priority?: string | null
           project_id?: string | null
+          proposed_at?: string | null
           published_at?: string | null
           recurrence?: Json | null
           reference_media?: Json
@@ -5184,6 +5206,11 @@ export type Database = {
           remind_at?: string | null
           review_status?: string
           rework_notes?: string | null
+          schedule_approved_at?: string | null
+          schedule_approved_by?: string | null
+          schedule_client_comment?: string | null
+          schedule_client_decision_at?: string | null
+          schedule_status?: string
           scheduled_at?: string | null
           script?: Json | null
           stage?: Database["public"]["Enums"]["post_stage"]
