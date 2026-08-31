@@ -974,17 +974,20 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           let lastPermalink: string | null = null;
           for (const path of frames) {
             // Resolve mídia por frame (signed URL curta).
-            const mediaOut: { imageUrl?: string; videoUrl?: string; link?: string } = {};
+            const mediaOut: {
+              imageUrl?: string;
+              videoUrl?: string;
+              link?: string;
+              items?: Array<{ imageUrl?: string; videoUrl?: string }>;
+            } = {};
             if (!isStory && data.linkUrl) mediaOut.link = data.linkUrl;
-            if (path) {
-              if (!path.startsWith(`${data.brandId}/`))
-                throw new Error("Mídia fora do escopo da marca");
-              const { data: signed, error: sErr } = await supabase.storage
-                .from("brand-media")
-                .createSignedUrl(path, 3600);
-              if (sErr) throw new Error(`Falha ao assinar mídia: ${sErr.message}`);
-              if (IS_VIDEO_PATH.test(path)) mediaOut.videoUrl = signed.signedUrl;
-              else mediaOut.imageUrl = signed.signedUrl;
+            if (isCarousel) {
+              mediaOut.items = carouselItems;
+              if (carouselItems[0]?.imageUrl) mediaOut.imageUrl = carouselItems[0].imageUrl;
+            } else if (path) {
+              const url = await signPath(path);
+              if (IS_VIDEO_PATH.test(path)) mediaOut.videoUrl = url;
+              else mediaOut.imageUrl = url;
             }
             if (providerPlacement === "instagram_feed" && !mediaOut.imageUrl) {
               throw new Error("Feed do Instagram exige uma imagem");
@@ -999,6 +1002,9 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             if (providerPlacement === "instagram_reels" && !mediaOut.videoUrl) {
               throw new Error("Reels exige um vídeo (MP4) na peça.");
             }
+            if (isCarousel && carouselItems.length < 2) {
+              throw new Error("Carrossel exige pelo menos 2 mídias na peça.");
+            }
 
             // Registro de auditoria em social_posts (1 por frame)
             const { data: sp, error: spErr } = await supabase
@@ -1012,14 +1018,20 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
                 caption: caption ?? null,
                 hashtags: isStory ? [] : data.hashtags,
                 mentions: [],
-                media: path
+                media: isCarousel
                   ? {
-                      storagePath: path,
-                      ...(!isStory && data.linkUrl ? { link: data.linkUrl } : {}),
+                      storagePaths: data.mediaPaths.slice(0, 10),
+                      ...(data.linkUrl ? { link: data.linkUrl } : {}),
                     }
-                  : !isStory && data.linkUrl
-                    ? { link: data.linkUrl }
-                    : {},
+                  : path
+                    ? {
+                        storagePath: path,
+                        ...(!isStory && data.linkUrl ? { link: data.linkUrl } : {}),
+                      }
+                    : !isStory && data.linkUrl
+                      ? { link: data.linkUrl }
+                      : {},
+
                 post_id: postId,
                 status: "publishing",
                 created_by: context.userId,
