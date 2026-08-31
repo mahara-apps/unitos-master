@@ -44,6 +44,8 @@ export const listDiscoveredMetaAccountsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => ListInput.parse(i))
   .handler(async ({ data, context }): Promise<DiscoveredAccountsResult> => {
+    const { assertIntegrationAuthority } = await import("@/lib/access-guard");
+    await assertIntegrationAuthority(context.supabase, context.userId, data.brandId);
     const empty: DiscoveredAccountsResult = {
       sessionId: null,
       metaUserName: null,
@@ -154,6 +156,8 @@ export const reconcileMetaConnectionFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => ReconcileInput.parse(i))
   .handler(async ({ data, context }): Promise<ReconcileResult> => {
+    const { assertIntegrationAuthority } = await import("@/lib/access-guard");
+    await assertIntegrationAuthority(context.supabase, context.userId, data.brandId);
     const { data: conn } = await context.supabase
       .from("social_connections")
       .select("id, channel, external_id, external_name")

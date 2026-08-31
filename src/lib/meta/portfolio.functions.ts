@@ -35,6 +35,8 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => GetInput.parse(input))
   .handler(async ({ data, context }): Promise<PortfolioResponse> => {
+    const { assertIntegrationAuthority } = await import("@/lib/access-guard");
+    await assertIntegrationAuthority(context.supabase, context.userId, data.brandId);
     const { data: session, error } = await context.supabase
       .from("meta_oauth_sessions")
       .select(
@@ -518,6 +520,8 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => LinkInput.parse(input))
   .handler(async ({ data, context }) => {
+    const { assertIntegrationAuthority } = await import("@/lib/access-guard");
+    await assertIntegrationAuthority(context.supabase, context.userId, data.brandId);
     const { data: session, error } = await context.supabase
       .from("meta_oauth_sessions")
       .select(
@@ -780,6 +784,8 @@ export const unlinkMetaAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => UnlinkInput.parse(input))
   .handler(async ({ data, context }) => {
+    const { assertIntegrationAuthority } = await import("@/lib/access-guard");
+    await assertIntegrationAuthority(context.supabase, context.userId, data.brandId);
     const { error: linkErr } = await context.supabase
       .from("client_social_accounts")
       .delete()
