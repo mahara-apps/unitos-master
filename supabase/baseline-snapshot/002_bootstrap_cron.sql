@@ -35,7 +35,11 @@ DECLARE
     jsonb_build_array('meta-publish-scheduled',    '* * * * *',    '/api/public/meta/publish-scheduled'),
     jsonb_build_array('brain-synthesis-nightly',   '17 3 * * *',   '/api/public/hooks/brain-synthesis'),
     jsonb_build_array('brain-social-metrics-sync', '23 4 * * *',   '/api/public/hooks/social-metrics-sync'),
-    jsonb_build_array('ai-models-health-daily',    '20 3 * * *',   '/api/public/hooks/ai-models-health')
+    jsonb_build_array('ai-models-health-daily',    '20 3 * * *',   '/api/public/hooks/ai-models-health'),
+    -- Importacao de briefing: consumidor da fila + reaper de runs travadas
+    jsonb_build_array('briefing-import-worker',    '* * * * *',    '/api/public/cron/import-worker'),
+    jsonb_build_array('briefing-import-reaper',    '*/2 * * * *',  '/api/public/cron/import-reaper')
+
   );
   v_job jsonb;
 BEGIN
