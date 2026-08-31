@@ -462,8 +462,12 @@ function BoardView({
         projectOptions={(projectOptions ?? []).map((p) => ({ id: p.id, name: p.name }))}
         selectionMode={selectionMode}
         onToggleSelectionMode={() => {
-          setSelectionMode((v) => !v);
+          const next = !selectionMode;
+          setSelectionMode(next);
           setSelected([]);
+          // Seleção em massa acontece na visão em lista (checkbox por linha,
+          // "selecionar todos os visíveis" respeitando os filtros ativos).
+          if (next) setView("list");
         }}
       />
       {selectionMode ? (
