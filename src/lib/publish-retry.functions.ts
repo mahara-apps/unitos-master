@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { describeQueueInsertError } from "@/lib/social/queue-conflict";
 
 /**
  * Publicação parcial e republicação por DESTINO.
@@ -596,11 +597,10 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
       location_id: (failedRow?.location_id as string | null) ?? null,
     });
     if (insErr) {
-      // Índice único de destino ativo = alguém já reenfileirou (duplo clique).
-      if (/duplicate key|social_posts_active_dest_key/i.test(insErr.message)) {
-        throw new Error("Já existe uma republicação na fila para este destino.");
-      }
-      throw new Error(insErr.message);
+      // Índice único de destino ativo = já existe item pendente para o destino.
+      throw new Error(
+        describeQueueInsertError(insErr.message, conn.channel as string, pl.format as string),
+      );
     }
 
     // 8) Placement volta para "agendado" (histórico publicado nunca é tocado)
@@ -611,4 +611,84 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
       .neq("status", "published");
 
     return { ok: true, queuedAt: nowIso, channel: conn.channel as string };
+  });
+
+// ============================================================
+// cancelQueuedPlacementFn — cancela o item PENDENTE da fila de um destino
+// ============================================================
+
+/**
+ * Libera o destino para reagendamento imediato quando existe item aguardando
+ * nova tentativa (por exemplo, adiado por limite de requisições da rede).
+ * Nunca toca em linha publicada nem em linha travada por worker em execução.
+ */
+export const cancelQueuedPlacementFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        postId: z.string().uuid(),
+        brandId: z.string().uuid(),
+        placementId: z.string().uuid(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase;
+
+    const { data: pl, error: plErr } = await supabase
+      .from("post_placements")
+      .select("id, format, status, connection_id, client_id")
+      .eq("id", data.placementId)
+      .eq("post_id", data.postId)
+      .eq("brand_id", data.brandId)
+      .maybeSingle();
+    if (plErr) throw new Error(plErr.message);
+    if (!pl) throw new Error("Destino não encontrado nesta peça.");
+    if (!pl.connection_id) throw new Error("Destino sem conta vinculada.");
+    if ((pl.status as string) === "published") {
+      throw new Error("Este destino já foi publicado — nada a cancelar.");
+    }
+
+    const dbPlacement: "feed" | "story" = familyOf(pl.format as string) === "story" ? "story" : "feed";
+
+    const { data: cancelled, error: cErr } = await supabase
+      .from("social_posts")
+      .update({ status: "cancelled" })
+      .eq("post_id", data.postId)
+      .eq("brand_id", data.brandId)
+      .eq("connection_id", pl.connection_id)
+      .eq("placement", dbPlacement)
+      .in("status", ["scheduled", "publishing"])
+      .is("publish_locked_at", null)
+      .select("id");
+    if (cErr) throw new Error(cErr.message);
+    if (!cancelled?.length) {
+      throw new Error(
+        "Nenhum item pendente para cancelar — a publicação já está em execução ou finalizada.",
+      );
+    }
+
+    await supabase
+      .from("post_placements")
+      .update({ status: "failed" })
+      .eq("id", data.placementId)
+      .neq("status", "published");
+
+    await supabase.from("activity_events").insert({
+      brand_id: data.brandId,
+      client_id: (pl.client_id as string | null) ?? null,
+      actor_id: context.userId,
+      entity_type: "post_placement",
+      entity_id: data.placementId,
+      verb: "queue_item_cancelled",
+      payload: {
+        post_id: data.postId,
+        placement: dbPlacement,
+        connection_id: pl.connection_id,
+        cancelled_rows: cancelled.length,
+      },
+    });
+
+    return { ok: true, cancelled: cancelled.length };
   });
