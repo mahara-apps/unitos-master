@@ -107,7 +107,19 @@ export class MetaPublishingService {
     return this.dispatch(row, pageToken, input);
   }
 
-  private dispatch(
+  private async dispatch(
+    connection: MetaConnectionRow,
+    pageToken: string,
+    input: PublishInput,
+  ): Promise<PublishResult> {
+    const result = await this.dispatchPlacement(connection, pageToken, input);
+    // Opções pós-publicação (primeiro comentário, comentários desativados):
+    // best-effort — falha aqui NUNCA invalida a publicação já feita.
+    const warnings = await this.applyPostPublishOptions(connection, pageToken, input, result);
+    return warnings.length ? { ...result, warnings } : result;
+  }
+
+  private dispatchPlacement(
     connection: MetaConnectionRow,
     pageToken: string,
     input: PublishInput,
@@ -127,6 +139,82 @@ export class MetaPublishingService {
         return this.publishFacebookFeed(connection, pageToken, input);
     }
   }
+
+  /**
+   * Parâmetros de container do Instagram derivados das opções do destino.
+   * Localização só é aplicada quando o ID numérico do local é informado —
+   * nome livre não é aceito pela Graph API.
+   */
+  private igContainerOptions(
+    input: PublishInput,
+    opts: { withUserTags?: boolean } = {},
+  ): { query: Record<string, string>; warnings: string[] } {
+    const o = input.options ?? {};
+    const query: Record<string, string> = {};
+    const warnings: string[] = [];
+
+    if (o.collaborators?.length) {
+      query.collaborators = JSON.stringify(o.collaborators.slice(0, 3));
+    }
+    if (o.location) {
+      if (/^\d+$/.test(o.location)) query.location_id = o.location;
+      else
+        warnings.push(
+          "Localização não aplicada: informe o ID numérico do local do Facebook para marcar na publicação.",
+        );
+    }
+    if (o.userTags?.length) {
+      if (opts.withUserTags) {
+        query.user_tags = JSON.stringify(
+          o.userTags.slice(0, 20).map((username) => ({ username, x: 0.5, y: 0.5 })),
+        );
+      } else {
+        warnings.push("Marcação de pessoas não aplicada neste formato.");
+      }
+    }
+    return { query, warnings };
+  }
+
+  private async applyPostPublishOptions(
+    connection: MetaConnectionRow,
+    pageToken: string,
+    input: PublishInput,
+    result: PublishResult,
+  ): Promise<string[]> {
+    const o = input.options ?? {};
+    const warnings: string[] = [];
+    const isInstagram = input.placement.startsWith("instagram");
+    const isStory = input.placement === "instagram_story";
+
+    if (o.disableComments && isInstagram && !isStory) {
+      try {
+        await this.provider.graph(`/${result.externalPostId}`, {
+          accessToken: pageToken,
+          method: "POST",
+          query: { comment_enabled: "false" },
+        });
+      } catch {
+        warnings.push("Não foi possível desativar os comentários desta publicação.");
+      }
+    }
+
+    if (o.firstComment && !isStory) {
+      try {
+        await this.provider.graph(`/${result.externalPostId}/comments`, {
+          accessToken: pageToken,
+          method: "POST",
+          query: { message: o.firstComment },
+        });
+      } catch {
+        warnings.push("A publicação foi feita, mas o primeiro comentário não pôde ser postado.");
+      }
+    }
+
+    // Anotações operacionais nunca são enviadas — apenas sinalizadas.
+    void connection;
+    return warnings;
+  }
+
 
 
   // ------------------------------------------------------------ Instagram ---
