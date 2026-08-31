@@ -805,28 +805,45 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         connectionId?: string;
       }> = [];
       for (const d of data.destinations) {
-        // Publicação direta: Feed IG/FB e Stories no IG (multi-frame automático).
+        // Publicação direta: Feed IG/FB, Stories IG (multi-frame) e Reels IG.
         const supported =
           (d.format === "feed" && (d.channel === "instagram" || d.channel === "facebook")) ||
-          (d.format === "stories" && d.channel === "instagram");
+          (d.format === "stories" && d.channel === "instagram") ||
+          (d.format === "reels" && d.channel === "instagram");
         if (!supported) {
           results.push({
             channel: d.channel,
             format: d.format,
             ok: false,
-            error: "Formato ainda não publicável (Feed IG/FB ou Stories IG)",
+            error: "Formato ainda não publicável (Feed IG/FB, Stories IG ou Reels IG)",
           });
           continue;
         }
         const isStory = d.format === "stories";
+        const isReel = d.format === "reels";
+        if (isReel && !data.mediaPaths.some((m) => IS_VIDEO_PATH.test(m))) {
+          results.push({
+            channel: d.channel,
+            format: d.format,
+            ok: false,
+            error: "Reels exige um vídeo (MP4) na peça. Anexe o vídeo antes de publicar.",
+          });
+          continue;
+        }
         // Valor persistido em social_posts.placement (CHECK constraint) e enviado
         // ao provider como identificador de superfície.
-        const providerPlacement: "instagram_feed" | "facebook_feed" | "instagram_story" = isStory
+        const providerPlacement:
+          | "instagram_feed"
+          | "facebook_feed"
+          | "instagram_story"
+          | "instagram_reels" = isStory
           ? "instagram_story"
-          : d.channel === "instagram"
-            ? "instagram_feed"
-            : "facebook_feed";
-        const dbPlacement: "feed" | "story" = isStory ? "story" : "feed";
+          : isReel
+            ? "instagram_reels"
+            : d.channel === "instagram"
+              ? "instagram_feed"
+              : "facebook_feed";
+        const dbPlacement: "feed" | "story" | "reel" = isStory ? "story" : isReel ? "reel" : "feed";
         try {
           // Carrega conexão do workspace (a marca é a dona do canal)
           const { data: conn, error: connErr } = await supabase
@@ -883,7 +900,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             .eq("post_id", postId)
             .eq("brand_id", data.brandId)
             .eq("connection_id", d.connectionId)
-            .eq("placement", isStory ? "story" : "feed")
+            .eq("placement", dbPlacement)
             .in("status", ["scheduled", "failed", "publishing"])
             .is("publish_locked_at", null);
 
@@ -893,7 +910,9 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           const frames =
             isStory && data.mediaPaths.length > 0
               ? data.mediaPaths
-              : [data.mediaPaths[0] as string | undefined];
+              : isReel
+                ? [data.mediaPaths.find((m) => IS_VIDEO_PATH.test(m))]
+                : [data.mediaPaths[0] as string | undefined];
 
           const caption = isStory
             ? undefined
@@ -919,7 +938,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
                 .from("brand-media")
                 .createSignedUrl(path, 3600);
               if (sErr) throw new Error(`Falha ao assinar mídia: ${sErr.message}`);
-              if (/\.(mp4|mov|m4v|webm|3gp)$/i.test(path)) mediaOut.videoUrl = signed.signedUrl;
+              if (IS_VIDEO_PATH.test(path)) mediaOut.videoUrl = signed.signedUrl;
               else mediaOut.imageUrl = signed.signedUrl;
             }
             if (providerPlacement === "instagram_feed" && !mediaOut.imageUrl) {
@@ -931,6 +950,9 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
               !mediaOut.videoUrl
             ) {
               throw new Error("Stories exige imagem ou vídeo");
+            }
+            if (providerPlacement === "instagram_reels" && !mediaOut.videoUrl) {
+              throw new Error("Reels exige um vídeo (MP4) na peça.");
             }
 
             // Registro de auditoria em social_posts (1 por frame)
