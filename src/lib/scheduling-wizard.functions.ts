@@ -853,6 +853,21 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             if (!capability.publishReady) throw new Error(capability.message);
           }
 
+          // Item pendente do MESMO destino (por exemplo, adiado por limite de
+          // requisições da Meta) impede a inserção pelo índice único de destino
+          // ativo. Encerramos o pendente — nunca linha publicada nem linha
+          // travada por worker em execução.
+          await supabase
+            .from("social_posts")
+            .update({ status: "cancelled" })
+            .eq("post_id", postId)
+            .eq("brand_id", data.brandId)
+            .eq("connection_id", d.connectionId)
+            .eq("placement", isStory ? "story" : "feed")
+            .in("status", ["scheduled", "failed", "publishing"])
+            .is("publish_locked_at", null);
+
+
           // Stories multi-frame: publica cada mídia como um Story separado.
           // Feed/Reels: 1 chamada, primeira mídia.
           const frames =
