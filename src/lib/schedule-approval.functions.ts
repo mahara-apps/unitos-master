@@ -9,6 +9,9 @@ import {
   internalApproveSchedule,
   updateProposedSlot,
   clearProposedSlot,
+  ensureClientScheduleLink,
+  reserveScheduleDirect,
+  type ClientScheduleLink,
   type ScheduleActionResult,
 } from "@/lib/schedule-approval.server";
 
@@ -20,14 +23,59 @@ export const approveScheduleFn = createServerFn({ method: "POST" })
     scope.extend({ postIds: z.array(z.string().uuid()).min(1).max(200) }).parse(i),
   )
   .handler(
+    async ({
+      data,
+      context,
+    }): Promise<ScheduleActionResult & { link: ClientScheduleLink | null }> => {
+      const res = await internalApproveSchedule(context.supabase, {
+        brandId: data.brandId,
+        clientId: data.clientId,
+        postIds: data.postIds,
+        userId: context.userId,
+      });
+      let link: ClientScheduleLink | null = null;
+      try {
+        link = await ensureClientScheduleLink(context.supabase, {
+          brandId: data.brandId,
+          clientId: data.clientId,
+          userId: context.userId,
+        });
+      } catch {
+        link = null;
+      }
+      return { ...res, link };
+    },
+  );
+
+/** Link do Portal para o cliente conferir a agenda (copiar e enviar à mão). */
+export const getClientScheduleLinkFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => scope.parse(i))
+  .handler(
+    ({ data, context }): Promise<ClientScheduleLink | null> =>
+      ensureClientScheduleLink(context.supabase, {
+        brandId: data.brandId,
+        clientId: data.clientId,
+        userId: context.userId,
+      }),
+  );
+
+/** Reserva a data sem o cliente — apenas Owner/Admin. */
+export const reserveScheduleFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    scope.extend({ postIds: z.array(z.string().uuid()).min(1).max(200) }).parse(i),
+  )
+  .handler(
     ({ data, context }): Promise<ScheduleActionResult> =>
-      internalApproveSchedule(context.supabase, {
+      reserveScheduleDirect(context.supabase, {
         brandId: data.brandId,
         clientId: data.clientId,
         postIds: data.postIds,
         userId: context.userId,
       }),
   );
+
 
 export const updateScheduleSlotFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
