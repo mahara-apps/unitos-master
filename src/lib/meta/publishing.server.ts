@@ -461,7 +461,9 @@ export class MetaPublishingService {
       childIds.push(child.id);
     }
 
-    const parentOpts = this.igContainerOptions(input);
+    const parentOpts = this.igContainerOptions(input, { withUserTags: true });
+    delete parentOpts.query.user_tags; // tags vivem no slide, não no pai
+
     const parent = await this.provider.graph<{ id: string }>(`/${igId}/media`, {
       accessToken: pageToken,
       method: "POST",
