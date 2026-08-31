@@ -342,7 +342,7 @@ function ConnectionsPage() {
   // IMPORTANTE: este early-return fica DEPOIS de todos os hooks — colocá-lo
   // antes fazia a segunda renderização (isReady: false → true) executar menos
   // hooks e derrubar a tela com "Rendered fewer hooks than expected".
-  if (isReady && role !== "admin") {
+  if (isReady && !canManageIntegrations) {
     return <Navigate to="/dashboard" replace />;
   }
 
