@@ -9,6 +9,7 @@ import {
 import {
   hasPlacementOptions,
   normalizePlacementOptions,
+  type PlacementOptions,
 } from "@/lib/placement-options";
 import { resolveStageIdByKey } from "@/lib/post-stage.server";
 import { assertScheduleLead } from "@/lib/schedule-rules";
@@ -249,7 +250,7 @@ export type WizardPostState = {
     connectionId: string;
     channel: string;
     format: string;
-    options?: Record<string, unknown>;
+    options?: PlacementOptions;
   }>;
   media: Array<{
     id: string;
@@ -322,13 +323,13 @@ export const loadPostStateFn = createServerFn({ method: "POST" })
       if (connectionId && channel && currentConnectionIds.has(connectionId)) {
         const options =
           co.options && typeof co.options === "object"
-            ? (co.options as Record<string, unknown>)
+            ? normalizePlacementOptions(channel as never, pl.format as never, co.options)
             : undefined;
         destinations.push({
           connectionId,
           channel,
           format: pl.format as string,
-          ...(options ? { options } : {}),
+          ...(options && hasPlacementOptions(options) ? { options } : {}),
         });
       }
 
