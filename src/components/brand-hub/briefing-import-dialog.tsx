@@ -29,6 +29,7 @@ import { uploadClientDocument } from "@/lib/brand-hub.functions";
 import {
   applyBriefingImportRun,
   getBriefingImportRun,
+  retryBriefingImportRun,
 } from "@/lib/briefing-import.functions";
 import type { ImportChangeRow } from "@/lib/briefing-import.server";
 import { composeTextMaterial, extractTextFromFile } from "@/lib/briefing-import-extract";
@@ -118,6 +119,8 @@ export function BriefingImportDialog({
   const upload = useServerFn(uploadClientDocument);
   const getRun = useServerFn(getBriefingImportRun);
   const applyRun = useServerFn(applyBriefingImportRun);
+  const resumeRun = useServerFn(retryBriefingImportRun);
+
   const qc = useQueryClient();
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -344,9 +347,21 @@ export function BriefingImportDialog({
       const token = session.session?.access_token;
       if (!token) throw new Error("Sessão expirada. Faça login novamente.");
 
+      // 1) Retomada: devolve a MESMA run para a fila preservando os checkpoints
+      // já concluídos (a interpretação da IA não é paga novamente).
+      let resumed = false;
+      if (current.runId) {
+        resumed = await resumeRun({
+          data: { brandId, clientId, runId: current.runId },
+        }).then(
+          () => true,
+          () => false,
+        );
+      }
+
       let runId: string;
       if (current.text) {
-        const again = await startTextRun({ token, ...current.text, force: true });
+        const again = await startTextRun({ token, ...current.text, ...(resumed ? {} : { force: true }) });
         runId = again.runId;
       } else {
         const res = await fetch("/api/jobs/analyze-document", {
@@ -356,7 +371,7 @@ export function BriefingImportDialog({
             brandId,
             clientId,
             documentId: current.documentId,
-            force: true,
+            ...(resumed ? {} : { force: true }),
           }),
         });
         if (!res.ok) throw new Error(await res.text().catch(() => "Falha ao reprocessar"));

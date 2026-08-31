@@ -27,6 +27,9 @@ export const IMPORT_RUN_STATUSES = [
   "failed",
   "cancelled",
   "discarded",
+  "paused",
+  "needs_input",
+  "expired",
 ] as const;
 export type ImportRunStatus = (typeof IMPORT_RUN_STATUSES)[number];
 
@@ -52,13 +55,26 @@ export const ACTIVE_RUN_STATUSES: ImportRunStatus[] = [
   "applying",
 ];
 
+/** Estados terminais recuperáveis por retry explícito (retomando checkpoints). */
+export const RETRYABLE_RUN_STATUSES: ImportRunStatus[] = [
+  "failed",
+  "expired",
+  "paused",
+  "needs_input",
+];
+
 const TRANSITIONS: Record<ImportRunStatus, ImportRunStatus[]> = {
-  queued: ["running", "failed", "cancelled"],
-  running: ["proposed", "failed", "cancelled"],
+  queued: ["running", "failed", "cancelled", "expired"],
+  // `running` só existe com lease válida; sem heartbeat o reaper devolve para
+  // `queued` (nova tentativa) ou encerra em `expired`.
+  running: ["proposed", "failed", "cancelled", "paused", "needs_input", "queued", "expired"],
   proposed: ["applying", "discarded", "failed", "cancelled"],
   applying: ["applied", "proposed", "failed"],
   applied: [],
   failed: ["queued", "running"],
+  paused: ["queued", "cancelled"],
+  needs_input: ["queued", "cancelled"],
+  expired: ["queued"],
   cancelled: [],
   discarded: [],
 };
@@ -66,6 +82,36 @@ const TRANSITIONS: Record<ImportRunStatus, ImportRunStatus[]> = {
 export function canTransition(from: ImportRunStatus, to: ImportRunStatus): boolean {
   return TRANSITIONS[from]?.includes(to) ?? false;
 }
+
+/**
+ * Classifica a falha de execução para decidir o estado terminal:
+ * - `paused`: bloqueio do provedor (chave ausente, crédito, limite de conta) —
+ *   retomar sem ação humana só repetiria o mesmo erro;
+ * - `needs_input`: material inservível (arquivo ilegível, sem texto);
+ * - `failed`: falha recuperável por retry.
+ */
+export function classifyRunFailure(error: unknown): {
+  status: Extract<ImportRunStatus, "paused" | "needs_input" | "failed">;
+  kind: string;
+} {
+  const raw = error instanceof Error ? `${error.message}` : String(error ?? "");
+  if (
+    /ai_provider_not_configured|no_provider|api[_ ]?key|unauthorized|invalid[_ ]api|credit|quota|billing|\b40[123]\b|insufficient/i.test(
+      raw,
+    )
+  ) {
+    return { status: "paused", kind: "provider_blocked" };
+  }
+  if (
+    /document_not_found|download_failed|empty_input_text|no_text|unsupported_media|unsupported_file|empty_document|too_large/i.test(
+      raw,
+    )
+  ) {
+    return { status: "needs_input", kind: "input" };
+  }
+  return { status: "failed", kind: "analysis" };
+}
+
 
 export type ImportRunRow = {
   id: string;
@@ -93,7 +139,14 @@ export type ImportRunRow = {
   updated_at: string;
   started_at: string | null;
   finished_at: string | null;
+  lease_owner?: string | null;
+  lease_expires_at?: string | null;
+  heartbeat_at?: string | null;
+  deadline_at?: string | null;
+  max_attempts?: number | null;
+  resume_step?: ImportStep | null;
 };
+
 
 export type ImportCounts = {
   created: number;
@@ -354,7 +407,15 @@ export async function setRunStep(
   run: Pick<ImportRunRow, "id" | "brand_id" | "client_id">,
   step: ImportStep,
   status: ImportStepStatus,
-  extra?: { output?: unknown; error?: string | null; errorKind?: string | null; inputRef?: string | null },
+  extra?: {
+    output?: unknown;
+    error?: string | null;
+    errorKind?: string | null;
+    inputRef?: string | null;
+    outputRef?: string | null;
+    contentHash?: string | null;
+  },
+
 ): Promise<void> {
   const now = new Date().toISOString();
   await table(supabase, "briefing_import_runs")
@@ -379,6 +440,9 @@ export async function setRunStep(
       status,
       attempt: status === "running" ? 1 : 0,
       input_ref: extra?.inputRef ?? null,
+      output_ref: extra?.outputRef ?? null,
+      content_hash: extra?.contentHash ?? null,
+
       output: (extra?.output ?? null) as never,
       error: extra?.error ?? null,
       error_kind: extra?.errorKind ?? null,
@@ -394,6 +458,9 @@ export async function setRunStep(
       status,
       attempt: status === "running" ? (row.attempt ?? 0) + 1 : row.attempt,
       input_ref: extra?.inputRef ?? undefined,
+      output_ref: extra?.outputRef ?? undefined,
+      content_hash: extra?.contentHash ?? undefined,
+
       output: extra?.output === undefined ? undefined : (extra.output as never),
       error: extra?.error ?? null,
       error_kind: extra?.errorKind ?? null,
@@ -737,7 +804,15 @@ export async function applyImportRun(
 export async function failImportRun(
   supabase: Db,
   run: Pick<ImportRunRow, "id" | "brand_id" | "client_id">,
-  args: { message: string; kind?: string; step?: ImportStep },
+  args: {
+    message: string;
+    kind?: string;
+    step?: ImportStep;
+    /** Estado terminal: `failed` (retry), `paused` (bloqueio) ou `needs_input`. */
+    status?: Extract<ImportRunStatus, "failed" | "paused" | "needs_input" | "expired">;
+    /** Etapa em que o retry deve retomar. */
+    resumeStep?: ImportStep | null;
+  },
 ): Promise<void> {
   if (args.step) {
     await setRunStep(supabase, run, args.step, "failed", {
@@ -747,22 +822,30 @@ export async function failImportRun(
   }
   await table(supabase, "briefing_import_runs")
     .update({
-      status: "failed",
+      status: args.status ?? "failed",
       error: args.message.slice(0, 500),
       error_kind: args.kind ?? null,
       finished_at: new Date().toISOString(),
+      lease_owner: null,
+      lease_expires_at: null,
+      ...(args.resumeStep !== undefined ? { resume_step: args.resumeStep } : {}),
     })
     .eq("id", run.id);
 }
 
-/** Retry seguro: volta uma run `failed` para `queued`, incrementando a tentativa. */
+/**
+ * Retry seguro: devolve uma run terminal-recuperável (`failed`, `expired`,
+ * `paused`, `needs_input`) para `queued`, incrementando a tentativa. Os
+ * checkpoints das etapas concluídas são preservados, então o worker retoma de
+ * onde parou — sem repagar IA já concluída.
+ */
 export async function retryImportRun(
   supabase: Db,
   args: { brandId: string; clientId: string; runId: string },
 ): Promise<ImportRunRow> {
   const run = await getImportRun(supabase, args);
   if (!run) throw new Error("import_run_not_found");
-  if (run.status !== "failed") throw new Error("import_run_not_retryable");
+  if (!RETRYABLE_RUN_STATUSES.includes(run.status)) throw new Error("import_run_not_retryable");
   const { error } = await table(supabase, "briefing_import_runs")
     .update({
       status: "queued",
@@ -770,12 +853,16 @@ export async function retryImportRun(
       error: null,
       error_kind: null,
       finished_at: null,
+      lease_owner: null,
+      lease_expires_at: null,
+      deadline_at: null,
     })
     .eq("id", run.id)
-    .eq("status", "failed");
+    .eq("status", run.status);
   if (error) throw error as Error;
   return { ...run, status: "queued", attempt: (run.attempt ?? 0) + 1 };
 }
+
 
 /* ------------------------------------------------------------------ *
  * Brain (best-effort, nunca bloqueante)

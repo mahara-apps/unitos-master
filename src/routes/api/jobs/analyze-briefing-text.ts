@@ -1,15 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { withPtBr } from "@/lib/ai-language";
 import type { Database } from "@/integrations/supabase/types";
-import { describeProviderAttempts } from "@/lib/ai-provider.server";
 import { guardClientScope } from "@/lib/http-scope.server";
 import { waitUntil } from "@/lib/wait-until.server";
-import type { ProviderAttempt } from "@/lib/ai-provider.server";
-import {
-  BRIEFING_OUTPUT_INSTRUCTIONS,
-} from "@/lib/briefing-generation.server";
 
 /**
  * Worker de importação a partir de TEXTO (colado, notas, e-mails, transcrição
@@ -40,126 +34,7 @@ function buildUserClient(token: string) {
   });
 }
 
-async function runTextAnalysis(params: {
-  token: string;
-  input: z.infer<typeof BodySchema>;
-  runId: string;
-}) {
-  const { token, input, runId } = params;
-  const supabase = buildUserClient(token);
-  const runScope = { id: runId, brand_id: input.brandId, client_id: input.clientId };
-  const isTranscript = (input.sourceKind ?? "paste") === "transcript";
-  let providerAttempts: ProviderAttempt[] = [];
-
-  const { claimImportRun, setRunStep, setRunModel, saveImportProposal, failImportRun, classifyChange } =
-    await import("@/lib/briefing-import.server");
-
-  const claimed = await claimImportRun(supabase as never, runId).catch(() => true);
-  if (!claimed) return;
-
-  try {
-    await setRunStep(supabase as never, runScope, "ingest", "done", {
-      output: { chars: input.text.length, label: input.label ?? null },
-    });
-
-    await setRunStep(supabase as never, runScope, "interpret", "running");
-    const { loadCanonicalBriefing } = await import("@/lib/briefing-source.server");
-    const canonical = await loadCanonicalBriefing(supabase as never, {
-      brandId: input.brandId,
-      clientId: input.clientId,
-    });
-    const current = (canonical.hub ?? {}) as Record<string, unknown>;
-
-    const system = withPtBr(`Você é um analista sênior de marca. Interprete o material recebido e devolva JSON estrito em pt-BR mapeando informações para os campos de briefing. Preencha TODAS as propriedades do schema: use null para texto/confiança ausente e [] para evidence/speakers sem itens. Nunca invente dados nem participantes. Todos os textos devem ser objetivos e prontos para uso no briefing.`);
-
-    const userPrompt = [
-      `Material: ${input.label ?? (isTranscript ? "Transcrição de reunião" : "Texto colado")}`,
-      isTranscript
-        ? `Este material é uma TRANSCRIÇÃO. Identifique os participantes e seus papéis (cliente, gestor, usuario, fornecedor, especialista, interno) SOMENTE com base em evidência explícita da conversa. Sem evidência suficiente, use role "indefinido" e needs_review = true.`
-        : "",
-      `\nBRIEFING ATUAL (para cruzamento):\n${JSON.stringify(current).slice(0, 12_000)}`,
-      `\nMATERIAL:\n${input.text}`,
-      `\nTarefas:
-1) Resumo executivo em até 400 caracteres.
-2) Classifique o tipo do material em material_type.
-3) Preencha \`briefing\` com o que o material sustenta; compare com o briefing atual e proponha valores completos e finais para cada campo que precise mudar. Deixe null o que não tiver base.
-4) Em \`evidence\`, para cada campo proposto, informe o trecho literal de origem (excerpt), se contradiz o briefing atual (conflict) e a confiança do campo.
-5) \`confidence\` global de 0 a 1 ou null.
-6) \`extracted_text\` deve ser null neste fluxo. \`evidence\` e \`speakers\` devem ser arrays, mesmo quando vazios.
-${BRIEFING_OUTPUT_INSTRUCTIONS}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    const { generateBriefingAnalysis } = await import("@/lib/briefing-ai-executor.server");
-    const generated = await generateBriefingAnalysis({
-      brandId: input.brandId,
-      usage: { agent: "briefing.import.text", clientId: input.clientId ?? null },
-      system,
-      messages: [{ role: "user", content: [{ type: "text", text: userPrompt }] }],
-    });
-    const analysis = generated.analysis;
-    providerAttempts = generated.attempts;
-    const effective = { provider: generated.provider, model: generated.model };
-    await setRunModel(supabase as never, runId, effective);
-    await setRunStep(supabase as never, runScope, "interpret", "done", {
-      output: {
-        material_type: analysis.material_type,
-        confidence: analysis.confidence,
-        provider_attempts: describeProviderAttempts(providerAttempts),
-      },
-    });
-
-    await setRunStep(supabase as never, runScope, "diff", "running");
-    const evidenceByField = new Map(
-      analysis.evidence.map((e) => [e.field, e] as const),
-    );
-    const changes = Object.entries(analysis.briefing).map(([field, proposed]) => {
-      const ev = evidenceByField.get(field);
-      return {
-        field,
-        currentValue: current[field] ?? null,
-        proposedValue: proposed,
-        action: classifyChange(current[field] ?? null, proposed),
-        confidence: ev?.confidence ?? analysis.confidence ?? null,
-        evidence: {
-          source: isTranscript ? "transcript" : "paste",
-          label: input.label ?? null,
-          excerpt: ev?.excerpt ?? null,
-          conflict: ev?.conflict === true,
-        },
-      };
-    });
-    await setRunStep(supabase as never, runScope, "diff", "done", {
-      output: { fields: changes.length },
-    });
-
-    await saveImportProposal(supabase as never, runScope, {
-      changes,
-      summary: analysis.executive_summary ?? null,
-      confidence: analysis.confidence ?? null,
-      ...(isTranscript ? { speakers: analysis.speakers } : {}),
-    });
-    await setRunStep(supabase as never, runScope, "propose", "done", {
-      output: { material_type: analysis.material_type },
-    });
-  } catch (err) {
-    const baseTechnical = err instanceof Error ? err.message : String(err);
-    const trace = describeProviderAttempts(providerAttempts);
-    const technical = trace ? `${baseTechnical}\nProvider attempts: ${trace}` : baseTechnical;
-    console.error("[analyze-briefing-text] failed:", technical, err);
-    const { friendlyAnalysisError } = await import("@/lib/briefing-import-ui");
-    const friendly = friendlyAnalysisError(err) || "Não foi possível analisar este material.";
-    await setRunStep(supabase as never, runScope, "interpret", "failed", {
-      error: technical.slice(0, 2000),
-      errorKind: "analysis",
-    }).catch(() => undefined);
-    await failImportRun(supabase as never, runScope, { message: friendly, kind: "analysis" }).catch(
-      () => undefined,
-    );
-  }
-
-}
+/** Execução real acontece no worker da fila (retomável, com lease e reaper). */
 
 export const Route = createFileRoute("/api/jobs/analyze-briefing-text")({
   server: {
@@ -216,7 +91,9 @@ export const Route = createFileRoute("/api/jobs/analyze-briefing-text")({
           });
         }
 
-        waitUntil(runTextAnalysis({ token, input: parsed.data, runId: run.id }));
+        // Kick imediato do worker; se o isolate morrer, o reaper devolve a run à fila.
+        const { processImportQueue } = await import("@/lib/briefing-import-worker.server");
+        waitUntil(processImportQueue({ limit: 1 }));
 
         return new Response(JSON.stringify({ ok: true, runId: run.id, reused }), {
           status: 202,
