@@ -92,7 +92,7 @@ export const startMetaOAuth = createServerFn({ method: "POST" })
     if (!(await hasIntegrationAuthority(context.supabase, context.userId, data.brandId))) {
       throw new Error("Apenas Owner, Admin ou Super Admin podem autorizar a Meta neste workspace.");
     }
-    const { MetaProvider, getMetaScopesForChannel, signOAuthState, metaBusinessConfigId } =
+    const { MetaProvider, getMetaScopesForChannel, signOAuthState, validateBusinessConfig } =
       await import("./provider.server");
     const { getRequest } = await import("@tanstack/react-start/server");
     let origin: string | null = null;
@@ -109,7 +109,11 @@ export const startMetaOAuth = createServerFn({ method: "POST" })
       channel: data.channel ?? null,
     });
     const scopes = getMetaScopesForChannel(data.channel ?? null);
-    const configId = metaBusinessConfigId();
+    // `config_id` inválido gera consentimento recusado pela Meta com
+    // "This app needs at least one supported permission". Validamos antes e,
+    // se a configuração não servir, caímos para `scope` SEM esconder o motivo.
+    const check = await validateBusinessConfig();
+    const configId = check.valid ? check.configId : null;
     return {
       authorizeUrl: provider.buildAuthorizeUrl({
         state,
@@ -121,8 +125,13 @@ export const startMetaOAuth = createServerFn({ method: "POST" })
       redirectUri: provider.redirectUri,
       /** Modo do consentimento: com `config_id` a Meta pede escolha de portfólio. */
       businessLogin: !!configId,
+      /** Escopos efetivamente pedidos quando o modo legado é usado. */
+      scopes: configId ? [] : scopes,
+      /** Motivo do fallback (null quando não houve). */
+      configWarning: check.configId && !check.valid ? check.reason : null,
     };
   });
+
 
 /**
  * Reuses the most recent unexpired Meta user-token session OF THE WORKSPACE and
