@@ -718,8 +718,15 @@ export function ScheduleWizard({
       } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
         if (!submitting) void persist("save_draft");
+      } else if (e.altKey && e.key === "ArrowLeft") {
+        e.preventDefault();
+        if (!submitting) goQueue(-1);
+      } else if (e.altKey && e.key === "ArrowRight") {
+        e.preventDefault();
+        if (!submitting) goQueue(1);
       }
     };
+
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
