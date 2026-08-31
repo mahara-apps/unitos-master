@@ -379,14 +379,18 @@ export class MetaPublishingService {
     }
     const igId = connection.account_id;
 
+    const igOpts = this.igContainerOptions(input);
+    const shareToFeed = input.shareToFeed ?? input.options?.shareToFeed;
     const container = await this.provider.graph<{ id: string }>(`/${igId}/media`, {
       accessToken: pageToken,
       method: "POST",
       query: {
         media_type: "REELS",
         video_url: input.media.videoUrl,
-        share_to_feed: input.shareToFeed === false ? "false" : "true",
+        share_to_feed: shareToFeed === false ? "false" : "true",
         ...(input.caption ? { caption: input.caption } : {}),
+        ...(input.options?.audioName ? { audio_name: input.options.audioName } : {}),
+        ...igOpts.query,
       },
     });
 
@@ -413,7 +417,9 @@ export class MetaPublishingService {
         media_id: publish.id,
         media_type: "REELS",
       },
+      ...(igOpts.warnings.length ? { warnings: igOpts.warnings } : {}),
     };
+
   }
 
   // ---------------------------------------------------------- IG Carousel ---
