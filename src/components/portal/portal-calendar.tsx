@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePortalApi } from "./portal-context";
+import { PortalSchedule } from "./portal-schedule";
 import {
   EmptyState,
   ErrorState,
@@ -176,6 +177,9 @@ export function PortalCalendar() {
 
   return (
     <div className="space-y-4">
+      {/* datas propostas pela equipe aguardando confirmação do cliente */}
+      <PortalSchedule month={ym} />
+
       {/* navegação de mês + legenda */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
