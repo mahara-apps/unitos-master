@@ -179,17 +179,30 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
       const blocked = mine.find((r) => r.status === "blocked");
       const inFlight = mine.find((r) => r.status === "scheduled" || r.status === "publishing");
       const plStatus = (pl.status as string) ?? "draft";
+      // AGUARDANDO NOVA TENTATIVA: item continua na fila após um erro temporário
+      // (limite de requisições da rede social). Não é falha e não pode ser
+      // reenfileirado — o índice de destino ativo recusaria a nova linha.
+      const awaitingRetry =
+        !published &&
+        !!inFlight &&
+        (inFlight.status as string) === "scheduled" &&
+        (!!inFlight.next_attempt_at ||
+          !!inFlight.deferred_since ||
+          Number(inFlight.publish_attempts ?? 0) > 0 ||
+          !!inFlight.last_error);
       const status = published
         ? "published"
-        : inFlight
-          ? (inFlight.status as string)
-          : blocked || plStatus === "connection_required" || plStatus === "authorization_required"
-            ? plStatus === "authorization_required"
-              ? "authorization_required"
-              : "connection_required"
-            : failed
-              ? "failed"
-              : plStatus;
+        : awaitingRetry
+          ? "awaiting_retry"
+          : inFlight
+            ? (inFlight.status as string)
+            : blocked || plStatus === "connection_required" || plStatus === "authorization_required"
+              ? plStatus === "authorization_required"
+                ? "authorization_required"
+                : "connection_required"
+              : failed
+                ? "failed"
+                : plStatus;
       // HISTÓRICO: conexão inexistente, inativa ou sem vínculo atual com o
       // cliente. Nunca tratado como destino publicável (fail-closed).
       const historical = !connectionId || !currentByConnection.has(connectionId);
@@ -207,8 +220,8 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
           ? null
           : ((blocked?.last_error as string | null) ??
             (failed?.last_error as string | null) ??
-            null),
-        attempts: Number(failed?.publish_attempts ?? 0),
+            (awaitingRetry ? ((inFlight?.last_error as string | null) ?? null) : null)),
+        attempts: Number(failed?.publish_attempts ?? inFlight?.publish_attempts ?? 0),
         canRetry:
           !published &&
           !inFlight &&
@@ -219,7 +232,11 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
           !!connectionId,
         historical,
         needsRebind: !published && !inFlight && historical,
+        nextAttemptAt: awaitingRetry ? ((inFlight?.next_attempt_at as string | null) ?? null) : null,
+        canCancelQueue:
+          !published && !!inFlight && !inFlight.publish_locked_at && !historical && !!connectionId,
       };
+
     });
 
     const anyPublished = destinations.some((d) => d.status === "published");
