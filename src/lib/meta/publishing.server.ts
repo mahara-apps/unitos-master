@@ -515,6 +515,27 @@ export function assertSupported(placement: string): asserts placement is Support
   }
 }
 
+/** Limites do carrossel na Meta. */
+export const CAROUSEL_MIN_ITEMS = 2;
+export const CAROUSEL_MAX_ITEMS = 10;
+
+/** Valida a lista de itens do carrossel com mensagens em pt-BR. */
+export function assertCarouselItems(items?: CarouselItem[]): CarouselItem[] {
+  const valid = (items ?? []).filter((i) => i && (i.imageUrl || i.videoUrl));
+  if (valid.length < CAROUSEL_MIN_ITEMS) {
+    throw new Error(
+      `Carrossel exige pelo menos ${CAROUSEL_MIN_ITEMS} mídias. Anexe mais mídias à peça antes de publicar.`,
+    );
+  }
+  if (valid.length > CAROUSEL_MAX_ITEMS) {
+    throw new Error(
+      `Carrossel aceita no máximo ${CAROUSEL_MAX_ITEMS} mídias. Remova algumas antes de publicar.`,
+    );
+  }
+  return valid;
+}
+
+
 /** Serialises Graph errors into a message safe to store in `last_error`. */
 export function formatPublishError(err: unknown): string {
   if (isMediaNotReady(err)) {
