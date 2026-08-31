@@ -5,14 +5,65 @@ import { BRIEFING_OUTPUT_INSTRUCTIONS } from "@/lib/briefing-generation.server";
 import type { BriefingAnalysis } from "@/lib/briefing-analysis-schema";
 import {
   classifyChange,
+  ImportStepError,
   listImportSteps,
   saveImportProposal,
   setRunModel,
   setRunStep,
+  tagImportStep,
   type ImportRunStatus,
   type ImportSourceKind,
   type ImportStep,
 } from "@/lib/briefing-import.server";
+
+/** Orçamento de tempo por etapa (ms). Estouro vira falha retentável. */
+export const STEP_TIMEOUT_MS: Partial<Record<ImportStep, number>> = {
+  extract: 60_000,
+  interpret: 120_000,
+};
+
+/**
+ * Executa uma etapa com deadline próprio. O `AbortSignal` é propagado para
+ * quem souber cancelar (IA); para o resto, o race garante que a etapa nunca
+ * segura a lease indefinidamente. Qualquer erro sai etiquetado com a etapa
+ * real, para que o retry retome do checkpoint correto.
+ */
+async function withStepDeadline<T>(
+  step: ImportStep,
+  ms: number | undefined,
+  fn: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    if (!ms) return await fn(controller.signal);
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(
+          new ImportStepError(
+            step,
+            `step_timeout: a etapa ${step} excedeu o tempo limite de ${Math.round(ms / 1000)}s (timeout)`,
+          ),
+        );
+      }, ms);
+    });
+    return await Promise.race([fn(controller.signal), timeout]);
+  } catch (error) {
+    if (error instanceof ImportStepError) throw error;
+    if (controller.signal.aborted) {
+      throw new ImportStepError(
+        step,
+        `step_timeout: a etapa ${step} foi abortada por tempo limite (timeout)`,
+        { cause: error },
+      );
+    }
+    throw tagImportStep(error, step);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 
 /**
  * Executor único da importação de briefing (documento OU texto).
