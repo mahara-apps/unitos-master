@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
   Clock,
+  Copy,
   ExternalLink,
   Loader2,
   Pencil,
@@ -25,11 +27,19 @@ import { SOCIAL_NETWORKS, classifySocialNetwork } from "@/lib/calendar-tokens";
 import type { PublicationItem } from "@/lib/calendar-board.functions";
 import { retryFailedPlacementFn } from "@/lib/publish-retry.functions";
 import { cancelPostScheduleFn } from "@/lib/scheduling-wizard.functions";
+import { PostPreview } from "@/components/social/post-preview";
+import type { PlacementFormat } from "@/lib/scheduling-formats";
+import type { SocialChannel } from "@/lib/social-core/capabilities";
+import { APP_TIMEZONE } from "@/lib/timezone";
+import { scheduleDisplay, scheduleFullLabel } from "@/lib/post-schedule-display";
 
 /**
  * Detalhe da publicação. Reaproveita as ações já existentes do pipeline:
  * cancelamento de agendamento (`cancelPostScheduleFn`) e republicação POR
  * DESTINO (`retryFailedPlacementFn`) — nunca reenvia destino já publicado.
+ *
+ * Layout de leitura em 2 colunas: prévia real do canal (mesma do Composer) +
+ * legenda integral, agenda, destinos e histórico. Datas sempre no fuso oficial.
  */
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -44,7 +54,60 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function dt(iso: string | null | undefined) {
-  return iso ? new Date(iso).toLocaleString("pt-BR") : "—";
+  return iso ? scheduleFullLabel(iso) : "—";
+}
+
+const PREVIEW_FORMATS = ["feed", "reels", "stories", "carrossel"] as const;
+
+function asPreviewFormat(format: string | null | undefined): PlacementFormat {
+  const f = (format ?? "").toLowerCase();
+  const hit = PREVIEW_FORMATS.find((k) => f.includes(k));
+  if (hit) return hit as PlacementFormat;
+  if (f.includes("stor")) return "stories";
+  if (f.includes("short") || f.includes("video")) return "reels";
+  return "feed";
+}
+
+function asPreviewChannel(channel: string | null | undefined): SocialChannel {
+  return classifySocialNetwork(channel ?? "") as SocialChannel;
+}
+
+/** Abas de prévia: um par canal+formato por destino (ou pelos canais da peça). */
+function previewTabs(item: PublicationItem) {
+  const seen = new Set<string>();
+  const tabs: Array<{
+    key: string;
+    label: string;
+    channel: SocialChannel;
+    format: PlacementFormat;
+    handle: string;
+  }> = [];
+  for (const d of item.destinations) {
+    const channel = asPreviewChannel(d.channel);
+    const format = asPreviewFormat(d.format);
+    const key = `${channel}-${format}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    tabs.push({
+      key,
+      label: `${SOCIAL_NETWORKS[classifySocialNetwork(d.channel)].label} · ${formatLabel(d.format)}`,
+      channel,
+      format,
+      handle: d.accountLabel ?? SOCIAL_NETWORKS[classifySocialNetwork(d.channel)].label,
+    });
+  }
+  if (tabs.length === 0) {
+    const channel = asPreviewChannel(item.channels[0] ?? "instagram");
+    const format = asPreviewFormat(item.formats[0] ?? "feed");
+    tabs.push({
+      key: `${channel}-${format}`,
+      label: `${SOCIAL_NETWORKS[classifySocialNetwork(item.channels[0] ?? "instagram")].label} · ${formatLabel(item.formats[0] ?? "feed")}`,
+      channel,
+      format,
+      handle: SOCIAL_NETWORKS[classifySocialNetwork(item.channels[0] ?? "instagram")].label,
+    });
+  }
+  return tabs;
 }
 
 export function PublicationDetailModal({
@@ -64,10 +127,29 @@ export function PublicationDetailModal({
   const retry = useServerFn(retryFailedPlacementFn);
   const cancel = useServerFn(cancelPostScheduleFn);
   const [busy, setBusy] = useState<string | null>(null);
+  const [tabKey, setTabKey] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  const tabs = useMemo(() => (item ? previewTabs(item) : []), [item]);
+  const schedule = useMemo(
+    () =>
+      scheduleDisplay({
+        scheduled_at: item?.scheduledAt ?? null,
+        proposed_at: item?.proposedAt ?? null,
+        published_at: item?.publishedAt ?? null,
+        schedule_status: item?.scheduleStatus ?? null,
+        schedule_approved_at: item?.scheduleApprovedAt ?? null,
+        schedule_client_comment: item?.scheduleClientComment ?? null,
+      }),
+    [item],
+  );
 
   if (!item) return null;
   const token = PUBLICATION_STATUS[item.overall];
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const activeTab = tabs.find((t) => t.key === tabKey) ?? tabs[0]!;
+  const copyText = item.copy?.trim() ?? "";
+  const longCopy = copyText.length > 900;
+
   const canCancel =
     (item.overall === "scheduled" || item.overall === "failed") &&
     item.destinations.some((d) => d.status !== "published");
@@ -108,7 +190,7 @@ export function PublicationDetailModal({
     <ExpandedModal
       open={open}
       onOpenChange={onOpenChange}
-      size="md"
+      size="lg"
       title={item.title}
       description={
         item.overall === "partial"
@@ -143,187 +225,277 @@ export function PublicationDetailModal({
         </>
       }
     >
-      <div className="space-y-5">
-        <Section title="Conteúdo">
-          <div className="flex gap-3">
-            {item.coverUrl ? (
-              <img
-                src={item.coverUrl}
-                alt=""
-                className="h-24 w-24 shrink-0 rounded-md border border-border/60 object-cover"
-              />
-            ) : (
-              <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-md border border-dashed border-border/70 text-[10px] text-muted-foreground">
-                Sem mídia
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium leading-tight">{item.title}</div>
-              <p className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
-                {item.copy?.trim() ? item.copy : "Sem legenda."}
-              </p>
-            </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)] lg:items-start">
+        {/* Coluna 1 — prévia real do canal */}
+        <div className="space-y-2">
+          <div className="flex justify-center lg:justify-start">
+            <PostPreview
+              channel={activeTab.channel}
+              format={activeTab.format}
+              handle={activeTab.handle}
+              avatarUrl={null}
+              copy={copyText}
+              media={item.coverUrl ? { publicUrl: item.coverUrl, kind: "image" } : null}
+              mediaCount={1}
+            />
           </div>
-        </Section>
-
-        <Section title="Agenda">
-          <dl className="grid grid-cols-3 gap-2 text-xs">
-            <div className="rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
-              <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Data</dt>
-              <dd className="mt-0.5 font-medium">
-                {item.when
-                  ? new Date(item.when).toLocaleDateString("pt-BR", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    })
-                  : "—"}
-              </dd>
+          {tabs.length > 1 ? (
+            <div className="flex flex-wrap justify-center gap-1.5 lg:justify-start">
+              {tabs.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setTabKey(t.key)}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                    t.key === activeTab.key
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : "border-border/60 bg-background text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
-            <div className="rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
-              <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Hora</dt>
-              <dd className="mt-0.5 font-medium tabular-nums">
-                {item.when
-                  ? new Date(item.when).toLocaleTimeString("pt-BR", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-                  : "—"}
-              </dd>
-            </div>
-            <div className="rounded-md border border-border/60 bg-muted/20 px-2.5 py-2">
-              <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                Timezone
-              </dt>
-              <dd className="mt-0.5 truncate font-medium">{tz}</dd>
-            </div>
-          </dl>
-        </Section>
-
-        <Section title={`Destinos (${item.destinations.length})`}>
-          {item.destinations.length === 0 ? (
-            <p className="rounded-md border border-dashed border-border/70 px-3 py-3 text-xs text-muted-foreground">
-              Nenhum destino configurado. Abra a edição para escolher as contas.
-            </p>
           ) : (
-            <ul className="space-y-1.5">
-              {item.destinations.map((d) => {
-                const net = SOCIAL_NETWORKS[classifySocialNetwork(d.channel)];
-                const Icon = net.Icon;
-                return (
-                  <li
-                    key={d.placementId ?? `${d.channel}-${d.format}`}
+            <p className="text-center text-[11px] text-muted-foreground lg:text-left">
+              {activeTab.label}
+            </p>
+          )}
+        </div>
+
+        {/* Coluna 2 — leitura e operação */}
+        <div className="min-w-0 space-y-5">
+          <Section title="Legenda">
+            <div className="rounded-lg border border-border/60 bg-muted/10 px-3.5 py-3">
+              {copyText ? (
+                <>
+                  <p
                     className={cn(
-                      "rounded-md border px-2.5 py-2",
-                      d.status === "failed"
-                        ? "border-destructive/40 bg-destructive/5"
-                        : "border-border/60 bg-background",
+                      "whitespace-pre-wrap text-[13px] leading-relaxed text-foreground/90",
+                      longCopy && !expanded && "line-clamp-[12]",
                     )}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex min-w-0 items-center gap-2">
-                        {d.status === "published" ? (
-                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                        ) : d.status === "failed" ? (
-                          <XCircle className="h-3.5 w-3.5 shrink-0 text-destructive" />
-                        ) : d.status === "publishing" ? (
-                          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-sky-500" />
-                        ) : (
-                          <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        )}
-                        <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="truncate text-xs font-medium">
-                          {net.label} · {formatLabel(d.format)}
-                        </span>
-                        {d.accountLabel ? (
-                          <span className="truncate text-[11px] text-muted-foreground">
-                            @{d.accountLabel}
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <span className="text-[10px] font-medium text-muted-foreground">
-                          {DESTINATION_STATUS_LABEL[d.status] ?? d.status}
-                        </span>
-                        {d.permalink ? (
-                          <a
-                            href={d.permalink}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-                          >
-                            Ver <ExternalLink className="h-3 w-3" />
-                          </a>
-                        ) : null}
-                        {d.canRetry && d.placementId ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-6 px-2 text-[11px]"
-                            disabled={!!busy}
-                            onClick={() => handleRetry(d.placementId!, net.label)}
-                          >
-                            {busy === d.placementId ? (
-                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                            ) : (
-                              <RefreshCw className="mr-1 h-3 w-3" />
+                    {copyText}
+                  </p>
+                  <div className="mt-2.5 flex items-center justify-between gap-2">
+                    <span className="text-[10.5px] text-muted-foreground">
+                      {copyText.length} caracteres ·{" "}
+                      {(copyText.match(/#[\p{L}\p{N}_]+/gu) ?? []).length} hashtags
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {longCopy ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-[11px]"
+                          onClick={() => setExpanded((v) => !v)}
+                        >
+                          <ChevronDown
+                            className={cn(
+                              "mr-1 h-3 w-3 transition-transform",
+                              expanded && "rotate-180",
                             )}
-                            Tentar novamente
-                          </Button>
-                        ) : null}
-                      </div>
+                          />
+                          {expanded ? "Recolher" : "Ver mais"}
+                        </Button>
+                      ) : null}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 px-2 text-[11px]"
+                        onClick={() => {
+                          void navigator.clipboard
+                            .writeText(copyText)
+                            .then(() => toast.success("Legenda copiada."))
+                            .catch(() => toast.error("Não foi possível copiar."));
+                        }}
+                      >
+                        <Copy className="mr-1 h-3 w-3" />
+                        Copiar legenda
+                      </Button>
                     </div>
-                    {d.status === "failed" && d.error ? (
-                      <p className="mt-1 pl-5 text-[11px] leading-snug text-destructive">
-                        {d.error}
-                        {d.attempts ? ` (${d.attempts} tentativa${d.attempts > 1 ? "s" : ""})` : ""}
-                      </p>
-                    ) : null}
-                    {d.status === "published" && d.publishedAt ? (
-                      <p className="mt-1 pl-5 text-[11px] text-muted-foreground">
-                        Publicado em {dt(d.publishedAt)}
-                      </p>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Section>
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Sem legenda. Abra a edição para escrever o texto da peça.
+                </p>
+              )}
+            </div>
+          </Section>
 
-        {item.overall === "partial" ? (
-          <div className="flex items-start gap-2 rounded-md border border-orange-500/40 bg-orange-500/5 px-3 py-2 text-[11px] text-orange-700 dark:text-orange-300">
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>
-              Publicação parcial: {item.publishedCount} de {item.totalDestinations} destinos
-              publicaram. A ação de republicar atua somente no destino com falha.
-            </span>
-          </div>
-        ) : null}
+          <Section title="Agenda">
+            <div className="rounded-lg border border-border/60 bg-muted/10 px-3.5 py-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={cn(
+                    "rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                    schedule.chip,
+                  )}
+                >
+                  {schedule.stateLabel}
+                </span>
+                <span className="text-sm font-medium">{schedule.label}</span>
+              </div>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Fuso oficial: {APP_TIMEZONE} (GMT-3)
+                {schedule.isProposal
+                  ? " · data proposta pela pauta, ainda não é agendamento de publicação"
+                  : ""}
+              </p>
+              {schedule.clientComment ? (
+                <p className="mt-2 rounded-md border border-rose-500/30 bg-rose-500/5 px-2.5 py-2 text-[11px] leading-snug text-rose-700 dark:text-rose-300">
+                  Cliente pediu alteração: {schedule.clientComment}
+                </p>
+              ) : null}
+            </div>
+          </Section>
 
-        <Section title="Histórico">
-          <ul className="space-y-1 text-[11px] text-muted-foreground">
-            <li>Criado em {dt(item.createdAt)}</li>
-            {item.scheduledAt ? <li>Agendado para {dt(item.scheduledAt)}</li> : null}
-            {item.destinations
-              .filter((d) => d.publishedAt)
-              .map((d) => (
-                <li key={`h-${d.placementId}`}>
-                  {SOCIAL_NETWORKS[classifySocialNetwork(d.channel)].label} publicado em{" "}
-                  {dt(d.publishedAt)}
-                </li>
-              ))}
-            {item.destinations
-              .filter((d) => d.status === "failed")
-              .map((d) => (
-                <li key={`hf-${d.placementId}`} className="text-destructive">
-                  {SOCIAL_NETWORKS[classifySocialNetwork(d.channel)].label} falhou —{" "}
-                  {d.error ?? "erro não informado"}
-                </li>
-              ))}
-            <li>Última atualização em {dt(item.updatedAt)}</li>
-          </ul>
-        </Section>
+          <Section title={`Destinos (${item.destinations.length})`}>
+            {item.destinations.length === 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border/70 px-3 py-3 text-xs text-muted-foreground">
+                <span>Nenhum destino configurado — a peça não pode publicar assim.</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-[11px]"
+                  onClick={() => onEdit(item)}
+                >
+                  Definir canal e conta
+                </Button>
+              </div>
+            ) : (
+              <ul className="space-y-1.5">
+                {item.destinations.map((d) => {
+                  const net = SOCIAL_NETWORKS[classifySocialNetwork(d.channel)];
+                  const Icon = net.Icon;
+                  return (
+                    <li
+                      key={d.placementId ?? `${d.channel}-${d.format}`}
+                      className={cn(
+                        "rounded-md border px-2.5 py-2",
+                        d.status === "failed"
+                          ? "border-destructive/40 bg-destructive/5"
+                          : "border-border/60 bg-background",
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          {d.status === "published" ? (
+                            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                          ) : d.status === "failed" ? (
+                            <XCircle className="h-3.5 w-3.5 shrink-0 text-destructive" />
+                          ) : d.status === "publishing" ? (
+                            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-sky-500" />
+                          ) : (
+                            <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          )}
+                          <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate text-xs font-medium">
+                            {net.label} · {formatLabel(d.format)}
+                          </span>
+                          {d.accountLabel ? (
+                            <span className="truncate text-[11px] text-muted-foreground">
+                              @{d.accountLabel}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <span className="text-[10px] font-medium text-muted-foreground">
+                            {DESTINATION_STATUS_LABEL[d.status] ?? d.status}
+                          </span>
+                          {d.permalink ? (
+                            <a
+                              href={d.permalink}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                            >
+                              Ver <ExternalLink className="h-3 w-3" />
+                            </a>
+                          ) : null}
+                          {d.canRetry && d.placementId ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-6 px-2 text-[11px]"
+                              disabled={!!busy}
+                              onClick={() => handleRetry(d.placementId!, net.label)}
+                            >
+                              {busy === d.placementId ? (
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              ) : (
+                                <RefreshCw className="mr-1 h-3 w-3" />
+                              )}
+                              Tentar novamente
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                      {d.status === "failed" && d.error ? (
+                        <p className="mt-1 pl-5 text-[11px] leading-snug text-destructive">
+                          {d.error}
+                          {d.attempts
+                            ? ` (${d.attempts} tentativa${d.attempts > 1 ? "s" : ""})`
+                            : ""}
+                        </p>
+                      ) : null}
+                      {d.status === "published" && d.publishedAt ? (
+                        <p className="mt-1 pl-5 text-[11px] text-muted-foreground">
+                          Publicado em {dt(d.publishedAt)}
+                        </p>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Section>
+
+          {item.overall === "partial" ? (
+            <div className="flex items-start gap-2 rounded-md border border-orange-500/40 bg-orange-500/5 px-3 py-2 text-[11px] text-orange-700 dark:text-orange-300">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                Publicação parcial: {item.publishedCount} de {item.totalDestinations} destinos
+                publicaram. A ação de republicar atua somente no destino com falha.
+              </span>
+            </div>
+          ) : null}
+
+          <Section title="Histórico">
+            <details className="group rounded-md border border-border/60 bg-muted/10 px-3 py-2">
+              <summary className="cursor-pointer list-none text-[11px] font-medium text-muted-foreground">
+                Ver histórico da peça
+              </summary>
+              <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
+                <li>Criado em {dt(item.createdAt)}</li>
+                {item.proposedAt ? <li>Agenda proposta para {dt(item.proposedAt)}</li> : null}
+                {item.scheduleApprovedAt ? (
+                  <li>Agenda aprovada em {dt(item.scheduleApprovedAt)}</li>
+                ) : null}
+                {item.scheduledAt ? <li>Agendado para {dt(item.scheduledAt)}</li> : null}
+                {item.destinations
+                  .filter((d) => d.publishedAt)
+                  .map((d) => (
+                    <li key={`h-${d.placementId}`}>
+                      {SOCIAL_NETWORKS[classifySocialNetwork(d.channel)].label} publicado em{" "}
+                      {dt(d.publishedAt)}
+                    </li>
+                  ))}
+                {item.destinations
+                  .filter((d) => d.status === "failed")
+                  .map((d) => (
+                    <li key={`hf-${d.placementId}`} className="text-destructive">
+                      {SOCIAL_NETWORKS[classifySocialNetwork(d.channel)].label} falhou —{" "}
+                      {d.error ?? "erro não informado"}
+                    </li>
+                  ))}
+                <li>Última atualização em {dt(item.updatedAt)}</li>
+              </ul>
+            </details>
+          </Section>
+        </div>
       </div>
     </ExpandedModal>
   );
