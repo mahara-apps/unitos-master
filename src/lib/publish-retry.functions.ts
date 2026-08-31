@@ -521,14 +521,28 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
     // 4) Mídia: reaproveita exatamente a mesma da tentativa anterior
     const prevMedia = (failedRow?.media ?? null) as {
       storagePath?: string;
+      storagePaths?: string[];
       link?: string;
       imageUrl?: string;
       videoUrl?: string;
     } | null;
-    let storagePath: string | null = prevMedia?.storagePath ?? null;
+    const plMediaArr = Array.isArray(pl.media)
+      ? (pl.media as Array<{ storagePath?: string }>)
+      : [];
+    // Carrossel: a peça é UMA publicação com N mídias; preservamos a lista.
+    let storagePaths: string[] =
+      prevMedia?.storagePaths && prevMedia.storagePaths.length
+        ? prevMedia.storagePaths
+        : dbPlacement === "carousel"
+          ? plMediaArr.map((m) => m?.storagePath).filter((v): v is string => Boolean(v))
+          : [];
+    storagePaths = storagePaths.slice(0, 10);
+    let storagePath: string | null = prevMedia?.storagePath ?? storagePaths[0] ?? null;
     if (!storagePath) {
-      const arr = Array.isArray(pl.media) ? (pl.media as Array<{ storagePath?: string }>) : [];
-      storagePath = arr.find((m) => m?.storagePath)?.storagePath ?? null;
+      storagePath = plMediaArr.find((m) => m?.storagePath)?.storagePath ?? null;
+    }
+    if (dbPlacement === "carousel" && storagePaths.length < 2) {
+      throw new Error("Carrossel exige pelo menos 2 mídias na peça — reabra a peça e anexe.");
     }
     const link = prevMedia?.link ?? null;
     if (!storagePath && !link) {
@@ -609,7 +623,11 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
       hashtags: dbPlacement === "story" ? [] : hashtags,
       mentions: [],
       media: {
-        ...(storagePath ? { storagePath } : {}),
+        ...(dbPlacement === "carousel"
+          ? { storagePaths }
+          : storagePath
+            ? { storagePath }
+            : {}),
         ...(link && dbPlacement !== "story" ? { link } : {}),
       },
       post_id: data.postId,
