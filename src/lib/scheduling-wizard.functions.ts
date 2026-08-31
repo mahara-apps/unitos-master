@@ -931,6 +931,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
 
 
           // Stories multi-frame: publica cada mídia como um Story separado.
+          // Carrossel: 1 chamada com todas as mídias (na ordem da peça).
           // Feed/Reels: 1 chamada, primeira mídia.
           const frames =
             isStory && data.mediaPaths.length > 0
@@ -938,6 +939,25 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
               : isReel
                 ? [data.mediaPaths.find((m) => IS_VIDEO_PATH.test(m))]
                 : [data.mediaPaths[0] as string | undefined];
+
+          // Assina TODAS as mídias do carrossel (a peça inteira é um post só).
+          const signPath = async (p: string) => {
+            if (!p.startsWith(`${data.brandId}/`))
+              throw new Error("Mídia fora do escopo da marca");
+            const { data: signed, error: sErr } = await supabase.storage
+              .from("brand-media")
+              .createSignedUrl(p, 3600);
+            if (sErr) throw new Error(`Falha ao assinar mídia: ${sErr.message}`);
+            return signed.signedUrl;
+          };
+          const carouselItems: Array<{ imageUrl?: string; videoUrl?: string }> = [];
+          if (isCarousel) {
+            for (const p of data.mediaPaths.slice(0, 10)) {
+              const url = await signPath(p);
+              carouselItems.push(IS_VIDEO_PATH.test(p) ? { videoUrl: url } : { imageUrl: url });
+            }
+          }
+
 
           const caption = isStory
             ? undefined
