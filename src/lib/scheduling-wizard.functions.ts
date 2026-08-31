@@ -729,7 +729,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             location_id: isStory ? null : (data.locationId ?? null),
           });
           if (spErr) {
-            frameErr = spErr.message;
+            frameErr = describeQueueInsertError(spErr.message, d.channel, d.format);
             break;
           }
         }
@@ -749,6 +749,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             .eq("brand_id", data.brandId);
           throw new Error(`Falha ao agendar ${d.channel}: ${frameErr}`);
         }
+
         enqueueResults.push({ channel: d.channel, format: d.format, ok: true });
       }
 
