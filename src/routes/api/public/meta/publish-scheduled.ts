@@ -195,11 +195,21 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
                 "media_required",
               );
             }
+            // Opções avançadas do destino, gravadas no jsonb `media.options`
+            // no momento do agendamento. Nunca bloqueiam a publicação.
+            const rawOptions = (post.media as any)?.options;
             const result = await svc.publish(conn as any, {
               placement: providerPlacement,
               caption: providerPlacement === "instagram_story" ? undefined : caption,
               media,
+              ...(rawOptions && typeof rawOptions === "object" ? { options: rawOptions } : {}),
             });
+            if (result.warnings?.length) {
+              console.warn("[publish-scheduled] option warnings", {
+                social_post_id: post.id,
+                warnings: result.warnings,
+              });
+            }
 
             const { error: okErr } = await (supabaseAdmin as any).rpc(
               "mark_social_post_published",
