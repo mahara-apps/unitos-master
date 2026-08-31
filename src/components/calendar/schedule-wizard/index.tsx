@@ -194,9 +194,13 @@ export function ScheduleWizard({
   const [destPickerOpen, setDestPickerOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [showExtras, setShowExtras] = useState(false);
+  // Navegação na fila de rascunhos: alterações não salvas pedem confirmação.
+  const dirtyRef = useRef(false);
+  const [pendingNav, setPendingNav] = useState<number | null>(null);
 
   const uploadRef = useRef<HTMLInputElement>(null);
   const wasOpenRef = useRef(false);
+
 
   useEffect(() => {
     // Só reseta na transição fechado → aberto para garantir tela limpa
