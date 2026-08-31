@@ -30,6 +30,8 @@ export async function generateBriefingAnalysis(input: {
   usage: AiUsageContext;
   system: string;
   messages: ModelMessage[];
+  /** Cancela a chamada quando a etapa estoura o deadline. */
+  abortSignal?: AbortSignal;
 }): Promise<BriefingGenerationResult> {
   const candidates = await getBrandAiCandidatesAdmin(input.brandId, "operational", input.usage);
   const attempts: ProviderAttempt[] = [];
@@ -45,6 +47,7 @@ export async function generateBriefingAnalysis(input: {
           model: candidate.model,
           system: input.system,
           maxOutputTokens: BRIEFING_MAX_OUTPUT_TOKENS,
+          ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
           tools: {
             extract_client_fields: tool({
               description: "Entrega a análise estruturada do briefing para revisão humana.",
@@ -63,6 +66,7 @@ export async function generateBriefingAnalysis(input: {
           model: candidate.model,
           system: input.system,
           maxOutputTokens: BRIEFING_MAX_OUTPUT_TOKENS,
+          ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
           providerOptions: briefingProviderOptions(candidate.provider),
           output: Output.object({ schema: BriefingAnalysisSchema }),
           messages: input.messages,

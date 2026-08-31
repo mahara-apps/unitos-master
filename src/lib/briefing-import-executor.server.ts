@@ -5,14 +5,65 @@ import { BRIEFING_OUTPUT_INSTRUCTIONS } from "@/lib/briefing-generation.server";
 import type { BriefingAnalysis } from "@/lib/briefing-analysis-schema";
 import {
   classifyChange,
+  ImportStepError,
   listImportSteps,
   saveImportProposal,
   setRunModel,
   setRunStep,
+  tagImportStep,
   type ImportRunStatus,
   type ImportSourceKind,
   type ImportStep,
 } from "@/lib/briefing-import.server";
+
+/** Orçamento de tempo por etapa (ms). Estouro vira falha retentável. */
+export const STEP_TIMEOUT_MS: Partial<Record<ImportStep, number>> = {
+  extract: 60_000,
+  interpret: 120_000,
+};
+
+/**
+ * Executa uma etapa com deadline próprio. O `AbortSignal` é propagado para
+ * quem souber cancelar (IA); para o resto, o race garante que a etapa nunca
+ * segura a lease indefinidamente. Qualquer erro sai etiquetado com a etapa
+ * real, para que o retry retome do checkpoint correto.
+ */
+async function withStepDeadline<T>(
+  step: ImportStep,
+  ms: number | undefined,
+  fn: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    if (!ms) return await fn(controller.signal);
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(
+          new ImportStepError(
+            step,
+            `step_timeout: a etapa ${step} excedeu o tempo limite de ${Math.round(ms / 1000)}s (timeout)`,
+          ),
+        );
+      }, ms);
+    });
+    return await Promise.race([fn(controller.signal), timeout]);
+  } catch (error) {
+    if (error instanceof ImportStepError) throw error;
+    if (controller.signal.aborted) {
+      throw new ImportStepError(
+        step,
+        `step_timeout: a etapa ${step} foi abortada por tempo limite (timeout)`,
+        { cause: error },
+      );
+    }
+    throw tagImportStep(error, step);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 
 /**
  * Executor único da importação de briefing (documento OU texto).
@@ -102,15 +153,15 @@ export async function executeImportRun(
   let extractionNote: string | null = null;
 
   if (run.source_kind === "document") {
-    if (!run.document_id) throw new Error("document_not_found");
+    if (!run.document_id) throw new ImportStepError("ingest", "document_not_found");
     const { data: doc, error: docErr } = await table(db, "client_documents")
       .select("storage_path, mime_type, name")
       .eq("id", run.document_id)
       .eq("brand_id", run.brand_id)
       .eq("client_id", run.client_id)
       .maybeSingle();
-    if (docErr) throw docErr as Error;
-    if (!doc) throw new Error("document_not_found");
+    if (docErr) throw tagImportStep(docErr as Error, "ingest");
+    if (!doc) throw new ImportStepError("ingest", "document_not_found");
     docName = (doc as { name: string }).name;
 
     if (!completed.has("ingest")) {
@@ -118,15 +169,24 @@ export async function executeImportRun(
     }
     const path = (doc as { storage_path: string }).storage_path;
     const dl = await db.storage.from("brand-documents").download(path);
-    if (dl.error || !dl.data) throw dl.error ?? new Error("download_failed");
+    if (dl.error || !dl.data) {
+      throw tagImportStep(dl.error ?? new Error("download_failed"), "ingest");
+    }
     const bytes = new Uint8Array(await dl.data.arrayBuffer());
     const mediaType = (doc as { mime_type: string | null }).mime_type ?? "application/octet-stream";
     const { prepareDocumentContent, assertInlinePayload } = await import(
       "@/lib/document-extract.server"
     );
-    const prepared = await prepareDocumentContent({ bytes, mediaType, filename: docName });
+    // Extração tem deadline próprio (60s): PDF/planilha corrompidos não podem
+    // manter a lease presa até o reaper.
+    const prepared = await withStepDeadline("extract", STEP_TIMEOUT_MS.extract, async () => {
+      const out = await prepareDocumentContent({ bytes, mediaType, filename: docName });
+      if (out.mode === "inline") {
+        assertInlinePayload({ mediaType: out.mediaType, base64: out.base64 });
+      }
+      return out;
+    });
     if (prepared.mode === "inline") {
-      assertInlinePayload({ mediaType: prepared.mediaType, base64: prepared.base64 });
       inlinePayload = { base64: prepared.base64, mediaType: prepared.mediaType };
     } else {
       extractedText = prepared.text;
@@ -144,10 +204,11 @@ export async function executeImportRun(
     });
   } else {
     const text = (run.raw_text ?? "").trim();
-    if (text.length < 40) throw new Error("empty_input_text");
+    if (text.length < 40) throw new ImportStepError("ingest", "empty_input_text");
     extractedText = text;
     await setRunStep(db, scope, "ingest", "done", { output: { chars: text.length } });
   }
+
   await beat();
 
   /* ------------------------------- interpret ------------------------------- */
@@ -205,15 +266,22 @@ ${BRIEFING_OUTPUT_INSTRUCTIONS}`,
     }
 
     const { generateBriefingAnalysis } = await import("@/lib/briefing-ai-executor.server");
-    const generated = await generateBriefingAnalysis({
-      brandId: run.brand_id,
-      usage: {
-        agent: run.source_kind === "document" ? "document.analyze" : "briefing.import.text",
-        clientId: run.client_id,
-      },
-      system,
-      messages: [{ role: "user", content }],
-    });
+    const generated = await withStepDeadline(
+      "interpret",
+      STEP_TIMEOUT_MS.interpret,
+      (signal) =>
+        generateBriefingAnalysis({
+          brandId: run.brand_id,
+          usage: {
+            agent: run.source_kind === "document" ? "document.analyze" : "briefing.import.text",
+            clientId: run.client_id,
+          },
+          system,
+          messages: [{ role: "user", content }],
+          abortSignal: signal,
+        }),
+    );
+
     analysis = generated.analysis;
     providerAttempts = generated.attempts;
     provider = generated.provider;
@@ -247,36 +315,43 @@ ${BRIEFING_OUTPUT_INSTRUCTIONS}`,
 
   /* ---------------------------- diff / propose ---------------------------- */
 
-  await setRunStep(db, scope, "diff", "running");
-  const evidenceByField = new Map(analysis.evidence.map((e) => [e.field, e] as const));
-  const changes = Object.entries(analysis.briefing).map(([field, proposed]) => {
-    const ev = evidenceByField.get(field);
-    return {
-      field,
-      currentValue: current[field] ?? null,
-      proposedValue: proposed,
-      action: classifyChange(current[field] ?? null, proposed),
-      confidence: ev?.confidence ?? analysis.confidence ?? null,
-      evidence: {
-        source: run.source_kind,
-        document_id: run.document_id,
-        document_name: docName,
-        excerpt: ev?.excerpt ?? null,
-        conflict: ev?.conflict === true,
-      },
-    };
+  const analyzed = analysis;
+  const changes = await withStepDeadline("diff", undefined, async () => {
+    await setRunStep(db, scope, "diff", "running");
+    const evidenceByField = new Map(analyzed.evidence.map((e) => [e.field, e] as const));
+    const rows = Object.entries(analyzed.briefing).map(([field, proposed]) => {
+      const ev = evidenceByField.get(field);
+      return {
+        field,
+        currentValue: current[field] ?? null,
+        proposedValue: proposed,
+        action: classifyChange(current[field] ?? null, proposed),
+        confidence: ev?.confidence ?? analyzed.confidence ?? null,
+        evidence: {
+          source: run.source_kind,
+          document_id: run.document_id,
+          document_name: docName,
+          excerpt: ev?.excerpt ?? null,
+          conflict: ev?.conflict === true,
+        },
+      };
+    });
+    await setRunStep(db, scope, "diff", "done", { output: { fields: rows.length } });
+    return rows;
   });
-  await setRunStep(db, scope, "diff", "done", { output: { fields: changes.length } });
 
-  await saveImportProposal(db, scope, {
-    changes,
-    summary: analysis.executive_summary ?? null,
-    confidence: analysis.confidence ?? null,
-    ...(isTranscript ? { speakers: analysis.speakers } : {}),
+  await withStepDeadline("propose", undefined, async () => {
+    await saveImportProposal(db, scope, {
+      changes,
+      summary: analyzed.executive_summary ?? null,
+      confidence: analyzed.confidence ?? null,
+      ...(isTranscript ? { speakers: analyzed.speakers } : {}),
+    });
+    await setRunStep(db, scope, "propose", "done", {
+      output: { material_type: analyzed.material_type },
+    });
   });
-  await setRunStep(db, scope, "propose", "done", {
-    output: { material_type: analysis.material_type },
-  });
+
 
   return { status: "proposed", provider, model, reusedInterpret };
 }

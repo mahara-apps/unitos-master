@@ -1,6 +1,11 @@
 import { callRpc } from "@/lib/supabase-rpc";
 import { executeImportRun, type ExecutableRun } from "@/lib/briefing-import-executor.server";
-import { classifyRunFailure, failImportRun } from "@/lib/briefing-import.server";
+import {
+  classifyRunFailure,
+  failImportRun,
+  stepFromError,
+  type ImportStep,
+} from "@/lib/briefing-import.server";
 
 /**
  * Worker único da fila de importação de briefing.
@@ -91,15 +96,38 @@ export async function processImportQueue(
       // termina em estado terminal explícito (com retry manual disponível).
       const terminal = status !== "failed" || attempt >= maxAttempts;
       const { friendlyAnalysisError } = await import("@/lib/briefing-import-ui");
-      const friendly = friendlyAnalysisError(err);
+      const friendly = friendlyAnalysisError(err) || message;
+      // Etapa REAL da falha: sem isso um erro pós-interpret marcaria
+      // `interpret` como falho e o retry repagaria a chamada de IA.
+      const failedStep: ImportStep | undefined =
+        stepFromError(err) ?? (run.resume_step as ImportStep | null) ?? undefined;
       if (terminal) {
         await failImportRun(supabaseAdmin as never, run, {
           message: friendly,
           kind,
           status,
-          step: "interpret",
+          ...(failedStep ? { step: failedStep } : {}),
         }).catch(() => undefined);
       } else {
+        // Persiste a causa REAL antes de devolver a run para a fila: o reaper
+        // preserva esses campos ao expirar, então a UI nunca mostra "stalled"
+        // em lugar do erro que de fato aconteceu.
+        if (failedStep) {
+          const { setRunStep } = await import("@/lib/briefing-import.server");
+          await setRunStep(supabaseAdmin as never, run, failedStep, "failed", {
+            error: friendly.slice(0, 500),
+            errorKind: kind,
+          }).catch(() => undefined);
+        }
+        await (supabaseAdmin as unknown as { from: (t: string) => any })
+          .from("briefing_import_runs")
+          .update({
+            error: friendly.slice(0, 500),
+            error_kind: kind,
+            ...(failedStep ? { resume_step: failedStep } : {}),
+          })
+          .eq("id", run.id)
+          .then(() => undefined, () => undefined);
         await callRpc(supabaseAdmin, "briefing_import_heartbeat", {
           _run_id: run.id,
           _owner: owner,
