@@ -21,14 +21,16 @@ import type {
 export const MAX_IMPORT_FILE_BYTES = 25 * 1024 * 1024;
 
 /**
- * Formatos aceitos. Dois caminhos reais:
- *  - `native`: o arquivo vai inteiro para a chamada multimodal (PDF e imagens).
- *  - `extract`: o texto é extraído no navegador e enviado como material de
- *    texto (docx, planilhas, texto puro, legendas).
- * `.doc` legado (binário do Word 97) não é legível em nenhum dos dois caminhos.
+ * Formatos aceitos. Todo arquivo válido segue o MESMO caminho: upload no
+ * bucket + análise no servidor, onde a extração canônica acontece
+ * (`document-extract.server.ts`): PDF/imagem vão inteiros ao modelo
+ * multimodal; docx, planilhas, texto puro e legendas são convertidos em texto
+ * no backend. Nada é extraído no navegador.
+ * `.doc` legado (binário do Word 97) não é legível em nenhum caminho.
  */
 export const NATIVE_IMPORT_EXTENSIONS = [".pdf", ".png", ".jpg", ".jpeg", ".webp"] as const;
 
+/** Formatos convertidos em texto no servidor. */
 export const EXTRACT_IMPORT_EXTENSIONS = [
   ".docx",
   ".xlsx",
