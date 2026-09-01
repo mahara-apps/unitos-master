@@ -201,8 +201,15 @@ export async function prepareDocumentContent(args: {
   const { bytes, filename } = args;
   const kind = classifyMedia(args.mediaType, filename);
   if (bytes.byteLength === 0) throw new Error("document_empty: o arquivo enviado está vazio.");
-  // Integridade antes de tudo: nenhum arquivo inválido chega ao modelo.
+  // Formato sem leitura possível é rejeitado antes da checagem de integridade.
+  if (kind === "legacy-doc") {
+    throw new Error(
+      "document_format_unsupported: arquivos .doc antigos não podem ser lidos. Converta para .docx ou PDF.",
+    );
+  }
+  // Integridade antes de qualquer chamada de IA: arquivo corrompido para aqui.
   assertFileIntegrity(bytes, kind, filename);
+
 
   if (kind === "image" || kind === "pdf") {
     const mediaType =
