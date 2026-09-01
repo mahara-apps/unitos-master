@@ -6335,6 +6335,10 @@ export type Database = {
         }[]
       }
       accept_brand_invite: { Args: { _token: string }; Returns: string }
+      ai_scope_readable: {
+        Args: { _brand_id: string; _client_id: string }
+        Returns: boolean
+      }
       app_access_role: {
         Args: { _brand_id?: string; _user_id: string }
         Returns: string
