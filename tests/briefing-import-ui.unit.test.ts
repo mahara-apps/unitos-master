@@ -187,13 +187,13 @@ describe("erros do fluxo", () => {
 describe("entrada de material (texto + arquivos)", () => {
   it("aceita os formatos de documento pedidos e classifica a leitura", async () => {
     const { fileHandling } = await import("@/lib/briefing-import-ui");
-    expect(fileHandling("brief.pdf")).toBe("native");
-    expect(fileHandling("foto.PNG")).toBe("native");
-    expect(fileHandling("brief.docx")).toBe("extract");
-    expect(fileHandling("planilha.xlsx")).toBe("extract");
-    expect(fileHandling("planilha.xls")).toBe("extract");
-    expect(fileHandling("dados.csv")).toBe("extract");
-    expect(fileHandling("notas.txt")).toBe("extract");
+    expect(fileHandling("brief.pdf")).toBe("server");
+    expect(fileHandling("foto.PNG")).toBe("server");
+    expect(fileHandling("brief.docx")).toBe("server");
+    expect(fileHandling("planilha.xlsx")).toBe("server");
+    expect(fileHandling("planilha.xls")).toBe("server");
+    expect(fileHandling("dados.csv")).toBe("server");
+    expect(fileHandling("notas.txt")).toBe("server");
     expect(fileHandling("video.mp4")).toBe("unsupported");
   });
 
