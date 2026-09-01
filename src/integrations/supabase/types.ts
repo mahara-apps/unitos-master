@@ -379,26 +379,29 @@ export type Database = {
       }
       brain_embeddings: {
         Row: {
-          brand_id: string | null
+          brand_id: string
+          client_id: string | null
           content_summary: string
           created_at: string
-          embedding: string | null
+          embedding: string
           event_id: string | null
           id: string
         }
         Insert: {
-          brand_id?: string | null
+          brand_id: string
+          client_id?: string | null
           content_summary: string
           created_at?: string
-          embedding?: string | null
+          embedding: string
           event_id?: string | null
           id?: string
         }
         Update: {
-          brand_id?: string | null
+          brand_id?: string
+          client_id?: string | null
           content_summary?: string
           created_at?: string
-          embedding?: string | null
+          embedding?: string
           event_id?: string | null
           id?: string
         }
@@ -415,6 +418,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brain_embeddings_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
           {
