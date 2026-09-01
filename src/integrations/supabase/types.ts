@@ -601,6 +601,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "brain_learning_queue_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "brain_learning_queue_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "brain_learning_queue_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
@@ -862,7 +876,7 @@ export type Database = {
         Row: {
           answer_confidence: number | null
           answer_preview: string | null
-          brand_id: string | null
+          brand_id: string
           client_id: string | null
           conversation_id: string | null
           created_at: string
@@ -881,7 +895,7 @@ export type Database = {
         Insert: {
           answer_confidence?: number | null
           answer_preview?: string | null
-          brand_id?: string | null
+          brand_id: string
           client_id?: string | null
           conversation_id?: string | null
           created_at?: string
@@ -900,7 +914,7 @@ export type Database = {
         Update: {
           answer_confidence?: number | null
           answer_preview?: string | null
-          brand_id?: string | null
+          brand_id?: string
           client_id?: string | null
           conversation_id?: string | null
           created_at?: string
@@ -916,7 +930,36 @@ export type Database = {
           used_llm?: boolean
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "brain_reasoning_logs_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "brain_reasoning_logs_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brain_reasoning_logs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brain_reasoning_logs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       brain_recommendations: {
         Row: {
@@ -1238,6 +1281,7 @@ export type Database = {
       brand_ai_usage: {
         Row: {
           actor_id: string | null
+          actor_kind: string
           agent: string
           brand_id: string
           client_id: string | null
@@ -1252,6 +1296,7 @@ export type Database = {
         }
         Insert: {
           actor_id?: string | null
+          actor_kind?: string
           agent: string
           brand_id: string
           client_id?: string | null
@@ -1266,6 +1311,7 @@ export type Database = {
         }
         Update: {
           actor_id?: string | null
+          actor_kind?: string
           agent?: string
           brand_id?: string
           client_id?: string | null
