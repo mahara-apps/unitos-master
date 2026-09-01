@@ -672,65 +672,57 @@ export type BrandGeneratedImage = {
   contentType: string;
 };
 
-/**
- * Generate an image with the brand's own image provider key.
- * Anthropic has no image model, so only OpenAI/Gemini are eligible.
- */
-export async function generateBrandImage(
-  supabase: SupabaseClient,
-  brandId: string,
+const IMAGE_TIMEOUT_MS = 90_000;
+
+async function openaiImage(
+  apiKey: string,
+  modelId: string,
   prompt: string,
 ): Promise<BrandGeneratedImage> {
-  const creds = await getBrandProviderKey(supabase, brandId, "image", IMAGE_PROVIDERS);
-  if (!supportsKind(creds.provider, "image")) {
+  const res = await fetch("https://api.openai.com/v1/images/generations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ model: modelId, prompt, size: "1024x1024", n: 1 }),
+    signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
+  });
+  if (!res.ok) {
     throw new Error(
-      `ai_image_unsupported:${creds.provider}: este provedor não gera imagens. Selecione OpenAI ou Gemini em Conexões.`,
+      `ai_image_failed: ${res.status} ${(await res.text().catch(() => "")).slice(0, 200)}`,
     );
   }
-  const imageModelId = await resolveModel(creds.provider, "image");
-  if (!imageModelId) {
-    throw new Error(`ai_image_unsupported:${creds.provider}: sem modelo de imagem disponível.`);
-  }
+  const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
+  const b64 = json.data?.[0]?.b64_json;
+  if (!b64) throw new Error("ai_image_empty: modelo não retornou imagem");
+  return { provider: "openai", base64: b64, contentType: "image/png" };
+}
 
-  if (creds.provider === "openai") {
-    const res = await fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${creds.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: imageModelId,
-        prompt,
-        size: "1024x1024",
-        n: 1,
-      }),
-    });
-    if (!res.ok) {
-      throw new Error(
-        `ai_image_failed: ${res.status} ${(await res.text().catch(() => "")).slice(0, 200)}`,
-      );
-    }
-    const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
-    const b64 = json.data?.[0]?.b64_json;
-    if (!b64) throw new Error("ai_image_empty: modelo não retornou imagem");
-    return { provider: "openai", base64: b64, contentType: "image/png" };
-  }
-
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${imageModelId}:predict`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": creds.apiKey,
-      },
-      body: JSON.stringify({
-        instances: [{ prompt }],
-        parameters: { sampleCount: 1, aspectRatio: "1:1" },
-      }),
-    },
-  );
+/**
+ * Gemini tem DOIS contratos de imagem:
+ * - `gemini-*-image` → `:generateContent` com `responseModalities: [IMAGE]`
+ *   (funciona com a chave comum da API Gemini);
+ * - `imagen-*` → `:predict` (exige projeto com faturamento habilitado).
+ */
+async function geminiImage(
+  apiKey: string,
+  modelId: string,
+  prompt: string,
+): Promise<BrandGeneratedImage> {
+  const isImagen = modelId.startsWith("imagen");
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:${
+    isImagen ? "predict" : "generateContent"
+  }`;
+  const body = isImagen
+    ? { instances: [{ prompt }], parameters: { sampleCount: 1, aspectRatio: "1:1" } }
+    : {
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { responseModalities: ["IMAGE"] },
+      };
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
+  });
   if (!res.ok) {
     throw new Error(
       `ai_image_failed: ${res.status} ${(await res.text().catch(() => "")).slice(0, 200)}`,
@@ -738,17 +730,89 @@ export async function generateBrandImage(
   }
   const json = (await res.json()) as {
     predictions?: Array<{ bytesBase64Encoded?: string; mimeType?: string }>;
+    candidates?: Array<{
+      content?: { parts?: Array<{ inlineData?: { data?: string; mimeType?: string } }> };
+    }>;
   };
-  const pred = json.predictions?.[0];
-  if (!pred?.bytesBase64Encoded) {
-    throw new Error("ai_image_empty: modelo não retornou imagem");
-  }
-  return {
-    provider: "gemini",
-    base64: pred.bytesBase64Encoded,
-    contentType: pred.mimeType ?? "image/png",
-  };
+  const inline = isImagen
+    ? (() => {
+        const p = json.predictions?.[0];
+        return p?.bytesBase64Encoded
+          ? { data: p.bytesBase64Encoded, mimeType: p.mimeType }
+          : null;
+      })()
+    : (json.candidates?.[0]?.content?.parts ?? [])
+        .map((p) => p.inlineData)
+        .find((d): d is { data: string; mimeType?: string } => typeof d?.data === "string") ?? null;
+  if (!inline?.data) throw new Error("ai_image_empty: modelo não retornou imagem");
+  return { provider: "gemini", base64: inline.data, contentType: inline.mimeType ?? "image/png" };
 }
+
+/**
+ * Generate an image with the brand's own image provider key.
+ * Anthropic has no image model, so only OpenAI/Gemini are eligible.
+ *
+ * Percorre a cadeia de modelos do catálogo: quando a conta não libera o modelo
+ * (404/403 do Imagen, por exemplo), o próximo candidato é tentado antes de
+ * devolver erro ao usuário.
+ */
+export async function generateBrandImage(
+  supabase: SupabaseClient,
+  brandId: string,
+  prompt: string,
+  usage: AiUsageContext = {},
+): Promise<BrandGeneratedImage> {
+  const creds = await getBrandProviderKey(supabase, brandId, "image", IMAGE_PROVIDERS);
+  if (!supportsKind(creds.provider, "image")) {
+    throw new Error(
+      `ai_image_unsupported:${creds.provider}: este provedor não gera imagens. Selecione OpenAI ou Gemini em Conexões.`,
+    );
+  }
+  const primary = await resolveModel(creds.provider, "image");
+  const { MODEL_FALLBACKS } = await import("./ai-models-catalog.server");
+  const candidates = [
+    ...(primary ? [primary] : []),
+    ...(MODEL_FALLBACKS[creds.provider].image ?? []),
+  ].filter((id, i, arr) => arr.indexOf(id) === i);
+  if (candidates.length === 0) {
+    throw new Error(`ai_image_unsupported:${creds.provider}: sem modelo de imagem disponível.`);
+  }
+
+  let lastError: unknown = null;
+  for (const modelId of candidates) {
+    try {
+      const image =
+        creds.provider === "openai"
+          ? await openaiImage(creds.apiKey, modelId, prompt)
+          : await geminiImage(creds.apiKey, modelId, prompt);
+      await recordAiUsage({
+        brandId,
+        model: modelId,
+        inputTokens: 0,
+        outputTokens: 0,
+        success: true,
+        ...usage,
+        agent: usage.agent ?? "image.generate",
+      });
+      return image;
+    } catch (err) {
+      lastError = err;
+      console.error(`[ai-provider] imagem falhou (${creds.provider}/${modelId})`, err);
+      await recordAiUsage({
+        brandId,
+        model: modelId,
+        inputTokens: 0,
+        outputTokens: 0,
+        success: false,
+        errorMessage: err instanceof Error ? err.message : String(err),
+        ...usage,
+        agent: usage.agent ?? "image.generate",
+      });
+    }
+  }
+  throw lastError ?? new Error("ai_image_failed: nenhum modelo de imagem respondeu.");
+}
+
 
 /* ------------------------------------------------------------------ */
 /* Admin variants — for background jobs with no user session           */

@@ -3,10 +3,48 @@ import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getBrandAiModel } from "./ai-provider.server";
+import {
+  BACKOFF_MS,
+  FAILURE_MESSAGE_PT,
+  classifyAiError,
+  sleep,
+} from "./ai-failures.server";
 import type { Json } from "@/integrations/supabase/types";
 import { loadCanonicalBriefing, projectCanonicalBriefingRow } from "@/lib/briefing-source.server";
 
 import { brain } from "@/lib/brain/api";
+
+/* ---------------- Limites e resiliência dos agentes ---------------- */
+/** Teto de entrada: evita estourar a janela de contexto e o custo por chamada. */
+const AGENT_MAX_SYSTEM_CHARS = 40_000;
+const AGENT_MAX_PROMPT_CHARS = 24_000;
+const AGENT_MAX_OUTPUT_TOKENS = 8_000;
+/** Nenhuma chamada de agente pode pendurar a request do usuário. */
+const AGENT_TIMEOUT_MS = 90_000;
+const AGENT_MAX_ATTEMPTS = 3;
+
+function clampText(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return `${text.slice(0, max)}\n\n[conteúdo truncado]`;
+}
+
+/** Recupera JSON de respostas com markdown/ruído em volta. */
+function salvageJson(raw: string): unknown | null {
+  const cleaned = raw
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+  for (const candidate of [cleaned, cleaned.slice(cleaned.indexOf("{"), cleaned.lastIndexOf("}") + 1)]) {
+    if (!candidate) continue;
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      /* tenta o próximo */
+    }
+  }
+  return null;
+}
+
 
 /**
  * Unitos — 8 agentes de IA.
@@ -352,47 +390,63 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
     }
   }
 
-  const finalSystem = brandBlueprint ? `${brandBlueprint}\n\n---\n\n${opts.system}` : opts.system;
+  const finalSystem = clampText(
+    brandBlueprint ? `${brandBlueprint}\n\n---\n\n${opts.system}` : opts.system,
+    AGENT_MAX_SYSTEM_CHARS,
+  );
+  const finalPrompt = clampText(opts.prompt, AGENT_MAX_PROMPT_CHARS);
+  if (!finalPrompt.trim()) throw new Error("ai_empty_prompt: nada para enviar à IA.");
 
-  // O provider já mede tokens/custo e aplica o teto mensal para toda chamada.
-  const { model } = await getBrandAiModel(opts.supabase, opts.brandId, "text", "operational", {
-    agent: opts.agent,
-    clientId: opts.clientId,
-    userId: opts.userId,
-  });
   // structuredOutputs kept for backwards-compat but ignored (each provider
   // enforces its own structured-output flow via the ai-sdk Output helper).
   void AGENT_MODEL[opts.agent];
 
-  let output: unknown;
+  let lastError: unknown = null;
 
-  try {
-    const res = await generateText({
-      model,
-      system: finalSystem,
-      prompt: opts.prompt,
-      output: Output.object({ schema: opts.schema }),
-    });
-    output = res.output;
-  } catch (error) {
-    if (NoObjectGeneratedError.isInstance(error)) {
-      const raw = error.text ?? "";
-      try {
-        // Tentativa de parse defensiva: modelos às vezes vêm com markdown.
-        const cleaned = raw
-          .replace(/^```(?:json)?\s*/i, "")
-          .replace(/```\s*$/i, "")
-          .trim();
-        output = JSON.parse(cleaned);
-      } catch {
-        output = { __raw: raw };
+  for (let attempt = 1; attempt <= AGENT_MAX_ATTEMPTS; attempt++) {
+    try {
+      // O provider já mede tokens/custo e aplica o teto mensal para toda chamada.
+      // Resolvido por tentativa: assim o fallback de provider/modelo vale no retry.
+      const { model } = await getBrandAiModel(opts.supabase, opts.brandId, "text", "operational", {
+        agent: opts.agent,
+        clientId: opts.clientId,
+        userId: opts.userId,
+      });
+      const res = await generateText({
+        model,
+        system: finalSystem,
+        prompt: finalPrompt,
+        output: Output.object({ schema: opts.schema }),
+        maxOutputTokens: AGENT_MAX_OUTPUT_TOKENS,
+        abortSignal: AbortSignal.timeout(AGENT_TIMEOUT_MS),
+        // O backoff é controlado aqui para respeitar a quota do provedor.
+        maxRetries: 0,
+      });
+      return res.output as z.infer<T>;
+    } catch (error) {
+      // Saída malformada: tenta recuperar o JSON bruto antes de considerar falha.
+      if (NoObjectGeneratedError.isInstance(error)) {
+        const salvaged = salvageJson(error.text ?? "");
+        if (salvaged !== null) {
+          const parsed = opts.schema.safeParse(salvaged);
+          if (parsed.success) return parsed.data as z.infer<T>;
+        }
       }
-    } else {
-      throw error;
+      lastError = error;
+      const { kind, retryable } = classifyAiError(error);
+      console.error(
+        `[ai-agents] ${opts.agent} attempt ${attempt}/${AGENT_MAX_ATTEMPTS} kind=${kind}`,
+        error instanceof Error ? error.message : String(error),
+      );
+      if (!retryable || attempt === AGENT_MAX_ATTEMPTS) {
+        throw new Error(`${FAILURE_MESSAGE_PT[kind].body} (${kind})`, { cause: error });
+      }
+      await sleep(BACKOFF_MS[attempt - 1] ?? 15_000);
     }
   }
 
-  return output as z.infer<T>;
+  throw new Error(FAILURE_MESSAGE_PT.unknown.body, { cause: lastError });
+
 }
 
 // ---------- Schemas ----------

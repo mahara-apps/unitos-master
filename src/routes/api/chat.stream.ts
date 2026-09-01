@@ -272,15 +272,19 @@ export const Route = createFileRoute("/api/chat/stream")({
             user: chatUser,
           });
         } catch (err) {
-          return new Response(
-            `Erro ao iniciar stream: ${err instanceof Error ? err.message : String(err)}`,
-            { status: 500 },
-          );
+          // Falha ANTES de qualquer token: nada é persistido como resposta do
+          // assistente e o erro técnico do provider não vaza para o usuário.
+          console.error("[chat.stream] falha ao iniciar stream", err);
+          const { classifyAiError, FAILURE_MESSAGE_PT } = await import("@/lib/ai-failures.server");
+          const { kind } = classifyAiError(err);
+          return new Response(FAILURE_MESSAGE_PT[kind].body, {
+            status: 503,
+            headers: { "Content-Type": "text/plain; charset=utf-8", "X-Ai-Error": kind },
+          });
         }
 
-        // 6) onFinish → persistir assistant + eventos Brain
-        const finish = stream.result.text.then(async (finalText) => {
-          const answer = finalText.trim() || "_(sem resposta)_";
+        // 6) Persistência da resposta (parcial ou completa) + eventos Brain
+        const persist = async (answer: string, failure: { kind: string } | null) => {
           const brainSummary = {
             memories: brainKnowledge.memories.slice(0, 5).map((m) => ({
               summary: m.content_summary,
@@ -296,6 +300,7 @@ export const Route = createFileRoute("/api/chat/stream")({
             used_llm: true,
             model: stream.model,
             tool_calls_count: toolCallLog.length,
+            ...(failure ? { error_kind: failure.kind, incomplete: true } : {}),
           };
 
           const { data: asstRow } = await supabase
@@ -306,7 +311,8 @@ export const Route = createFileRoute("/api/chat/stream")({
               role: "assistant",
               content: answer,
               attachments: [],
-              brain_context: brainSummary,
+              brain_context:
+                brainSummary as unknown as Database["public"]["Tables"]["chat_messages"]["Insert"]["brain_context"],
               used_llm: true,
               model: stream.model,
               tool_calls:
@@ -327,6 +333,7 @@ export const Route = createFileRoute("/api/chat/stream")({
                 used_llm: true,
                 tool_calls: toolCallLog.length,
                 memories_used: brainSummary.memories.length,
+                ...(failure ? { error_kind: failure.kind } : {}),
               },
             }),
             asstRow
@@ -338,15 +345,50 @@ export const Route = createFileRoute("/api/chat/stream")({
                 })
               : Promise.resolve(),
           ]);
-        });
-        // Keep the Cloudflare Worker isolate alive until the assistant row
-        // (and Brain events) are persisted. Sem isso, o `.then(insert)` é
-        // descartado quando o Worker recicla o isolate após o stream fechar.
-        waitUntil(Promise.resolve(finish));
+        };
 
-        // 7) Retornar text stream (o cliente lê incrementalmente)
-        // TTFB não bloqueia — `waitUntil(finish)` acima garante persistência.
-        return stream.result.toTextStreamResponse();
+        // 7) Stream próprio: erro no MEIO do stream é tratado (aviso em pt-BR,
+        // nunca o texto bruto do provider) e a persistência fica consistente
+        // com o que o usuário viu.
+        const encoder = new TextEncoder();
+        let persisted: Promise<void> = Promise.resolve();
+        const rs = new ReadableStream<Uint8Array>({
+          async start(controller) {
+            let acc = "";
+            let failure: { kind: string } | null = null;
+            try {
+              for await (const chunk of stream.result.textStream) {
+                acc += chunk;
+                controller.enqueue(encoder.encode(chunk));
+              }
+            } catch (err) {
+              console.error("[chat.stream] falha durante o streaming", err);
+              const { classifyAiError, FAILURE_MESSAGE_PT } = await import(
+                "@/lib/ai-failures.server"
+              );
+              const { kind } = classifyAiError(err);
+              failure = { kind };
+              const notice = `\n\n_${FAILURE_MESSAGE_PT[kind].body}_`;
+              acc += notice;
+              controller.enqueue(encoder.encode(notice));
+            }
+            const answer = acc.trim() || "_(sem resposta)_";
+            persisted = persist(answer, failure).catch((err) => {
+              console.error("[chat.stream] falha ao persistir resposta", err);
+            });
+            // Mantém o isolate vivo até a linha do assistente existir no banco.
+            waitUntil(persisted);
+            controller.close();
+          },
+        });
+
+        return new Response(rs, {
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Cache-Control": "no-store",
+          },
+        });
+
       },
     },
   },

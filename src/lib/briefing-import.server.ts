@@ -107,13 +107,16 @@ export function classifyRunFailure(error: unknown): {
   ) {
     return { status: "paused", kind: "provider_blocked" };
   }
+  // Material inservível é TERMINAL: retry só repetiria a leitura do mesmo
+  // arquivo inválido (e, antes, gastava chamadas de IA à toa).
   if (
-    /document_not_found|download_failed|empty_input_text|no_text|unsupported_media|unsupported_file|empty_document|too_large/i.test(
+    /document_not_found|download_failed|empty_input_text|no_text|unsupported_media|unsupported_file|document_format_unsupported|document_corrupted|document_no_text|document_empty|empty_document|too_large|ai_payload_invalid/i.test(
       raw,
     )
   ) {
     return { status: "needs_input", kind: "input" };
   }
+
   return { status: "failed", kind: "analysis" };
 }
 

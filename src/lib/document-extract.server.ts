@@ -141,6 +141,54 @@ async function extractSpreadsheet(bytes: Uint8Array): Promise<string> {
   return parts.join("\n\n");
 }
 
+/** Assinaturas (magic bytes) dos formatos enviados inline ao modelo. */
+function startsWith(bytes: Uint8Array, sig: number[]): boolean {
+  if (bytes.length < sig.length) return false;
+  return sig.every((b, i) => bytes[i] === b);
+}
+
+/**
+ * Valida a integridade real do arquivo ANTES de gastar qualquer chamada de IA.
+ * Arquivo truncado/corrompido (extensão certa, conteúdo inválido) falha aqui,
+ * com erro terminal de entrada.
+ */
+export function assertFileIntegrity(bytes: Uint8Array, kind: MediaKind, filename: string): void {
+  if (bytes.byteLength < 8) {
+    throw new Error(`document_corrupted: o arquivo ${filename} está truncado ou vazio.`);
+  }
+  if (kind === "pdf") {
+    // %PDF- no início e marcador de fim de arquivo em algum lugar do final.
+    if (!startsWith(bytes, [0x25, 0x50, 0x44, 0x46])) {
+      throw new Error(`document_corrupted: ${filename} não é um PDF válido.`);
+    }
+    const tailBytes = bytes.subarray(Math.max(0, bytes.length - 4096));
+    const tail = new TextDecoder("latin1").decode(tailBytes);
+    if (!tail.includes("%%EOF")) {
+      throw new Error(`document_corrupted: ${filename} está incompleto (PDF sem marcador final).`);
+    }
+    return;
+  }
+  if (kind === "image") {
+    const ok =
+      startsWith(bytes, [0xff, 0xd8, 0xff]) || // jpeg
+      startsWith(bytes, [0x89, 0x50, 0x4e, 0x47]) || // png
+      startsWith(bytes, [0x47, 0x49, 0x46]) || // gif
+      startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) || // webp (RIFF)
+      startsWith(bytes, [0x00, 0x00, 0x00, 0x18]) ||
+      startsWith(bytes, [0x00, 0x00, 0x00, 0x1c]); // heic/heif
+    if (!ok) throw new Error(`document_corrupted: ${filename} não é uma imagem válida.`);
+    return;
+  }
+  if (kind === "docx" || (kind === "spreadsheet" && !/\.(csv|tsv)$/i.test(filename))) {
+    // OOXML/ODF são ZIP: precisam da assinatura PK.
+    const isZip = startsWith(bytes, [0x50, 0x4b]);
+    const isLegacyXls = startsWith(bytes, [0xd0, 0xcf, 0x11, 0xe0]);
+    if (!isZip && !isLegacyXls && kind === "docx") {
+      throw new Error(`document_corrupted: ${filename} não é um DOCX/ODT válido.`);
+    }
+  }
+}
+
 /**
  * Decide como o arquivo alimenta a execução de importação:
  * imagem/PDF → inline multimodal; demais formatos → texto extraído.
@@ -153,6 +201,8 @@ export async function prepareDocumentContent(args: {
   const { bytes, filename } = args;
   const kind = classifyMedia(args.mediaType, filename);
   if (bytes.byteLength === 0) throw new Error("document_empty: o arquivo enviado está vazio.");
+  // Integridade antes de tudo: nenhum arquivo inválido chega ao modelo.
+  assertFileIntegrity(bytes, kind, filename);
 
   if (kind === "image" || kind === "pdf") {
     const mediaType =
@@ -168,6 +218,7 @@ export async function prepareDocumentContent(args: {
       note: kind === "pdf" ? "PDF enviado ao modelo (texto + conteúdo visual)." : "Imagem enviada ao modelo (multimodal).",
     };
   }
+
 
   if (kind === "legacy-doc") {
     throw new Error(
