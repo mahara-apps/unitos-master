@@ -278,6 +278,7 @@ ${BRIEFING_OUTPUT_INSTRUCTIONS}`,
           usage: {
             agent: run.source_kind === "document" ? "document.analyze" : "briefing.import.text",
             clientId: run.client_id,
+            userId: run.created_by ?? null,
           },
           system,
           messages: [{ role: "user", content }],

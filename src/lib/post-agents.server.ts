@@ -172,6 +172,9 @@ function coerceSingleField(text: string, key: string): unknown | null {
  */
 async function runStructured<T extends z.ZodTypeAny>(opts: {
   brandId: string;
+  /** Quem originou a geração — vira `actor_id` em `brand_ai_usage`. */
+  clientId?: string | null;
+  userId?: string | null;
   system: string;
   prompt: string;
   schema: T;
@@ -214,6 +217,8 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
     try {
       handle = await getBrandAiModelAdmin(opts.brandId, "text", "operational", {
         agent: "post.agent",
+        clientId: opts.clientId ?? null,
+        userId: opts.userId ?? null,
       });
       trace = {
         provider: handle.provider,
@@ -576,6 +581,8 @@ export async function generatePostContent(
     try {
       const { output, attempts, trace } = await runStructured({
         brandId: post.brand_id,
+        clientId: post.client_id,
+        userId: opts.userId ?? null,
         system: fillTemplate(prompts.get("roteirista_social")!, vars()),
         prompt:
           `${contextBlock}\n\nEscreva o roteiro completo desta peça de vídeo (${format} / ${channel}).\n` +
@@ -622,6 +629,8 @@ export async function generatePostContent(
       await sleep(SPACING_MS);
       const { output, attempts, trace } = await runStructured({
         brandId: post.brand_id,
+        clientId: post.client_id,
+        userId: opts.userId ?? null,
         system: fillTemplate(prompts.get("art_director_social")!, vars()),
         prompt:
           `${contextBlock}\n\nDescreva a direção visual desta peça (${format} / ${channel}).\n` +
@@ -692,6 +701,8 @@ export async function generatePostContent(
     if (used.length > 0) await sleep(SPACING_MS);
     const { output, attempts, trace } = await runStructured({
       brandId: post.brand_id,
+      clientId: post.client_id,
+      userId: opts.userId ?? null,
       system: fillTemplate(copyPrompt, vars()),
       prompt:
         `${contextBlock}\n\n` +
