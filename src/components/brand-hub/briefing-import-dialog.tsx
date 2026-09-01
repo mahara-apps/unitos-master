@@ -32,7 +32,7 @@ import {
   retryBriefingImportRun,
 } from "@/lib/briefing-import.functions";
 import type { ImportChangeRow } from "@/lib/briefing-import.server";
-import { composeTextMaterial, extractTextFromFile } from "@/lib/briefing-import-extract";
+import { composeTextMaterial } from "@/lib/briefing-import-extract";
 import {
   ACCEPT_ATTRIBUTE,
   CHANGE_STATE_LABELS,
@@ -62,9 +62,9 @@ import type { FileHandling, FileReadStatus } from "@/lib/briefing-import-ui";
  * Importar Briefing via IA — modal com 3 estados internos:
  * Enviar material → IA analisando → Revisar alterações.
  *
- * Entrada única para texto colado e/ou arquivos. Nada de regra nova: arquivos
- * nativos (PDF/imagem) usam `/api/jobs/analyze-document`; texto colado e
- * arquivos lidos no navegador (docx/planilha/texto) usam
+ * Entrada única para texto colado e/ou arquivos. Nada de regra nova: TODOS os
+ * arquivos (PDF, imagem, docx, planilha, texto, legenda) sobem para o bucket e
+ * são lidos no servidor por `/api/jobs/analyze-document`; texto colado usa
  * `/api/jobs/analyze-briefing-text`. Os dois criam/reaproveitam runs pelo
  * mesmo fingerprint e a aplicação continua em `applyImportRun`.
  */
@@ -75,7 +75,6 @@ type PendingFile = {
   sourceKind: "document" | "transcript";
   status: FileReadStatus;
   error?: string;
-  extracted?: string;
 };
 type QueuedRun = {
   runId: string;
@@ -240,7 +239,7 @@ export function BriefingImportDialog({
 
       const created: QueuedRun[] = [];
 
-      // 1) Material de texto: colado + arquivos lidos no navegador (docx, planilhas, texto).
+      // 1) Texto colado (o único material lido no navegador).
       const textBlocks: Array<{ label: string; text: string }> = [];
       if (pasteReady) {
         textBlocks.push({
@@ -248,38 +247,20 @@ export function BriefingImportDialog({
           text: pastedTrimmed,
         });
       }
-      let anyTranscriptFile = false;
-      for (let i = 0; i < files.length; i += 1) {
-        const item = files[i]!;
-        if (item.error || item.handling !== "extract") continue;
-        patchFile(i, { status: "reading" });
-        try {
-          const { text } = await extractTextFromFile(item.file);
-          patchFile(i, { status: "ready", extracted: text });
-          textBlocks.push({ label: item.file.name, text });
-          if (item.sourceKind === "transcript") anyTranscriptFile = true;
-        } catch (e) {
-          patchFile(i, {
-            status: "error",
-            error: e instanceof Error ? e.message : "Não foi possível ler o arquivo.",
-          });
-        }
-      }
 
       if (textBlocks.length > 0) {
         const content = composeTextMaterial(textBlocks);
-        const kind: "paste" | "transcript" =
-          pasteKind === "transcript" || anyTranscriptFile ? "transcript" : "paste";
+        const kind: "paste" | "transcript" = pasteKind === "transcript" ? "transcript" : "paste";
         const rawLabel = textBlocks.map((b) => b.label).join(", ");
         const label = (sourceLabel ? `${sourceLabel} · ${rawLabel}` : rawLabel).slice(0, 280);
 
         created.push(await startTextRun({ token, content, sourceKind: kind, label }));
       }
 
-      // 2) Arquivos nativos (PDF/imagem): upload no bucket + análise multimodal.
+      // 2) Arquivos: upload no bucket + extração/análise no servidor.
       for (let i = 0; i < files.length; i += 1) {
         const item = files[i]!;
-        if (item.error || item.handling !== "native") continue;
+        if (item.error || item.handling !== "server") continue;
         patchFile(i, { status: "uploading" });
         const base64 = await fileToBase64(item.file);
         const doc = await upload({

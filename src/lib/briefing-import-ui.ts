@@ -21,14 +21,16 @@ import type {
 export const MAX_IMPORT_FILE_BYTES = 25 * 1024 * 1024;
 
 /**
- * Formatos aceitos. Dois caminhos reais:
- *  - `native`: o arquivo vai inteiro para a chamada multimodal (PDF e imagens).
- *  - `extract`: o texto é extraído no navegador e enviado como material de
- *    texto (docx, planilhas, texto puro, legendas).
- * `.doc` legado (binário do Word 97) não é legível em nenhum dos dois caminhos.
+ * Formatos aceitos. Todo arquivo válido segue o MESMO caminho: upload no
+ * bucket + análise no servidor, onde a extração canônica acontece
+ * (`document-extract.server.ts`): PDF/imagem vão inteiros ao modelo
+ * multimodal; docx, planilhas, texto puro e legendas são convertidos em texto
+ * no backend. Nada é extraído no navegador.
+ * `.doc` legado (binário do Word 97) não é legível em nenhum caminho.
  */
 export const NATIVE_IMPORT_EXTENSIONS = [".pdf", ".png", ".jpg", ".jpeg", ".webp"] as const;
 
+/** Formatos convertidos em texto no servidor. */
 export const EXTRACT_IMPORT_EXTENSIONS = [
   ".docx",
   ".xlsx",
@@ -61,7 +63,8 @@ export const ACCEPT_ATTRIBUTE = [
   ...ACCEPTED_IMPORT_EXTENSIONS,
 ].join(",");
 
-export type FileHandling = "native" | "extract" | "unsupported";
+/** `server`: upload + análise no backend. Único caminho de arquivo. */
+export type FileHandling = "server" | "unsupported";
 
 export type FileValidation = { ok: true } | { ok: false; reason: string };
 
@@ -70,12 +73,10 @@ function extensionOf(name: string): string {
   return i < 0 ? "" : name.slice(i).toLowerCase();
 }
 
-/** Como o arquivo será lido — decide o caminho de envio no modal. */
+/** Se o arquivo é aceito — todos os aceitos são lidos no servidor. */
 export function fileHandling(name: string): FileHandling {
   const ext = extensionOf(name);
-  if ((NATIVE_IMPORT_EXTENSIONS as readonly string[]).includes(ext)) return "native";
-  if ((EXTRACT_IMPORT_EXTENSIONS as readonly string[]).includes(ext)) return "extract";
-  return "unsupported";
+  return (ACCEPTED_IMPORT_EXTENSIONS as readonly string[]).includes(ext) ? "server" : "unsupported";
 }
 
 export function validateImportFile(file: { name: string; size: number }): FileValidation {
