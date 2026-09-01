@@ -33,6 +33,7 @@ import {
 import {
   acquirePlanGenerationLock,
   releasePlanGenerationLock,
+  startPlanLockHeartbeat,
 } from "@/lib/monthly-plan-lock.server";
 import { runPlanGeneration } from "@/lib/monthly-plan-generate.server";
 import { countGeneratedThisMonth } from "@/lib/monthly-plan-generated-count.server";
@@ -213,6 +214,9 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       period,
     });
     if ("conflict" in lock) return { ok: false, code: "generation_in_progress" };
+    // Renova a lease durante toda a geração: o reaper só encerra jobs cuja
+    // validade expirou de fato, nunca uma geração legítima em andamento.
+    const stopHeartbeat = startPlanLockHeartbeat(context.supabase, lock);
     try {
       const result = await runPlanGeneration({
         supabase: context.supabase,
@@ -243,6 +247,8 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
         error: errorToMessage(err) || "unknown_error",
       });
       throw err;
+    } finally {
+      stopHeartbeat();
     }
   });
 

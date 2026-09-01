@@ -24,6 +24,7 @@ import {
   describePayloadKeys,
 } from "@/lib/ai-payload-coerce";
 import { withPtBr, assertPtBrPayload } from "@/lib/ai-language";
+import { isLeaseValid, leaseExpiryIso, newLeaseOwner, type LeaseJob } from "@/lib/ai-job-lease";
 
 
 // Two-phase pipeline — Phase 1 (Strategy).
@@ -775,10 +776,14 @@ async function runStep(params: {
   const patch = (fields: Partial<Database["public"]["Tables"]["ai_jobs"]["Update"]>) =>
     supabase.from("ai_jobs").update(fields).eq("id", jobId);
 
-  // Heartbeat: mantém updated_at fresco para o reaper de 5 min não derrubar
-  // um job que está apenas esperando o provedor.
+  // Heartbeat: renova a lease do job. O reaper só encerra jobs cuja validade
+  // expirou de fato, então um job apenas esperando o provedor nunca é morto.
   const beat = setInterval(() => {
-    void patch({ updated_at: new Date().toISOString() });
+    void patch({
+      updated_at: new Date().toISOString(),
+      heartbeat_at: new Date().toISOString(),
+      lease_expires_at: leaseExpiryIso(120),
+    });
   }, 20_000);
 
   try {
@@ -964,6 +969,8 @@ async function runStep(params: {
       error: message,
       finished_at: new Date().toISOString(),
       step_label: null,
+      lease_owner: null,
+      lease_expires_at: null,
       result: {
         failure_kind: kind,
         retryable,
@@ -1006,6 +1013,8 @@ async function finishJob(
     status: "succeeded",
     progress: 100,
     step_label: null,
+    lease_owner: null,
+    lease_expires_at: null,
     finished_at: new Date().toISOString(),
     target_route: reviewRoute,
     result: {
@@ -1181,17 +1190,21 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
         // --- Proteção contra dupla execução ---
         // Reutiliza `ai_jobs` (nenhuma tabela nova): um job queued/running com
         // heartbeat recente significa que já existe geração em andamento.
-        const staleCutoff = new Date(Date.now() - 5 * 60_000).toISOString();
-        const { data: activeJob } = await supabase
+        // Validade é decidida pela LEASE (mesmo critério do reaper), não por
+        // uma janela fixa de 5 min: job com lease viva bloqueia, job órfão não.
+        const staleCutoff = new Date(Date.now() - 60 * 60_000).toISOString();
+        const { data: candidates } = await supabase
           .from("ai_jobs")
-          .select("id, updated_at, status")
+          .select("id, kind, status, updated_at, heartbeat_at, lease_owner, lease_expires_at")
           .eq("client_id", input.clientId)
           .eq("kind", "customer_strategy")
           .in("status", ["queued", "running"])
           .gt("updated_at", staleCutoff)
           .order("updated_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .limit(5);
+        const activeJob = ((candidates ?? []) as unknown as Array<LeaseJob & { id: string }>).find(
+          (j) => isLeaseValid(j),
+        );
         if (activeJob) {
           return new Response(
             JSON.stringify({
@@ -1250,6 +1263,9 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
             subtitle: "Briefing · Voz · Personas · Cohorts · SWOT",
             status: "queued",
             progress: resumeDone.length > 0 ? STEP_META[startStep].progress : 0,
+            lease_owner: newLeaseOwner("customer-strategy"),
+            lease_expires_at: leaseExpiryIso(120),
+            heartbeat_at: new Date().toISOString(),
             input: state as unknown as Database["public"]["Tables"]["ai_jobs"]["Insert"]["input"],
           })
           .select("id")
