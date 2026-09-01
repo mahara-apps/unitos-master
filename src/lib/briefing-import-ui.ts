@@ -73,12 +73,10 @@ function extensionOf(name: string): string {
   return i < 0 ? "" : name.slice(i).toLowerCase();
 }
 
-/** Como o arquivo será lido — decide o caminho de envio no modal. */
+/** Se o arquivo é aceito — todos os aceitos são lidos no servidor. */
 export function fileHandling(name: string): FileHandling {
   const ext = extensionOf(name);
-  if ((NATIVE_IMPORT_EXTENSIONS as readonly string[]).includes(ext)) return "native";
-  if ((EXTRACT_IMPORT_EXTENSIONS as readonly string[]).includes(ext)) return "extract";
-  return "unsupported";
+  return (ACCEPTED_IMPORT_EXTENSIONS as readonly string[]).includes(ext) ? "server" : "unsupported";
 }
 
 export function validateImportFile(file: { name: string; size: number }): FileValidation {
