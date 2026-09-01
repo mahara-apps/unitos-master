@@ -876,28 +876,50 @@ export function BriefingImportDialog({
 /** 3. Contexto da análise — o que a IA vai fazer, antes de executar. */
 function ContextExplainer() {
   const items = [
-    { icon: Lightbulb, label: "Novas informações" },
-    { icon: GitCompareArrows, label: "Contradições" },
-    { icon: AlertTriangle, label: "Lacunas" },
-    { icon: Sparkles, label: "Informações que podem ser aprimoradas" },
+    {
+      icon: Lightbulb,
+      label: "Novas informações",
+      tone: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    },
+    {
+      icon: GitCompareArrows,
+      label: "Contradições",
+      tone: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+    },
+    {
+      icon: AlertTriangle,
+      label: "Lacunas",
+      tone: "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+    },
+    {
+      icon: Sparkles,
+      label: "Informações que podem ser aprimoradas",
+      tone: "border-primary/30 bg-primary/10 text-primary",
+    },
   ];
   return (
-    <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-      <p className="text-xs leading-relaxed">
-        Confrontaremos o material enviado com o briefing e o contexto atuais da marca.
-      </p>
-      <ul className="mt-2 flex flex-wrap gap-1.5">
-        {items.map((it) => (
-          <li
-            key={it.label}
-            className="flex items-center gap-1.5 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] text-muted-foreground"
-          >
-            <it.icon className="h-3 w-3" />
-            {it.label}
-          </li>
-        ))}
-      </ul>
-      <p className="mt-2 flex items-start gap-1.5 text-[11px] text-muted-foreground">
+    <div className="rounded-xl border border-border/60 bg-muted/25 px-4 py-3">
+      <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Confrontaremos o material enviado com o{" "}
+          <span className="font-medium text-foreground">briefing e o contexto atuais</span> da marca.
+        </p>
+        <ul className="flex flex-wrap items-center gap-1.5">
+          {items.map((it) => (
+            <li
+              key={it.label}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium leading-none",
+                it.tone,
+              )}
+            >
+              <it.icon className="h-3 w-3 shrink-0" strokeWidth={2} />
+              {it.label}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
         <Info className="mt-0.5 h-3 w-3 shrink-0" />
         Se ainda não houver informações suficientes, a IA poderá construir o briefing a partir do
         material enviado. Nenhuma alteração é aplicada sem sua confirmação.
@@ -929,28 +951,55 @@ function StepIndicator({ step }: { step: ReturnType<typeof uiStepFromRun> }) {
     },
   ];
   return (
-    <ol className="flex items-center gap-2 text-[11px]">
+    <ol className="flex w-full items-center gap-2" aria-label="Progresso da importação">
       {items.map((it, i) => (
-        <li key={it.key} className="flex items-center gap-2">
-          <span
-            className={cn(
-              "flex items-center gap-1.5 rounded-full border px-2.5 py-1",
-              it.active
-                ? "border-primary/50 bg-primary/10 text-primary"
-                : it.done
-                  ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400"
-                  : "border-border/60 text-muted-foreground",
-            )}
-          >
-            {it.done ? <CheckCircle2 className="h-3 w-3" /> : null}
-            {it.label}
+        <li
+          key={it.key}
+          className={cn("flex items-center gap-2", i < items.length - 1 && "flex-1")}
+          aria-current={it.active ? "step" : undefined}
+        >
+          <span className="flex shrink-0 items-center gap-2">
+            <span
+              className={cn(
+                "grid h-6 w-6 place-items-center rounded-full border text-[11px] font-semibold transition-colors",
+                it.done
+                  ? "border-transparent bg-emerald-500 text-background"
+                  : it.active
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border/70 bg-background text-muted-foreground",
+              )}
+            >
+              {it.done ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
+            </span>
+            <span
+              className={cn(
+                "hidden text-xs font-medium sm:inline",
+                it.active
+                  ? "text-foreground"
+                  : it.done
+                    ? "text-muted-foreground"
+                    : "text-muted-foreground/70",
+              )}
+            >
+              {it.label}
+            </span>
           </span>
-          {i < items.length - 1 ? <span className="h-px w-4 bg-border" /> : null}
+          {i < items.length - 1 ? (
+            <span className="h-px min-w-4 flex-1 overflow-hidden rounded-full bg-border">
+              <span
+                className={cn(
+                  "block h-full transition-all",
+                  it.done ? "w-full bg-emerald-500/60" : "w-0",
+                )}
+              />
+            </span>
+          ) : null}
         </li>
       ))}
     </ol>
   );
 }
+
 
 export function ChangeStateBadge({ change }: { change: ImportChangeRow }) {
   const state = changeState(change);
