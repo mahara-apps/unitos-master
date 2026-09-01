@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assertFileIntegrity, prepareDocumentContent } from "@/lib/document-extract.server";
 import { classifyRunFailure } from "@/lib/briefing-import.server";
-import { IMAGE_MODEL_CANDIDATES } from "@/lib/ai-models-catalog.server";
+import { MODEL_FALLBACKS } from "@/lib/ai-models-catalog.server";
 
 describe("P0 documentos — arquivo corrompido não chega à IA", () => {
   it("PDF sem trailer %%EOF é rejeitado antes de qualquer chamada de modelo", () => {
@@ -54,7 +54,7 @@ describe("P0 execução assíncrona — falhas de material são terminais", () =
 
 describe("P0 imagem — modelo padrão do Gemini é o que existe hoje", () => {
   it("gemini-2.5-flash-image é o primeiro candidato (imagen-3 retorna 404)", () => {
-    expect(IMAGE_MODEL_CANDIDATES.google[0]).toBe("gemini-2.5-flash-image");
-    expect(IMAGE_MODEL_CANDIDATES.google).not.toContain("imagen-3.0-generate-002");
+    expect(MODEL_FALLBACKS.gemini.image[0]).toBe("gemini-2.5-flash-image");
+    expect(MODEL_FALLBACKS.gemini.image).not.toContain("imagen-3.0-generate-002");
   });
 });
