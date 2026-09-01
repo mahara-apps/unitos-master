@@ -374,6 +374,9 @@ class StepFailure extends Error {
  * mascarar 429/503 como "No output generated".
  */
 async function runJson(opts: {
+  /** Rastreabilidade do consumo de IA (`brand_ai_usage.actor_id`). */
+  clientId?: string | null;
+  userId?: string | null;
   system: string;
   prompt: string;
   strategic: boolean;
@@ -406,7 +409,11 @@ async function runJson(opts: {
         opts.brandId,
         "text",
         role,
-        { agent: opts.strategic ? "customer.pipeline.strategic" : "customer.pipeline" },
+        {
+          agent: opts.strategic ? "customer.pipeline.strategic" : "customer.pipeline",
+          clientId: opts.clientId ?? null,
+          userId: opts.userId ?? null,
+        },
       );
       const res = await withTimeout(
         generateText({
@@ -845,6 +852,8 @@ async function runStep(params: {
         prompt: `Texto bruto do briefing:\n"""\n${state.texto}\n"""`,
         strategic: false,
         brandId: state.brandId,
+        clientId: state.clientId,
+        userId,
         step,
         onAttempt,
         validate: (v) => assertValidOutput(step, normalizeBriefingPayload(v)),
@@ -870,6 +879,8 @@ async function runStep(params: {
         prompt: `Briefing estruturado:\n${briefingJson()}`,
         strategic: true,
         brandId: state.brandId,
+        clientId: state.clientId,
+        userId,
         step,
         onAttempt,
         validate: (v) => assertValidOutput(step, normalizeVoicePayload(v)),
@@ -885,6 +896,8 @@ async function runStep(params: {
         prompt: `Briefing:\n${briefingJson()}`,
         strategic: true,
         brandId: state.brandId,
+        clientId: state.clientId,
+        userId,
         step,
         onAttempt,
         validate: (v) => assertValidOutput(step, normalizePersonasPayload(v)),
@@ -900,6 +913,8 @@ async function runStep(params: {
         prompt: `Briefing:\n${briefingJson()}\n\nPersonas:\n${compactPersonas(state.personas ?? { personas: [] })}`,
         strategic: true,
         brandId: state.brandId,
+        clientId: state.clientId,
+        userId,
         step,
         onAttempt,
         validate: (v) => assertValidOutput(step, normalizeCohortsPayload(v)),
@@ -919,6 +934,8 @@ async function runStep(params: {
         ].join("\n\n"),
         strategic: true,
         brandId: state.brandId,
+        clientId: state.clientId,
+        userId,
         step,
         onAttempt,
         validate: (v) => assertValidOutput(step, normalizeSwotPayload(v)),

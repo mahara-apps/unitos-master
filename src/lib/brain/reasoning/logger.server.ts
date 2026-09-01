@@ -25,10 +25,12 @@ export function logReasoning(input: LogInput): void {
   waitUntil(
     (async () => {
       try {
+        // Sem workspace o registro não é rastreável (e a coluna é NOT NULL).
+        if (!input.ctx.brandId) return;
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const memoryHits = input.results.reduce((acc, r) => acc + (r.count ?? 0), 0);
         await supabaseAdmin.from("brain_reasoning_logs").insert({
-          brand_id: input.ctx.brandId ?? null,
+          brand_id: input.ctx.brandId,
           client_id: input.ctx.clientId ?? null,
           user_id: input.ctx.userId ?? null,
           conversation_id: input.conversationId ?? null,

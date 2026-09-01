@@ -93,7 +93,10 @@ export async function recordAiUsage(args: RecordAiUsageArgs): Promise<void> {
       cost_usd: estimateCost(args.model, args.inputTokens || 0, args.outputTokens || 0),
       success: args.success,
       error_message: args.errorMessage?.slice(0, 500) ?? null,
+      // Rastreabilidade: consumo humano guarda o autor; rotina automática é
+      // marcada como `system` (o CHECK no banco impede 'user' sem actor_id).
       actor_id: args.userId ?? null,
+      actor_kind: args.userId ? "user" : "system",
     });
     if (error) console.warn("[ai-usage] insert failed", error.message);
   } catch (err) {
