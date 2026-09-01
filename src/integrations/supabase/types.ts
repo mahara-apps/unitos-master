@@ -157,9 +157,12 @@ export type Database = {
           created_at: string
           error: string | null
           finished_at: string | null
+          heartbeat_at: string | null
           id: string
           input: Json
           kind: string
+          lease_expires_at: string | null
+          lease_owner: string | null
           progress: number
           result: Json | null
           started_at: string | null
@@ -177,9 +180,12 @@ export type Database = {
           created_at?: string
           error?: string | null
           finished_at?: string | null
+          heartbeat_at?: string | null
           id?: string
           input?: Json
           kind: string
+          lease_expires_at?: string | null
+          lease_owner?: string | null
           progress?: number
           result?: Json | null
           started_at?: string | null
@@ -197,9 +203,12 @@ export type Database = {
           created_at?: string
           error?: string | null
           finished_at?: string | null
+          heartbeat_at?: string | null
           id?: string
           input?: Json
           kind?: string
+          lease_expires_at?: string | null
+          lease_owner?: string | null
           progress?: number
           result?: Json | null
           started_at?: string | null
@@ -6335,6 +6344,15 @@ export type Database = {
         }[]
       }
       accept_brand_invite: { Args: { _token: string }; Returns: string }
+      ai_job_claim_lease: {
+        Args: { _job_id: string; _lease_seconds?: number; _owner: string }
+        Returns: boolean
+      }
+      ai_job_heartbeat: {
+        Args: { _job_id: string; _lease_seconds?: number; _owner: string }
+        Returns: boolean
+      }
+      ai_job_lease_ttl: { Args: { _kind: string }; Returns: string }
       ai_scope_readable: {
         Args: { _brand_id: string; _client_id: string }
         Returns: boolean
