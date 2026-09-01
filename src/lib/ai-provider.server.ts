@@ -17,6 +17,16 @@ import {
 import { IMAGE_PROVIDERS, supportsKind } from "./ai-capabilities";
 import { classifyAiError, unwrapAiError } from "./ai-failures.server";
 import { recordAiUsage, type AiUsageContext } from "./ai-usage.server";
+import {
+  EMBED_DIMS,
+  EMBED_MAX_ATTEMPTS,
+  EMBED_TIMEOUT_MS,
+  embeddingBackoffMs,
+  isRetryableEmbeddingError,
+  isRetryableEmbeddingStatus,
+  isValidEmbedding,
+  normalizeEmbeddingInput,
+} from "./embeddings";
 
 export type { AiUsageContext };
 
@@ -583,83 +593,123 @@ export async function getBrandAiCandidates(
 /* Embeddings (1536 dims — matches the brain_embeddings vector column) */
 /* ------------------------------------------------------------------ */
 
-const EMBED_DIMS = 1536;
+const EMBED_PROVIDERS: ProviderName[] = ["openai", "gemini"];
+
+/** Uma chamada de embedding, com timeout duro. Lança em falha. */
+async function callEmbeddingProvider(
+  provider: ProviderName,
+  apiKey: string,
+  text: string,
+): Promise<number[]> {
+  const signal = AbortSignal.timeout(EMBED_TIMEOUT_MS);
+  let res: Response;
+  let vec: unknown;
+  if (provider === "openai") {
+    res = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "text-embedding-3-small",
+        input: text,
+        dimensions: EMBED_DIMS,
+      }),
+      signal,
+    });
+    if (!res.ok) {
+      throw Object.assign(
+        new Error(
+          `ai_embedding_failed:openai:${res.status} ${(await res.text().catch(() => "")).slice(0, 200)}`,
+        ),
+        { status: res.status },
+      );
+    }
+    vec = ((await res.json()) as { data?: Array<{ embedding: number[] }> }).data?.[0]?.embedding;
+  } else {
+    res = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        body: JSON.stringify({
+          content: { parts: [{ text }] },
+          outputDimensionality: EMBED_DIMS,
+        }),
+        signal,
+      },
+    );
+    if (!res.ok) {
+      throw Object.assign(
+        new Error(
+          `ai_embedding_failed:gemini:${res.status} ${(await res.text().catch(() => "")).slice(0, 200)}`,
+        ),
+        { status: res.status },
+      );
+    }
+    vec = ((await res.json()) as { embedding?: { values?: number[] } }).embedding?.values;
+  }
+  if (!isValidEmbedding(vec)) {
+    throw new Error(`ai_embedding_invalid_output:${provider}: dimensão inesperada`);
+  }
+  return vec;
+}
 
 /**
  * Create an embedding with the brand's own API key. Anthropic has no
- * embedding endpoint, so OpenAI/Gemini keys are used. Returns null on
- * failure so the Brain degrades instead of crashing.
+ * embedding endpoint, so OpenAI/Gemini keys are used.
+ *
+ * Cada tentativa tem timeout; falha transitória é repetida com backoff e,
+ * esgotado o provider, cai no outro provider de embedding conectado na marca.
+ * Retorna null quando nada funcionou — o Brain degrada em vez de quebrar, e
+ * NUNCA devolve vetor de dimensão errada (isso corromperia a coluna vector).
  */
 export async function embedTextWithBrandKey(
   supabase: SupabaseClient,
   brandId: string,
   text: string,
 ): Promise<number[] | null> {
-  const trimmed = text.replace(/\s+/g, " ").trim().slice(0, 8000);
+  const trimmed = normalizeEmbeddingInput(text);
   if (!trimmed) return null;
 
-  let creds: BrandProviderKey;
+  let primary: BrandProviderKey;
   try {
-    creds = await getBrandProviderKey(supabase, brandId, "text", ["openai", "gemini"]);
+    primary = await getBrandProviderKey(supabase, brandId, "text", EMBED_PROVIDERS);
   } catch (err) {
     console.error("[ai-provider] embedding sem chave configurada", err);
     return null;
   }
 
-  try {
-    if (creds.provider === "openai") {
-      const res = await fetch("https://api.openai.com/v1/embeddings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${creds.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "text-embedding-3-small",
-          input: trimmed,
-          dimensions: EMBED_DIMS,
-        }),
-      });
-      if (!res.ok) {
-        console.error(
-          "[ai-provider] openai embeddings",
-          res.status,
-          await res.text().catch(() => ""),
-        );
-        return null;
-      }
-      const json = (await res.json()) as { data?: Array<{ embedding: number[] }> };
-      return json.data?.[0]?.embedding ?? null;
+  const candidates: BrandProviderKey[] = [primary];
+  for (const other of EMBED_PROVIDERS) {
+    if (other === primary.provider) continue;
+    try {
+      candidates.push(await getBrandProviderKey(supabase, brandId, "text", [other]));
+    } catch {
+      // provider secundário não conectado nesta marca — segue com o principal
     }
-
-    const res = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": creds.apiKey,
-        },
-        body: JSON.stringify({
-          content: { parts: [{ text: trimmed }] },
-          outputDimensionality: EMBED_DIMS,
-        }),
-      },
-    );
-    if (!res.ok) {
-      console.error(
-        "[ai-provider] gemini embeddings",
-        res.status,
-        await res.text().catch(() => ""),
-      );
-      return null;
-    }
-    const json = (await res.json()) as { embedding?: { values?: number[] } };
-    return json.embedding?.values ?? null;
-  } catch (err) {
-    console.error("[ai-provider] embedding falhou", err);
-    return null;
   }
+
+  for (const cred of candidates) {
+    for (let attempt = 1; attempt <= EMBED_MAX_ATTEMPTS; attempt++) {
+      try {
+        return await callEmbeddingProvider(cred.provider, cred.apiKey, trimmed);
+      } catch (err) {
+        const status = (err as { status?: number }).status;
+        const retryable =
+          typeof status === "number"
+            ? isRetryableEmbeddingStatus(status)
+            : isRetryableEmbeddingError(err);
+        console.error(
+          `[ai-provider] embedding ${cred.provider} tentativa ${attempt} falhou`,
+          (err as Error)?.message ?? err,
+        );
+        if (!retryable) break; // erro de request/dimensão: repetir não muda nada
+        if (attempt < EMBED_MAX_ATTEMPTS) {
+          await new Promise((r) => setTimeout(r, embeddingBackoffMs(attempt)));
+        }
+      }
+    }
+  }
+  return null;
 }
 
 /* ------------------------------------------------------------------ */
