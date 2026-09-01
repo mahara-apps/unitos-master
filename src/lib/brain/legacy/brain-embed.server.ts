@@ -46,20 +46,54 @@ export function summarizeEvent(input: {
   return bits.join(" · ");
 }
 
-/** Grava um evento + agenda embedding em background usando o admin client. */
+/**
+ * Persiste o embedding de um evento (idempotente).
+ *
+ * Regras:
+ * - se já existe embedding para o evento, não gera outro (evita custo e
+ *   duplicidade em reprocessamento/retry do worker);
+ * - o vetor é validado antes de gravar — falha de provider não deixa linha
+ *   pela metade (a coluna é NOT NULL no banco);
+ * - o vínculo de escopo (`brand_id`/`client_id`) vem do próprio evento.
+ */
 export async function embedEventNow(
   supabaseAdmin: SupabaseClient,
   eventId: string,
   brandId: string,
   summary: string,
 ) {
-  const vec = await embedText(supabaseAdmin, brandId, summary);
-  if (!vec) return;
-  await supabaseAdmin.from("brain_embeddings").insert({
-    brand_id: brandId,
-    event_id: eventId,
-    content_summary: summary,
-    // pgvector accepts an array through supabase-js
-    embedding: vec as unknown as string,
-  });
+  const { isValidEmbedding } = await import("@/lib/embeddings");
+
+  // Idempotência: um embedding por evento.
+  const { data: existing } = await supabaseAdmin
+    .from("brain_embeddings")
+    .select("id")
+    .eq("event_id", eventId)
+    .maybeSingle();
+  if (existing) return;
+
+  // Escopo canônico: o evento é a fonte da verdade de brand/cliente.
+  const { data: event } = await supabaseAdmin
+    .from("brain_events")
+    .select("brand_id, client_id")
+    .eq("id", eventId)
+    .maybeSingle();
+  const scopedBrandId = (event?.brand_id as string | null) ?? brandId;
+  if (!scopedBrandId) return;
+
+  const vec = await embedText(supabaseAdmin, scopedBrandId, summary);
+  if (!isValidEmbedding(vec)) return;
+
+  const { error } = await supabaseAdmin.from("brain_embeddings").upsert(
+    {
+      brand_id: scopedBrandId,
+      client_id: (event?.client_id as string | null) ?? null,
+      event_id: eventId,
+      content_summary: summary,
+      // pgvector accepts an array through supabase-js
+      embedding: vec as unknown as string,
+    },
+    { onConflict: "event_id", ignoreDuplicates: true },
+  );
+  if (error) console.error("[brain.embed] persist failed", error.message);
 }
