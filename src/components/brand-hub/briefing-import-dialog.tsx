@@ -852,7 +852,10 @@ export function BriefingImportDialog({
     <ExpandedModal
       open={open}
       onOpenChange={(v) => (v ? onOpenChange(true) : close())}
-      size="lg"
+      size="composer"
+      className="sm:h-auto sm:max-h-[calc(100dvh-4rem)]"
+      bodyClassName="flex-1 overflow-y-auto px-6 py-4"
+
       title="Importar Briefing via IA"
       description="Cole texto e/ou anexe arquivos. A IA lê o material, cruza com o briefing atual e propõe alterações campo a campo para sua revisão."
       headerExtra={
