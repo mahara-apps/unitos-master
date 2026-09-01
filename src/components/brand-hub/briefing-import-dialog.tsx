@@ -62,9 +62,9 @@ import type { FileHandling, FileReadStatus } from "@/lib/briefing-import-ui";
  * Importar Briefing via IA — modal com 3 estados internos:
  * Enviar material → IA analisando → Revisar alterações.
  *
- * Entrada única para texto colado e/ou arquivos. Nada de regra nova: arquivos
- * nativos (PDF/imagem) usam `/api/jobs/analyze-document`; texto colado e
- * arquivos lidos no navegador (docx/planilha/texto) usam
+ * Entrada única para texto colado e/ou arquivos. Nada de regra nova: TODOS os
+ * arquivos (PDF, imagem, docx, planilha, texto, legenda) sobem para o bucket e
+ * são lidos no servidor por `/api/jobs/analyze-document`; texto colado usa
  * `/api/jobs/analyze-briefing-text`. Os dois criam/reaproveitam runs pelo
  * mesmo fingerprint e a aplicação continua em `applyImportRun`.
  */
@@ -75,7 +75,6 @@ type PendingFile = {
   sourceKind: "document" | "transcript";
   status: FileReadStatus;
   error?: string;
-  extracted?: string;
 };
 type QueuedRun = {
   runId: string;
