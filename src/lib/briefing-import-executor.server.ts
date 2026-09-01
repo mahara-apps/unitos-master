@@ -147,14 +147,17 @@ export async function executeImportRun(
 
   /* ---------------------------- ingest / extract --------------------------- */
 
-  let docName = run.source_kind === "document" ? "Documento" : "Texto colado";
+  let docName = run.document_id ? "Documento" : "Texto colado";
   let inlinePayload: { base64: string; mediaType: string } | null = null;
   let extractedText: string | null = null;
   let extractionNote: string | null = null;
 
-  if (run.source_kind === "document") {
-    if (!run.document_id) throw new ImportStepError("ingest", "document_not_found");
+  // Transcrição enviada como ARQUIVO tem `source_kind = "transcript"` e
+  // `document_id`: o conteúdo vem do Storage, não de `raw_text`. Sem isso a run
+  // falhava com `empty_input_text` sem nunca ler o arquivo.
+  if (run.document_id) {
     const { data: doc, error: docErr } = await table(db, "client_documents")
+
       .select("storage_path, mime_type, name")
       .eq("id", run.document_id)
       .eq("brand_id", run.brand_id)

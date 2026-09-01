@@ -36,7 +36,10 @@ export const MODEL_CATALOG: Record<ProviderName, Record<ProviderRole, string | n
     // capaz disponível e sempre aponta para a geração atual.
     strategic: "gemini-flash-latest",
     operational: "gemini-flash-latest",
-    image: "imagen-4.0-generate-001",
+    // Imagen exige projeto com faturamento; `gemini-*-image` funciona com a
+    // mesma chave da API Gemini e é o padrão de geração de imagem.
+    image: "gemini-2.5-flash-image",
+
   },
   groq: {
     // Groq expõe a API compatível com OpenAI; ids conforme o catálogo atual.
@@ -65,7 +68,13 @@ export const MODEL_FALLBACKS: Record<ProviderName, Record<ProviderRole, string[]
   gemini: {
     strategic: ["gemini-flash-latest", "gemini-3.6-flash", "gemini-2.5-flash"],
     operational: ["gemini-flash-latest", "gemini-3.6-flash", "gemini-2.5-flash"],
-    image: ["imagen-4.0-generate-001", "imagen-4.0-fast-generate-001"],
+    image: [
+      "gemini-2.5-flash-image",
+      "gemini-2.0-flash-preview-image-generation",
+      "imagen-4.0-generate-001",
+      "imagen-4.0-fast-generate-001",
+    ],
+
   },
   groq: {
     strategic: [

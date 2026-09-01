@@ -120,14 +120,15 @@ export async function callLlm(args: {
     const result = await generateText({ model, instructions, messages, temperature: 0.4 });
     return { text: result.text.trim() || "_(sem resposta)_", model: modelId };
   } catch (err) {
+    // Erro de provider NUNCA vira resposta do assistente: sobe classificado
+    // para o chamador decidir o estado da conversa.
     console.error("[brain.chat.callLlm] LLM error", err);
-    const msg = err instanceof Error ? err.message : String(err);
-    return {
-      text: `Não consegui consultar o modelo agora.${args.brain.markdown ? " Segue o que o Brain já sabe sobre isso:\n\n" + args.brain.markdown : ""}\n\n_Detalhe técnico: ${msg}_`,
-      model: modelId,
-    };
+    const { classifyAiError, FAILURE_MESSAGE_PT } = await import("@/lib/ai-failures.server");
+    const { kind } = classifyAiError(err);
+    throw new Error(`ai_chat_failed:${kind}: ${FAILURE_MESSAGE_PT[kind].body}`, { cause: err });
   }
 }
+
 
 // ---------- Modo streaming com tools + multimodal (caminho principal) ----------
 export interface StreamAnswerArgs {
