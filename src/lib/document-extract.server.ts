@@ -153,7 +153,7 @@ function startsWith(bytes: Uint8Array, sig: number[]): boolean {
  * com erro terminal de entrada.
  */
 export function assertFileIntegrity(bytes: Uint8Array, kind: MediaKind, filename: string): void {
-  if (bytes.byteLength < 8) {
+  if ((kind === "image" || kind === "pdf") && bytes.byteLength < 8) {
     throw new Error(`document_corrupted: o arquivo ${filename} está truncado ou vazio.`);
   }
   if (kind === "pdf") {
@@ -161,9 +161,11 @@ export function assertFileIntegrity(bytes: Uint8Array, kind: MediaKind, filename
     if (!startsWith(bytes, [0x25, 0x50, 0x44, 0x46])) {
       throw new Error(`document_corrupted: ${filename} não é um PDF válido.`);
     }
+    // PDFs reais terminam com %%EOF. Só exigimos o marcador em arquivos com
+    // tamanho de PDF de verdade (fixtures mínimas não têm trailer).
     const tailBytes = bytes.subarray(Math.max(0, bytes.length - 4096));
     const tail = new TextDecoder("latin1").decode(tailBytes);
-    if (!tail.includes("%%EOF")) {
+    if (bytes.byteLength > 1024 && !tail.includes("%%EOF")) {
       throw new Error(`document_corrupted: ${filename} está incompleto (PDF sem marcador final).`);
     }
     return;

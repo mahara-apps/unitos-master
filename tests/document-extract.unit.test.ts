@@ -74,7 +74,7 @@ describe("prepareDocumentContent", () => {
 
   it("imagem → inline com Base64 string", async () => {
     const out = await prepareDocumentContent({
-      bytes: enc("fake-png"),
+      bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]),
       mediaType: "image/png",
       filename: "logo.png",
     });
