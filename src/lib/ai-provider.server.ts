@@ -17,6 +17,16 @@ import {
 import { IMAGE_PROVIDERS, supportsKind } from "./ai-capabilities";
 import { classifyAiError, unwrapAiError } from "./ai-failures.server";
 import { recordAiUsage, type AiUsageContext } from "./ai-usage.server";
+import {
+  EMBED_DIMS,
+  EMBED_MAX_ATTEMPTS,
+  EMBED_TIMEOUT_MS,
+  embeddingBackoffMs,
+  isRetryableEmbeddingError,
+  isRetryableEmbeddingStatus,
+  isValidEmbedding,
+  normalizeEmbeddingInput,
+} from "./embeddings";
 
 export type { AiUsageContext };
 
