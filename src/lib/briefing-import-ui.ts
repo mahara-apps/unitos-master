@@ -63,7 +63,8 @@ export const ACCEPT_ATTRIBUTE = [
   ...ACCEPTED_IMPORT_EXTENSIONS,
 ].join(",");
 
-export type FileHandling = "native" | "extract" | "unsupported";
+/** `server`: upload + análise no backend. Único caminho de arquivo. */
+export type FileHandling = "server" | "unsupported";
 
 export type FileValidation = { ok: true } | { ok: false; reason: string };
 
