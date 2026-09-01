@@ -229,11 +229,6 @@ export async function prepareDocumentContent(args: {
   }
 
 
-  if (kind === "legacy-doc") {
-    throw new Error(
-      "document_format_unsupported: arquivos .doc antigos não podem ser lidos. Converta para .docx ou PDF.",
-    );
-  }
 
   if (kind === "docx") {
     const text = clip(await extractDocx(bytes));
