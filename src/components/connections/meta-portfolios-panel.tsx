@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   Building2,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Loader2,
   MoreHorizontal,
@@ -107,6 +108,21 @@ const STATE_STYLE: Record<PortfolioState, { label: string; dot: string; chip: st
 };
 
 const STATE_WEIGHT: Record<PortfolioState, number> = { error: 0, attention: 1, connected: 2 };
+
+/** Números de página compactos com elisão (1 … 4 5 6 … 12). */
+function pageNumbers(current: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages = new Set<number>([1, total, current - 1, current, current + 1]);
+  const sorted = [...pages].filter((n) => n >= 1 && n <= total).sort((a, b) => a - b);
+  const out: (number | "…")[] = [];
+  let prev = 0;
+  for (const n of sorted) {
+    if (n - prev > 1) out.push("…");
+    out.push(n);
+    prev = n;
+  }
+  return out;
+}
 
 function StateBadge({ state }: { state: PortfolioState }) {
   const m = STATE_STYLE[state];
@@ -244,6 +260,9 @@ export function MetaPortfoliosPanel({
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | PortfolioState>("all");
   const [sort, setSort] = useState<"name" | "status" | "assets">("status");
+  const [page, setPage] = useState(1);
+
+  const PAGE_SIZE = 10;
 
   const disconnectMut = useMutation({
     mutationFn: (p: MetaPortfolioSummary) =>
@@ -302,6 +321,16 @@ export function MetaPortfoliosPanel({
       return STATE_WEIGHT[a.state] - STATE_WEIGHT[b.state];
     });
   }, [portfolios, assetsOf, search, statusFilter, sort]);
+
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pageRows = useMemo(
+    () => rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [rows, safePage],
+  );
+
+  /** Volta para a primeira página sempre que os filtros mudam. */
+  const resetPage = () => setPage(1);
 
   if (loading) {
     return (
@@ -375,14 +404,20 @@ export function MetaPortfoliosPanel({
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              resetPage();
+            }}
             placeholder="Buscar portfólio ou Business ID"
             className="h-9 pl-8 text-xs"
           />
         </div>
         <Select
           value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}
+          onValueChange={(v) => {
+            setStatusFilter(v as typeof statusFilter);
+            resetPage();
+          }}
         >
           <SelectTrigger className="h-9 w-[152px] text-xs">
             <SelectValue placeholder="Status" />
@@ -398,7 +433,13 @@ export function MetaPortfoliosPanel({
             ))}
           </SelectContent>
         </Select>
-        <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)}>
+        <Select
+          value={sort}
+          onValueChange={(v) => {
+            setSort(v as typeof sort);
+            resetPage();
+          }}
+        >
           <SelectTrigger className="h-9 w-[176px] text-xs">
             <SelectValue />
           </SelectTrigger>
@@ -418,6 +459,7 @@ export function MetaPortfoliosPanel({
 
       <div className="text-[11px] text-muted-foreground">
         {rows.length} de {portfolios.length} portfólio(s)
+        {rows.length > PAGE_SIZE ? ` · página ${safePage} de ${pageCount}` : ""}
       </div>
 
       {/* ---------------------------------- tabela --------------------------------- */}
@@ -449,7 +491,7 @@ export function MetaPortfoliosPanel({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((r) => {
+                {pageRows.map((r) => {
                   const isOpen = expanded === r.key;
                   return (
                     <Fragment key={r.key}>
@@ -614,6 +656,58 @@ export function MetaPortfoliosPanel({
               </TableBody>
             </Table>
           </div>
+
+          {/* ------------------------------ paginação ------------------------------ */}
+          {pageCount > 1 ? (
+            <div className="flex items-center justify-between gap-2 border-t px-3 py-2">
+              <span className="text-[11px] text-muted-foreground tabular-nums">
+                Exibindo {(safePage - 1) * PAGE_SIZE + 1}–
+                {Math.min(safePage * PAGE_SIZE, rows.length)} de {rows.length}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 px-2 text-[11px]"
+                  disabled={safePage <= 1}
+                  onClick={() => setPage(safePage - 1)}
+                >
+                  <ChevronLeft className="h-3 w-3" />
+                  Anterior
+                </Button>
+                {pageNumbers(safePage, pageCount).map((n, i) =>
+                  n === "…" ? (
+                    <span key={`ellipsis-${i}`} className="px-1 text-[11px] text-muted-foreground">
+                      …
+                    </span>
+                  ) : (
+                    <Button
+                      key={n}
+                      size="sm"
+                      variant={n === safePage ? "secondary" : "ghost"}
+                      className={cn(
+                        "h-7 min-w-7 px-2 text-[11px] tabular-nums",
+                        n === safePage && "font-semibold",
+                      )}
+                      onClick={() => setPage(n)}
+                    >
+                      {n}
+                    </Button>
+                  ),
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 px-2 text-[11px]"
+                  disabled={safePage >= pageCount}
+                  onClick={() => setPage(safePage + 1)}
+                >
+                  Próxima
+                  <ChevronRight className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </Card>
       )}
 
