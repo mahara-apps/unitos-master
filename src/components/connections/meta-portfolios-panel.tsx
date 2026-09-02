@@ -244,6 +244,9 @@ export function MetaPortfoliosPanel({
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | PortfolioState>("all");
   const [sort, setSort] = useState<"name" | "status" | "assets">("status");
+  const [page, setPage] = useState(1);
+
+  const PAGE_SIZE = 10;
 
   const disconnectMut = useMutation({
     mutationFn: (p: MetaPortfolioSummary) =>
