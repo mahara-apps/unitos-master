@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   Building2,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Loader2,
   MoreHorizontal,
@@ -475,7 +476,7 @@ export function MetaPortfoliosPanel({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((r) => {
+                {pageRows.map((r) => {
                   const isOpen = expanded === r.key;
                   return (
                     <Fragment key={r.key}>
