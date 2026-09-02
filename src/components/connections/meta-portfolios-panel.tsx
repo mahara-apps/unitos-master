@@ -305,8 +305,17 @@ export function MetaPortfoliosPanel({
           </p>
         </div>
         {canManage ? (
-          <Button size="sm" className="h-8 shrink-0 gap-1.5 text-xs" disabled={busy} onClick={onConnect}>
-            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+          <Button
+            size="sm"
+            className="h-8 shrink-0 gap-1.5 text-xs"
+            disabled={busy}
+            onClick={onConnect}
+          >
+            {busy ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Plus className="h-3.5 w-3.5" />
+            )}
             Conectar Meta
           </Button>
         ) : null}

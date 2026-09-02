@@ -429,7 +429,6 @@ export function ChannelsCenter({
     return m;
   }, [channels]);
 
-
   return (
     <div className="space-y-4">
       {/* ---------------------------------- header --------------------------------- */}
@@ -550,7 +549,6 @@ export function ChannelsCenter({
               />
             </CollapsibleContent>
           </Collapsible>
-
 
           {/* ------------------------------ 4. histórico ------------------------------ */}
           <Collapsible
