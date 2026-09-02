@@ -740,6 +740,8 @@ export function ChannelsCenter({
               conectar e a qual cliente cada uma atende.
             </DialogDescription>
           </DialogHeader>
+
+          <ConnectSteps active={connecting ? 1 : 0} />
           <div className="space-y-1.5">
             {CONNECTABLE_CHANNELS.map((def) => {
               const Icon = def.icon;
@@ -842,6 +844,35 @@ export function ChannelsCenter({
 }
 
 /* --------------------------------- pedaços -------------------------------- */
+
+/** Passos do fluxo de conexão — indicador compacto, sem estado próprio. */
+function ConnectSteps({ active }: { active: number }) {
+  const steps = ["Autorização", "Seleção de ativos", "Validação", "Confirmação"];
+  return (
+    <ol className="flex items-center gap-1.5 text-[11px]">
+      {steps.map((label, i) => (
+        <li key={label} className="flex min-w-0 items-center gap-1.5">
+          <span
+            className={cn(
+              "grid h-4 w-4 shrink-0 place-items-center rounded-full border text-[9px] font-medium",
+              i <= active
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border text-muted-foreground",
+            )}
+          >
+            {i + 1}
+          </span>
+          <span
+            className={cn("truncate", i <= active ? "text-foreground" : "text-muted-foreground")}
+          >
+            {label}
+          </span>
+          {i < steps.length - 1 ? <span className="h-px w-3 bg-border" /> : null}
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 /** Identidade estável de um portfólio (Business ID, ou usuário Meta legado). */
 function portfolioKey(p: MetaPortfolioSummary) {
