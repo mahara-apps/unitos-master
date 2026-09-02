@@ -724,9 +724,28 @@ export async function embedTextWithBrandKey(
   try {
     primary = await getBrandProviderKey(supabase, brandId, "text", EMBED_PROVIDERS);
   } catch (err) {
-    console.error("[ai-provider] embedding sem chave configurada", err);
+    logAiFailure({
+      op: "embedding",
+      step: "credenciais",
+      kind: "config",
+      retryable: false,
+      brandId,
+      detail: unwrapAiError(err).text,
+    });
+    void recordAiUsage({
+      brandId,
+      model: "embedding",
+      inputTokens: 0,
+      outputTokens: 0,
+      success: false,
+      errorKind: "config",
+      errorMessage: unwrapAiError(err).text,
+      step: "embedding",
+      agent: "embedding",
+    });
     return null;
   }
+
 
   const candidates: BrandProviderKey[] = [primary];
   for (const other of EMBED_PROVIDERS) {
