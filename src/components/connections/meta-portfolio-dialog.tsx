@@ -434,10 +434,8 @@ export function MetaPortfolioDialog({
   const visibleIg = igPages.filter((p) =>
     match(p.pageName, p.instagramUsername, p.instagramBusinessId, p.pageId),
   );
-  const visibleThreads = threadsAccounts.filter((t) =>
-    match(t.username, t.name, t.threadsUserId),
-  );
-  const visibleAds = adAccounts.filter((a) => match(a.name, a.accountId, a.businessName));
+  const visibleThreads = threadsAccounts.filter((t) => match(t.username, t.name, t.threadsUserId));
+  const visibleAds = adAccounts.filter((a) => match(a.name, a.adAccountId, a.businessName));
 
   const showNotLoadedState = data?.portfolioStatus === "not_loaded";
   const showStoredRateLimitState = data?.portfolioStatus === "rate_limited";
