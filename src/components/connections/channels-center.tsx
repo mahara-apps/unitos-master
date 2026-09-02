@@ -419,17 +419,6 @@ export function ChannelsCenter({
   /* ------------------------------- portfólios ------------------------------- */
 
   const portfolios = portfolioStatus?.portfolios ?? [];
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const activePortfolio =
-    portfolios.find((p) => portfolioKey(p) === selectedKey) ?? portfolios[0] ?? null;
-
-  /** Ativos do portfólio selecionado (fallback: todos, em identidade legada). */
-  const portfolioAssets = useMemo(() => {
-    const bid = activePortfolio?.businessId ?? null;
-    if (!bid) return available;
-    const matching = available.filter((a) => a.businessId === bid);
-    return matching.length || available.some((a) => a.businessId) ? matching : available;
-  }, [available, activePortfolio]);
 
   const linkedByExternalId = useMemo(() => {
     const m = new Map<string, string>();
@@ -439,6 +428,7 @@ export function ChannelsCenter({
     }
     return m;
   }, [channels]);
+
 
   return (
     <div className="space-y-4">
