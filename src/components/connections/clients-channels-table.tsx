@@ -3,7 +3,7 @@ import {
   ArrowUpDown,
   ChevronRight,
   Link2,
-  Loader2,
+  MessageCircle,
   MoreHorizontal,
   Plug,
   RefreshCw,
@@ -170,7 +170,7 @@ const COLUMNS: Array<{ key: ColumnKey; label: string; meta: boolean }> = [
 const AVAILABLE_COLUMNS = new Set<ColumnKey>(["facebook", "instagram", "whatsapp"]);
 
 function columnIcon(key: ColumnKey) {
-  if (key === "whatsapp") return channelDef("whatsapp").icon;
+  if (key === "whatsapp") return MessageCircle;
   return channelDef(key).icon;
 }
 
@@ -690,7 +690,11 @@ function ChannelCell({
       <Icon
         className={cn(
           "h-4 w-4",
-          cell.health === "connected" ? channelDef(column.key).tone : "text-muted-foreground",
+          cell.health === "connected" && column.key !== "whatsapp"
+            ? channelDef(column.key).tone
+            : cell.health === "connected"
+              ? "text-emerald-500"
+              : "text-muted-foreground",
         )}
       />
       <span
@@ -716,7 +720,12 @@ function ChannelCell({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 text-sm font-medium">
-              <Icon className={cn("h-3.5 w-3.5", channelDef(column.key).tone)} />
+              <Icon
+                className={cn(
+                  "h-3.5 w-3.5",
+                  column.key === "whatsapp" ? "text-emerald-500" : channelDef(column.key).tone,
+                )}
+              />
               {column.label}
             </div>
             <p className="truncate text-[11px] text-muted-foreground">
@@ -957,10 +966,6 @@ export function ChannelStatusLegend() {
           {HEALTH_META[h].label}
         </span>
       ))}
-      {(() => {
-        const Loading = Loader2;
-        return <Loading className="hidden" />;
-      })()}
     </div>
   );
 }
