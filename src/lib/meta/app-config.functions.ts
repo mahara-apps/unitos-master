@@ -35,9 +35,8 @@ export const saveMetaAppSettingsFn = createServerFn({ method: "POST" })
     const { saveMetaAppSettings, getMetaAppSettings } = await import("./app-config.server");
 
     if (data.appType === "client") {
-      const { getMetaAppSettings: read } = await import("./app-config.server");
-      const current = await read();
-      const willHaveAppId = (data.appId ?? current.client.appId)?.trim();
+      const current = await getMetaAppSettings();
+
       const willHaveSecret =
         data.appSecret !== undefined ? !!data.appSecret?.trim() : current.client.hasSecret;
       if (!willHaveAppId || !willHaveSecret) {
