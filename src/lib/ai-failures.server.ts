@@ -222,3 +222,19 @@ export function describeFailure(kind: FailureKind): string {
   const m = FAILURE_MESSAGE_PT[kind];
   return `${m.title} — ${m.body}`;
 }
+
+/**
+ * Mensagem para a UI a partir do erro cru. É o único caminho autorizado para
+ * exibir uma falha de IA ao usuário: classifica e devolve texto em pt-BR, sem
+ * status HTTP, sem nome de provider e sem trecho da resposta do modelo.
+ */
+export function userFacingAiError(err: unknown): {
+  kind: FailureKind;
+  retryable: boolean;
+  title: string;
+  body: string;
+} {
+  const { kind, retryable } = classifyAiError(err);
+  const m = FAILURE_MESSAGE_PT[kind];
+  return { kind, retryable, title: m.title, body: m.body };
+}
