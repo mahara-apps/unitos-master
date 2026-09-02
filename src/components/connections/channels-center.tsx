@@ -71,7 +71,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { MetaPortfolioDialog } from "@/components/connections/meta-portfolio-dialog";
-import { AvailableAccountsTable } from "@/components/connections/available-accounts-table";
+import { MetaPortfoliosPanel } from "@/components/connections/meta-portfolios-panel";
 
 import {
   CHANNEL_ICON_SIZE,
