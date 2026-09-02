@@ -443,6 +443,7 @@ export function MetaPortfoliosPanel({
 
       <div className="text-[11px] text-muted-foreground">
         {rows.length} de {portfolios.length} portfólio(s)
+        {rows.length > PAGE_SIZE ? ` · página ${safePage} de ${pageCount}` : ""}
       </div>
 
       {/* ---------------------------------- tabela --------------------------------- */}
