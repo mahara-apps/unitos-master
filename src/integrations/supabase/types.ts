@@ -1293,45 +1293,57 @@ export type Database = {
           actor_id: string | null
           actor_kind: string
           agent: string
+          attempt: number | null
           brand_id: string
           client_id: string | null
           cost_usd: number
           created_at: string
+          error_kind: string | null
           error_message: string | null
           id: string
           input_tokens: number
           model: string
           output_tokens: number
+          provider: string | null
+          step: string | null
           success: boolean
         }
         Insert: {
           actor_id?: string | null
           actor_kind?: string
           agent: string
+          attempt?: number | null
           brand_id: string
           client_id?: string | null
           cost_usd?: number
           created_at?: string
+          error_kind?: string | null
           error_message?: string | null
           id?: string
           input_tokens?: number
           model: string
           output_tokens?: number
+          provider?: string | null
+          step?: string | null
           success?: boolean
         }
         Update: {
           actor_id?: string | null
           actor_kind?: string
           agent?: string
+          attempt?: number | null
           brand_id?: string
           client_id?: string | null
           cost_usd?: number
           created_at?: string
+          error_kind?: string | null
           error_message?: string | null
           id?: string
           input_tokens?: number
           model?: string
           output_tokens?: number
+          provider?: string | null
+          step?: string | null
           success?: boolean
         }
         Relationships: [
