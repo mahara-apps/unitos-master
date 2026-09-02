@@ -109,6 +109,21 @@ const STATE_STYLE: Record<PortfolioState, { label: string; dot: string; chip: st
 
 const STATE_WEIGHT: Record<PortfolioState, number> = { error: 0, attention: 1, connected: 2 };
 
+/** Números de página compactos com elisão (1 … 4 5 6 … 12). */
+function pageNumbers(current: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages = new Set<number>([1, total, current - 1, current, current + 1]);
+  const sorted = [...pages].filter((n) => n >= 1 && n <= total).sort((a, b) => a - b);
+  const out: (number | "…")[] = [];
+  let prev = 0;
+  for (const n of sorted) {
+    if (n - prev > 1) out.push("…");
+    out.push(n);
+    prev = n;
+  }
+  return out;
+}
+
 function StateBadge({ state }: { state: PortfolioState }) {
   const m = STATE_STYLE[state];
   return (
