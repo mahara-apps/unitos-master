@@ -36,9 +36,10 @@ export const saveMetaAppSettingsFn = createServerFn({ method: "POST" })
 
     if (data.appType === "client") {
       const current = await getMetaAppSettings();
-
+      const willHaveAppId = (data.appId ?? current.client.appId)?.trim();
       const willHaveSecret =
         data.appSecret !== undefined ? !!data.appSecret?.trim() : current.client.hasSecret;
+
       if (!willHaveAppId || !willHaveSecret) {
         throw new Error(
           "Informe o App ID e o App Secret do App Meta do cliente para usar este modo.",
