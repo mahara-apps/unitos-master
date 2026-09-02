@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  classifyMetaIssue,
-  metaIssueState,
-  metaIssueToast,
-} from "@/lib/meta/issue-messages";
+import { classifyMetaIssue, metaIssueState, metaIssueToast } from "@/lib/meta/issue-messages";
 
 const RAW = [
   "Unsupported get request. Object with ID '123' does not exist",

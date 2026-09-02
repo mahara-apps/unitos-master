@@ -265,7 +265,6 @@ function MetaIssuesAlert({
   );
 }
 
-
 export function MetaPortfoliosPanel({
   brandId,
   canManage,
