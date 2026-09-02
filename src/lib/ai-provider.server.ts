@@ -397,20 +397,39 @@ function withModelInstrumentation(
               `providerMetadata=${JSON.stringify(raw.providerMetadata ?? null).slice(0, 400)}`,
           );
         }
-        log(modelId, inTok, outTok, true);
+        log(modelId, inTok, outTok, true, null, { provider, attempt: call });
 
         ctx.attempts.push({ provider, model: modelId, attempt: call, result: "success" });
         return out;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         const { kind, retryable } = classifyAiError(err);
+        const detail = redactAiDetail(unwrapAiError(err).text);
         ctx.attempts.push({
           provider,
           model: modelId,
           attempt: call,
           result: kind,
-          detail: unwrapAiError(err).text.replace(/\s+/g, " ").slice(0, 500),
+          detail,
         });
+        // Consumo é registrado MESMO em falha — inclusive nas tentativas
+        // intermediárias que serão seguidas de retry/fallback. Sem isso, um
+        // 429 seguido de fallback bem-sucedido desaparecia do histórico.
+        log(modelId, 0, 0, false, msg, { provider, kind, attempt: call });
+        const logEntry = {
+          op: ctx.usage?.agent ?? `${ctx.role}.${op}`,
+          step: ctx.role,
+          provider,
+          model: modelId,
+          attempt: call,
+          kind,
+          retryable,
+          brandId: ctx.brandId,
+          clientId: ctx.usage?.clientId ?? null,
+          userId: ctx.usage?.userId ?? null,
+          detail,
+        };
+
 
         // 1) Modelo descontinuado/indisponível no MESMO provedor: promove o
         //    próximo da cadeia do papel (comportamento já existente).
