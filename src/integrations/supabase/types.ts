@@ -4180,6 +4180,39 @@ export type Database = {
         }
         Relationships: []
       }
+      installation_meta_app: {
+        Row: {
+          app_id: string | null
+          app_secret_ciphertext: string | null
+          app_type: string
+          business_config_id: string | null
+          created_at: string
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          app_id?: string | null
+          app_secret_ciphertext?: string | null
+          app_type?: string
+          business_config_id?: string | null
+          created_at?: string
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          app_id?: string | null
+          app_secret_ciphertext?: string | null
+          app_type?: string
+          business_config_id?: string | null
+          created_at?: string
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       media_plan_items: {
         Row: {
           audience: string | null
