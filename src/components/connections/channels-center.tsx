@@ -98,6 +98,7 @@ import {
   reconcileMetaConnectionFn,
   type DiscoveredAccountsResult,
 } from "@/lib/meta/discovery.functions";
+import { metaIssueToast } from "@/lib/meta/issue-messages";
 import { linkMetaAccount } from "@/lib/meta/portfolio.functions";
 import {
   disconnectMetaPortfolioFn,
@@ -320,19 +321,16 @@ export function ChannelsCenter({
       })
       .then((r) => {
         qc.setQueryData(["meta-discovered-accounts", brandId], r);
-        if (r.error)
-          toast.error("A Meta recusou a consulta.", {
-            description: r.error,
-            duration: 12000,
-          });
-        else toast.success(`${r.accounts.length} conta(s) disponível(is).`);
+        // Erro técnico da Meta NÃO vai para toast: o detalhe fica no alerta da seção.
+        if (r.error) {
+          const m = metaIssueToast(r.error);
+          toast.warning(m.title, { description: m.description, duration: 8000 });
+        } else toast.success(`${r.accounts.length} conta(s) disponível(is).`);
       })
-      .catch((e) =>
-        toast.error("Não foi possível consultar a Meta.", {
-          description: e instanceof Error ? e.message : undefined,
-          duration: 12000,
-        }),
-      );
+      .catch((e) => {
+        const m = metaIssueToast(e);
+        toast.error(m.title, { description: m.description, duration: 8000 });
+      });
   }
 
   useEffect(() => {
