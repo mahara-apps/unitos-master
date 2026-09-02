@@ -51,7 +51,7 @@ import { AvailableAccountsTable } from "@/components/connections/available-accou
 import { formatRelative } from "@/components/connections/channel-meta";
 import type { MetaPortfolioSummary } from "@/lib/meta/authorization-state";
 import type { DiscoveredAccountsResult } from "@/lib/meta/discovery.functions";
-import { disconnectMetaPortfolioFn } from "@/lib/meta/meta.functions";
+import { disconnectMetaPortfolioFn } from "@/lib/meta/portfolio-admin.functions";
 import { cn } from "@/lib/utils";
 
 /**
