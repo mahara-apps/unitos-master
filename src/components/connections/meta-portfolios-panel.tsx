@@ -417,7 +417,13 @@ export function MetaPortfoliosPanel({
             ))}
           </SelectContent>
         </Select>
-        <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)}>
+        <Select
+          value={sort}
+          onValueChange={(v) => {
+            setSort(v as typeof sort);
+            resetPage();
+          }}
+        >
           <SelectTrigger className="h-9 w-[176px] text-xs">
             <SelectValue />
           </SelectTrigger>
