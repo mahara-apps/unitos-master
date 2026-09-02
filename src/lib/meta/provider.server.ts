@@ -321,8 +321,10 @@ export async function validateBusinessConfig(opts?: {
 
 
 export class MetaProvider {
-  private appId: string;
-  private appSecret: string;
+  private appIdOverride: string | null;
+  private appSecretOverride: string | null;
+  /** Credenciais resolvidas (env do App oficial ou App próprio da instalação). */
+  private resolved: { appId: string; appSecret: string } | null = null;
   /**
    * The redirect URI must match EXACTLY what is registered in the Meta App
    * Dashboard (Facebook Login → Valid OAuth Redirect URIs).
@@ -336,13 +338,35 @@ export class MetaProvider {
     /** Request origin used to derive the redirect URI when not given. */
     origin?: string | null;
   }) {
-    this.appId = opts?.appId ?? requireEnv("META_APP_ID");
-    this.appSecret = opts?.appSecret ?? requireEnv("META_APP_SECRET");
+    this.appIdOverride = opts?.appId ?? null;
+    this.appSecretOverride = opts?.appSecret ?? null;
     this.redirectUri = opts?.redirectUri ?? resolveMetaRedirectUri(opts?.origin ?? null);
   }
 
+  /**
+   * Resolve as credenciais do App Meta em uso NESTA instalação.
+   *
+   * `unitos` (padrão) → App oficial em env; `client` → App próprio gravado no
+   * singleton `installation_meta_app`. O fluxo OAuth não é duplicado: ele só
+   * consome o resultado desta resolução.
+   */
+  private async app(): Promise<{ appId: string; appSecret: string }> {
+    if (this.resolved) return this.resolved;
+    if (this.appIdOverride && this.appSecretOverride) {
+      this.resolved = { appId: this.appIdOverride, appSecret: this.appSecretOverride };
+      return this.resolved;
+    }
+    const { resolveMetaAppCredentials } = await import("./app-config.server");
+    const creds = await resolveMetaAppCredentials();
+    this.resolved = {
+      appId: this.appIdOverride ?? creds.appId,
+      appSecret: this.appSecretOverride ?? creds.appSecret,
+    };
+    return this.resolved;
+  }
+
   // --------------------------------------------------------------- OAuth ---
-  buildAuthorizeUrl(params: {
+  async buildAuthorizeUrl(params: {
     state: string;
     scopes?: string[];
     /** display=popup renders a friendlier consent screen for embedded flows. */
@@ -353,10 +377,11 @@ export class MetaProvider {
     extras?: Record<string, unknown>;
     /** Optional Facebook Login for Business configuration ID. */
     configId?: string | null;
-  }): string {
+  }): Promise<string> {
+    const { appId } = await this.app();
     const scopes = (params.scopes ?? META_DEFAULT_SCOPES).join(",");
     const url = new URL(OAUTH_DIALOG);
-    url.searchParams.set("client_id", this.appId);
+    url.searchParams.set("client_id", appId);
     url.searchParams.set("redirect_uri", this.redirectUri);
     url.searchParams.set("state", params.state);
     if (params.configId) url.searchParams.set("config_id", params.configId);
@@ -370,9 +395,10 @@ export class MetaProvider {
 
   /** Exchanges the ?code returned by Meta for a short-lived user access token. */
   async exchangeCode(code: string): Promise<MetaTokenInfo> {
+    const { appId, appSecret } = await this.app();
     const url = new URL(`${GRAPH_BASE}/oauth/access_token`);
-    url.searchParams.set("client_id", this.appId);
-    url.searchParams.set("client_secret", this.appSecret);
+    url.searchParams.set("client_id", appId);
+    url.searchParams.set("client_secret", appSecret);
     url.searchParams.set("redirect_uri", this.redirectUri);
     url.searchParams.set("code", code);
     return this.readToken(url.toString());
@@ -384,13 +410,15 @@ export class MetaProvider {
    * still-valid long-lived token before it expires.
    */
   async exchangeForLongLivedUserToken(shortLivedToken: string): Promise<MetaTokenInfo> {
+    const { appId, appSecret } = await this.app();
     const url = new URL(`${GRAPH_BASE}/oauth/access_token`);
     url.searchParams.set("grant_type", "fb_exchange_token");
-    url.searchParams.set("client_id", this.appId);
-    url.searchParams.set("client_secret", this.appSecret);
+    url.searchParams.set("client_id", appId);
+    url.searchParams.set("client_secret", appSecret);
     url.searchParams.set("fb_exchange_token", shortLivedToken);
     return this.readToken(url.toString());
   }
+
 
   /** Refresh = re-issue a long-lived token from a still-valid one. */
   async refreshLongLivedUserToken(currentToken: string): Promise<MetaTokenInfo> {
