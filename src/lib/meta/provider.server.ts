@@ -2,6 +2,9 @@
 // Server-only. Encapsulates OAuth, token lifecycle and Graph calls so the
 // rest of the app never talks to graph.facebook.com directly.
 
+import { peekMetaAppTypeSync } from "./app-config.server";
+
+
 const GRAPH_VERSION = "v22.0";
 const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const OAUTH_DIALOG = `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`;
@@ -205,7 +208,15 @@ export function resolveMetaRedirectUri(origin?: string | null): string {
  * ele, o app cai no modo LEGADO (somente `scope`), no qual o consentimento
  * costuma expor apenas Páginas em que o usuário é admin direto.
  */
+/**
+ * Config ID GLOBAL (env) — válido apenas quando a instalação está em
+ * "Unitos — App Meta oficial". Em modo `client` o env é ignorado e esta função
+ * devolve `null`, para que nenhum chamador novo misture o Config ID do App
+ * oficial com o App próprio do cliente. O caminho correto é
+ * `resolveMetaBusinessConfigId()` de `@/lib/meta/app-config.server`.
+ */
 export function metaBusinessConfigId(): string | null {
+  if (peekMetaAppTypeSync() === "client") return null;
   const v = process.env.META_BUSINESS_CONFIG_ID?.trim();
   return v ? v : null;
 }
