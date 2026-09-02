@@ -207,15 +207,16 @@ describe("Identidade da agência (brands)", () => {
     expect(data ?? []).toHaveLength(0);
   });
 
-  it("manager altera dados cadastrais (regra canônica escolhida)", async () => {
+  it("manager não altera dados cadastrais (regra canônica atual: admin/owner)", async () => {
     const { data, error } = await fx!.userManager.client
       .from("brands")
       .update({ razao_social: "QA Manager LTDA" })
       .eq("id", fx!.brandId)
       .select("id, razao_social");
     expect(error).toBeNull();
-    expect(data?.[0]?.razao_social).toBe("QA Manager LTDA");
+    expect(data ?? []).toHaveLength(0);
   });
+
 
   it("admin (owner) altera dados cadastrais", async () => {
     const { data, error } = await fx!.userOwner.client
