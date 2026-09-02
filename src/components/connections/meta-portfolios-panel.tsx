@@ -640,6 +640,58 @@ export function MetaPortfoliosPanel({
               </TableBody>
             </Table>
           </div>
+
+          {/* ------------------------------ paginação ------------------------------ */}
+          {pageCount > 1 ? (
+            <div className="flex items-center justify-between gap-2 border-t px-3 py-2">
+              <span className="text-[11px] text-muted-foreground tabular-nums">
+                Exibindo {(safePage - 1) * PAGE_SIZE + 1}–
+                {Math.min(safePage * PAGE_SIZE, rows.length)} de {rows.length}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 px-2 text-[11px]"
+                  disabled={safePage <= 1}
+                  onClick={() => setPage(safePage - 1)}
+                >
+                  <ChevronLeft className="h-3 w-3" />
+                  Anterior
+                </Button>
+                {pageNumbers(safePage, pageCount).map((n, i) =>
+                  n === "…" ? (
+                    <span key={`ellipsis-${i}`} className="px-1 text-[11px] text-muted-foreground">
+                      …
+                    </span>
+                  ) : (
+                    <Button
+                      key={n}
+                      size="sm"
+                      variant={n === safePage ? "secondary" : "ghost"}
+                      className={cn(
+                        "h-7 min-w-7 px-2 text-[11px] tabular-nums",
+                        n === safePage && "font-semibold",
+                      )}
+                      onClick={() => setPage(n)}
+                    >
+                      {n}
+                    </Button>
+                  ),
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 px-2 text-[11px]"
+                  disabled={safePage >= pageCount}
+                  onClick={() => setPage(safePage + 1)}
+                >
+                  Próxima
+                  <ChevronRight className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </Card>
       )}
 
