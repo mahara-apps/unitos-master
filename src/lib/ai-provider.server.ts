@@ -460,9 +460,10 @@ function withModelInstrumentation(
             kind === "provider_quota");
         if (transient && ctx.fallback && !switchedProvider) {
           switchedProvider = true;
-          console.warn(
-            `[ai-provider] ${provider} falhou (${kind}) — alternando para ${ctx.fallback.provider}/${ctx.fallback.modelId}`,
-          );
+          logAiRetry({
+            ...logEntry,
+            detail: `alternando para ${ctx.fallback.provider}/${ctx.fallback.modelId}`,
+          });
           provider = ctx.fallback.provider;
           apiKey = ctx.fallback.apiKey;
           tried.length = 0;
@@ -471,7 +472,8 @@ function withModelInstrumentation(
           continue;
         }
 
-        log(modelId, 0, 0, false, msg);
+        // Terminal: já registrado como consumo com classificação acima.
+        logAiFailure(logEntry);
         if (isModelUnavailableError(msg)) {
           throw new Error(
             `ai_model_unavailable:${provider}:${ctx.role}: o modelo ${modelId} foi descontinuado pelo provedor e não há substituto configurado. Detalhe: ${unwrapAiError(err).text.slice(0, 300)}`,
