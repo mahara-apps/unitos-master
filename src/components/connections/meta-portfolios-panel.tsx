@@ -66,7 +66,7 @@ import { cn } from "@/lib/utils";
 
 type Account = DiscoveredAccountsResult["accounts"][number];
 
-export function portfolioKey(p: MetaPortfolioSummary) {
+function portfolioKey(p: MetaPortfolioSummary) {
   return p.businessId ?? `user:${p.ownerExternalId ?? "unknown"}`;
 }
 
