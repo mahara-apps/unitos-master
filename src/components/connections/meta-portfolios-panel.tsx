@@ -259,7 +259,7 @@ export function MetaPortfoliosPanel({
   const [target, setTarget] = useState<MetaPortfolioSummary | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | PortfolioState>("all");
-  const [sort, setSort] = useState<"name" | "status" | "assets">("status");
+  const [sort, setSort] = useState<"name" | "status" | "assets">("name");
   const [page, setPage] = useState(1);
 
   const PAGE_SIZE = 10;
