@@ -80,6 +80,7 @@ import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_
 import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_authenticated/chat.$conversationId'
 import { Route as AuthenticatedBrainDiagnosticsRouteImport } from './routes/_authenticated/brain.diagnostics'
 import { Route as AuthenticatedAdminRecursosRouteImport } from './routes/_authenticated/admin.recursos'
+import { Route as AuthenticatedAdminMetaRouteImport } from './routes/_authenticated/admin.meta'
 import { Route as AuthenticatedAdminIdentidadeRouteImport } from './routes/_authenticated/admin.identidade'
 import { Route as AuthenticatedAdminAmbienteRouteImport } from './routes/_authenticated/admin.ambiente'
 import { Route as ApiSocialTopPostsConnectionIdRouteImport } from './routes/api/social/top-posts/$connectionId'
@@ -485,6 +486,11 @@ const AuthenticatedAdminRecursosRoute =
     path: '/recursos',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminMetaRoute = AuthenticatedAdminMetaRouteImport.update({
+  id: '/meta',
+  path: '/meta',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
 const AuthenticatedAdminIdentidadeRoute =
   AuthenticatedAdminIdentidadeRouteImport.update({
     id: '/identidade',
@@ -666,6 +672,7 @@ export interface FileRoutesByFullPath {
   '/portal/$token': typeof PortalTokenRouteWithChildren
   '/admin/ambiente': typeof AuthenticatedAdminAmbienteRoute
   '/admin/identidade': typeof AuthenticatedAdminIdentidadeRoute
+  '/admin/meta': typeof AuthenticatedAdminMetaRoute
   '/admin/recursos': typeof AuthenticatedAdminRecursosRoute
   '/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
@@ -756,6 +763,7 @@ export interface FileRoutesByTo {
   '/plano/$planId': typeof PlanoPlanIdRoute
   '/admin/ambiente': typeof AuthenticatedAdminAmbienteRoute
   '/admin/identidade': typeof AuthenticatedAdminIdentidadeRoute
+  '/admin/meta': typeof AuthenticatedAdminMetaRoute
   '/admin/recursos': typeof AuthenticatedAdminRecursosRoute
   '/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
@@ -856,6 +864,7 @@ export interface FileRoutesById {
   '/portal/$token': typeof PortalTokenRouteWithChildren
   '/_authenticated/admin/ambiente': typeof AuthenticatedAdminAmbienteRoute
   '/_authenticated/admin/identidade': typeof AuthenticatedAdminIdentidadeRoute
+  '/_authenticated/admin/meta': typeof AuthenticatedAdminMetaRoute
   '/_authenticated/admin/recursos': typeof AuthenticatedAdminRecursosRoute
   '/_authenticated/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
   '/_authenticated/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
@@ -955,6 +964,7 @@ export interface FileRouteTypes {
     | '/portal/$token'
     | '/admin/ambiente'
     | '/admin/identidade'
+    | '/admin/meta'
     | '/admin/recursos'
     | '/brain/diagnostics'
     | '/chat/$conversationId'
@@ -1045,6 +1055,7 @@ export interface FileRouteTypes {
     | '/plano/$planId'
     | '/admin/ambiente'
     | '/admin/identidade'
+    | '/admin/meta'
     | '/admin/recursos'
     | '/brain/diagnostics'
     | '/chat/$conversationId'
@@ -1144,6 +1155,7 @@ export interface FileRouteTypes {
     | '/portal/$token'
     | '/_authenticated/admin/ambiente'
     | '/_authenticated/admin/identidade'
+    | '/_authenticated/admin/meta'
     | '/_authenticated/admin/recursos'
     | '/_authenticated/brain/diagnostics'
     | '/_authenticated/chat/$conversationId'
@@ -1752,6 +1764,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRecursosRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/meta': {
+      id: '/_authenticated/admin/meta'
+      path: '/meta'
+      fullPath: '/admin/meta'
+      preLoaderRoute: typeof AuthenticatedAdminMetaRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/identidade': {
       id: '/_authenticated/admin/identidade'
       path: '/identidade'
@@ -1940,6 +1959,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAmbienteRoute: typeof AuthenticatedAdminAmbienteRoute
   AuthenticatedAdminIdentidadeRoute: typeof AuthenticatedAdminIdentidadeRoute
+  AuthenticatedAdminMetaRoute: typeof AuthenticatedAdminMetaRoute
   AuthenticatedAdminRecursosRoute: typeof AuthenticatedAdminRecursosRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
@@ -1947,6 +1967,7 @@ interface AuthenticatedAdminRouteChildren {
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAmbienteRoute: AuthenticatedAdminAmbienteRoute,
   AuthenticatedAdminIdentidadeRoute: AuthenticatedAdminIdentidadeRoute,
+  AuthenticatedAdminMetaRoute: AuthenticatedAdminMetaRoute,
   AuthenticatedAdminRecursosRoute: AuthenticatedAdminRecursosRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }

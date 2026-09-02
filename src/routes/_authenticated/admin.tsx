@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, redirect, useRouterState } from "@tanstack/react-router";
-import { Boxes, Info, Palette, ShieldAlert } from "lucide-react";
+import { Boxes, Info, Palette, Plug, ShieldAlert } from "lucide-react";
 
 import { amISuperAdmin } from "@/lib/feature-flags.functions";
 import { useActiveContextOptional } from "@/hooks/use-active-context";
@@ -37,8 +37,10 @@ export const Route = createFileRoute("/_authenticated/admin")({
 const TABS = [
   { to: "/admin/recursos", label: "Recursos", icon: Boxes },
   { to: "/admin/identidade", label: "Identidade", icon: Palette },
+  { to: "/admin/meta", label: "App Meta", icon: Plug },
   { to: "/admin/ambiente", label: "Informações do ambiente", icon: Info },
 ] as const;
+
 
 function AdminLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });

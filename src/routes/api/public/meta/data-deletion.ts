@@ -17,7 +17,15 @@ export const Route = createFileRoute("/api/public/meta/data-deletion")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const appSecret = process.env.META_APP_SECRET;
+        // Segredo do App Meta EM USO nesta instalação (oficial do Unitos ou
+        // App próprio do cliente) — a assinatura precisa bater com ele.
+        let appSecret: string | null = null;
+        try {
+          const { resolveMetaAppCredentials } = await import("@/lib/meta/app-config.server");
+          appSecret = (await resolveMetaAppCredentials()).appSecret;
+        } catch {
+          appSecret = null;
+        }
         if (!appSecret) return jsonResp({ error: "not_configured" }, 500);
 
         const signed = await extractSignedRequest(request);

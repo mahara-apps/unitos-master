@@ -117,9 +117,14 @@ type DebugTokenData = {
 };
 
 async function debugToken(token: string): Promise<DebugTokenData> {
-  const appId = process.env.META_APP_ID;
-  const appSecret = process.env.META_APP_SECRET;
-  if (!appId || !appSecret) throw new MetaGraphError("Meta app não configurado", 0);
+  let appId: string;
+  let appSecret: string;
+  try {
+    const { resolveMetaAppCredentials } = await import("./app-config.server");
+    ({ appId, appSecret } = await resolveMetaAppCredentials());
+  } catch (err) {
+    throw new MetaGraphError(err instanceof Error ? err.message : "Meta app não configurado", 0);
+  }
   const url = new URL(`${GRAPH_BASE}/debug_token`);
   url.searchParams.set("input_token", token);
   url.searchParams.set("access_token", `${appId}|${appSecret}`);

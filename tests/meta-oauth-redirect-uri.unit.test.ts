@@ -45,7 +45,7 @@ describe("redirect_uri do OAuth Meta", () => {
   it("a URL de autorização enviada ao Meta usa exatamente o callback canônico", async () => {
     const { MetaProvider } = await import("@/lib/meta/provider.server");
     const provider = new MetaProvider({ origin: "https://origin-blossom-kit.lovable.app" });
-    const authorize = new URL(provider.buildAuthorizeUrl({ state: "s" }));
+    const authorize = new URL(await provider.buildAuthorizeUrl({ state: "s" }));
     expect(authorize.searchParams.get("redirect_uri")).toBe(CANONICAL);
     expect(authorize.toString()).not.toContain("origin-blossom-kit");
   });

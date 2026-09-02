@@ -112,10 +112,16 @@ export const startMetaOAuth = createServerFn({ method: "POST" })
     // `config_id` inválido gera consentimento recusado pela Meta com
     // "This app needs at least one supported permission". Validamos antes e,
     // se a configuração não servir, caímos para `scope` SEM esconder o motivo.
-    const check = await validateBusinessConfig();
+    const { resolveMetaAppCredentials } = await import("./app-config.server");
+    const creds = await resolveMetaAppCredentials();
+    const check = await validateBusinessConfig({
+      appId: creds.appId,
+      appSecret: creds.appSecret,
+      configId: creds.businessConfigId,
+    });
     const configId = check.valid ? check.configId : null;
     return {
-      authorizeUrl: provider.buildAuthorizeUrl({
+      authorizeUrl: await provider.buildAuthorizeUrl({
         state,
         scopes,
         display: "popup",

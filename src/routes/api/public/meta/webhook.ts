@@ -35,7 +35,15 @@ export const Route = createFileRoute("/api/public/meta/webhook")({
         return new Response("Forbidden", { status: 403 });
       },
       POST: async ({ request }) => {
-        const appSecret = process.env.META_APP_SECRET;
+        // Segredo do App Meta EM USO nesta instalação (oficial do Unitos ou
+        // App próprio do cliente) — a assinatura precisa bater com ele.
+        let appSecret: string | null = null;
+        try {
+          const { resolveMetaAppCredentials } = await import("@/lib/meta/app-config.server");
+          appSecret = (await resolveMetaAppCredentials()).appSecret;
+        } catch {
+          appSecret = null;
+        }
         if (!appSecret) return new Response("Not configured", { status: 500 });
 
         // 1) Verify X-Hub-Signature-256 against the RAW body.
