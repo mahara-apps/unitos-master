@@ -286,6 +286,7 @@ function withModelInstrumentation(
     outTok: number,
     success: boolean,
     errorMessage?: string | null,
+    meta?: { provider?: ProviderName; kind?: string; attempt?: number },
   ) => {
     void recordAiUsage({
       brandId: ctx.brandId,
@@ -294,6 +295,10 @@ function withModelInstrumentation(
       outputTokens: outTok,
       success,
       ...(errorMessage ? { errorMessage } : {}),
+      ...(success ? {} : { errorKind: meta?.kind ?? "unknown" }),
+      provider: meta?.provider ?? ctx.provider,
+      step: ctx.usage?.agent ?? ctx.role,
+      attempt: meta?.attempt ?? 1,
       agent: ctx.usage?.agent ?? `${ctx.role}.${ctx.provider}`,
       clientId: ctx.usage?.clientId ?? null,
       userId: ctx.usage?.userId ?? null,
