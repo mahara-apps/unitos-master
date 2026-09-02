@@ -37,8 +37,10 @@ export const Route = createFileRoute("/_authenticated/admin")({
 const TABS = [
   { to: "/admin/recursos", label: "Recursos", icon: Boxes },
   { to: "/admin/identidade", label: "Identidade", icon: Palette },
+  { to: "/admin/meta", label: "App Meta", icon: Plug },
   { to: "/admin/ambiente", label: "Informações do ambiente", icon: Info },
 ] as const;
+
 
 function AdminLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
