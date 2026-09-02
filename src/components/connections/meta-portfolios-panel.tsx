@@ -388,14 +388,20 @@ export function MetaPortfoliosPanel({
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              resetPage();
+            }}
             placeholder="Buscar portfólio ou Business ID"
             className="h-9 pl-8 text-xs"
           />
         </div>
         <Select
           value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}
+          onValueChange={(v) => {
+            setStatusFilter(v as typeof statusFilter);
+            resetPage();
+          }}
         >
           <SelectTrigger className="h-9 w-[152px] text-xs">
             <SelectValue placeholder="Status" />
