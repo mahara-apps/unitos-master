@@ -1,18 +1,16 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   AlertTriangle,
   Building2,
   ChevronDown,
-  Facebook,
-  Instagram,
-  Link2,
+  ChevronRight,
   Loader2,
-  Megaphone,
   MoreHorizontal,
   Plus,
   RefreshCw,
+  Search,
   Settings2,
   Unlink,
   Unplug,
@@ -33,20 +31,29 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { AvailableAccountsTable } from "@/components/connections/available-accounts-table";
 import { formatRelative } from "@/components/connections/channel-meta";
 import type { MetaPortfolioSummary } from "@/lib/meta/authorization-state";
@@ -57,11 +64,11 @@ import { cn } from "@/lib/utils";
 /**
  * Painel secundário "Portfólios Meta e ativos disponíveis".
  *
- * Camada 100% de apresentação: recebe portfólios (autorização) e os ativos que
- * a descoberta atual devolveu, e apenas organiza a leitura em cards compactos +
- * drawer de gerenciamento. Nenhuma regra de OAuth, descoberta, vínculo ou
- * revogação vive aqui — as ações reaproveitam os callbacks e server functions
- * existentes.
+ * Camada 100% de apresentação, com a MESMA linguagem de tabela da seção
+ * "Clientes e canais": uma linha por portfólio, badges de status, ações rápidas
+ * e área secundária expansível com os ativos. Nenhuma regra de OAuth,
+ * descoberta, vínculo ou revogação vive aqui — as ações reaproveitam os
+ * callbacks e server functions existentes.
  */
 
 type Account = DiscoveredAccountsResult["accounts"][number];
@@ -81,51 +88,36 @@ function portfolioState(p: MetaPortfolioSummary): PortfolioState {
   return p.attentionCount ? "attention" : "connected";
 }
 
-const STATE_STYLE: Record<PortfolioState, { label: string; className: string }> = {
+const STATE_STYLE: Record<PortfolioState, { label: string; dot: string; chip: string }> = {
   connected: {
     label: "Conectado",
-    className: "border-health-good/30 bg-health-good/10 text-health-good",
+    dot: "bg-health-good",
+    chip: "border-health-good/30 bg-health-good/10 text-health-good",
   },
   attention: {
     label: "Atenção",
-    className: "border-severity-warning/30 bg-severity-warning/10 text-severity-warning",
+    dot: "bg-severity-warning",
+    chip: "border-severity-warning/30 bg-severity-warning/10 text-severity-warning",
   },
   error: {
     label: "Erro",
-    className: "border-severity-critical/30 bg-severity-critical/10 text-severity-critical",
+    dot: "bg-severity-critical",
+    chip: "border-severity-critical/30 bg-severity-critical/10 text-severity-critical",
   },
 };
+
+const STATE_WEIGHT: Record<PortfolioState, number> = { error: 0, attention: 1, connected: 2 };
 
 function StateBadge({ state }: { state: PortfolioState }) {
   const m = STATE_STYLE[state];
   return (
     <Badge
       variant="outline"
-      className={cn("h-5 shrink-0 gap-1 px-1.5 text-[11px] font-medium", m.className)}
+      className={cn("h-5 shrink-0 gap-1 px-1.5 text-[11px] font-medium", m.chip)}
     >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      <span className={cn("h-1.5 w-1.5 rounded-full", m.dot)} />
       {m.label}
     </Badge>
-  );
-}
-
-function Metric({
-  icon: Icon,
-  value,
-  label,
-  tone,
-}: {
-  icon: typeof Facebook;
-  value: number;
-  label: string;
-  tone?: string;
-}) {
-  return (
-    <div className="flex min-w-0 items-center gap-1.5" title={`${value} ${label}`}>
-      <Icon className={cn("h-3.5 w-3.5 shrink-0", tone ?? "text-muted-foreground")} />
-      <span className="text-xs font-semibold tabular-nums">{value}</span>
-      <span className="truncate text-[11px] text-muted-foreground">{label}</span>
-    </div>
   );
 }
 
@@ -247,8 +239,11 @@ export function MetaPortfoliosPanel({
   onChanged: () => void;
 }) {
   const disconnectFn = useServerFn(disconnectMetaPortfolioFn);
-  const [manageKey, setManageKey] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [target, setTarget] = useState<MetaPortfolioSummary | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | PortfolioState>("all");
+  const [sort, setSort] = useState<"name" | "status" | "assets">("status");
 
   const disconnectMut = useMutation({
     mutationFn: (p: MetaPortfolioSummary) =>
@@ -280,15 +275,41 @@ export function MetaPortfoliosPanel({
     };
   }, [accounts]);
 
-  const managed = portfolios.find((p) => portfolioKey(p) === manageKey) ?? null;
-  const managedAssets = managed ? assetsOf(managed) : [];
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const list = portfolios.map((p) => {
+      const assets = assetsOf(p);
+      return {
+        p,
+        key: portfolioKey(p),
+        name: portfolioName(p),
+        state: portfolioState(p),
+        pages: assets.filter((a) => a.channel === "facebook").length,
+        igs: assets.filter((a) => a.channel === "instagram").length,
+        assets,
+      };
+    });
+    const filtered = list.filter((r) => {
+      if (statusFilter !== "all" && r.state !== statusFilter) return false;
+      if (!q) return true;
+      return `${r.name} ${r.p.businessId ?? ""} ${r.p.ownerExternalId ?? ""}`
+        .toLowerCase()
+        .includes(q);
+    });
+    return [...filtered].sort((a, b) => {
+      if (sort === "name") return a.name.localeCompare(b.name, "pt-BR");
+      if (sort === "assets") return b.assets.length - a.assets.length;
+      return STATE_WEIGHT[a.state] - STATE_WEIGHT[b.state];
+    });
+  }, [portfolios, assetsOf, search, statusFilter, sort]);
 
   if (loading) {
     return (
-      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-        <Skeleton className="h-28 rounded-xl" />
-        <Skeleton className="h-28 rounded-xl" />
-      </div>
+      <Card className="space-y-2 p-4">
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} className="h-9 w-full rounded-lg" />
+        ))}
+      </Card>
     );
   }
 
@@ -311,11 +332,7 @@ export function MetaPortfoliosPanel({
             disabled={busy}
             onClick={onConnect}
           >
-            {busy ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Plus className="h-3.5 w-3.5" />
-            )}
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
             Conectar Meta
           </Button>
         ) : null}
@@ -324,11 +341,11 @@ export function MetaPortfoliosPanel({
   }
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <MetaIssuesAlert
         error={discovery?.error ?? null}
         warnings={discovery?.warnings ?? []}
-        restrictedCount={discovery?.warnings?.length ? accounts.length : 0}
+        restrictedCount={discovery?.warnings?.length ?? 0}
         onRetry={onRefresh}
         retrying={fetchingDiscovery}
       />
@@ -348,153 +365,250 @@ export function MetaPortfoliosPanel({
         </Card>
       ) : null}
 
-      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-        {portfolios.map((p) => {
-          const assets = assetsOf(p);
-          const pages = assets.filter((a) => a.channel === "facebook").length;
-          const igs = assets.filter((a) => a.channel === "instagram").length;
-          const state = portfolioState(p);
-          return (
-            <Card key={portfolioKey(p)} className="flex flex-col gap-2.5 p-3">
-              <div className="flex min-w-0 items-start gap-2.5">
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border bg-muted/40">
-                  <Building2 className="h-4 w-4 text-muted-foreground" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="truncate text-sm font-semibold">{portfolioName(p)}</span>
-                    <StateBadge state={state} />
-                  </div>
-                  <div className="truncate font-mono text-[10px] text-muted-foreground">
-                    {p.businessId
-                      ? `ID ${p.businessId}`
-                      : p.ownerExternalId
-                        ? `Usuário Meta ${p.ownerExternalId}`
-                        : "identidade legada"}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-                <Metric icon={Facebook} value={pages} label="páginas" tone="text-sky-600" />
-                <Metric icon={Instagram} value={igs} label="Instagram" tone="text-pink-500" />
-                <Metric icon={Megaphone} value={0} label="Ads" />
-                <Metric icon={Link2} value={p.channelCount} label="vinculados" />
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-2">
-                <span className="truncate text-[10px] text-muted-foreground">
-                  Sincronizado {formatRelative(discovery?.discoveredAt ?? p.connectedAt)}
-                </span>
-                {canManage ? (
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="h-7 gap-1.5 px-2 text-[11px]"
-                      onClick={() => setManageKey(portfolioKey(p))}
-                    >
-                      <Settings2 className="h-3 w-3" />
-                      Gerenciar
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 gap-1.5 px-2 text-[11px]"
-                      disabled={fetchingDiscovery || !!discovery?.needsAuthorization}
-                      onClick={onRefresh}
-                    >
-                      {fetchingDiscovery ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-3 w-3" />
-                      )}
-                      Sincronizar
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                          <MoreHorizontal className="h-3.5 w-3.5" />
-                          <span className="sr-only">Mais ações do portfólio</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-52">
-                        <DropdownMenuItem className="text-xs" onClick={onSwitch} disabled={busy}>
-                          <RefreshCw className="mr-2 h-3.5 w-3.5" />
-                          Reconectar / trocar portfólio
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-xs"
-                          onClick={onRevokeAll}
-                          disabled={revoking}
-                        >
-                          <Unplug className="mr-2 h-3.5 w-3.5" />
-                          Revogar autorização
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-xs text-destructive focus:text-destructive"
-                          onClick={() => setTarget(p)}
-                        >
-                          <Unlink className="mr-2 h-3.5 w-3.5" />
-                          Desconectar portfólio
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                ) : null}
-              </div>
-            </Card>
-          );
-        })}
+      {/* -------------------------------- controles ------------------------------- */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[220px] flex-1">
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar portfólio ou Business ID"
+            className="h-9 pl-8 text-xs"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+          <SelectTrigger className="h-9 w-[152px] text-xs">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all" className="text-xs">
+              Todos os status
+            </SelectItem>
+            {(["connected", "attention", "error"] as PortfolioState[]).map((s) => (
+              <SelectItem key={s} value={s} className="text-xs">
+                {STATE_STYLE[s].label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)}>
+          <SelectTrigger className="h-9 w-[176px] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="status" className="text-xs">
+              Status (críticos primeiro)
+            </SelectItem>
+            <SelectItem value="name" className="text-xs">
+              Nome (A–Z)
+            </SelectItem>
+            <SelectItem value="assets" className="text-xs">
+              Mais ativos
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* ------------------------- drawer de ativos ------------------------- */}
-      <Dialog open={!!managed} onOpenChange={(v) => !v && setManageKey(null)}>
-        <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-5xl">
-          <DialogHeader>
-            <DialogTitle className="text-base">
-              Ativos de {managed ? portfolioName(managed) : ""}
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              Contas devolvidas pela Meta neste portfólio e ainda não vinculadas. Use a busca e os
-              filtros para encontrar o ativo e vincular ao cliente.
-            </DialogDescription>
-          </DialogHeader>
+      <div className="text-[11px] text-muted-foreground">
+        {rows.length} de {portfolios.length} portfólio(s)
+      </div>
 
-          {loadingDiscovery ? (
-            <Skeleton className="h-48 w-full rounded-xl" />
-          ) : (
-            <AvailableAccountsTable
-              accounts={managedAssets}
-              canManage={canManage}
-              clientByExternalId={clientByExternalId}
-              onLink={onLinkAccount}
-              emptyDescription={`A Meta devolveu ${
-                discovery?.alreadyLinked ?? 0
-              } conta(s) e todas já existem neste workspace (conectadas ou no histórico). Use “Sincronizar” após alterar permissões na Meta.`}
-              actions={
-                canManage ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-9 gap-1.5 text-xs"
-                    disabled={fetchingDiscovery || !!discovery?.needsAuthorization}
-                    onClick={onRefresh}
-                  >
-                    {fetchingDiscovery ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-3.5 w-3.5" />
-                    )}
-                    Sincronizar
-                  </Button>
-                ) : null
-              }
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* ---------------------------------- tabela --------------------------------- */}
+      {rows.length === 0 ? (
+        <Card className="flex flex-col items-start gap-2 border-dashed p-6">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            Nenhum portfólio com esses filtros
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Ajuste a busca ou o status para ver os demais portfólios.
+          </p>
+        </Card>
+      ) : (
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-8" />
+                  <TableHead className="min-w-[220px] text-xs">Portfólio</TableHead>
+                  <TableHead className="w-[110px] text-xs">Status</TableHead>
+                  <TableHead className="w-[76px] text-center text-xs">Páginas</TableHead>
+                  <TableHead className="w-[86px] text-center text-xs">Instagram</TableHead>
+                  <TableHead className="w-[64px] text-center text-xs">Ads</TableHead>
+                  <TableHead className="w-[96px] text-center text-xs">Clientes</TableHead>
+                  <TableHead className="w-[132px] text-xs">Sincronização</TableHead>
+                  <TableHead className="w-[150px]" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((r) => {
+                  const isOpen = expanded === r.key;
+                  return (
+                    <Fragment key={r.key}>
+                      <TableRow
+                        className="cursor-pointer"
+                        onClick={() => setExpanded(isOpen ? null : r.key)}
+                      >
+                        <TableCell className="py-2 pr-0">
+                          <ChevronRight
+                            className={cn(
+                              "h-3.5 w-3.5 text-muted-foreground transition-transform",
+                              isOpen && "rotate-90",
+                            )}
+                          />
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md border bg-muted/40">
+                              <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                            </span>
+                            <div className="min-w-0">
+                              <div className="truncate text-xs font-medium">{r.name}</div>
+                              <div className="truncate font-mono text-[11px] text-muted-foreground">
+                                {r.p.businessId
+                                  ? `ID ${r.p.businessId}`
+                                  : r.p.ownerExternalId
+                                    ? `Usuário Meta ${r.p.ownerExternalId}`
+                                    : "identidade legada"}
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <StateBadge state={r.state} />
+                        </TableCell>
+                        <TableCell className="py-2 text-center text-xs tabular-nums">
+                          {r.pages}
+                        </TableCell>
+                        <TableCell className="py-2 text-center text-xs tabular-nums">
+                          {r.igs}
+                        </TableCell>
+                        <TableCell
+                          className="py-2 text-center text-xs text-muted-foreground"
+                          title="A descoberta atual não retorna contas de Ads"
+                        >
+                          —
+                        </TableCell>
+                        <TableCell className="py-2 text-center text-xs tabular-nums">
+                          {r.p.clientCount}
+                        </TableCell>
+                        <TableCell className="py-2 text-[11px] text-muted-foreground">
+                          {formatRelative(discovery?.discoveredAt ?? r.p.connectedAt)}
+                        </TableCell>
+                        <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
+                          {canManage ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="h-7 gap-1.5 px-2 text-[11px]"
+                                onClick={() => setExpanded(isOpen ? null : r.key)}
+                              >
+                                <Settings2 className="h-3 w-3" />
+                                Gerenciar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0"
+                                title="Sincronizar"
+                                disabled={fetchingDiscovery || !!discovery?.needsAuthorization}
+                                onClick={onRefresh}
+                              >
+                                {fetchingDiscovery ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-3.5 w-3.5" />
+                                )}
+                                <span className="sr-only">Sincronizar</span>
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
+                                    <MoreHorizontal className="h-3.5 w-3.5" />
+                                    <span className="sr-only">Mais ações do portfólio</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-52">
+                                  <DropdownMenuItem
+                                    className="text-xs"
+                                    onClick={onSwitch}
+                                    disabled={busy}
+                                  >
+                                    <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                                    Reconectar / trocar portfólio
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    className="text-xs"
+                                    onClick={onRevokeAll}
+                                    disabled={revoking}
+                                  >
+                                    <Unplug className="mr-2 h-3.5 w-3.5" />
+                                    Revogar autorização
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-xs text-destructive focus:text-destructive"
+                                    onClick={() => setTarget(r.p)}
+                                  >
+                                    <Unlink className="mr-2 h-3.5 w-3.5" />
+                                    Desconectar portfólio
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          ) : null}
+                        </TableCell>
+                      </TableRow>
+
+                      {isOpen ? (
+                        <TableRow className="hover:bg-transparent">
+                          <TableCell colSpan={9} className="bg-muted/20 p-3">
+                            {loadingDiscovery ? (
+                              <Skeleton className="h-32 w-full rounded-lg" />
+                            ) : (
+                              <AvailableAccountsTable
+                                accounts={r.assets}
+                                canManage={canManage}
+                                clientByExternalId={clientByExternalId}
+                                onLink={onLinkAccount}
+                                emptyDescription={`A Meta devolveu ${
+                                  discovery?.alreadyLinked ?? 0
+                                } conta(s) e todas já existem neste workspace (conectadas ou no histórico). Use “Sincronizar” após alterar permissões na Meta.`}
+                                actions={
+                                  canManage ? (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-9 gap-1.5 text-xs"
+                                      disabled={
+                                        fetchingDiscovery || !!discovery?.needsAuthorization
+                                      }
+                                      onClick={onRefresh}
+                                    >
+                                      {fetchingDiscovery ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : (
+                                        <RefreshCw className="h-3.5 w-3.5" />
+                                      )}
+                                      Sincronizar
+                                    </Button>
+                                  ) : null
+                                }
+                              />
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ) : null}
+                    </Fragment>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
+      )}
 
       <AlertDialog open={!!target} onOpenChange={(v) => !v && setTarget(null)}>
         <AlertDialogContent>
