@@ -71,7 +71,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { MetaPortfolioDialog } from "@/components/connections/meta-portfolio-dialog";
-import { AvailableAccountsTable } from "@/components/connections/available-accounts-table";
+import { MetaPortfoliosPanel } from "@/components/connections/meta-portfolios-panel";
 
 import {
   CHANNEL_ICON_SIZE,
@@ -419,17 +419,6 @@ export function ChannelsCenter({
   /* ------------------------------- portfólios ------------------------------- */
 
   const portfolios = portfolioStatus?.portfolios ?? [];
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const activePortfolio =
-    portfolios.find((p) => portfolioKey(p) === selectedKey) ?? portfolios[0] ?? null;
-
-  /** Ativos do portfólio selecionado (fallback: todos, em identidade legada). */
-  const portfolioAssets = useMemo(() => {
-    const bid = activePortfolio?.businessId ?? null;
-    if (!bid) return available;
-    const matching = available.filter((a) => a.businessId === bid);
-    return matching.length || available.some((a) => a.businessId) ? matching : available;
-  }, [available, activePortfolio]);
 
   const linkedByExternalId = useMemo(() => {
     const m = new Map<string, string>();
@@ -513,7 +502,7 @@ export function ChannelsCenter({
             }}
           />
 
-          {/* ------------- 2. portfólio Meta e ativos (detalhe secundário) ------------- */}
+          {/* ------------- 2. portfólios Meta e ativos (detalhe secundário) ------------- */}
           <Collapsible open={portfolioDetailsOpen} onOpenChange={setPortfolioDetailsOpen}>
             <CollapsibleTrigger asChild>
               <Button
@@ -523,7 +512,7 @@ export function ChannelsCenter({
               >
                 <span className="flex items-center gap-1.5">
                   <Building2 className="h-3.5 w-3.5" />
-                  Portfólio Meta e ativos disponíveis
+                  Portfólios Meta e ativos disponíveis
                   {portfolios.length ? (
                     <Badge variant="outline" className="h-4 px-1 text-[10px]">
                       {portfolios.length}
@@ -538,117 +527,26 @@ export function ChannelsCenter({
                 />
               </Button>
             </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-4 pt-3">
-              {/* ---------------------- 1. portfólio Meta selecionado ---------------------- */}
-              <PortfolioSection
+            <CollapsibleContent className="pt-2.5">
+              <MetaPortfoliosPanel
                 brandId={brandId}
                 canManage={canManage}
                 loading={loadingPortfolio}
-                authorized={portfolioStatus?.authorized ?? false}
-                authorizedAt={portfolioStatus?.authorizedAt ?? null}
-                metaUserName={portfolioStatus?.metaUserName ?? null}
+                loadingDiscovery={loadingDiscovery}
+                fetchingDiscovery={fetchingDiscovery}
                 portfolios={portfolios}
-                active={activePortfolio}
-                assetCount={portfolioAssets.length}
+                accounts={available}
+                discovery={discovery}
+                clientByExternalId={linkedByExternalId}
                 busy={connecting !== null}
-                onSelect={setSelectedKey}
-                onConnect={() => void connectMeta("facebook")}
-                onSwitch={() => void connectMeta("facebook", true)}
-                onManage={() => {
-                  document.getElementById("assets-section")?.scrollIntoView({ behavior: "smooth" });
-                }}
-                onRevokeAll={() => revokeAuthMut.mutate()}
                 revoking={revokeAuthMut.isPending}
+                onConnect={() => setConnectOpen(true)}
+                onSwitch={() => void connectMeta("facebook", true)}
+                onRefresh={() => refreshDiscovery()}
+                onRevokeAll={() => revokeAuthMut.mutate()}
+                onLinkAccount={(a) => setLinkDiscovered(a)}
                 onChanged={invalidate}
               />
-
-              {/* ------------------------- 2. ativos disponíveis -------------------------- */}
-              <section id="assets-section" className="space-y-2.5">
-                <div className="flex flex-wrap items-end justify-between gap-2">
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-semibold">Ativos disponíveis</h3>
-                    <p className="text-xs text-muted-foreground">
-                      Contas encontradas neste portfólio e ainda não conectadas.
-                      {discovery?.discoveredAt ? (
-                        <span className="ml-1">
-                          Verificado {formatRelative(discovery.discoveredAt)}.
-                        </span>
-                      ) : null}
-                    </p>
-                  </div>
-                  <Badge variant="outline" className="h-6 text-[11px]">
-                    {portfolioAssets.length} ativo{portfolioAssets.length === 1 ? "" : "s"}
-                  </Badge>
-                </div>
-
-                {discovery?.error ? (
-                  <Card className="flex flex-wrap items-center justify-between gap-2 border-severity-critical/30 bg-severity-critical/10 p-3 text-xs text-severity-critical">
-                    <span className="min-w-0">{discovery.error}</span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 gap-1.5 text-xs"
-                      onClick={() => refreshDiscovery()}
-                    >
-                      <RefreshCw className="h-3.5 w-3.5" />
-                      Tentar novamente
-                    </Button>
-                  </Card>
-                ) : null}
-                {discovery?.warnings?.length ? (
-                  <Card className="border-severity-warning/30 bg-severity-warning/10 p-3 text-[11px] text-severity-warning">
-                    {discovery.warnings.slice(0, 3).join(" · ")}
-                  </Card>
-                ) : null}
-
-                {loadingDiscovery ? (
-                  <Skeleton className="h-40 w-full rounded-xl" />
-                ) : discovery?.needsAuthorization ? (
-                  <Card className="flex flex-col items-start gap-2 border-dashed p-4">
-                    <div className="text-sm font-medium">Autorize a Meta para listar ativos</div>
-                    <p className="text-xs text-muted-foreground">
-                      Nenhuma autorização válida neste workspace. Faça o login na Meta mantendo
-                      todas as Páginas e contas do Instagram marcadas.
-                    </p>
-                    {canManage ? (
-                      <Button
-                        size="sm"
-                        className="mt-1 h-8 gap-1.5 text-xs"
-                        onClick={() => setConnectOpen(true)}
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        Conectar Meta
-                      </Button>
-                    ) : null}
-                  </Card>
-                ) : (
-                  <AvailableAccountsTable
-                    accounts={portfolioAssets}
-                    canManage={canManage}
-                    clientByExternalId={linkedByExternalId}
-                    onLink={(a) => setLinkDiscovered(a)}
-                    emptyDescription={`A Meta devolveu ${discovery?.alreadyLinked ?? 0} conta(s) e todas já existem neste workspace (conectadas ou no histórico). Use “Sincronizar com a Meta” após alterar permissões.`}
-                    actions={
-                      canManage ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-9 gap-1.5 text-xs"
-                          disabled={fetchingDiscovery || !!discovery?.needsAuthorization}
-                          onClick={() => refreshDiscovery()}
-                        >
-                          {fetchingDiscovery ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <RefreshCw className="h-3.5 w-3.5" />
-                          )}
-                          Sincronizar com a Meta
-                        </Button>
-                      ) : null
-                    }
-                  />
-                )}
-              </section>
             </CollapsibleContent>
           </Collapsible>
 
@@ -871,323 +769,6 @@ function ConnectSteps({ active }: { active: number }) {
         </li>
       ))}
     </ol>
-  );
-}
-
-/** Identidade estável de um portfólio (Business ID, ou usuário Meta legado). */
-function portfolioKey(p: MetaPortfolioSummary) {
-  return p.businessId ?? `user:${p.ownerExternalId ?? "unknown"}`;
-}
-
-function portfolioName(p: MetaPortfolioSummary) {
-  return p.businessName ?? p.ownerName ?? "Portfólio sem nome na Meta";
-}
-
-type PortfolioState = "connected" | "attention" | "disconnected";
-
-function portfolioState(p: MetaPortfolioSummary): PortfolioState {
-  if (!p.authorized) return "disconnected";
-  return p.attentionCount ? "attention" : "connected";
-}
-
-function PortfolioStatusDot({ state }: { state: PortfolioState }) {
-  const map: Record<PortfolioState, { label: string; className: string }> = {
-    connected: {
-      label: "Conectado",
-      className: "border-health-good/30 bg-health-good/10 text-health-good",
-    },
-    attention: {
-      label: "Atenção",
-      className: "border-severity-warning/30 bg-severity-warning/10 text-severity-warning",
-    },
-    disconnected: {
-      label: "Desconectado",
-      className: "border-border bg-muted/40 text-muted-foreground",
-    },
-  };
-  const m = map[state];
-  return (
-    <Badge
-      variant="outline"
-      className={cn("h-5 gap-1 px-1.5 text-[11px] font-medium", m.className)}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {m.label}
-    </Badge>
-  );
-}
-
-/**
- * Seção 1 — resumo de alto destaque do portfólio Meta selecionado.
- * Nenhuma regra de negócio aqui: reaproveita `disconnectMetaPortfolioFn`
- * (desconexão granular por Business Portfolio) e o OAuth existente.
- */
-function PortfolioSection({
-  brandId,
-  canManage,
-  loading,
-  authorized,
-  authorizedAt,
-  metaUserName,
-  portfolios,
-  active,
-  assetCount,
-  busy,
-  onSelect,
-  onConnect,
-  onSwitch,
-  onManage,
-  onRevokeAll,
-  revoking,
-  onChanged,
-}: {
-  brandId: string | null;
-  canManage: boolean;
-  loading: boolean;
-  authorized: boolean;
-  authorizedAt: string | null;
-  metaUserName: string | null;
-  portfolios: MetaPortfolioSummary[];
-  active: MetaPortfolioSummary | null;
-  assetCount: number;
-  busy: boolean;
-  onSelect: (key: string) => void;
-  onConnect: () => void;
-  onSwitch: () => void;
-  onManage: () => void;
-  onRevokeAll: () => void;
-  revoking: boolean;
-  onChanged: () => void;
-}) {
-  const disconnectFn = useServerFn(disconnectMetaPortfolioFn);
-  const [target, setTarget] = useState<MetaPortfolioSummary | null>(null);
-
-  const disconnectMut = useMutation({
-    mutationFn: (p: MetaPortfolioSummary) =>
-      disconnectFn({
-        data: {
-          brandId: brandId!,
-          businessId: p.businessId,
-          ownerExternalId: p.legacyIdentity ? p.ownerExternalId : null,
-        },
-      }),
-    onSuccess: (res) => {
-      if (!res.ok) {
-        toast.error(res.message);
-        return;
-      }
-      toast.success("Portfólio desconectado.", { description: res.message });
-      setTarget(null);
-      onChanged();
-    },
-    onError: () => toast.error("Não foi possível desconectar este portfólio."),
-  });
-
-  if (loading) {
-    return (
-      <Card className="p-4">
-        <Skeleton className="h-4 w-48" />
-        <Skeleton className="mt-2 h-3 w-72" />
-      </Card>
-    );
-  }
-
-  if (!active) {
-    return (
-      <Card className="flex flex-col items-start gap-2 border-dashed p-4">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Building2 className="h-4 w-4 text-muted-foreground" />
-          Nenhum portfólio Meta conectado
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Conecte um Business Portfolio da Meta para descobrir Páginas e contas do Instagram e
-          vinculá-las aos seus clientes.
-        </p>
-        <div className="mt-1 flex flex-wrap items-center gap-2">
-          {canManage ? (
-            <Button size="sm" className="h-8 gap-1.5 text-xs" disabled={busy} onClick={onConnect}>
-              {busy ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Plus className="h-3.5 w-3.5" />
-              )}
-              Conectar Meta
-            </Button>
-          ) : null}
-          {canManage && authorized ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8 gap-1.5 text-xs text-destructive hover:text-destructive"
-              disabled={revoking}
-              onClick={onRevokeAll}
-            >
-              {revoking ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Unplug className="h-3.5 w-3.5" />
-              )}
-              Revogar autorização
-            </Button>
-          ) : null}
-        </div>
-      </Card>
-    );
-  }
-
-  const state = portfolioState(active);
-
-  return (
-    <Card className="p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-muted/40">
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-            </span>
-            {portfolios.length > 1 ? (
-              <Select value={portfolioKey(active)} onValueChange={onSelect}>
-                <SelectTrigger className="h-8 min-w-[220px] max-w-[320px] text-sm font-medium">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {portfolios.map((p) => (
-                    <SelectItem key={portfolioKey(p)} value={portfolioKey(p)} className="text-xs">
-                      <span className="flex flex-col">
-                        <span className="font-medium">{portfolioName(p)}</span>
-                        <span className="text-[11px] text-muted-foreground">
-                          {p.authorized ? "Autorizado" : "Sem autorização"} ·{" "}
-                          {p.businessId ? `ID ${p.businessId.slice(0, 8)}…` : "identidade legada"} ·{" "}
-                          {p.channelCount} canal(is)
-                          {p.connectedAt ? ` · ${formatRelative(p.connectedAt)}` : ""}
-                        </span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <span className="truncate text-sm font-semibold">{portfolioName(active)}</span>
-            )}
-            <PortfolioStatusDot state={state} />
-          </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-            <CopyableId label="Business ID" value={active.businessId} />
-            {!active.businessId && active.ownerExternalId ? (
-              <CopyableId label="Usuário Meta" value={active.ownerExternalId} />
-            ) : null}
-            <span>Autorizado por {active.ownerName ?? metaUserName ?? "—"}</span>
-            {authorizedAt ? <span>Autorização {formatRelative(authorizedAt)}</span> : null}
-            {active.authorizedByMetaUserIds.length > 1 ? (
-              <span>{active.authorizedByMetaUserIds.length} administradores Meta</span>
-            ) : null}
-          </div>
-          <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs">
-            <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[11px]">
-              {assetCount} ativo{assetCount === 1 ? "" : "s"} encontrado
-              {assetCount === 1 ? "" : "s"}
-            </Badge>
-            <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[11px]">
-              {active.channelCount} canal(is) vinculado(s)
-            </Badge>
-            <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[11px]">
-              {active.clientCount} cliente(s)
-            </Badge>
-          </div>
-        </div>
-
-        {canManage ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            {portfolios.length > 1 ? null : (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 text-xs"
-                disabled={busy}
-                onClick={onSwitch}
-              >
-                {busy ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-3.5 w-3.5" />
-                )}
-                Trocar portfólio
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant="secondary"
-              className="h-8 gap-1.5 text-xs"
-              onClick={onManage}
-            >
-              <Settings2 className="h-3.5 w-3.5" />
-              Gerenciar
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                  <MoreHorizontal className="h-4 w-4" />
-                  <span className="sr-only">Mais ações do portfólio</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuItem className="text-xs" onClick={onSwitch} disabled={busy}>
-                  <RefreshCw className="mr-2 h-3.5 w-3.5" />
-                  Reconectar
-                </DropdownMenuItem>
-                <DropdownMenuItem className="text-xs" onClick={onSwitch} disabled={busy}>
-                  <Plus className="mr-2 h-3.5 w-3.5" />
-                  Trocar portfólio
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-xs text-destructive focus:text-destructive"
-                  onClick={() => setTarget(active)}
-                >
-                  <Unlink className="mr-2 h-3.5 w-3.5" />
-                  Desconectar portfólio
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        ) : null}
-      </div>
-
-      {state === "disconnected" ? (
-        <p className="mt-3 rounded-md bg-muted/50 px-2.5 py-1.5 text-[11px] text-muted-foreground">
-          Este portfólio não tem autorização ativa. Os ativos permanecem indisponíveis até uma nova
-          autorização na Meta; o histórico dos clientes é preservado.
-        </p>
-      ) : null}
-
-      <AlertDialog open={!!target} onOpenChange={(v) => !v && setTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Desconectar o portfólio {target ? portfolioName(target) : ""}?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Os ativos deste portfólio deixarão de estar disponíveis para uso e{" "}
-              {target?.channelCount ?? 0} canal(is) param de publicar. Nenhum dado histórico de
-              clientes é apagado — apenas a autorização é revogada e os ativos ficam indisponíveis.
-              Você pode reconectar depois.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={disconnectMut.isPending}
-              onClick={(e) => {
-                e.preventDefault();
-                if (target) disconnectMut.mutate(target);
-              }}
-            >
-              {disconnectMut.isPending ? "Desconectando…" : "Desconectar portfólio"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </Card>
   );
 }
 
