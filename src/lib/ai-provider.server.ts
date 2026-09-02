@@ -436,9 +436,7 @@ function withModelInstrumentation(
         if (isModelUnavailableError(msg)) {
           const next = nextFallbackModel(provider, ctx.role, tried);
           if (next) {
-            console.warn(
-              `[ai-provider] ${provider}/${ctx.role}: ${modelId} indisponível — tentando ${next}`,
-            );
+            logAiRetry({ ...logEntry, detail: `modelo indisponível — tentando ${next}` });
             await saveCatalogOverride({
               provider,
               role: ctx.role,
