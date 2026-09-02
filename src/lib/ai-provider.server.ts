@@ -757,6 +757,8 @@ export async function embedTextWithBrandKey(
     }
   }
 
+  let lastKind = "unknown";
+  let lastDetail = "";
   for (const cred of candidates) {
     for (let attempt = 1; attempt <= EMBED_MAX_ATTEMPTS; attempt++) {
       try {
@@ -767,10 +769,21 @@ export async function embedTextWithBrandKey(
           typeof status === "number"
             ? isRetryableEmbeddingStatus(status)
             : isRetryableEmbeddingError(err);
-        console.error(
-          `[ai-provider] embedding ${cred.provider} tentativa ${attempt} falhou`,
-          (err as Error)?.message ?? err,
-        );
+        lastKind = classifyAiError(err).kind;
+        lastDetail = unwrapAiError(err).text;
+        const entry = {
+          op: "embedding",
+          step: "embed",
+          provider: cred.provider,
+          model: "embedding",
+          attempt,
+          kind: lastKind,
+          retryable,
+          brandId,
+          detail: lastDetail,
+        };
+        if (retryable && attempt < EMBED_MAX_ATTEMPTS) logAiRetry(entry);
+        else logAiFailure(entry);
         if (!retryable) break; // erro de request/dimensão: repetir não muda nada
         if (attempt < EMBED_MAX_ATTEMPTS) {
           await new Promise((r) => setTimeout(r, embeddingBackoffMs(attempt)));
@@ -778,6 +791,19 @@ export async function embedTextWithBrandKey(
       }
     }
   }
+  // Degradação continua sendo `null`, mas nunca silenciosa: a tentativa
+  // aparece em `brand_ai_usage` com classificação.
+  void recordAiUsage({
+    brandId,
+    model: "embedding",
+    inputTokens: 0,
+    outputTokens: 0,
+    success: false,
+    errorKind: lastKind,
+    errorMessage: lastDetail,
+    step: "embedding",
+    agent: "embedding",
+  });
   return null;
 }
 
