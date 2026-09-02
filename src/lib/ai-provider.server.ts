@@ -942,14 +942,29 @@ export async function generateBrandImage(
       return image;
     } catch (err) {
       lastError = err;
-      console.error(`[ai-provider] imagem falhou (${creds.provider}/${modelId})`, err);
+      const { kind, retryable } = classifyAiError(err);
+      logAiFailure({
+        op: usage.agent ?? "image.generate",
+        step: "image",
+        provider: creds.provider,
+        model: modelId,
+        kind,
+        retryable,
+        brandId,
+        clientId: usage.clientId ?? null,
+        userId: usage.userId ?? null,
+        detail: unwrapAiError(err).text,
+      });
       await recordAiUsage({
         brandId,
         model: modelId,
         inputTokens: 0,
         outputTokens: 0,
         success: false,
-        errorMessage: err instanceof Error ? err.message : String(err),
+        errorKind: kind,
+        provider: creds.provider,
+        step: "image",
+        errorMessage: unwrapAiError(err).text,
         ...usage,
         agent: usage.agent ?? "image.generate",
       });
