@@ -313,6 +313,7 @@ function withModelInstrumentation(
     let inTok = 0;
     let outTok = 0;
     let streamError: string | null = null;
+    let streamKind: string | null = null;
     const meter = new TransformStream<unknown, unknown>({
       transform(chunk, controller) {
         const part = chunk as { type?: string; usage?: UsageLike; error?: unknown };
@@ -324,11 +325,30 @@ function withModelInstrumentation(
         if (part?.type === "error") {
           streamError =
             part.error instanceof Error ? part.error.message : String(part.error ?? "stream error");
+          // Falha DEPOIS de geração parcial: preserva tokens já consumidos e a
+          // classificação, para o consumo aparecer com causa no histórico.
+          streamKind = classifyAiError(part.error).kind;
         }
         controller.enqueue(chunk);
       },
       flush() {
-        log(modelId, inTok, outTok, !streamError, streamError);
+        if (streamError) {
+          logAiFailure({
+            op: ctx.usage?.agent ?? `${ctx.role}.stream`,
+            step: "stream",
+            provider: ctx.provider,
+            model: modelId,
+            kind: streamKind,
+            retryable: streamKind ? isRecoverableFailure(streamKind) : null,
+            brandId: ctx.brandId,
+            clientId: ctx.usage?.clientId ?? null,
+            userId: ctx.usage?.userId ?? null,
+            detail: streamError,
+          });
+        }
+        log(modelId, inTok, outTok, !streamError, streamError, {
+          ...(streamKind ? { kind: streamKind } : {}),
+        });
       },
     });
     return {
