@@ -420,6 +420,23 @@ export function MetaPortfolioDialog({
     adAccounts.length,
   ]);
 
+  /**
+   * Busca APENAS de apresentação sobre as listas já carregadas — nenhuma
+   * consulta extra à Meta e nenhuma alteração no fluxo de seleção.
+   */
+  const [assetQuery, setAssetQuery] = useState("");
+  const q = assetQuery.trim().toLowerCase();
+  const match = (...parts: Array<string | null | undefined>) =>
+    !q || parts.filter(Boolean).join(" ").toLowerCase().includes(q);
+  const visibleFb = fbPages.filter((p) => match(p.pageName, p.category, p.pageId));
+  const visibleIg = igPages.filter((p) =>
+    match(p.pageName, p.instagramUsername, p.instagramBusinessId, p.pageId),
+  );
+  const visibleThreads = threadsAccounts.filter((t) =>
+    match(t.username, t.name, t.threadsUserId),
+  );
+  const visibleAds = adAccounts.filter((a) => match(a.name, a.accountId, a.businessName));
+
   const showNotLoadedState = data?.portfolioStatus === "not_loaded";
   const showStoredRateLimitState = data?.portfolioStatus === "rate_limited";
 
@@ -618,6 +635,15 @@ export function MetaPortfolioDialog({
                 {data?.pagesCount ?? 0} Páginas · {igPages.length} contas do Instagram
               </p>
             )}
+            <div className="relative mb-2">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={assetQuery}
+                onChange={(e) => setAssetQuery(e.target.value)}
+                placeholder="Buscar ativo por nome, @username ou ID"
+                className="h-9 pl-8 text-xs"
+              />
+            </div>
             {!channel && (
               <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="facebook" className="gap-2 text-xs">
@@ -654,12 +680,12 @@ export function MetaPortfolioDialog({
             <TabsContent value="facebook" className="mt-3">
               <ScrollArea className="h-[420px] rounded-lg border border-border/60">
                 <ul className="divide-y divide-border/60">
-                  {fbPages.length === 0 ? (
+                  {visibleFb.length === 0 ? (
                     <li className="p-6 text-center text-xs text-muted-foreground">
                       Nenhuma Página encontrada.
                     </li>
                   ) : (
-                    fbPages.map((p) => {
+                    visibleFb.map((p) => {
                       const key = `facebook:${p.pageId}`;
                       const connectionId = data?.connected.facebook[p.pageId] ?? null;
                       const isConnected = !!connectionId;
@@ -715,7 +741,7 @@ export function MetaPortfolioDialog({
             </TabsContent>
 
             <TabsContent value="instagram" className="mt-3">
-              {igPages.length === 0 ? (
+              {visibleIg.length === 0 ? (
                 <InstagramEmptyDiagnostic
                   pagesCount={data?.pagesCount ?? fbPages.length}
                   pages={fbPages}
@@ -726,7 +752,7 @@ export function MetaPortfolioDialog({
               ) : (
                 <ScrollArea className="h-[420px] rounded-lg border border-border/60">
                   <ul className="divide-y divide-border/60">
-                    {igPages.map((p) => {
+                    {visibleIg.map((p) => {
                       const key = `instagram:${p.pageId}`;
                       const connectionId = p.instagramBusinessId
                         ? (data?.connected.instagram[p.instagramBusinessId] ?? null)
@@ -800,12 +826,12 @@ export function MetaPortfolioDialog({
             <TabsContent value="threads" className="mt-3">
               <ScrollArea className="h-[420px] rounded-lg border border-border/60">
                 <ul className="divide-y divide-border/60">
-                  {threadsAccounts.length === 0 ? (
+                  {visibleThreads.length === 0 ? (
                     <li className="p-6 text-center text-xs text-muted-foreground">
                       Nenhum perfil do Threads encontrado nas suas Páginas.
                     </li>
                   ) : (
-                    threadsAccounts.map((t) => {
+                    visibleThreads.map((t) => {
                       const key = `threads:${t.threadsUserId}`;
                       const connectionId = data?.connected.threads[t.threadsUserId] ?? null;
                       const isConnected = !!connectionId;
@@ -863,13 +889,13 @@ export function MetaPortfolioDialog({
             <TabsContent value="ads" className="mt-3">
               <ScrollArea className="h-[420px] rounded-lg border border-border/60">
                 <ul className="divide-y divide-border/60">
-                  {adAccounts.length === 0 ? (
+                  {visibleAds.length === 0 ? (
                     <li className="p-6 text-center text-xs text-muted-foreground">
                       Nenhuma Conta de Anúncios encontrada (requer permissão
                       <code className="mx-1 rounded bg-muted px-1">ads_read</code>).
                     </li>
                   ) : (
-                    adAccounts.map((a) => {
+                    visibleAds.map((a) => {
                       const key = `ads:${a.adAccountId}`;
                       const connectionId = data?.connected.ads[a.adAccountId] ?? null;
                       const isConnected = !!connectionId;
