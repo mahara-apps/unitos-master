@@ -11,6 +11,8 @@ Compartilhadas entre todas as instalações (mesmo Meta App):
 ```
 META_APP_ID=<app id>
 META_APP_SECRET=<app secret>
+# Configuração do Facebook Login for Business (Login Configuration ID do App)
+META_BUSINESS_CONFIG_ID=1066582585595980
 ```
 
 Exclusivas de cada instalação:
