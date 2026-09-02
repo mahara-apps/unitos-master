@@ -109,6 +109,11 @@ import {
   type MetaPortfolioSummary,
 } from "@/lib/meta/portfolio-admin.functions";
 import { listChannelHistoryFn, recordChannelEventFn } from "@/lib/channels-center.functions";
+import { listEvolutionInstances } from "@/lib/evolution-instances.functions";
+import {
+  ChannelStatusLegend,
+  ClientsChannelsTable,
+} from "@/components/connections/clients-channels-table";
 import { cn } from "@/lib/utils";
 
 
@@ -264,6 +269,14 @@ export function ChannelsCenter({
   const { data: clients = [] } = useQuery({
     queryKey: ["clients", brandId],
     queryFn: () => clientsFn({ data: { brandId: brandId! } }),
+    enabled: !!brandId,
+    staleTime: 60_000,
+  });
+
+  const instancesFn = useServerFn(listEvolutionInstances);
+  const { data: whatsappInstances = [] } = useQuery({
+    queryKey: ["evolution-instances", brandId],
+    queryFn: () => instancesFn({ data: { brandId: brandId! } }),
     enabled: !!brandId,
     staleTime: 60_000,
   });
