@@ -2,6 +2,9 @@
 // Toda chamada que passa por getBrandAiModel é medida aqui, sem depender de
 // cada ponto de chamada lembrar de gravar.
 
+import { redactAiDetail } from "./ai-observability";
+
+
 export type AiUsageContext = {
   /** Rótulo do recurso que originou a chamada (ex.: "chat.brain"). */
   agent?: string;
@@ -74,30 +77,54 @@ export type RecordAiUsageArgs = {
   outputTokens: number;
   success: boolean;
   errorMessage?: string | null;
+  /** Classificação da falha — obrigatória sempre que `success` é false. */
+  errorKind?: string | null;
+  provider?: string | null;
+  /** Etapa/pipeline (reconstrução da execução). */
+  step?: string | null;
+  attempt?: number | null;
 } & AiUsageContext;
 
 /**
- * Grava uma linha de consumo. Best-effort: nunca lança, para não derrubar a
- * geração por causa do log.
+ * Monta a linha de consumo. Puro e exportado para teste: garante que uma falha
+ * NUNCA seja gravada sem classificação (`error_kind`), o que tornaria o
+ * registro impossível de diagnosticar — e é exatamente o que o CHECK
+ * `brand_ai_usage_failure_kind_chk` proíbe no banco.
+ */
+export function buildAiUsageRow(args: RecordAiUsageArgs) {
+  const failed = args.success === false;
+  return {
+    brand_id: args.brandId,
+    client_id: args.clientId ?? null,
+    agent: args.agent ?? "ai.call",
+    model: args.model,
+    provider: args.provider ?? null,
+    step: args.step ?? null,
+    attempt: args.attempt ?? null,
+    input_tokens: Math.max(0, Math.round(args.inputTokens || 0)),
+    output_tokens: Math.max(0, Math.round(args.outputTokens || 0)),
+    cost_usd: estimateCost(args.model, args.inputTokens || 0, args.outputTokens || 0),
+    success: args.success,
+    error_message: redactAiDetail(args.errorMessage ?? "") || null,
+    error_kind: failed ? (args.errorKind ?? "unknown") : null,
+    // Rastreabilidade: consumo humano guarda o autor; rotina automática é
+    // marcada como `system` (o CHECK no banco impede 'user' sem actor_id).
+    actor_id: args.userId ?? null,
+    actor_kind: args.userId ? "user" : "system",
+  };
+}
+
+/**
+ * Grava uma linha de consumo — inclusive quando a chamada FALHOU: o token/custo
+ * pode ser zero, mas a tentativa precisa aparecer no histórico.
+ * Best-effort: nunca lança, para não derrubar a geração por causa do log.
  */
 export async function recordAiUsage(args: RecordAiUsageArgs): Promise<void> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.from("brand_ai_usage").insert({
-      brand_id: args.brandId,
-      client_id: args.clientId ?? null,
-      agent: args.agent ?? "ai.call",
-      model: args.model,
-      input_tokens: Math.max(0, Math.round(args.inputTokens || 0)),
-      output_tokens: Math.max(0, Math.round(args.outputTokens || 0)),
-      cost_usd: estimateCost(args.model, args.inputTokens || 0, args.outputTokens || 0),
-      success: args.success,
-      error_message: args.errorMessage?.slice(0, 500) ?? null,
-      // Rastreabilidade: consumo humano guarda o autor; rotina automática é
-      // marcada como `system` (o CHECK no banco impede 'user' sem actor_id).
-      actor_id: args.userId ?? null,
-      actor_kind: args.userId ? "user" : "system",
-    });
+    const { error } = await supabaseAdmin
+      .from("brand_ai_usage")
+      .insert(buildAiUsageRow(args) as never);
     if (error) console.warn("[ai-usage] insert failed", error.message);
   } catch (err) {
     console.warn("[ai-usage] insert threw", err);

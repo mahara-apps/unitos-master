@@ -16,6 +16,12 @@ import {
 
 import { IMAGE_PROVIDERS, supportsKind } from "./ai-capabilities";
 import { classifyAiError, unwrapAiError } from "./ai-failures.server";
+import {
+  isRecoverableFailure,
+  logAiFailure,
+  logAiRetry,
+  redactAiDetail,
+} from "./ai-observability";
 import { recordAiUsage, type AiUsageContext } from "./ai-usage.server";
 import {
   EMBED_DIMS,
@@ -286,6 +292,7 @@ function withModelInstrumentation(
     outTok: number,
     success: boolean,
     errorMessage?: string | null,
+    meta?: { provider?: ProviderName; kind?: string; attempt?: number },
   ) => {
     void recordAiUsage({
       brandId: ctx.brandId,
@@ -294,6 +301,10 @@ function withModelInstrumentation(
       outputTokens: outTok,
       success,
       ...(errorMessage ? { errorMessage } : {}),
+      ...(success ? {} : { errorKind: meta?.kind ?? "unknown" }),
+      provider: meta?.provider ?? ctx.provider,
+      step: ctx.usage?.agent ?? ctx.role,
+      attempt: meta?.attempt ?? 1,
       agent: ctx.usage?.agent ?? `${ctx.role}.${ctx.provider}`,
       clientId: ctx.usage?.clientId ?? null,
       userId: ctx.usage?.userId ?? null,
@@ -308,6 +319,7 @@ function withModelInstrumentation(
     let inTok = 0;
     let outTok = 0;
     let streamError: string | null = null;
+    let streamKind: string | null = null;
     const meter = new TransformStream<unknown, unknown>({
       transform(chunk, controller) {
         const part = chunk as { type?: string; usage?: UsageLike; error?: unknown };
@@ -319,11 +331,30 @@ function withModelInstrumentation(
         if (part?.type === "error") {
           streamError =
             part.error instanceof Error ? part.error.message : String(part.error ?? "stream error");
+          // Falha DEPOIS de geração parcial: preserva tokens já consumidos e a
+          // classificação, para o consumo aparecer com causa no histórico.
+          streamKind = classifyAiError(part.error).kind;
         }
         controller.enqueue(chunk);
       },
       flush() {
-        log(modelId, inTok, outTok, !streamError, streamError);
+        if (streamError) {
+          logAiFailure({
+            op: ctx.usage?.agent ?? `${ctx.role}.stream`,
+            step: "stream",
+            provider: ctx.provider,
+            model: modelId,
+            kind: streamKind,
+            retryable: streamKind ? isRecoverableFailure(streamKind) : null,
+            brandId: ctx.brandId,
+            clientId: ctx.usage?.clientId ?? null,
+            userId: ctx.usage?.userId ?? null,
+            detail: streamError,
+          });
+        }
+        log(modelId, inTok, outTok, !streamError, streamError, {
+          ...(streamKind ? { kind: streamKind } : {}),
+        });
       },
     });
     return {
@@ -372,29 +403,46 @@ function withModelInstrumentation(
               `providerMetadata=${JSON.stringify(raw.providerMetadata ?? null).slice(0, 400)}`,
           );
         }
-        log(modelId, inTok, outTok, true);
+        log(modelId, inTok, outTok, true, null, { provider, attempt: call });
 
         ctx.attempts.push({ provider, model: modelId, attempt: call, result: "success" });
         return out;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         const { kind, retryable } = classifyAiError(err);
+        const detail = redactAiDetail(unwrapAiError(err).text);
         ctx.attempts.push({
           provider,
           model: modelId,
           attempt: call,
           result: kind,
-          detail: unwrapAiError(err).text.replace(/\s+/g, " ").slice(0, 500),
+          detail,
         });
+        // Consumo é registrado MESMO em falha — inclusive nas tentativas
+        // intermediárias que serão seguidas de retry/fallback. Sem isso, um
+        // 429 seguido de fallback bem-sucedido desaparecia do histórico.
+        log(modelId, 0, 0, false, msg, { provider, kind, attempt: call });
+        const logEntry = {
+          op: ctx.usage?.agent ?? `${ctx.role}.${op}`,
+          step: ctx.role,
+          provider,
+          model: modelId,
+          attempt: call,
+          kind,
+          retryable,
+          brandId: ctx.brandId,
+          clientId: ctx.usage?.clientId ?? null,
+          userId: ctx.usage?.userId ?? null,
+          detail,
+        };
+
 
         // 1) Modelo descontinuado/indisponível no MESMO provedor: promove o
         //    próximo da cadeia do papel (comportamento já existente).
         if (isModelUnavailableError(msg)) {
           const next = nextFallbackModel(provider, ctx.role, tried);
           if (next) {
-            console.warn(
-              `[ai-provider] ${provider}/${ctx.role}: ${modelId} indisponível — tentando ${next}`,
-            );
+            logAiRetry({ ...logEntry, detail: `modelo indisponível — tentando ${next}` });
             await saveCatalogOverride({
               provider,
               role: ctx.role,
@@ -418,9 +466,10 @@ function withModelInstrumentation(
             kind === "provider_quota");
         if (transient && ctx.fallback && !switchedProvider) {
           switchedProvider = true;
-          console.warn(
-            `[ai-provider] ${provider} falhou (${kind}) — alternando para ${ctx.fallback.provider}/${ctx.fallback.modelId}`,
-          );
+          logAiRetry({
+            ...logEntry,
+            detail: `alternando para ${ctx.fallback.provider}/${ctx.fallback.modelId}`,
+          });
           provider = ctx.fallback.provider;
           apiKey = ctx.fallback.apiKey;
           tried.length = 0;
@@ -429,7 +478,8 @@ function withModelInstrumentation(
           continue;
         }
 
-        log(modelId, 0, 0, false, msg);
+        // Terminal: já registrado como consumo com classificação acima.
+        logAiFailure(logEntry);
         if (isModelUnavailableError(msg)) {
           throw new Error(
             `ai_model_unavailable:${provider}:${ctx.role}: o modelo ${modelId} foi descontinuado pelo provedor e não há substituto configurado. Detalhe: ${unwrapAiError(err).text.slice(0, 300)}`,
@@ -674,9 +724,28 @@ export async function embedTextWithBrandKey(
   try {
     primary = await getBrandProviderKey(supabase, brandId, "text", EMBED_PROVIDERS);
   } catch (err) {
-    console.error("[ai-provider] embedding sem chave configurada", err);
+    logAiFailure({
+      op: "embedding",
+      step: "credenciais",
+      kind: "config",
+      retryable: false,
+      brandId,
+      detail: unwrapAiError(err).text,
+    });
+    void recordAiUsage({
+      brandId,
+      model: "embedding",
+      inputTokens: 0,
+      outputTokens: 0,
+      success: false,
+      errorKind: "config",
+      errorMessage: unwrapAiError(err).text,
+      step: "embedding",
+      agent: "embedding",
+    });
     return null;
   }
+
 
   const candidates: BrandProviderKey[] = [primary];
   for (const other of EMBED_PROVIDERS) {
@@ -688,6 +757,8 @@ export async function embedTextWithBrandKey(
     }
   }
 
+  let lastKind = "unknown";
+  let lastDetail = "";
   for (const cred of candidates) {
     for (let attempt = 1; attempt <= EMBED_MAX_ATTEMPTS; attempt++) {
       try {
@@ -698,10 +769,21 @@ export async function embedTextWithBrandKey(
           typeof status === "number"
             ? isRetryableEmbeddingStatus(status)
             : isRetryableEmbeddingError(err);
-        console.error(
-          `[ai-provider] embedding ${cred.provider} tentativa ${attempt} falhou`,
-          (err as Error)?.message ?? err,
-        );
+        lastKind = classifyAiError(err).kind;
+        lastDetail = unwrapAiError(err).text;
+        const entry = {
+          op: "embedding",
+          step: "embed",
+          provider: cred.provider,
+          model: "embedding",
+          attempt,
+          kind: lastKind,
+          retryable,
+          brandId,
+          detail: lastDetail,
+        };
+        if (retryable && attempt < EMBED_MAX_ATTEMPTS) logAiRetry(entry);
+        else logAiFailure(entry);
         if (!retryable) break; // erro de request/dimensão: repetir não muda nada
         if (attempt < EMBED_MAX_ATTEMPTS) {
           await new Promise((r) => setTimeout(r, embeddingBackoffMs(attempt)));
@@ -709,6 +791,19 @@ export async function embedTextWithBrandKey(
       }
     }
   }
+  // Degradação continua sendo `null`, mas nunca silenciosa: a tentativa
+  // aparece em `brand_ai_usage` com classificação.
+  void recordAiUsage({
+    brandId,
+    model: "embedding",
+    inputTokens: 0,
+    outputTokens: 0,
+    success: false,
+    errorKind: lastKind,
+    errorMessage: lastDetail,
+    step: "embedding",
+    agent: "embedding",
+  });
   return null;
 }
 
@@ -847,14 +942,29 @@ export async function generateBrandImage(
       return image;
     } catch (err) {
       lastError = err;
-      console.error(`[ai-provider] imagem falhou (${creds.provider}/${modelId})`, err);
+      const { kind, retryable } = classifyAiError(err);
+      logAiFailure({
+        op: usage.agent ?? "image.generate",
+        step: "image",
+        provider: creds.provider,
+        model: modelId,
+        kind,
+        retryable,
+        brandId,
+        clientId: usage.clientId ?? null,
+        userId: usage.userId ?? null,
+        detail: unwrapAiError(err).text,
+      });
       await recordAiUsage({
         brandId,
         model: modelId,
         inputTokens: 0,
         outputTokens: 0,
         success: false,
-        errorMessage: err instanceof Error ? err.message : String(err),
+        errorKind: kind,
+        provider: creds.provider,
+        step: "image",
+        errorMessage: unwrapAiError(err).text,
         ...usage,
         agent: usage.agent ?? "image.generate",
       });
