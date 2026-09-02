@@ -306,6 +306,16 @@ export function MetaPortfoliosPanel({
     });
   }, [portfolios, assetsOf, search, statusFilter, sort]);
 
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pageRows = useMemo(
+    () => rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [rows, safePage],
+  );
+
+  /** Volta para a primeira página sempre que os filtros mudam. */
+  const resetPage = () => setPage(1);
+
   if (loading) {
     return (
       <Card className="space-y-2 p-4">
