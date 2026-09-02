@@ -109,13 +109,7 @@ const HEALTH_WEIGHT: Record<ChannelHealth, number> = {
   soon: 5,
 };
 
-export function HealthBadge({
-  health,
-  className,
-}: {
-  health: ChannelHealth;
-  className?: string;
-}) {
+export function HealthBadge({ health, className }: { health: ChannelHealth; className?: string }) {
   const m = HEALTH_META[health];
   return (
     <Badge
@@ -294,7 +288,8 @@ export function ClientsChannelsTable({
       const healths = COLUMNS.map((c) => cells[c.key].health).filter(
         (h) => h !== "soon" && h !== "disconnected",
       );
-      const worst = healths.sort((a, b) => HEALTH_WEIGHT[a] - HEALTH_WEIGHT[b])[0] ?? "disconnected";
+      const worst =
+        healths.sort((a, b) => HEALTH_WEIGHT[a] - HEALTH_WEIGHT[b])[0] ?? "disconnected";
       return {
         client,
         cells,
@@ -342,8 +337,7 @@ export function ClientsChannelsTable({
     const sorted = [...filtered];
     sorted.sort((a, b) => {
       if (sort === "status") return HEALTH_WEIGHT[a.worst] - HEALTH_WEIGHT[b.worst];
-      if (sort === "sync")
-        return (b.lastSyncedAt ?? "").localeCompare(a.lastSyncedAt ?? "");
+      if (sort === "sync") return (b.lastSyncedAt ?? "").localeCompare(a.lastSyncedAt ?? "");
       return (a.client?.name ?? "").localeCompare(b.client?.name ?? "", "pt-BR");
     });
     // Canais sem cliente ficam sempre no topo: exigem ação.
@@ -613,7 +607,10 @@ export function ClientsChannelsTable({
                                 {canManage ? (
                                   <>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="text-xs" onClick={actions.onConnect}>
+                                    <DropdownMenuItem
+                                      className="text-xs"
+                                      onClick={actions.onConnect}
+                                    >
                                       <Plug className="mr-2 h-3.5 w-3.5" />
                                       Conectar Meta
                                     </DropdownMenuItem>
@@ -635,11 +632,7 @@ export function ClientsChannelsTable({
                       {isOpen ? (
                         <TableRow className="hover:bg-transparent">
                           <TableCell colSpan={COLUMNS.length + 4} className="bg-muted/20 p-3">
-                            <ClientChannelDetails
-                              row={r}
-                              canManage={canManage}
-                              actions={actions}
-                            />
+                            <ClientChannelDetails row={r} canManage={canManage} actions={actions} />
                           </TableCell>
                         </TableRow>
                       ) : null}
@@ -812,11 +805,7 @@ function ChannelCell({
                 Conectar
               </Button>
             ) : (
-              <Button
-                size="sm"
-                className="h-7 gap-1.5 px-2 text-xs"
-                onClick={actions.onConnect}
-              >
+              <Button size="sm" className="h-7 gap-1.5 px-2 text-xs" onClick={actions.onConnect}>
                 <Plug className="h-3.5 w-3.5" />
                 Conectar
               </Button>

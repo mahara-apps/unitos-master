@@ -28,11 +28,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -115,7 +111,6 @@ import {
   ClientsChannelsTable,
 } from "@/components/connections/clients-channels-table";
 import { cn } from "@/lib/utils";
-
 
 /**
  * Central de Canais (Integrações → Canais).
@@ -296,7 +291,6 @@ export function ChannelsCenter({
     qc.invalidateQueries({ queryKey: ["meta-discovered-accounts", brandId] });
     qc.invalidateQueries({ queryKey: ["meta-portfolio-status", brandId] });
   };
-
 
   /**
    * Revoga a autorização Meta do workspace mesmo quando nenhum canal foi
@@ -545,114 +539,116 @@ export function ChannelsCenter({
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-4 pt-3">
-          {/* ---------------------- 1. portfólio Meta selecionado ---------------------- */}
-          <PortfolioSection
-            brandId={brandId}
-            canManage={canManage}
-            loading={loadingPortfolio}
-            authorized={portfolioStatus?.authorized ?? false}
-            authorizedAt={portfolioStatus?.authorizedAt ?? null}
-            metaUserName={portfolioStatus?.metaUserName ?? null}
-            portfolios={portfolios}
-            active={activePortfolio}
-            assetCount={portfolioAssets.length}
-            busy={connecting !== null}
-            onSelect={setSelectedKey}
-            onConnect={() => void connectMeta("facebook")}
-            onSwitch={() => void connectMeta("facebook", true)}
-            onManage={() => {
-              document.getElementById("assets-section")?.scrollIntoView({ behavior: "smooth" });
-            }}
-            onRevokeAll={() => revokeAuthMut.mutate()}
-            revoking={revokeAuthMut.isPending}
-            onChanged={invalidate}
-          />
-
-          {/* ------------------------- 2. ativos disponíveis -------------------------- */}
-          <section id="assets-section" className="space-y-2.5">
-            <div className="flex flex-wrap items-end justify-between gap-2">
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold">Ativos disponíveis</h3>
-                <p className="text-xs text-muted-foreground">
-                  Contas encontradas neste portfólio e ainda não conectadas.
-                  {discovery?.discoveredAt ? (
-                    <span className="ml-1">Verificado {formatRelative(discovery.discoveredAt)}.</span>
-                  ) : null}
-                </p>
-              </div>
-              <Badge variant="outline" className="h-6 text-[11px]">
-                {portfolioAssets.length} ativo{portfolioAssets.length === 1 ? "" : "s"}
-              </Badge>
-            </div>
-
-            {discovery?.error ? (
-              <Card className="flex flex-wrap items-center justify-between gap-2 border-severity-critical/30 bg-severity-critical/10 p-3 text-xs text-severity-critical">
-                <span className="min-w-0">{discovery.error}</span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 gap-1.5 text-xs"
-                  onClick={() => refreshDiscovery()}
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  Tentar novamente
-                </Button>
-              </Card>
-            ) : null}
-            {discovery?.warnings?.length ? (
-              <Card className="border-severity-warning/30 bg-severity-warning/10 p-3 text-[11px] text-severity-warning">
-                {discovery.warnings.slice(0, 3).join(" · ")}
-              </Card>
-            ) : null}
-
-            {loadingDiscovery ? (
-              <Skeleton className="h-40 w-full rounded-xl" />
-            ) : discovery?.needsAuthorization ? (
-              <Card className="flex flex-col items-start gap-2 border-dashed p-4">
-                <div className="text-sm font-medium">Autorize a Meta para listar ativos</div>
-                <p className="text-xs text-muted-foreground">
-                  Nenhuma autorização válida neste workspace. Faça o login na Meta mantendo todas as
-                  Páginas e contas do Instagram marcadas.
-                </p>
-                {canManage ? (
-                  <Button
-                    size="sm"
-                    className="mt-1 h-8 gap-1.5 text-xs"
-                    onClick={() => setConnectOpen(true)}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Conectar Meta
-                  </Button>
-                ) : null}
-              </Card>
-            ) : (
-              <AvailableAccountsTable
-                accounts={portfolioAssets}
+              {/* ---------------------- 1. portfólio Meta selecionado ---------------------- */}
+              <PortfolioSection
+                brandId={brandId}
                 canManage={canManage}
-                clientByExternalId={linkedByExternalId}
-                onLink={(a) => setLinkDiscovered(a)}
-                emptyDescription={`A Meta devolveu ${discovery?.alreadyLinked ?? 0} conta(s) e todas já existem neste workspace (conectadas ou no histórico). Use “Sincronizar com a Meta” após alterar permissões.`}
-                actions={
-                  canManage ? (
+                loading={loadingPortfolio}
+                authorized={portfolioStatus?.authorized ?? false}
+                authorizedAt={portfolioStatus?.authorizedAt ?? null}
+                metaUserName={portfolioStatus?.metaUserName ?? null}
+                portfolios={portfolios}
+                active={activePortfolio}
+                assetCount={portfolioAssets.length}
+                busy={connecting !== null}
+                onSelect={setSelectedKey}
+                onConnect={() => void connectMeta("facebook")}
+                onSwitch={() => void connectMeta("facebook", true)}
+                onManage={() => {
+                  document.getElementById("assets-section")?.scrollIntoView({ behavior: "smooth" });
+                }}
+                onRevokeAll={() => revokeAuthMut.mutate()}
+                revoking={revokeAuthMut.isPending}
+                onChanged={invalidate}
+              />
+
+              {/* ------------------------- 2. ativos disponíveis -------------------------- */}
+              <section id="assets-section" className="space-y-2.5">
+                <div className="flex flex-wrap items-end justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold">Ativos disponíveis</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Contas encontradas neste portfólio e ainda não conectadas.
+                      {discovery?.discoveredAt ? (
+                        <span className="ml-1">
+                          Verificado {formatRelative(discovery.discoveredAt)}.
+                        </span>
+                      ) : null}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="h-6 text-[11px]">
+                    {portfolioAssets.length} ativo{portfolioAssets.length === 1 ? "" : "s"}
+                  </Badge>
+                </div>
+
+                {discovery?.error ? (
+                  <Card className="flex flex-wrap items-center justify-between gap-2 border-severity-critical/30 bg-severity-critical/10 p-3 text-xs text-severity-critical">
+                    <span className="min-w-0">{discovery.error}</span>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-9 gap-1.5 text-xs"
-                      disabled={fetchingDiscovery || !!discovery?.needsAuthorization}
+                      className="h-7 gap-1.5 text-xs"
                       onClick={() => refreshDiscovery()}
                     >
-                      {fetchingDiscovery ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-3.5 w-3.5" />
-                      )}
-                      Sincronizar com a Meta
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Tentar novamente
                     </Button>
-                  ) : null
-                }
-              />
-            )}
-          </section>
+                  </Card>
+                ) : null}
+                {discovery?.warnings?.length ? (
+                  <Card className="border-severity-warning/30 bg-severity-warning/10 p-3 text-[11px] text-severity-warning">
+                    {discovery.warnings.slice(0, 3).join(" · ")}
+                  </Card>
+                ) : null}
+
+                {loadingDiscovery ? (
+                  <Skeleton className="h-40 w-full rounded-xl" />
+                ) : discovery?.needsAuthorization ? (
+                  <Card className="flex flex-col items-start gap-2 border-dashed p-4">
+                    <div className="text-sm font-medium">Autorize a Meta para listar ativos</div>
+                    <p className="text-xs text-muted-foreground">
+                      Nenhuma autorização válida neste workspace. Faça o login na Meta mantendo
+                      todas as Páginas e contas do Instagram marcadas.
+                    </p>
+                    {canManage ? (
+                      <Button
+                        size="sm"
+                        className="mt-1 h-8 gap-1.5 text-xs"
+                        onClick={() => setConnectOpen(true)}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Conectar Meta
+                      </Button>
+                    ) : null}
+                  </Card>
+                ) : (
+                  <AvailableAccountsTable
+                    accounts={portfolioAssets}
+                    canManage={canManage}
+                    clientByExternalId={linkedByExternalId}
+                    onLink={(a) => setLinkDiscovered(a)}
+                    emptyDescription={`A Meta devolveu ${discovery?.alreadyLinked ?? 0} conta(s) e todas já existem neste workspace (conectadas ou no histórico). Use “Sincronizar com a Meta” após alterar permissões.`}
+                    actions={
+                      canManage ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-9 gap-1.5 text-xs"
+                          disabled={fetchingDiscovery || !!discovery?.needsAuthorization}
+                          onClick={() => refreshDiscovery()}
+                        >
+                          {fetchingDiscovery ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          )}
+                          Sincronizar com a Meta
+                        </Button>
+                      ) : null
+                    }
+                  />
+                )}
+              </section>
             </CollapsibleContent>
           </Collapsible>
 
@@ -1087,7 +1083,12 @@ function PortfolioSection({
                 Trocar portfólio
               </Button>
             )}
-            <Button size="sm" variant="secondary" className="h-8 gap-1.5 text-xs" onClick={onManage}>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-8 gap-1.5 text-xs"
+              onClick={onManage}
+            >
               <Settings2 className="h-3.5 w-3.5" />
               Gerenciar
             </Button>
@@ -1224,8 +1225,7 @@ function LinkClientDialog({
           <DialogDescription className="text-xs">
             {def.label}
             {row.handle ? ` · @${row.handle.replace(/^@/, "")}` : ""}. Uma conta atende apenas um
-            cliente por vez — isso
-            garante o isolamento de dados e de publicações.
+            cliente por vez — isso garante o isolamento de dados e de publicações.
           </DialogDescription>
         </DialogHeader>
 
@@ -1448,8 +1448,7 @@ function ReconnectDialog({
           <DialogDescription className="text-xs">
             {def.label}
             {row.handle ? ` · @${row.handle.replace(/^@/, "")}` : ""}. Verificamos a conta antes de
-            gravar qualquer alteração
-            — nenhuma conta é substituída sem a sua confirmação.
+            gravar qualquer alteração — nenhuma conta é substituída sem a sua confirmação.
           </DialogDescription>
         </DialogHeader>
 
@@ -1670,9 +1669,7 @@ function ManageChannelDialog({
               </span>
             ) : null}
           </DialogTitle>
-          <DialogDescription className="text-xs">
-            {accountTypeLabel(row.channel)}
-          </DialogDescription>
+          <DialogDescription className="text-xs">{accountTypeLabel(row.channel)}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -1965,4 +1962,3 @@ function LinkDiscoveredDialog({
  * conexão atual continua íntegra se a nova autorização falhar.
  */
 /* Painel legado de portfólios removido — ver `PortfolioSection`. */
-
