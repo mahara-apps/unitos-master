@@ -2,6 +2,9 @@
 // Toda chamada que passa por getBrandAiModel é medida aqui, sem depender de
 // cada ponto de chamada lembrar de gravar.
 
+import { redactAiDetail } from "./ai-observability";
+
+
 export type AiUsageContext = {
   /** Rótulo do recurso que originou a chamada (ex.: "chat.brain"). */
   agent?: string;
