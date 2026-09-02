@@ -83,8 +83,19 @@ export const getMetaOAuthModeFn = createServerFn({ method: "GET" }).handler(asyn
   const { metaOAuthModeDiagnostics, validateBusinessConfig } = await import(
     "@/lib/meta/provider.server"
   );
-  const diag = metaOAuthModeDiagnostics();
-  const check = await validateBusinessConfig();
+  const { resolveMetaAppCredentials } = await import("./app-config.server");
+  // Modo/credenciais do App Meta EM USO nesta instalação (oficial ou do cliente).
+  let creds: { appId: string; appSecret: string; businessConfigId: string | null } | null = null;
+  try {
+    creds = await resolveMetaAppCredentials();
+  } catch {
+    creds = null;
+  }
+  const diag = metaOAuthModeDiagnostics(creds?.businessConfigId ?? null);
+  const check = await validateBusinessConfig({
+    ...(creds ? { appId: creds.appId, appSecret: creds.appSecret } : {}),
+    configId: creds?.businessConfigId ?? null,
+  });
   // Modo efetivo: um `config_id` inválido cai para escopos legados em runtime,
   // então o diagnóstico precisa mostrar exatamente isso (sem mascarar o erro).
   return {

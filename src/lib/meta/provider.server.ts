@@ -217,8 +217,8 @@ export type MetaOAuthModeDiagnostics = {
   note: string;
 };
 
-export function metaOAuthModeDiagnostics(): MetaOAuthModeDiagnostics {
-  const configId = metaBusinessConfigId();
+export function metaOAuthModeDiagnostics(explicitConfigId?: string | null): MetaOAuthModeDiagnostics {
+  const configId = explicitConfigId !== undefined ? explicitConfigId : metaBusinessConfigId();
   return configId
     ? {
         mode: "business_login",
@@ -887,7 +887,8 @@ export class MetaProvider {
       url.searchParams.set("access_token", opts.accessToken);
     }
     // App-secret proof hardens calls against leaked tokens.
-    url.searchParams.set("appsecret_proof", await hmacSha256Hex(this.appSecret, opts.accessToken));
+    const { appSecret } = await this.app();
+    url.searchParams.set("appsecret_proof", await hmacSha256Hex(appSecret, opts.accessToken));
     return this.doFetch<T>(url.toString(), opts.method ?? "GET", opts.body);
   }
 
@@ -903,7 +904,8 @@ export class MetaProvider {
         if (!url.searchParams.get("access_token")) {
           url.searchParams.set("access_token", token);
         }
-        url.searchParams.set("appsecret_proof", await hmacSha256Hex(this.appSecret, token));
+        const { appSecret } = await this.app();
+        url.searchParams.set("appsecret_proof", await hmacSha256Hex(appSecret, token));
       }
       return this.doFetch<T>(url.toString(), "GET");
     } catch {
