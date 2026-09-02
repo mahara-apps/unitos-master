@@ -444,11 +444,11 @@ export function MetaPortfoliosPanel({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="status" className="text-xs">
-              Status (críticos primeiro)
-            </SelectItem>
             <SelectItem value="name" className="text-xs">
               Nome (A–Z)
+            </SelectItem>
+            <SelectItem value="status" className="text-xs">
+              Status (críticos primeiro)
             </SelectItem>
             <SelectItem value="assets" className="text-xs">
               Mais ativos
