@@ -259,7 +259,7 @@ export function MetaPortfoliosPanel({
   const [target, setTarget] = useState<MetaPortfolioSummary | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | PortfolioState>("all");
-  const [sort, setSort] = useState<"name" | "status" | "assets">("status");
+  const [sort, setSort] = useState<"name" | "status" | "assets">("name");
   const [page, setPage] = useState(1);
 
   const PAGE_SIZE = 10;
@@ -444,11 +444,11 @@ export function MetaPortfoliosPanel({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="status" className="text-xs">
-              Status (críticos primeiro)
-            </SelectItem>
             <SelectItem value="name" className="text-xs">
               Nome (A–Z)
+            </SelectItem>
+            <SelectItem value="status" className="text-xs">
+              Status (críticos primeiro)
             </SelectItem>
             <SelectItem value="assets" className="text-xs">
               Mais ativos
