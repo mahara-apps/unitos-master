@@ -57,6 +57,8 @@ import {
 } from "@/components/ui/table";
 import { AvailableAccountsTable } from "@/components/connections/available-accounts-table";
 import { formatRelative } from "@/components/connections/channel-meta";
+import { useRefreshCooldown } from "@/hooks/use-refresh-cooldown";
+import { metaIssueState } from "@/lib/meta/issue-messages";
 import type { MetaPortfolioSummary } from "@/lib/meta/authorization-state";
 import type { DiscoveredAccountsResult } from "@/lib/meta/discovery.functions";
 import { disconnectMetaPortfolioFn } from "@/lib/meta/portfolio-admin.functions";
@@ -308,6 +310,7 @@ export function MetaPortfoliosPanel({
   const [statusFilter, setStatusFilter] = useState<"all" | PortfolioState>("all");
   const [sort, setSort] = useState<"name" | "status" | "assets">("name");
   const [page, setPage] = useState(1);
+  const retryCooldown = useRefreshCooldown(`meta-portfolios-retry:${brandId ?? "none"}`, 30_000);
 
   const PAGE_SIZE = 10;
 
@@ -425,9 +428,14 @@ export function MetaPortfoliosPanel({
       <MetaIssuesAlert
         error={discovery?.error ?? null}
         warnings={discovery?.warnings ?? []}
-        restrictedCount={discovery?.warnings?.length ?? 0}
-        onRetry={onRefresh}
+        affectedPortfolios={portfolios.map(portfolioName)}
+        onRetry={() => {
+          retryCooldown.start();
+          onRefresh();
+        }}
         retrying={fetchingDiscovery}
+        retryBlockedSeconds={retryCooldown.remainingSeconds}
+        onReauthorize={canManage ? onConnect : undefined}
       />
 
       {discovery?.needsAuthorization ? (
