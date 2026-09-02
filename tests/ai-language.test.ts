@@ -7,15 +7,21 @@ import { PT_BR_DIRECTIVE, withPtBr } from "@/lib/ai-language";
  * diretriz de idioma pt-BR (direta ou via withPtBr). Sem isso, o modelo devolve
  * valores em inglês quando as chaves do schema estão em inglês.
  */
+/**
+ * Só entram nesta lista módulos que realmente montam o prompt enviado ao modelo.
+ * As rotas src/routes/api/jobs/analyze-briefing-text.ts e analyze-document.ts
+ * apenas enfileiram o job: a execução (e o prompt) vive em
+ * briefing-import-executor.server.ts.
+ */
 const GENERATION_FILES = [
   "src/routes/api/jobs/customer-pipeline.ts",
-  "src/routes/api/jobs/analyze-briefing-text.ts",
-  "src/routes/api/jobs/analyze-document.ts",
+  "src/lib/briefing-import-executor.server.ts",
   "src/lib/post-agents.server.ts",
   "src/lib/monthly-plan-generate.server.ts",
   "src/lib/monthly-plans.functions.ts",
   "src/lib/media-plans-ai.functions.ts",
 ];
+
 
 describe("diretriz de idioma pt-BR", () => {
   it("a diretriz exige conteúdo em português do Brasil", () => {

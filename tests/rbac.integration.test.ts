@@ -323,15 +323,16 @@ describe("escrita: INSERT / UPDATE / DELETE via RLS", () => {
     expect(delAdmin.data ?? []).toHaveLength(1);
   });
 
-  // Regra canônica (Fase 1 — blindagem do Settings): identidade/dados da marca
-  // são administráveis por super_admin / admin (owner) / manager.
-  it("MANAGER e ADMIN editam a marca; USER não", async () => {
+  // Regra canônica atual (endurecimento pós-integrações Meta): identidade/dados
+  // da marca são administráveis somente por super_admin / owner / admin.
+  // MANAGER não edita a marca.
+  it("somente ADMIN/OWNER edita a marca; MANAGER e USER não", async () => {
     const m = await cx.manager.client
       .from("brands")
       .update({ name: `RBAC Manager ${TAG}` })
       .eq("id", cx.brandId)
       .select("id");
-    expect(m.data ?? []).toHaveLength(1);
+    expect(m.data ?? []).toHaveLength(0);
     const e = await cx.user.client
       .from("brands")
       .update({ name: `Hack ${TAG}` })
@@ -345,6 +346,7 @@ describe("escrita: INSERT / UPDATE / DELETE via RLS", () => {
       .select("id");
     expect(o.data ?? []).toHaveLength(1);
   });
+
 
   it("MANAGER não promove ninguém a owner nem altera o owner", async () => {
     const promote = await cx.manager.client
