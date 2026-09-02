@@ -75,10 +75,10 @@ export function metaIssueState(messages: (string | null | undefined)[]): MetaIss
     : kinds.includes("permission")
       ? "permission"
       : "generic";
-  return METeA_STATE[kind];
+  return ISSUE_STATE[kind];
 }
 
-const METeA_STATE: Record<MetaIssueKind, MetaIssueState> = {
+const ISSUE_STATE: Record<MetaIssueKind, MetaIssueState> = {
   rate_limit: {
     kind: "rate_limit",
     title: "Sincronização temporariamente limitada",
@@ -114,6 +114,6 @@ const METeA_STATE: Record<MetaIssueKind, MetaIssueState> = {
 /** Estado operacional pronto para toast (título + descrição, sem texto cru). */
 export function metaIssueToast(raw: unknown): { title: string; description: string } {
   const msg = raw instanceof Error ? raw.message : typeof raw === "string" ? raw : "";
-  const state = METeA_STATE[classifyMetaIssue(msg)];
+  const state = ISSUE_STATE[classifyMetaIssue(msg)];
   return { title: state.title, description: state.summary };
 }
