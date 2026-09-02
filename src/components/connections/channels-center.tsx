@@ -225,6 +225,7 @@ export function ChannelsCenter({
 
   const [tab, setTab] = useState<"meta" | "whatsapp">("meta");
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [portfolioDetailsOpen, setPortfolioDetailsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [stateFilter, setStateFilter] = useState<"all" | ChannelState>("all");
   const [connectOpen, setConnectOpen] = useState(false);
@@ -494,9 +495,12 @@ export function ChannelsCenter({
         <div className="min-w-0">
           <h2 className="text-sm font-semibold">Conexões</h2>
           <p className="text-xs text-muted-foreground">
-            Gerencie aqui os portfólios Meta autorizados no workspace e os canais que atendem cada
-            cliente.
+            Uma linha por cliente: veja em segundos quais canais estão ativos, quais precisam de
+            ação e onde falta vínculo.
           </p>
+          <div className="pt-1.5">
+            <ChannelStatusLegend />
+          </div>
         </div>
         {canManage ? (
           <div className="flex flex-wrap items-center gap-2">
@@ -523,7 +527,7 @@ export function ChannelsCenter({
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="space-y-4">
         <TabsList className="h-8">
           <TabsTrigger value="meta" className="h-6 text-xs">
-            Meta
+            Clientes e canais
           </TabsTrigger>
           <TabsTrigger value="whatsapp" className="h-6 text-xs">
             WhatsApp
@@ -535,6 +539,54 @@ export function ChannelsCenter({
         </TabsContent>
 
         <TabsContent value="meta" className="space-y-4">
+          {/* --------------------- 1. clientes × canais (elemento principal) --------------------- */}
+          <ClientsChannelsTable
+            clients={clients.map((c) => ({
+              id: c.id as string,
+              name: c.name as string,
+              logoUrl: (c.logo_url as string | null) ?? null,
+              color: (c.color as string | null) ?? null,
+            }))}
+            channels={channels}
+            whatsapp={whatsappInstances}
+            canManage={canManage}
+            loading={isLoading}
+            reconnectingIds={reconnectTarget ? [reconnectTarget.connectionId] : []}
+            actions={{
+              onConnect: () => setConnectOpen(true),
+              onReconnect: setReconnectTarget,
+              onManage: setManage,
+              onLink: setLinkTarget,
+              onManageWhatsapp: () => setTab("whatsapp"),
+            }}
+          />
+
+          {/* ------------- 2. portfólio Meta e ativos (detalhe secundário) ------------- */}
+          <Collapsible open={portfolioDetailsOpen} onOpenChange={setPortfolioDetailsOpen}>
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-full justify-between px-2 text-xs text-muted-foreground"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5" />
+                  Portfólio Meta e ativos disponíveis
+                  {portfolios.length ? (
+                    <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                      {portfolios.length}
+                    </Badge>
+                  ) : null}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "h-3.5 w-3.5 transition-transform",
+                    portfolioDetailsOpen && "rotate-180",
+                  )}
+                />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-4 pt-3">
           {/* ---------------------- 1. portfólio Meta selecionado ---------------------- */}
           <PortfolioSection
             brandId={brandId}
@@ -643,61 +695,8 @@ export function ChannelsCenter({
               />
             )}
           </section>
-
-          {/* -------------------------- 3. canais conectados -------------------------- */}
-          <section className="space-y-2.5">
-            <div className="flex flex-wrap items-end justify-between gap-2">
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold">Canais conectados</h3>
-                <p className="text-xs text-muted-foreground">
-                  Canais operacionais do Unitos, cada um atendendo um cliente.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative min-w-[200px]">
-                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Buscar conta, cliente ou ID"
-                    className="h-8 pl-8 text-xs"
-                  />
-                </div>
-                <Select
-                  value={stateFilter}
-                  onValueChange={(v) => setStateFilter(v as typeof stateFilter)}
-                >
-                  <SelectTrigger className="h-8 w-[160px] text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os status</SelectItem>
-                    <SelectItem value="ready">Pronto</SelectItem>
-                    <SelectItem value="auth">Atenção</SelectItem>
-                    <SelectItem value="unavailable">Não disponível</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {isLoading ? (
-              <Skeleton className="h-32 w-full rounded-xl" />
-            ) : operationalVisible.length === 0 ? (
-              <EmptyChannels
-                hasAny={operational.length > 0}
-                canManage={canManage}
-                onConnect={() => setConnectOpen(true)}
-              />
-            ) : (
-              <ConnectedChannelsTable
-                rows={operationalVisible}
-                canManage={canManage}
-                onManage={setManage}
-                onReconnect={setReconnectTarget}
-                onLink={setLinkTarget}
-              />
-            )}
-          </section>
+            </CollapsibleContent>
+          </Collapsible>
 
           {/* ------------------------------ 4. histórico ------------------------------ */}
           <Collapsible
