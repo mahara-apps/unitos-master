@@ -16,6 +16,12 @@ import {
 
 import { IMAGE_PROVIDERS, supportsKind } from "./ai-capabilities";
 import { classifyAiError, unwrapAiError } from "./ai-failures.server";
+import {
+  isRecoverableFailure,
+  logAiFailure,
+  logAiRetry,
+  redactAiDetail,
+} from "./ai-observability";
 import { recordAiUsage, type AiUsageContext } from "./ai-usage.server";
 import {
   EMBED_DIMS,
