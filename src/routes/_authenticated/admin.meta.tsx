@@ -39,7 +39,7 @@ function AdminMetaAppPage() {
   const readFn = useServerFn(getMetaAppSettingsFn);
   const saveFn = useServerFn(saveMetaAppSettingsFn);
 
-  const q = useQuery({ queryKey: ["admin-meta-app"], queryFn: () => readFn({ data: {} }) });
+  const q = useQuery({ queryKey: ["admin-meta-app"], queryFn: () => readFn(undefined) });
 
   const [appType, setAppType] = useState<AppType>("unitos");
   const [appId, setAppId] = useState("");
