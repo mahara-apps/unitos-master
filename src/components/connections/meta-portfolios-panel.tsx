@@ -332,7 +332,11 @@ export function MetaPortfoliosPanel({
             disabled={busy}
             onClick={onConnect}
           >
-            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            {busy ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Plus className="h-3.5 w-3.5" />
+            )}
             Conectar Meta
           </Button>
         ) : null}
@@ -376,7 +380,10 @@ export function MetaPortfoliosPanel({
             className="h-9 pl-8 text-xs"
           />
         </div>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+        <Select
+          value={statusFilter}
+          onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}
+        >
           <SelectTrigger className="h-9 w-[152px] text-xs">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
