@@ -226,8 +226,6 @@ export function ChannelsCenter({
   const [tab, setTab] = useState<"meta" | "whatsapp">("meta");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [portfolioDetailsOpen, setPortfolioDetailsOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const [stateFilter, setStateFilter] = useState<"all" | ChannelState>("all");
   const [connectOpen, setConnectOpen] = useState(false);
   const [connecting, setConnecting] = useState<null | "facebook" | "instagram">(null);
   const [portfolioSessionId, setPortfolioSessionId] = useState<string | null>(null);
@@ -416,40 +414,11 @@ export function ChannelsCenter({
 
   /* ---------------------------------- dados --------------------------------- */
 
-  const connected = useMemo(
-    () => channels.filter((c) => c.status === "active" || c.status === "attention"),
-    [channels],
-  );
   /**
    * "Contas disponíveis" = contas realmente devolvidas pela Meta na autorização
    * atual e ainda não salvas neste workspace. Nunca derivado do histórico.
    */
   const available = useMemo(() => discovery?.accounts ?? [], [discovery]);
-  const attention = useMemo(() => channels.filter((c) => channelState(c) !== "ready"), [channels]);
-  const servedClients = useMemo(() => {
-    const ids = new Set<string>();
-    for (const c of channels) for (const cl of c.clients) ids.add(cl.id);
-    return ids.size;
-  }, [channels]);
-
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return channels.filter((c) => {
-      if (stateFilter !== "all" && channelState(c) !== stateFilter) return false;
-      if (!q) return true;
-      return [
-        c.accountLabel,
-        c.handle ?? "",
-        c.externalId,
-        c.pageId ?? "",
-        c.instagramBusinessId ?? "",
-        ...c.clients.map((cl) => cl.name),
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(q);
-    });
-  }, [channels, search, stateFilter]);
 
   /* ----------------------------------- ui ----------------------------------- */
 
@@ -467,17 +436,6 @@ export function ChannelsCenter({
     const matching = available.filter((a) => a.businessId === bid);
     return matching.length || available.some((a) => a.businessId) ? matching : available;
   }, [available, activePortfolio]);
-
-  /** Canais realmente operacionais (histórico/revogados não entram aqui). */
-  const operational = useMemo(
-    () => channels.filter((c) => c.status !== "revoked" && c.status !== "disconnected"),
-    [channels],
-  );
-
-  const operationalVisible = useMemo(
-    () => visible.filter((c) => c.status !== "revoked" && c.status !== "disconnected"),
-    [visible],
-  );
 
   const linkedByExternalId = useMemo(() => {
     const m = new Map<string, string>();
@@ -1200,155 +1158,6 @@ function PortfolioSection({
     </Card>
   );
 }
-
-function EmptyChannels({
-  hasAny,
-  canManage,
-  onConnect,
-}: {
-  hasAny: boolean;
-  canManage: boolean;
-  onConnect: () => void;
-}) {
-  return (
-    <Card className="flex flex-col items-start gap-2 border-dashed p-4">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <Radio className="h-4 w-4 text-muted-foreground" />
-        {hasAny ? "Nenhum canal com este filtro" : "Nenhum canal conectado"}
-      </div>
-      <p className="text-xs text-muted-foreground">
-        {hasAny
-          ? "Ajuste a busca ou o status para ver os demais canais."
-          : "Vincule um ativo disponível a um cliente para começar a publicar e medir resultados."}
-      </p>
-      {!hasAny && canManage ? (
-        <Button size="sm" className="mt-1 h-8 gap-1.5 text-xs" onClick={onConnect}>
-          <Plus className="h-3.5 w-3.5" />
-          Conectar Meta
-        </Button>
-      ) : null}
-    </Card>
-  );
-}
-
-/** Seção 3 — tabela compacta dos canais operacionais do Unitos. */
-function ConnectedChannelsTable({
-  rows,
-  canManage,
-  onManage,
-  onReconnect,
-  onLink,
-}: {
-  rows: WorkspaceChannel[];
-  canManage: boolean;
-  onManage: (row: WorkspaceChannel) => void;
-  onReconnect: (row: WorkspaceChannel) => void;
-  onLink: (row: WorkspaceChannel) => void;
-}) {
-  return (
-    <Card className="overflow-hidden">
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="min-w-[160px] text-xs">Cliente</TableHead>
-              <TableHead className="text-xs">Canal</TableHead>
-              <TableHead className="min-w-[180px] text-xs">Conta</TableHead>
-              <TableHead className="text-xs">Status</TableHead>
-              <TableHead className="text-xs">Sincronização</TableHead>
-              <TableHead className="w-[150px]" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row) => {
-              const def = channelDef(row.channel);
-              const Icon = def.icon;
-              const state = channelState(row);
-              const client = row.clients[0] ?? null;
-              return (
-                <TableRow key={row.connectionId}>
-                  <TableCell className="py-2 text-xs">
-                    {client ? (
-                      <span className="truncate font-medium">{client.name}</span>
-                    ) : (
-                      <span className="text-severity-warning">Sem cliente vinculado</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="py-2 text-xs">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Icon className={cn(CHANNEL_ICON_SIZE, def.tone)} />
-                      {def.label}
-                    </span>
-                  </TableCell>
-                  <TableCell className="py-2">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Avatar className="h-6 w-6 shrink-0">
-                        <AvatarImage src={row.avatarUrl ?? undefined} alt={row.accountLabel} />
-                        <AvatarFallback className="text-[9px] uppercase">
-                          {row.channel.slice(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <div className="truncate text-xs font-medium">{row.accountLabel}</div>
-                        <div className="truncate text-[11px] text-muted-foreground">
-                          {row.handle
-                            ? `@${row.handle.replace(/^@/, "")}`
-                            : accountTypeLabel(row.channel)}
-                        </div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="py-2">
-                    <StatusBadge state={state} />
-                  </TableCell>
-                  <TableCell className="py-2 whitespace-nowrap text-[11px] text-muted-foreground">
-                    {formatRelative(row.lastSyncedAt)}
-                  </TableCell>
-                  <TableCell className="py-2 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      {canManage && !client ? (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 gap-1.5 px-2 text-xs"
-                          onClick={() => onLink(row)}
-                        >
-                          <Link2 className="h-3.5 w-3.5" />
-                          Vincular
-                        </Button>
-                      ) : null}
-                      {canManage && state !== "ready" ? (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 gap-1.5 px-2 text-xs"
-                          onClick={() => onReconnect(row)}
-                        >
-                          <RefreshCw className="h-3.5 w-3.5" />
-                          Reconectar
-                        </Button>
-                      ) : null}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 gap-1.5 px-2 text-xs"
-                        onClick={() => onManage(row)}
-                      >
-                        <Settings2 className="h-3.5 w-3.5" />
-                        Gerenciar
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
-    </Card>
-  );
-}
-
 
 /* ------------------------------ vincular cliente --------------------------- */
 
