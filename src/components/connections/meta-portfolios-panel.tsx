@@ -137,48 +137,55 @@ function StateBadge({ state }: { state: PortfolioState }) {
   );
 }
 
-/** Alerta compacto de atenção; o detalhe técnico só existe ao expandir. */
+/**
+ * Alerta compacto (~56–64px) de estado operacional. O texto cru da Meta nunca
+ * aparece aqui: só dentro de "Detalhes técnicos", já expandido e secundário.
+ */
 function MetaIssuesAlert({
   error,
   warnings,
-  restrictedCount,
+  affectedPortfolios,
   onRetry,
   retrying,
+  retryBlockedSeconds,
+  onReauthorize,
 }: {
   error: string | null;
   warnings: string[];
-  restrictedCount: number;
+  affectedPortfolios: string[];
   onRetry: () => void;
   retrying: boolean;
+  retryBlockedSeconds: number;
+  onReauthorize?: (() => void) | undefined;
 }) {
   const [open, setOpen] = useState(false);
-  const details = [error, ...warnings].filter(Boolean) as string[];
-  if (!details.length) return null;
+  const technical = [error, ...warnings].filter(Boolean) as string[];
+  const state = metaIssueState(technical);
+  if (!state) return null;
+
+  const affectedCount = technical.length;
+  const critical = state.severity === "critical";
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <Card
         className={cn(
-          "border-severity-warning/30 bg-severity-warning/5 px-3 py-2.5",
-          error && "border-severity-critical/30 bg-severity-critical/5",
+          "px-3 py-2.5",
+          critical
+            ? "border-severity-critical/30 bg-severity-critical/5"
+            : "border-severity-warning/30 bg-severity-warning/5",
         )}
       >
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <AlertTriangle
             className={cn(
               "h-4 w-4 shrink-0",
-              error ? "text-severity-critical" : "text-severity-warning",
+              critical ? "text-severity-critical" : "text-severity-warning",
             )}
           />
           <div className="min-w-0 flex-1">
-            <div className="text-xs font-medium">Algumas contas não puderam ser carregadas</div>
-            <p className="text-[11px] text-muted-foreground">
-              {restrictedCount > 0
-                ? `${restrictedCount} ativo${restrictedCount === 1 ? "" : "s"} restringido${
-                    restrictedCount === 1 ? "" : "s"
-                  } pela Meta.`
-                : "A Meta restringiu parte da leitura de ativos."}
-            </p>
+            <div className="text-xs font-medium">{state.title}</div>
+            <p className="truncate text-[11px] text-muted-foreground">{state.summary}</p>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
             <CollapsibleTrigger asChild>
@@ -187,35 +194,75 @@ function MetaIssuesAlert({
                 <ChevronDown className={cn("h-3 w-3 transition-transform", open && "rotate-180")} />
               </Button>
             </CollapsibleTrigger>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 gap-1.5 px-2 text-[11px]"
-              disabled={retrying}
-              onClick={onRetry}
-            >
-              {retrying ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <RefreshCw className="h-3 w-3" />
-              )}
-              Tentar novamente
-            </Button>
+            {state.allowRetry ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 px-2 text-[11px]"
+                disabled={retrying || retryBlockedSeconds > 0}
+                onClick={onRetry}
+              >
+                {retrying ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3 w-3" />
+                )}
+                {retryBlockedSeconds > 0 ? `Aguarde ${retryBlockedSeconds}s` : "Tentar novamente"}
+              </Button>
+            ) : null}
           </div>
         </div>
+
         <CollapsibleContent>
-          <ul className="mt-2 space-y-1 border-t pt-2 text-[11px] leading-relaxed text-muted-foreground">
-            {details.map((d, i) => (
-              <li key={i} className="break-words font-mono">
-                {d}
-              </li>
-            ))}
-          </ul>
+          <div className="mt-2 space-y-2 border-t pt-2">
+            <dl className="grid gap-1.5 text-[11px] sm:grid-cols-2">
+              <div className="flex gap-1.5">
+                <dt className="text-muted-foreground">Ocorrências:</dt>
+                <dd className="font-medium">
+                  {affectedCount} {affectedCount === 1 ? "aviso" : "avisos"} da Meta
+                </dd>
+              </div>
+              <div className="flex min-w-0 gap-1.5">
+                <dt className="shrink-0 text-muted-foreground">Portfólios afetados:</dt>
+                <dd className="truncate font-medium">
+                  {affectedPortfolios.length ? affectedPortfolios.join(", ") : "Não identificados"}
+                </dd>
+              </div>
+            </dl>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              <span className="font-medium text-foreground">Ação recomendada: </span>
+              {state.recommendation}
+            </p>
+            {state.suggestReauthorize && onReauthorize ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 px-2 text-[11px]"
+                onClick={onReauthorize}
+              >
+                <Plus className="h-3 w-3" />
+                Reautorizar na Meta
+              </Button>
+            ) : null}
+            <details className="group">
+              <summary className="cursor-pointer list-none text-[11px] text-muted-foreground underline decoration-dotted underline-offset-2">
+                Detalhes técnicos
+              </summary>
+              <ul className="mt-1.5 space-y-1 text-[10px] leading-relaxed text-muted-foreground/80">
+                {technical.map((d, i) => (
+                  <li key={i} className="break-words font-mono">
+                    {d}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </div>
         </CollapsibleContent>
       </Card>
     </Collapsible>
   );
 }
+
 
 export function MetaPortfoliosPanel({
   brandId,
