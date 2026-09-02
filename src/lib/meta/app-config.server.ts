@@ -105,6 +105,16 @@ export async function getMetaAppType(): Promise<MetaAppType> {
 }
 
 /**
+ * Leitura SÍNCRONA do tipo já em cache (sem I/O). `null` = desconhecido nesta
+ * worker ainda. Serve para guards defensivos em código sync — nunca como fonte
+ * de verdade: quem precisa do valor real usa `getMetaAppType()`.
+ */
+export function peekMetaAppTypeSync(): MetaAppType | null {
+  if (!cache) return null;
+  return normalizeType(cache.row.app_type);
+}
+
+/**
  * Credenciais efetivas do App Meta desta instalação.
  * Lança erro acionável (pt-BR) quando o modo `client` está selecionado sem
  * credenciais completas — nunca cai silenciosamente no App oficial.
