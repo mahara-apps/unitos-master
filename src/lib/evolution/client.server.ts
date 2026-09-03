@@ -70,6 +70,16 @@ export type EvolutionRequestOptions = {
   timeoutMs?: number;
   /** Nº máximo de tentativas (inclui a primeira). */
   attempts?: number;
+  /** Rótulo estável para telemetria (nunca contém dado sensível). */
+  operation?: string;
+  /**
+   * Chave de cooldown (ex.: `cooldownKey(brandId, instanceName)`).
+   * Quando presente: a chamada é bloqueada durante o cooldown e um 429 do
+   * provedor abre uma nova janela de cooldown.
+   */
+  cooldownKey?: string;
+  /** Reserva de budget por operação; `false` interrompe antes de chamar a API. */
+  budget?: { take: () => boolean };
 };
 
 export type EvolutionResponse<T> = {
@@ -89,6 +99,7 @@ export async function evolutionRequest<T = unknown>(
   const attempts = Math.max(1, Math.min(options.attempts ?? MAX_ATTEMPTS, 5));
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const method = options.method ?? "GET";
+  const operation = options.operation ?? `${method} ${options.path.split("/")[1] ?? "request"}`;
 
   const url = new URL(
     `${config.baseUrl}${options.path.startsWith("/") ? options.path : `/${options.path}`}`,
@@ -97,11 +108,44 @@ export async function evolutionRequest<T = unknown>(
     if (value !== undefined) url.searchParams.set(key, String(value));
   }
 
+  if (options.cooldownKey) {
+    const remaining = cooldownRemainingMs(options.cooldownKey);
+    if (remaining > 0) {
+      logWhatsappAttempt({
+        operation,
+        attempt: 0,
+        attempts,
+        outcome: "failed",
+        kind: "rate_limited",
+      });
+      throw new EvolutionApiError(
+        "rate_limited",
+        `Envio em espera: o servidor Evolution limitou as requisições. Tente novamente em ${Math.ceil(
+          remaining / 1000,
+        )}s.`,
+        { status: 429, retryable: false },
+      );
+    }
+  }
+
   let lastError: EvolutionApiError | null = null;
 
   for (let attempt = 1; attempt <= attempts; attempt++) {
+    if (options.budget && !options.budget.take()) {
+      logWhatsappAttempt({ operation, attempt, attempts, outcome: "failed", kind: "terminal" });
+      throw (
+        lastError ??
+        new EvolutionApiError(
+          "provider_error",
+          "Limite de requisições da operação atingido. Nada mais foi enviado.",
+          { retryable: false },
+        )
+      );
+    }
+    const startedAt = Date.now();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+
     try {
       const response = await fetch(url, {
         method,
