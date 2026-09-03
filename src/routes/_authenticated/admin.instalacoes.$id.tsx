@@ -18,7 +18,9 @@ import {
   cancelInstallationOperationFn,
   completeInstallationOperationFn,
   getInstallationFn,
+  getAutomationCapabilityFn,
   refreshInstallationHealthFn,
+  runAutomatedProvisionFn,
   startInstallationOperationFn,
 } from "@/lib/installation/manager.functions";
 import {
@@ -124,6 +126,8 @@ function InstallationDetailPage() {
   const completeFn = useServerFn(completeInstallationOperationFn);
   const cancelFn = useServerFn(cancelInstallationOperationFn);
   const healthFn = useServerFn(refreshInstallationHealthFn);
+  const capabilityFn = useServerFn(getAutomationCapabilityFn);
+  const autoFn = useServerFn(runAutomatedProvisionFn);
 
   const [runCommand, setRunCommand] = useState<string | null>(null);
   const [updateOpen, setUpdateOpen] = useState(false);
@@ -141,6 +145,16 @@ function InstallationDetailPage() {
         : false,
   });
 
+  // Provisionamento automático: o MASTER usa as próprias credenciais de gestão.
+  // Sem elas, a UI mostra o motivo do BLOCKED e mantém o fallback manual.
+  const capability = useQuery({
+    queryKey: ["installation-automation"],
+    queryFn: () => capabilityFn({ data: {} }),
+    retry: false,
+    staleTime: 60_000,
+  });
+  const automated = capability.data?.available === true;
+
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["installation", id] });
     void qc.invalidateQueries({ queryKey: ["installations"] });
@@ -152,7 +166,26 @@ function InstallationDetailPage() {
     onSuccess: (result) => {
       setRunCommand(result.runCommand);
       setUpdateOpen(false);
-      toast.success("Operação aberta. Rode o comando na instalação de destino.");
+      toast.success(
+        automated
+          ? "Operação aberta."
+          : "Operação aberta. Execute a operação na instalação de destino.",
+      );
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const autoProvision = useMutation({
+    mutationFn: () => autoFn({ data: { id } }),
+    onSuccess: (result) => {
+      if (result.result === "PASS") {
+        toast.success(
+          `Instalação provisionada automaticamente${result.appUrl ? ` em ${result.appUrl}` : ""}.`,
+        );
+      } else {
+        toast.error(`${result.result}: ${result.reasons.join(" | ")}`);
+      }
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -253,10 +286,22 @@ function InstallationDetailPage() {
         <div className="flex flex-wrap items-center gap-1.5">
           <Button
             size="sm"
-            disabled={!canStartOperation("provision", inst.status) || start.isPending || !!activeOp}
-            onClick={() => start.mutate({ kind: "provision" })}
+            disabled={
+              !canStartOperation("provision", inst.status) ||
+              start.isPending ||
+              autoProvision.isPending ||
+              !!activeOp
+            }
+            onClick={() =>
+              automated ? autoProvision.mutate() : start.mutate({ kind: "provision" })
+            }
           >
-            <Rocket className="mr-1.5 h-3.5 w-3.5" /> Provisionar instalação
+            {autoProvision.isPending ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Rocket className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            {automated ? "Provisionar automaticamente" : "Provisionar instalação"}
           </Button>
           <Button
             size="sm"
@@ -413,9 +458,20 @@ function InstallationDetailPage() {
             <StepList steps={shownProvision.steps} />
           ) : (
             <p className="text-xs text-muted-foreground">
-              Nenhuma execução ainda. Clique em “Provisionar instalação” para abrir a operação —
-              a execução usa os scripts de <span className="font-mono">supabase/install/</span>.
+              {automated
+                ? "Nenhuma execução ainda. O MASTER provisiona o Supabase de destino, gera os secrets exclusivos da instalação e configura as variáveis do deploy automaticamente — nenhum comando manual é necessário."
+                : "Nenhuma execução ainda. Clique em “Provisionar instalação” para abrir a operação."}
             </p>
+          )}
+          {capability.data && !automated && (
+            <div className="rounded-lg border border-severity-warning/40 bg-severity-warning/5 p-2.5">
+              <p className="text-xs font-medium">Provisionamento automático BLOCKED</p>
+              <ul className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
+                {capability.data.blockedReasons.map((reason) => (
+                  <li key={reason}>• {reason}</li>
+                ))}
+              </ul>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -440,7 +496,7 @@ function InstallationDetailPage() {
       )}
 
       {/* Comando de execução (exibido uma única vez) */}
-      {runCommand && (
+      {runCommand && !automated && (
         <Card className="border-severity-info/40">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Executar na instalação de destino</CardTitle>
