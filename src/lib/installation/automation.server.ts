@@ -33,8 +33,10 @@ import verifySql from "../../../supabase/install/verify-installation.sql?raw";
 import { runtimeEnv } from "@/lib/runtime-env.server";
 
 import {
+  isDuplicateObjectError,
   prepareVerificationSql,
   sanitizeBaselineSqlForManagementApi,
+  splitSqlStatements,
   stripPsqlMetaCommands,
   summarizeVerificationRows,
 } from "./baseline-sql";
@@ -96,6 +98,28 @@ export async function probeOperationalUrl(
 }
 
 /* ------------------------------------------------ Supabase Management API */
+
+/**
+ * Reaplica um arquivo do baseline statement por statement, ignorando SOMENTE
+ * erros de "objeto já existe". Qualquer outro erro aborta e é reportado.
+ */
+export async function applyStatementByStatement(
+  management: { query: (sql: string) => Promise<{ ok: boolean; rows: unknown[]; error?: string }> },
+  sql: string,
+): Promise<{ ok: true; skipped: number } | { ok: false; error?: string }> {
+  let skipped = 0;
+  for (const statement of splitSqlStatements(sql)) {
+    const res = await management.query(statement);
+    if (res.ok) continue;
+    if (isDuplicateObjectError(res.error)) {
+      skipped += 1;
+      continue;
+    }
+    return { ok: false, error: res.error };
+  }
+  return { ok: true, skipped };
+}
+
 
 export type ManagementClient = {
   query: (sql: string) => Promise<{ ok: boolean; rows: unknown[]; error?: string }>;
@@ -445,10 +469,19 @@ export async function runAutomatedProvision(input: {
     const prepared = sanitizeBaselineSqlForManagementApi(file.sql);
     const applied = await management.query(prepared.sql);
     if (!applied.ok) {
-      failures.push(`${file.label}: ${applied.error ?? "falha ao aplicar"}`);
-      await mark(file.id, "error", `${file.label} falhou`);
-      checks[file.id === "seeds" ? "database" : (file.id as HealthCheckId)] = "error";
-      return finish(null, null);
+      // Reexecução após falha parcial: a Management API aborta o arquivo no
+      // primeiro "já existe". Reaplica statement por statement, ignorando
+      // SOMENTE erros da classe duplicate (idempotência), nunca outros.
+      const retryable = isDuplicateObjectError(applied.error);
+      const perStatement = retryable
+        ? await applyStatementByStatement(management, prepared.sql)
+        : { ok: false as const, error: applied.error };
+      if (!perStatement.ok) {
+        failures.push(`${file.label}: ${perStatement.error ?? applied.error ?? "falha ao aplicar"}`);
+        await mark(file.id, "error", `${file.label} falhou`);
+        checks[file.id === "seeds" ? "database" : (file.id as HealthCheckId)] = "error";
+        return finish(null, null);
+      }
     }
   }
   checks.database = "ok";
