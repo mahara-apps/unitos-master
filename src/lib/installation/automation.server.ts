@@ -78,6 +78,23 @@ function bindAppUrl(sql: string, appUrl: string): string {
 
 type Fetcher = typeof fetch;
 
+/** GET real na URL operacional: nunca marca frontend ok sem resposta HTTP. */
+export async function probeOperationalUrl(
+  origin: string,
+  fetchImpl?: Fetcher,
+): Promise<{ ok: boolean; status: number | null; detail: string }> {
+  const doFetch = fetchImpl ?? fetch;
+  try {
+    const res = await doFetch(origin, { method: "GET", redirect: "follow" });
+    if (res.status >= 200 && res.status < 400) {
+      return { ok: true, status: res.status, detail: `HTTP ${res.status}` };
+    }
+    return { ok: false, status: res.status, detail: `HTTP ${res.status}` };
+  } catch (e) {
+    return { ok: false, status: null, detail: (e as Error).message };
+  }
+}
+
 /* ------------------------------------------------ Supabase Management API */
 
 export type ManagementClient = {
@@ -144,6 +161,8 @@ export function createManagementClient(input: {
 
 export type DeployClient = {
   deploymentUrl: () => Promise<{ ok: boolean; url?: string; error?: string }>;
+  /** Redeploy da producao — necessario para que as variaveis gravadas valham. */
+  redeploy: () => Promise<{ ok: boolean; deploymentId?: string; error?: string }>;
   setEnv: (
     entries: readonly { key: string; value: string; sensitive: boolean }[],
   ) => Promise<{ ok: boolean; applied: number; error?: string }>;
@@ -189,6 +208,43 @@ export function createDeployClient(input: {
           return { ok: false, error: "o deploy ainda não expôs uma URL pública" };
         }
         return { ok: true, url: candidate.startsWith("http") ? candidate : `https://${candidate}` };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+    async redeploy() {
+      try {
+        const list = await doFetch(
+          `https://api.vercel.com/v6/deployments?${qs(
+            `app=${project}&target=production&limit=1`,
+          )}`,
+          { headers },
+        );
+        if (!list.ok) {
+          return { ok: false, error: `HTTP ${list.status} ao listar deployments` };
+        }
+        const body = (await list.json().catch(() => ({}))) as {
+          deployments?: Array<{ uid?: string; name?: string }>;
+        };
+        const latest = body.deployments?.[0];
+        if (!latest?.uid) {
+          return { ok: false, error: "nenhum deployment de producao encontrado para redeploy" };
+        }
+        const res = await doFetch(`https://api.vercel.com/v13/deployments?${qs("forceNew=1")}`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            name: latest.name ?? input.project,
+            deploymentId: latest.uid,
+            target: "production",
+          }),
+        });
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          return { ok: false, error: `HTTP ${res.status} ao disparar redeploy (${text.slice(0, 200)})` };
+        }
+        const created = (await res.json().catch(() => ({}))) as { id?: string; uid?: string };
+        return { ok: true, deploymentId: created.id ?? created.uid };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
       }
@@ -473,13 +529,33 @@ export async function runAutomatedProvision(input: {
     return finish(url.origin, url.source);
   }
   checks.configuration = "ok";
-  checks.frontend = "ok";
+
+  // Gravar variaveis NAO republica o app: sem um novo deployment o frontend
+  // continua rodando com o env antigo. O redeploy e disparado aqui.
+  const redeployed = await deploy.redeploy();
+  if (!redeployed.ok) {
+    blocked.push(
+      `Novo deployment nao disparado (as variaveis so valem apos republicar): ${
+        redeployed.error ?? ""
+      }`.trim(),
+    );
+  }
+
+  // Estado do frontend so vira "ok" com resposta HTTP real da URL operacional.
+  const probe = await probeOperationalUrl(url.origin, input.fetchImpl);
+  checks.frontend = probe.ok ? "ok" : "attention";
+  if (!probe.ok) {
+    blocked.push(`Frontend ainda nao respondeu em ${url.origin}: ${probe.detail}`);
+  }
+
   await mark(
     "deploy",
     "done",
     `${envResult.applied} variáveis gravadas — URL operacional ${url.origin} (${
       url.source === "deploy" ? "temporária do deploy" : "domínio definitivo"
-    })`,
+    })${redeployed.ok ? " · novo deployment disparado" : " · redeploy pendente"}${
+      probe.ok ? " · frontend respondendo" : ` · frontend ${probe.detail}`
+    }`,
   );
 
   /* 6. Brain stats */

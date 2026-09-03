@@ -33,9 +33,9 @@ WITH checks AS (
 
   -- --------------------------------------------------------------- contagens base
   UNION ALL
-  SELECT 10, 'baseline: tabelas em public (esperado 89)',
+  SELECT 10, 'baseline: tabelas em public (esperado 95)',
          (SELECT count(*)::text FROM pg_tables WHERE schemaname = 'public'),
-         CASE WHEN (SELECT count(*) FROM pg_tables WHERE schemaname = 'public') >= 89 THEN 'PASS' ELSE 'FAIL' END
+         CASE WHEN (SELECT count(*) FROM pg_tables WHERE schemaname = 'public') >= 95 THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
   SELECT 11, 'baseline: enums em public (esperado 10)',
          (SELECT count(*)::text FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
@@ -43,23 +43,23 @@ WITH checks AS (
          CASE WHEN (SELECT count(*) FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
                     WHERE n.nspname = 'public' AND t.typtype = 'e') >= 10 THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
-  SELECT 12, 'baseline: funções em public (esperado >= 133)',
+  SELECT 12, 'baseline: funções em public (esperado >= 260)',
          (SELECT count(*)::text FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
           WHERE n.nspname = 'public'),
          CASE WHEN (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-                    WHERE n.nspname = 'public') >= 133 THEN 'PASS' ELSE 'FAIL' END
+                    WHERE n.nspname = 'public') >= 260 THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
-  SELECT 13, 'baseline: policies em public (esperado >= 200)',
+  SELECT 13, 'baseline: policies em public (esperado >= 215)',
          (SELECT count(*)::text FROM pg_policies WHERE schemaname = 'public'),
-         CASE WHEN (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') >= 200 THEN 'PASS' ELSE 'FAIL' END
+         CASE WHEN (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') >= 215 THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
-  SELECT 14, 'baseline: triggers próprios em public (esperado >= 96)',
+  SELECT 14, 'baseline: triggers próprios em public (esperado >= 100)',
          (SELECT count(*)::text FROM pg_trigger tg JOIN pg_class c ON c.oid = tg.tgrelid
           JOIN pg_namespace n ON n.oid = c.relnamespace
           WHERE n.nspname = 'public' AND NOT tg.tgisinternal),
          CASE WHEN (SELECT count(*) FROM pg_trigger tg JOIN pg_class c ON c.oid = tg.tgrelid
                     JOIN pg_namespace n ON n.oid = c.relnamespace
-                    WHERE n.nspname = 'public' AND NOT tg.tgisinternal) >= 96 THEN 'PASS' ELSE 'FAIL' END
+                    WHERE n.nspname = 'public' AND NOT tg.tgisinternal) >= 100 THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
   SELECT 15, 'RLS habilitado em todas as tabelas de public',
          (SELECT count(*)::text FROM pg_tables WHERE schemaname = 'public' AND NOT rowsecurity),
