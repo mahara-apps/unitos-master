@@ -280,6 +280,16 @@ export function buildDeployEnvPlan(input: {
   serviceRoleKey: string;
   projectRef: string;
   secrets: Partial<Record<GeneratedSecretVar, string>>;
+  /**
+   * App Meta OFICIAL do Unitos (compartilhado entre instalações). Quando
+   * disponível no MASTER, é propagado para a instalação nova: assim o modo
+   * “Unitos — App Meta oficial” já vem resolvido, sem digitação na UI.
+   */
+  officialMetaApp?: {
+    appId?: string | null;
+    appSecret?: string | null;
+    businessConfigId?: string | null;
+  } | null;
 }): DeployEnvPlan {
   const identity = `${input.appUrl} ${input.supabaseUrl} ${input.projectRef}`;
   if (containsMasterReference(identity)) {
