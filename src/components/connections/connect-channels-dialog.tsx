@@ -255,8 +255,17 @@ export function ConnectChannelsDialog({
         state: hasData ? "done" : blocked ? "error" : syncing ? "current" : "done",
       },
       {
-        label: "Validando permissões",
-        state: issue ? "error" : syncing ? "pending" : hasData ? "done" : "pending",
+        label: hasData && issue ? "Permissões validadas parcialmente" : "Validando permissões",
+        // Com ativos já carregados, uma limitação da Meta é atenção — nunca erro fatal.
+        state: issue
+          ? hasData
+            ? "warning"
+            : "error"
+          : syncing
+            ? "pending"
+            : hasData
+              ? "done"
+              : "pending",
       },
     ];
   }, [discovery?.metaUserId, issue, summary, syncing]);
