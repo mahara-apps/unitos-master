@@ -1059,18 +1059,15 @@ export async function runAutomatedProvision(input: {
 
   // Primeiro acesso NÃO bloqueia: a instalação já está operacional e o Super
   // Admin é criado no fluxo /setup da própria instalação.
-  const setup = await management.query(
-    "select (public.installation_setup_state()->>'has_super_admin')::boolean as has_super_admin",
-  );
-  const hasSuperAdmin =
-    (setup.rows[0] as { has_super_admin?: boolean | null } | undefined)?.has_super_admin === true;
+  const firstAccess = await readFirstAccessState(management);
+  checks.super_admin = firstAccess.superAdmin;
+  checks.workspace = firstAccess.workspace;
   await mark(
     "validation",
     "done",
-    hasSuperAdmin
-      ? `${summary.total} verificações PASS · Super Admin já criado`
-      : `${summary.total} verificações PASS · crie o primeiro Super Admin em ${url.origin}/setup`,
+    `${summary.total} verificações PASS · ${firstAccess.detail}`,
   );
+
 
   return finish(url.origin, url.source);
 }
