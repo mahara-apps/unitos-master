@@ -354,9 +354,11 @@ function InstallationDetailPage() {
             size="sm"
             disabled={
               !canStartOperation("provision", inst.status) ||
+              capability.isPending ||
               start.isPending ||
               autoProvision.isPending ||
               !!activeOp
+
             }
             onClick={() =>
               automated ? autoProvision.mutate() : start.mutate({ kind: "provision" })
