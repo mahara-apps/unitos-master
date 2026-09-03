@@ -37,6 +37,14 @@ export const CORE_REQUIREMENTS = [
 
 export type CoreRequirementId = (typeof CORE_REQUIREMENTS)[number]["id"];
 
+/**
+ * Itens de PRIMEIRO ACESSO: criados pelo cliente no /setup da própria
+ * instalação. Aparecem no núcleo como informação, mas não bloqueiam READY
+ * quando ainda não foram reportados.
+ */
+export const FIRST_ACCESS_REQUIREMENTS: readonly CoreRequirementId[] = ["super_admin", "workspace"];
+
+
 /** Estado de um item do núcleo. `pending` = obrigatório ainda não comprovado. */
 export type CoreState = "ok" | "attention" | "pending" | "running" | "error";
 
