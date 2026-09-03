@@ -171,17 +171,44 @@ export async function evolutionRequest<T = unknown>(
 
       if (!response.ok) {
         const { code, message } = messageForStatus(response.status);
-        const retryable = response.status === 429 || response.status >= 500;
         // Detalhe técnico só no servidor; a chave nunca é logada.
         console.error(
           `[Evolution] ${method} ${options.path} -> ${response.status} ${text.slice(0, 300)}`,
         );
-        lastError = new EvolutionApiError(code, message, {
+        const httpError = new EvolutionApiError(code, message, {
           status: response.status,
-          retryable,
+          retryable: isRecoverableWhatsappFailure({ code, status: response.status }),
         });
-        if (!retryable || attempt === attempts) throw lastError;
-        await sleep(250 * attempt);
+        lastError = httpError;
+        const kind = classifyWhatsappFailure(httpError);
+        if (kind === "rate_limited" && options.cooldownKey) {
+          startCooldown(options.cooldownKey);
+        }
+        if (!httpError.retryable || attempt === attempts) {
+          logWhatsappAttempt({
+            operation,
+            attempt,
+            attempts,
+            outcome: "failed",
+            kind,
+            status: response.status,
+            durationMs: Date.now() - startedAt,
+          });
+          throw httpError;
+        }
+        const delayMs = backoffDelayMs(attempt);
+        logWhatsappAttempt({
+          operation,
+          attempt,
+          attempts,
+          outcome: "retrying",
+          kind,
+          status: response.status,
+          durationMs: Date.now() - startedAt,
+          delayMs,
+        });
+        clearTimeout(timer);
+        await sleep(delayMs);
         continue;
       }
 
@@ -193,10 +220,32 @@ export async function evolutionRequest<T = unknown>(
         );
       }
 
+      logWhatsappAttempt({
+        operation,
+        attempt,
+        attempts,
+        outcome: "ok",
+        status: response.status,
+        durationMs: Date.now() - startedAt,
+      });
       return { status: response.status, data: (parsed ?? null) as T };
     } catch (error) {
       if (error instanceof EvolutionApiError) {
-        if (!error.retryable || attempt === attempts) throw error;
+        if (classifyWhatsappFailure(error) === "rate_limited" && options.cooldownKey) {
+          startCooldown(options.cooldownKey);
+        }
+        if (!error.retryable || attempt === attempts) {
+          logWhatsappAttempt({
+            operation,
+            attempt,
+            attempts,
+            outcome: "failed",
+            kind: classifyWhatsappFailure(error),
+            status: error.status,
+            durationMs: Date.now() - startedAt,
+          });
+          throw error;
+        }
         lastError = error;
       } else {
         const aborted = error instanceof Error && error.name === "AbortError";
@@ -218,13 +267,36 @@ export async function evolutionRequest<T = unknown>(
               "Não foi possível alcançar o servidor Evolution.",
               { retryable: true },
             );
-        if (attempt === attempts) throw lastError;
+        if (attempt === attempts) {
+          logWhatsappAttempt({
+            operation,
+            attempt,
+            attempts,
+            outcome: "failed",
+            kind: classifyWhatsappFailure(lastError),
+            durationMs: Date.now() - startedAt,
+          });
+          throw lastError;
+        }
       }
-      await sleep(250 * attempt);
+      const delayMs = backoffDelayMs(attempt);
+      logWhatsappAttempt({
+        operation,
+        attempt,
+        attempts,
+        outcome: "retrying",
+        kind: classifyWhatsappFailure(lastError),
+        status: lastError?.status ?? null,
+        durationMs: Date.now() - startedAt,
+        delayMs,
+      });
+      clearTimeout(timer);
+      await sleep(delayMs);
     } finally {
       clearTimeout(timer);
     }
   }
+
 
   throw (
     lastError ?? new EvolutionApiError("network_error", "Falha ao contatar o servidor Evolution.")
