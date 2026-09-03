@@ -110,6 +110,10 @@ export type MetaPortfolioScan = {
   requestCount: number;
   /** Whether the Business Portfolio traversal ran. */
   deep: boolean;
+  /** Por que a varredura terminou (completed | deadline | page_cap | ...). */
+  stopReason: GraphStopReason;
+  /** Resumo estruturado de consumo desta varredura (log/telemetria). */
+  telemetry: ReturnType<GraphTelemetry["finish"]> | null;
 };
 
 
