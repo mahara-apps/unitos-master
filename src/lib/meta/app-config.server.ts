@@ -266,6 +266,8 @@ export async function getMetaAppSettings(): Promise<MetaAppSettings> {
             : null,
     },
     updatedAt: row.updated_at ?? null,
+    isMaster,
+    officialEditable: isMaster,
   };
 }
 
