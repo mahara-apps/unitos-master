@@ -48,8 +48,6 @@ export function ContextSwitcher() {
   });
 
   const [popoverOpen, setPopoverOpen] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [name, setName] = useState("");
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
 
   // Extrai o segmento após /customers/ para reconstruir sub-rota ao trocar de cliente
