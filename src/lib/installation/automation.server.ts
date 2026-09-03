@@ -29,6 +29,8 @@ import install011 from "../../../supabase/install/011_brain_stats_init.sql?raw";
 import install020 from "../../../supabase/install/020_cron.sql?raw";
 import verifySql from "../../../supabase/install/verify-installation.sql?raw";
 
+import { runtimeEnv } from "@/lib/runtime-env.server";
+
 import { containsMasterReference } from "./bootstrap-contract";
 import {
   GENERATED_SECRET_VARS,
