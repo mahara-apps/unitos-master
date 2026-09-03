@@ -677,10 +677,13 @@ export class MetaProvider {
     };
 
     // 1) PRIMARY SOURCE OF TRUTH — Pages administered by the user, with the
-    //    attached Instagram Business account. Meta occasionally returns a
-    //    generic HTTP 500 when a field is unavailable for one asset in a large
-    //    portfolio, so retry with progressively conservative field sets instead
-    //    of discarding the entire account list.
+    //    attached Instagram Business account.
+    //
+    //    O fallback de `fields` existe porque a Meta às vezes devolve HTTP 500
+    //    quando um campo é indisponível para UM ativo de um portfólio grande.
+    //    Mas ele só é tentado diante do erro QUE O JUSTIFICA
+    //    (`shouldRetryWithSmallerFields`): em rate limit ou token inválido
+    //    repetir a mesma leitura 3× só multiplicava o estouro de quota.
     let directPagesLoaded = false;
     let directPagesError: unknown = null;
     for (const fields of [PAGE_FIELDS, COMPAT_PAGE_FIELDS, MINIMAL_PAGE_FIELDS]) {
@@ -690,9 +693,13 @@ export class MetaProvider {
         break;
       } catch (err) {
         directPagesError = err;
-        if (isFatalScanError(err) && !(err instanceof MetaGraphError && err.status >= 500)) {
+        if (isRateLimitError(err)) {
+          telemetry.rateLimit();
+          noteStop("rate_limited");
           throw err;
         }
+        if (!shouldRetryWithSmallerFields(err)) throw err;
+        telemetry.retry();
       }
     }
     if (!directPagesLoaded) {
