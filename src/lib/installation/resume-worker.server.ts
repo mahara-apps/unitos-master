@@ -29,7 +29,7 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
     .from("installation_operations")
     .update({
       last_report_at: new Date().toISOString(),
-      summary: "Provisionamento automático retomado pelo cron do MASTER.",
+      summary: "Operação automática retomada pelo cron do MASTER.",
     })
     .in("status", ["pending", "running"])
     .eq("detail->>automated", "true")

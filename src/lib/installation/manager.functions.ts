@@ -865,7 +865,7 @@ export const resumeAutomatedProvisionFn = createServerFn({ method: "POST" })
       .from("installation_operations")
       .update({
         last_report_at: new Date().toISOString(),
-        summary: "Provisionamento automático retomado pelo watchdog do MASTER.",
+        summary: "Operação automática retomada pelo watchdog do MASTER.",
       })
       .eq("installation_id", data.id)
       .in("status", ["pending", "running"])
