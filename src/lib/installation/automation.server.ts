@@ -1357,6 +1357,7 @@ export async function runAutomatedUpdate(input: {
     token: (env["UNITOS_VERCEL_TOKEN"] ?? "").trim(),
     project,
     teamId: (env["UNITOS_VERCEL_TEAM_ID"] ?? "").trim() || null,
+    masterRepo: (env["UNITOS_MASTER_REPO"] ?? "").trim() || null,
     fetchImpl: input.fetchImpl,
   });
 
