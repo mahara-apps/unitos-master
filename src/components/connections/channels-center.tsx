@@ -91,7 +91,7 @@ import {
 } from "@/lib/client-channels.functions";
 import { listClients } from "@/lib/workspace.functions";
 import { WhatsappCenter } from "./whatsapp-center";
-import { disconnectMeta, startMetaOAuth } from "@/lib/meta/meta.functions";
+import { disconnectMeta, getActiveMetaSession, startMetaOAuth } from "@/lib/meta/meta.functions";
 import {
   applyMetaReconnectFn,
   inspectMetaConnectionFn,
