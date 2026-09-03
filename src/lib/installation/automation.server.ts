@@ -112,38 +112,44 @@ export async function applyStatementByStatement(
   },
 ): Promise<{ ok: true; skipped: number } | { ok: false; error?: string }> {
   const statements = splitSqlStatements(sql);
-  let skipped = 0;
+  const batchSize = 150;
+  let processed = 0;
 
-  // Um baseline tem ~1.800 statements. Reenviá-los um a um excede o tempo de
-  // vida do Worker e deixa a operação eternamente em `running`. O algoritmo
-  // abaixo tenta lotes grandes e só divide o lote que contém duplicidade. Na
-  // situação comum (um retry após aplicação parcial), cai de milhares de
-  // requests para poucas dezenas, sem ignorar qualquer erro real.
-  const applyRange = async (range: string[], offset: number): Promise<{ ok: true } | { ok: false; error?: string }> => {
+  // Cada statement é protegido no próprio Postgres e os lotes são enviados em
+  // poucas chamadas. Assim um objeto duplicado é ignorado isoladamente, mas
+  // qualquer erro diferente continua abortando. Isso evita as ~1.800 chamadas
+  // sequenciais que excediam a vida do Worker em retomadas parciais.
+  for (let start = 0; start < statements.length; start += batchSize) {
     if (await options?.isCancelled?.()) {
       return { ok: false, error: "Operação cancelada pelo Super Admin." };
     }
-    const res = await management.query(range.join("\n"));
-    if (res.ok) {
-      await options?.onProgress?.(offset + range.length, statements.length);
-      return { ok: true };
-    }
-    if (!isDuplicateObjectError(res.error)) return { ok: false, error: res.error };
-    if (range.length === 1) {
-      skipped += 1;
-      await options?.onProgress?.(offset + 1, statements.length);
-      return { ok: true };
-    }
-
-    const middle = Math.floor(range.length / 2);
-    const left = await applyRange(range.slice(0, middle), offset);
-    if (!left.ok) return left;
-    return applyRange(range.slice(middle), offset + middle);
-  };
-
-  const result = await applyRange(statements, 0);
-  if (!result.ok) return result;
-  return { ok: true, skipped };
+    const batch = statements.slice(start, start + batchSize);
+    const guarded = batch
+      .map((statement, index) => {
+        let suffix = index;
+        let tag = `$unitos_stmt_${suffix}$`;
+        while (statement.includes(tag)) {
+          suffix += batch.length;
+          tag = `$unitos_stmt_${suffix}$`;
+        }
+        return [
+          "DO $unitos_guard$",
+          "BEGIN",
+          `  EXECUTE ${tag}${statement}${tag};`,
+          "EXCEPTION",
+          "  WHEN SQLSTATE '42710' OR SQLSTATE '42P07' OR SQLSTATE '42P06'",
+          "    OR SQLSTATE '42701' OR SQLSTATE '42723' OR SQLSTATE '23505' THEN NULL;",
+          "END",
+          "$unitos_guard$;",
+        ].join("\n");
+      })
+      .join("\n");
+    const result = await management.query(guarded);
+    if (!result.ok) return { ok: false, error: result.error };
+    processed += batch.length;
+    await options?.onProgress?.(processed, statements.length);
+  }
+  return { ok: true, skipped: 0 };
 }
 
 

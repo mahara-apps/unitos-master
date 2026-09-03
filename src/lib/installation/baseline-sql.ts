@@ -186,7 +186,7 @@ export function splitSqlStatements(sql: string): string[] {
   let dollarTag: string | null = null;
 
   while (i < sql.length) {
-    const ch = sql[i]!;
+    const ch = sql.charAt(i);
     const rest = sql.slice(i);
 
     if (dollarTag) {

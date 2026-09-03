@@ -120,14 +120,11 @@ describe("reexecução idempotente do baseline", () => {
   it("reaplica ignorando duplicados e aborta em erro real", async () => {
     const ok = await applyStatementByStatement(
       {
-        query: async (sql) =>
-          sql.includes("CREATE TYPE")
-            ? { ok: false, rows: [], error: "42710: type already exists" }
-            : { ok: true, rows: [] },
+        query: async () => ({ ok: true, rows: [] }),
       },
       "CREATE TYPE t AS ENUM ('a');\nCREATE TABLE x (id int);",
     );
-    expect(ok).toEqual({ ok: true, skipped: 1 });
+    expect(ok).toEqual({ ok: true, skipped: 0 });
 
     const bad = await applyStatementByStatement(
       { query: async () => ({ ok: false, rows: [], error: "42501: permission denied" }) },
@@ -144,16 +141,16 @@ describe("reexecução idempotente do baseline", () => {
       {
         query: async (batch) => {
           calls += 1;
-          return batch.includes("SELECT 0;")
-            ? { ok: false, rows: [], error: "42710: objeto já existe" }
-            : { ok: true, rows: [] };
+          expect(batch).toContain("DO $unitos_guard$");
+          expect(batch).toContain("WHEN SQLSTATE '42710'");
+          return { ok: true, rows: [] };
         },
       },
       sql,
       { onProgress: (processed) => void progress.push(processed) },
     );
-    expect(result).toEqual({ ok: true, skipped: 1 });
-    expect(calls).toBeLessThan(25);
+    expect(result).toEqual({ ok: true, skipped: 0 });
+    expect(calls).toBe(2);
     expect(progress.at(-1)).toBe(256);
   });
 
