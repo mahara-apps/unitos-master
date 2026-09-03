@@ -81,6 +81,7 @@ import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_a
 import { Route as AuthenticatedBrainDiagnosticsRouteImport } from './routes/_authenticated/brain.diagnostics'
 import { Route as AuthenticatedAdminRecursosRouteImport } from './routes/_authenticated/admin.recursos'
 import { Route as AuthenticatedAdminMetaRouteImport } from './routes/_authenticated/admin.meta'
+import { Route as AuthenticatedAdminInstalacoesRouteImport } from './routes/_authenticated/admin.instalacoes'
 import { Route as AuthenticatedAdminIdentidadeRouteImport } from './routes/_authenticated/admin.identidade'
 import { Route as AuthenticatedAdminAmbienteRouteImport } from './routes/_authenticated/admin.ambiente'
 import { Route as ApiSocialTopPostsConnectionIdRouteImport } from './routes/api/social/top-posts/$connectionId'
@@ -491,6 +492,12 @@ const AuthenticatedAdminMetaRoute = AuthenticatedAdminMetaRouteImport.update({
   path: '/meta',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedAdminInstalacoesRoute =
+  AuthenticatedAdminInstalacoesRouteImport.update({
+    id: '/instalacoes',
+    path: '/instalacoes',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminIdentidadeRoute =
   AuthenticatedAdminIdentidadeRouteImport.update({
     id: '/identidade',
@@ -672,6 +679,7 @@ export interface FileRoutesByFullPath {
   '/portal/$token': typeof PortalTokenRouteWithChildren
   '/admin/ambiente': typeof AuthenticatedAdminAmbienteRoute
   '/admin/identidade': typeof AuthenticatedAdminIdentidadeRoute
+  '/admin/instalacoes': typeof AuthenticatedAdminInstalacoesRoute
   '/admin/meta': typeof AuthenticatedAdminMetaRoute
   '/admin/recursos': typeof AuthenticatedAdminRecursosRoute
   '/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
@@ -763,6 +771,7 @@ export interface FileRoutesByTo {
   '/plano/$planId': typeof PlanoPlanIdRoute
   '/admin/ambiente': typeof AuthenticatedAdminAmbienteRoute
   '/admin/identidade': typeof AuthenticatedAdminIdentidadeRoute
+  '/admin/instalacoes': typeof AuthenticatedAdminInstalacoesRoute
   '/admin/meta': typeof AuthenticatedAdminMetaRoute
   '/admin/recursos': typeof AuthenticatedAdminRecursosRoute
   '/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
@@ -864,6 +873,7 @@ export interface FileRoutesById {
   '/portal/$token': typeof PortalTokenRouteWithChildren
   '/_authenticated/admin/ambiente': typeof AuthenticatedAdminAmbienteRoute
   '/_authenticated/admin/identidade': typeof AuthenticatedAdminIdentidadeRoute
+  '/_authenticated/admin/instalacoes': typeof AuthenticatedAdminInstalacoesRoute
   '/_authenticated/admin/meta': typeof AuthenticatedAdminMetaRoute
   '/_authenticated/admin/recursos': typeof AuthenticatedAdminRecursosRoute
   '/_authenticated/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
@@ -964,6 +974,7 @@ export interface FileRouteTypes {
     | '/portal/$token'
     | '/admin/ambiente'
     | '/admin/identidade'
+    | '/admin/instalacoes'
     | '/admin/meta'
     | '/admin/recursos'
     | '/brain/diagnostics'
@@ -1055,6 +1066,7 @@ export interface FileRouteTypes {
     | '/plano/$planId'
     | '/admin/ambiente'
     | '/admin/identidade'
+    | '/admin/instalacoes'
     | '/admin/meta'
     | '/admin/recursos'
     | '/brain/diagnostics'
@@ -1155,6 +1167,7 @@ export interface FileRouteTypes {
     | '/portal/$token'
     | '/_authenticated/admin/ambiente'
     | '/_authenticated/admin/identidade'
+    | '/_authenticated/admin/instalacoes'
     | '/_authenticated/admin/meta'
     | '/_authenticated/admin/recursos'
     | '/_authenticated/brain/diagnostics'
@@ -1771,6 +1784,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminMetaRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/instalacoes': {
+      id: '/_authenticated/admin/instalacoes'
+      path: '/instalacoes'
+      fullPath: '/admin/instalacoes'
+      preLoaderRoute: typeof AuthenticatedAdminInstalacoesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/identidade': {
       id: '/_authenticated/admin/identidade'
       path: '/identidade'
@@ -1959,6 +1979,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAmbienteRoute: typeof AuthenticatedAdminAmbienteRoute
   AuthenticatedAdminIdentidadeRoute: typeof AuthenticatedAdminIdentidadeRoute
+  AuthenticatedAdminInstalacoesRoute: typeof AuthenticatedAdminInstalacoesRoute
   AuthenticatedAdminMetaRoute: typeof AuthenticatedAdminMetaRoute
   AuthenticatedAdminRecursosRoute: typeof AuthenticatedAdminRecursosRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
@@ -1967,6 +1988,7 @@ interface AuthenticatedAdminRouteChildren {
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAmbienteRoute: AuthenticatedAdminAmbienteRoute,
   AuthenticatedAdminIdentidadeRoute: AuthenticatedAdminIdentidadeRoute,
+  AuthenticatedAdminInstalacoesRoute: AuthenticatedAdminInstalacoesRoute,
   AuthenticatedAdminMetaRoute: AuthenticatedAdminMetaRoute,
   AuthenticatedAdminRecursosRoute: AuthenticatedAdminRecursosRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
