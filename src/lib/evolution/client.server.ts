@@ -5,6 +5,17 @@
 
 import type { EvolutionConfig } from "./config.server";
 import { EvolutionConfigError } from "./config.server";
+import {
+  backoffDelayMs,
+  classifyWhatsappFailure,
+  cooldownRemainingMs,
+  isRecoverableWhatsappFailure,
+  logWhatsappAttempt,
+  MAX_ATTEMPTS_PER_MESSAGE,
+  REQUEST_TIMEOUT_MS,
+  startCooldown,
+} from "@/lib/whatsapp/budget";
+
 
 export type EvolutionErrorCode =
   | "unauthorized"
