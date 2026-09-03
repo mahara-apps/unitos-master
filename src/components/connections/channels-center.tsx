@@ -99,6 +99,7 @@ import {
   type DiscoveredAccountsResult,
 } from "@/lib/meta/discovery.functions";
 import { metaIssueToast } from "@/lib/meta/issue-messages";
+import { maskId } from "@/lib/meta/reconnect-diagnosis";
 import { linkMetaAccount } from "@/lib/meta/portfolio.functions";
 import {
   disconnectMetaPortfolioFn,
@@ -1049,52 +1050,89 @@ function ReconnectDialog({
 
   if (!row) return null;
   const def = channelDef(row.channel);
+  const diag = result?.diagnosis ?? null;
+  const mismatch = !!result?.ok && !!result.changed;
+  const loading = inspectMut.isPending || !result;
 
   return (
     <Dialog open={!!row} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="text-base">Reconectar canal</DialogTitle>
-          <DialogDescription className="text-xs">
-            {def.label}
-            {row.handle ? ` · @${row.handle.replace(/^@/, "")}` : ""}. Verificamos a conta antes de
-            gravar qualquer alteração — nenhuma conta é substituída sem a sua confirmação.
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+        <DialogHeader className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <def.icon className={cn(CHANNEL_ICON_SIZE, def.tone)} />
+            <span className="text-xs text-muted-foreground">
+              {def.label}
+              {row.handle ? ` · @${row.handle.replace(/^@/, "")}` : ""}
+            </span>
+            {diag ? (
+              <Badge
+                variant="outline"
+                className={cn(
+                  "ml-auto h-5 border-none px-2 text-[11px] font-medium",
+                  diag.severity === "critical"
+                    ? "bg-destructive/10 text-destructive"
+                    : diag.severity === "warning"
+                      ? "bg-severity-warning/10 text-severity-warning"
+                      : "bg-muted text-muted-foreground",
+                )}
+              >
+                {diag.badge}
+              </Badge>
+            ) : null}
+          </div>
+          <DialogTitle className="text-base leading-snug">
+            {loading ? "Verificando a conta na Meta…" : (diag?.title ?? "Reconectar canal")}
+          </DialogTitle>
+          <DialogDescription className="text-xs leading-relaxed">
+            {loading
+              ? "Nenhuma alteração é gravada durante a verificação."
+              : (diag?.cause ?? "")}
           </DialogDescription>
         </DialogHeader>
 
-        {inspectMut.isPending || !result ? (
+        {loading ? (
           <div className="flex items-center gap-2 py-6 text-xs text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Verificando a conta na Meta…
-          </div>
-        ) : !result.ok ? (
-          <div className="space-y-1 rounded-lg border border-severity-warning/30 bg-severity-warning/10 p-3">
-            <p className="text-sm font-medium text-severity-warning">
-              {result.message?.title ?? "Não foi possível verificar"}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {result.message?.description ??
-                "Autorize novamente esta conta na Meta para voltar a publicar."}
-            </p>
-          </div>
-        ) : result.changed ? (
-          <div className="space-y-3">
-            <div className="rounded-lg border border-severity-warning/30 bg-severity-warning/10 p-3 text-xs text-severity-warning">
-              A Meta está devolvendo uma conta diferente da que está configurada. Confirme antes de
-              trocar — a troca afeta publicações e métricas do cliente vinculado.
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <AccountBox title="Conta atual" snap={result.current} />
-              <AccountBox title="Conta encontrada agora" snap={result.found} />
-            </div>
+            Consultando a Meta…
           </div>
         ) : (
-          <div className="rounded-lg border p-3 text-xs text-muted-foreground">
-            A conta continua a mesma. Podemos revalidar a autorização e reativar o canal.
+          <div className="space-y-3">
+            <div className="rounded-lg border bg-muted/40 p-3">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Ação recomendada
+              </p>
+              <p className="mt-1 text-xs leading-relaxed">{diag?.action}</p>
+            </div>
+
+            {mismatch ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <AccountBox title="Conta atual" snap={result.current} channel={row.channel} />
+                <AccountBox
+                  title="Conta encontrada agora"
+                  snap={result.found}
+                  channel={row.channel}
+                  highlight
+                />
+              </div>
+            ) : null}
+
+            {result?.technical ? (
+              <Collapsible>
+                <CollapsibleTrigger className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground">
+                  <ChevronDown className="h-3 w-3" />
+                  Detalhes técnicos
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <p className="mt-2 break-words rounded-md bg-muted p-2 font-mono text-[11px] leading-relaxed text-muted-foreground">
+                    {result.technical}
+                  </p>
+                </CollapsibleContent>
+              </Collapsible>
+            ) : null}
           </div>
         )}
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 sm:justify-end">
           <Button
             size="sm"
             variant="ghost"
@@ -1103,21 +1141,8 @@ function ReconnectDialog({
           >
             Cancelar
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 gap-1.5 text-xs"
-            disabled={reauthorizing}
-            onClick={() => void startReauth()}
-          >
-            {reauthorizing ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5" />
-            )}
-            Nova autorização na Meta
-          </Button>
-          {result?.ok && result.changed ? (
+
+          {mismatch ? (
             <>
               <Button
                 size="sm"
@@ -1138,7 +1163,21 @@ function ReconnectDialog({
                 Usar a nova conta
               </Button>
             </>
-          ) : result?.ok ? (
+          ) : diag?.allowReauthorize ? (
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              disabled={reauthorizing}
+              onClick={() => void startReauth()}
+            >
+              {reauthorizing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              Nova autorização na Meta
+            </Button>
+          ) : diag?.kind === "ok" ? (
             <Button
               size="sm"
               className="h-8 gap-1.5 text-xs"
@@ -1152,6 +1191,20 @@ function ReconnectDialog({
               )}
               Reconectar
             </Button>
+          ) : diag?.allowRetry ? (
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              disabled={inspectMut.isPending}
+              onClick={() => inspectMut.mutate()}
+            >
+              {inspectMut.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              Verificar novamente
+            </Button>
           ) : null}
         </DialogFooter>
       </DialogContent>
@@ -1159,16 +1212,38 @@ function ReconnectDialog({
   );
 }
 
-function AccountBox({ title, snap }: { title: string; snap: InspectResult["current"] | null }) {
+function AccountBox({
+  title,
+  snap,
+  channel,
+  highlight,
+}: {
+  title: string;
+  snap: InspectResult["current"] | null;
+  channel: string;
+  highlight?: boolean;
+}) {
+  const isIg = channel === "instagram";
   return (
-    <div className="space-y-1 rounded-lg border p-3">
+    <div
+      className={cn(
+        "space-y-1 rounded-lg border p-3",
+        highlight && "border-severity-warning/40 bg-severity-warning/5",
+      )}
+    >
       <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{title}</p>
-      <p className="truncate text-sm font-medium">{snap?.pageName ?? "—"}</p>
-      <p className="truncate font-mono text-[11px] text-muted-foreground">
-        Page {snap?.pageId ?? "—"}
+      <p className="truncate text-sm font-medium">
+        {snap?.pageName ?? (snap?.instagramUsername ? `@${snap.instagramUsername}` : "—")}
+      </p>
+      <p className="text-[11px] text-muted-foreground">
+        {isIg ? "Instagram profissional" : "Página do Facebook"}
       </p>
       <p className="truncate font-mono text-[11px] text-muted-foreground">
-        IG {snap?.instagramUsername ?? snap?.instagramBusinessId ?? "—"}
+        Página {maskId(snap?.pageId)}
+      </p>
+      <p className="truncate font-mono text-[11px] text-muted-foreground">
+        Instagram {snap?.instagramUsername ? `@${snap.instagramUsername} · ` : ""}
+        {maskId(snap?.instagramBusinessId)}
       </p>
     </div>
   );
