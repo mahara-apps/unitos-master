@@ -309,6 +309,16 @@ export const VALIDATE_STEPS = [
   { id: "cron", label: "Cron e URL própria", script: "supabase/install/verify-installation.sql" },
 ] as const;
 
+/**
+ * Etapas da ATUALIZAÇÃO: puxa o código mais recente do MASTER para o deploy da
+ * instalação (novo build a partir do repositório) e registra a versão.
+ */
+export const UPDATE_STEPS = [
+  { id: "code", label: "Novo deployment do código do MASTER", script: "vercel: POST /v13/deployments" },
+  { id: "build", label: "Build e publicação", script: "vercel: GET /v13/deployments/{id}" },
+  { id: "version", label: "Versão registrada", script: "installations.current_version" },
+] as const;
+
 export type StepDefinition = { id: string; label: string; script: string };
 
 export function stepsFor(kind: InstallationOperationKind): readonly StepDefinition[] {
