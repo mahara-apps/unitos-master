@@ -149,12 +149,19 @@ export function classifyReconnectFailure(
   const msg = (message ?? "").trim();
   const code = graph?.code;
 
-  if (code === 4 || code === 17 || code === 32 || /request limit|rate limit|too many calls/i.test(msg))
+  if (
+    code === 4 ||
+    code === 17 ||
+    code === 32 ||
+    /request limit|rate limit|too many calls/i.test(msg)
+  )
     return "rate_limit";
 
   // (#100) campo inexistente para o tipo de nó consultado → consulta inválida,
   // não falta de permissão. Reautorizar NÃO resolve.
-  if (/nonexistent field|unsupported get request|invalid field|does not support the field/i.test(msg))
+  if (
+    /nonexistent field|unsupported get request|invalid field|does not support the field/i.test(msg)
+  )
     return "unsupported";
 
   if (code === 803 || status === 404 || /does not exist|não existe|not found/i.test(msg))

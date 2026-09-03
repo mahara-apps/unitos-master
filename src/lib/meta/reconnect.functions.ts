@@ -62,12 +62,20 @@ type PageNode = {
  */
 async function readAccount(
   provider: { graph: <T>(path: string, opts: Record<string, unknown>) => Promise<T> },
-  row: { channel: string; external_id: string; page_id: string | null; instagram_business_id: string | null; account_id: string | null },
+  row: {
+    channel: string;
+    external_id: string;
+    page_id: string | null;
+    instagram_business_id: string | null;
+    account_id: string | null;
+  },
   accessToken: string,
 ): Promise<{ found: ChannelAccountSnapshot; kind: ReconnectDiagnosisKind | null }> {
   const pageId = row.page_id ?? (row.channel === "facebook" ? row.external_id : null);
   const igId =
-    row.instagram_business_id ?? row.account_id ?? (row.channel === "instagram" ? row.external_id : null);
+    row.instagram_business_id ??
+    row.account_id ??
+    (row.channel === "instagram" ? row.external_id : null);
 
   if (pageId) {
     try {
@@ -83,9 +91,7 @@ async function readAccount(
           instagramUsername: page.instagram_business_account?.username ?? null,
         },
         kind:
-          row.channel === "instagram" && !page.instagram_business_account?.id
-            ? "not_linked"
-            : null,
+          row.channel === "instagram" && !page.instagram_business_account?.id ? "not_linked" : null,
       };
     } catch (err) {
       // Página inválida para este canal: caímos para o nó do Instagram quando existir.
@@ -299,8 +305,7 @@ export const applyMetaReconnectFn = createServerFn({ method: "POST" })
       };
 
       const igChanged =
-        (row.instagram_business_id ?? row.account_id ?? "") !==
-        (found.instagramBusinessId ?? "");
+        (row.instagram_business_id ?? row.account_id ?? "") !== (found.instagramBusinessId ?? "");
 
       if (data.acceptNewAccount) {
         patch.external_name = found.pageName ?? row.external_name;

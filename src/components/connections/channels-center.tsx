@@ -1084,9 +1084,7 @@ function ReconnectDialog({
             {loading ? "Verificando a conta na Meta…" : (diag?.title ?? "Reconectar canal")}
           </DialogTitle>
           <DialogDescription className="text-xs leading-relaxed">
-            {loading
-              ? "Nenhuma alteração é gravada durante a verificação."
-              : (diag?.cause ?? "")}
+            {loading ? "Nenhuma alteração é gravada durante a verificação." : (diag?.cause ?? "")}
           </DialogDescription>
         </DialogHeader>
 

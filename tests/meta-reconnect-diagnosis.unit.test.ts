@@ -27,13 +27,15 @@ describe("diagnóstico de reconexão Meta", () => {
   });
 
   it("conta inexistente é not_found", () => {
-    expect(classifyReconnectFailure("Object with ID '123' does not exist", { code: 803 }, 404)).toBe(
-      "not_found",
-    );
+    expect(
+      classifyReconnectFailure("Object with ID '123' does not exist", { code: 803 }, 404),
+    ).toBe("not_found");
   });
 
   it("limite temporário não sugere reautorização", () => {
-    const d = reconnectDiagnosis(classifyReconnectFailure("Application request limit reached", { code: 4 }));
+    const d = reconnectDiagnosis(
+      classifyReconnectFailure("Application request limit reached", { code: 4 }),
+    );
     expect(d.kind).toBe("rate_limit");
     expect(d.allowReauthorize).toBe(false);
   });
