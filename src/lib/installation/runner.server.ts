@@ -213,7 +213,17 @@ export async function finalizeOperation(
   const kind = op.kind as InstallationOperationKind;
   const nowIso = new Date().toISOString();
 
-  const steps = readSteps(op.steps).map((s) =>
+  // As etapas persistidas durante a execução (applyProgressReport) são a fonte
+  // da verdade: `op` foi lido no início da operação e já está obsoleto aqui.
+  // Sem esta releitura, a etapa que falhou era sobrescrita e a UI mostrava
+  // "etapa não identificada".
+  const { data: fresh } = await client
+    .from("installation_operations")
+    .select("steps")
+    .eq("id", op.id)
+    .maybeSingle();
+  const persisted = readSteps(fresh?.steps ?? op.steps);
+  const steps = (persisted.length > 0 ? persisted : readSteps(op.steps)).map((s) =>
     s.state === "running"
       ? { ...s, state: report.ok ? ("done" as const) : ("error" as const) }
       : s,
