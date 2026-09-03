@@ -445,10 +445,19 @@ export async function runAutomatedProvision(input: {
     const prepared = sanitizeBaselineSqlForManagementApi(file.sql);
     const applied = await management.query(prepared.sql);
     if (!applied.ok) {
-      failures.push(`${file.label}: ${applied.error ?? "falha ao aplicar"}`);
-      await mark(file.id, "error", `${file.label} falhou`);
-      checks[file.id === "seeds" ? "database" : (file.id as HealthCheckId)] = "error";
-      return finish(null, null);
+      // Reexecução após falha parcial: a Management API aborta o arquivo no
+      // primeiro "já existe". Reaplica statement por statement, ignorando
+      // SOMENTE erros da classe duplicate (idempotência), nunca outros.
+      const retryable = isDuplicateObjectError(applied.error);
+      const perStatement = retryable
+        ? await applyStatementByStatement(management, prepared.sql)
+        : { ok: false as const, error: applied.error };
+      if (!perStatement.ok) {
+        failures.push(`${file.label}: ${perStatement.error ?? applied.error ?? "falha ao aplicar"}`);
+        await mark(file.id, "error", `${file.label} falhou`);
+        checks[file.id === "seeds" ? "database" : (file.id as HealthCheckId)] = "error";
+        return finish(null, null);
+      }
     }
   }
   checks.database = "ok";
