@@ -400,6 +400,23 @@ function InstallationDetailPage() {
     optional: { custom_domain: customDomainState(inst.domain) },
     operationRunning: !!activeOp,
   });
+  const coreLabel = (id: (typeof CORE_REQUIREMENTS)[number]["id"]) =>
+    CORE_REQUIREMENTS.find((r) => r.id === id)?.label ?? id;
+
+  const openEdit = () => {
+    setForm({
+      name: inst.name,
+      domain: inst.domain ?? "",
+      supabaseUrl: inst.supabaseUrl ?? "",
+      supabaseProjectRef: inst.supabaseProjectRef ?? "",
+      gitRepoUrl: inst.gitRepoUrl ?? "",
+      deployProject: inst.deployProject ?? "",
+      notes: inst.notes ?? "",
+    });
+    setEditOpen(true);
+  };
+
+
 
   return (
     <div className="space-y-5">
