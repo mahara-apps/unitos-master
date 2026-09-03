@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Copy, Loader2 } from "lucide-react";
 
 import { getMetaAppSettingsFn, saveMetaAppSettingsFn } from "@/lib/meta/app-config.functions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,8 +34,66 @@ const OPTIONS: Array<{ value: AppType; title: string; description: string }> = [
   },
 ];
 
+const META_URLS: Array<{ label: string; path: string; hint: string }> = [
+  {
+    label: "Redirect URI (OAuth)",
+    path: "/api/public/meta/callback",
+    hint: "Facebook Login → Valid OAuth Redirect URIs",
+  },
+  {
+    label: "Webhook (callback URL)",
+    path: "/api/public/meta/webhook",
+    hint: "Webhooks → Callback URL (use o Verify Token da instalação)",
+  },
+  {
+    label: "Deauthorize callback",
+    path: "/api/public/meta/deauthorize",
+    hint: "Configurações do App → Deauthorize Callback URL",
+  },
+  {
+    label: "Data deletion request",
+    path: "/api/public/meta/data-deletion",
+    hint: "Configurações do App → Data Deletion Request URL",
+  },
+  {
+    label: "Status da exclusão de dados",
+    path: "/api/public/meta/deletion-status",
+    hint: "Página pública de acompanhamento da exclusão",
+  },
+];
+
+function UrlRow({ label, url, hint }: { label: string; url: string; hint: string }) {
+  return (
+    <div className="rounded-lg border border-border/60 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-medium">{label}</span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            void navigator.clipboard
+              ?.writeText(url)
+              .then(() => toast.success("URL copiada."))
+              .catch(() => toast.error("Não foi possível copiar."));
+          }}
+        >
+          <Copy className="mr-1.5 h-3.5 w-3.5" />
+          Copiar
+        </Button>
+      </div>
+      <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{url}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+    </div>
+  );
+}
+
 function AdminMetaAppPage() {
   const qc = useQueryClient();
+  const [origin, setOrigin] = useState("");
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
   const readFn = useServerFn(getMetaAppSettingsFn);
   const saveFn = useServerFn(saveMetaAppSettingsFn);
 
@@ -158,6 +216,21 @@ function AdminMetaAppPage() {
               autoComplete="off"
             />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">URLs desta instalação</CardTitle>
+          <CardDescription>
+            Cole estes valores no painel do App Meta (Facebook Login, Webhooks e conformidade).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {META_URLS.map((u) => (
+            <UrlRow key={u.path} label={u.label} url={`${origin}${u.path}`} hint={u.hint} />
+          ))}
+          <UrlRow label="Domínio do app" url={origin} hint="App Domains / URL do site" />
         </CardContent>
       </Card>
 
