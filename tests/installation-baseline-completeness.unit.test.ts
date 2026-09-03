@@ -164,6 +164,6 @@ describe("reexecução idempotente do baseline", () => {
       "SELECT 1; SELECT 2;",
       { isCancelled: async () => true },
     );
-    expect(result).toEqual({ ok: false, error: "Operação cancelada pelo Super Admin." });
+    expect(result).toMatchObject({ ok: false, error: "Operação cancelada pelo Super Admin." });
   });
 });

@@ -109,19 +109,22 @@ export async function applyStatementByStatement(
   options?: {
     onProgress?: (processed: number, total: number) => Promise<void> | void;
     isCancelled?: () => Promise<boolean>;
+    /** Retomada: statements já aplicados numa execução anterior. */
+    startIndex?: number;
   },
-): Promise<{ ok: true; skipped: number } | { ok: false; error?: string }> {
+): Promise<{ ok: true; skipped: number } | { ok: false; error?: string; processed?: number }> {
   const statements = splitSqlStatements(sql);
   const batchSize = 150;
-  let processed = 0;
+  const from = Math.min(Math.max(options?.startIndex ?? 0, 0), statements.length);
+  let processed = from;
 
   // Cada statement é protegido no próprio Postgres e os lotes são enviados em
   // poucas chamadas. Assim um objeto duplicado é ignorado isoladamente, mas
   // qualquer erro diferente continua abortando. Isso evita as ~1.800 chamadas
   // sequenciais que excediam a vida do Worker em retomadas parciais.
-  for (let start = 0; start < statements.length; start += batchSize) {
+  for (let start = from; start < statements.length; start += batchSize) {
     if (await options?.isCancelled?.()) {
-      return { ok: false, error: "Operação cancelada pelo Super Admin." };
+      return { ok: false, error: "Operação cancelada pelo Super Admin.", processed };
     }
     const batch = statements.slice(start, start + batchSize);
     const guarded = batch
@@ -151,12 +154,13 @@ export async function applyStatementByStatement(
       })
       .join("\n");
     const result = await management.query(guarded);
-    if (!result.ok) return { ok: false, error: result.error };
+    if (!result.ok) return { ok: false, error: result.error, processed };
     processed += batch.length;
     await options?.onProgress?.(processed, statements.length);
   }
   return { ok: true, skipped: 0 };
 }
+
 
 
 export type ManagementClient = {
@@ -368,7 +372,89 @@ export type AutomationRunResult = AutomationOutcome & {
   steps: { id: string; state: CheckState | "done" | "error"; detail: string | null }[];
 };
 
+/* ------------------------------------------------- checkpoint do baseline */
+
+/** Marcador de arquivo integralmente aplicado. */
+export const DONE = -1;
+
+export type BaselineProgress = Record<string, number>;
+
+/**
+ * Lê o checkpoint da instalação: a última operação (inclusive a atual) que
+ * registrou progresso de baseline. Permite retomar sem reaplicar tudo.
+ */
+export async function readBaselineProgress(
+  client: Client,
+  installationId: string,
+  operation: OperationRow,
+): Promise<BaselineProgress> {
+  try {
+    const db = client as never as {
+      from: (t: string) => {
+        select: (c: string) => {
+          eq: (
+            c: string,
+            v: string,
+          ) => {
+            order: (
+              c: string,
+              o: { ascending: boolean },
+            ) => { limit: (n: number) => Promise<{ data?: { detail?: unknown }[] | null }> };
+          };
+        };
+      };
+    };
+    const { data } = await db
+      .from("installation_operations")
+      .select("detail")
+      .eq("installation_id", installationId)
+      .order("started_at", { ascending: false })
+      .limit(5);
+    const rows = [{ detail: operation.detail }, ...(data ?? [])];
+    for (const row of rows) {
+      const raw = (row?.detail as { baselineProgress?: unknown } | null)?.baselineProgress;
+      if (raw && typeof raw === "object") {
+        const out: BaselineProgress = {};
+        for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+          if (typeof value === "number" && Number.isFinite(value)) out[key] = value;
+        }
+        if (Object.keys(out).length > 0) return out;
+      }
+    }
+  } catch {
+    // checkpoint é otimização: falha na leitura só significa aplicar do zero.
+  }
+  return {};
+}
+
+/** Persiste o checkpoint no detalhe da operação (nunca contém secrets). */
+export async function saveBaselineProgress(
+  client: Client,
+  operation: OperationRow,
+  progress: BaselineProgress,
+): Promise<void> {
+  try {
+    const db = client as never as {
+      from: (t: string) => {
+        update: (v: Record<string, unknown>) => {
+          eq: (c: string, v: string) => Promise<unknown>;
+        };
+      };
+    };
+    await db
+      .from("installation_operations")
+      .update({
+        detail: { ...((operation.detail ?? {}) as Record<string, unknown>), baselineProgress: progress },
+        last_report_at: new Date().toISOString(),
+      })
+      .eq("id", operation.id);
+  } catch {
+    // idem: perder o checkpoint não invalida a operação.
+  }
+}
+
 async function report(
+
   client: Client,
   op: OperationRow,
   step: string,
@@ -520,37 +606,61 @@ export async function runAutomatedProvision(input: {
     { id: "seeds", label: "004_seeds", sql: baseline004 },
   ];
 
+  // Checkpoint: o Worker tem vida limitada. Cada arquivo (e cada lote dentro
+  // do arquivo) é registrado, então uma retomada continua de onde parou em vez
+  // de reaplicar o baseline inteiro — a causa do travamento em 99%.
+  const progress = await readBaselineProgress(client, installation.id, operation);
+
   let currentGroup = "";
   for (const file of baseline) {
     if (file.id !== currentGroup) {
       currentGroup = file.id;
       await mark(file.id, "running");
     }
+    if (progress[file.label] === DONE) {
+      await mark(file.id, "running", `${file.label}: já aplicado (checkpoint)`);
+      continue;
+    }
+    await mark(file.id, "running", `${file.label}: aplicando`);
     // A Management API executa como `postgres` (não superusuário): comandos
     // exclusivos de superusuário do dump são removidos antes de enviar.
     const prepared = sanitizeBaselineSqlForManagementApi(file.sql);
-    const applied = await management.query(prepared.sql);
+    const alreadyApplied = progress[file.label] ?? 0;
+    const applied =
+      alreadyApplied > 0
+        ? { ok: false as const, rows: [] as unknown[], error: "retomada por checkpoint" }
+        : await management.query(prepared.sql);
     if (!applied.ok) {
       // Reexecução após falha parcial: a Management API aborta o arquivo no
       // primeiro "já existe". Reaplica statement por statement, ignorando
       // SOMENTE erros da classe duplicate (idempotência), nunca outros.
-      const retryable = isDuplicateObjectError(applied.error);
+      const retryable = alreadyApplied > 0 || isDuplicateObjectError(applied.error);
       const perStatement = retryable
         ? await applyStatementByStatement(management, prepared.sql, {
             isCancelled,
+            startIndex: alreadyApplied,
             onProgress: async (processed, total) => {
+              progress[file.label] = processed;
+              await saveBaselineProgress(client, operation, progress);
               const percent = Math.min(99, Math.round((processed / Math.max(total, 1)) * 100));
               await mark(file.id, "running", `${file.label}: retomando aplicação (${percent}%)`);
             },
           })
         : { ok: false as const, error: applied.error };
       if (!perStatement.ok) {
+        if (typeof perStatement.processed === "number" && perStatement.processed > 0) {
+          progress[file.label] = perStatement.processed;
+          await saveBaselineProgress(client, operation, progress);
+        }
         failures.push(`${file.label}: ${perStatement.error ?? applied.error ?? "falha ao aplicar"}`);
         await mark(file.id, "error", `${file.label} falhou`);
         checks[file.id === "seeds" ? "database" : (file.id as HealthCheckId)] = "error";
         return finish(null, null);
       }
     }
+    progress[file.label] = DONE;
+    await saveBaselineProgress(client, operation, progress);
+
   }
   checks.database = "ok";
   checks.storage = "ok";
