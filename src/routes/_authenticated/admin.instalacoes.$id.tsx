@@ -9,6 +9,7 @@ import {
   Copy,
   Loader2,
   ArrowDownToLine,
+  Pencil,
   RefreshCw,
   Rocket,
   ShieldCheck,
@@ -27,7 +28,9 @@ import {
   runAutomatedValidateFn,
   runAutomatedUpdateFn,
   startInstallationOperationFn,
+  updateInstallationFn,
 } from "@/lib/installation/manager.functions";
+
 import {
   CHECK_STATE_LABEL,
   HEALTH_CHECKS,
