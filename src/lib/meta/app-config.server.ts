@@ -19,7 +19,11 @@
  *   do cliente permanecem gravadas, mas deixam de ser usadas).
  */
 
-import { decryptCredential, encryptCredential, maskCredential } from "@/lib/credentials-crypto.server";
+import {
+  decryptCredential,
+  encryptCredential,
+  maskCredential,
+} from "@/lib/credentials-crypto.server";
 
 export type MetaAppType = "unitos" | "client";
 
@@ -53,7 +57,6 @@ export type MetaAppSettings = {
     businessConfigId: string | null;
   };
   updatedAt: string | null;
-
 };
 
 type Row = {
@@ -202,7 +205,6 @@ export async function resolveMetaBusinessConfigId(): Promise<string | null> {
   return stored ?? envValue("META_BUSINESS_CONFIG_ID");
 }
 
-
 /** Resumo para a UI de Super Admin — sem expor o segredo. */
 export async function getMetaAppSettings(): Promise<MetaAppSettings> {
   const row = await readRow({ fresh: true });
@@ -246,18 +248,18 @@ export async function getMetaAppSettings(): Promise<MetaAppSettings> {
     },
     effective: {
       source: effectiveSource,
-      appId: effectiveSource === "env" ? officialAppId : effectiveSource === "stored" ? appId : null,
+      appId:
+        effectiveSource === "env" ? officialAppId : effectiveSource === "stored" ? appId : null,
       businessConfigId:
         effectiveSource === "env"
           ? envValue("META_BUSINESS_CONFIG_ID")
           : effectiveSource === "stored"
-            ? (row.business_config_id?.trim() || null)
+            ? row.business_config_id?.trim() || null
             : null,
     },
     updatedAt: row.updated_at ?? null,
   };
 }
-
 
 export type SaveMetaAppInput = {
   appType: MetaAppType;

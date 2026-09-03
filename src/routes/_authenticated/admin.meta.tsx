@@ -116,52 +116,50 @@ function AdminMetaAppPage() {
       </div>
 
       <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">
-              {appType === "client"
-                ? "Credenciais do App do cliente"
-                : "Credenciais do App oficial"}
-            </CardTitle>
-            <CardDescription>
-              {appType === "client"
-                ? "O App Secret é armazenado cifrado e nunca é exibido de volta."
-                : "Se o ambiente já define META_APP_ID/META_APP_SECRET, esses valores têm prioridade. Sem eles, o fluxo “Conectar Meta” usa as credenciais informadas aqui (segredo cifrado)."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="meta-app-id">App ID</Label>
-              <Input
-                id="meta-app-id"
-                value={appId}
-                onChange={(e) => setAppId(e.target.value)}
-                placeholder="1234567890"
-                autoComplete="off"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="meta-app-secret">App Secret</Label>
-              <Input
-                id="meta-app-secret"
-                type="password"
-                value={secret}
-                onChange={(e) => setSecret(e.target.value)}
-                placeholder={data?.client.hasSecret ? "•••••••• (mantido)" : "App Secret"}
-                autoComplete="new-password"
-              />
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="meta-config-id">Config ID (Facebook Login for Business)</Label>
-              <Input
-                id="meta-config-id"
-                value={configId}
-                onChange={(e) => setConfigId(e.target.value)}
-                placeholder="Opcional — sem ele o consentimento usa escopos legados"
-                autoComplete="off"
-              />
-            </div>
-          </CardContent>
-        </Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">
+            {appType === "client" ? "Credenciais do App do cliente" : "Credenciais do App oficial"}
+          </CardTitle>
+          <CardDescription>
+            {appType === "client"
+              ? "O App Secret é armazenado cifrado e nunca é exibido de volta."
+              : "Se o ambiente já define META_APP_ID/META_APP_SECRET, esses valores têm prioridade. Sem eles, o fluxo “Conectar Meta” usa as credenciais informadas aqui (segredo cifrado)."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="meta-app-id">App ID</Label>
+            <Input
+              id="meta-app-id"
+              value={appId}
+              onChange={(e) => setAppId(e.target.value)}
+              placeholder="1234567890"
+              autoComplete="off"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="meta-app-secret">App Secret</Label>
+            <Input
+              id="meta-app-secret"
+              type="password"
+              value={secret}
+              onChange={(e) => setSecret(e.target.value)}
+              placeholder={data?.client.hasSecret ? "•••••••• (mantido)" : "App Secret"}
+              autoComplete="new-password"
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="meta-config-id">Config ID (Facebook Login for Business)</Label>
+            <Input
+              id="meta-config-id"
+              value={configId}
+              onChange={(e) => setConfigId(e.target.value)}
+              placeholder="Opcional — sem ele o consentimento usa escopos legados"
+              autoComplete="off"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-3">
