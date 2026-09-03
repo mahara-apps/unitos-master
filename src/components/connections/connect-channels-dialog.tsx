@@ -145,11 +145,7 @@ function Checklist({ items }: { items: ChecklistItem[] }) {
   );
 }
 
-function SummaryGrid({
-  items,
-}: {
-  items: Array<[label: string, value: number | string]>;
-}) {
+function SummaryGrid({ items }: { items: Array<[label: string, value: number | string]> }) {
   return (
     <dl className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
       {items.map(([label, value]) => (
@@ -241,7 +237,14 @@ export function ConnectChannelsDialog({
       { label: "Conta Meta identificada", state: discovery?.metaUserId ? "done" : "current" },
       {
         label: "Buscando portfólios",
-        state: (summary?.portfolios ?? 0) > 0 ? "done" : blocked ? "error" : syncing ? "current" : "done",
+        state:
+          (summary?.portfolios ?? 0) > 0
+            ? "done"
+            : blocked
+              ? "error"
+              : syncing
+                ? "current"
+                : "done",
       },
       {
         label: "Carregando páginas e Instagram",
@@ -558,7 +561,9 @@ export function ConnectChannelsDialog({
           </p>
           {state.kind === "authorized" ? (
             <Button size="sm" className="h-8 shrink-0 text-xs" onClick={onContinue}>
-              {summary && summary.total > 0 ? "Selecionar ativos" : "Continuar com dados disponíveis"}
+              {summary && summary.total > 0
+                ? "Selecionar ativos"
+                : "Continuar com dados disponíveis"}
               <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
             </Button>
           ) : (
