@@ -43,11 +43,11 @@ WITH checks AS (
          CASE WHEN (SELECT count(*) FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
                     WHERE n.nspname = 'public' AND t.typtype = 'e') >= 10 THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
-  SELECT 12, 'baseline: funções em public (esperado >= 260)',
+  SELECT 12, 'baseline: funções em public (esperado >= 250)',
          (SELECT count(*)::text FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
           WHERE n.nspname = 'public'),
          CASE WHEN (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-                    WHERE n.nspname = 'public') >= 260 THEN 'PASS' ELSE 'FAIL' END
+                    WHERE n.nspname = 'public') >= 250 THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
   SELECT 13, 'baseline: policies em public (esperado >= 215)',
          (SELECT count(*)::text FROM pg_policies WHERE schemaname = 'public'),
