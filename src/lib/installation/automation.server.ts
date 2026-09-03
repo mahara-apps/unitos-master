@@ -31,6 +31,7 @@ import verifySql from "../../../supabase/install/verify-installation.sql?raw";
 
 import { runtimeEnv } from "@/lib/runtime-env.server";
 
+import { sanitizeBaselineSqlForManagementApi } from "./baseline-sql";
 import { containsMasterReference } from "./bootstrap-contract";
 import {
   GENERATED_SECRET_VARS,
@@ -375,7 +376,10 @@ export async function runAutomatedProvision(input: {
       currentGroup = file.id;
       await mark(file.id, "running");
     }
-    const applied = await management.query(file.sql);
+    // A Management API executa como `postgres` (não superusuário): comandos
+    // exclusivos de superusuário do dump são removidos antes de enviar.
+    const prepared = sanitizeBaselineSqlForManagementApi(file.sql);
+    const applied = await management.query(prepared.sql);
     if (!applied.ok) {
       failures.push(`${file.label}: ${applied.error ?? "falha ao aplicar"}`);
       await mark(file.id, "error", `${file.label} falhou`);
