@@ -103,3 +103,48 @@ export async function forwardMetaWebhook(opts: {
   );
   return results;
 }
+
+/**
+ * Peers derivados do Installation Manager (somente o MASTER tem a tabela
+ * `installations` preenchida). Assim uma nova instalação passa a receber os
+ * eventos do webhook compartilhado sem editar env manualmente.
+ *
+ * A fonte é infraestrutura interna (registro feito por Super Admin), nunca o
+ * payload da requisição — o alvo continua não manipulável de fora.
+ */
+export async function loadRegisteredInstallationPeers(
+  selfOrigin?: string | null,
+): Promise<string[]> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("installations")
+      .select("domain, status")
+      .not("domain", "is", null)
+      .limit(200);
+    if (error || !data) return [];
+    const raw = data
+      .filter((r) => r.status !== "archived")
+      .map((r) => normalizeHttpsOrigin(r.domain))
+      .filter((v): v is string => !!v)
+      .join(",");
+    return parseInstallationPeers(raw, selfOrigin);
+  } catch {
+    return [];
+  }
+}
+
+function normalizeHttpsOrigin(value?: string | null): string | null {
+  const v = (value ?? "").trim();
+  if (!v) return null;
+  return safeOrigin(/^https?:\/\//i.test(v) ? v.replace(/^http:/i, "https:") : `https://${v}`);
+}
+
+/** União ordenada e deduplicada de peers (env + registro), preservando ordem. */
+export function mergePeers(...lists: string[][]): string[] {
+  const out: string[] = [];
+  for (const list of lists) {
+    for (const peer of list) if (!out.includes(peer)) out.push(peer);
+  }
+  return out;
+}
