@@ -135,4 +135,34 @@ describe("reexecução idempotente do baseline", () => {
     );
     expect(bad.ok).toBe(false);
   });
+
+  it("divide adaptativamente o lote em vez de enviar milhares de statements um a um", async () => {
+    let calls = 0;
+    const progress: number[] = [];
+    const sql = Array.from({ length: 256 }, (_, index) => `SELECT ${index};`).join("\n");
+    const result = await applyStatementByStatement(
+      {
+        query: async (batch) => {
+          calls += 1;
+          return batch.includes("SELECT 0;")
+            ? { ok: false, rows: [], error: "42710: objeto já existe" }
+            : { ok: true, rows: [] };
+        },
+      },
+      sql,
+      { onProgress: (processed) => void progress.push(processed) },
+    );
+    expect(result).toEqual({ ok: true, skipped: 1 });
+    expect(calls).toBeLessThan(25);
+    expect(progress.at(-1)).toBe(256);
+  });
+
+  it("interrompe a retomada quando a operação foi cancelada", async () => {
+    const result = await applyStatementByStatement(
+      { query: async () => ({ ok: true, rows: [] }) },
+      "SELECT 1; SELECT 2;",
+      { isCancelled: async () => true },
+    );
+    expect(result).toEqual({ ok: false, error: "Operação cancelada pelo Super Admin." });
+  });
 });

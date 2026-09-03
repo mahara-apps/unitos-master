@@ -106,17 +106,43 @@ export async function probeOperationalUrl(
 export async function applyStatementByStatement(
   management: { query: (sql: string) => Promise<{ ok: boolean; rows: unknown[]; error?: string }> },
   sql: string,
+  options?: {
+    onProgress?: (processed: number, total: number) => Promise<void> | void;
+    isCancelled?: () => Promise<boolean>;
+  },
 ): Promise<{ ok: true; skipped: number } | { ok: false; error?: string }> {
+  const statements = splitSqlStatements(sql);
   let skipped = 0;
-  for (const statement of splitSqlStatements(sql)) {
-    const res = await management.query(statement);
-    if (res.ok) continue;
-    if (isDuplicateObjectError(res.error)) {
-      skipped += 1;
-      continue;
+
+  // Um baseline tem ~1.800 statements. Reenviá-los um a um excede o tempo de
+  // vida do Worker e deixa a operação eternamente em `running`. O algoritmo
+  // abaixo tenta lotes grandes e só divide o lote que contém duplicidade. Na
+  // situação comum (um retry após aplicação parcial), cai de milhares de
+  // requests para poucas dezenas, sem ignorar qualquer erro real.
+  const applyRange = async (range: string[], offset: number): Promise<{ ok: true } | { ok: false; error?: string }> => {
+    if (await options?.isCancelled?.()) {
+      return { ok: false, error: "Operação cancelada pelo Super Admin." };
     }
-    return { ok: false, error: res.error };
-  }
+    const res = await management.query(range.join("\n"));
+    if (res.ok) {
+      await options?.onProgress?.(offset + range.length, statements.length);
+      return { ok: true };
+    }
+    if (!isDuplicateObjectError(res.error)) return { ok: false, error: res.error };
+    if (range.length === 1) {
+      skipped += 1;
+      await options?.onProgress?.(offset + 1, statements.length);
+      return { ok: true };
+    }
+
+    const middle = Math.floor(range.length / 2);
+    const left = await applyRange(range.slice(0, middle), offset);
+    if (!left.ok) return left;
+    return applyRange(range.slice(middle), offset + middle);
+  };
+
+  const result = await applyRange(statements, 0);
+  if (!result.ok) return result;
   return { ok: true, skipped };
 }
 
@@ -140,11 +166,14 @@ export function createManagementClient(input: {
 
   return {
     async query(sql) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 60_000);
       try {
         const res = await doFetch(`${base}/database/query`, {
           method: "POST",
           headers,
           body: JSON.stringify({ query: sql }),
+          signal: controller.signal,
         });
         if (!res.ok) {
           const text = await res.text().catch(() => "");
@@ -153,7 +182,10 @@ export function createManagementClient(input: {
         const body = (await res.json().catch(() => [])) as unknown;
         return { ok: true, rows: Array.isArray(body) ? body : [] };
       } catch (e) {
-        return { ok: false, rows: [], error: (e as Error).message };
+        const aborted = e instanceof Error && e.name === "AbortError";
+        return { ok: false, rows: [], error: aborted ? "timeout de 60s na Management API" : (e as Error).message };
+      } finally {
+        clearTimeout(timer);
       }
     },
     async keys() {
@@ -383,6 +415,24 @@ export async function runAutomatedProvision(input: {
     await report(client, operation, id, state, detail);
   };
 
+  const isCancelled = async () => {
+    const db = client as never as {
+      from: (table: string) => {
+        select: (columns: string) => {
+          eq: (column: string, value: string) => {
+            maybeSingle: () => Promise<{ data?: { status?: string } | null }>;
+          };
+        };
+      };
+    };
+    const current = await db
+      .from("installation_operations")
+      .select("status")
+      .eq("id", operation.id)
+      .maybeSingle();
+    return current.data?.status !== "running" && current.data?.status !== "pending";
+  };
+
   /* 1. credenciais próprias do MASTER */
   const capability = resolveAutomationCapability(env);
   if (!capability.available) {
@@ -474,7 +524,13 @@ export async function runAutomatedProvision(input: {
       // SOMENTE erros da classe duplicate (idempotência), nunca outros.
       const retryable = isDuplicateObjectError(applied.error);
       const perStatement = retryable
-        ? await applyStatementByStatement(management, prepared.sql)
+        ? await applyStatementByStatement(management, prepared.sql, {
+            isCancelled,
+            onProgress: async (processed, total) => {
+              const percent = Math.min(99, Math.round((processed / Math.max(total, 1)) * 100));
+              await mark(file.id, "running", `${file.label}: retomando aplicação (${percent}%)`);
+            },
+          })
         : { ok: false as const, error: applied.error };
       if (!perStatement.ok) {
         failures.push(`${file.label}: ${perStatement.error ?? applied.error ?? "falha ao aplicar"}`);
