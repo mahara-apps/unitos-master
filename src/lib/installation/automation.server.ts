@@ -52,7 +52,12 @@ import {
   type GeneratedSecretVar,
 } from "./automation-contract";
 import { applyProgressReport, finalizeOperation, sanitize, type OperationRow } from "./runner.server";
-import { MASTER_RELEASE_VERSION, type CheckState, type HealthCheckId } from "./manager-contract";
+import {
+  MASTER_RELEASE_VERSION,
+  VALIDATE_STEPS,
+  type CheckState,
+  type HealthCheckId,
+} from "./manager-contract";
 
 /* --------------------------------------------------------------- utilidades */
 
