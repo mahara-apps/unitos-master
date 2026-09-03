@@ -23,11 +23,22 @@ import {
 
 /* ------------------------------------------------------------ credenciais */
 
-/** Credenciais de gestão que ficam SOMENTE no ambiente do MASTER. */
+/**
+ * Credenciais de gestão que ficam SOMENTE no ambiente do MASTER.
+ * Aceitamos os aliases usados pelas próprias plataformas (Supabase CLI usa
+ * `SUPABASE_ACCESS_TOKEN`; Vercel usa `VERCEL_TOKEN`/`VERCEL_API_TOKEN`) para
+ * que o operador não precise duplicar o mesmo token com outro nome.
+ */
 export const AUTOMATION_CREDENTIAL_VARS = {
-  supabaseManagement: ["SUPABASE_MANAGEMENT_TOKEN", "UNITOS_SUPABASE_MANAGEMENT_TOKEN"],
-  vercel: ["VERCEL_TOKEN", "UNITOS_VERCEL_TOKEN"],
-  vercelTeam: ["VERCEL_TEAM_ID", "UNITOS_VERCEL_TEAM_ID"],
+  supabaseManagement: [
+    "SUPABASE_MANAGEMENT_TOKEN",
+    "UNITOS_SUPABASE_MANAGEMENT_TOKEN",
+    "SUPABASE_ACCESS_TOKEN",
+    "SUPABASE_MANAGEMENT_API_TOKEN",
+    "SUPABASE_PAT",
+  ],
+  vercel: ["VERCEL_TOKEN", "UNITOS_VERCEL_TOKEN", "VERCEL_API_TOKEN", "VERCEL_ACCESS_TOKEN"],
+  vercelTeam: ["VERCEL_TEAM_ID", "UNITOS_VERCEL_TEAM_ID", "VERCEL_ORG_ID"],
 } as const;
 
 export type AutomationEnv = Record<string, string | undefined | null>;
@@ -40,7 +51,22 @@ function pick(env: AutomationEnv, names: readonly string[]): string | null {
   return null;
 }
 
-export type CapabilityState = { available: boolean; reason: string | null };
+/** Nome (nunca o valor) da variável que satisfez a credencial. */
+function pickName(env: AutomationEnv, names: readonly string[]): string | null {
+  for (const name of names) {
+    if ((env[name] ?? "").trim()) return name;
+  }
+  return null;
+}
+
+export type CapabilityState = {
+  available: boolean;
+  reason: string | null;
+  /** Nome da variável reconhecida — diagnóstico sem valor. */
+  resolvedFrom?: string | null;
+  /** Nomes aceitos, para o operador conferir a configuração. */
+  acceptedNames?: readonly string[];
+};
 
 export type AutomationCapability = {
   /** Provisionamento automático do banco/schema/secrets do Supabase destino. */
@@ -62,19 +88,35 @@ export function resolveAutomationCapability(env: AutomationEnv): AutomationCapab
   const vercel = pick(env, AUTOMATION_CREDENTIAL_VARS.vercel);
 
   const supabase: CapabilityState = management
-    ? { available: true, reason: null }
+    ? {
+        available: true,
+        reason: null,
+        resolvedFrom: pickName(env, AUTOMATION_CREDENTIAL_VARS.supabaseManagement),
+        acceptedNames: AUTOMATION_CREDENTIAL_VARS.supabaseManagement,
+      }
     : {
         available: false,
         reason:
-          "Credencial de gestão do Supabase ausente no MASTER (SUPABASE_MANAGEMENT_TOKEN) — provisionamento automático BLOCKED.",
+          "Credencial de gestão do Supabase ausente no runtime do MASTER — provisionamento automático BLOCKED. Nomes aceitos: " +
+          AUTOMATION_CREDENTIAL_VARS.supabaseManagement.join(", "),
+        resolvedFrom: null,
+        acceptedNames: AUTOMATION_CREDENTIAL_VARS.supabaseManagement,
       };
 
   const vercelState: CapabilityState = vercel
-    ? { available: true, reason: null }
+    ? {
+        available: true,
+        reason: null,
+        resolvedFrom: pickName(env, AUTOMATION_CREDENTIAL_VARS.vercel),
+        acceptedNames: AUTOMATION_CREDENTIAL_VARS.vercel,
+      }
     : {
         available: false,
         reason:
-          "Token de gestão do deploy ausente no MASTER (VERCEL_TOKEN) — configuração automática de variáveis e URL temporária BLOCKED.",
+          "Token de gestão do deploy ausente no runtime do MASTER — configuração automática de variáveis e URL temporária BLOCKED. Nomes aceitos: " +
+          AUTOMATION_CREDENTIAL_VARS.vercel.join(", "),
+        resolvedFrom: null,
+        acceptedNames: AUTOMATION_CREDENTIAL_VARS.vercel,
       };
 
   const blockedReasons = [supabase.reason, vercelState.reason].filter((r): r is string => !!r);
