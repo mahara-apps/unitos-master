@@ -41,12 +41,16 @@ export async function sendWhatsappText(
   instanceName: string,
   destination: WhatsappDestination,
   message: string,
+  options: { budget?: { take: () => boolean }; cooldownKey?: string } = {},
 ): Promise<{ providerMessageId: string | null }> {
   const { data } = await evolutionRequest<unknown>(config, {
     method: "POST",
     path: `/message/sendText/${encodeURIComponent(instanceName)}`,
     body: { number: toEvolutionNumber(destination), text: message },
     attempts: 2,
+    operation: "sendText",
+    ...(options.budget ? { budget: options.budget } : {}),
+    ...(options.cooldownKey ? { cooldownKey: options.cooldownKey } : {}),
   });
   const record =
     data && typeof data === "object" ? (data as Record<string, unknown>) : ({} as never);
@@ -54,6 +58,7 @@ export async function sendWhatsappText(
   const id = (key?.["id"] as string | undefined) ?? (record["id"] as string | undefined) ?? null;
   return { providerMessageId: id };
 }
+
 
 function safeError(error: unknown): string {
   if (error instanceof EvolutionApiError) return error.message;
