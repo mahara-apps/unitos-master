@@ -106,6 +106,15 @@ if printf '%s' "$SUPABASE_DB_URL" | grep -Eiq "$MASTER_TOKENS"; then
 fi
 pass "ambiente" "origem=$APP_ORIGIN"
 
+# Mínimo Operacional Primeiro: a URL temporária do deploy é uma URL OPERACIONAL
+# válida. Domínio definitivo é configuração posterior e nunca bloqueia.
+case "$APP_ORIGIN" in
+  *.vercel.app|*.lovable.app|*.netlify.app|*.pages.dev|*.onrender.com|*.fly.dev)
+    pass "url operacional" "URL temporária do deploy aceita — domínio definitivo é opcional" ;;
+  *)
+    pass "url operacional" "domínio próprio da instalação" ;;
+esac
+
 # Secrets: nunca herdados silenciosamente do ambiente (ex.: shell do MASTER).
 # Aceitos apenas quando a instalação destino os DECLARA em UNITOS_INSTALL_SECRETS
 # ("all" ou lista de nomes). Sem declaração, o bootstrap gera valores próprios;
