@@ -217,23 +217,47 @@ export async function getMetaAppSettings(): Promise<MetaAppSettings> {
     }
   }
   const officialAppId = envValue("META_APP_ID");
+  const officialConfigured = !!officialAppId && !!envValue("META_APP_SECRET");
+  const appType = normalizeType(row.app_type);
+  const storedComplete = !!appId && !!ciphertext;
+  const effectiveSource: "env" | "stored" | "none" =
+    appType === "client"
+      ? storedComplete
+        ? "stored"
+        : "none"
+      : officialConfigured
+        ? "env"
+        : storedComplete
+          ? "stored"
+          : "none";
   return {
-    appType: normalizeType(row.app_type),
+    appType,
     client: {
       appId,
       businessConfigId: row.business_config_id?.trim() || null,
       hasSecret: !!ciphertext,
       secretMasked,
-      complete: !!appId && !!ciphertext,
+      complete: storedComplete,
     },
     official: {
       appId: officialAppId,
       businessConfigId: envValue("META_BUSINESS_CONFIG_ID"),
-      configured: !!officialAppId && !!envValue("META_APP_SECRET"),
+      configured: officialConfigured,
+    },
+    effective: {
+      source: effectiveSource,
+      appId: effectiveSource === "env" ? officialAppId : effectiveSource === "stored" ? appId : null,
+      businessConfigId:
+        effectiveSource === "env"
+          ? envValue("META_BUSINESS_CONFIG_ID")
+          : effectiveSource === "stored"
+            ? (row.business_config_id?.trim() || null)
+            : null,
     },
     updatedAt: row.updated_at ?? null,
   };
 }
+
 
 export type SaveMetaAppInput = {
   appType: MetaAppType;
