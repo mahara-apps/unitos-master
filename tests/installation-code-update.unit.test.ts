@@ -1,0 +1,79 @@
+import { describe, expect, it } from "vitest";
+
+import { createDeployClient } from "@/lib/installation/automation.server";
+import { UPDATE_STEPS, stepsFor, statusAfterOperation } from "@/lib/installation/manager-contract";
+
+/** Fetch mínimo controlado — nenhuma chamada externa real. */
+function fakeFetch(routes: Array<{ match: RegExp; status?: number; body: unknown }>) {
+  const calls: Array<{ url: string; method: string; body?: unknown }> = [];
+  const impl = (async (url: string | URL, init?: RequestInit) => {
+    const u = String(url);
+    calls.push({
+      url: u,
+      method: init?.method ?? "GET",
+      body: init?.body ? JSON.parse(String(init.body)) : undefined,
+    });
+    const route = routes.find((r) => r.match.test(u));
+    return {
+      ok: (route?.status ?? 200) < 400,
+      status: route?.status ?? 200,
+      json: async () => route?.body ?? {},
+      text: async () => JSON.stringify(route?.body ?? {}),
+    } as unknown as Response;
+  }) as unknown as typeof fetch;
+  return { impl, calls };
+}
+
+describe("atualização de código da instalação", () => {
+  it("a operação update tem etapas próprias", () => {
+    expect(stepsFor("update")).toBe(UPDATE_STEPS);
+    expect(UPDATE_STEPS.map((s) => s.id)).toEqual(["code", "build", "version"]);
+  });
+
+  it("update bem-sucedido com a versão do MASTER deixa a instalação atualizada", () => {
+    expect(statusAfterOperation("update", { ok: true, version: "1.0.0" }, "1.0.0")).toBe(
+      "up_to_date",
+    );
+  });
+
+  it("dispara deployment a partir do repositório ligado (código novo)", async () => {
+    const { impl, calls } = fakeFetch([
+      {
+        match: /v9\/projects\//,
+        body: { name: "unitos-teste", link: { type: "github", repoId: 42, productionBranch: "main" } },
+      },
+      { match: /v13\/deployments\?/, body: { id: "dpl_1" } },
+    ]);
+    const client = createDeployClient({ token: "t", project: "unitos-teste", fetchImpl: impl });
+    const res = await client.deployLatestCode();
+    expect(res).toMatchObject({ ok: true, deploymentId: "dpl_1", source: "git", ref: "main" });
+    const created = calls.find((c) => c.method === "POST");
+    expect(created?.body).toMatchObject({
+      target: "production",
+      gitSource: { type: "github", repoId: "42", ref: "main" },
+    });
+  });
+
+  it("sem repositório ligado cai para rebuild e sinaliza que não traz código novo", async () => {
+    const { impl } = fakeFetch([
+      { match: /v9\/projects\//, body: { name: "unitos-teste" } },
+      { match: /v6\/deployments/, body: { deployments: [{ uid: "dpl_old", name: "unitos-teste" }] } },
+      { match: /v13\/deployments\?/, body: { id: "dpl_2" } },
+    ]);
+    const client = createDeployClient({ token: "t", project: "unitos-teste", fetchImpl: impl });
+    const res = await client.deployLatestCode();
+    expect(res).toMatchObject({ ok: true, source: "rebuild" });
+  });
+
+  it("lê o estado do deployment", async () => {
+    const { impl } = fakeFetch([
+      { match: /v13\/deployments\/dpl_1/, body: { readyState: "READY", url: "x.vercel.app" } },
+    ]);
+    const client = createDeployClient({ token: "t", project: "p", fetchImpl: impl });
+    expect(await client.deploymentState("dpl_1")).toMatchObject({
+      ok: true,
+      state: "READY",
+      url: "https://x.vercel.app",
+    });
+  });
+});
