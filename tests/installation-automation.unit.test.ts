@@ -23,13 +23,13 @@ describe("credenciais de gestão do MASTER", () => {
     const cap = resolveAutomationCapability({});
     expect(cap.available).toBe(false);
     expect(cap.blockedReasons.length).toBe(2);
-    expect(cap.blockedReasons.join(" ")).toContain("SUPABASE_MANAGEMENT_TOKEN");
+    expect(cap.blockedReasons.join(" ")).toContain("UNITOS_SUPABASE_MANAGEMENT_TOKEN");
   });
 
   it("disponível somente com Supabase management + token de deploy", () => {
-    expect(resolveAutomationCapability({ SUPABASE_MANAGEMENT_TOKEN: "t" }).available).toBe(false);
+    expect(resolveAutomationCapability({ UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t" }).available).toBe(false);
     expect(
-      resolveAutomationCapability({ SUPABASE_MANAGEMENT_TOKEN: "t", VERCEL_TOKEN: "v" }).available,
+      resolveAutomationCapability({ UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t", UNITOS_VERCEL_TOKEN: "v" }).available,
     ).toBe(true);
   });
 });
@@ -232,7 +232,7 @@ describe("runAutomatedProvision", () => {
       client: api,
       operation: OP,
       installation: INSTALLATION,
-      env: { SUPABASE_MANAGEMENT_TOKEN: "t", VERCEL_TOKEN: "v" },
+      env: { UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t", UNITOS_VERCEL_TOKEN: "v" },
       fetchImpl: fetchImpl as never,
     });
     expect(result.result).toBe("BLOCKED");
@@ -264,7 +264,7 @@ describe("runAutomatedProvision", () => {
       client: api,
       operation: OP,
       installation: INSTALLATION,
-      env: { SUPABASE_MANAGEMENT_TOKEN: "t", VERCEL_TOKEN: "v" },
+      env: { UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t", UNITOS_VERCEL_TOKEN: "v" },
       fetchImpl: fetchImpl as never,
     });
 
@@ -292,7 +292,7 @@ describe("runAutomatedProvision", () => {
       client: api,
       operation: OP,
       installation: INSTALLATION,
-      env: { SUPABASE_MANAGEMENT_TOKEN: "t", VERCEL_TOKEN: "v" },
+      env: { UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t", UNITOS_VERCEL_TOKEN: "v" },
       fetchImpl: fetchImpl as never,
     });
     expect(result.result).toBe("BLOCKED");
@@ -320,7 +320,7 @@ describe("runAutomatedProvision", () => {
       client: api,
       operation: OP,
       installation: INSTALLATION,
-      env: { SUPABASE_MANAGEMENT_TOKEN: "t", VERCEL_TOKEN: "v" },
+      env: { UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t", UNITOS_VERCEL_TOKEN: "v" },
       fetchImpl: fetchImpl as never,
     });
     expect(result.result).toBe("FAIL");
@@ -332,7 +332,7 @@ describe("runAutomatedProvision", () => {
       client: api,
       operation: OP,
       installation: { ...INSTALLATION, supabaseUrl: `https://${MASTER_REF}.supabase.co`, supabaseProjectRef: MASTER_REF },
-      env: { SUPABASE_MANAGEMENT_TOKEN: "t", VERCEL_TOKEN: "v" },
+      env: { UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t", UNITOS_VERCEL_TOKEN: "v" },
       fetchImpl: (async () => new Response("{}")) as never,
     });
     expect(result.result).toBe("BLOCKED");
