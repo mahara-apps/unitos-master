@@ -21,6 +21,7 @@
 import baseline000 from "../../../supabase/baseline-snapshot/000_extensions.sql?raw";
 import baseline001 from "../../../supabase/baseline-snapshot/001_initial_schema.sql?raw";
 import baseline005 from "../../../supabase/baseline-snapshot/005_auth_trigger.sql?raw";
+import baseline007 from "../../../supabase/baseline-snapshot/007_delta_migrations.sql?raw";
 import baseline003 from "../../../supabase/baseline-snapshot/003_storage_buckets.sql?raw";
 import baseline006 from "../../../supabase/baseline-snapshot/006_storage_policies.sql?raw";
 import baseline004 from "../../../supabase/baseline-snapshot/004_seeds.sql?raw";
@@ -31,7 +32,12 @@ import verifySql from "../../../supabase/install/verify-installation.sql?raw";
 
 import { runtimeEnv } from "@/lib/runtime-env.server";
 
-import { sanitizeBaselineSqlForManagementApi } from "./baseline-sql";
+import {
+  prepareVerificationSql,
+  sanitizeBaselineSqlForManagementApi,
+  stripPsqlMetaCommands,
+  summarizeVerificationRows,
+} from "./baseline-sql";
 import { containsMasterReference } from "./bootstrap-contract";
 import {
   GENERATED_SECRET_VARS,
@@ -66,10 +72,28 @@ function sqlLiteral(value: string): string {
 
 /** Substitui as variáveis psql (`:'app_url'`) usadas pelos scripts. */
 function bindAppUrl(sql: string, appUrl: string): string {
-  return sql.replace(/:'app_url'/g, sqlLiteral(appUrl)).replace(/:app_url\b/g, sqlLiteral(appUrl));
+  const pure = stripPsqlMetaCommands(sql).sql;
+  return pure.replace(/:'app_url'/g, sqlLiteral(appUrl)).replace(/:app_url\b/g, sqlLiteral(appUrl));
 }
 
 type Fetcher = typeof fetch;
+
+/** GET real na URL operacional: nunca marca frontend ok sem resposta HTTP. */
+export async function probeOperationalUrl(
+  origin: string,
+  fetchImpl?: Fetcher,
+): Promise<{ ok: boolean; status: number | null; detail: string }> {
+  const doFetch = fetchImpl ?? fetch;
+  try {
+    const res = await doFetch(origin, { method: "GET", redirect: "follow" });
+    if (res.status >= 200 && res.status < 400) {
+      return { ok: true, status: res.status, detail: `HTTP ${res.status}` };
+    }
+    return { ok: false, status: res.status, detail: `HTTP ${res.status}` };
+  } catch (e) {
+    return { ok: false, status: null, detail: (e as Error).message };
+  }
+}
 
 /* ------------------------------------------------ Supabase Management API */
 
@@ -137,6 +161,8 @@ export function createManagementClient(input: {
 
 export type DeployClient = {
   deploymentUrl: () => Promise<{ ok: boolean; url?: string; error?: string }>;
+  /** Redeploy da producao — necessario para que as variaveis gravadas valham. */
+  redeploy: () => Promise<{ ok: boolean; deploymentId?: string; error?: string }>;
   setEnv: (
     entries: readonly { key: string; value: string; sensitive: boolean }[],
   ) => Promise<{ ok: boolean; applied: number; error?: string }>;
@@ -182,6 +208,43 @@ export function createDeployClient(input: {
           return { ok: false, error: "o deploy ainda não expôs uma URL pública" };
         }
         return { ok: true, url: candidate.startsWith("http") ? candidate : `https://${candidate}` };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+    async redeploy() {
+      try {
+        const list = await doFetch(
+          `https://api.vercel.com/v6/deployments?${qs(
+            `app=${project}&target=production&limit=1`,
+          )}`,
+          { headers },
+        );
+        if (!list.ok) {
+          return { ok: false, error: `HTTP ${list.status} ao listar deployments` };
+        }
+        const body = (await list.json().catch(() => ({}))) as {
+          deployments?: Array<{ uid?: string; name?: string }>;
+        };
+        const latest = body.deployments?.[0];
+        if (!latest?.uid) {
+          return { ok: false, error: "nenhum deployment de producao encontrado para redeploy" };
+        }
+        const res = await doFetch(`https://api.vercel.com/v13/deployments?${qs("forceNew=1")}`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            name: latest.name ?? input.project,
+            deploymentId: latest.uid,
+            target: "production",
+          }),
+        });
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          return { ok: false, error: `HTTP ${res.status} ao disparar redeploy (${text.slice(0, 200)})` };
+        }
+        const created = (await res.json().catch(() => ({}))) as { id?: string; uid?: string };
+        return { ok: true, deploymentId: created.id ?? created.uid };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
       }
@@ -365,6 +428,7 @@ export async function runAutomatedProvision(input: {
     { id: "database", label: "000_extensions", sql: baseline000 },
     { id: "database", label: "001_initial_schema", sql: baseline001 },
     { id: "database", label: "005_auth_trigger", sql: baseline005 },
+    { id: "database", label: "007_delta_migrations", sql: baseline007 },
     { id: "storage", label: "003_storage_buckets", sql: baseline003 },
     { id: "storage", label: "006_storage_policies", sql: baseline006 },
     { id: "seeds", label: "004_seeds", sql: baseline004 },
@@ -465,18 +529,38 @@ export async function runAutomatedProvision(input: {
     return finish(url.origin, url.source);
   }
   checks.configuration = "ok";
-  checks.frontend = "ok";
+
+  // Gravar variaveis NAO republica o app: sem um novo deployment o frontend
+  // continua rodando com o env antigo. O redeploy e disparado aqui.
+  const redeployed = await deploy.redeploy();
+  if (!redeployed.ok) {
+    blocked.push(
+      `Novo deployment nao disparado (as variaveis so valem apos republicar): ${
+        redeployed.error ?? ""
+      }`.trim(),
+    );
+  }
+
+  // Estado do frontend so vira "ok" com resposta HTTP real da URL operacional.
+  const probe = await probeOperationalUrl(url.origin, input.fetchImpl);
+  checks.frontend = probe.ok ? "ok" : "attention";
+  if (!probe.ok) {
+    blocked.push(`Frontend ainda nao respondeu em ${url.origin}: ${probe.detail}`);
+  }
+
   await mark(
     "deploy",
     "done",
     `${envResult.applied} variáveis gravadas — URL operacional ${url.origin} (${
       url.source === "deploy" ? "temporária do deploy" : "domínio definitivo"
-    })`,
+    })${redeployed.ok ? " · novo deployment disparado" : " · redeploy pendente"}${
+      probe.ok ? " · frontend respondendo" : ` · frontend ${probe.detail}`
+    }`,
   );
 
   /* 6. Brain stats */
   await mark("brain", "running");
-  const brain = await management.query(install011);
+  const brain = await management.query(stripPsqlMetaCommands(install011).sql);
   if (!brain.ok) {
     failures.push(`brain_stats_mv: ${brain.error ?? "falha"}`);
     await mark("brain", "error", "brain_stats_mv não inicializada");
@@ -500,18 +584,16 @@ export async function runAutomatedProvision(input: {
 
   /* 8. verificação final READ-ONLY */
   await mark("validation", "running");
-  const verify = await management.query(verifySql);
+  const verify = await management.query(prepareVerificationSql(verifySql).sql);
   if (!verify.ok) {
     failures.push(`verify-installation: ${verify.error ?? "falha"}`);
     await mark("validation", "error", "verificação final falhou");
     return finish(url.origin, url.source);
   }
-  const verifyFail = verify.rows.filter((row) =>
-    JSON.stringify(row ?? {}).includes("FAIL"),
-  ).length;
-  if (verifyFail > 0) {
-    failures.push(`verify-installation reportou ${verifyFail} verificação(ões) em FAIL.`);
-    await mark("validation", "error", `${verifyFail} verificações em FAIL`);
+  const summary = summarizeVerificationRows(verify.rows);
+  if (!summary.ok) {
+    failures.push(`verify-installation: ${summary.reason ?? "resultado inconclusivo"}`);
+    await mark("validation", "error", summary.reason);
     return finish(url.origin, url.source);
   }
   checks.connectivity = "ok";
@@ -527,8 +609,8 @@ export async function runAutomatedProvision(input: {
     "validation",
     "done",
     hasSuperAdmin
-      ? "todas as verificações PASS · Super Admin já criado"
-      : `todas as verificações PASS · crie o primeiro Super Admin em ${url.origin}/setup`,
+      ? `${summary.total} verificações PASS · Super Admin já criado`
+      : `${summary.total} verificações PASS · crie o primeiro Super Admin em ${url.origin}/setup`,
   );
 
   return finish(url.origin, url.source);

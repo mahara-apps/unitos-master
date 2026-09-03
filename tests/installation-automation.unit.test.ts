@@ -257,6 +257,12 @@ describe("runAutomatedProvision", () => {
         return Response.json({ name: "unitos-pitada", targets: { production: { url: "unitos-pitada-abc.vercel.app" } } });
       }
       if (url.includes("/env")) return Response.json({ created: [] });
+      if (url.includes("api.vercel.com/v6/deployments")) {
+        return Response.json({ deployments: [{ uid: "dpl_1", name: "unitos-pitada" }] });
+      }
+      if (url.includes("api.vercel.com/v13/deployments")) {
+        return Response.json({ id: "dpl_2" });
+      }
       return new Response("{}", { status: 200 });
     });
 
@@ -272,7 +278,70 @@ describe("runAutomatedProvision", () => {
     expect(result.appUrl).toBe("https://unitos-pitada-abc.vercel.app");
     expect(result.urlSource).toBe("deploy");
     expect(calls.some((c) => c.includes("/env"))).toBe(true);
+    // Redeploy real disparado e URL operacional testada por HTTP.
+    expect(calls.some((c) => c.includes("v13/deployments"))).toBe(true);
+    expect(calls.some((c) => c === "https://unitos-pitada-abc.vercel.app")).toBe(true);
     expect(result.steps.every((s) => s.state === "done")).toBe(true);
+  });
+
+  it("avisa (sem quebrar) quando o redeploy não pode ser disparado", async () => {
+    const { api } = fakeClient();
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.includes("/api-keys")) {
+        return Response.json([
+          { name: "anon", api_key: "k" },
+          { name: "service_role", api_key: "s" },
+        ]);
+      }
+      if (url.includes("/database/query")) return Response.json([{ schemas: 3, status: "PASS" }]);
+      if (url.includes("api.vercel.com/v9/projects")) {
+        return Response.json({ name: "x", targets: { production: { url: "x-abc.vercel.app" } } });
+      }
+      if (url.includes("/env")) return Response.json({ created: [] });
+      if (url.includes("v6/deployments")) return Response.json({ deployments: [] });
+      return new Response("{}", { status: 200 });
+    });
+    const result = await runAutomatedProvision({
+      client: api,
+      operation: OP,
+      installation: INSTALLATION,
+      env: { UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t", UNITOS_VERCEL_TOKEN: "v" },
+      fetchImpl: fetchImpl as never,
+    });
+    expect(result.result).toBe("BLOCKED");
+    expect(result.reasons.join(" ")).toContain("deployment");
+  });
+
+  it("frontend fica em atenção quando a URL operacional não responde", async () => {
+    const { api } = fakeClient();
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.includes("/api-keys")) {
+        return Response.json([
+          { name: "anon", api_key: "k" },
+          { name: "service_role", api_key: "s" },
+        ]);
+      }
+      if (url.includes("/database/query")) return Response.json([{ schemas: 3, status: "PASS" }]);
+      if (url.includes("api.vercel.com/v9/projects")) {
+        return Response.json({ name: "x", targets: { production: { url: "x-abc.vercel.app" } } });
+      }
+      if (url.includes("/env")) return Response.json({ created: [] });
+      if (url.includes("v6/deployments")) {
+        return Response.json({ deployments: [{ uid: "d", name: "x" }] });
+      }
+      if (url.includes("v13/deployments")) return Response.json({ id: "d2" });
+      if (url === "https://x-abc.vercel.app") return new Response("erro", { status: 502 });
+      return new Response("{}", { status: 200 });
+    });
+    const result = await runAutomatedProvision({
+      client: api,
+      operation: OP,
+      installation: INSTALLATION,
+      env: { UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t", UNITOS_VERCEL_TOKEN: "v" },
+      fetchImpl: fetchImpl as never,
+    });
+    expect(result.result).toBe("BLOCKED");
+    expect(result.reasons.join(" ")).toContain("Frontend");
   });
 
   it("BLOCKED quando o deploy não expõe URL e não há domínio", async () => {

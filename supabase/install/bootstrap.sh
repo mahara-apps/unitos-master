@@ -184,13 +184,15 @@ apply_sql() {
 apply_sql "000_extensions" "$BASELINE/000_extensions.sql"
 
 TABLE_COUNT="$(psql_value "select count(*) from pg_tables where schemaname='public'")"
-if [ "${TABLE_COUNT:-0}" -ge 89 ]; then
+if [ "${TABLE_COUNT:-0}" -ge 95 ]; then
   skip "001_initial_schema" "schema já presente ($TABLE_COUNT tabelas) — idempotência preservada"
 else
   apply_sql "001_initial_schema" "$BASELINE/001_initial_schema.sql"
 fi
 
 apply_sql "005_auth_trigger"    "$BASELINE/005_auth_trigger.sql"
+# Delta pos-dump: tudo criado depois do corte de 001_initial_schema.sql.
+apply_sql "007_delta_migrations" "$BASELINE/007_delta_migrations.sql"
 report_step database done "schema aplicado"
 report_step storage running
 apply_sql "003_storage_buckets" "$BASELINE/003_storage_buckets.sql"

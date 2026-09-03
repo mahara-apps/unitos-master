@@ -150,3 +150,15 @@ projeto Supabase novo (PG17.6, igual ao Master) isso não ocorre.
 O baseline **não** está aprovado como final: está autocontido e sem dependência
 oculta das 250 migrations, mas falta a reconstrução real (item 1) e a decisão de
 seeds (item 2).
+
+## 007_delta_migrations.sql (delta pos-dump)
+
+O dump `001_initial_schema.sql` congela o schema na migration `20260829120135`.
+Todas as migrations posteriores sao concatenadas em `007_delta_migrations.sql`
+(gerado por `tools/build_delta.py`, manifesto em `tools/delta_manifest.txt`) e
+aplicadas **depois** de `005_auth_trigger.sql`. Sem esse arquivo, uma instalacao
+nova nasce sem briefing import por IA, workspace singleton, `/setup`,
+`installation_meta_app`, leases de `ai_jobs` e autoridade de integracao.
+
+Ao criar novas migrations: rodar `python3 tools/build_delta.py` e conferir os
+limites de contagem em `supabase/install/verify-installation.sql`.
