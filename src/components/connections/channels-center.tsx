@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -103,6 +103,12 @@ import {
   type DiscoveredAccountsResult,
 } from "@/lib/meta/discovery.functions";
 import { metaIssueToast } from "@/lib/meta/issue-messages";
+import {
+  busyChannel,
+  classifyConnectFailure,
+  isConnectBusy,
+  type MetaConnectState,
+} from "@/lib/meta/connect-flow";
 import { maskId } from "@/lib/meta/reconnect-diagnosis";
 import { linkMetaAccount } from "@/lib/meta/portfolio.functions";
 import {
@@ -229,7 +235,12 @@ export function ChannelsCenter({
   const [portfolioDetailsOpen, setPortfolioDetailsOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [revokeAllOpen, setRevokeAllOpen] = useState(false);
-  const [connecting, setConnecting] = useState<null | "facebook" | "instagram">(null);
+  const [flow, setFlow] = useState<MetaConnectState>({ kind: "idle" });
+  /** Compat: controles que só precisam saber "há autorização em andamento". */
+  const connecting = busyChannel(flow);
+  const pollRef = useRef<number | null>(null);
+  const timeoutRef = useRef<number | null>(null);
+  const flowRef = useRef<"facebook" | "instagram" | null>(null);
   const [portfolioSessionId, setPortfolioSessionId] = useState<string | null>(null);
   const [portfolioOpen, setPortfolioOpen] = useState(false);
   const [portfolioChannel, setPortfolioChannel] = useState<"facebook" | "instagram" | null>(null);
