@@ -147,3 +147,117 @@ export function summarizeVerificationRows(rows: readonly unknown[]): Verificatio
   };
 }
 
+
+/* ------------------------------------------------------------------ *
+ * Reexecução idempotente do baseline
+ *
+ * A Management API aborta o arquivo inteiro no primeiro erro. Se uma
+ * tentativa anterior aplicou parte do schema, o retry morre em
+ * "42710: type ... already exists". Aqui o SQL é dividido em statements
+ * (respeitando dollar-quoting de funções) para que a reexecução possa
+ * ignorar SOMENTE erros da classe "já existe".
+ * ------------------------------------------------------------------ */
+
+/** Códigos de erro Postgres que significam "objeto já existe". */
+const DUPLICATE_SQLSTATES = [
+  "42710", // duplicate_object (type, trigger, policy, role...)
+  "42P07", // duplicate_table (table, index, view, sequence)
+  "42P06", // duplicate_schema
+  "42701", // duplicate_column
+  "42723", // duplicate_function
+  "23505", // unique_violation (seed já inserido)
+] as const;
+
+/** True quando o erro é apenas "objeto já existe" (retry idempotente). */
+export function isDuplicateObjectError(message: string | null | undefined): boolean {
+  if (!message) return false;
+  return DUPLICATE_SQLSTATES.some((code) => message.includes(code)) || /already exists/i.test(message);
+}
+
+/**
+ * Divide SQL em statements no `;` de nível superior, preservando strings,
+ * identificadores citados, comentários e corpos dollar-quoted ($$ / $tag$).
+ */
+export function splitSqlStatements(sql: string): string[] {
+  const out: string[] = [];
+  let buf = "";
+  let i = 0;
+  let quote: "'" | '"' | null = null;
+  let dollarTag: string | null = null;
+
+  while (i < sql.length) {
+    const ch = sql[i]!;
+    const rest = sql.slice(i);
+
+    if (dollarTag) {
+      buf += ch;
+      if (rest.startsWith(dollarTag)) {
+        buf += dollarTag.slice(1);
+        i += dollarTag.length;
+        dollarTag = null;
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+
+    if (quote) {
+      buf += ch;
+      if (ch === quote) {
+        if (sql[i + 1] === quote) {
+          buf += quote;
+          i += 2;
+          continue;
+        }
+        quote = null;
+      }
+      i += 1;
+      continue;
+    }
+
+    if (rest.startsWith("--")) {
+      const end = sql.indexOf("\n", i);
+      const stop = end === -1 ? sql.length : end + 1;
+      buf += sql.slice(i, stop);
+      i = stop;
+      continue;
+    }
+    if (rest.startsWith("/*")) {
+      const end = sql.indexOf("*/", i + 2);
+      const stop = end === -1 ? sql.length : end + 2;
+      buf += sql.slice(i, stop);
+      i = stop;
+      continue;
+    }
+
+    const dollar = /^\$[A-Za-z_0-9]*\$/.exec(rest);
+    if (dollar) {
+      dollarTag = dollar[0];
+      buf += dollarTag;
+      i += dollarTag.length;
+      continue;
+    }
+
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      buf += ch;
+      i += 1;
+      continue;
+    }
+
+    if (ch === ";") {
+      const statement = `${buf};`.trim();
+      if (statement.replace(/;$/, "").trim()) out.push(statement);
+      buf = "";
+      i += 1;
+      continue;
+    }
+
+    buf += ch;
+    i += 1;
+  }
+
+  const tail = buf.trim();
+  if (tail) out.push(tail.endsWith(";") ? tail : `${tail};`);
+  return out;
+}
