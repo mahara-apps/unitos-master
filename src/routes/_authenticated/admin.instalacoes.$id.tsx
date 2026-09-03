@@ -980,6 +980,35 @@ function InstallationDetailPage() {
               )}
             </div>
           ))}
+          {operations.length > opsPerPage && (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2">
+              <span className="text-[11px] text-muted-foreground">
+                {(opsPage - 1) * opsPerPage + 1}–{Math.min(opsPage * opsPerPage, operations.length)} de{" "}
+                {operations.length} operações
+              </span>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={opsPage <= 1}
+                  onClick={() => setOpsPage(opsPage - 1)}
+                >
+                  Anterior
+                </Button>
+                <span className="text-[11px] text-muted-foreground">
+                  {opsPage}/{opsTotalPages}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={opsPage >= opsTotalPages}
+                  onClick={() => setOpsPage(opsPage + 1)}
+                >
+                  Próxima
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
