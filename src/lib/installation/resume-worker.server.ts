@@ -29,7 +29,7 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
     .from("installation_operations")
     .update({
       last_report_at: new Date().toISOString(),
-      summary: "Provisionamento automático retomado pelo cron do MASTER.",
+      summary: "Operação automática retomada pelo cron do MASTER.",
     })
     .in("status", ["pending", "running"])
     .eq("detail->>automated", "true")
@@ -48,20 +48,32 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
     if (!installation) continue;
 
     const row = installation as Record<string, unknown>;
-    const { runAutomatedProvision } = await import("./automation.server");
+    const { runAutomatedProvision, runAutomatedUpdate, runAutomatedValidate } = await import(
+      "./automation.server"
+    );
     const { finalizeOperation } = await import("./runner.server");
+    // Cada tipo de operação tem o próprio conjunto de etapas: retomar tudo como
+    // provisionamento deixava UPDATE/VALIDATE presos reportando etapas inexistentes.
+    const kind = (op as { kind?: string }).kind ?? "provision";
+    const args = {
+      client: supabaseAdmin as never,
+      operation: op as never,
+      installation: {
+        id: row.id as string,
+        domain: (row.domain ?? null) as string | null,
+        supabaseUrl: (row.supabase_url ?? null) as string | null,
+        supabaseProjectRef: (row.supabase_project_ref ?? null) as string | null,
+        deployProject: (row.deploy_project ?? null) as string | null,
+      },
+    };
     try {
-      await runAutomatedProvision({
-        client: supabaseAdmin as never,
-        operation: op as never,
-        installation: {
-          id: row.id as string,
-          domain: (row.domain ?? null) as string | null,
-          supabaseUrl: (row.supabase_url ?? null) as string | null,
-          supabaseProjectRef: (row.supabase_project_ref ?? null) as string | null,
-          deployProject: (row.deploy_project ?? null) as string | null,
-        },
-      });
+      if (kind === "update") {
+        await runAutomatedUpdate(args);
+      } else if (kind === "validate") {
+        await runAutomatedValidate(args);
+      } else {
+        await runAutomatedProvision(args);
+      }
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "falha inesperada na retomada";
       await finalizeOperation(supabaseAdmin as never, op as never, {
