@@ -259,7 +259,7 @@ export async function runAutomatedProvision(input: {
   env?: Record<string, string | undefined>;
   fetchImpl?: Fetcher;
 }): Promise<AutomationRunResult> {
-  const env = input.env ?? (process.env as Record<string, string | undefined>);
+  const env = input.env ?? runtimeEnv();
   const { client, operation, installation } = input;
   const failures: string[] = [];
   const blocked: string[] = [];

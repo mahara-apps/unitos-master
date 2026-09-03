@@ -544,9 +544,8 @@ export const getAutomationCapabilityFn = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     await guard(context);
     const { resolveAutomationCapability } = await import("./automation-contract");
-    const capability = resolveAutomationCapability(
-      process.env as Record<string, string | undefined>,
-    );
+    const { runtimeEnv } = await import("@/lib/runtime-env.server");
+    const capability = resolveAutomationCapability(runtimeEnv());
     return {
       available: capability.available,
       supabase: capability.supabase,
@@ -570,7 +569,8 @@ export const runAutomatedProvisionFn = createServerFn({ method: "POST" })
     const { resolveAutomationCapability, resolveAutomationTarget } = await import(
       "./automation-contract"
     );
-    const capability = resolveAutomationCapability(process.env as Record<string, string | undefined>);
+    const { runtimeEnv } = await import("@/lib/runtime-env.server");
+    const capability = resolveAutomationCapability(runtimeEnv());
     if (!capability.available) {
       return {
         result: "BLOCKED" as const,
