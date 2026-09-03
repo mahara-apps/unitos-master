@@ -124,9 +124,11 @@ function Checklist({ items }: { items: ChecklistItem[] }) {
               ? "font-medium text-foreground"
               : item.state === "error"
                 ? "font-medium text-destructive"
-                : item.state === "done"
-                  ? "text-muted-foreground"
-                  : "text-muted-foreground/50",
+                : item.state === "warning"
+                  ? "font-medium text-amber-600"
+                  : item.state === "done"
+                    ? "text-muted-foreground"
+                    : "text-muted-foreground/50",
           )}
         >
           {item.state === "done" ? (
@@ -135,6 +137,8 @@ function Checklist({ items }: { items: ChecklistItem[] }) {
             <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
           ) : item.state === "error" ? (
             <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-destructive" />
+          ) : item.state === "warning" ? (
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
           ) : (
             <span className="h-3.5 w-3.5 shrink-0 rounded-full border border-border" />
           )}
