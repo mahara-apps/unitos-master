@@ -188,6 +188,72 @@ export async function resolveResendStatus(
 
 export type ResendSendResult = { sent: boolean; error?: string; from?: string };
 
+/** Teto duro de tentativas por envio (a 1ª tentativa conta). */
+export const RESEND_MAX_ATTEMPTS = 3;
+/** Timeout por request — sem ele um socket pendurado consome o worker. */
+export const RESEND_TIMEOUT_MS = 15_000;
+const RESEND_BACKOFF_BASE_MS = 400;
+
+type ResendOutcome =
+  | { kind: "http"; status: number; body: string }
+  | { kind: "timeout" }
+  | { kind: "network" };
+
+export type ResendFailureClass = "recoverable" | "terminal";
+
+/**
+ * Contrato de retryabilidade: apenas 429, 5xx, timeout e falha de rede são
+ * recuperáveis. 400/401/403 (e demais 4xx) são terminais — reenviar devolve o
+ * mesmo erro.
+ */
+export function classifyResendOutcome(outcome: ResendOutcome): ResendFailureClass {
+  if (outcome.kind === "timeout" || outcome.kind === "network") return "recoverable";
+  const s = outcome.status;
+  if (s === 429 || s >= 500) return "recoverable";
+  return "terminal";
+}
+
+/** Backoff exponencial com jitter, determinístico quando `rand` é injetado. */
+export function resendBackoffMs(attempt: number, rand: () => number = Math.random): number {
+  const base = RESEND_BACKOFF_BASE_MS * 2 ** Math.max(0, attempt - 1);
+  return Math.round(base + rand() * base * 0.5);
+}
+
+export type ResendAttemptTelemetry = {
+  attempt: number;
+  route: "gateway" | "api";
+  status: number | null;
+  outcome: "success" | "timeout" | "network" | "http_error";
+  failureClass: ResendFailureClass | null;
+  durationMs: number;
+  retried: boolean;
+};
+
+export type ResendTelemetrySummary = {
+  operationId: string;
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+  attempts: number;
+  retries: number;
+  rateLimits: number;
+  timeouts: number;
+  route: "gateway" | "api";
+  reason: "sent" | "terminal" | "retry_exhausted";
+  /** Erro já sanitizado — nunca contém chave nem corpo cru do provedor. */
+  error: string | null;
+  perAttempt: ResendAttemptTelemetry[];
+};
+
+export function resendLogLine(s: ResendTelemetrySummary): string {
+  return (
+    `[resend] id=${s.operationId} attempts=${s.attempts} retries=${s.retries} ` +
+    `rateLimits=${s.rateLimits} timeouts=${s.timeouts} route=${s.route} ` +
+    `duration=${(s.durationMs / 1000).toFixed(1)}s reason=${s.reason}` +
+    (s.error ? ` error=${s.error}` : "")
+  );
+}
+
 /**
  * Chaves emitidas pelo Resend começam com `re_` e devem ir direto à API do
  * Resend. O gateway da Lovable só aceita uma *connection key* de conector — usar
@@ -202,7 +268,8 @@ async function postResend(
   config: ResendConfig,
   msg: { to: string; subject: string; html: string },
   viaGateway: boolean,
-): Promise<{ status: number; body: string } | null> {
+  signal?: AbortSignal,
+): Promise<ResendOutcome> {
   const url = viaGateway
     ? "https://connector-gateway.lovable.dev/resend/emails"
     : "https://api.resend.com/emails";
@@ -213,10 +280,18 @@ async function postResend(
   } else {
     headers["Authorization"] = `Bearer ${config.apiKey}`;
   }
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  if (signal) {
+    if (signal.aborted) onAbort();
+    else signal.addEventListener("abort", onAbort, { once: true });
+  }
+  const timer = setTimeout(() => controller.abort(), RESEND_TIMEOUT_MS);
   try {
     const res = await fetch(url, {
       method: "POST",
       headers,
+      signal: controller.signal,
       body: JSON.stringify({
         from: config.from,
         to: [msg.to],
@@ -224,37 +299,141 @@ async function postResend(
         html: msg.html,
       }),
     });
-    return { status: res.status, body: res.ok ? "" : await res.text() };
-  } catch {
-    return null;
+    return { kind: "http", status: res.status, body: res.ok ? "" : await res.text() };
+  } catch (err) {
+    const aborted = controller.signal.aborted || (err as { name?: string })?.name === "AbortError";
+    return aborted ? { kind: "timeout" } : { kind: "network" };
+  } finally {
+    clearTimeout(timer);
+    if (signal) signal.removeEventListener("abort", onAbort);
   }
 }
+
+export type SendResendEmailOptions = {
+  /** Injetável em teste para não gastar tempo real de backoff. */
+  sleep?: (ms: number) => Promise<void>;
+  rand?: () => number;
+  now?: () => number;
+  idFactory?: () => string;
+  logger?: (summary: ResendTelemetrySummary) => void;
+  signal?: AbortSignal;
+};
 
 /** Envio real pelo Resend (gateway Lovable somente para connection keys). */
 export async function sendResendEmail(
   config: ResendConfig,
   msg: { to: string; subject: string; html: string },
+  opts: SendResendEmailOptions = {},
 ): Promise<ResendSendResult> {
+  const sleep = opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+  const rand = opts.rand ?? Math.random;
+  const now = opts.now ?? Date.now;
+  const startedAtMs = now();
   const canUseGateway = Boolean(process.env.LOVABLE_API_KEY) && !isNativeResendKey(config.apiKey);
+  let useGateway = canUseGateway;
 
-  let attempt = await postResend(config, msg, canUseGateway);
-  // Gateway recusou a credencial: tenta a API oficial do Resend com a mesma
-  // chave antes de declarar credencial inválida.
-  if (canUseGateway && attempt && (attempt.status === 401 || attempt.status === 403)) {
-    attempt = await postResend(config, msg, false);
+  const perAttempt: ResendAttemptTelemetry[] = [];
+  const summary: ResendTelemetrySummary = {
+    operationId: (opts.idFactory ?? (() => Math.random().toString(36).slice(2, 10)))(),
+    startedAt: new Date(startedAtMs).toISOString(),
+    finishedAt: new Date(startedAtMs).toISOString(),
+    durationMs: 0,
+    attempts: 0,
+    retries: 0,
+    rateLimits: 0,
+    timeouts: 0,
+    route: useGateway ? "gateway" : "api",
+    reason: "terminal",
+    error: null,
+    perAttempt,
+  };
+
+  const finish = (reason: ResendTelemetrySummary["reason"], error: string | null) => {
+    summary.reason = reason;
+    summary.error = error;
+    const end = now();
+    summary.finishedAt = new Date(end).toISOString();
+    summary.durationMs = end - startedAtMs;
+    summary.attempts = perAttempt.length;
+    (opts.logger ?? ((s: ResendTelemetrySummary) => console.error(resendLogLine(s))))(summary);
+  };
+
+  let lastError = "network";
+
+  for (let attempt = 1; attempt <= RESEND_MAX_ATTEMPTS; attempt += 1) {
+    const attemptStart = now();
+    const outcome = await postResend(config, msg, useGateway, opts.signal);
+    const route: "gateway" | "api" = useGateway ? "gateway" : "api";
+    summary.route = route;
+
+    if (outcome.kind === "http" && outcome.status >= 200 && outcome.status < 300) {
+      perAttempt.push({
+        attempt,
+        route,
+        status: outcome.status,
+        outcome: "success",
+        failureClass: null,
+        durationMs: now() - attemptStart,
+        retried: false,
+      });
+      finish("sent", null);
+      return { sent: true, from: config.from };
+    }
+
+    // Fallback preservado: gateway recusou a credencial → tenta a API oficial
+    // com a mesma chave antes de declarar credencial inválida. Não é retry.
+    const gatewayRejected =
+      outcome.kind === "http" &&
+      route === "gateway" &&
+      (outcome.status === 401 || outcome.status === 403);
+
+    const failureClass = classifyResendOutcome(outcome);
+    if (outcome.kind === "timeout") summary.timeouts += 1;
+    if (outcome.kind === "http" && outcome.status === 429) summary.rateLimits += 1;
+
+    lastError =
+      outcome.kind === "http"
+        ? sanitizeProviderError(outcome.status, outcome.body)
+        : outcome.kind === "timeout"
+          ? "timeout"
+          : "network";
+
+    const willFallback = gatewayRejected;
+    const willRetry =
+      !willFallback && failureClass === "recoverable" && attempt < RESEND_MAX_ATTEMPTS;
+
+    perAttempt.push({
+      attempt,
+      route,
+      status: outcome.kind === "http" ? outcome.status : null,
+      outcome:
+        outcome.kind === "http"
+          ? "http_error"
+          : outcome.kind === "timeout"
+            ? "timeout"
+            : "network",
+      failureClass,
+      durationMs: now() - attemptStart,
+      retried: willRetry || willFallback,
+    });
+
+    if (willFallback) {
+      useGateway = false;
+      continue;
+    }
+    if (willRetry) {
+      summary.retries += 1;
+      await sleep(resendBackoffMs(attempt, rand));
+      continue;
+    }
+    finish(failureClass === "recoverable" ? "retry_exhausted" : "terminal", lastError);
+    return { sent: false, error: lastError, from: config.from };
   }
 
-  if (!attempt) {
-    console.error("[resend] falha de rede no envio");
-    return { sent: false, error: "network", from: config.from };
-  }
-  if (attempt.status >= 200 && attempt.status < 300) {
-    return { sent: true, from: config.from };
-  }
-  const error = sanitizeProviderError(attempt.status, attempt.body);
-  console.error(`[resend] envio falhou status=${attempt.status}`);
-  return { sent: false, error, from: config.from };
+  finish("retry_exhausted", lastError);
+  return { sent: false, error: lastError, from: config.from };
 }
+
 
 /**
  * Atalho: resolve + envia. Retorna `resend_nao_configurado` com o mesmo código
