@@ -36,6 +36,18 @@ import {
   type OperationStep,
   type StepState,
 } from "@/lib/installation/manager-contract";
+import {
+  CORE_REQUIREMENTS,
+  CORE_STATE_LABEL,
+  OPTIONAL_CONFIG,
+  OPTIONAL_STATE_LABEL,
+  OVERALL_STATE_ICON,
+  OVERALL_STATE_LABEL,
+  computeReadiness,
+  customDomainState,
+  type CoreState,
+  type OptionalState,
+} from "@/lib/installation/readiness-contract";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -85,6 +97,20 @@ const STEP_TONE: Record<StepState, string> = {
   running: "text-severity-info",
   done: "text-health-good",
   error: "text-destructive",
+};
+
+const CORE_TONE: Record<CoreState, string> = {
+  ok: "border-health-good/40 text-health-good",
+  attention: "border-severity-warning/40 text-severity-warning",
+  running: "border-severity-info/40 text-severity-info",
+  error: "border-destructive/40 text-destructive",
+  pending: "border-border/60 text-muted-foreground",
+};
+
+const OPTIONAL_TONE: Record<OptionalState, string> = {
+  configured: "border-health-good/40 text-health-good",
+  pending: "border-severity-warning/40 text-severity-warning",
+  not_configured: "border-border/60 text-muted-foreground",
 };
 
 function InstallationDetailPage() {
@@ -188,6 +214,14 @@ function InstallationDetailPage() {
   const lastValidate = operations.find((op) => op.kind === "validate");
   const shownProvision = activeOp?.kind === "validate" ? lastProvision : (activeOp ?? lastProvision);
 
+  // Estado definitivo: o núcleo decide READY; integrações opcionais nunca
+  // bloqueiam. O MASTER só afirma "configurado" no que a instalação reportou.
+  const readiness = computeReadiness({
+    core: inst.healthChecks,
+    optional: { custom_domain: customDomainState(inst.domain) },
+    operationRunning: !!activeOp,
+  });
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -200,6 +234,9 @@ function InstallationDetailPage() {
           </Link>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-semibold">{inst.name}</h2>
+            <Badge variant="outline" className={cn("text-[10px]", CORE_TONE[readiness.ready ? "ok" : "pending"])}>
+              {OVERALL_STATE_ICON[readiness.state]} {OVERALL_STATE_LABEL[readiness.state]}
+            </Badge>
             <Badge variant="outline" className={cn("text-[10px]", STATUS_TONE[inst.status])}>
               {INSTALLATION_STATUS_LABEL[inst.status]}
             </Badge>
@@ -208,8 +245,8 @@ function InstallationDetailPage() {
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">
-            {inst.domain ?? "domínio não informado"} · 1 instalação = 1 Supabase = 1 workspace = 1
-            domínio
+            {inst.domain ?? "domínio não informado"} · 1 instalação = 1 aplicação = 1 Supabase = 1
+            workspace = 1 domínio operacional
           </p>
         </div>
 
@@ -286,10 +323,61 @@ function InstallationDetailPage() {
         </CardContent>
       </Card>
 
-      {/* 2. SAÚDE */}
+      {/* 2. NÚCLEO DA INSTALAÇÃO — obrigatório, define READY */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm">Núcleo da instalação</CardTitle>
+          <span className="text-xs text-muted-foreground">
+            {readiness.ready
+              ? "READY: infraestrutura, secrets, cron, health check, Super Admin e 1 workspace"
+              : `Pendente: ${readiness.missingCore.length} item(ns) obrigatório(s)`}
+          </span>
+        </CardHeader>
+        <CardContent className="grid gap-2 sm:grid-cols-4">
+          {CORE_REQUIREMENTS.map((req) => {
+            const result = readiness.core[req.id];
+            return (
+              <div key={req.id} className="rounded-lg border border-border/60 px-3 py-2">
+                <p className="text-[10px] uppercase text-muted-foreground">{req.label}</p>
+                <Badge variant="outline" className={cn("mt-1 text-[10px]", CORE_TONE[result.state])}>
+                  {CORE_STATE_LABEL[result.state]}
+                </Badge>
+                {result.detail && (
+                  <p className="mt-1 truncate text-[11px] text-muted-foreground">{result.detail}</p>
+                )}
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      {/* 3. CONFIGURAÇÃO OPCIONAL — nunca bloqueia a instalação */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm">Configuração opcional</CardTitle>
+          <span className="text-xs text-muted-foreground">
+            Não bloqueia: a instalação continua operacional sem estas integrações.
+          </span>
+        </CardHeader>
+        <CardContent className="grid gap-2 sm:grid-cols-3">
+          {OPTIONAL_CONFIG.map((item) => {
+            const state = readiness.optional[item.id];
+            return (
+              <div key={item.id} className="rounded-lg border border-border/60 px-3 py-2">
+                <p className="text-[10px] uppercase text-muted-foreground">{item.label}</p>
+                <Badge variant="outline" className={cn("mt-1 text-[10px]", OPTIONAL_TONE[state])}>
+                  {OPTIONAL_STATE_LABEL[state]}
+                </Badge>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      {/* Saúde medida pelo MASTER (probe + última validação reportada) */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Saúde</CardTitle>
+          <CardTitle className="text-sm">Saúde medida</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-2 sm:grid-cols-4">
           {HEALTH_CHECKS.map((check) => {

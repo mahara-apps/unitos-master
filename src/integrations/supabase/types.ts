@@ -6803,6 +6803,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      installation_setup_state: { Args: never; Returns: Json }
       instantiate_project_template: {
         Args: {
           _brand_id: string

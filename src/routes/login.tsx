@@ -4,6 +4,7 @@ import { CalendarDays, CheckCircle2, FileText, LayoutGrid } from "lucide-react";
 import { LoginForm } from "@/components/login-form";
 import { LoginLogo } from "@/components/brand/login-logo";
 import { supabase } from "@/integrations/supabase/client";
+import { callRpc } from "@/lib/supabase-rpc";
 
 
 export const Route = createFileRoute("/login")({
@@ -71,7 +72,19 @@ function LoginPage() {
     supabase.auth
       .getSession()
       .then(async ({ data }) => {
-        if (cancelled || !data.session?.user) return;
+        if (cancelled) return;
+        if (!data.session?.user) {
+          // Instalação recém-provisionada e sem nenhum usuário interno:
+          // primeira configuração cria o Super Admin desta instalação.
+          const { data: setup } = await callRpc<{ needs_super_admin?: boolean } | null>(
+            supabase,
+            "installation_setup_state",
+          );
+          if (!cancelled && setup?.needs_super_admin === true) {
+            navigate({ to: "/setup", replace: true });
+          }
+          return;
+        }
         const { data: userData, error } = await supabase.auth.getUser();
         if (cancelled) return;
         if (error || !userData.user) {
