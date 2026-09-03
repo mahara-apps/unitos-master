@@ -44,11 +44,22 @@ export type DiscoveryOutcome = {
   payload: CachedPagesPayload;
   loadedAt: string;
   error: string | null;
+  /** Modo efetivamente executado (`incremental` = varredura rasa). */
+  mode?: DiscoveryMode;
+  /** Motivo da escolha do modo (telemetria/UI). */
+  modeReason?: DiscoveryModeReason;
 };
 
 /**
  * Executa varredura real na Graph API, persiste o resultado na sessão e
  * revoga conexões desta marca/usuário Meta que não apareceram mais.
+ *
+ * REFRESH INCREMENTAL: quando os ativos salvos ainda são válidos (token já
+ * varrido, cache presente e recente) a varredura roda com `deep: false` — só
+ * `/me/accounts` — e o resultado é MESCLADO ao payload conhecido. Nesse modo a
+ * varredura NÃO é autoridade sobre o conjunto de ativos, portanto não revoga
+ * conexões. A varredura completa continua acontecendo em token novo, ausência
+ * de cache, cache expirado ou pedido explícito de descoberta completa.
  */
 export async function runMetaDiscovery(
   supabase: SupabaseLike,
@@ -58,7 +69,9 @@ export async function runMetaDiscovery(
     meta_user_id: string;
     user_token_ciphertext: string | null;
     pages: unknown;
+    portfolio_loaded_at?: string | null;
   },
+  opts?: { fullDiscovery?: boolean },
 ): Promise<DiscoveryOutcome> {
   const known = readPagesPayload(session.pages);
   if (!session.user_token_ciphertext) {
@@ -91,13 +104,23 @@ export async function runMetaDiscovery(
     /* granularidade indisponível não invalida a descoberta */
   }
 
+  const { runSharedScan, wasTokenDeepScanned } = await import("./scan-cache.server");
+  const decision = decideDiscoveryMode({
+    requestedFull: opts?.fullDiscovery === true,
+    knownAssetCount: known.pages.length + known.standaloneInstagram.length,
+    loadedAt: session.portfolio_loaded_at ?? null,
+    tokenAlreadyScanned: wasTokenDeepScanned(userToken),
+  });
+
   try {
     // Varredura COMPARTILHADA: se o modal de portfólios já varreu este token
     // há instantes, reutilizamos o resultado em vez de repetir tudo.
-    const { runSharedScan } = await import("./scan-cache.server");
-    const { scan } = await runSharedScan(userToken, { label: "Meta discovery (accounts)" });
+    const { scan } = await runSharedScan(userToken, {
+      label: `Meta discovery (accounts, ${decision.mode})`,
+      deep: decision.deep,
+    });
     const tokenById = new Map(known.pages.map((p) => [p.pageId, p.pageAccessToken]));
-    const payload: CachedPagesPayload = {
+    const scanned: CachedPagesPayload = {
       pages: scan.pages.map((p) => ({
         pageId: p.pageId,
         pageName: p.pageName,
@@ -123,6 +146,11 @@ export async function runMetaDiscovery(
       publishAuthorization,
     };
 
+    const payload =
+      decision.mode === "incremental"
+        ? mergeIncrementalPayload(known, scanned, publishAuthorization)
+        : scanned;
+
     const loadedAt = new Date().toISOString();
     await supabase
       .from("meta_oauth_sessions")
@@ -137,15 +165,26 @@ export async function runMetaDiscovery(
       })
       .eq("id", session.id);
 
+    // Só a varredura COMPLETA é autoridade sobre o conjunto de ativos: um
+    // refresh incremental (só `/me/accounts`) não vê ativos de portfólio e não
+    // pode revogar nada.
+    if (decision.mode === "full") {
+      await revokeUndiscoveredConnections(
+        supabase,
+        session.brand_id,
+        session.meta_user_id,
+        discoveredIds(payload),
+      );
+    }
 
-    await revokeUndiscoveredConnections(
-      supabase,
-      session.brand_id,
-      session.meta_user_id,
-      discoveredIds(payload),
-    );
+    return {
+      payload,
+      loadedAt,
+      error: null,
+      mode: decision.mode,
+      modeReason: decision.reason,
+    };
 
-    return { payload, loadedAt, error: null };
   } catch (err) {
     const detail =
       err instanceof MetaGraphError
