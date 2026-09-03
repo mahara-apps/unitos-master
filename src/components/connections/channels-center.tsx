@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -103,6 +103,15 @@ import {
   type DiscoveredAccountsResult,
 } from "@/lib/meta/discovery.functions";
 import { metaIssueToast } from "@/lib/meta/issue-messages";
+import {
+  busyChannel,
+  classifyConnectFailure,
+  readAuthorizeUrl,
+  type MetaConnectState,
+} from "@/lib/meta/connect-flow";
+
+/** Limite duro de espera pelo consentimento antes de virar estado de timeout. */
+const OAUTH_TIMEOUT_MS = 4 * 60_000;
 import { maskId } from "@/lib/meta/reconnect-diagnosis";
 import { linkMetaAccount } from "@/lib/meta/portfolio.functions";
 import {
@@ -229,7 +238,12 @@ export function ChannelsCenter({
   const [portfolioDetailsOpen, setPortfolioDetailsOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [revokeAllOpen, setRevokeAllOpen] = useState(false);
-  const [connecting, setConnecting] = useState<null | "facebook" | "instagram">(null);
+  const [flow, setFlow] = useState<MetaConnectState>({ kind: "idle" });
+  /** Compat: controles que só precisam saber "há autorização em andamento". */
+  const connecting = busyChannel(flow);
+  const pollRef = useRef<number | null>(null);
+  const timeoutRef = useRef<number | null>(null);
+  const flowRef = useRef<"facebook" | "instagram" | null>(null);
   const [portfolioSessionId, setPortfolioSessionId] = useState<string | null>(null);
   const [portfolioOpen, setPortfolioOpen] = useState(false);
   const [portfolioChannel, setPortfolioChannel] = useState<"facebook" | "instagram" | null>(null);
@@ -339,6 +353,17 @@ export function ChannelsCenter({
       });
   }
 
+  /**
+   * Limpa popup + watchdogs. Toda saída do estado "em andamento" passa por aqui,
+   * garantindo que o modal nunca permaneça indefinidamente em loading.
+   */
+  const clearWatchdogs = useCallback(() => {
+    if (pollRef.current) window.clearInterval(pollRef.current);
+    if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+    pollRef.current = null;
+    timeoutRef.current = null;
+  }, []);
+
   useEffect(() => {
     function onMessage(ev: MessageEvent) {
       const d = ev.data as {
@@ -359,29 +384,44 @@ export function ChannelsCenter({
         );
         return;
       }
-      setConnecting(null);
-      if (d.ok && d.sessionId && reauthRef.current) return;
+      clearWatchdogs();
+      const channel = d.channel ?? flowRef.current;
+      if (d.ok && d.sessionId && reauthRef.current) {
+        setFlow({ kind: "idle" });
+        return;
+      }
       if (d.ok && d.sessionId) {
-        toast.success("Autorização concluída. Selecione as contas para conectar.");
-        setConnectOpen(false);
+        // Autorização é terminal aqui: a SINCRONIZAÇÃO dos ativos é etapa
+        // separada e não pode bloquear a confirmação para o usuário.
+        setFlow({ kind: "authorized", channel: channel ?? "facebook", sessionId: d.sessionId });
         setPortfolioSessionId(d.sessionId);
         setPortfolioChannel(d.channel ?? null);
-        setPortfolioOpen(true);
-      } else if (d.error) {
-        console.warn("[meta-oauth] falha na autorização:", d.error);
-        toast.error("Não foi possível concluir a autorização.", {
-          description: d.error,
-          duration: 12000,
+        qc.invalidateQueries({ queryKey: ["meta-discovered-accounts", brandId] });
+        qc.invalidateQueries({ queryKey: ["meta-portfolio-status", brandId] });
+        if (!connectOpen) setPortfolioOpen(true);
+      } else {
+        const detail = d.error ?? d.message ?? null;
+        console.warn("[meta-oauth] falha na autorização:", detail);
+        setFlow({
+          kind: "error",
+          channel: channel ?? null,
+          reason: classifyConnectFailure(detail),
+          detail,
         });
       }
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, []);
+  }, [brandId, clearWatchdogs, connectOpen, qc]);
+
+  // Nunca deixa watchdogs pendurados quando o componente sai de cena.
+  useEffect(() => clearWatchdogs, [clearWatchdogs]);
 
   async function connectMeta(channel: "facebook" | "instagram", forceReauth = false) {
     if (!brandId) return;
-    setConnecting(channel);
+    clearWatchdogs();
+    flowRef.current = channel;
+    setFlow({ kind: "starting", channel });
     // O popup precisa abrir de forma síncrona no clique.
     const popup = window.open(
       "",
@@ -389,23 +429,83 @@ export function ChannelsCenter({
       "width=760,height=820,resizable=yes,scrollbars=yes",
     );
     try {
-      const { authorizeUrl, redirectUri } = await startMetaFn({
+      // O retorno NUNCA é desestruturado às cegas: `authorizeUrl` é validado
+      // antes de qualquer navegação (era a origem do "Cannot destructure
+      // property 'authorizeUrl' of undefined").
+      const res: unknown = await startMetaFn({
         // Fluxo normal: reutiliza a sessão Meta e solicita novamente apenas
         // permissões recusadas. Reautenticação forçada fica restrita às ações
         // explícitas de trocar portfólio / reconectar uma conta.
         data: { brandId, channel, ...(forceReauth ? { forceReauth: true } : {}) },
       });
 
-      console.info("[meta-oauth] redirect_uri em uso:", redirectUri);
-      if (popup) popup.location.href = authorizeUrl;
-      else window.location.href = authorizeUrl;
+      if (!res || typeof res !== "object") {
+        popup?.close();
+        setFlow({ kind: "error", channel, reason: "invalid_response", detail: String(res) });
+        return;
+      }
+      const payload = res as { authorizeUrl?: unknown; redirectUri?: unknown };
+      const authorizeUrl =
+        typeof payload.authorizeUrl === "string" ? payload.authorizeUrl.trim() : "";
+      if (!authorizeUrl) {
+        popup?.close();
+        setFlow({
+          kind: "error",
+          channel,
+          reason: "missing_url",
+          detail: "A resposta de startMetaOAuth não trouxe authorizeUrl.",
+        });
+        return;
+      }
+
+      if (typeof payload.redirectUri === "string") {
+        console.info("[meta-oauth] redirect_uri em uso:", payload.redirectUri);
+      }
+
+      if (popup) {
+        popup.location.href = authorizeUrl;
+        setFlow({ kind: "awaiting", channel });
+        // Cancelamento do usuário: janela fechada sem retorno do callback.
+        pollRef.current = window.setInterval(() => {
+          if (!popup.closed) return;
+          clearWatchdogs();
+          setFlow((prev) =>
+            prev.kind === "awaiting" || prev.kind === "returning"
+              ? { kind: "error", channel, reason: "cancelled", detail: null }
+              : prev,
+          );
+        }, 800);
+        // Timeout duro: o modal jamais fica preso em "Aguardando autorização".
+        timeoutRef.current = window.setTimeout(() => {
+          clearWatchdogs();
+          try {
+            popup.close();
+          } catch {
+            /* janela já fechada */
+          }
+          setFlow((prev) =>
+            prev.kind === "awaiting" || prev.kind === "returning"
+              ? { kind: "error", channel, reason: "timeout", detail: null }
+              : prev,
+          );
+        }, OAUTH_TIMEOUT_MS);
+      } else {
+        // Sem popup disponível: usa o redirecionamento da própria aba (fluxo
+        // OAuth existente, sem segunda implementação).
+        setFlow({ kind: "awaiting", channel });
+        window.location.href = authorizeUrl;
+      }
     } catch (err) {
-      setConnecting(null);
       popup?.close();
+      clearWatchdogs();
       console.warn("[meta-oauth] falha ao iniciar autorização:", err);
-      toast.error("Não foi possível abrir a autorização da Meta.", {
-        description: err instanceof Error ? err.message : undefined,
-        duration: 10000,
+      setFlow({
+        kind: "error",
+        channel,
+        reason: /permiss|owner|admin/i.test(err instanceof Error ? err.message : "")
+          ? "permission"
+          : "start_failed",
+        detail: err instanceof Error ? err.message : String(err),
       });
     }
   }
@@ -727,10 +827,27 @@ export function ChannelsCenter({
 
       <ConnectChannelsDialog
         open={connectOpen}
-        onOpenChange={setConnectOpen}
-        connecting={connecting}
+        onOpenChange={(v) => {
+          setConnectOpen(v);
+          if (!v) {
+            clearWatchdogs();
+            setFlow({ kind: "idle" });
+          }
+        }}
+        state={flow}
         onConnect={(channel) => void connectMeta(channel)}
+        onCancel={() => {
+          clearWatchdogs();
+          setFlow({ kind: "idle" });
+        }}
+        onContinue={() => {
+          setConnectOpen(false);
+          setFlow({ kind: "idle" });
+          if (portfolioSessionId) setPortfolioOpen(true);
+        }}
+        onRefreshDiscovery={() => refreshDiscovery()}
         discovery={discovery}
+        syncing={loadingDiscovery || fetchingDiscovery}
       />
 
       {portfolioSessionId ? (
@@ -1081,13 +1198,15 @@ function ReconnectDialog({
       "width=760,height=820,resizable=yes,scrollbars=yes",
     );
     try {
-      const { authorizeUrl } = await startMetaFn({
-        data: {
-          brandId,
-          channel: row.channel as "facebook" | "instagram",
-          forceReauth: true,
-        },
-      });
+      const authorizeUrl = readAuthorizeUrl(
+        await startMetaFn({
+          data: {
+            brandId,
+            channel: row.channel as "facebook" | "instagram",
+            forceReauth: true,
+          },
+        }),
+      );
       if (popup) popup.location.href = authorizeUrl;
       else window.location.href = authorizeUrl;
     } catch (err) {
