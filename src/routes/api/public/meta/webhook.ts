@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   forwardMetaWebhook,
   isForwardedWebhook,
+  loadRegisteredInstallationPeers,
+  mergePeers,
   parseInstallationPeers,
 } from "@/lib/meta/installation.server";
 
