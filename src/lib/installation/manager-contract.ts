@@ -312,7 +312,9 @@ export const VALIDATE_STEPS = [
 export type StepDefinition = { id: string; label: string; script: string };
 
 export function stepsFor(kind: InstallationOperationKind): readonly StepDefinition[] {
-  return kind === "validate" ? VALIDATE_STEPS : PROVISION_STEPS;
+  if (kind === "validate") return VALIDATE_STEPS;
+  if (kind === "update") return UPDATE_STEPS;
+  return PROVISION_STEPS;
 }
 
 /* ------------------------------------------------------- etapas / progresso */
