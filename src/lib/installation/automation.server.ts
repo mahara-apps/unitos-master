@@ -44,7 +44,7 @@ import {
   type GeneratedSecretVar,
 } from "./automation-contract";
 import { applyProgressReport, finalizeOperation, sanitize, type OperationRow } from "./runner.server";
-import type { CheckState, HealthCheckId } from "./manager-contract";
+import { MASTER_RELEASE_VERSION, type CheckState, type HealthCheckId } from "./manager-contract";
 
 /* --------------------------------------------------------------- utilidades */
 
@@ -273,7 +273,9 @@ export async function runAutomatedProvision(input: {
     await finalizeOperation(client as never, operation as never, {
       ok: outcome.result === "PASS",
       warnings: outcome.result === "PASS" && blocked.length > 0,
-      version: null,
+      // PASS => a instalação passa a rodar a versão do MASTER, e o status
+      // derivado vira "Atualizada" (operacional). Sem isso ficaria em "Atenção".
+      version: outcome.result === "PASS" ? MASTER_RELEASE_VERSION : null,
       summary:
         outcome.result === "PASS"
           ? `Provisionamento automático concluído${appUrl ? ` em ${appUrl}` : ""}.`

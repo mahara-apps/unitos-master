@@ -74,6 +74,8 @@ export type OperationDetail = {
   releaseVersion?: string;
   executed?: boolean;
   warnings?: boolean;
+  /** true quando o MASTER executou a operação automaticamente (sem comando manual). */
+  automated?: boolean;
 };
 
 export type InstallationOperationRecord = {
@@ -491,6 +493,17 @@ export const cancelInstallationOperationFn = createServerFn({ method: "POST" })
       summary: "Operação cancelada pelo Super Admin. Resultado parcial preservado.",
       errorKind: "cancelada",
     });
+
+    // Cancelar devolve a instalação a um estado que ACEITA novo provisionamento.
+    await context.supabase
+      .from("installations")
+      .update({
+        status: "attention",
+        active_operation_id: null,
+        last_error: "Operação cancelada pelo Super Admin.",
+      })
+      .eq("id", op.installation_id);
+
     return { ok: true as const };
   });
 
@@ -554,6 +567,140 @@ export const getAutomationCapabilityFn = createServerFn({ method: "POST" })
     };
   });
 
+export type AutomatedProvisionStart =
+  | {
+      result: "STARTED";
+      operationId: string;
+      reasons: string[];
+      appUrl: string | null;
+      urlSource: null;
+    }
+  | {
+      result: "BLOCKED";
+      operationId: null;
+      reasons: string[];
+      appUrl: null;
+      urlSource: null;
+    };
+
+/**
+ * Abre a operação de provisionamento automático e dispara a execução em
+ * BACKGROUND (`waitUntil`), devolvendo imediatamente o id da operação. A UI
+ * acompanha o progresso real por polling das etapas persistidas — a requisição
+ * do clique nunca fica pendurada esperando o provisionamento inteiro.
+ */
+async function openAutomatedProvision(
+  context: { supabase: unknown; userId: string },
+  installationId: string,
+): Promise<AutomatedProvisionStart> {
+  const supabase = context.supabase as never as {
+    from: (table: string) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  };
+
+  const { resolveAutomationCapability, resolveAutomationTarget } = await import(
+    "./automation-contract"
+  );
+  const { runtimeEnv } = await import("@/lib/runtime-env.server");
+  const capability = resolveAutomationCapability(runtimeEnv());
+  if (!capability.available) {
+    return {
+      result: "BLOCKED",
+      operationId: null,
+      reasons: capability.blockedReasons,
+      appUrl: null,
+      urlSource: null,
+    };
+  }
+
+  const { data: current, error: readError } = await supabase
+    .from("installations")
+    .select("*")
+    .eq("id", installationId)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!current) throw new Error("Instalação não encontrada.");
+
+  const record = mapInstallation(current);
+  const target = resolveAutomationTarget(record);
+  if (!target.ok) {
+    return {
+      result: "BLOCKED",
+      operationId: null,
+      reasons: [target.reason],
+      appUrl: null,
+      urlSource: null,
+    };
+  }
+  if (!canStartOperation("provision", record.status)) {
+    throw new Error(
+      `A instalação está em “${INSTALLATION_STATUS_LABEL[record.status]}” e não aceita esta operação agora.`,
+    );
+  }
+
+  const { data: active } = await supabase
+    .from("installation_operations")
+    .select("id")
+    .eq("installation_id", installationId)
+    .in("status", ["pending", "running"])
+    .maybeSingle();
+  if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
+
+  const nowIso = new Date().toISOString();
+  const { data: op, error: opError } = await supabase
+    .from("installation_operations")
+    .insert({
+      installation_id: installationId,
+      kind: "provision",
+      status: "running",
+      summary: "Provisionamento automático em execução pelo MASTER.",
+      steps: initialSteps("provision"),
+      detail: { releaseVersion: MASTER_RELEASE_VERSION, executed: true, automated: true },
+      actor_id: context.userId,
+      started_at: nowIso,
+      last_report_at: nowIso,
+    })
+    .select("*")
+    .single();
+  if (opError) {
+    if ((opError as { code?: string }).code === "23505")
+      throw new Error("Já existe uma operação em andamento nesta instalação.");
+    throw opError;
+  }
+
+  await supabase
+    .from("installations")
+    .update({
+      status: runningStatusFor("provision"),
+      last_error: null,
+      active_operation_id: op.id,
+    })
+    .eq("id", installationId);
+
+  const { runAutomatedProvision } = await import("./automation.server");
+  const { waitUntil } = await import("@/lib/wait-until.server");
+  waitUntil(
+    runAutomatedProvision({
+      client: supabase as never,
+      operation: op as never,
+      installation: {
+        id: record.id,
+        domain: record.domain,
+        supabaseUrl: record.supabaseUrl,
+        supabaseProjectRef: record.supabaseProjectRef,
+        deployProject: record.deployProject,
+      },
+    }),
+  );
+
+  return {
+    result: "STARTED",
+    operationId: op.id as string,
+    reasons: [],
+    appUrl: null,
+    urlSource: null,
+  };
+}
+
 /**
  * Provisiona a instalação de forma automatizada: o MASTER usa as próprias
  * credenciais de gestão, aplica o baseline, gera secrets exclusivos, configura
@@ -565,91 +712,57 @@ export const runAutomatedProvisionFn = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     await guard(context);
+    return openAutomatedProvision(context, data.id);
+  });
 
-    const { resolveAutomationCapability, resolveAutomationTarget } = await import(
-      "./automation-contract"
-    );
-    const { runtimeEnv } = await import("@/lib/runtime-env.server");
-    const capability = resolveAutomationCapability(runtimeEnv());
-    if (!capability.available) {
-      return {
-        result: "BLOCKED" as const,
-        reasons: capability.blockedReasons,
-        appUrl: null,
-        urlSource: null,
-      };
-    }
+/**
+ * Reinício seguro: encerra a operação viva (registrando o cancelamento no
+ * histórico com o resultado parcial preservado) e abre UMA nova operação
+ * automatizada. Nunca cria duas operações concorrentes.
+ */
+export const restartAutomatedProvisionFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid(), force: z.boolean().optional() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await guard(context);
 
-    const { data: current, error: readError } = await context.supabase
-      .from("installations")
-      .select("*")
-      .eq("id", data.id)
-      .maybeSingle();
-    if (readError) throw readError;
-    if (!current) throw new Error("Instalação não encontrada.");
-
-    const record = mapInstallation(current);
-    const target = resolveAutomationTarget(record);
-    if (!target.ok) {
-      return { result: "BLOCKED" as const, reasons: [target.reason], appUrl: null, urlSource: null };
-    }
-    if (!canStartOperation("provision", record.status)) {
-      throw new Error(
-        `A instalação está em “${INSTALLATION_STATUS_LABEL[record.status]}” e não aceita esta operação agora.`,
-      );
-    }
-
-    const { data: active } = await context.supabase
+    const { data: live, error } = await context.supabase
       .from("installation_operations")
-      .select("id")
+      .select("*")
       .eq("installation_id", data.id)
       .in("status", ["pending", "running"])
-      .maybeSingle();
-    if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (error) throw error;
 
-    const nowIso = new Date().toISOString();
-    const { data: op, error: opError } = await context.supabase
-      .from("installation_operations")
-      .insert({
-        installation_id: data.id,
-        kind: "provision",
+    const op = (live ?? [])[0];
+    if (op) {
+      const { isOperationStale } = await import("./manager-contract");
+      const stale = isOperationStale({
         status: "running",
-        summary: "Provisionamento automático executado pelo MASTER.",
-        steps: initialSteps("provision"),
-        detail: { releaseVersion: MASTER_RELEASE_VERSION, executed: true, automated: true },
-        actor_id: context.userId,
-        started_at: nowIso,
-      })
-      .select("*")
-      .single();
-    if (opError) {
-      if ((opError as { code?: string }).code === "23505")
-        throw new Error("Já existe uma operação em andamento nesta instalação.");
-      throw opError;
+        startedAt: op.started_at,
+        lastReportAt: op.last_report_at ?? null,
+      });
+      if (!stale && !data.force) {
+        throw new Error(
+          "A operação atual ainda está reportando progresso. Aguarde ou cancele antes de reiniciar.",
+        );
+      }
+      const { finalizeOperation } = await import("./runner.server");
+      await finalizeOperation(context.supabase as never, op as never, {
+        ok: false,
+        summary:
+          "Operação interrompida para reinício do provisionamento. Resultado parcial preservado.",
+        errorKind: "reiniciada",
+      });
     }
 
     await context.supabase
       .from("installations")
-      .update({ status: runningStatusFor("provision"), last_error: null, active_operation_id: op.id })
+      .update({ status: "attention", active_operation_id: null })
       .eq("id", data.id);
 
-    const { runAutomatedProvision } = await import("./automation.server");
-    const outcome = await runAutomatedProvision({
-      client: context.supabase as never,
-      operation: op as never,
-      installation: {
-        id: record.id,
-        domain: record.domain,
-        supabaseUrl: record.supabaseUrl,
-        supabaseProjectRef: record.supabaseProjectRef,
-        deployProject: record.deployProject,
-      },
-    });
-
-    return {
-      result: outcome.result,
-      reasons: outcome.reasons,
-      appUrl: outcome.appUrl,
-      urlSource: outcome.urlSource,
-    };
+    return openAutomatedProvision(context, data.id);
   });

@@ -20,6 +20,7 @@ import {
   getInstallationFn,
   getAutomationCapabilityFn,
   refreshInstallationHealthFn,
+  restartAutomatedProvisionFn,
   runAutomatedProvisionFn,
   startInstallationOperationFn,
 } from "@/lib/installation/manager.functions";
@@ -32,6 +33,7 @@ import {
   OPERATION_STATUS_LABEL,
   STEP_STATE_LABEL,
   canStartOperation,
+  isOperationStale,
   updateSummary,
   type CheckState,
   type InstallationOperationKind,
@@ -61,6 +63,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { STATUS_TONE } from "./admin.instalacoes.index";
 
@@ -128,6 +131,7 @@ function InstallationDetailPage() {
   const healthFn = useServerFn(refreshInstallationHealthFn);
   const capabilityFn = useServerFn(getAutomationCapabilityFn);
   const autoFn = useServerFn(runAutomatedProvisionFn);
+  const restartFn = useServerFn(restartAutomatedProvisionFn);
 
   const [runCommand, setRunCommand] = useState<string | null>(null);
   const [updateOpen, setUpdateOpen] = useState(false);
@@ -141,7 +145,7 @@ function InstallationDetailPage() {
       query.state.data?.operations.some(
         (op) => op.status === "pending" || op.status === "running",
       )
-        ? 5000
+        ? 2500
         : false,
   });
 
@@ -179,17 +183,26 @@ function InstallationDetailPage() {
   const autoProvision = useMutation({
     mutationFn: () => autoFn({ data: { id } }),
     onSuccess: (result) => {
-      if (result.result === "PASS") {
-        toast.success(
-          `Instalação provisionada automaticamente${result.appUrl ? ` em ${result.appUrl}` : ""}.`,
-        );
+      if (result.result === "STARTED") {
+        toast.success("Provisionamento iniciado. Acompanhe o progresso por etapa abaixo.");
       } else {
-        toast.error(`${result.result}: ${result.reasons.join(" | ")}`);
+        toast.error(`BLOCKED: ${result.reasons.join(" | ")}`);
       }
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const restartProvision = useMutation({
+    mutationFn: (input: { force: boolean }) => restartFn({ data: { id, force: input.force } }),
+    onSuccess: (result) => {
+      if (result.result === "STARTED") toast.success("Provisionamento reiniciado.");
+      else toast.error(`BLOCKED: ${result.reasons.join(" | ")}`);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
   const complete = useMutation({
     mutationFn: (input: { operationId: string; ok: boolean; version?: string | null }) =>
@@ -246,6 +259,9 @@ function InstallationDetailPage() {
   const lastProvision = operations.find((op) => op.kind === "provision" || op.kind === "update");
   const lastValidate = operations.find((op) => op.kind === "validate");
   const shownProvision = activeOp?.kind === "validate" ? lastProvision : (activeOp ?? lastProvision);
+  const staleActive = !!activeOp && isOperationStale(activeOp);
+  const failedProvision =
+    lastProvision && lastProvision.status === "failed" ? lastProvision : null;
 
   // Estado definitivo: o núcleo decide READY; integrações opcionais nunca
   // bloqueiam. O MASTER só afirma "configurado" no que a instalação reportou.
@@ -298,10 +314,16 @@ function InstallationDetailPage() {
           >
             {autoProvision.isPending ? (
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : activeOp ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
             ) : (
               <Rocket className="mr-1.5 h-3.5 w-3.5" />
             )}
-            {automated ? "Provisionar automaticamente" : "Provisionar instalação"}
+            {activeOp
+              ? "Provisionando…"
+              : automated
+                ? "Provisionar automaticamente"
+                : "Provisionar instalação"}
           </Button>
           <Button
             size="sm"
@@ -340,7 +362,13 @@ function InstallationDetailPage() {
                 secrets, cron e identidade própria.
               </p>
             </div>
-            <Button size="sm" disabled={start.isPending || !!activeOp} onClick={() => start.mutate({ kind: "provision" })}>
+            <Button
+              size="sm"
+              disabled={start.isPending || autoProvision.isPending || !!activeOp}
+              onClick={() =>
+                automated ? autoProvision.mutate() : start.mutate({ kind: "provision" })
+              }
+            >
               <Rocket className="mr-1.5 h-3.5 w-3.5" /> Provisionar agora
             </Button>
           </CardContent>
@@ -443,9 +471,16 @@ function InstallationDetailPage() {
       </Card>
 
       {/* 3. PROVISIONAMENTO */}
-      <Card>
+      <Card className={cn(activeOp && "border-primary/40")}>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm">Provisionamento</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-sm">
+            Provisionamento
+            {activeOp && (
+              <Badge variant="outline" className="gap-1 text-[10px] text-primary">
+                <Loader2 className="h-3 w-3 animate-spin" /> Em andamento
+              </Badge>
+            )}
+          </CardTitle>
           {shownProvision && (
             <span className="text-xs text-muted-foreground">
               {shownProvision.progress.done}/{shownProvision.progress.total} etapas ·{" "}
@@ -453,7 +488,25 @@ function InstallationDetailPage() {
             </span>
           )}
         </CardHeader>
-        <CardContent className="space-y-1.5">
+        <CardContent className="space-y-2.5">
+          {shownProvision && (
+            <>
+              <Progress value={shownProvision.progress.percent} className="h-1.5" />
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>
+                  {activeOp
+                    ? currentStepLabel(shownProvision.steps)
+                    : (shownProvision.summary ?? "Última execução registrada.")}
+                </span>
+                {shownProvision.progress.failed > 0 && (
+                  <span className="text-destructive">
+                    {shownProvision.progress.failed} etapa(s) com falha
+                  </span>
+                )}
+              </div>
+            </>
+          )}
+
           {shownProvision ? (
             <StepList steps={shownProvision.steps} />
           ) : (
@@ -463,6 +516,77 @@ function InstallationDetailPage() {
                 : "Nenhuma execução ainda. Clique em “Provisionar instalação” para abrir a operação."}
             </p>
           )}
+
+          {activeOp && staleActive && (
+            <div className="rounded-lg border border-severity-warning/40 bg-severity-warning/5 p-2.5 text-[11px] text-muted-foreground">
+              A operação não reporta progresso há alguns minutos. Você pode reiniciar o
+              provisionamento com segurança — a operação travada é encerrada e apenas UMA nova
+              operação é aberta.
+            </div>
+          )}
+
+          {failedProvision && !activeOp && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-2.5">
+              <p className="text-xs font-medium text-destructive">
+                Falhou em: {failedStepLabel(failedProvision.steps)}
+              </p>
+              {failedProvision.summary && (
+                <p className="mt-1 text-[11px] text-muted-foreground">{failedProvision.summary}</p>
+              )}
+              {failedProvision.errorKind && (
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  Motivo: {failedProvision.errorKind}
+                </p>
+              )}
+            </div>
+          )}
+
+          {automated && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {activeOp ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={restartProvision.isPending}
+                    onClick={() => restartProvision.mutate({ force: !staleActive })}
+                  >
+                    {restartProvision.isPending ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    Reiniciar provisionamento
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={cancel.isPending}
+                    onClick={() => cancel.mutate(activeOp.id)}
+                  >
+                    <XCircle className="mr-1.5 h-3.5 w-3.5" /> Cancelar
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  size="sm"
+                  variant={failedProvision ? "default" : "outline"}
+                  disabled={
+                    autoProvision.isPending || !canStartOperation("provision", inst.status)
+                  }
+                  onClick={() => autoProvision.mutate()}
+                >
+                  {autoProvision.isPending ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Rocket className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  {failedProvision ? "Tentar novamente" : "Provisionar automaticamente"}
+                </Button>
+              )}
+            </div>
+          )}
+
           {capability.data && !automated && (
             <div className="rounded-lg border border-severity-warning/40 bg-severity-warning/5 p-2.5">
               <p className="text-xs font-medium">Provisionamento automático BLOCKED</p>
@@ -475,6 +599,7 @@ function InstallationDetailPage() {
           )}
         </CardContent>
       </Card>
+
 
       {/* 5. VALIDAÇÃO */}
       {lastValidate && (
@@ -555,6 +680,8 @@ function InstallationDetailPage() {
               )}
               {(op.status === "pending" || op.status === "running") && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
+                  {/* Operação automatizada reporta o próprio resultado: nada de registro manual. */}
+                  {!op.detail.automated && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -569,6 +696,8 @@ function InstallationDetailPage() {
                   >
                     <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Registrar sucesso
                   </Button>
+                  )}
+                  {!op.detail.automated && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -577,6 +706,7 @@ function InstallationDetailPage() {
                   >
                     <XCircle className="mr-1.5 h-3.5 w-3.5" /> Registrar falha
                   </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="ghost"
@@ -619,6 +749,21 @@ function InstallationDetailPage() {
       </Dialog>
     </div>
   );
+}
+
+/** Etapa em execução (ou a próxima pendente) para o rótulo de progresso. */
+function currentStepLabel(steps: OperationStep[]): string {
+  const running = steps.find((step) => step.state === "running");
+  if (running) return `Executando: ${running.label}${running.detail ? ` — ${running.detail}` : ""}`;
+  const pending = steps.find((step) => step.state === "pending");
+  return pending ? `Aguardando: ${pending.label}` : "Finalizando…";
+}
+
+/** Etapa que falhou, para exibir o motivo objetivo. */
+function failedStepLabel(steps: OperationStep[]): string {
+  const failed = steps.find((step) => step.state === "error");
+  if (!failed) return "etapa não identificada";
+  return `${failed.label}${failed.detail ? ` — ${failed.detail}` : ""}`;
 }
 
 function StepList({ steps }: { steps: OperationStep[] }) {
