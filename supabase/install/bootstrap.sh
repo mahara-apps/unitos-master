@@ -40,6 +40,7 @@ RELEASE_VERSION="2026.09.0"
 . "$HERE/report.sh"
 
 FAILURES=0
+ABORTED=0
 declare -a REPORT=()
 
 step() { printf '\n\033[1m▶ %s\033[0m\n' "$1"; }
@@ -47,11 +48,19 @@ step() { printf '\n\033[1m▶ %s\033[0m\n' "$1"; }
 pass() { REPORT+=("PASS | $1 | ${2:-}"); printf '  PASS  %s %s\n' "$1" "${2:-}"; }
 fail() { REPORT+=("FAIL | $1 | ${2:-}"); FAILURES=$((FAILURES + 1)); printf '  FAIL  %s %s\n' "$1" "${2:-}"; }
 skip() { REPORT+=("SKIP | $1 | ${2:-}"); printf '  SKIP  %s %s\n' "$1" "${2:-}"; }
+blocked() { REPORT+=("BLOCKED | $1 | ${2:-}"); printf '  BLOCKED  %s %s\n' "$1" "${2:-}"; }
 
 die() {
+  # Abort por pré-condição (nenhuma etapa falhou) => BLOCKED/exit 2.
+  # Abort após falha de etapa => FAIL/exit 1. Nunca PASS.
+  if [ "$FAILURES" -eq 0 ]; then
+    ABORTED=1
+    blocked "pré-condição" "$1"
+  fi
   printf '\n\033[31mBOOTSTRAP ABORTADO:\033[0m %s\n' "$1"
-  report_done false "" "Bootstrap abortado: $1" false '{}' 
+  report_done false "" "Bootstrap abortado: $1" false '{}'
   print_report
+  [ "$ABORTED" = "1" ] && exit 2
   exit 1
 }
 
@@ -59,12 +68,15 @@ print_report() {
   printf '\n=========== RELATÓRIO DO BOOTSTRAP ===========\n'
   for line in "${REPORT[@]}"; do printf '%s\n' "$line"; done
   printf '==============================================\n'
-  if [ "$FAILURES" -gt 0 ]; then
+  if [ "$ABORTED" = "1" ]; then
+    printf 'RESULTADO: BLOCKED (pré-condição não satisfeita — nada foi provisionado)\n'
+  elif [ "$FAILURES" -gt 0 ]; then
     printf 'RESULTADO: FAIL (%s etapa(s))\n' "$FAILURES"
   else
     printf 'RESULTADO: PASS\n'
   fi
 }
+
 
 psql_run() { psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 --quiet "$@"; }
 psql_value() { psql "$SUPABASE_DB_URL" -tAX -c "$1" 2>/dev/null | tr -d '[:space:]'; }
@@ -94,6 +106,23 @@ if printf '%s' "$SUPABASE_DB_URL" | grep -Eiq "$MASTER_TOKENS"; then
 fi
 pass "ambiente" "origem=$APP_ORIGIN"
 
+# Secrets: nunca herdados silenciosamente do ambiente (ex.: shell do MASTER).
+# Aceitos apenas quando a instalação destino os DECLARA em UNITOS_INSTALL_SECRETS
+# ("all" ou lista de nomes). Sem declaração, o bootstrap gera valores próprios;
+# se a variável já existir no ambiente sem declaração, a operação é BLOQUEADA.
+DECLARED_SECRETS="$(printf '%s' "${UNITOS_INSTALL_SECRETS:-}" | tr '[:lower:]' '[:upper:]' | tr ',' ' ')"
+MASTER_ENV=0
+if [ "$(printf '%s' "${UNITOS_INSTALLATION_ROLE:-}" | tr '[:upper:]' '[:lower:]')" = "master" ]; then MASTER_ENV=1; fi
+if printf '%s' "${SUPABASE_URL:-}" | grep -Eiq "$MASTER_TOKENS"; then MASTER_ENV=1; fi
+
+secret_declared() {
+  case " $DECLARED_SECRETS " in
+    *" ALL "*) return 0 ;;
+    *" $1 "*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 for var in CRON_SECRET BRAND_CREDENTIALS_SECRET META_STATE_SECRET META_WEBHOOK_VERIFY_TOKEN; do
   current="${!var:-}"
   if [ -z "$current" ]; then
@@ -101,13 +130,18 @@ for var in CRON_SECRET BRAND_CREDENTIALS_SECRET META_STATE_SECRET META_WEBHOOK_V
     pass "secret $var" "gerado nesta instalação (valor não exibido)"
   elif printf '%s' "$current" | grep -Eiq "$MASTER_TOKENS"; then
     fail "secret $var" "parece derivado do MASTER — gere um novo"
+  elif ! secret_declared "$var"; then
+    fail "secret $var" "presente no ambiente sem declaração em UNITOS_INSTALL_SECRETS — herança não permitida"
+  elif [ "$MASTER_ENV" = "1" ]; then
+    fail "secret $var" "ambiente de execução é o MASTER — rode o bootstrap no destino"
   elif [ "$var" = "CRON_SECRET" ] && [ "${#current}" -lt 16 ]; then
     fail "secret CRON_SECRET" "menor que 16 caracteres"
   else
-    pass "secret $var" "fornecido pela instalação"
+    pass "secret $var" "declarado pela instalação destino"
   fi
 done
-[ "$FAILURES" -eq 0 ] || die "segredos inválidos"
+[ "$FAILURES" -eq 0 ] || die "segredos inválidos ou herdados do ambiente"
+
 
 # ------------------------------------------------------------- etapa 2: conexão
 step "Etapa 2/9 — Conectividade e pré-requisitos do Supabase"

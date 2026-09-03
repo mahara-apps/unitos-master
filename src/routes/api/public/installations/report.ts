@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
 
 /**
  * Canal de progresso do provisionamento/validação de uma instalação.
@@ -12,24 +11,9 @@ import { z } from "zod";
  *  - autenticado por token de execução de uso único, comparado por hash
  *    SHA-256 — o MASTER nunca guarda o token em claro;
  *  - token expira e é invalidado ao fechar a operação;
- *  - nenhum secret é aceito/persistido: todo texto livre é sanitizado.
+ *  - somente etapas conhecidas são aceitas e todo texto livre passa por
+ *    redação de credenciais (`redactReportText`).
  */
-
-const Body = z.object({
-  token: z.string().min(32).max(200),
-  step: z.string().max(40).optional(),
-  state: z.enum(["pending", "running", "done", "error"]).optional(),
-  detail: z.string().max(2000).nullable().optional(),
-  done: z.boolean().optional(),
-  ok: z.boolean().optional(),
-  warnings: z.boolean().optional(),
-  version: z.string().max(40).nullable().optional(),
-  summary: z.string().max(2000).nullable().optional(),
-  errorKind: z.string().max(60).nullable().optional(),
-  checks: z
-    .record(z.string(), z.enum(["ok", "attention", "error", "pending"]))
-    .optional(),
-});
 
 export const Route = createFileRoute("/api/public/installations/report")({
   server: {
@@ -38,20 +22,23 @@ export const Route = createFileRoute("/api/public/installations/report")({
         const { detectMaster } = await import("@/lib/installation/manager.server");
         if (!detectMaster()) return new Response("Not found", { status: 404 });
 
-        let body: z.infer<typeof Body>;
+        const { parseReportEvent } = await import("@/lib/installation/report-contract");
+
+        let raw: unknown;
         try {
-          body = Body.parse(await request.json());
+          raw = await request.json();
         } catch {
           return new Response("Invalid payload", { status: 400 });
         }
 
-        const { applyProgressReport, finalizeOperation, hashRunToken } = await import(
-          "@/lib/installation/runner.server"
-        );
+        const parsed = parseReportEvent(raw);
+        if (!parsed.ok) return new Response(parsed.reason, { status: parsed.status });
 
+        const { applyProgressReport, finalizeOperation, hashRunToken } =
+          await import("@/lib/installation/runner.server");
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const tokenHash = await hashRunToken(body.token);
+        const tokenHash = await hashRunToken(parsed.event.token);
 
         const { data: op, error } = await supabaseAdmin
           .from("installation_operations")
@@ -67,26 +54,23 @@ export const Route = createFileRoute("/api/public/installations/report")({
           return new Response("Token expired", { status: 401 });
         }
 
-        if (body.done) {
+        if (parsed.kind === "final") {
+          const body = parsed.event;
           await finalizeOperation(supabaseAdmin as never, op as never, {
             ok: body.ok === true,
             warnings: body.warnings ?? false,
             version: body.version ?? null,
-            summary: body.summary ?? null,
-            errorKind: body.errorKind ?? null,
+            summary: body.summary,
+            errorKind: body.errorKind,
             checks: body.checks as never,
           });
           return Response.json({ ok: true, finished: true });
         }
 
-        if (!body.step || !body.state) {
-          return new Response("Missing step/state", { status: 400 });
-        }
-
         const steps = await applyProgressReport(supabaseAdmin as never, op as never, {
-          step: body.step,
-          state: body.state,
-          detail: body.detail ?? null,
+          step: parsed.event.step,
+          state: parsed.event.state as "pending" | "running" | "done" | "error",
+          detail: parsed.event.detail,
         });
         return Response.json({ ok: true, steps: steps.length });
       },
