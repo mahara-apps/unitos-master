@@ -428,7 +428,12 @@ export const HEALTH_CHECKS = [
   { id: "frontend", label: "Frontend" },
   { id: "secrets", label: "Secrets" },
   { id: "configuration", label: "Configuração" },
+  // Reportados pelo MASTER a partir do estado real do destino: sem eles o
+  // núcleo nunca ficava comprovado e a instalação não aparecia como PRONTA.
+  { id: "super_admin", label: "Super Admin" },
+  { id: "workspace", label: "Workspace único" },
 ] as const;
+
 
 export type HealthCheckId = (typeof HEALTH_CHECKS)[number]["id"];
 
