@@ -55,12 +55,19 @@ export type InstallationRecord = {
   updatedAt: string;
 };
 
+export type OperationDetail = {
+  steps?: Array<{ id: string; label: string; script: string }>;
+  releaseVersion?: string;
+  executed?: boolean;
+  warnings?: boolean;
+};
+
 export type InstallationOperationRecord = {
   id: string;
   kind: InstallationOperationKind;
   status: InstallationOperationStatus;
   summary: string | null;
-  detail: Record<string, unknown>;
+  detail: OperationDetail;
   startedAt: string;
   finishedAt: string | null;
 };
@@ -100,7 +107,7 @@ function mapOperation(row: any): InstallationOperationRecord {
     kind: row.kind as InstallationOperationKind,
     status: row.status as InstallationOperationStatus,
     summary: row.summary ?? null,
-    detail: (row.detail ?? {}) as Record<string, unknown>,
+    detail: (row.detail ?? {}) as OperationDetail,
     startedAt: row.started_at,
     finishedAt: row.finished_at ?? null,
   };
@@ -376,20 +383,24 @@ export const completeInstallationOperationFn = createServerFn({ method: "POST" }
       .update({
         status: data.ok ? (outcome.warnings ? "success" : "success") : "failed",
         summary: data.summary ?? op.summary,
-        detail: { ...(op.detail ?? {}), executed: true, warnings: outcome.warnings },
+        detail: {
+          ...((op.detail ?? {}) as OperationDetail),
+          executed: true,
+          warnings: outcome.warnings,
+        },
         finished_at: nowIso,
       })
       .eq("id", data.operationId);
     if (opError) throw opError;
 
-    const patch: Record<string, unknown> = {
+    const patch = {
       status,
       health,
       last_error: data.ok ? null : (data.summary ?? "Falha registrada na operação."),
+      ...(outcome.version ? { current_version: outcome.version } : {}),
+      ...(kind !== "validate" && data.ok ? { last_provisioned_at: nowIso } : {}),
+      ...(kind === "validate" ? { last_validated_at: nowIso } : {}),
     };
-    if (outcome.version) patch["current_version"] = outcome.version;
-    if (kind !== "validate" && data.ok) patch["last_provisioned_at"] = nowIso;
-    if (kind === "validate") patch["last_validated_at"] = nowIso;
 
     const { data: updated, error: updateError } = await context.supabase
       .from("installations")

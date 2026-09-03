@@ -218,15 +218,20 @@ function AdminInstallationsPage() {
       </div>
 
       <PageKpiGrid>
-        <PageKpi icon={Server} label="Instalações" value={kpis.total} />
-        <PageKpi icon={Loader2} label="Em execução" value={kpis.running} status="info" />
+        <PageKpi icon={<Server />} label="Instalações" value={kpis.total} />
+        <PageKpi icon={<Loader2 />} label="Em execução" value={kpis.running} status="info" />
         <PageKpi
-          icon={RefreshCw}
+          icon={<RefreshCw />}
           label="Atualização disponível"
           value={kpis.outdated}
           status="warning"
         />
-        <PageKpi icon={ShieldCheck} label="Atenção / erro" value={kpis.problems} status="danger" />
+        <PageKpi
+          icon={<ShieldCheck />}
+          label="Atenção / erro"
+          value={kpis.problems}
+          status="danger"
+        />
       </PageKpiGrid>
 
       <Card>
