@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,71 +8,103 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowRight, Check, CheckCircle2, ChevronDown, Loader2, ShieldCheck } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Loader2,
+  RefreshCw,
+  ShieldCheck,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CONNECTABLE_CHANNELS, UPCOMING_CHANNELS } from "@/components/connections/channel-meta";
 import { metaIssueState } from "@/lib/meta/issue-messages";
+import {
+  authChecklist,
+  authProgress,
+  connectErrorCopy,
+  connectStepIndex,
+  isConnectBusy,
+  type ChecklistItem,
+  type MetaConnectChannel,
+  type MetaConnectState,
+} from "@/lib/meta/connect-flow";
 import type { DiscoveredAccountsResult } from "@/lib/meta/discovery.functions";
 
 /**
  * Modal "Conectar canais" — CAMADA DE APRESENTAÇÃO.
  *
- * Nenhuma lógica de OAuth, Meta API, permissões ou banco vive aqui: o
- * componente apenas recebe o estado real (canal em conexão, resultado da
- * descoberta) e o traduz em etapas, checklist e resumo legível. A ação de
- * conectar é delegada ao chamador via `onConnect`.
+ * Nenhuma lógica de OAuth, Meta API, permissões, RLS ou banco vive aqui. O
+ * componente recebe o ESTADO REAL do fluxo (`MetaConnectState`) e o resultado
+ * da descoberta, e apenas os traduz em stepper, checklist, resumo e erros
+ * legíveis. Toda ação é delegada ao chamador.
+ *
+ * Regras de UX aplicadas:
+ * - autorização e sincronização são etapas SEPARADAS;
+ * - nenhum estado assíncrono sem destino terminal (sucesso ou erro com retry);
+ * - limite temporário da Meta é ATENÇÃO, não falha fatal;
+ * - dados parcialmente carregados nunca são substituídos por tela vazia.
  */
 
-const STEPS = ["Autorização", "Seleção de ativos", "Validação", "Confirmação"] as const;
+const STEPS = ["Autorização", "Ativos", "Validação", "Confirmação"] as const;
 
-const CHECKLIST = [
-  "Preparando autorização",
-  "Conectando à Meta",
-  "Verificando portfólios",
-  "Buscando ativos",
-  "Validando permissões",
-] as const;
-
-function StepBar({ active }: { active: number }) {
+function StepBar({ active, failed }: { active: number; failed: boolean }) {
   return (
-    <ol className="flex items-center gap-2 sm:gap-3">
+    <ol className="flex items-stretch gap-2 sm:gap-3">
       {STEPS.map((label, i) => {
         const done = i < active;
         const current = i === active;
+        const isError = failed && current;
         return (
-          <li key={label} className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="flex min-w-0 flex-col gap-1.5">
-              <span className="flex items-center gap-1.5">
-                <span
-                  className={cn(
-                    "grid h-4 w-4 shrink-0 place-items-center rounded-full text-[9px] font-semibold transition-colors",
-                    done && "bg-emerald-500 text-white",
-                    current && "bg-primary text-primary-foreground",
-                    !done && !current && "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {done ? <Check className="h-2.5 w-2.5" /> : i + 1}
-                </span>
-                <span
-                  className={cn(
-                    "truncate text-[11px] transition-colors",
-                    current
-                      ? "font-medium text-foreground"
-                      : done
-                        ? "text-muted-foreground"
-                        : "text-muted-foreground/70",
-                  )}
-                >
-                  {label}
-                </span>
+          <li key={label} className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <span className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold transition-colors",
+                  done && "bg-emerald-500 text-white",
+                  isError && "bg-destructive text-destructive-foreground",
+                  current && !isError && "bg-primary text-primary-foreground",
+                  !done && !current && "bg-muted text-muted-foreground",
+                )}
+              >
+                {done ? (
+                  <Check className="h-3 w-3" />
+                ) : isError ? (
+                  <X className="h-3 w-3" />
+                ) : (
+                  String(i + 1).padStart(2, "0")
+                )}
               </span>
               <span
                 className={cn(
-                  "h-0.5 w-full rounded-full transition-colors",
-                  done ? "bg-emerald-500/70" : current ? "bg-primary" : "bg-border",
+                  "truncate text-[11px] transition-colors",
+                  current
+                    ? isError
+                      ? "font-medium text-destructive"
+                      : "font-medium text-foreground"
+                    : done
+                      ? "text-muted-foreground"
+                      : "text-muted-foreground/70",
                 )}
-              />
+              >
+                {label}
+              </span>
             </span>
+            <span
+              className={cn(
+                "h-0.5 w-full rounded-full transition-colors",
+                done
+                  ? "bg-emerald-500/70"
+                  : isError
+                    ? "bg-destructive"
+                    : current
+                      ? "bg-primary"
+                      : "bg-border",
+              )}
+            />
           </li>
         );
       })}
@@ -80,9 +112,59 @@ function StepBar({ active }: { active: number }) {
   );
 }
 
+function Checklist({ items }: { items: ChecklistItem[] }) {
+  return (
+    <ul className="space-y-2">
+      {items.map((item) => (
+        <li
+          key={item.label}
+          className={cn(
+            "flex items-center gap-2 text-xs transition-colors",
+            item.state === "current"
+              ? "font-medium text-foreground"
+              : item.state === "error"
+                ? "font-medium text-destructive"
+                : item.state === "done"
+                  ? "text-muted-foreground"
+                  : "text-muted-foreground/50",
+          )}
+        >
+          {item.state === "done" ? (
+            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+          ) : item.state === "current" ? (
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
+          ) : item.state === "error" ? (
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-destructive" />
+          ) : (
+            <span className="h-3.5 w-3.5 shrink-0 rounded-full border border-border" />
+          )}
+          {item.label}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SummaryGrid({
+  items,
+}: {
+  items: Array<[label: string, value: number | string]>;
+}) {
+  return (
+    <dl className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+      {items.map(([label, value]) => (
+        <div key={label} className="rounded-lg bg-muted/40 px-3 py-2">
+          <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</dt>
+          <dd className="text-lg font-semibold leading-tight tabular-nums">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 function HowItWorks() {
   const items = [
-    "Você autoriza o acesso na plataforma oficial.",
+    "Você autoriza o acesso na plataforma oficial da Meta.",
     "O Unitos identifica seus portfólios e ativos.",
     "Você escolhe quais contas deseja vincular.",
     "O canal fica disponível para o cliente.",
@@ -109,32 +191,31 @@ function HowItWorks() {
 export function ConnectChannelsDialog({
   open,
   onOpenChange,
-  connecting,
+  state,
   onConnect,
+  onCancel,
+  onContinue,
+  onRefreshDiscovery,
   discovery,
+  syncing = false,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  connecting: null | "facebook" | "instagram";
-  onConnect: (channel: "facebook" | "instagram") => void;
+  /** Estado real do fluxo de autorização (nunca derivado de timers). */
+  state: MetaConnectState;
+  onConnect: (channel: MetaConnectChannel) => void;
+  /** Aborta o acompanhamento da autorização em andamento. */
+  onCancel: () => void;
+  /** Avança para a seleção de ativos (etapa 02). */
+  onContinue: () => void;
+  /** Refaz a sincronização de portfólios/ativos (usado em limite temporário). */
+  onRefreshDiscovery: () => void;
   discovery?: DiscoveredAccountsResult;
+  /** true enquanto a descoberta de ativos está em andamento. */
+  syncing?: boolean;
 }) {
-  const [progress, setProgress] = useState(0);
-
-  // Checklist avança enquanto a autorização acontece na janela da Meta.
-  useEffect(() => {
-    if (!connecting) {
-      setProgress(0);
-      return;
-    }
-    setProgress(1);
-    const timers = [
-      window.setTimeout(() => setProgress(2), 1500),
-      window.setTimeout(() => setProgress(3), 4500),
-      window.setTimeout(() => setProgress(4), 9000),
-    ];
-    return () => timers.forEach((t) => window.clearTimeout(t));
-  }, [connecting]);
+  const busy = isConnectBusy(state);
+  const busyChannelKey = busy ? (state as { channel: MetaConnectChannel }).channel : null;
 
   const summary = useMemo(() => {
     if (!discovery || discovery.needsAuthorization) return null;
@@ -143,7 +224,7 @@ export function ConnectChannelsDialog({
       portfolios: discovery.businesses?.length ?? 0,
       pages: accounts.filter((a) => a.channel === "facebook").length,
       instagram: accounts.filter((a) => a.channel === "instagram").length,
-      ads: 0,
+      total: accounts.length,
     };
   }, [discovery]);
 
@@ -152,112 +233,217 @@ export function ConnectChannelsDialog({
     [discovery],
   );
 
+  const syncItems: ChecklistItem[] = useMemo(() => {
+    const hasData = !!summary && summary.total > 0;
+    const blocked = !!issue && !hasData;
+    return [
+      { label: "Autorização concluída", state: "done" },
+      { label: "Conta Meta identificada", state: discovery?.metaUserId ? "done" : "current" },
+      {
+        label: "Buscando portfólios",
+        state: (summary?.portfolios ?? 0) > 0 ? "done" : blocked ? "error" : syncing ? "current" : "done",
+      },
+      {
+        label: "Carregando páginas e Instagram",
+        state: hasData ? "done" : blocked ? "error" : syncing ? "current" : "done",
+      },
+      {
+        label: "Validando permissões",
+        state: issue ? "error" : syncing ? "pending" : hasData ? "done" : "pending",
+      },
+    ];
+  }, [discovery?.metaUserId, issue, summary, syncing]);
+
+  const errorCopy = state.kind === "error" ? connectErrorCopy(state.reason) : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-[660px]">
+      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-[720px]">
         <DialogHeader className="space-y-1 px-6 pb-4 pt-6 text-left">
           <DialogTitle className="text-[17px] font-semibold tracking-tight">
             Conectar canais
           </DialogTitle>
           <DialogDescription className="text-[13px] leading-snug text-muted-foreground">
-            Escolha por onde começar. A autorização acontece na tela oficial do provedor.
+            A autorização acontece na tela oficial do provedor. Depois você escolhe quais ativos
+            vincular a cada cliente.
           </DialogDescription>
         </DialogHeader>
 
         <div className="px-6 pb-5">
-          <StepBar active={0} />
+          <StepBar active={connectStepIndex(state)} failed={state.kind === "error"} />
         </div>
 
-        <div className="max-h-[64vh] space-y-6 overflow-y-auto border-t px-6 py-5">
-          {connecting ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2.5">
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+        <div className="max-h-[62vh] space-y-5 overflow-y-auto border-t px-6 py-5">
+          {/* --------------------------- erro terminal do fluxo -------------------------- */}
+          {errorCopy ? (
+            <section
+              className={cn(
+                "rounded-xl p-4",
+                errorCopy.severity === "critical" ? "bg-destructive/10" : "bg-amber-500/10",
+              )}
+            >
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle
+                  className={cn(
+                    "mt-0.5 h-4 w-4 shrink-0",
+                    errorCopy.severity === "critical" ? "text-destructive" : "text-amber-600",
+                  )}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{errorCopy.title}</p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                    {errorCopy.summary}
+                  </p>
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    {errorCopy.action !== "close" ? (
+                      <Button
+                        size="sm"
+                        className="h-7 text-[11px]"
+                        onClick={() =>
+                          onConnect((state.kind === "error" && state.channel) || "facebook")
+                        }
+                      >
+                        <RefreshCw className="mr-1.5 h-3 w-3" />
+                        {errorCopy.actionLabel}
+                      </Button>
+                    ) : null}
+                    {state.kind === "error" && state.detail ? (
+                      <Collapsible>
+                        <CollapsibleTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+                          >
+                            Ver detalhes
+                            <ChevronDown className="h-3 w-3" />
+                          </button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <p className="mt-2 break-words font-mono text-[10px] text-muted-foreground/80">
+                            {state.detail}
+                          </p>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {/* ------------------------- autorização em andamento ------------------------- */}
+          {busy ? (
+            <section className="space-y-4 rounded-xl border bg-card p-4">
+              <div className="flex items-start gap-2.5">
+                <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-primary" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium">Autorização em andamento</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Conclua o consentimento na janela da Meta. Você pode manter esta tela aberta.
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    Conclua o consentimento na janela oficial da Meta. Você pode manter esta tela
+                    aberta — avisaremos aqui quando a autorização retornar.
                   </p>
                 </div>
               </div>
 
               <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
                 <div
-                  className="h-full rounded-full bg-primary transition-all duration-700"
-                  style={{ width: `${Math.round((progress / CHECKLIST.length) * 100)}%` }}
+                  className="h-full rounded-full bg-primary transition-all duration-500"
+                  style={{ width: `${authProgress(state)}%` }}
                 />
               </div>
 
-              <ul className="space-y-2">
-                {CHECKLIST.map((label, i) => {
-                  const done = i < progress - 1;
-                  const current = i === progress - 1;
-                  return (
-                    <li
-                      key={label}
-                      className={cn(
-                        "flex items-center gap-2 text-xs transition-colors",
-                        current
-                          ? "font-medium text-foreground"
-                          : done
-                            ? "text-muted-foreground"
-                            : "text-muted-foreground/50",
-                      )}
-                    >
-                      {done ? (
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                      ) : current ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                      ) : (
-                        <span className="h-3.5 w-3.5 rounded-full border border-border" />
-                      )}
-                      {label}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ) : (
+              <Checklist items={authChecklist(state)} />
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-[11px] text-muted-foreground"
+                onClick={onCancel}
+              >
+                Cancelar acompanhamento
+              </Button>
+            </section>
+          ) : null}
+
+          {/* ------------------------- autorização concluída -------------------------- */}
+          {state.kind === "authorized" ? (
             <>
-              {summary ? (
-                <section className="rounded-xl border bg-card p-4">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                    <p className="text-sm font-medium">Conexão autorizada</p>
-                  </div>
-                  <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    {[
-                      ["Portfólios", summary.portfolios],
-                      ["Páginas", summary.pages],
-                      ["Instagram", summary.instagram],
-                      ["Contas Ads", summary.ads],
-                    ].map(([label, value]) => (
-                      <div key={String(label)} className="rounded-lg bg-muted/40 px-3 py-2">
-                        <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                          {label}
-                        </dt>
-                        <dd className="text-lg font-semibold leading-tight tabular-nums">
-                          {value}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                  {issue ? (
-                    <Collapsible className="mt-3">
-                      <div className="rounded-lg bg-amber-500/10 p-3">
-                        <p className="text-xs font-medium text-foreground">{issue.title}</p>
-                        <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                          {issue.summary}
+              <section className="rounded-xl border bg-card p-4">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                  <p className="text-sm font-medium">Conexão autorizada</p>
+                </div>
+                <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                  Sua conta foi autorizada. Estamos carregando os ativos disponíveis — algumas
+                  informações podem aparecer alguns segundos depois.
+                </p>
+                <div className="mt-3">
+                  <SummaryGrid
+                    items={[
+                      ["Portfólios", summary?.portfolios ?? "—"],
+                      ["Páginas", summary?.pages ?? "—"],
+                      ["Instagram", summary?.instagram ?? "—"],
+                      ["Ativos", summary?.total ?? "—"],
+                    ]}
+                  />
+                </div>
+              </section>
+
+              <section className="rounded-xl bg-muted/40 p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {syncing ? "Sincronizando ativos" : "Sincronização"}
+                </p>
+                <div className="mt-2.5">
+                  <Checklist items={syncItems} />
+                </div>
+              </section>
+
+              {issue ? (
+                <Collapsible>
+                  <section
+                    className={cn(
+                      "rounded-xl p-4",
+                      issue.severity === "critical" ? "bg-destructive/10" : "bg-amber-500/10",
+                    )}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium">
+                          {issue.kind === "rate_limit"
+                            ? "Sincronização temporariamente limitada"
+                            : "Alguns ativos não puderam ser carregados"}
                         </p>
-                        <CollapsibleTrigger asChild>
-                          <button
-                            type="button"
-                            className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+                        <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                          {issue.kind === "rate_limit"
+                            ? "A Meta atingiu o limite de consultas neste momento. Os dados já carregados continuam disponíveis. Você pode continuar com os ativos disponíveis ou tentar novamente em alguns minutos."
+                            : "A Meta não permitiu acessar parte dos ativos deste portfólio. Isso pode estar relacionado às permissões concedidas ou ao acesso disponível para esta conta."}
+                        </p>
+                        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[11px]"
+                            onClick={onRefreshDiscovery}
+                            disabled={syncing}
                           >
-                            Ver detalhes
-                            <ChevronDown className="h-3 w-3" />
-                          </button>
-                        </CollapsibleTrigger>
+                            {syncing ? (
+                              <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                            ) : (
+                              <RefreshCw className="mr-1.5 h-3 w-3" />
+                            )}
+                            Tentar novamente
+                          </Button>
+                          <CollapsibleTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+                            >
+                              Ver detalhes
+                              <ChevronDown className="h-3 w-3" />
+                            </button>
+                          </CollapsibleTrigger>
+                        </div>
                         <CollapsibleContent>
                           <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
                             {issue.recommendation}
@@ -277,29 +463,40 @@ export function ConnectChannelsDialog({
                           ))}
                         </CollapsibleContent>
                       </div>
-                    </Collapsible>
-                  ) : null}
-                </section>
+                    </div>
+                  </section>
+                </Collapsible>
               ) : null}
+            </>
+          ) : null}
 
+          {/* --------------------------- estado inicial / retry -------------------------- */}
+          {!busy && state.kind !== "authorized" ? (
+            <>
               <section className="space-y-2.5">
-                <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Disponíveis
-                </h3>
+                <div>
+                  <h3 className="text-sm font-semibold">Conectar com a Meta</h3>
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    Autorize o Unitos a acessar suas contas profissionais. Você será direcionado
+                    para a plataforma oficial da Meta.
+                  </p>
+                </div>
                 <div className="space-y-2">
                   {CONNECTABLE_CHANNELS.map((def) => {
                     const Icon = def.icon;
+                    const key = def.key as MetaConnectChannel;
                     return (
                       <button
                         key={def.key}
                         type="button"
-                        onClick={() => onConnect(def.key as "facebook" | "instagram")}
-                        className="group flex w-full cursor-pointer items-center gap-3.5 rounded-2xl border bg-card p-4 text-left transition-all duration-150 hover:border-primary/40 hover:bg-accent/30 hover:shadow-[0_1px_12px_-6px_hsl(var(--foreground)/0.25)]"
+                        onClick={() => onConnect(key)}
+                        disabled={!!busyChannelKey}
+                        className="group flex w-full cursor-pointer items-center gap-3.5 rounded-2xl border bg-card p-4 text-left transition-all duration-150 hover:border-primary/40 hover:bg-accent/30 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <span
                           className={cn(
-                            "grid h-11 w-11 shrink-0 place-items-center rounded-xl transition-colors",
-                            def.key === "instagram" ? "bg-pink-500/10" : "bg-sky-500/10",
+                            "grid h-11 w-11 shrink-0 place-items-center rounded-xl",
+                            key === "instagram" ? "bg-pink-500/10" : "bg-sky-500/10",
                           )}
                         >
                           <Icon className={cn("h-5 w-5", def.tone)} />
@@ -331,7 +528,7 @@ export function ConnectChannelsDialog({
                       <div
                         key={def.key}
                         aria-disabled
-                        className="flex items-center gap-2.5 rounded-xl bg-muted/40 px-3 py-2.5"
+                        className="flex items-center gap-2.5 rounded-xl bg-muted/40 px-3 py-2.5 opacity-70"
                       >
                         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-background">
                           <Icon className="h-4 w-4 text-muted-foreground" />
@@ -350,25 +547,30 @@ export function ConnectChannelsDialog({
 
               <HowItWorks />
             </>
-          )}
+          ) : null}
         </div>
 
         <div className="flex items-center gap-2 border-t bg-muted/20 px-6 py-3.5">
           <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <p className="text-[11px] leading-snug text-muted-foreground">
+          <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted-foreground">
             Você será redirecionado para a plataforma oficial da Meta. O Unitos não solicita sua
             senha.
           </p>
-          {connecting ? (
+          {state.kind === "authorized" ? (
+            <Button size="sm" className="h-8 shrink-0 text-xs" onClick={onContinue}>
+              {summary && summary.total > 0 ? "Selecionar ativos" : "Continuar com dados disponíveis"}
+              <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+            </Button>
+          ) : (
             <Button
               variant="ghost"
               size="sm"
-              className="ml-auto h-7 shrink-0 text-[11px]"
+              className="h-8 shrink-0 text-xs"
               onClick={() => onOpenChange(false)}
             >
               Fechar
             </Button>
-          ) : null}
+          )}
         </div>
       </DialogContent>
     </Dialog>
