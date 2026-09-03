@@ -24,6 +24,11 @@ import {
 } from "./ai-observability";
 import { recordAiUsage, type AiUsageContext } from "./ai-usage.server";
 import {
+  createAiRequestBudget,
+  takeAiRequest,
+  type AiRequestBudget,
+} from "./ai/request-budget";
+import {
   EMBED_DIMS,
   EMBED_MAX_ATTEMPTS,
   EMBED_TIMEOUT_MS,
@@ -284,6 +289,8 @@ function withModelInstrumentation(
     /** Provedor secundário elegível — usado só em falha transitória. */
     fallback?: { provider: ProviderName; apiKey: string; modelId: string } | null;
     attempts: ProviderAttempt[];
+    /** Teto de chamadas reais ao provedor na operação (compartilhado). */
+    budget: AiRequestBudget;
   },
 ): ModelV2 {
   const log = (
@@ -376,6 +383,13 @@ function withModelInstrumentation(
     for (;;) {
       const modelId = tried[tried.length - 1] ?? base.modelId;
       call += 1;
+      // Teto DURO da operação: verificado antes de cada chamada real, cobrindo
+      // retry, troca de modelo do catálogo e troca de provedor.
+      takeAiRequest(ctx.budget, {
+        op: ctx.usage?.agent ?? `${ctx.role}.${op}`,
+        provider,
+        model: modelId,
+      });
       try {
         const out = (await (current[op] as (o: unknown) => Promise<unknown>)(options)) as T;
         if (op === "doStream") {
@@ -568,6 +582,7 @@ export async function getBrandAiModel(
   }
 
   const providerAttempts: ProviderAttempt[] = [];
+  const requestBudget = createAiRequestBudget();
   const base = instantiateModel(provider, apiKey, modelId) as ModelV2;
   const model = withModelInstrumentation(base, {
     provider,
@@ -576,6 +591,7 @@ export async function getBrandAiModel(
     brandId,
     fallback,
     attempts: providerAttempts,
+    budget: requestBudget,
     ...(usage ? { usage } : {}),
   });
 
@@ -613,6 +629,9 @@ export async function getBrandAiCandidates(
   if (fallback) credentials.push(fallback);
 
   const candidates: BrandAiCandidate[] = [];
+  // Um único budget para TODA a operação: o consumo soma as tentativas de
+  // todos os candidatos, não reinicia a cada troca de provedor.
+  const requestBudget = createAiRequestBudget();
   for (const credential of credentials) {
     const modelId =
       credential.provider === primary.provider
@@ -632,6 +651,7 @@ export async function getBrandAiCandidates(
         brandId,
         fallback: null,
         attempts: providerAttempts,
+        budget: requestBudget,
         ...(usage ? { usage } : {}),
       }),
     });
