@@ -2,7 +2,7 @@
  * Provisionamento AUTOMATIZADO — execução (server-only).
  *
  * O MASTER usa SOMENTE credenciais de gestão do próprio ambiente
- * (`SUPABASE_MANAGEMENT_TOKEN`, `VERCEL_TOKEN`) para:
+ * (`UNITOS_SUPABASE_MANAGEMENT_TOKEN`, `UNITOS_VERCEL_TOKEN`) para:
  *   1. inspecionar o Supabase de destino e ler as chaves DELE;
  *   2. aplicar o MESMO baseline dos scripts de `supabase/install/`;
  *   3. gerar secrets exclusivos da instalação;
