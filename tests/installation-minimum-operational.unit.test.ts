@@ -46,13 +46,19 @@ describe("núcleo da instalação", () => {
     expect(report.missingCore).toEqual(["cron"]);
   });
 
-  it("primeiro Super Admin e workspace único fazem parte do núcleo", () => {
+  it("primeiro Super Admin e workspace aparecem no núcleo, mas não bloqueiam READY", () => {
     const ids = CORE_REQUIREMENTS.map((r) => r.id);
     expect(ids).toContain("super_admin");
     expect(ids).toContain("workspace");
+    // Criados pelo cliente em /setup: pendente é informação, não bloqueio.
     const semAdmin = computeReadiness({ core: { ...CORE_OK, super_admin: { state: "pending" } } });
-    expect(semAdmin.ready).toBe(false);
+    expect(semAdmin.ready).toBe(true);
+    // Falha real (ex.: mais de um workspace) continua bloqueando.
+    expect(computeReadiness({ core: { ...CORE_OK, workspace: { state: "error" } } }).ready).toBe(
+      false,
+    );
   });
+
 
   it("ressalva no núcleo vira ATENÇÃO, mas continua READY", () => {
     const report = computeReadiness({ core: { ...CORE_OK, storage: { state: "attention" } } });
