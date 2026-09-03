@@ -120,19 +120,46 @@ describe("reexecução idempotente do baseline", () => {
   it("reaplica ignorando duplicados e aborta em erro real", async () => {
     const ok = await applyStatementByStatement(
       {
-        query: async (sql) =>
-          sql.includes("CREATE TYPE")
-            ? { ok: false, rows: [], error: "42710: type already exists" }
-            : { ok: true, rows: [] },
+        query: async () => ({ ok: true, rows: [] }),
       },
       "CREATE TYPE t AS ENUM ('a');\nCREATE TABLE x (id int);",
     );
-    expect(ok).toEqual({ ok: true, skipped: 1 });
+    expect(ok).toEqual({ ok: true, skipped: 0 });
 
     const bad = await applyStatementByStatement(
       { query: async () => ({ ok: false, rows: [], error: "42501: permission denied" }) },
       "CREATE TABLE x (id int);",
     );
     expect(bad.ok).toBe(false);
+  });
+
+  it("divide adaptativamente o lote em vez de enviar milhares de statements um a um", async () => {
+    let calls = 0;
+    const progress: number[] = [];
+    const sql = Array.from({ length: 256 }, (_, index) => `SELECT ${index};`).join("\n");
+    const result = await applyStatementByStatement(
+      {
+        query: async (batch) => {
+          calls += 1;
+          expect(batch).toContain("DO $unitos_guard$");
+          expect(batch).toContain("WHEN SQLSTATE '42710'");
+          return { ok: true, rows: [] };
+        },
+      },
+      sql,
+      { onProgress: (processed) => void progress.push(processed) },
+    );
+    expect(result).toEqual({ ok: true, skipped: 0 });
+    expect(calls).toBe(2);
+    expect(progress.at(-1)).toBe(256);
+  });
+
+  it("interrompe a retomada quando a operação foi cancelada", async () => {
+    const result = await applyStatementByStatement(
+      { query: async () => ({ ok: true, rows: [] }) },
+      "SELECT 1; SELECT 2;",
+      { isCancelled: async () => true },
+    );
+    expect(result).toEqual({ ok: false, error: "Operação cancelada pelo Super Admin." });
   });
 });

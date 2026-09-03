@@ -689,6 +689,16 @@ async function openAutomatedProvision(
         supabaseProjectRef: record.supabaseProjectRef,
         deployProject: record.deployProject,
       },
+    }).catch(async (error: unknown) => {
+      // Nenhuma exceção de rede/runtime pode deixar uma operação viva para
+      // sempre. O erro persistido é sanitizado por finalizeOperation.
+      const { finalizeOperation } = await import("./runner.server");
+      const message = error instanceof Error ? error.message : "falha inesperada no provisionamento";
+      await finalizeOperation(supabase as never, op as never, {
+        ok: false,
+        summary: `FAIL: ${message}`,
+        errorKind: "unexpected_error",
+      });
     }),
   );
 
