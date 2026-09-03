@@ -215,6 +215,8 @@ export async function resolveMetaBusinessConfigId(): Promise<string | null> {
 
 /** Resumo para a UI de Super Admin — sem expor o segredo. */
 export async function getMetaAppSettings(): Promise<MetaAppSettings> {
+  const { detectMaster } = await import("@/lib/installation/manager.server");
+  const isMaster = detectMaster();
   const row = await readRow({ fresh: true });
   const appId = row.app_id?.trim() || null;
   const ciphertext = row.app_secret_ciphertext?.trim() || null;
