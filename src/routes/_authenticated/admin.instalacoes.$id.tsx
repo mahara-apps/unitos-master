@@ -385,6 +385,10 @@ function InstallationDetailPage() {
 
   const inst = detail.data.installation;
   const operations = detail.data.operations;
+  const opsPerPage = 10;
+  const opsTotalPages = Math.max(1, Math.ceil(operations.length / opsPerPage));
+  const opsPage = Math.min(Math.max(1, opsPageRaw), opsTotalPages);
+  const pagedOperations = operations.slice((opsPage - 1) * opsPerPage, opsPage * opsPerPage);
   const activeOp = operations.find((op) => op.status === "pending" || op.status === "running");
   const lastProvision = operations.find((op) => op.kind === "provision" || op.kind === "update");
   const lastValidate = operations.find((op) => op.kind === "validate");
