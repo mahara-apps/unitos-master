@@ -278,10 +278,20 @@ export type DeployClient = {
   ) => Promise<{ ok: boolean; applied: number; error?: string }>;
 };
 
+/**
+ * Repositório de código do MASTER. Toda instalação faz deploy DESTE repositório
+ * (uma base de código, N projetos de deploy, cada um com seus próprios envs).
+ * Sem isso, o projeto de deploy fica ligado a um repositório próprio parado no
+ * commit inicial e "puxar atualização" nunca traz código novo.
+ */
+export const DEFAULT_MASTER_REPO = "mahara-apps/unitos-master";
+
 export function createDeployClient(input: {
   token: string;
   project: string;
   teamId?: string | null;
+  /** `org/repo` do código do MASTER; default `DEFAULT_MASTER_REPO`. */
+  masterRepo?: string | null;
   fetchImpl?: Fetcher;
 }): DeployClient {
   const doFetch = input.fetchImpl ?? fetch;
@@ -292,6 +302,8 @@ export function createDeployClient(input: {
     "content-type": "application/json",
   };
   const project = encodeURIComponent(input.project);
+  const masterRepo = (input.masterRepo ?? "").trim() || DEFAULT_MASTER_REPO;
+
 
   const client: DeployClient = {
     async deploymentUrl() {
