@@ -4,6 +4,7 @@ import { CalendarDays, CheckCircle2, FileText, LayoutGrid } from "lucide-react";
 import { LoginForm } from "@/components/login-form";
 import { LoginLogo } from "@/components/brand/login-logo";
 import { supabase } from "@/integrations/supabase/client";
+import { callRpc } from "@/lib/supabase-rpc";
 
 
 export const Route = createFileRoute("/login")({
