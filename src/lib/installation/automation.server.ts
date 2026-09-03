@@ -139,6 +139,12 @@ export async function applyStatementByStatement(
           "EXCEPTION",
           "  WHEN SQLSTATE '42710' OR SQLSTATE '42P07' OR SQLSTATE '42P06'",
           "    OR SQLSTATE '42701' OR SQLSTATE '42723' OR SQLSTATE '23505' THEN NULL;",
+          "  WHEN SQLSTATE '42P16' THEN",
+          "    IF SQLERRM ILIKE '%multiple primary key%' THEN",
+          "      NULL;",
+          "    ELSE",
+          "      RAISE;",
+          "    END IF;",
           "END",
           "$unitos_guard$;",
         ].join("\n");

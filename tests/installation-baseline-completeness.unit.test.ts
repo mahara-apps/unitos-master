@@ -113,6 +113,8 @@ describe("reexecução idempotente do baseline", () => {
   it("reconhece erros da classe 'já existe'", () => {
     expect(isDuplicateObjectError('ERROR: 42710: type "alert_severity" already exists')).toBe(true);
     expect(isDuplicateObjectError("ERROR: 42P07: relation \"brands\" already exists")).toBe(true);
+    expect(isDuplicateObjectError('ERROR: 42P16: multiple primary keys for table "activity_events" are not allowed')).toBe(true);
+    expect(isDuplicateObjectError("ERROR: 42P16: cannot change name of input parameter")).toBe(false);
     expect(isDuplicateObjectError("ERROR: 42501: permission denied")).toBe(false);
     expect(isDuplicateObjectError(null)).toBe(false);
   });
@@ -143,6 +145,8 @@ describe("reexecução idempotente do baseline", () => {
           calls += 1;
           expect(batch).toContain("DO $unitos_guard$");
           expect(batch).toContain("WHEN SQLSTATE '42710'");
+          expect(batch).toContain("WHEN SQLSTATE '42P16'");
+          expect(batch).toContain("multiple primary key");
           return { ok: true, rows: [] };
         },
       },
