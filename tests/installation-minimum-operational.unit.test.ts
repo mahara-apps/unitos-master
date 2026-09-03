@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   CORE_REQUIREMENTS,
+  FIRST_ACCESS_REQUIREMENTS,
   classifyOperationalUrl,
   computeReadiness,
   customDomainState,
