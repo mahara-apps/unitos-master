@@ -1,0 +1,94 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  prepareVerificationSql,
+  stripPsqlMetaCommands,
+  summarizeVerificationRows,
+} from "@/lib/installation/baseline-sql";
+import delta from "../supabase/baseline-snapshot/007_delta_migrations.sql?raw";
+import install010 from "../supabase/install/010_installation_identity.sql?raw";
+import install011 from "../supabase/install/011_brain_stats_init.sql?raw";
+import install020 from "../supabase/install/020_cron.sql?raw";
+import verifySql from "../supabase/install/verify-installation.sql?raw";
+
+describe("delta do baseline", () => {
+  const objetos = [
+    "briefing_import_runs",
+    "briefing_import_steps",
+    "briefing_import_changes",
+    "installation_meta_app",
+    "installation_operations",
+    "briefing_import_claim_lease",
+    "briefing_import_heartbeat",
+    "briefing_import_reap",
+    "installation_setup_state",
+    "enforce_single_brand",
+    "is_brand_integration_authority",
+  ] as const;
+
+  for (const nome of objetos) {
+    it(`contém ${nome}`, () => {
+      expect(delta.toLowerCase()).toContain(nome.toLowerCase());
+    });
+  }
+
+  it("não contém meta-comandos psql", () => {
+    expect(delta).not.toMatch(/^\\[a-z]/im);
+  });
+});
+
+describe("stripPsqlMetaCommands", () => {
+  it("remove \\set, \\pset e \\timing mantendo o SQL", () => {
+    const { sql, removed } = stripPsqlMetaCommands(
+      ["\\pset pager off", "\\timing off", "SELECT 1;"].join("\n"),
+    );
+    expect(sql.trim()).toBe("SELECT 1;");
+    expect(removed).toHaveLength(2);
+  });
+
+  for (const [nome, script] of [
+    ["010_installation_identity", install010],
+    ["011_brain_stats_init", install011],
+    ["020_cron", install020],
+  ] as const) {
+    it(`${nome} fica sem meta-comando após saneamento`, () => {
+      expect(stripPsqlMetaCommands(script).sql).not.toMatch(/^\\[a-z]/im);
+    });
+  }
+});
+
+describe("prepareVerificationSql", () => {
+  it("remove o statement de RESUMO que contém a palavra FAIL", () => {
+    const { sql } = prepareVerificationSql(verifySql);
+    expect(sql).not.toMatch(/SELECT\s+'RESUMO'/i);
+    expect(sql).not.toMatch(/^\\[a-z]/im);
+    expect(sql.trimEnd().endsWith("ORDER BY ord;")).toBe(true);
+  });
+});
+
+describe("summarizeVerificationRows", () => {
+  it("PASS quando nenhuma linha tem status FAIL", () => {
+    const s = summarizeVerificationRows([
+      { status: "PASS", check_name: "extensões", observed: "6" },
+      { status: "INFO", check_name: "sem dados de negócio (FAIL no texto)", observed: "0" },
+    ]);
+    expect(s.ok).toBe(true);
+    expect(s.failed).toBe(0);
+    expect(s.total).toBe(2);
+  });
+
+  it("FAIL somente pela coluna status", () => {
+    const s = summarizeVerificationRows([
+      { status: "PASS", check_name: "a", observed: "1" },
+      { status: "FAIL", check_name: "cron: total de jobs", observed: "0" },
+    ]);
+    expect(s.ok).toBe(false);
+    expect(s.failedChecks).toEqual(["cron: total de jobs"]);
+  });
+
+  it("resultado sem linhas é inconclusivo, nunca PASS", () => {
+    const s = summarizeVerificationRows([]);
+    expect(s.ok).toBe(false);
+    expect(s.reason).toMatch(/nenhuma verificação/);
+  });
+});
