@@ -316,6 +316,25 @@ export function buildDeployEnvPlan(input: {
     entries.push({ key: name, value, sensitive: true });
   }
 
+  // App Meta oficial: credenciais compartilhadas do App central do Unitos +
+  // Redirect URI da PRÓPRIA instalação. Sem elas o modo oficial fica pendente
+  // (não é bloqueante: a instalação segue operacional).
+  const metaAppId = (input.officialMetaApp?.appId ?? "").trim();
+  const metaAppSecret = (input.officialMetaApp?.appSecret ?? "").trim();
+  if (metaAppId && metaAppSecret) {
+    entries.push({ key: "META_APP_ID", value: metaAppId, sensitive: false });
+    entries.push({ key: "META_APP_SECRET", value: metaAppSecret, sensitive: true });
+    const configId = (input.officialMetaApp?.businessConfigId ?? "").trim();
+    if (configId) {
+      entries.push({ key: "META_BUSINESS_CONFIG_ID", value: configId, sensitive: false });
+    }
+    entries.push({
+      key: "META_REDIRECT_URI",
+      value: `${url.origin}/api/public/meta/callback`,
+      sensitive: false,
+    });
+  }
+
   const empty = entries.find((e) => !e.value.trim());
   if (empty) return { ok: false, reason: `Variável ${empty.key} sem valor — plano recusado.` };
 
