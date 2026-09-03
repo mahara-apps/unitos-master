@@ -293,7 +293,7 @@ export function createDeployClient(input: {
   };
   const project = encodeURIComponent(input.project);
 
-  return {
+  const client: DeployClient = {
     async deploymentUrl() {
       try {
         const res = await doFetch(
@@ -377,12 +377,11 @@ export function createDeployClient(input: {
             org?: string;
             productionBranch?: string;
           };
-place: undefined;
         };
         const link = body.link;
         const repoId = link?.repoId;
         if (!link?.type || repoId === undefined || repoId === null) {
-          const fallback = await this.redeploy();
+          const fallback = await client.redeploy();
           return { ...fallback, source: "rebuild" as const };
         }
         const ref = (link.productionBranch ?? "main").trim() || "main";
