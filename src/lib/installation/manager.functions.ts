@@ -885,10 +885,21 @@ export const resumeAutomatedProvisionFn = createServerFn({ method: "POST" })
     if (installationError) throw installationError;
     if (!installation) throw new Error("Instalação não encontrada.");
     const record = mapInstallation(installation);
-    const { runAutomatedProvision } = await import("./automation.server");
+    const { runAutomatedProvision, runAutomatedUpdate, runAutomatedValidate } = await import(
+      "./automation.server"
+    );
     const { waitUntil } = await import("@/lib/wait-until.server");
+    // A retomada precisa usar o runner do MESMO tipo da operação: retomar um
+    // UPDATE como provisionamento reportava etapas inexistentes e travava a barra.
+    const kind = (op as { kind?: string }).kind ?? "provision";
+    const runner =
+      kind === "update"
+        ? runAutomatedUpdate
+        : kind === "validate"
+          ? runAutomatedValidate
+          : runAutomatedProvision;
     waitUntil(
-      runAutomatedProvision({
+      runner({
         client: context.supabase as never,
         operation: op as never,
         installation: {
