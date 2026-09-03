@@ -461,6 +461,44 @@ describe("runAutomatedProvision", () => {
     expect(sizes).toEqual([25, 7]);
   });
 
+  it("retomada NÃO regera secrets nem republica quando a fase de deploy já concluiu", async () => {
+    const { api } = fakeClient({
+      stageProgress: {
+        deployDone: true,
+        appUrl: "https://unitos-pitada-abc.vercel.app",
+        urlSource: "deploy",
+        frontendOk: true,
+      },
+    });
+    const calls: string[] = [];
+    const fetchImpl = vi.fn(async (url: string) => {
+      calls.push(url);
+      if (url.includes("/api-keys")) {
+        return Response.json([
+          { name: "anon", api_key: "sb_publishable_x" },
+          { name: "service_role", api_key: "sb_secret_x" },
+        ]);
+      }
+      if (url.includes("/database/query")) return Response.json([{ schemas: 3, item: "ok" }]);
+      return new Response("{}", { status: 200 });
+    });
+
+    const result = await runProvision({
+      client: api,
+      operation: OP,
+      installation: INSTALLATION,
+      env: { UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t", UNITOS_VERCEL_TOKEN: "v" },
+      fetchImpl: fetchImpl as never,
+    });
+
+    expect(result.result).toBe("PASS");
+    expect(result.appUrl).toBe("https://unitos-pitada-abc.vercel.app");
+    // Nenhuma variável reescrita, nenhum redeploy repetido, nenhum secret novo.
+    expect(calls.some((c) => c.includes("/env"))).toBe(false);
+    expect(calls.some((c) => c.includes("v13/deployments"))).toBe(false);
+    expect(calls.some((c) => c.includes("set_cron_secret"))).toBe(false);
+  });
+
   it("recusa instalação apontada para o MASTER", async () => {
     const { api } = fakeClient();
     const result = await runProvision({
