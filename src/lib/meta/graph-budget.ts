@@ -175,6 +175,7 @@ export type GraphStopReason =
   | "deadline"
   | "page_cap"
   | "portfolio_cap"
+  | "request_budget"
   | "rate_limited"
   | "error"
   | "cached"
