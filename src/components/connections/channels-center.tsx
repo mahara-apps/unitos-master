@@ -347,14 +347,15 @@ export function ChannelsCenter({
    */
   const refreshingRef = useRef(false);
   const [manualSyncing, setManualSyncing] = useState(false);
-  function refreshDiscovery() {
+  function refreshDiscovery(fullDiscovery = false) {
     if (refreshingRef.current || !brandId) return;
     refreshingRef.current = true;
     setManualSyncing(true);
     void qc
       .fetchQuery({
-        queryKey: ["meta-discovered-accounts", brandId, "refresh"],
-        queryFn: () => discoverFn({ data: { brandId: brandId!, refresh: true } }),
+        queryKey: ["meta-discovered-accounts", brandId, "refresh", fullDiscovery],
+        queryFn: () =>
+          discoverFn({ data: { brandId: brandId!, refresh: true, fullDiscovery } }),
         retry: false,
       })
       .then((r) => {
@@ -681,6 +682,21 @@ export function ChannelsCenter({
                 {(portfolioStatus?.authorizations?.length ?? 0) > 0 ? (
                   <>
                     <DropdownMenuSeparator className="my-1.5" />
+                    <DropdownMenuItem
+                      className="gap-2.5 rounded-md px-2 py-2 text-sm"
+                      onClick={() => refreshDiscovery(true)}
+                      disabled={manualSyncing}
+                    >
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-muted">
+                        <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium">Descoberta completa</span>
+                        <span className="block truncate text-[11px] text-muted-foreground">
+                          Varre todos os portfólios (consome mais cota da Meta)
+                        </span>
+                      </span>
+                    </DropdownMenuItem>
                     <DropdownMenuItem
                       className="gap-2 rounded-md px-2 py-2 text-sm text-destructive focus:text-destructive"
                       onClick={() => setRevokeAllOpen(true)}

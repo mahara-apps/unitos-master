@@ -38,6 +38,8 @@ export type DiscoveredAccountsResult = {
 const ListInput = z.object({
   brandId: z.string().uuid(),
   refresh: z.boolean().optional(),
+  /** Força varredura profunda (descoberta completa) em vez do refresh incremental. */
+  fullDiscovery: z.boolean().optional(),
 });
 
 export const listDiscoveredMetaAccountsFn = createServerFn({ method: "POST" })
@@ -96,7 +98,8 @@ export const listDiscoveredMetaAccountsFn = createServerFn({ method: "POST" })
         meta_user_id: session.meta_user_id as string,
         user_token_ciphertext: session.user_token_ciphertext as string,
         pages: session.pages,
-      });
+        portfolio_loaded_at: (session.portfolio_loaded_at as string | null) ?? null,
+      }, { fullDiscovery: data.fullDiscovery === true });
       payload = outcome.payload;
       discoveredAt = outcome.loadedAt;
       discoveryError = outcome.error;
