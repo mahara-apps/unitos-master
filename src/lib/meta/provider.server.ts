@@ -502,10 +502,35 @@ export class MetaProvider {
    */
   async scanPortfolio(
     userAccessToken: string,
-    opts?: { deep?: boolean },
+    opts?: {
+      deep?: boolean;
+      /** Telemetria injetada pelo chamador (uma por operação de descoberta). */
+      telemetry?: GraphTelemetry;
+      /** Portfólios já conhecidos: evita repetir `/me/businesses`. */
+      knownBusinesses?: MetaBusiness[];
+      /** Teto de portfólios varridos nesta execução. */
+      maxPortfolios?: number;
+    },
   ): Promise<MetaPortfolioScan> {
     const deep = opts?.deep !== false;
+    const telemetry = opts?.telemetry ?? createGraphTelemetry("Meta discovery");
+    const maxPortfolios = Math.max(1, opts?.maxPortfolios ?? MAX_PORTFOLIOS_PER_SCAN);
     let requestCount = 0;
+    let stopReason: GraphStopReason = "completed";
+    /** Só piora o motivo de parada; nunca sobrescreve um estado mais grave. */
+    const noteStop = (reason: GraphStopReason) => {
+      const rank: Record<GraphStopReason, number> = {
+        completed: 0,
+        cached: 0,
+        deduped: 0,
+        page_cap: 1,
+        portfolio_cap: 1,
+        deadline: 2,
+        rate_limited: 3,
+        error: 3,
+      };
+      if (rank[reason] > rank[stopReason]) stopReason = reason;
+    };
 
 
     type PageRow = {
