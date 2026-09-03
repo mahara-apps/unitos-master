@@ -47,6 +47,15 @@ export const saveMetaAppSettingsFn = createServerFn({ method: "POST" })
       }
     }
 
-    await saveMetaAppSettings({ ...data, actorId: context.userId });
+    // O App oficial do Unitos só é editável na instalação MASTER. Em uma
+    // instalação cliente ele chega pronto pelo provisionamento: aqui apenas o
+    // modo pode ser alternado, nunca as credenciais oficiais.
+    const current = await getMetaAppSettings();
+    const patch =
+      data.appType === "unitos" && !current.officialEditable
+        ? { appType: "unitos" as const }
+        : data;
+
+    await saveMetaAppSettings({ ...patch, actorId: context.userId });
     return getMetaAppSettings();
   });
