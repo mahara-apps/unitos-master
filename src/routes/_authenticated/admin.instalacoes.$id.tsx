@@ -149,7 +149,7 @@ function InstallationDetailPage() {
   // Sem elas, a UI mostra o motivo do BLOCKED e mantém o fallback manual.
   const capability = useQuery({
     queryKey: ["installation-automation"],
-    queryFn: () => capabilityFn({ data: {} }),
+    queryFn: () => capabilityFn({ data: undefined }),
     retry: false,
     staleTime: 60_000,
   });
