@@ -115,12 +115,17 @@ function AdminMetaAppPage() {
         })}
       </div>
 
-      {appType === "client" && (
-        <Card>
+      <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Credenciais do App do cliente</CardTitle>
+            <CardTitle className="text-base">
+              {appType === "client"
+                ? "Credenciais do App do cliente"
+                : "Credenciais do App oficial"}
+            </CardTitle>
             <CardDescription>
-              O App Secret é armazenado cifrado e nunca é exibido de volta.
+              {appType === "client"
+                ? "O App Secret é armazenado cifrado e nunca é exibido de volta."
+                : "Se o ambiente já define META_APP_ID/META_APP_SECRET, esses valores têm prioridade. Sem eles, o fluxo “Conectar Meta” usa as credenciais informadas aqui (segredo cifrado)."}
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
@@ -157,7 +162,6 @@ function AdminMetaAppPage() {
             </div>
           </CardContent>
         </Card>
-      )}
 
       <Card>
         <CardHeader className="pb-3">
@@ -172,11 +176,24 @@ function AdminMetaAppPage() {
           />
           <Row label="App ID oficial" value={data?.official.appId ?? "—"} />
           <Row label="Config ID oficial" value={data?.official.businessConfigId ?? "—"} />
-          <Row label="App ID do cliente" value={data?.client.appId ?? "—"} />
+          <Row label="App ID salvo" value={data?.client.appId ?? "—"} />
           <Row
-            label="Segredo do cliente"
+            label="Segredo salvo"
             value={data?.client.hasSecret ? (data.client.secretMasked ?? "definido") : "—"}
           />
+          <Row
+            label="Credenciais em uso"
+            value={
+              data
+                ? data.effective.source === "env"
+                  ? "ambiente (env)"
+                  : data.effective.source === "stored"
+                    ? "salvas nesta instalação"
+                    : "não configurado"
+                : "—"
+            }
+          />
+          <Row label="App ID em uso" value={data?.effective.appId ?? "—"} />
         </CardContent>
       </Card>
 
