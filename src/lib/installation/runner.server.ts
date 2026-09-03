@@ -175,7 +175,17 @@ export async function applyProgressReport(
   report: StepReport,
 ): Promise<OperationStep[]> {
   const state = isStepState(report.state) ? report.state : "running";
-  const steps = applyStepReport(readSteps(op.steps), {
+  // `op` é lido uma única vez no início da operação. Aplicar o progresso sobre
+  // essa cópia apagaria as etapas já concluídas (UI ficava em "0/9 etapas" e
+  // a etapa 01 parecia "pulada"). A verdade é sempre a linha persistida.
+  const { data: fresh } = await client
+    .from("installation_operations")
+    .select("steps")
+    .eq("id", op.id)
+    .maybeSingle();
+  const current = readSteps(fresh?.steps ?? op.steps);
+  const base = current.length > 0 ? current : readSteps(op.steps);
+  const steps = applyStepReport(base, {
     step: report.step,
     state,
     detail: sanitize(report.detail),
