@@ -123,9 +123,10 @@ export type MetaPortfolioScan = {
  */
 export function isFatalScanError(err: unknown): boolean {
   if (!(err instanceof MetaGraphError)) return true;
-  if (err.status === 429) return true;
-  const code = err.graph?.code;
-  return code === 4 || code === 17 || code === 32 || code === 613 || code === 190;
+  // Rate limit (4/17/32/341/613) e token inválido (190) abortam a varredura
+  // inteira: insistir em outras arestas só piora o estouro de quota.
+  if (isRateLimitError(err)) return true;
+  return err.graph?.code === 190;
 }
 
 export type MetaUser = { id: string; name?: string; email?: string };
