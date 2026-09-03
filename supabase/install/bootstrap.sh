@@ -32,6 +32,12 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASELINE="$(cd "$HERE/../baseline-snapshot" && pwd)"
 MASTER_TOKENS='unitos-master.lovable.app|tkjbhttylouamqxnbfgv'
+RELEASE_VERSION="2026.09.0"
+
+# Canal OPCIONAL de progresso para o módulo MASTER de Instalações.
+# Sem UNITOS_MASTER_URL/UNITOS_RUN_TOKEN todas as funções são no-op.
+# shellcheck source=/dev/null
+. "$HERE/report.sh"
 
 FAILURES=0
 declare -a REPORT=()
@@ -44,6 +50,7 @@ skip() { REPORT+=("SKIP | $1 | ${2:-}"); printf '  SKIP  %s %s\n' "$1" "${2:-}";
 
 die() {
   printf '\n\033[31mBOOTSTRAP ABORTADO:\033[0m %s\n' "$1"
+  report_done false "" "Bootstrap abortado: $1" false '{}' 
   print_report
   exit 1
 }
@@ -69,6 +76,7 @@ gen_secret() {
 
 # ----------------------------------------------------------------- etapa 1: env
 step "Etapa 1/9 — Validação do ambiente da instalação"
+report_step supabase running
 
 command -v psql >/dev/null 2>&1 || die "psql não encontrado no PATH"
 [ -n "${SUPABASE_DB_URL:-}" ] || die "SUPABASE_DB_URL ausente"
@@ -103,6 +111,7 @@ done
 
 # ------------------------------------------------------------- etapa 2: conexão
 step "Etapa 2/9 — Conectividade e pré-requisitos do Supabase"
+report_step supabase running
 if ! psql_run -c 'select 1' >/dev/null 2>&1; then
   die "não foi possível conectar ao banco informado em SUPABASE_DB_URL"
 fi
@@ -117,6 +126,7 @@ done
 
 # ------------------------------------------------------------ etapa 3: baseline
 step "Etapa 3/9 — Baseline (extensões, schema, RLS, triggers, buckets, policies, seeds)"
+report_step database running
 
 apply_sql() {
   local label="$1" file="$2"
@@ -138,13 +148,19 @@ else
 fi
 
 apply_sql "005_auth_trigger"    "$BASELINE/005_auth_trigger.sql"
+report_step database done "schema aplicado"
+report_step storage running
 apply_sql "003_storage_buckets" "$BASELINE/003_storage_buckets.sql"
 apply_sql "006_storage_policies" "$BASELINE/006_storage_policies.sql"
+report_step storage done "buckets e policies aplicados"
+report_step seeds running
 apply_sql "004_seeds"           "$BASELINE/004_seeds.sql"
 [ "$FAILURES" -eq 0 ] || die "baseline incompleto"
+report_step seeds done "seeds de catálogo aplicados"
 
 # ------------------------------------------------------------ etapa 4: vault
 step "Etapa 4/9 — CRON_SECRET no Vault (mesma origem usada pelo cron)"
+report_step secrets running
 if psql_run -c "select public.set_cron_secret('${CRON_SECRET//\'/\'\'}');" >/dev/null 2>&1; then
   vault_len="$(psql_value "select coalesce(length(public.cron_secret()),0)")"
   if [ "${vault_len:-0}" -ge 16 ]; then
@@ -156,9 +172,11 @@ else
   fail "vault cron_secret" "set_cron_secret falhou"
 fi
 [ "$FAILURES" -eq 0 ] || die "segredo do cron não disponível"
+report_step secrets done "CRON_SECRET próprio no Vault"
 
 # --------------------------------------------------------- etapa 5: identidade
 step "Etapa 5/9 — Identidade da instalação (installation.app_url)"
+report_step deploy running
 if out="$(psql_run -v app_url="$APP_ORIGIN" -f "$HERE/010_installation_identity.sql" 2>&1)"; then
   stored="$(psql_value "select rtrim(app_url,'/') from public.installation limit 1")"
   if [ "$stored" = "$APP_ORIGIN" ]; then
@@ -170,18 +188,22 @@ else
   fail "installation.app_url" "$(printf '%s' "$out" | tail -n 2 | tr '\n' ' ')"
 fi
 [ "$FAILURES" -eq 0 ] || die "identidade da instalação inválida"
+report_step deploy done "app_url própria registrada"
 
 # ------------------------------------------------------- etapa 6: brain_stats_mv
 step "Etapa 6/9 — Inicialização de brain_stats_mv"
+report_step brain running
 if out="$(psql_run -f "$HERE/011_brain_stats_init.sql" 2>&1)"; then
   populated="$(psql_value "select relispopulated from pg_class where relname='brain_stats_mv' and relkind='m'")"
   [ "$populated" = "t" ] && pass "brain_stats_mv" "populada" || fail "brain_stats_mv" "não populada"
 else
   fail "brain_stats_mv" "$(printf '%s' "$out" | tail -n 2 | tr '\n' ' ')"
 fi
+report_step brain "$([ "$FAILURES" -eq 0 ] && echo done || echo error)"
 
 # ------------------------------------------------------- etapa 7: URL validada
 step "Etapa 7/9 — Validação da própria URL antes de agendar cron"
+report_step deploy running
 URL_OK=0
 if [ "${SKIP_URL_PROBE:-0}" = "1" ]; then
   skip "probe da URL" "SKIP_URL_PROBE=1 — cron NÃO será agendado"
@@ -198,6 +220,7 @@ fi
 
 # ------------------------------------------------------------- etapa 8: cron
 step "Etapa 8/9 — Agendamento dos 14 crons (somente com URL validada)"
+report_step cron running
 if [ "$URL_OK" = "1" ]; then
   if out="$(psql_run -v app_url="$APP_ORIGIN" -f "$HERE/020_cron.sql" 2>&1)"; then
     jobs="$(psql_value "select count(*) from cron.job")"
@@ -216,6 +239,7 @@ fi
 
 # ------------------------------------------------------------ etapa 9: verify
 step "Etapa 9/9 — Verificação final (READ-ONLY)"
+report_step validation running
 if out="$(psql "$SUPABASE_DB_URL" -f "$HERE/verify-installation.sql" 2>&1)"; then
   printf '%s\n' "$out"
   if printf '%s' "$out" | grep -q '^ *FAIL'; then
@@ -240,5 +264,13 @@ Pendências MANUAIS desta instalação (não automatizáveis pelo bootstrap):
   * branding institucional, logo de login, remetente e chaves BYOK de IA na UI.
 MANUAL
 
-[ "$FAILURES" -eq 0 ] || exit 1
-exit 0
+if [ "$FAILURES" -eq 0 ]; then
+  report_step validation done "todas as verificações PASS"
+  report_done true "$RELEASE_VERSION" "Provisionamento concluído sem falhas." false \
+    '{"database":"ok","storage":"ok","cron":"ok","secrets":"ok"}'
+  exit 0
+fi
+
+report_step validation error "$FAILURES etapa(s) em FAIL"
+report_done false "$RELEASE_VERSION" "Provisionamento com $FAILURES etapa(s) em FAIL." false '{}'
+exit 1

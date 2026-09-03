@@ -6,21 +6,33 @@ import { assertSuperAdmin, resolveIsSuperAdmin } from "@/lib/super-admin";
 import type { RpcClient } from "@/lib/access-guard";
 
 import {
+  INSTALLATION_STATUS_LABEL,
   MASTER_RELEASE_VERSION,
   PROVISION_STEPS,
   VALIDATE_STEPS,
+  assertOperationTarget,
+  buildRunCommand,
   canStartOperation,
   healthAfterOperation,
+  initialSteps,
   isInstallationStatus,
   isUpdateAvailable,
+  normalizeHealthChecks,
   runningStatusFor,
   statusAfterOperation,
+  stepsProgress,
+  updateSummary,
   validateInstallationInput,
+  type HealthCheckId,
+  type HealthCheckResult,
   type InstallationHealth,
   type InstallationOperationKind,
   type InstallationOperationStatus,
   type InstallationStatus,
+  type OperationStep,
+  type StepProgress,
 } from "./manager-contract";
+
 
 /**
  * Installation Manager — server functions do MASTER.
@@ -51,12 +63,14 @@ export type InstallationRecord = {
   lastProvisionedAt: string | null;
   lastValidatedAt: string | null;
   lastError: string | null;
+  healthChecks: Record<HealthCheckId, HealthCheckResult>;
+  healthCheckedAt: string | null;
+  activeOperationId: string | null;
   createdAt: string;
   updatedAt: string;
 };
 
 export type OperationDetail = {
-  steps?: Array<{ id: string; label: string; script: string }>;
   releaseVersion?: string;
   executed?: boolean;
   warnings?: boolean;
@@ -68,8 +82,12 @@ export type InstallationOperationRecord = {
   status: InstallationOperationStatus;
   summary: string | null;
   detail: OperationDetail;
+  steps: OperationStep[];
+  progress: StepProgress;
+  errorKind: string | null;
   startedAt: string;
   finishedAt: string | null;
+  lastReportAt: string | null;
 };
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -96,22 +114,45 @@ function mapInstallation(row: any): InstallationRecord {
     lastProvisionedAt: row.last_provisioned_at ?? null,
     lastValidatedAt: row.last_validated_at ?? null,
     lastError: row.last_error ?? null,
+    healthChecks: normalizeHealthChecks(row.health_checks),
+    healthCheckedAt: row.health_checked_at ?? null,
+    activeOperationId: row.active_operation_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
+function readSteps(raw: unknown): OperationStep[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((s) => !!s && typeof s === "object")
+    .map((s: any) => ({
+      id: String(s.id ?? ""),
+      label: String(s.label ?? ""),
+      script: String(s.script ?? ""),
+      state: s.state === "running" || s.state === "done" || s.state === "error" ? s.state : "pending",
+      detail: typeof s.detail === "string" ? s.detail : null,
+    }))
+    .filter((s) => s.id);
+}
+
 function mapOperation(row: any): InstallationOperationRecord {
+  const steps = readSteps(row.steps);
   return {
     id: row.id,
     kind: row.kind as InstallationOperationKind,
     status: row.status as InstallationOperationStatus,
     summary: row.summary ?? null,
     detail: (row.detail ?? {}) as OperationDetail,
+    steps,
+    progress: stepsProgress(steps),
+    errorKind: row.error_kind ?? null,
     startedAt: row.started_at,
     finishedAt: row.finished_at ?? null,
+    lastReportAt: row.last_report_at ?? null,
   };
 }
+
 
 async function guard(context: { supabase: unknown; userId: string }) {
   const { assertMasterInstallation } = await import("./manager.server");
@@ -280,12 +321,14 @@ export const deleteInstallationFn = createServerFn({ method: "POST" })
 const StartInput = z.object({
   id: z.string().uuid(),
   kind: z.enum(["provision", "validate", "update"]),
+  /** Confirmação explícita exigida para atualizar uma instalação. */
+  confirm: z.boolean().optional(),
 });
 
 /**
- * Enfileira a operação. Nesta versão o fluxo está PREPARADO, não executado:
- * o MASTER registra a intenção, os passos e os scripts de `supabase/install/`
- * que serão rodados, e move a instalação para o estado em execução.
+ * Abre a operação: valida o alvo, garante que não há outra operação em
+ * andamento e emite um token de execução de uso único. Quem executa é o
+ * script existente em `supabase/install/` — o MASTER só acompanha.
  */
 export const startInstallationOperationFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -303,13 +346,34 @@ export const startInstallationOperationFn = createServerFn({ method: "POST" })
 
     const record = mapInstallation(current);
     const kind = data.kind as InstallationOperationKind;
+
+    const target = assertOperationTarget(record);
+    if (!target.ok) throw new Error(target.error);
+
+    if (kind === "update") {
+      if (!isUpdateAvailable(record.currentVersion, record.availableVersion)) {
+        throw new Error("A instalação já está na versão do MASTER — nada a atualizar.");
+      }
+      if (!data.confirm) throw new Error(updateSummary(record.currentVersion, record.availableVersion));
+    }
+
     if (!canStartOperation(kind, record.status)) {
       throw new Error(
-        `A instalação está em “${record.status}” e não aceita esta operação agora.`,
+        `A instalação está em “${INSTALLATION_STATUS_LABEL[record.status]}” e não aceita esta operação agora.`,
       );
     }
 
-    const steps = kind === "validate" ? VALIDATE_STEPS : PROVISION_STEPS;
+    // Trava: no máximo uma operação viva por instalação (índice único no banco).
+    const { data: active } = await context.supabase
+      .from("installation_operations")
+      .select("id")
+      .eq("installation_id", data.id)
+      .in("status", ["pending", "running"])
+      .maybeSingle();
+    if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
+
+    const { generateRunToken, hashRunToken, RUN_TOKEN_TTL_MS } = await import("./runner.server");
+    const runToken = generateRunToken();
     const nowIso = new Date().toISOString();
 
     const { data: op, error: opError } = await context.supabase
@@ -320,29 +384,50 @@ export const startInstallationOperationFn = createServerFn({ method: "POST" })
         status: "pending",
         summary:
           kind === "validate"
-            ? "Validação preparada — execute supabase/install/verify-installation.sql na instalação."
-            : "Execução preparada — rode supabase/install/bootstrap.sh na instalação de destino.",
-        detail: {
-          steps: steps.map((s) => ({ id: s.id, label: s.label, script: s.script })),
-          releaseVersion: MASTER_RELEASE_VERSION,
-          executed: false,
-        },
+            ? "Validação aberta — rode supabase/install/validate.sh na instalação."
+            : "Execução aberta — rode supabase/install/bootstrap.sh na instalação de destino.",
+        steps: initialSteps(kind),
+        detail: { releaseVersion: MASTER_RELEASE_VERSION, executed: false },
         actor_id: context.userId,
         started_at: nowIso,
+        run_token_hash: await hashRunToken(runToken),
+        run_token_expires_at: new Date(Date.now() + RUN_TOKEN_TTL_MS).toISOString(),
       })
       .select("*")
       .single();
-    if (opError) throw opError;
+    if (opError) {
+      if ((opError as { code?: string }).code === "23505")
+        throw new Error("Já existe uma operação em andamento nesta instalação.");
+      throw opError;
+    }
 
     const { data: updated, error: updateError } = await context.supabase
       .from("installations")
-      .update({ status: runningStatusFor(kind), last_error: null })
+      .update({
+        status: runningStatusFor(kind),
+        last_error: null,
+        active_operation_id: op.id,
+      })
       .eq("id", data.id)
       .select("*")
       .single();
     if (updateError) throw updateError;
 
-    return { installation: mapInstallation(updated), operation: mapOperation(op) };
+    const masterUrl =
+      process.env["PUBLIC_APP_URL"] ?? process.env["VITE_PUBLIC_APP_URL"] ?? "https://unitos-master.lovable.app";
+
+    return {
+      installation: mapInstallation(updated),
+      operation: mapOperation(op),
+      /** Exibido UMA única vez; no banco existe apenas o hash. */
+      runCommand: buildRunCommand({
+        kind,
+        masterUrl,
+        operationId: op.id,
+        runToken,
+        appUrl: record.domain,
+      }),
+    };
   });
 
 const CompleteInput = z.object({
@@ -353,7 +438,7 @@ const CompleteInput = z.object({
   summary: z.string().max(500).optional(),
 });
 
-/** Registra o resultado da operação executada fora da aplicação. */
+/** Registro manual do resultado (fallback quando o script não reporta). */
 export const completeInstallationOperationFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => CompleteInput.parse(input))
@@ -368,47 +453,82 @@ export const completeInstallationOperationFn = createServerFn({ method: "POST" }
     if (error) throw error;
     if (!op) throw new Error("Operação não encontrada.");
 
-    const kind = op.kind as InstallationOperationKind;
-    const outcome = {
+    const { finalizeOperation } = await import("./runner.server");
+    await finalizeOperation(context.supabase as never, op as never, {
       ok: data.ok,
       warnings: data.warnings ?? false,
-      version: clean(data.version),
-    };
-    const status = statusAfterOperation(kind, outcome);
-    const health = healthAfterOperation(outcome);
-    const nowIso = new Date().toISOString();
+      version: data.version ?? null,
+      summary: data.summary ?? null,
+      errorKind: data.ok ? null : "registro_manual",
+    });
 
-    const { error: opError } = await context.supabase
+    const { data: updated, error: readError } = await context.supabase
+      .from("installations")
+      .select("*")
+      .eq("id", op.installation_id)
+      .single();
+    if (readError) throw readError;
+    return mapInstallation(updated);
+  });
+
+/** Cancela a operação viva, preservando o resultado parcial já reportado. */
+export const cancelInstallationOperationFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ operationId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await guard(context);
+    const { data: op, error } = await context.supabase
       .from("installation_operations")
-      .update({
-        status: data.ok ? (outcome.warnings ? "success" : "success") : "failed",
-        summary: data.summary ?? op.summary,
-        detail: {
-          ...((op.detail ?? {}) as OperationDetail),
-          executed: true,
-          warnings: outcome.warnings,
-        },
-        finished_at: nowIso,
-      })
-      .eq("id", data.operationId);
-    if (opError) throw opError;
+      .select("*")
+      .eq("id", data.operationId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!op) throw new Error("Operação não encontrada.");
 
-    const patch = {
-      status,
-      health,
-      last_error: data.ok ? null : (data.summary ?? "Falha registrada na operação."),
-      ...(outcome.version ? { current_version: outcome.version } : {}),
-      ...(kind !== "validate" && data.ok ? { last_provisioned_at: nowIso } : {}),
-      ...(kind === "validate" ? { last_validated_at: nowIso } : {}),
-    };
+    const { finalizeOperation } = await import("./runner.server");
+    await finalizeOperation(context.supabase as never, op as never, {
+      ok: false,
+      summary: "Operação cancelada pelo Super Admin. Resultado parcial preservado.",
+      errorKind: "cancelada",
+    });
+    return { ok: true as const };
+  });
+
+/** Reavalia a saúde da instalação com probes reais (sem credenciais do destino). */
+export const refreshInstallationHealthFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await guard(context);
+    const { data: row, error } = await context.supabase
+      .from("installations")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!row) throw new Error("Instalação não encontrada.");
+
+    const { probeInstallationHealth } = await import("./runner.server");
+    const { healthFromChecks } = await import("./manager-contract");
+    const checks = await probeInstallationHealth({
+      domain: row.domain ?? null,
+      supabaseUrl: row.supabase_url ?? null,
+      gitRepoUrl: row.git_repo_url ?? null,
+      deployProject: row.deploy_project ?? null,
+      storedChecks: row.health_checks,
+    });
 
     const { data: updated, error: updateError } = await context.supabase
       .from("installations")
-      .update(patch)
-      .eq("id", op.installation_id)
+      .update({
+        health_checks: checks,
+        health_checked_at: new Date().toISOString(),
+        health: healthFromChecks(checks),
+      })
+      .eq("id", data.id)
       .select("*")
       .single();
     if (updateError) throw updateError;
-
     return mapInstallation(updated);
   });
+
