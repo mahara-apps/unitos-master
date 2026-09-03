@@ -14,6 +14,7 @@ import type {
   RecentPostsOptions,
   SocialAnalyticsProvider,
 } from "../provider";
+import { ANALYTICS_CONCURRENCY, mapLimit } from "@/lib/meta/graph-budget";
 
 /**
  * Meta Analytics Provider — covers Instagram Business + Facebook Pages via
@@ -359,8 +360,10 @@ export class MetaAnalyticsProvider implements SocialAnalyticsProvider {
         "ig_media_list",
       );
       const ids = (res?.data ?? []).map((m) => m.id);
-      const all = await Promise.all(
-        ids.map((id) => this.fetchInstagramPost(ctx, { network: "instagram", externalPostId: id })),
+      // Fan-out com concorrência limitada: 25 detalhes em paralelo era um
+      // pico instantâneo de requisições que ajudava a estourar o limite do app.
+      const all = await mapLimit(ids, ANALYTICS_CONCURRENCY, (id) =>
+        this.fetchInstagramPost(ctx, { network: "instagram", externalPostId: id }),
       );
       return { ok: true, data: all.filter((r) => r.ok).map((r) => (r as any).data) };
     }
@@ -376,8 +379,8 @@ export class MetaAnalyticsProvider implements SocialAnalyticsProvider {
         "fb_post_list",
       );
       const ids = (res?.data ?? []).map((m) => m.id);
-      const all = await Promise.all(
-        ids.map((id) => this.fetchFacebookPost(ctx, { network: "facebook", externalPostId: id })),
+      const all = await mapLimit(ids, ANALYTICS_CONCURRENCY, (id) =>
+        this.fetchFacebookPost(ctx, { network: "facebook", externalPostId: id }),
       );
       return { ok: true, data: all.filter((r) => r.ok).map((r) => (r as any).data) };
     }
