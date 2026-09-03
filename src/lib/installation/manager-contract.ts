@@ -458,15 +458,32 @@ export function normalizeHealthChecks(raw: unknown): Record<HealthCheckId, Healt
   return out;
 }
 
-/** Saúde agregada: erro manda, depois atenção, depois pendente. */
+/** Checks de infraestrutura que definem a SAÚDE medida da instalação. */
+export const INFRA_HEALTH_CHECK_IDS = [
+  "connectivity",
+  "supabase",
+  "database",
+  "storage",
+  "cron",
+  "frontend",
+  "secrets",
+  "configuration",
+] as const;
+
+/**
+ * Saúde agregada: erro manda, depois atenção, depois pendente.
+ * Primeiro acesso (Super Admin/workspace) não é infraestrutura e por isso não
+ * degrada a saúde medida — ele aparece no núcleo de prontidão.
+ */
 export function healthFromChecks(raw: unknown): InstallationHealth {
   const checks = normalizeHealthChecks(raw);
-  const states = HEALTH_CHECKS.map((c) => checks[c.id].state);
+  const states = INFRA_HEALTH_CHECK_IDS.map((id) => checks[id].state);
   if (states.includes("error")) return "failing";
   if (states.includes("attention")) return "degraded";
   if (states.every((s) => s === "ok")) return "healthy";
   return "unknown";
 }
+
 
 /* ------------------------------------------------- alvo da operação */
 
