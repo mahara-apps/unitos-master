@@ -333,12 +333,25 @@ export function ChannelsCenter({
     onError: () => toast.error("Não foi possível revogar a autorização Meta."),
   });
 
-  /** Nova varredura na Meta (mesma operação de antes, agora reutilizável). */
+  /**
+   * Nova varredura na Meta.
+   *
+   * O botão "Sincronizar" observava a query key BASE, mas a varredura rodava em
+   * `[..., "refresh"]`: o botão nunca desabilitava e cada clique disparava uma
+   * descoberta completa. Agora há um guard explícito de reentrada e o estado
+   * de "sincronizando" é o real.
+   */
+  const refreshingRef = useRef(false);
+  const [manualSyncing, setManualSyncing] = useState(false);
   function refreshDiscovery() {
+    if (refreshingRef.current || !brandId) return;
+    refreshingRef.current = true;
+    setManualSyncing(true);
     void qc
       .fetchQuery({
         queryKey: ["meta-discovered-accounts", brandId, "refresh"],
         queryFn: () => discoverFn({ data: { brandId: brandId!, refresh: true } }),
+        retry: false,
       })
       .then((r) => {
         qc.setQueryData(["meta-discovered-accounts", brandId], r);
