@@ -109,19 +109,22 @@ export async function applyStatementByStatement(
   options?: {
     onProgress?: (processed: number, total: number) => Promise<void> | void;
     isCancelled?: () => Promise<boolean>;
+    /** Retomada: statements já aplicados numa execução anterior. */
+    startIndex?: number;
   },
-): Promise<{ ok: true; skipped: number } | { ok: false; error?: string }> {
+): Promise<{ ok: true; skipped: number } | { ok: false; error?: string; processed?: number }> {
   const statements = splitSqlStatements(sql);
   const batchSize = 150;
-  let processed = 0;
+  const from = Math.min(Math.max(options?.startIndex ?? 0, 0), statements.length);
+  let processed = from;
 
   // Cada statement é protegido no próprio Postgres e os lotes são enviados em
   // poucas chamadas. Assim um objeto duplicado é ignorado isoladamente, mas
   // qualquer erro diferente continua abortando. Isso evita as ~1.800 chamadas
   // sequenciais que excediam a vida do Worker em retomadas parciais.
-  for (let start = 0; start < statements.length; start += batchSize) {
+  for (let start = from; start < statements.length; start += batchSize) {
     if (await options?.isCancelled?.()) {
-      return { ok: false, error: "Operação cancelada pelo Super Admin." };
+      return { ok: false, error: "Operação cancelada pelo Super Admin.", processed };
     }
     const batch = statements.slice(start, start + batchSize);
     const guarded = batch
@@ -151,12 +154,13 @@ export async function applyStatementByStatement(
       })
       .join("\n");
     const result = await management.query(guarded);
-    if (!result.ok) return { ok: false, error: result.error };
+    if (!result.ok) return { ok: false, error: result.error, processed };
     processed += batch.length;
     await options?.onProgress?.(processed, statements.length);
   }
   return { ok: true, skipped: 0 };
 }
+
 
 
 export type ManagementClient = {
