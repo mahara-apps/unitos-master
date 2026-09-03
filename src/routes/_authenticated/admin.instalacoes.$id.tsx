@@ -34,6 +34,7 @@ import {
 import {
   CHECK_STATE_LABEL,
   HEALTH_CHECKS,
+  INFRA_HEALTH_CHECK_IDS,
   INSTALLATION_HEALTH_LABEL,
   INSTALLATION_STATUS_LABEL,
   OPERATION_KIND_LABEL,
@@ -56,6 +57,7 @@ import {
   OVERALL_STATE_LABEL,
   computeReadiness,
   customDomainState,
+  isTemporaryDeployUrl,
   type CoreState,
   type OptionalState,
 } from "@/lib/installation/readiness-contract";
@@ -70,9 +72,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { STATUS_TONE } from "./admin.instalacoes.index";
+
 
 export const Route = createFileRoute("/_authenticated/admin/instalacoes/$id")({
   validateSearch: (search: Record<string, unknown>): { novo?: true } =>
