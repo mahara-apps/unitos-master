@@ -532,3 +532,124 @@ export const refreshInstallationHealthFn = createServerFn({ method: "POST" })
     return mapInstallation(updated);
   });
 
+
+/* ------------------------------------------------ provisionamento automático */
+
+/**
+ * Disponibilidade do provisionamento automático. Retorna somente estados e
+ * motivos — nunca valores de credenciais.
+ */
+export const getAutomationCapabilityFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await guard(context);
+    const { resolveAutomationCapability } = await import("./automation-contract");
+    const capability = resolveAutomationCapability(
+      process.env as Record<string, string | undefined>,
+    );
+    return {
+      available: capability.available,
+      supabase: capability.supabase,
+      vercel: capability.vercel,
+      blockedReasons: capability.blockedReasons,
+    };
+  });
+
+/**
+ * Provisiona a instalação de forma automatizada: o MASTER usa as próprias
+ * credenciais de gestão, aplica o baseline, gera secrets exclusivos, configura
+ * as variáveis do deploy e resolve a URL operacional (domínio definitivo ou URL
+ * temporária). Nada é simulado: dependência ausente devolve BLOCKED.
+ */
+export const runAutomatedProvisionFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await guard(context);
+
+    const { resolveAutomationCapability, resolveAutomationTarget } = await import(
+      "./automation-contract"
+    );
+    const capability = resolveAutomationCapability(process.env as Record<string, string | undefined>);
+    if (!capability.available) {
+      return {
+        result: "BLOCKED" as const,
+        reasons: capability.blockedReasons,
+        appUrl: null,
+        urlSource: null,
+      };
+    }
+
+    const { data: current, error: readError } = await context.supabase
+      .from("installations")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (readError) throw readError;
+    if (!current) throw new Error("Instalação não encontrada.");
+
+    const record = mapInstallation(current);
+    const target = resolveAutomationTarget(record);
+    if (!target.ok) {
+      return { result: "BLOCKED" as const, reasons: [target.reason], appUrl: null, urlSource: null };
+    }
+    if (!canStartOperation("provision", record.status)) {
+      throw new Error(
+        `A instalação está em “${INSTALLATION_STATUS_LABEL[record.status]}” e não aceita esta operação agora.`,
+      );
+    }
+
+    const { data: active } = await context.supabase
+      .from("installation_operations")
+      .select("id")
+      .eq("installation_id", data.id)
+      .in("status", ["pending", "running"])
+      .maybeSingle();
+    if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
+
+    const nowIso = new Date().toISOString();
+    const { data: op, error: opError } = await context.supabase
+      .from("installation_operations")
+      .insert({
+        installation_id: data.id,
+        kind: "provision",
+        status: "running",
+        summary: "Provisionamento automático executado pelo MASTER.",
+        steps: initialSteps("provision"),
+        detail: { releaseVersion: MASTER_RELEASE_VERSION, executed: true, automated: true },
+        actor_id: context.userId,
+        started_at: nowIso,
+      })
+      .select("*")
+      .single();
+    if (opError) {
+      if ((opError as { code?: string }).code === "23505")
+        throw new Error("Já existe uma operação em andamento nesta instalação.");
+      throw opError;
+    }
+
+    await context.supabase
+      .from("installations")
+      .update({ status: runningStatusFor("provision"), last_error: null, active_operation_id: op.id })
+      .eq("id", data.id);
+
+    const { runAutomatedProvision } = await import("./automation.server");
+    const outcome = await runAutomatedProvision({
+      client: context.supabase as never,
+      operation: op as never,
+      installation: {
+        id: record.id,
+        domain: record.domain,
+        supabaseUrl: record.supabaseUrl,
+        supabaseProjectRef: record.supabaseProjectRef,
+        deployProject: record.deployProject,
+      },
+    });
+
+    return {
+      result: outcome.result,
+      reasons: outcome.reasons,
+      appUrl: outcome.appUrl,
+      urlSource: outcome.urlSource,
+    };
+  });

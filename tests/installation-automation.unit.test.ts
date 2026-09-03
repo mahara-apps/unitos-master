@@ -1,0 +1,368 @@
+import { describe, expect, it, vi } from "vitest";
+
+import {
+  assertSecretsAreExclusive,
+  automationOutcome,
+  buildDeployEnvPlan,
+  extractProjectRef,
+  resolveAutomationCapability,
+  resolveAutomationTarget,
+  resolveOperationalUrl,
+} from "@/lib/installation/automation-contract";
+import {
+  createDeployClient,
+  createManagementClient,
+  generateInstallationSecret,
+  runAutomatedProvision,
+} from "@/lib/installation/automation.server";
+
+const MASTER_REF = "tkjbhttylouamqxnbfgv";
+
+describe("credenciais de gestão do MASTER", () => {
+  it("BLOCKED quando as credenciais próprias não existem", () => {
+    const cap = resolveAutomationCapability({});
+    expect(cap.available).toBe(false);
+    expect(cap.blockedReasons.length).toBe(2);
+    expect(cap.blockedReasons.join(" ")).toContain("SUPABASE_MANAGEMENT_TOKEN");
+  });
+
+  it("disponível somente com Supabase management + token de deploy", () => {
+    expect(resolveAutomationCapability({ SUPABASE_MANAGEMENT_TOKEN: "t" }).available).toBe(false);
+    expect(
+      resolveAutomationCapability({ SUPABASE_MANAGEMENT_TOKEN: "t", VERCEL_TOKEN: "v" }).available,
+    ).toBe(true);
+  });
+});
+
+describe("alvo do provisionamento automático", () => {
+  it("aceita ref explícito e extrai da URL", () => {
+    expect(extractProjectRef({ supabaseUrl: "https://abcdefghijklmnop.supabase.co" })).toBe(
+      "abcdefghijklmnop",
+    );
+    const target = resolveAutomationTarget({
+      supabaseUrl: "https://abcdefghijklmnop.supabase.co",
+      deployProject: "unitos-pitada",
+    });
+    expect(target).toEqual({ ok: true, projectRef: "abcdefghijklmnop", deployProject: "unitos-pitada" });
+  });
+
+  it("recusa alvo que aponta para o MASTER", () => {
+    const target = resolveAutomationTarget({
+      supabaseUrl: `https://${MASTER_REF}.supabase.co`,
+      deployProject: "x",
+    });
+    expect(target.ok).toBe(false);
+  });
+
+  it("não exige domínio definitivo, mas exige projeto de deploy", () => {
+    const noDeploy = resolveAutomationTarget({ supabaseUrl: "https://abcdefghijklmnop.supabase.co" });
+    expect(noDeploy.ok).toBe(false);
+    const withDeploy = resolveAutomationTarget({
+      supabaseUrl: "https://abcdefghijklmnop.supabase.co",
+      deployProject: "p",
+      domain: null,
+    });
+    expect(withDeploy.ok).toBe(true);
+  });
+});
+
+describe("secrets exclusivos da instalação", () => {
+  it("gera valores longos e distintos", () => {
+    const a = generateInstallationSecret();
+    const b = generateInstallationSecret();
+    expect(a).not.toBe(b);
+    expect(a.length).toBeGreaterThanOrEqual(48);
+  });
+
+  it("recusa reuso de secret do MASTER", () => {
+    const shared = generateInstallationSecret();
+    const result = assertSecretsAreExclusive({
+      generated: {
+        CRON_SECRET: shared,
+        BRAND_CREDENTIALS_SECRET: generateInstallationSecret(),
+        META_STATE_SECRET: generateInstallationSecret(),
+        META_WEBHOOK_VERIFY_TOKEN: generateInstallationSecret(),
+      },
+      masterEnv: { CRON_SECRET: shared },
+    });
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.reason).toContain("MASTER");
+  });
+
+  it("recusa secret ausente ou curto", () => {
+    expect(assertSecretsAreExclusive({ generated: {}, masterEnv: {} }).ok).toBe(false);
+    expect(
+      assertSecretsAreExclusive({
+        generated: {
+          CRON_SECRET: "curto",
+          BRAND_CREDENTIALS_SECRET: generateInstallationSecret(),
+          META_STATE_SECRET: generateInstallationSecret(),
+          META_WEBHOOK_VERIFY_TOKEN: generateInstallationSecret(),
+        },
+        masterEnv: {},
+      }).ok,
+    ).toBe(false);
+  });
+});
+
+describe("URL operacional automática", () => {
+  it("usa a URL temporária do deploy quando não há domínio definitivo", () => {
+    const url = resolveOperationalUrl({ deploymentUrl: "https://unitos-pitada-abc.vercel.app" });
+    expect(url).toEqual({
+      ok: true,
+      origin: "https://unitos-pitada-abc.vercel.app",
+      kind: "temporary",
+      source: "deploy",
+    });
+  });
+
+  it("prefere o domínio definitivo quando existe", () => {
+    const url = resolveOperationalUrl({
+      customDomain: "https://app.pitada.com.br",
+      deploymentUrl: "https://unitos-pitada-abc.vercel.app",
+    });
+    expect(url.ok && url.source).toBe("custom_domain");
+  });
+
+  it("BLOCKED sem domínio e sem URL de deploy", () => {
+    const url = resolveOperationalUrl({});
+    expect(url.ok).toBe(false);
+  });
+});
+
+describe("plano de variáveis do deploy", () => {
+  const base = {
+    appUrl: "https://unitos-pitada-abc.vercel.app",
+    supabaseUrl: "https://abcdefghijklmnop.supabase.co",
+    publishableKey: "sb_publishable_x",
+    serviceRoleKey: "sb_secret_x",
+    projectRef: "abcdefghijklmnop",
+    secrets: {
+      CRON_SECRET: generateInstallationSecret(),
+      BRAND_CREDENTIALS_SECRET: generateInstallationSecret(),
+      META_STATE_SECRET: generateInstallationSecret(),
+      META_WEBHOOK_VERIFY_TOKEN: generateInstallationSecret(),
+    },
+  };
+
+  it("inclui URL, chaves do destino e os 4 secrets próprios", () => {
+    const plan = buildDeployEnvPlan(base);
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    const keys = plan.entries.map((e) => e.key);
+    expect(keys).toContain("PUBLIC_APP_URL");
+    expect(keys).toContain("CRON_SECRET");
+    expect(keys).toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(plan.entries.find((e) => e.key === "SUPABASE_SERVICE_ROLE_KEY")?.sensitive).toBe(true);
+  });
+
+  it("recusa plano que aponta para o MASTER", () => {
+    const plan = buildDeployEnvPlan({ ...base, projectRef: MASTER_REF });
+    expect(plan.ok).toBe(false);
+  });
+
+  it("recusa plano com secret ausente", () => {
+    const plan = buildDeployEnvPlan({ ...base, secrets: { CRON_SECRET: "x".repeat(40) } });
+    expect(plan.ok).toBe(false);
+  });
+});
+
+describe("resultado do fluxo automatizado", () => {
+  it("nunca é PASS com falha ou bloqueio", () => {
+    expect(automationOutcome({}).result).toBe("PASS");
+    expect(automationOutcome({ blocked: ["sem token"] }).result).toBe("BLOCKED");
+    expect(automationOutcome({ blocked: ["x"], failures: ["y"] }).result).toBe("FAIL");
+  });
+});
+
+/* --------------------------------------------------- execução com fetch mock */
+
+function fakeClient() {
+  const updates: Record<string, unknown>[] = [];
+  const api = {
+    from: () => ({
+      update: (patch: Record<string, unknown>) => {
+        updates.push(patch);
+        return { eq: async () => ({ error: null }) };
+      },
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }),
+    }),
+  };
+  return { api, updates };
+}
+
+const OP = {
+  id: "00000000-0000-0000-0000-000000000001",
+  installation_id: "00000000-0000-0000-0000-000000000002",
+  kind: "provision",
+  status: "running",
+  steps: [],
+  detail: {},
+  summary: null,
+  run_token_expires_at: null,
+};
+
+const INSTALLATION = {
+  id: OP.installation_id,
+  domain: null,
+  supabaseUrl: "https://abcdefghijklmnop.supabase.co",
+  supabaseProjectRef: "abcdefghijklmnop",
+  deployProject: "unitos-pitada",
+};
+
+describe("runAutomatedProvision", () => {
+  it("BLOCKED sem credenciais de gestão — sem nenhuma chamada externa", async () => {
+    const { api } = fakeClient();
+    const fetchImpl = vi.fn();
+    const result = await runAutomatedProvision({
+      client: api,
+      operation: OP,
+      installation: INSTALLATION,
+      env: {},
+      fetchImpl: fetchImpl as never,
+    });
+    expect(result.result).toBe("BLOCKED");
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("BLOCKED quando o Supabase destino não responde", async () => {
+    const { api } = fakeClient();
+    const fetchImpl = vi.fn(async () => new Response("no", { status: 401 }));
+    const result = await runAutomatedProvision({
+      client: api,
+      operation: OP,
+      installation: INSTALLATION,
+      env: { SUPABASE_MANAGEMENT_TOKEN: "t", VERCEL_TOKEN: "v" },
+      fetchImpl: fetchImpl as never,
+    });
+    expect(result.result).toBe("BLOCKED");
+    expect(result.reasons.join(" ")).toContain("Supabase destino");
+  });
+
+  it("PASS ponta a ponta usando a URL temporária do deploy", async () => {
+    const { api } = fakeClient();
+    const calls: string[] = [];
+    const fetchImpl = vi.fn(async (url: string) => {
+      calls.push(url);
+      if (url.includes("/api-keys")) {
+        return Response.json([
+          { name: "anon", api_key: "sb_publishable_x" },
+          { name: "service_role", api_key: "sb_secret_x" },
+        ]);
+      }
+      if (url.includes("/database/query")) {
+        return Response.json([{ schemas: 3, item: "ok" }]);
+      }
+      if (url.includes("api.vercel.com/v9/projects")) {
+        return Response.json({ name: "unitos-pitada", targets: { production: { url: "unitos-pitada-abc.vercel.app" } } });
+      }
+      if (url.includes("/env")) return Response.json({ created: [] });
+      return new Response("{}", { status: 200 });
+    });
+
+    const result = await runAutomatedProvision({
+      client: api,
+      operation: OP,
+      installation: INSTALLATION,
+      env: { SUPABASE_MANAGEMENT_TOKEN: "t", VERCEL_TOKEN: "v" },
+      fetchImpl: fetchImpl as never,
+    });
+
+    expect(result.result).toBe("PASS");
+    expect(result.appUrl).toBe("https://unitos-pitada-abc.vercel.app");
+    expect(result.urlSource).toBe("deploy");
+    expect(calls.some((c) => c.includes("/env"))).toBe(true);
+    expect(result.steps.every((s) => s.state === "done")).toBe(true);
+  });
+
+  it("BLOCKED quando o deploy não expõe URL e não há domínio", async () => {
+    const { api } = fakeClient();
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.includes("/api-keys")) {
+        return Response.json([
+          { name: "anon", api_key: "k" },
+          { name: "service_role", api_key: "s" },
+        ]);
+      }
+      if (url.includes("/database/query")) return Response.json([{ schemas: 3 }]);
+      if (url.includes("api.vercel.com/v9/projects")) return new Response("no", { status: 404 });
+      return Response.json({});
+    });
+    const result = await runAutomatedProvision({
+      client: api,
+      operation: OP,
+      installation: INSTALLATION,
+      env: { SUPABASE_MANAGEMENT_TOKEN: "t", VERCEL_TOKEN: "v" },
+      fetchImpl: fetchImpl as never,
+    });
+    expect(result.result).toBe("BLOCKED");
+    expect(result.reasons.join(" ")).toContain("URL operacional");
+  });
+
+  it("FAIL quando o baseline falha no destino", async () => {
+    const { api } = fakeClient();
+    let queries = 0;
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.includes("/api-keys")) {
+        return Response.json([
+          { name: "anon", api_key: "k" },
+          { name: "service_role", api_key: "s" },
+        ]);
+      }
+      if (url.includes("/database/query")) {
+        queries += 1;
+        if (queries === 1) return Response.json([{ schemas: 3 }]);
+        return new Response("erro de sintaxe", { status: 400 });
+      }
+      return Response.json({});
+    });
+    const result = await runAutomatedProvision({
+      client: api,
+      operation: OP,
+      installation: INSTALLATION,
+      env: { SUPABASE_MANAGEMENT_TOKEN: "t", VERCEL_TOKEN: "v" },
+      fetchImpl: fetchImpl as never,
+    });
+    expect(result.result).toBe("FAIL");
+  });
+
+  it("recusa instalação apontada para o MASTER", async () => {
+    const { api } = fakeClient();
+    const result = await runAutomatedProvision({
+      client: api,
+      operation: OP,
+      installation: { ...INSTALLATION, supabaseUrl: `https://${MASTER_REF}.supabase.co`, supabaseProjectRef: MASTER_REF },
+      env: { SUPABASE_MANAGEMENT_TOKEN: "t", VERCEL_TOKEN: "v" },
+      fetchImpl: (async () => new Response("{}")) as never,
+    });
+    expect(result.result).toBe("BLOCKED");
+  });
+});
+
+describe("clientes de gestão", () => {
+  it("management client reporta erro sem expor o token", async () => {
+    const client = createManagementClient({
+      token: "super-secreto",
+      projectRef: "abcdefghijklmnop",
+      fetchImpl: (async () => new Response("boom", { status: 500 })) as never,
+    });
+    const result = await client.query("select 1");
+    expect(result.ok).toBe(false);
+    expect(JSON.stringify(result)).not.toContain("super-secreto");
+  });
+
+  it("deploy client grava variáveis com upsert", async () => {
+    const seen: string[] = [];
+    const client = createDeployClient({
+      token: "t",
+      project: "p",
+      fetchImpl: (async (url: string) => {
+        seen.push(url);
+        return Response.json({});
+      }) as never,
+    });
+    const result = await client.setEnv([{ key: "PUBLIC_APP_URL", value: "https://x.vercel.app", sensitive: false }]);
+    expect(result.ok).toBe(true);
+    expect(seen[0]).toContain("upsert=true");
+  });
+});
