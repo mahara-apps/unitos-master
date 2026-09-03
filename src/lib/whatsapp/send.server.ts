@@ -14,6 +14,14 @@ import { logMessage } from "@/lib/messaging-log.server";
 import { maskDestination, toEvolutionNumber, type WhatsappDestination } from "./destination";
 import { resolveRecipients, type ResolvedRecipient } from "./recipients.server";
 import type { WhatsappRecipientType } from "./types";
+import {
+  cooldownKey,
+  createDispatchBudget,
+  isInCooldown,
+  MAX_RECIPIENTS_PER_BATCH,
+  splitBatch,
+  type WhatsappStopReason,
+} from "./budget";
 
 type AnySupabase = Parameters<typeof assertBrandMember>[0] & { from: (table: string) => any };
 
@@ -32,6 +40,8 @@ export type WhatsappSendSummary = {
   sent: number;
   failed: number;
   skipped: number;
+  /** Motivo de interrupção antecipada do lote (budget, teto ou cooldown). */
+  stopReason: WhatsappStopReason;
   results: WhatsappSendResult[];
 };
 
