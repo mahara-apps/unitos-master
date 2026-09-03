@@ -14,8 +14,18 @@
 
 /** Máximo de páginas seguidas via `paging.next` por aresta. */
 export const MAX_PAGES_PER_EDGE = 10;
+/**
+ * Teto DURO de requisições reais à Graph API em UMA varredura.
+ *
+ * Existe porque os tetos por aresta/portfólio são multiplicativos: 25
+ * portfólios × 3 arestas × 10 páginas chegavam a 770 requests numa conta
+ * extrema. Ao atingir o budget a varredura para imediatamente, preserva tudo
+ * o que já foi lido e devolve `stopReason = "request_budget"`.
+ */
+export const MAX_REQUESTS_PER_SCAN = 200;
 /** Máximo de Business Portfolios varridos em uma execução. */
 export const MAX_PORTFOLIOS_PER_SCAN = 25;
+
 /** Prazo total de uma varredura de portfólio. */
 export const SCAN_DEADLINE_MS = 45_000;
 /** Concorrência máxima ao consultar arestas por portfólio. */
