@@ -646,13 +646,6 @@ export const runAutomatedProvisionFn = createServerFn({ method: "POST" })
       },
     });
 
-    if (outcome.appUrl && outcome.urlSource === "deploy" && !record.domain) {
-      await context.supabase
-        .from("installations")
-        .update({ notes: record.notes })
-        .eq("id", data.id);
-    }
-
     return {
       result: outcome.result,
       reasons: outcome.reasons,
