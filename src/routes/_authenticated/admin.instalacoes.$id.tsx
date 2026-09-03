@@ -400,13 +400,27 @@ function InstallationDetailPage() {
             {automated ? "Validar automaticamente" : "Validar instalação"}
 
           </Button>
+          {/* Puxa o código publicado no MASTER para o deploy da instalação. */}
           <Button
             size="sm"
             variant="outline"
-            disabled={!inst.updateAvailable || start.isPending || !!activeOp}
-            onClick={() => setUpdateOpen(true)}
+            disabled={
+              !canStartOperation("update", inst.status) ||
+              capability.isPending ||
+              start.isPending ||
+              autoUpdate.isPending ||
+              !!activeOp
+            }
+            onClick={() =>
+              deployAutomated ? autoUpdate.mutate() : setUpdateOpen(true)
+            }
           >
-            <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Atualizar instalação
+            {autoUpdate.isPending ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <ArrowDownToLine className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            {deployAutomated ? "Puxar atualização do MASTER" : "Atualizar instalação"}
           </Button>
           <Button size="sm" variant="ghost" disabled={health.isPending} onClick={() => health.mutate()}>
             {health.isPending ? (
