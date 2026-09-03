@@ -714,6 +714,7 @@ export class MetaProvider {
     //    acesso ao ativo pelo portfólio, não como admin direto da Página.
     //    Roda por padrão; `deep: false` só é usado em refresh rápido.
     const businesses: BusinessRow[] = [];
+    let rateLimited = false;
     if (deep) {
       const seenBusinesses = new Set<string>();
       const pushBusiness = (rows: BusinessRow[]) => {
@@ -723,25 +724,51 @@ export class MetaProvider {
           businesses.push(b);
         }
       };
-      try {
-        await loop<BusinessRow>(
-          "/me/businesses",
-          { fields: "id,name", limit: "100" },
-          pushBusiness,
-        );
-      } catch (err) {
+      // REUSO: quando a operação já conhece os portfólios desta autorização
+      // (mesma sessão/mesmo token), `/me/businesses` não é consultado de novo.
+      const known = opts?.knownBusinesses ?? [];
+      if (known.length > 0) {
+        pushBusiness(known.map((b) => ({ id: b.id, name: b.name ?? undefined })));
+        telemetry.cacheHit();
+      } else {
+        telemetry.cacheMiss();
+        try {
+          await loop<BusinessRow>(
+            "/me/businesses",
+            { fields: "id,name", limit: "100" },
+            pushBusiness,
+          );
+        } catch (err) {
+          if (isRateLimitError(err)) {
+            telemetry.rateLimit();
+            noteStop("rate_limited");
+            rateLimited = true;
+          }
+          warnings.push(
+            `Não foi possível listar seus portfólios empresariais${
+              err instanceof MetaGraphError ? `: ${err.message}` : ""
+            }. Reautorize concedendo a permissão "business_management" para ver todas as contas.`,
+          );
+        }
+      }
+
+      // TETO DE PORTFÓLIOS: cada portfólio custa 3 arestas. Sem teto, 50
+      // portfólios viravam ~150 requests em uma única ação.
+      const targets = businesses.slice(0, maxPortfolios);
+      if (businesses.length > targets.length) {
+        noteStop("portfolio_cap");
         warnings.push(
-          `Não foi possível listar seus portfólios empresariais${
-            err instanceof MetaGraphError ? `: ${err.message}` : ""
-          }. Reautorize concedendo a permissão "business_management" para ver todas as contas.`,
+          `Varremos ${targets.length} de ${businesses.length} portfólios nesta sincronização para respeitar o limite de requisições da Meta. Sincronize novamente para continuar.`,
         );
       }
 
-      for (const biz of businesses) {
-        if (outOfTime()) break;
+      /** Arestas de UM portfólio. Rodam com concorrência limitada. */
+      const scanBusiness = async (biz: BusinessRow) => {
+        if (rateLimited || outOfTime()) return;
         const label = biz.name ?? biz.id;
         const ctx = { id: biz.id, name: biz.name ?? null };
         for (const edge of ["owned_pages", "client_pages"] as const) {
+          if (rateLimited || outOfTime()) return;
           try {
             await loop<PageRow>(
               `/${biz.id}/${edge}`,
@@ -749,6 +776,14 @@ export class MetaProvider {
               (rows) => ingestPages(rows, ctx),
             );
           } catch (err) {
+            // RATE LIMIT: interrompe a travessia e PRESERVA o que já foi lido.
+            // Nunca insiste nas arestas seguintes.
+            if (isRateLimitError(err)) {
+              telemetry.rateLimit();
+              noteStop("rate_limited");
+              rateLimited = true;
+              return;
+            }
             if (isFatalScanError(err)) throw err;
             recordEdgeFailure(edge, label, err);
           }
@@ -756,6 +791,7 @@ export class MetaProvider {
 
         // NOTE: only `owned_instagram_accounts` exists. `client_instagram_accounts`
         // is not a valid edge in this Graph version and must not be requested.
+        if (rateLimited || outOfTime()) return;
         try {
           await loop<IgRow>(
             `/${biz.id}/owned_instagram_accounts`,
@@ -776,16 +812,38 @@ export class MetaProvider {
             },
           );
         } catch (err) {
+          if (isRateLimitError(err)) {
+            telemetry.rateLimit();
+            noteStop("rate_limited");
+            rateLimited = true;
+            return;
+          }
           if (isFatalScanError(err)) throw err;
           recordEdgeFailure("owned_instagram_accounts", label, err);
         }
-      }
+      };
+
+      await mapLimit(targets, PORTFOLIO_CONCURRENCY, scanBusiness);
 
       for (const [edge, count] of edgeFailureCounts) {
         const sample = edgeFailureSamples.get(edge);
         warnings.push(
           `A Meta restringiu ${count} leitura${count === 1 ? "" : "s"} em ${edge}.` +
             (sample ? ` Exemplo: ${sample}` : ""),
+        );
+      }
+
+      if (cappedEdges.size > 0) {
+        warnings.push(
+          `Algumas listas da Meta são muito longas e foram lidas parcialmente (${Array.from(
+            cappedEdges,
+          ).join(", ")}). Os ativos já encontrados foram preservados.`,
+        );
+      }
+
+      if (rateLimited) {
+        warnings.push(
+          "A Meta aplicou limite de requisições durante a varredura. Mantivemos tudo o que já foi carregado; tente novamente após o período de espera.",
         );
       }
 
@@ -796,6 +854,13 @@ export class MetaProvider {
       }
     }
 
+    telemetry.counts({
+      portfolios: businesses.length,
+      pages: pages.length,
+      instagram: pages.filter((p) => !!p.instagramBusinessId).length + standaloneInstagram.length,
+    });
+    const summary = telemetry.finish(stopReason);
+
     return {
       pages,
       standaloneInstagram,
@@ -804,6 +869,8 @@ export class MetaProvider {
       businesses: businesses.map((b) => ({ id: b.id, name: b.name ?? null })),
       requestCount,
       deep,
+      stopReason,
+      telemetry: summary,
     };
 
   }
