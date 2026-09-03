@@ -23,6 +23,7 @@ import {
   resumeAutomatedProvisionFn,
   restartAutomatedProvisionFn,
   runAutomatedProvisionFn,
+  runAutomatedValidateFn,
   startInstallationOperationFn,
 } from "@/lib/installation/manager.functions";
 import {
