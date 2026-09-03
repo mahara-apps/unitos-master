@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { applyStatementByStatement } from "@/lib/installation/automation.server";
 import {
-  applyStatementByStatement,
   isDuplicateObjectError,
   prepareVerificationSql,
   splitSqlStatements,
