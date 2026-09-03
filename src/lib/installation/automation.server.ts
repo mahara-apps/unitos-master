@@ -1251,7 +1251,7 @@ export async function runAutomatedUpdate(input: {
   };
 
   const capability = resolveAutomationCapability(env);
-  if (!capability.vercel.ok) {
+  if (!capability.vercel.available) {
     return fail("BLOCKED", capability.vercel.reason ?? "token de deploy indisponível no MASTER");
   }
   const project = (installation.deployProject ?? "").trim();
