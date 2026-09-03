@@ -186,7 +186,7 @@ function htmlResult(result: {
       // necessariamente coincide com META_REDIRECT_URI. Entregamos a mensagem
       // para as origens conhecidas (nunca "*").
       var origins = [${JSON.stringify(targetOrigin)}, window.location.origin, document.referrer ? new URL(document.referrer).origin : ""]
-        .filter(function (o, i, a) { return o && o !== "null" && a.indexOf(o) === i; });
+        .filter(function (o, i, a) { return o && o.indexOf("http") === 0 && a.indexOf(o) === i; });
       var payloads = [${JSON.stringify({ source: "meta-oauth", ok: result.ok, error: result.error, message: result.message, sessionId: result.sessionId ?? null, channel: result.channel ?? null })}${
         result.missingScopes && result.missingScopes.length > 0
           ? `, ${JSON.stringify({ source: "meta-oauth", type: "missing-scopes", scopes: result.missingScopes })}`
