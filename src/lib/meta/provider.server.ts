@@ -576,13 +576,16 @@ export class MetaProvider {
     };
     // Prazo total do scan. Portfólios grandes têm centenas de arestas; sem um
     // limite o request nunca retorna e o diálogo fica em loading infinito.
-    const deadline = Date.now() + 45_000;
+    const deadline = Date.now() + SCAN_DEADLINE_MS;
     let timedOut = false;
     const outOfTime = () => {
       if (Date.now() < deadline) return false;
       timedOut = true;
+      noteStop("deadline");
       return true;
     };
+    /** Arestas que atingiram o teto de páginas (dados parciais, não erro). */
+    const cappedEdges = new Set<string>();
 
     const PAGE_FIELDS =
       "id,name,access_token,category,tasks,picture.type(large){url},business{id,name}," +
