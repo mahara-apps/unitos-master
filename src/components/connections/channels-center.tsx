@@ -447,40 +447,84 @@ export function ChannelsCenter({
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" className="h-8 gap-1.5 text-xs">
-                  Meta
-                  <ChevronDown className="h-3.5 w-3.5" />
+                <Button size="sm" className="h-9 gap-2 px-3.5 text-sm font-medium">
+                  <Plus className="h-4 w-4" />
+                  Conectar canais
+                  <ChevronDown className="h-4 w-4 opacity-80" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" className="w-72 p-1.5">
+                <div className="px-2 pb-1.5 pt-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Disponíveis
+                </div>
                 <DropdownMenuItem
-                  className="text-xs"
+                  className="gap-2.5 rounded-md px-2 py-2 text-sm"
                   onClick={() => setConnectOpen(true)}
                   disabled={connecting !== null}
                 >
-                  <Plus className="mr-2 h-3.5 w-3.5" />
-                  Conectar canais
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-gradient-to-br from-sky-500/15 to-pink-500/15">
+                    <Facebook className="h-3.5 w-3.5 text-sky-600" />
+                    <Instagram className="-ml-1.5 h-3.5 w-3.5 text-pink-500" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">Conectar canais Meta</span>
+                    <span className="block truncate text-[11px] text-muted-foreground">
+                      Instagram e Facebook via autorização oficial
+                    </span>
+                  </span>
                 </DropdownMenuItem>
                 {portfolios.length ? (
                   <DropdownMenuItem
-                    className="text-xs"
+                    className="gap-2.5 rounded-md px-2 py-2 text-sm"
                     onClick={() => void connectMeta("facebook", true)}
                     disabled={connecting !== null}
                   >
-                    <Plus className="mr-2 h-3.5 w-3.5" />
-                    Adicionar outro portfólio
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-muted">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">Adicionar portfólio Meta</span>
+                      <span className="block truncate text-[11px] text-muted-foreground">
+                        Autorizar um novo Business Portfolio
+                      </span>
+                    </span>
                   </DropdownMenuItem>
                 ) : null}
+
+                <DropdownMenuSeparator className="my-1.5" />
+                <div className="px-2 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Em breve
+                </div>
+                {UPCOMING_CHANNELS.map((def) => {
+                  const Icon = def.icon;
+                  return (
+                    <div
+                      key={def.key}
+                      className="flex cursor-not-allowed items-center gap-2.5 rounded-md px-2 py-1.5 text-sm opacity-60"
+                    >
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-muted">
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium">{def.label}</span>
+                        <span className="block truncate text-[11px] text-muted-foreground">
+                          Em breve
+                        </span>
+                      </span>
+                    </div>
+                  );
+                })}
+
                 {(portfolioStatus?.authorizations?.length ?? 0) > 0 ? (
                   <>
-                    <DropdownMenuSeparator />
+                    <DropdownMenuSeparator className="my-1.5" />
                     <DropdownMenuItem
-                      className="text-xs text-destructive focus:text-destructive"
+                      className="gap-2 rounded-md px-2 py-2 text-sm text-destructive focus:text-destructive"
                       onClick={() => setRevokeAllOpen(true)}
                       disabled={revokeAuthMut.isPending}
                     >
-                      <Unplug className="mr-2 h-3.5 w-3.5" />
-                      Revogar acesso
+                      <Unplug className="h-4 w-4" />
+                      Revogar acesso à Meta
                     </DropdownMenuItem>
                   </>
                 ) : null}
@@ -488,6 +532,7 @@ export function ChannelsCenter({
             </DropdownMenu>
           </div>
         ) : null}
+
       </div>
 
       <AlertDialog open={revokeAllOpen} onOpenChange={setRevokeAllOpen}>
