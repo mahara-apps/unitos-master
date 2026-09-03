@@ -180,7 +180,9 @@ export type GraphTelemetry = {
   cacheMiss: () => void;
   retry: () => void;
   rateLimit: () => void;
-  counts: (c: Partial<Pick<GraphTelemetrySummary, "portfolios" | "pages" | "instagram" | "adAccounts">>) => void;
+  counts: (
+    c: Partial<Pick<GraphTelemetrySummary, "portfolios" | "pages" | "instagram" | "adAccounts">>,
+  ) => void;
   finish: (reason: GraphStopReason) => GraphTelemetrySummary;
   logLine: (summary?: GraphTelemetrySummary) => string;
 };

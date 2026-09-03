@@ -429,7 +429,6 @@ export function ChannelsCenter({
     [activeSessionFn, brandId, finishAuthorized],
   );
 
-
   useEffect(() => {
     function onMessage(ev: MessageEvent) {
       const d = ev.data as {
@@ -532,9 +531,7 @@ export function ChannelsCenter({
         pollRef.current = window.setInterval(() => {
           if (!popup.closed) return;
           clearWatchdogs();
-          setFlow((prev) =>
-            prev.kind === "awaiting" ? { kind: "returning", channel } : prev,
-          );
+          setFlow((prev) => (prev.kind === "awaiting" ? { kind: "returning", channel } : prev));
           window.setTimeout(() => void resolveClosedPopup(channel), 1200);
         }, 800);
         // Timeout duro: o modal jamais fica preso em "Aguardando autorização".

@@ -16,7 +16,6 @@ import {
   type GraphTelemetry,
 } from "./graph-budget";
 
-
 const GRAPH_VERSION = "v22.0";
 const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const OAUTH_DIALOG = `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`;
@@ -115,7 +114,6 @@ export type MetaPortfolioScan = {
   /** Resumo estruturado de consumo desta varredura (log/telemetria). */
   telemetry: ReturnType<GraphTelemetry["finish"]> | null;
 };
-
 
 /**
  * Rate limits and expired tokens must abort the whole scan; permission errors
@@ -245,7 +243,9 @@ export type MetaOAuthModeDiagnostics = {
   note: string;
 };
 
-export function metaOAuthModeDiagnostics(explicitConfigId?: string | null): MetaOAuthModeDiagnostics {
+export function metaOAuthModeDiagnostics(
+  explicitConfigId?: string | null,
+): MetaOAuthModeDiagnostics {
   const configId = explicitConfigId !== undefined ? explicitConfigId : metaBusinessConfigId();
   return configId
     ? {
@@ -307,9 +307,11 @@ export async function validateBusinessConfig(opts?: {
 
   try {
     const res = await doFetch(url.toString());
-    const body = (await res.json().catch(() => null)) as
-      | { id?: string; permissions?: unknown; error?: { message?: string } }
-      | null;
+    const body = (await res.json().catch(() => null)) as {
+      id?: string;
+      permissions?: unknown;
+      error?: { message?: string };
+    } | null;
     if (!res.ok || !body?.id) {
       const detail = body?.error?.message ?? `HTTP ${res.status}`;
       return {
@@ -322,7 +324,7 @@ export async function validateBusinessConfig(opts?: {
     const permCount = Array.isArray(perms)
       ? perms.length
       : Array.isArray((perms as { data?: unknown[] } | undefined)?.data)
-        ? ((perms as { data: unknown[] }).data.length)
+        ? (perms as { data: unknown[] }).data.length
         : null;
     if (permCount === 0) {
       return {
@@ -343,10 +345,6 @@ export async function validateBusinessConfig(opts?: {
     };
   }
 }
-
-
-
-
 
 export class MetaProvider {
   private appIdOverride: string | null;
@@ -447,7 +445,6 @@ export class MetaProvider {
     return this.readToken(url.toString());
   }
 
-
   /** Refresh = re-issue a long-lived token from a still-valid one. */
   async refreshLongLivedUserToken(currentToken: string): Promise<MetaTokenInfo> {
     return this.exchangeForLongLivedUserToken(currentToken);
@@ -531,7 +528,6 @@ export class MetaProvider {
       };
       if (rank[reason] > rank[stopReason]) stopReason = reason;
     };
-
 
     type PageRow = {
       id: string;
@@ -637,7 +633,6 @@ export class MetaProvider {
         });
       }
     };
-
 
     /**
      * Segue `paging.next` com TETO DURO de páginas (`MAX_PAGES_PER_EDGE`).
@@ -872,7 +867,6 @@ export class MetaProvider {
       stopReason,
       telemetry: summary,
     };
-
   }
 
   /**
