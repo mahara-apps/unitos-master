@@ -5,6 +5,17 @@
 
 import type { EvolutionConfig } from "./config.server";
 import { EvolutionConfigError } from "./config.server";
+import {
+  backoffDelayMs,
+  classifyWhatsappFailure,
+  cooldownRemainingMs,
+  isRecoverableWhatsappFailure,
+  logWhatsappAttempt,
+  MAX_ATTEMPTS_PER_MESSAGE,
+  REQUEST_TIMEOUT_MS,
+  startCooldown,
+} from "@/lib/whatsapp/budget";
+
 
 export type EvolutionErrorCode =
   | "unauthorized"
@@ -35,8 +46,9 @@ export class EvolutionApiError extends Error {
   }
 }
 
-const DEFAULT_TIMEOUT_MS = 8_000;
-const MAX_ATTEMPTS = 3;
+const DEFAULT_TIMEOUT_MS = REQUEST_TIMEOUT_MS;
+const MAX_ATTEMPTS = MAX_ATTEMPTS_PER_MESSAGE;
+
 
 function messageForStatus(status: number): { code: EvolutionErrorCode; message: string } {
   if (status === 401 || status === 403) {
@@ -70,6 +82,16 @@ export type EvolutionRequestOptions = {
   timeoutMs?: number;
   /** Nº máximo de tentativas (inclui a primeira). */
   attempts?: number;
+  /** Rótulo estável para telemetria (nunca contém dado sensível). */
+  operation?: string;
+  /**
+   * Chave de cooldown (ex.: `cooldownKey(brandId, instanceName)`).
+   * Quando presente: a chamada é bloqueada durante o cooldown e um 429 do
+   * provedor abre uma nova janela de cooldown.
+   */
+  cooldownKey?: string;
+  /** Reserva de budget por operação; `false` interrompe antes de chamar a API. */
+  budget?: { take: () => boolean };
 };
 
 export type EvolutionResponse<T> = {
@@ -89,6 +111,7 @@ export async function evolutionRequest<T = unknown>(
   const attempts = Math.max(1, Math.min(options.attempts ?? MAX_ATTEMPTS, 5));
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const method = options.method ?? "GET";
+  const operation = options.operation ?? `${method} ${options.path.split("/")[1] ?? "request"}`;
 
   const url = new URL(
     `${config.baseUrl}${options.path.startsWith("/") ? options.path : `/${options.path}`}`,
@@ -97,11 +120,44 @@ export async function evolutionRequest<T = unknown>(
     if (value !== undefined) url.searchParams.set(key, String(value));
   }
 
+  if (options.cooldownKey) {
+    const remaining = cooldownRemainingMs(options.cooldownKey);
+    if (remaining > 0) {
+      logWhatsappAttempt({
+        operation,
+        attempt: 0,
+        attempts,
+        outcome: "failed",
+        kind: "rate_limited",
+      });
+      throw new EvolutionApiError(
+        "rate_limited",
+        `Envio em espera: o servidor Evolution limitou as requisições. Tente novamente em ${Math.ceil(
+          remaining / 1000,
+        )}s.`,
+        { status: 429, retryable: false },
+      );
+    }
+  }
+
   let lastError: EvolutionApiError | null = null;
 
   for (let attempt = 1; attempt <= attempts; attempt++) {
+    if (options.budget && !options.budget.take()) {
+      logWhatsappAttempt({ operation, attempt, attempts, outcome: "failed", kind: "terminal" });
+      throw (
+        lastError ??
+        new EvolutionApiError(
+          "provider_error",
+          "Limite de requisições da operação atingido. Nada mais foi enviado.",
+          { retryable: false },
+        )
+      );
+    }
+    const startedAt = Date.now();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+
     try {
       const response = await fetch(url, {
         method,
@@ -127,17 +183,44 @@ export async function evolutionRequest<T = unknown>(
 
       if (!response.ok) {
         const { code, message } = messageForStatus(response.status);
-        const retryable = response.status === 429 || response.status >= 500;
         // Detalhe técnico só no servidor; a chave nunca é logada.
         console.error(
           `[Evolution] ${method} ${options.path} -> ${response.status} ${text.slice(0, 300)}`,
         );
-        lastError = new EvolutionApiError(code, message, {
+        const httpError = new EvolutionApiError(code, message, {
           status: response.status,
-          retryable,
+          retryable: isRecoverableWhatsappFailure({ code, status: response.status }),
         });
-        if (!retryable || attempt === attempts) throw lastError;
-        await sleep(250 * attempt);
+        lastError = httpError;
+        const kind = classifyWhatsappFailure(httpError);
+        if (kind === "rate_limited" && options.cooldownKey) {
+          startCooldown(options.cooldownKey);
+        }
+        if (!httpError.retryable || attempt === attempts) {
+          logWhatsappAttempt({
+            operation,
+            attempt,
+            attempts,
+            outcome: "failed",
+            kind,
+            status: response.status,
+            durationMs: Date.now() - startedAt,
+          });
+          throw httpError;
+        }
+        const delayMs = backoffDelayMs(attempt);
+        logWhatsappAttempt({
+          operation,
+          attempt,
+          attempts,
+          outcome: "retrying",
+          kind,
+          status: response.status,
+          durationMs: Date.now() - startedAt,
+          delayMs,
+        });
+        clearTimeout(timer);
+        await sleep(delayMs);
         continue;
       }
 
@@ -149,10 +232,32 @@ export async function evolutionRequest<T = unknown>(
         );
       }
 
+      logWhatsappAttempt({
+        operation,
+        attempt,
+        attempts,
+        outcome: "ok",
+        status: response.status,
+        durationMs: Date.now() - startedAt,
+      });
       return { status: response.status, data: (parsed ?? null) as T };
     } catch (error) {
       if (error instanceof EvolutionApiError) {
-        if (!error.retryable || attempt === attempts) throw error;
+        if (classifyWhatsappFailure(error) === "rate_limited" && options.cooldownKey) {
+          startCooldown(options.cooldownKey);
+        }
+        if (!error.retryable || attempt === attempts) {
+          logWhatsappAttempt({
+            operation,
+            attempt,
+            attempts,
+            outcome: "failed",
+            kind: classifyWhatsappFailure(error),
+            status: error.status,
+            durationMs: Date.now() - startedAt,
+          });
+          throw error;
+        }
         lastError = error;
       } else {
         const aborted = error instanceof Error && error.name === "AbortError";
@@ -174,13 +279,36 @@ export async function evolutionRequest<T = unknown>(
               "Não foi possível alcançar o servidor Evolution.",
               { retryable: true },
             );
-        if (attempt === attempts) throw lastError;
+        if (attempt === attempts) {
+          logWhatsappAttempt({
+            operation,
+            attempt,
+            attempts,
+            outcome: "failed",
+            kind: classifyWhatsappFailure(lastError),
+            durationMs: Date.now() - startedAt,
+          });
+          throw lastError;
+        }
       }
-      await sleep(250 * attempt);
+      const delayMs = backoffDelayMs(attempt);
+      logWhatsappAttempt({
+        operation,
+        attempt,
+        attempts,
+        outcome: "retrying",
+        kind: classifyWhatsappFailure(lastError),
+        status: lastError?.status ?? null,
+        durationMs: Date.now() - startedAt,
+        delayMs,
+      });
+      clearTimeout(timer);
+      await sleep(delayMs);
     } finally {
       clearTimeout(timer);
     }
   }
+
 
   throw (
     lastError ?? new EvolutionApiError("network_error", "Falha ao contatar o servidor Evolution.")
