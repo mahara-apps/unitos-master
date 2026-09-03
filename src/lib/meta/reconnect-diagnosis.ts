@@ -147,7 +147,6 @@ export function classifyReconnectFailure(
   status?: number,
 ): ReconnectDiagnosisKind {
   const msg = (message ?? "").trim();
-  const lower = msg.toLowerCase();
   const code = graph?.code;
 
   if (code === 4 || code === 17 || code === 32 || /request limit|rate limit|too many calls/i.test(msg))
@@ -155,15 +154,7 @@ export function classifyReconnectFailure(
 
   // (#100) campo inexistente para o tipo de nó consultado → consulta inválida,
   // não falta de permissão. Reautorizar NÃO resolve.
-  if (
-    /nonexistent field/i.test(msg) ||
-    /unsupported get request/i.test(msg) ||
-    lower.includes("cannot be loaded due to missing permissions") === false
-      ? /nonexistent field|unsupported get request|invalid field|does not support the field/i.test(
-          msg,
-        )
-      : false
-  )
+  if (/nonexistent field|unsupported get request|invalid field|does not support the field/i.test(msg))
     return "unsupported";
 
   if (code === 803 || status === 404 || /does not exist|não existe|not found/i.test(msg))
