@@ -4218,36 +4218,51 @@ export type Database = {
           actor_id: string | null
           created_at: string
           detail: Json
+          error_kind: string | null
           finished_at: string | null
           id: string
           installation_id: string
           kind: string
+          last_report_at: string | null
+          run_token_expires_at: string | null
+          run_token_hash: string | null
           started_at: string
           status: string
+          steps: Json
           summary: string | null
         }
         Insert: {
           actor_id?: string | null
           created_at?: string
           detail?: Json
+          error_kind?: string | null
           finished_at?: string | null
           id?: string
           installation_id: string
           kind: string
+          last_report_at?: string | null
+          run_token_expires_at?: string | null
+          run_token_hash?: string | null
           started_at?: string
           status?: string
+          steps?: Json
           summary?: string | null
         }
         Update: {
           actor_id?: string | null
           created_at?: string
           detail?: Json
+          error_kind?: string | null
           finished_at?: string | null
           id?: string
           installation_id?: string
           kind?: string
+          last_report_at?: string | null
+          run_token_expires_at?: string | null
+          run_token_hash?: string | null
           started_at?: string
           status?: string
+          steps?: Json
           summary?: string | null
         }
         Relationships: [
@@ -4262,6 +4277,7 @@ export type Database = {
       }
       installations: {
         Row: {
+          active_operation_id: string | null
           available_version: string | null
           created_at: string
           created_by: string | null
@@ -4270,6 +4286,8 @@ export type Database = {
           domain: string | null
           git_repo_url: string | null
           health: string
+          health_checked_at: string | null
+          health_checks: Json
           id: string
           last_error: string | null
           last_provisioned_at: string | null
@@ -4283,6 +4301,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          active_operation_id?: string | null
           available_version?: string | null
           created_at?: string
           created_by?: string | null
@@ -4291,6 +4310,8 @@ export type Database = {
           domain?: string | null
           git_repo_url?: string | null
           health?: string
+          health_checked_at?: string | null
+          health_checks?: Json
           id?: string
           last_error?: string | null
           last_provisioned_at?: string | null
@@ -4304,6 +4325,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          active_operation_id?: string | null
           available_version?: string | null
           created_at?: string
           created_by?: string | null
@@ -4312,6 +4334,8 @@ export type Database = {
           domain?: string | null
           git_repo_url?: string | null
           health?: string
+          health_checked_at?: string | null
+          health_checks?: Json
           id?: string
           last_error?: string | null
           last_provisioned_at?: string | null

@@ -285,22 +285,240 @@ export function validateInstallationInput(input: InstallationInput): ValidationR
 }
 
 /**
- * Passos que o provisionamento vai executar (nesta primeira versão o fluxo é
- * apenas preparado: os passos são registrados no histórico, não executados).
+ * Etapas do provisionamento — mesma sequência executada por
+ * `supabase/install/bootstrap.sh`. O módulo NÃO reimplementa o bootstrap:
+ * ele apenas acompanha o progresso reportado pelo script.
  */
 export const PROVISION_STEPS = [
-  { id: "baseline", label: "Aplicar baseline do banco", script: "supabase/install/bootstrap.sh" },
-  { id: "storage", label: "Criar buckets e policies de Storage", script: "supabase/install/bootstrap.sh" },
-  { id: "secrets", label: "Gerar secrets próprios da instalação", script: "supabase/install/bootstrap.sh" },
-  { id: "identity", label: "Registrar URL própria da instalação", script: "supabase/install/010_installation_identity.sql" },
-  { id: "brain", label: "Inicializar estatísticas do Brain", script: "supabase/install/011_brain_stats_init.sql" },
-  { id: "cron", label: "Agendar jobs na própria origem", script: "supabase/install/020_cron.sql" },
+  { id: "supabase", label: "Supabase", script: "supabase/install/bootstrap.sh" },
+  { id: "database", label: "Banco + RLS + funções", script: "supabase/baseline-snapshot/001_initial_schema.sql" },
+  { id: "storage", label: "Storage", script: "supabase/baseline-snapshot/003_storage_buckets.sql" },
+  { id: "seeds", label: "Seeds de catálogo", script: "supabase/baseline-snapshot/004_seeds.sql" },
+  { id: "secrets", label: "Secrets próprios", script: "supabase/install/bootstrap.sh" },
+  { id: "cron", label: "Cron na própria origem", script: "supabase/install/020_cron.sql" },
+  { id: "brain", label: "Brain stats", script: "supabase/install/011_brain_stats_init.sql" },
+  { id: "deploy", label: "Deploy / URL própria", script: "supabase/install/010_installation_identity.sql" },
+  { id: "validation", label: "Validação final", script: "supabase/install/verify-installation.sql" },
 ] as const;
 
 export const VALIDATE_STEPS = [
   { id: "isolation", label: "Isolamento do Supabase", script: "supabase/install/verify-installation.sql" },
-  { id: "baseline", label: "Contagens do baseline", script: "supabase/install/verify-installation.sql" },
+  { id: "database", label: "Contagens do baseline", script: "supabase/install/verify-installation.sql" },
   { id: "rls", label: "RLS, funções e triggers", script: "supabase/install/verify-installation.sql" },
   { id: "storage", label: "Buckets e policies", script: "supabase/install/verify-installation.sql" },
   { id: "cron", label: "Cron e URL própria", script: "supabase/install/verify-installation.sql" },
 ] as const;
+
+export type StepDefinition = { id: string; label: string; script: string };
+
+export function stepsFor(kind: InstallationOperationKind): readonly StepDefinition[] {
+  return kind === "validate" ? VALIDATE_STEPS : PROVISION_STEPS;
+}
+
+/* ------------------------------------------------------- etapas / progresso */
+
+export type StepState = "pending" | "running" | "done" | "error";
+
+export const STEP_STATE_LABEL: Record<StepState, string> = {
+  pending: "Pendente",
+  running: "Em execução",
+  done: "Concluído",
+  error: "Erro",
+};
+
+export type OperationStep = {
+  id: string;
+  label: string;
+  script: string;
+  state: StepState;
+  detail?: string | null;
+};
+
+export function initialSteps(kind: InstallationOperationKind): OperationStep[] {
+  return stepsFor(kind).map((s) => ({
+    id: s.id,
+    label: s.label,
+    script: s.script,
+    state: "pending" as StepState,
+  }));
+}
+
+export function isStepState(value: unknown): value is StepState {
+  return value === "pending" || value === "running" || value === "done" || value === "error";
+}
+
+/**
+ * Aplica um report de etapa vindo do script de instalação.
+ * Etapa desconhecida é IGNORADA (nunca cria etapa fantasma) e resultado
+ * parcial já obtido nunca é descartado.
+ */
+export function applyStepReport(
+  steps: OperationStep[],
+  report: { step: string; state: StepState; detail?: string | null },
+): OperationStep[] {
+  return steps.map((s) =>
+    s.id === report.step
+      ? { ...s, state: report.state, detail: report.detail ?? s.detail ?? null }
+      : s,
+  );
+}
+
+export type StepProgress = {
+  total: number;
+  done: number;
+  running: number;
+  failed: number;
+  pending: number;
+  percent: number;
+};
+
+export function stepsProgress(steps: OperationStep[]): StepProgress {
+  const total = steps.length;
+  const done = steps.filter((s) => s.state === "done").length;
+  const running = steps.filter((s) => s.state === "running").length;
+  const failed = steps.filter((s) => s.state === "error").length;
+  return {
+    total,
+    done,
+    running,
+    failed,
+    pending: total - done - running - failed,
+    percent: total === 0 ? 0 : Math.round(((done + failed) / total) * 100),
+  };
+}
+
+/** Status da operação derivado exclusivamente das etapas reportadas. */
+export function operationStatusFromSteps(steps: OperationStep[]): InstallationOperationStatus {
+  const p = stepsProgress(steps);
+  if (p.failed > 0) return "failed";
+  if (p.total > 0 && p.done === p.total) return "success";
+  if (p.running > 0 || p.done > 0) return "running";
+  return "pending";
+}
+
+/* --------------------------------------------------------------- saúde */
+
+export type CheckState = "ok" | "attention" | "error" | "pending";
+
+export const CHECK_STATE_LABEL: Record<CheckState, string> = {
+  ok: "OK",
+  attention: "Atenção",
+  error: "Erro",
+  pending: "Pendente",
+};
+
+export const HEALTH_CHECKS = [
+  { id: "connectivity", label: "Conectividade" },
+  { id: "supabase", label: "Supabase" },
+  { id: "database", label: "Banco" },
+  { id: "storage", label: "Storage" },
+  { id: "cron", label: "Cron" },
+  { id: "frontend", label: "Frontend" },
+  { id: "secrets", label: "Secrets" },
+  { id: "configuration", label: "Configuração" },
+] as const;
+
+export type HealthCheckId = (typeof HEALTH_CHECKS)[number]["id"];
+
+export type HealthCheckResult = { state: CheckState; detail?: string | null };
+export type HealthChecks = Partial<Record<HealthCheckId, HealthCheckResult>>;
+
+export function isCheckState(value: unknown): value is CheckState {
+  return value === "ok" || value === "attention" || value === "error" || value === "pending";
+}
+
+/** Normaliza o jsonb do banco — tudo desconhecido vira `pending`. */
+export function normalizeHealthChecks(raw: unknown): Record<HealthCheckId, HealthCheckResult> {
+  const source = (raw ?? {}) as Record<string, unknown>;
+  const out = {} as Record<HealthCheckId, HealthCheckResult>;
+  for (const check of HEALTH_CHECKS) {
+    const value = source[check.id] as HealthCheckResult | undefined;
+    out[check.id] = {
+      state: isCheckState(value?.state) ? value.state : "pending",
+      detail: typeof value?.detail === "string" ? value.detail : null,
+    };
+  }
+  return out;
+}
+
+/** Saúde agregada: erro manda, depois atenção, depois pendente. */
+export function healthFromChecks(raw: unknown): InstallationHealth {
+  const checks = normalizeHealthChecks(raw);
+  const states = HEALTH_CHECKS.map((c) => checks[c.id].state);
+  if (states.includes("error")) return "failing";
+  if (states.includes("attention")) return "degraded";
+  if (states.every((s) => s === "ok")) return "healthy";
+  return "unknown";
+}
+
+/* ------------------------------------------------- alvo da operação */
+
+export type TargetCheck = { ok: true } | { ok: false; error: string };
+
+/**
+ * Toda operação exige identidade completa e própria. Sem domínio/Supabase da
+ * instalação, ou apontando para o MASTER, nada é executado.
+ */
+export function assertOperationTarget(input: {
+  domain?: string | null;
+  supabaseUrl?: string | null;
+  supabaseProjectRef?: string | null;
+}): TargetCheck {
+  const domain = (input.domain ?? "").trim();
+  const supabaseUrl = (input.supabaseUrl ?? "").trim();
+  if (!domain) return { ok: false, error: "Informe o domínio da instalação antes de operar." };
+  if (!supabaseUrl)
+    return { ok: false, error: "Informe a URL do Supabase da instalação antes de operar." };
+  if (!normalizeHost(domain)) return { ok: false, error: "Domínio da instalação inválido." };
+  if (!normalizeHost(supabaseUrl)) return { ok: false, error: "URL do Supabase inválida." };
+
+  const blob = `${domain} ${supabaseUrl} ${input.supabaseProjectRef ?? ""}`.toLowerCase();
+  if (MASTER_FORBIDDEN_TOKENS.some((t) => blob.includes(t.toLowerCase()))) {
+    return {
+      ok: false,
+      error: "A operação aponta para o MASTER — bloqueada. Use o Supabase e o domínio da instalação.",
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * Comando que o operador roda NA INSTALAÇÃO DE DESTINO. Reutiliza os scripts
+ * existentes de `supabase/install/` — o MASTER apenas acompanha o progresso
+ * reportado pelo token de execução (uso único, nunca armazenado em claro).
+ */
+export function buildRunCommand(input: {
+  kind: InstallationOperationKind;
+  masterUrl: string;
+  operationId: string;
+  runToken: string;
+  appUrl?: string | null;
+}): string {
+  const master = input.masterUrl.replace(/\/+$/, "");
+  const lines = [
+    `export UNITOS_MASTER_URL="${master}"`,
+    `export UNITOS_RUN_TOKEN="${input.runToken}"`,
+    `export UNITOS_OPERATION_ID="${input.operationId}"`,
+    'export SUPABASE_DB_URL="postgresql://postgres:<SENHA>@db.<REF>.supabase.co:5432/postgres"',
+  ];
+  if (input.kind === "validate") {
+    lines.push("bash supabase/install/validate.sh");
+  } else {
+    const appUrl = (input.appUrl ?? "").trim();
+    lines.push(
+      `export PUBLIC_APP_URL="${appUrl ? (appUrl.startsWith("http") ? appUrl : `https://${appUrl}`) : "https://<DOMINIO>"}"`,
+      "bash supabase/install/bootstrap.sh",
+    );
+  }
+  return lines.join("\n");
+}
+
+/** Mensagem de atualização exibida antes de confirmar. */
+export function updateSummary(
+  currentVersion: string | null | undefined,
+  availableVersion: string = MASTER_RELEASE_VERSION,
+): string {
+  const current = (currentVersion ?? "").trim() || "desconhecida";
+  return `Atualização disponível: ${current} → ${availableVersion}`;
+}
+

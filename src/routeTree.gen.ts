@@ -84,6 +84,7 @@ import { Route as AuthenticatedAdminMetaRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAdminInstalacoesRouteImport } from './routes/_authenticated/admin.instalacoes'
 import { Route as AuthenticatedAdminIdentidadeRouteImport } from './routes/_authenticated/admin.identidade'
 import { Route as AuthenticatedAdminAmbienteRouteImport } from './routes/_authenticated/admin.ambiente'
+import { Route as AuthenticatedAdminInstalacoesIndexRouteImport } from './routes/_authenticated/admin.instalacoes.index'
 import { Route as ApiSocialTopPostsConnectionIdRouteImport } from './routes/api/social/top-posts/$connectionId'
 import { Route as ApiSocialDashboardConnectionIdRouteImport } from './routes/api/social/dashboard/$connectionId'
 import { Route as ApiPublicMetaWebhookRouteImport } from './routes/api/public/meta/webhook'
@@ -93,6 +94,7 @@ import { Route as ApiPublicMetaDeauthorizeRouteImport } from './routes/api/publi
 import { Route as ApiPublicMetaDataDeletionRouteImport } from './routes/api/public/meta/data-deletion'
 import { Route as ApiPublicMetaCallbackRouteImport } from './routes/api/public/meta/callback'
 import { Route as ApiPublicMediaPruneRouteImport } from './routes/api/public/media/prune'
+import { Route as ApiPublicInstallationsReportRouteImport } from './routes/api/public/installations/report'
 import { Route as ApiPublicHooksSocialMetricsSyncRouteImport } from './routes/api/public/hooks/social-metrics-sync'
 import { Route as ApiPublicHooksResumePostContentRouteImport } from './routes/api/public/hooks/resume-post-content'
 import { Route as ApiPublicHooksBrainSynthesisRouteImport } from './routes/api/public/hooks/brain-synthesis'
@@ -106,6 +108,7 @@ import { Route as AuthenticatedCustomersCustomerIdPautaRouteImport } from './rou
 import { Route as AuthenticatedCustomersCustomerIdMediaPlanRouteImport } from './routes/_authenticated/customers.$customerId.media-plan'
 import { Route as AuthenticatedCustomersCustomerIdBriefingRouteImport } from './routes/_authenticated/customers.$customerId.briefing'
 import { Route as AuthenticatedCustomersCustomerIdBrainRouteImport } from './routes/_authenticated/customers.$customerId.brain'
+import { Route as AuthenticatedAdminInstalacoesIdRouteImport } from './routes/_authenticated/admin.instalacoes.$id'
 import { Route as ApiSocialPostsPostIdAnalyticsRouteImport } from './routes/api/social/posts/$postId.analytics'
 import { Route as ApiPublicHooksEvolutionTokenRouteImport } from './routes/api/public/hooks/evolution/$token'
 
@@ -510,6 +513,12 @@ const AuthenticatedAdminAmbienteRoute =
     path: '/ambiente',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminInstalacoesIndexRoute =
+  AuthenticatedAdminInstalacoesIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAdminInstalacoesRoute,
+  } as any)
 const ApiSocialTopPostsConnectionIdRoute =
   ApiSocialTopPostsConnectionIdRouteImport.update({
     id: '/api/social/top-posts/$connectionId',
@@ -561,6 +570,12 @@ const ApiPublicMediaPruneRoute = ApiPublicMediaPruneRouteImport.update({
   path: '/api/public/media/prune',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicInstallationsReportRoute =
+  ApiPublicInstallationsReportRouteImport.update({
+    id: '/api/public/installations/report',
+    path: '/api/public/installations/report',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksSocialMetricsSyncRoute =
   ApiPublicHooksSocialMetricsSyncRouteImport.update({
     id: '/api/public/hooks/social-metrics-sync',
@@ -637,6 +652,12 @@ const AuthenticatedCustomersCustomerIdBrainRoute =
     path: '/brain',
     getParentRoute: () => AuthenticatedCustomersCustomerIdRoute,
   } as any)
+const AuthenticatedAdminInstalacoesIdRoute =
+  AuthenticatedAdminInstalacoesIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => AuthenticatedAdminInstalacoesRoute,
+  } as any)
 const ApiSocialPostsPostIdAnalyticsRoute =
   ApiSocialPostsPostIdAnalyticsRouteImport.update({
     id: '/api/social/posts/$postId/analytics',
@@ -679,7 +700,7 @@ export interface FileRoutesByFullPath {
   '/portal/$token': typeof PortalTokenRouteWithChildren
   '/admin/ambiente': typeof AuthenticatedAdminAmbienteRoute
   '/admin/identidade': typeof AuthenticatedAdminIdentidadeRoute
-  '/admin/instalacoes': typeof AuthenticatedAdminInstalacoesRoute
+  '/admin/instalacoes': typeof AuthenticatedAdminInstalacoesRouteWithChildren
   '/admin/meta': typeof AuthenticatedAdminMetaRoute
   '/admin/recursos': typeof AuthenticatedAdminRecursosRoute
   '/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
@@ -724,6 +745,7 @@ export interface FileRoutesByFullPath {
   '/projects/': typeof AuthenticatedProjectsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/portal/$token/': typeof PortalTokenIndexRoute
+  '/admin/instalacoes/$id': typeof AuthenticatedAdminInstalacoesIdRoute
   '/customers/$customerId/brain': typeof AuthenticatedCustomersCustomerIdBrainRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
@@ -737,6 +759,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/brain-synthesis': typeof ApiPublicHooksBrainSynthesisRoute
   '/api/public/hooks/resume-post-content': typeof ApiPublicHooksResumePostContentRoute
   '/api/public/hooks/social-metrics-sync': typeof ApiPublicHooksSocialMetricsSyncRoute
+  '/api/public/installations/report': typeof ApiPublicInstallationsReportRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
   '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
@@ -746,6 +769,7 @@ export interface FileRoutesByFullPath {
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
   '/api/social/top-posts/$connectionId': typeof ApiSocialTopPostsConnectionIdRoute
+  '/admin/instalacoes/': typeof AuthenticatedAdminInstalacoesIndexRoute
   '/api/public/hooks/evolution/$token': typeof ApiPublicHooksEvolutionTokenRoute
   '/api/social/posts/$postId/analytics': typeof ApiSocialPostsPostIdAnalyticsRoute
 }
@@ -771,7 +795,6 @@ export interface FileRoutesByTo {
   '/plano/$planId': typeof PlanoPlanIdRoute
   '/admin/ambiente': typeof AuthenticatedAdminAmbienteRoute
   '/admin/identidade': typeof AuthenticatedAdminIdentidadeRoute
-  '/admin/instalacoes': typeof AuthenticatedAdminInstalacoesRoute
   '/admin/meta': typeof AuthenticatedAdminMetaRoute
   '/admin/recursos': typeof AuthenticatedAdminRecursosRoute
   '/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
@@ -816,6 +839,7 @@ export interface FileRoutesByTo {
   '/projects': typeof AuthenticatedProjectsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/portal/$token': typeof PortalTokenIndexRoute
+  '/admin/instalacoes/$id': typeof AuthenticatedAdminInstalacoesIdRoute
   '/customers/$customerId/brain': typeof AuthenticatedCustomersCustomerIdBrainRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
@@ -829,6 +853,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/brain-synthesis': typeof ApiPublicHooksBrainSynthesisRoute
   '/api/public/hooks/resume-post-content': typeof ApiPublicHooksResumePostContentRoute
   '/api/public/hooks/social-metrics-sync': typeof ApiPublicHooksSocialMetricsSyncRoute
+  '/api/public/installations/report': typeof ApiPublicInstallationsReportRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
   '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
@@ -838,6 +863,7 @@ export interface FileRoutesByTo {
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
   '/api/social/top-posts/$connectionId': typeof ApiSocialTopPostsConnectionIdRoute
+  '/admin/instalacoes': typeof AuthenticatedAdminInstalacoesIndexRoute
   '/api/public/hooks/evolution/$token': typeof ApiPublicHooksEvolutionTokenRoute
   '/api/social/posts/$postId/analytics': typeof ApiSocialPostsPostIdAnalyticsRoute
 }
@@ -873,7 +899,7 @@ export interface FileRoutesById {
   '/portal/$token': typeof PortalTokenRouteWithChildren
   '/_authenticated/admin/ambiente': typeof AuthenticatedAdminAmbienteRoute
   '/_authenticated/admin/identidade': typeof AuthenticatedAdminIdentidadeRoute
-  '/_authenticated/admin/instalacoes': typeof AuthenticatedAdminInstalacoesRoute
+  '/_authenticated/admin/instalacoes': typeof AuthenticatedAdminInstalacoesRouteWithChildren
   '/_authenticated/admin/meta': typeof AuthenticatedAdminMetaRoute
   '/_authenticated/admin/recursos': typeof AuthenticatedAdminRecursosRoute
   '/_authenticated/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
@@ -918,6 +944,7 @@ export interface FileRoutesById {
   '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/portal/$token/': typeof PortalTokenIndexRoute
+  '/_authenticated/admin/instalacoes/$id': typeof AuthenticatedAdminInstalacoesIdRoute
   '/_authenticated/customers/$customerId/brain': typeof AuthenticatedCustomersCustomerIdBrainRoute
   '/_authenticated/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/_authenticated/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
@@ -931,6 +958,7 @@ export interface FileRoutesById {
   '/api/public/hooks/brain-synthesis': typeof ApiPublicHooksBrainSynthesisRoute
   '/api/public/hooks/resume-post-content': typeof ApiPublicHooksResumePostContentRoute
   '/api/public/hooks/social-metrics-sync': typeof ApiPublicHooksSocialMetricsSyncRoute
+  '/api/public/installations/report': typeof ApiPublicInstallationsReportRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
   '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
@@ -940,6 +968,7 @@ export interface FileRoutesById {
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
   '/api/social/top-posts/$connectionId': typeof ApiSocialTopPostsConnectionIdRoute
+  '/_authenticated/admin/instalacoes/': typeof AuthenticatedAdminInstalacoesIndexRoute
   '/api/public/hooks/evolution/$token': typeof ApiPublicHooksEvolutionTokenRoute
   '/api/social/posts/$postId/analytics': typeof ApiSocialPostsPostIdAnalyticsRoute
 }
@@ -1019,6 +1048,7 @@ export interface FileRouteTypes {
     | '/projects/'
     | '/settings/'
     | '/portal/$token/'
+    | '/admin/instalacoes/$id'
     | '/customers/$customerId/brain'
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/media-plan'
@@ -1032,6 +1062,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/brain-synthesis'
     | '/api/public/hooks/resume-post-content'
     | '/api/public/hooks/social-metrics-sync'
+    | '/api/public/installations/report'
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
     | '/api/public/meta/data-deletion'
@@ -1041,6 +1072,7 @@ export interface FileRouteTypes {
     | '/api/public/meta/webhook'
     | '/api/social/dashboard/$connectionId'
     | '/api/social/top-posts/$connectionId'
+    | '/admin/instalacoes/'
     | '/api/public/hooks/evolution/$token'
     | '/api/social/posts/$postId/analytics'
   fileRoutesByTo: FileRoutesByTo
@@ -1066,7 +1098,6 @@ export interface FileRouteTypes {
     | '/plano/$planId'
     | '/admin/ambiente'
     | '/admin/identidade'
-    | '/admin/instalacoes'
     | '/admin/meta'
     | '/admin/recursos'
     | '/brain/diagnostics'
@@ -1111,6 +1142,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/settings'
     | '/portal/$token'
+    | '/admin/instalacoes/$id'
     | '/customers/$customerId/brain'
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/media-plan'
@@ -1124,6 +1156,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/brain-synthesis'
     | '/api/public/hooks/resume-post-content'
     | '/api/public/hooks/social-metrics-sync'
+    | '/api/public/installations/report'
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
     | '/api/public/meta/data-deletion'
@@ -1133,6 +1166,7 @@ export interface FileRouteTypes {
     | '/api/public/meta/webhook'
     | '/api/social/dashboard/$connectionId'
     | '/api/social/top-posts/$connectionId'
+    | '/admin/instalacoes'
     | '/api/public/hooks/evolution/$token'
     | '/api/social/posts/$postId/analytics'
   id:
@@ -1212,6 +1246,7 @@ export interface FileRouteTypes {
     | '/_authenticated/projects/'
     | '/_authenticated/settings/'
     | '/portal/$token/'
+    | '/_authenticated/admin/instalacoes/$id'
     | '/_authenticated/customers/$customerId/brain'
     | '/_authenticated/customers/$customerId/briefing'
     | '/_authenticated/customers/$customerId/media-plan'
@@ -1225,6 +1260,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/brain-synthesis'
     | '/api/public/hooks/resume-post-content'
     | '/api/public/hooks/social-metrics-sync'
+    | '/api/public/installations/report'
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
     | '/api/public/meta/data-deletion'
@@ -1234,6 +1270,7 @@ export interface FileRouteTypes {
     | '/api/public/meta/webhook'
     | '/api/social/dashboard/$connectionId'
     | '/api/social/top-posts/$connectionId'
+    | '/_authenticated/admin/instalacoes/'
     | '/api/public/hooks/evolution/$token'
     | '/api/social/posts/$postId/analytics'
   fileRoutesById: FileRoutesById
@@ -1265,6 +1302,7 @@ export interface RootRouteChildren {
   ApiPublicHooksBrainSynthesisRoute: typeof ApiPublicHooksBrainSynthesisRoute
   ApiPublicHooksResumePostContentRoute: typeof ApiPublicHooksResumePostContentRoute
   ApiPublicHooksSocialMetricsSyncRoute: typeof ApiPublicHooksSocialMetricsSyncRoute
+  ApiPublicInstallationsReportRoute: typeof ApiPublicInstallationsReportRoute
   ApiPublicMediaPruneRoute: typeof ApiPublicMediaPruneRoute
   ApiPublicMetaCallbackRoute: typeof ApiPublicMetaCallbackRoute
   ApiPublicMetaDataDeletionRoute: typeof ApiPublicMetaDataDeletionRoute
@@ -1805,6 +1843,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminAmbienteRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/instalacoes/': {
+      id: '/_authenticated/admin/instalacoes/'
+      path: '/'
+      fullPath: '/admin/instalacoes/'
+      preLoaderRoute: typeof AuthenticatedAdminInstalacoesIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminInstalacoesRoute
+    }
     '/api/social/top-posts/$connectionId': {
       id: '/api/social/top-posts/$connectionId'
       path: '/api/social/top-posts/$connectionId'
@@ -1866,6 +1911,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/media/prune'
       fullPath: '/api/public/media/prune'
       preLoaderRoute: typeof ApiPublicMediaPruneRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/installations/report': {
+      id: '/api/public/installations/report'
+      path: '/api/public/installations/report'
+      fullPath: '/api/public/installations/report'
+      preLoaderRoute: typeof ApiPublicInstallationsReportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/social-metrics-sync': {
@@ -1959,6 +2011,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersCustomerIdBrainRouteImport
       parentRoute: typeof AuthenticatedCustomersCustomerIdRoute
     }
+    '/_authenticated/admin/instalacoes/$id': {
+      id: '/_authenticated/admin/instalacoes/$id'
+      path: '/$id'
+      fullPath: '/admin/instalacoes/$id'
+      preLoaderRoute: typeof AuthenticatedAdminInstalacoesIdRouteImport
+      parentRoute: typeof AuthenticatedAdminInstalacoesRoute
+    }
     '/api/social/posts/$postId/analytics': {
       id: '/api/social/posts/$postId/analytics'
       path: '/api/social/posts/$postId/analytics'
@@ -1976,10 +2035,27 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedAdminInstalacoesRouteChildren {
+  AuthenticatedAdminInstalacoesIdRoute: typeof AuthenticatedAdminInstalacoesIdRoute
+  AuthenticatedAdminInstalacoesIndexRoute: typeof AuthenticatedAdminInstalacoesIndexRoute
+}
+
+const AuthenticatedAdminInstalacoesRouteChildren: AuthenticatedAdminInstalacoesRouteChildren =
+  {
+    AuthenticatedAdminInstalacoesIdRoute: AuthenticatedAdminInstalacoesIdRoute,
+    AuthenticatedAdminInstalacoesIndexRoute:
+      AuthenticatedAdminInstalacoesIndexRoute,
+  }
+
+const AuthenticatedAdminInstalacoesRouteWithChildren =
+  AuthenticatedAdminInstalacoesRoute._addFileChildren(
+    AuthenticatedAdminInstalacoesRouteChildren,
+  )
+
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAmbienteRoute: typeof AuthenticatedAdminAmbienteRoute
   AuthenticatedAdminIdentidadeRoute: typeof AuthenticatedAdminIdentidadeRoute
-  AuthenticatedAdminInstalacoesRoute: typeof AuthenticatedAdminInstalacoesRoute
+  AuthenticatedAdminInstalacoesRoute: typeof AuthenticatedAdminInstalacoesRouteWithChildren
   AuthenticatedAdminMetaRoute: typeof AuthenticatedAdminMetaRoute
   AuthenticatedAdminRecursosRoute: typeof AuthenticatedAdminRecursosRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
@@ -1988,7 +2064,8 @@ interface AuthenticatedAdminRouteChildren {
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAmbienteRoute: AuthenticatedAdminAmbienteRoute,
   AuthenticatedAdminIdentidadeRoute: AuthenticatedAdminIdentidadeRoute,
-  AuthenticatedAdminInstalacoesRoute: AuthenticatedAdminInstalacoesRoute,
+  AuthenticatedAdminInstalacoesRoute:
+    AuthenticatedAdminInstalacoesRouteWithChildren,
   AuthenticatedAdminMetaRoute: AuthenticatedAdminMetaRoute,
   AuthenticatedAdminRecursosRoute: AuthenticatedAdminRecursosRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
@@ -2257,6 +2334,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksBrainSynthesisRoute: ApiPublicHooksBrainSynthesisRoute,
   ApiPublicHooksResumePostContentRoute: ApiPublicHooksResumePostContentRoute,
   ApiPublicHooksSocialMetricsSyncRoute: ApiPublicHooksSocialMetricsSyncRoute,
+  ApiPublicInstallationsReportRoute: ApiPublicInstallationsReportRoute,
   ApiPublicMediaPruneRoute: ApiPublicMediaPruneRoute,
   ApiPublicMetaCallbackRoute: ApiPublicMetaCallbackRoute,
   ApiPublicMetaDataDeletionRoute: ApiPublicMetaDataDeletionRoute,
