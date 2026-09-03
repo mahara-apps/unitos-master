@@ -728,56 +728,105 @@ export function ChannelsCenter({
       {/* -------------------------------- diálogos -------------------------------- */}
 
       <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-base">Conectar canal</DialogTitle>
-            <DialogDescription className="text-xs">
-              A autorização é feita na tela oficial da Meta. Depois você escolhe quais contas
-              conectar e a qual cliente cada uma atende.
+        <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
+          <DialogHeader className="border-b px-6 py-5">
+            <DialogTitle className="text-lg font-semibold">Conectar canais</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Escolha por onde começar. A autorização acontece na tela oficial do provedor e
+              você seleciona depois as contas e o cliente ao qual pertencem.
             </DialogDescription>
           </DialogHeader>
 
-          <ConnectSteps active={connecting ? 1 : 0} />
-          <div className="space-y-1.5">
-            {CONNECTABLE_CHANNELS.map((def) => {
-              const Icon = def.icon;
-              return (
-                <button
-                  key={def.key}
-                  type="button"
-                  disabled={!!connecting}
-                  onClick={() => connectMeta(def.key as "facebook" | "instagram")}
-                  className="flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent disabled:opacity-60"
-                >
-                  <Icon className={cn(CHANNEL_ICON_SIZE, def.tone)} />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium">{def.label}</div>
-                    <div className="text-xs text-muted-foreground">Meta · autorização oficial</div>
-                  </div>
-                  {connecting === def.key ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                  ) : null}
-                </button>
-              );
-            })}
+          <div className="border-b bg-muted/30 px-6 py-3">
+            <ConnectSteps active={connecting ? 1 : 0} />
           </div>
-          <div className="space-y-1.5 border-t pt-3">
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Em breve</p>
-            <div className="flex flex-wrap gap-1.5">
-              {UPCOMING_CHANNELS.map((def) => (
-                <Badge
-                  key={def.key}
-                  variant="outline"
-                  className="gap-1 text-[11px] font-normal text-muted-foreground"
-                >
-                  <def.icon className="h-3 w-3" />
-                  {def.label}
-                </Badge>
-              ))}
-            </div>
+
+          <div className="max-h-[70vh] overflow-y-auto px-6 py-5 space-y-5">
+            <section className="space-y-2.5">
+              <div className="flex items-baseline justify-between">
+                <h3 className="text-sm font-semibold">Disponíveis</h3>
+                <span className="text-[11px] text-muted-foreground">Autorização oficial</span>
+              </div>
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                {CONNECTABLE_CHANNELS.map((def) => {
+                  const Icon = def.icon;
+                  const isBusy = connecting === def.key;
+                  return (
+                    <button
+                      key={def.key}
+                      type="button"
+                      disabled={!!connecting}
+                      onClick={() => connectMeta(def.key as "facebook" | "instagram")}
+                      className="group flex items-center gap-3 rounded-xl border bg-card p-4 text-left transition-all hover:border-primary/40 hover:bg-accent/40 hover:shadow-sm disabled:opacity-60 disabled:hover:border-border disabled:hover:bg-card disabled:hover:shadow-none"
+                    >
+                      <span
+                        className={cn(
+                          "grid h-10 w-10 shrink-0 place-items-center rounded-lg border bg-background transition-colors",
+                          def.key === "instagram" &&
+                            "border-pink-500/20 bg-gradient-to-br from-pink-500/10 to-orange-400/10",
+                          def.key === "facebook" &&
+                            "border-sky-500/20 bg-gradient-to-br from-sky-500/10 to-sky-500/5",
+                        )}
+                      >
+                        <Icon className={cn("h-5 w-5", def.tone)} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold">{def.label}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          Meta · autorização oficial
+                        </span>
+                      </span>
+                      {isBusy ? (
+                        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 shrink-0 -rotate-90 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="space-y-2.5">
+              <div className="flex items-baseline justify-between">
+                <h3 className="text-sm font-semibold text-muted-foreground">Em breve</h3>
+                <span className="text-[11px] text-muted-foreground">
+                  Novos canais chegando
+                </span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {UPCOMING_CHANNELS.map((def) => {
+                  const Icon = def.icon;
+                  return (
+                    <div
+                      key={def.key}
+                      className="flex items-center gap-2.5 rounded-lg border border-dashed bg-muted/20 p-2.5 opacity-70"
+                    >
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-muted">
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-xs font-medium">{def.label}</span>
+                        <span className="block truncate text-[10px] text-muted-foreground">
+                          Em breve
+                        </span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+
+          <div className="border-t bg-muted/20 px-6 py-3">
+            <p className="text-[11px] text-muted-foreground">
+              Ao conectar, você é redirecionado para o login oficial do provedor. Nenhuma
+              credencial é armazenada pelo Unitos.
+            </p>
           </div>
         </DialogContent>
       </Dialog>
+
 
       {portfolioSessionId ? (
         <MetaPortfolioDialog
