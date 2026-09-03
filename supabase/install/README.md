@@ -66,3 +66,18 @@ referências ao MASTER e as contagens esperadas do baseline.
 Publicar os secrets no deploy, DNS/TLS, App Meta (`unitos` ou `client`) com
 redirect URI e webhook, Resend, Evolution, signup do primeiro Super Admin,
 primeiro workspace, branding institucional e chaves BYOK de IA.
+
+## Preflight e política de secrets (fechamento técnico)
+
+* `bash supabase/install/preflight.sh` — READ-ONLY. Valida domínio, Supabase
+  destino, banco, credencial de gestão, extensões, endpoint publicado, secrets
+  próprios e isolamento do MASTER. Resultado: `PASS`, `BLOCKED` (falta
+  ambiente/credencial, exit 2) ou `FAIL` (pré-condição inválida, exit 1).
+  Ausência de pré-condição nunca é PASS.
+* Secrets (`CRON_SECRET`, `BRAND_CREDENTIALS_SECRET`, `META_STATE_SECRET`,
+  `META_WEBHOOK_VERIFY_TOKEN`) nunca são herdados do ambiente em silêncio. Se a
+  variável já existir no shell, a instalação destino precisa declará-la em
+  `UNITOS_INSTALL_SECRETS` (`all` ou lista de nomes); sem declaração o bootstrap
+  falha. Ausentes, são gerados no próprio destino.
+* `bootstrap.sh` nunca imprime `RESULTADO: PASS` após abortar: abort de
+  pré-condição gera `BLOCKED` (exit 2) e falha de etapa gera `FAIL` (exit 1).
