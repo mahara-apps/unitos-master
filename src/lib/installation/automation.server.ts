@@ -489,7 +489,77 @@ export async function saveBaselineProgress(
   }
 }
 
+/** Checkpoint das fases pós-baseline (nunca contém secrets). */
+export type StageProgress = {
+  deployDone?: boolean;
+  appUrl?: string;
+  urlSource?: string;
+  frontendOk?: boolean;
+};
+
+export async function readStageProgress(
+  client: Client,
+  operation: OperationRow,
+): Promise<StageProgress> {
+  try {
+    const { data } = await (client as never as {
+      from: (t: string) => {
+        select: (c: string) => {
+          eq: (c: string, v: string) => { maybeSingle: () => Promise<{ data?: { detail?: unknown } | null }> };
+        };
+      };
+    })
+      .from("installation_operations")
+      .select("detail")
+      .eq("id", operation.id)
+      .maybeSingle();
+    const raw = (data?.detail as { stageProgress?: unknown } | null | undefined)?.stageProgress;
+    if (raw && typeof raw === "object") return raw as StageProgress;
+  } catch {
+    // checkpoint é otimização/idempotência: leitura falha => refaz a fase.
+  }
+  return {};
+}
+
+export async function saveStageProgress(
+  client: Client,
+  operation: OperationRow,
+  patch: StageProgress,
+): Promise<void> {
+  try {
+    const { data: fresh } = await (client as never as {
+      from: (t: string) => {
+        select: (c: string) => {
+          eq: (c: string, v: string) => { maybeSingle: () => Promise<{ data?: { detail?: unknown } | null }> };
+        };
+      };
+    })
+      .from("installation_operations")
+      .select("detail")
+      .eq("id", operation.id)
+      .maybeSingle();
+    const detail = (fresh?.detail ?? operation.detail ?? {}) as Record<string, unknown>;
+    await (client as never as {
+      from: (t: string) => {
+        update: (v: Record<string, unknown>) => { eq: (c: string, v: string) => Promise<unknown> };
+      };
+    })
+      .from("installation_operations")
+      .update({
+        detail: {
+          ...detail,
+          stageProgress: { ...((detail.stageProgress ?? {}) as StageProgress), ...patch },
+        },
+        last_report_at: new Date().toISOString(),
+      })
+      .eq("id", operation.id);
+  } catch {
+    // idem.
+  }
+}
+
 async function report(
+
 
   client: Client,
   op: OperationRow,
@@ -716,106 +786,138 @@ export async function runAutomatedProvision(input: {
   await mark("storage", "done", "buckets e policies aplicados");
   await mark("seeds", "done", "seeds de catálogo aplicados");
 
-  /* 4. secrets exclusivos da instalação */
-  await mark("secrets", "running");
-  const secrets = {} as Record<GeneratedSecretVar, string>;
-  for (const name of GENERATED_SECRET_VARS) secrets[name] = generateInstallationSecret();
-  const isolation = assertSecretsAreExclusive({ generated: secrets, masterEnv: env });
-  if (!isolation.ok) {
-    failures.push(isolation.reason);
-    await mark("secrets", "error", isolation.reason);
-    checks.secrets = "error";
-    return finish(null, null);
-  }
-  const vault = await management.query(
-    `select public.set_cron_secret(${sqlLiteral(secrets.CRON_SECRET)});`,
-  );
-  if (!vault.ok) {
-    failures.push(`CRON_SECRET não gravado no Vault do destino: ${vault.error ?? ""}`.trim());
-    await mark("secrets", "error", "set_cron_secret falhou");
-    checks.secrets = "error";
-    return finish(null, null);
-  }
-  checks.secrets = "ok";
-  await mark("secrets", "done", "secrets próprios gerados (valores nunca exibidos)");
+  /* 4 + 5. secrets exclusivos, URL operacional e variáveis do deploy.
+   * Fase atômica com checkpoint: uma retomada NÃO regera secrets nem
+   * reconfigura/republica o deploy quando a fase já foi concluída. */
+  const stage = await readStageProgress(client, operation);
+  let url: { origin: string; source: "custom_domain" | "deploy" };
 
-  /* 5. URL operacional e variáveis do deploy */
-  await mark("deploy", "running");
-  const deployment = await deploy.deploymentUrl();
-  const url = resolveOperationalUrl({
-    customDomain: installation.domain,
-    deploymentUrl: deployment.url ?? null,
-  });
-  if (!url.ok) {
-    blocked.push(
-      `URL operacional indisponível: ${url.reason}${deployment.error ? ` (${deployment.error})` : ""}`,
+  if (stage.deployDone && typeof stage.appUrl === "string" && stage.appUrl.length > 0) {
+    url = {
+      origin: stage.appUrl,
+      source: stage.urlSource === "custom_domain" ? "custom_domain" : "deploy",
+    };
+    checks.secrets = "ok";
+    checks.configuration = "ok";
+    checks.frontend = stage.frontendOk ? "ok" : "attention";
+    await mark("secrets", "done", "secrets próprios já gerados nesta operação (checkpoint)");
+    await mark(
+      "deploy",
+      "done",
+      `URL operacional ${url.origin} — variáveis e deployment já aplicados (checkpoint)`,
     );
-    await mark("deploy", "error", url.reason);
-    checks.frontend = "error";
-    return finish(null, null);
-  }
-  if (containsMasterReference(url.origin)) {
-    failures.push("A URL resolvida aponta para o MASTER — operação recusada.");
-    await mark("deploy", "error", "URL do MASTER recusada");
-    return finish(null, null);
-  }
+  } else {
+    await mark("secrets", "running");
+    const secrets = {} as Record<GeneratedSecretVar, string>;
+    for (const name of GENERATED_SECRET_VARS) secrets[name] = generateInstallationSecret();
+    const isolation = assertSecretsAreExclusive({ generated: secrets, masterEnv: env });
+    if (!isolation.ok) {
+      failures.push(isolation.reason);
+      await mark("secrets", "error", isolation.reason);
+      checks.secrets = "error";
+      return finish(null, null);
+    }
+    const vault = await management.query(
+      `select public.set_cron_secret(${sqlLiteral(secrets.CRON_SECRET)});`,
+    );
+    if (!vault.ok) {
+      failures.push(`CRON_SECRET não gravado no Vault do destino: ${vault.error ?? ""}`.trim());
+      await mark("secrets", "error", "set_cron_secret falhou");
+      checks.secrets = "error";
+      return finish(null, null);
+    }
+    checks.secrets = "ok";
+    await mark("secrets", "done", "secrets próprios gerados (valores nunca exibidos)");
 
-  const plan = buildDeployEnvPlan({
-    appUrl: url.origin,
-    supabaseUrl: installation.supabaseUrl ?? `https://${target.projectRef}.supabase.co`,
-    publishableKey: keys.publishableKey,
-    serviceRoleKey: keys.serviceRoleKey,
-    projectRef: target.projectRef,
-    secrets,
-  });
-  if (!plan.ok) {
-    failures.push(plan.reason);
-    await mark("deploy", "error", plan.reason);
-    return finish(url.origin, url.source);
-  }
-  const envResult = await deploy.setEnv(plan.entries);
-  if (!envResult.ok) {
-    blocked.push(`Variáveis do deploy não configuradas: ${envResult.error ?? ""}`.trim());
-    await mark("deploy", "error", "falha ao gravar variáveis do deploy");
-    checks.configuration = "attention";
-    return finish(url.origin, url.source);
-  }
+    await mark("deploy", "running");
+    const deployment = await deploy.deploymentUrl();
+    const resolved = resolveOperationalUrl({
+      customDomain: installation.domain,
+      deploymentUrl: deployment.url ?? null,
+    });
+    if (!resolved.ok) {
+      blocked.push(
+        `URL operacional indisponível: ${resolved.reason}${
+          deployment.error ? ` (${deployment.error})` : ""
+        }`,
+      );
+      await mark("deploy", "error", resolved.reason);
+      checks.frontend = "error";
+      return finish(null, null);
+    }
+    if (containsMasterReference(resolved.origin)) {
+      failures.push("A URL resolvida aponta para o MASTER — operação recusada.");
+      await mark("deploy", "error", "URL do MASTER recusada");
+      return finish(null, null);
+    }
+    url = { origin: resolved.origin, source: resolved.source };
 
-  const identity = await management.query(bindAppUrl(install010, url.origin));
-  if (!identity.ok) {
-    failures.push(`installation.app_url não registrada: ${identity.error ?? ""}`.trim());
-    await mark("deploy", "error", "identidade da instalação inválida");
-    return finish(url.origin, url.source);
-  }
-  checks.configuration = "ok";
+    const plan = buildDeployEnvPlan({
+      appUrl: url.origin,
+      supabaseUrl: installation.supabaseUrl ?? `https://${target.projectRef}.supabase.co`,
+      publishableKey: keys.publishableKey,
+      serviceRoleKey: keys.serviceRoleKey,
+      projectRef: target.projectRef,
+      secrets,
+    });
+    if (!plan.ok) {
+      failures.push(plan.reason);
+      await mark("deploy", "error", plan.reason);
+      return finish(url.origin, url.source);
+    }
+    const envResult = await deploy.setEnv(plan.entries);
+    if (!envResult.ok) {
+      blocked.push(`Variáveis do deploy não configuradas: ${envResult.error ?? ""}`.trim());
+      await mark("deploy", "error", "falha ao gravar variáveis do deploy");
+      checks.configuration = "attention";
+      return finish(url.origin, url.source);
+    }
 
-  // Gravar variaveis NAO republica o app: sem um novo deployment o frontend
-  // continua rodando com o env antigo. O redeploy e disparado aqui.
-  const redeployed = await deploy.redeploy();
-  if (!redeployed.ok) {
-    blocked.push(
-      `Novo deployment nao disparado (as variaveis so valem apos republicar): ${
-        redeployed.error ?? ""
-      }`.trim(),
+    const identity = await management.query(bindAppUrl(install010, url.origin));
+    if (!identity.ok) {
+      failures.push(`installation.app_url não registrada: ${identity.error ?? ""}`.trim());
+      await mark("deploy", "error", "identidade da instalação inválida");
+      return finish(url.origin, url.source);
+    }
+    checks.configuration = "ok";
+
+    // Gravar variaveis NAO republica o app: sem um novo deployment o frontend
+    // continua rodando com o env antigo. O redeploy e disparado aqui — uma
+    // única vez por operação, garantido pelo checkpoint abaixo.
+    const redeployed = await deploy.redeploy();
+    if (!redeployed.ok) {
+      blocked.push(
+        `Novo deployment nao disparado (as variaveis so valem apos republicar): ${
+          redeployed.error ?? ""
+        }`.trim(),
+      );
+    }
+
+    // Estado do frontend so vira "ok" com resposta HTTP real da URL operacional.
+    const probe = await probeOperationalUrl(url.origin, input.fetchImpl);
+    checks.frontend = probe.ok ? "ok" : "attention";
+    if (!probe.ok) {
+      blocked.push(`Frontend ainda nao respondeu em ${url.origin}: ${probe.detail}`);
+    }
+
+    await saveStageProgress(client, operation, {
+      deployDone: true,
+      appUrl: url.origin,
+      urlSource: url.source,
+      frontendOk: probe.ok,
+    });
+
+    await mark(
+      "deploy",
+      "done",
+      `${envResult.applied} variáveis gravadas — URL operacional ${url.origin} (${
+        url.source === "deploy" ? "temporária do deploy" : "domínio definitivo"
+      })${redeployed.ok ? " · novo deployment disparado" : " · redeploy pendente"}${
+        probe.ok ? " · frontend respondendo" : ` · frontend ${probe.detail}`
+      }`,
     );
   }
 
-  // Estado do frontend so vira "ok" com resposta HTTP real da URL operacional.
-  const probe = await probeOperationalUrl(url.origin, input.fetchImpl);
-  checks.frontend = probe.ok ? "ok" : "attention";
-  if (!probe.ok) {
-    blocked.push(`Frontend ainda nao respondeu em ${url.origin}: ${probe.detail}`);
-  }
-
-  await mark(
-    "deploy",
-    "done",
-    `${envResult.applied} variáveis gravadas — URL operacional ${url.origin} (${
-      url.source === "deploy" ? "temporária do deploy" : "domínio definitivo"
-    })${redeployed.ok ? " · novo deployment disparado" : " · redeploy pendente"}${
-      probe.ok ? " · frontend respondendo" : ` · frontend ${probe.detail}`
-    }`,
-  );
 
   /* 6. Brain stats */
   await mark("brain", "running");
