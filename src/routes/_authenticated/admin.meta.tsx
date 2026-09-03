@@ -253,13 +253,17 @@ function AdminMetaAppPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">URLs desta instalação</CardTitle>
           <CardDescription>
-            Cole estes valores no painel do App Meta (Facebook Login, Webhooks e conformidade).
+            {officialReadOnly
+              ? "Com o App oficial do Unitos, só o Redirect URI precisa ser adicionado no App Meta. Webhook, deauthorize e exclusão de dados já estão cadastrados no App e são recebidos pelo Unitos MASTER, que repassa os eventos para esta instalação."
+              : "Cole estes valores no painel do App Meta (Facebook Login, Webhooks e conformidade)."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {META_URLS.map((u) => (
-            <UrlRow key={u.path} label={u.label} url={`${origin}${u.path}`} hint={u.hint} />
-          ))}
+          {(officialReadOnly ? META_URLS.filter((u) => u.path.endsWith("/callback")) : META_URLS).map(
+            (u) => (
+              <UrlRow key={u.path} label={u.label} url={`${origin}${u.path}`} hint={u.hint} />
+            ),
+          )}
           <UrlRow label="Domínio do app" url={origin} hint="App Domains / URL do site" />
         </CardContent>
       </Card>
