@@ -46,7 +46,14 @@ export type MetaAppSettings = {
     businessConfigId: string | null;
     configured: boolean;
   };
+  /** Origem das credenciais efetivamente usadas pelo fluxo OAuth. */
+  effective: {
+    source: "env" | "stored" | "none";
+    appId: string | null;
+    businessConfigId: string | null;
+  };
   updatedAt: string | null;
+
 };
 
 type Row = {
