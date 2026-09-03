@@ -364,6 +364,10 @@ export function ChannelsCenter({
       .catch((e) => {
         const m = metaIssueToast(e);
         toast.error(m.title, { description: m.description, duration: 8000 });
+      })
+      .finally(() => {
+        refreshingRef.current = false;
+        setManualSyncing(false);
       });
   }
 
