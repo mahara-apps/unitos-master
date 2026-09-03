@@ -443,26 +443,76 @@ export function ChannelsCenter({
           </div>
         </div>
         {canManage ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setConnectOpen(true)}>
-              <Plus className="h-3.5 w-3.5" />
-              Conectar Meta
-            </Button>
-            {portfolios.length ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-8 gap-1.5 text-xs text-muted-foreground"
-                disabled={connecting !== null}
-                onClick={() => void connectMeta("facebook", true)}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Adicionar outro portfólio
-              </Button>
-            ) : null}
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" className="h-8 gap-1.5 text-xs">
+                  Meta
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem
+                  className="text-xs"
+                  onClick={() => setConnectOpen(true)}
+                  disabled={connecting !== null}
+                >
+                  <Plus className="mr-2 h-3.5 w-3.5" />
+                  Conectar canais
+                </DropdownMenuItem>
+                {portfolios.length ? (
+                  <DropdownMenuItem
+                    className="text-xs"
+                    onClick={() => void connectMeta("facebook", true)}
+                    disabled={connecting !== null}
+                  >
+                    <Plus className="mr-2 h-3.5 w-3.5" />
+                    Adicionar outro portfólio
+                  </DropdownMenuItem>
+                ) : null}
+                {(portfolioStatus?.authorizations?.length ?? 0) > 0 ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-xs text-destructive focus:text-destructive"
+                      onClick={() => setRevokeAllOpen(true)}
+                      disabled={revokeAuthMut.isPending}
+                    >
+                      <Unplug className="mr-2 h-3.5 w-3.5" />
+                      Revogar acesso
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         ) : null}
       </div>
+
+      <AlertDialog open={revokeAllOpen} onOpenChange={setRevokeAllOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revogar acesso à Meta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A autorização atual será revogada para este workspace. Os canais já conectados
+              permanecem funcionando, mas novas descobertas de contas exigirão uma nova
+              autorização.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setRevokeAllOpen(false);
+                revokeAuthMut.mutate();
+              }}
+            >
+              Revogar acesso
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="space-y-4">
         <TabsList className="h-8">
