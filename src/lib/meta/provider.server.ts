@@ -6,6 +6,7 @@ import { peekMetaAppTypeSync } from "./app-config.server";
 import {
   MAX_PAGES_PER_EDGE,
   MAX_PORTFOLIOS_PER_SCAN,
+  MAX_REQUESTS_PER_SCAN,
   PORTFOLIO_CONCURRENCY,
   SCAN_DEADLINE_MS,
   createGraphTelemetry,
@@ -507,6 +508,8 @@ export class MetaProvider {
       knownBusinesses?: MetaBusiness[];
       /** Teto de portfólios varridos nesta execução. */
       maxPortfolios?: number;
+      /** Teto de requisições reais desta varredura (default `MAX_REQUESTS_PER_SCAN`). */
+      maxRequests?: number;
     },
   ): Promise<MetaPortfolioScan> {
     const deep = opts?.deep !== false;
@@ -522,6 +525,7 @@ export class MetaProvider {
         deduped: 0,
         page_cap: 1,
         portfolio_cap: 1,
+        request_budget: 2,
         deadline: 2,
         rate_limited: 3,
         error: 3,
@@ -582,6 +586,20 @@ export class MetaProvider {
     };
     /** Arestas que atingiram o teto de páginas (dados parciais, não erro). */
     const cappedEdges = new Set<string>();
+    /**
+     * BUDGET GLOBAL: teto duro de requisições reais nesta varredura. Os tetos
+     * por aresta e por portfólio são multiplicativos; sem este limite uma conta
+     * extrema ainda podia gerar centenas de chamadas e estourar a quota (#4).
+     */
+    const maxRequests = Math.max(1, opts?.maxRequests ?? MAX_REQUESTS_PER_SCAN);
+    let budgetExhausted = false;
+    /** true quando não há mais orçamento para uma nova requisição. */
+    const outOfBudget = () => {
+      if (requestCount < maxRequests) return false;
+      budgetExhausted = true;
+      noteStop("request_budget");
+      return true;
+    };
 
     const PAGE_FIELDS =
       "id,name,access_token,category,tasks,picture.type(large){url},business{id,name}," +
@@ -649,7 +667,7 @@ export class MetaProvider {
       let nextUrl: string | null = null;
       let first = true;
       let pageNo = 0;
-      while ((first || nextUrl) && !outOfTime()) {
+      while ((first || nextUrl) && !outOfTime() && !outOfBudget()) {
         if (pageNo >= MAX_PAGES_PER_EDGE) {
           cappedEdges.add(startPath.replace(/^\/\d+\//, "/{portfolio}/"));
           noteStop("page_cap");
@@ -759,11 +777,11 @@ export class MetaProvider {
 
       /** Arestas de UM portfólio. Rodam com concorrência limitada. */
       const scanBusiness = async (biz: BusinessRow) => {
-        if (rateLimited || outOfTime()) return;
+        if (rateLimited || budgetExhausted || outOfTime()) return;
         const label = biz.name ?? biz.id;
         const ctx = { id: biz.id, name: biz.name ?? null };
         for (const edge of ["owned_pages", "client_pages"] as const) {
-          if (rateLimited || outOfTime()) return;
+          if (rateLimited || budgetExhausted || outOfTime()) return;
           try {
             await loop<PageRow>(
               `/${biz.id}/${edge}`,
@@ -786,7 +804,7 @@ export class MetaProvider {
 
         // NOTE: only `owned_instagram_accounts` exists. `client_instagram_accounts`
         // is not a valid edge in this Graph version and must not be requested.
-        if (rateLimited || outOfTime()) return;
+        if (rateLimited || budgetExhausted || outOfTime()) return;
         try {
           await loop<IgRow>(
             `/${biz.id}/owned_instagram_accounts`,
@@ -839,6 +857,12 @@ export class MetaProvider {
       if (rateLimited) {
         warnings.push(
           "A Meta aplicou limite de requisições durante a varredura. Mantivemos tudo o que já foi carregado; tente novamente após o período de espera.",
+        );
+      }
+
+      if (budgetExhausted) {
+        warnings.push(
+          `Esta varredura atingiu o limite de ${maxRequests} consultas à Meta e foi encerrada para não estourar a quota do aplicativo. Todos os ativos já encontrados foram preservados; sincronize novamente para continuar.`,
         );
       }
 
