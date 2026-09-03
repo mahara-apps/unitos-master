@@ -232,6 +232,7 @@ export function ChannelsCenter({
   const historyFn = useServerFn(listChannelHistoryFn);
   const clientsFn = useServerFn(listClients);
   const startMetaFn = useServerFn(startMetaOAuth);
+  const activeSessionFn = useServerFn(getActiveMetaSession);
 
   const [tab, setTab] = useState<"meta" | "whatsapp">("meta");
   const [historyOpen, setHistoryOpen] = useState(false);
