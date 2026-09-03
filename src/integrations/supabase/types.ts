@@ -4213,6 +4213,119 @@ export type Database = {
         }
         Relationships: []
       }
+      installation_operations: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          detail: Json
+          finished_at: string | null
+          id: string
+          installation_id: string
+          kind: string
+          started_at: string
+          status: string
+          summary: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          detail?: Json
+          finished_at?: string | null
+          id?: string
+          installation_id: string
+          kind: string
+          started_at?: string
+          status?: string
+          summary?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          detail?: Json
+          finished_at?: string | null
+          id?: string
+          installation_id?: string
+          kind?: string
+          started_at?: string
+          status?: string
+          summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_operations_installation_id_fkey"
+            columns: ["installation_id"]
+            isOneToOne: false
+            referencedRelation: "installations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      installations: {
+        Row: {
+          available_version: string | null
+          created_at: string
+          created_by: string | null
+          current_version: string | null
+          deploy_project: string | null
+          domain: string | null
+          git_repo_url: string | null
+          health: string
+          id: string
+          last_error: string | null
+          last_provisioned_at: string | null
+          last_validated_at: string | null
+          name: string
+          notes: string | null
+          slug: string
+          status: string
+          supabase_project_ref: string | null
+          supabase_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          available_version?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_version?: string | null
+          deploy_project?: string | null
+          domain?: string | null
+          git_repo_url?: string | null
+          health?: string
+          id?: string
+          last_error?: string | null
+          last_provisioned_at?: string | null
+          last_validated_at?: string | null
+          name: string
+          notes?: string | null
+          slug: string
+          status?: string
+          supabase_project_ref?: string | null
+          supabase_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          available_version?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_version?: string | null
+          deploy_project?: string | null
+          domain?: string | null
+          git_repo_url?: string | null
+          health?: string
+          id?: string
+          last_error?: string | null
+          last_provisioned_at?: string | null
+          last_validated_at?: string | null
+          name?: string
+          notes?: string | null
+          slug?: string
+          status?: string
+          supabase_project_ref?: string | null
+          supabase_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       media_plan_items: {
         Row: {
           audience: string | null
