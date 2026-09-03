@@ -70,8 +70,7 @@ export async function runMetaDiscovery(
   }
 
   const { decryptCredential } = await import("@/lib/credentials-crypto.server");
-  const { MetaProvider, MetaGraphError } = await import("./provider.server");
-  const provider = new MetaProvider();
+  const { MetaGraphError } = await import("./provider.server");
 
   let userToken: string;
   try {
@@ -93,7 +92,10 @@ export async function runMetaDiscovery(
   }
 
   try {
-    const scan = await provider.scanPortfolio(userToken);
+    // Varredura COMPARTILHADA: se o modal de portfólios já varreu este token
+    // há instantes, reutilizamos o resultado em vez de repetir tudo.
+    const { runSharedScan } = await import("./scan-cache.server");
+    const { scan } = await runSharedScan(userToken, { label: "Meta discovery (accounts)" });
     const tokenById = new Map(known.pages.map((p) => [p.pageId, p.pageAccessToken]));
     const payload: CachedPagesPayload = {
       pages: scan.pages.map((p) => ({
