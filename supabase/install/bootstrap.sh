@@ -203,6 +203,15 @@ apply_sql "004_seeds"           "$BASELINE/004_seeds.sql"
 [ "$FAILURES" -eq 0 ] || die "baseline incompleto"
 report_step seeds done "seeds de catálogo aplicados"
 
+# O PostgREST cacheia o schema. Sem recarregar, a API responde PGRST205/PGRST202
+# para tudo que acabou de ser criado e a instalação sobe aparentemente vazia.
+if psql_run -c "notify pgrst, 'reload schema';" >/dev/null 2>&1; then
+  pass "postgrest schema cache" "recarregado"
+else
+  fail "postgrest schema cache" "não foi possível recarregar (notify pgrst)"
+fi
+
+
 # ------------------------------------------------------------ etapa 4: vault
 step "Etapa 4/9 — CRON_SECRET no Vault (mesma origem usada pelo cron)"
 report_step secrets running
