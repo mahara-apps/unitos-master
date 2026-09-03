@@ -447,6 +447,11 @@ function InstallationDetailPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
+          <Button size="sm" variant="outline" onClick={openEdit}>
+            <Pencil className="mr-1.5 h-3.5 w-3.5" />
+            Editar dados
+          </Button>
+
           <Button
             size="sm"
             disabled={
