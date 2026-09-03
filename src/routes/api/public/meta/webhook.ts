@@ -6,6 +6,8 @@ import {
   mergePeers,
   parseInstallationPeers,
 } from "@/lib/meta/installation.server";
+import { readRuntimeEnv } from "@/lib/runtime-env.server";
+
 
 /**
  * Meta Webhooks — single endpoint that receives events for both `page`
@@ -26,7 +28,7 @@ export const Route = createFileRoute("/api/public/meta/webhook")({
         const mode = url.searchParams.get("hub.mode");
         const token = url.searchParams.get("hub.verify_token");
         const challenge = url.searchParams.get("hub.challenge");
-        const expected = process.env.META_WEBHOOK_VERIFY_TOKEN;
+        const expected = readRuntimeEnv("META_WEBHOOK_VERIFY_TOKEN");
         if (!expected) return new Response("Webhook not configured", { status: 500 });
         if (mode === "subscribe" && token === expected && challenge) {
           return new Response(challenge, {
@@ -128,7 +130,7 @@ export const Route = createFileRoute("/api/public/meta/webhook")({
         if (unmatched.length > 0 && !isForwardedWebhook(request.headers)) {
           const selfOrigin = new URL(request.url).origin;
           const peers = mergePeers(
-            parseInstallationPeers(process.env.META_WEBHOOK_PEERS, selfOrigin),
+            parseInstallationPeers(readRuntimeEnv("META_WEBHOOK_PEERS"), selfOrigin),
             // Instalações registradas no Installation Manager (MASTER).
             await loadRegisteredInstallationPeers(selfOrigin),
           );

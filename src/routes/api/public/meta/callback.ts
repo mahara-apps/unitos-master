@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { readRuntimeEnv } from "@/lib/runtime-env.server";
 
 /**
  * Meta OAuth landing (public). Meta redirects the browser here with
@@ -152,7 +153,7 @@ function htmlResult(result: {
    */
   let targetOrigin = "/";
   try {
-    const configured = process.env.META_REDIRECT_URI;
+    const configured = readRuntimeEnv("META_REDIRECT_URI") ?? readRuntimeEnv("PUBLIC_APP_URL");
     if (configured) targetOrigin = new URL(configured).origin;
   } catch {
     targetOrigin = "/";
