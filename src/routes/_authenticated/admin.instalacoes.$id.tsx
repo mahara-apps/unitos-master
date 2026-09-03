@@ -984,7 +984,58 @@ function InstallationDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edição dos dados da instalação — inclui a troca do domínio definitivo. */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar dados da instalação</DialogTitle>
+            <DialogDescription>
+              Atualize o domínio quando o definitivo for informado. Alterar aqui não redeploya:
+              depois da troca, rode “Validar automaticamente” para reconferir o núcleo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {(
+              [
+                ["name", "Nome", "Instalação do cliente"],
+                ["domain", "Domínio operacional", "https://cliente.com.br"],
+                ["supabaseUrl", "Supabase URL", "https://xxxx.supabase.co"],
+                ["supabaseProjectRef", "Supabase project ref", "xxxxxxxxxxxx"],
+                ["deployProject", "Projeto de deploy", "unitos-cliente"],
+                ["gitRepoUrl", "Repositório", "https://github.com/org/repo"],
+                ["notes", "Notas", "observações internas"],
+              ] as const
+            ).map(([key, label, placeholder]) => (
+              <div key={key} className="space-y-1.5">
+                <Label htmlFor={`edit-${key}`} className="text-xs">
+                  {label}
+                </Label>
+                <Input
+                  id={`edit-${key}`}
+                  value={form[key]}
+                  placeholder={placeholder}
+                  onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                />
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={edit.isPending || !form.name.trim()}
+              onClick={() => edit.mutate()}
+            >
+              {edit.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Salvar alterações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 }
 
