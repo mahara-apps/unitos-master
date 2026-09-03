@@ -962,3 +962,119 @@ export const restartAutomatedProvisionFn = createServerFn({ method: "POST" })
 
     return openAutomatedProvision(context, data.id);
   });
+
+/* -------------------------------------------------- atualização de código */
+
+/**
+ * Puxa o código publicado no MASTER para o deploy da instalação: abre uma
+ * operação `update` persistida e dispara a execução em background. A UI
+ * acompanha as etapas pelo mesmo polling das outras operações.
+ */
+export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await guard(context);
+
+    const supabase = context.supabase as never as {
+      from: (table: string) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    };
+
+    const { resolveAutomationCapability } = await import("./automation-contract");
+    const { runtimeEnv } = await import("@/lib/runtime-env.server");
+    const capability = resolveAutomationCapability(runtimeEnv());
+    if (!capability.vercel.available) {
+      return {
+        result: "BLOCKED" as const,
+        operationId: null,
+        reasons: [capability.vercel.reason ?? "token de deploy indisponível no MASTER"],
+      };
+    }
+
+    const { data: current, error: readError } = await supabase
+      .from("installations")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (readError) throw readError;
+    if (!current) throw new Error("Instalação não encontrada.");
+
+    const record = mapInstallation(current);
+    if (!record.deployProject) {
+      return {
+        result: "BLOCKED" as const,
+        operationId: null,
+        reasons: ["a instalação não tem projeto de deploy configurado"],
+      };
+    }
+    if (!canStartOperation("update", record.status)) {
+      throw new Error(
+        `A instalação está em “${INSTALLATION_STATUS_LABEL[record.status]}” e não aceita atualização agora.`,
+      );
+    }
+
+    const { data: active } = await supabase
+      .from("installation_operations")
+      .select("id")
+      .eq("installation_id", data.id)
+      .in("status", ["pending", "running"])
+      .maybeSingle();
+    if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
+
+    const nowIso = new Date().toISOString();
+    const { data: op, error: opError } = await supabase
+      .from("installation_operations")
+      .insert({
+        installation_id: data.id,
+        kind: "update",
+        status: "running",
+        summary: "Atualização de código disparada pelo MASTER.",
+        steps: initialSteps("update"),
+        detail: { releaseVersion: MASTER_RELEASE_VERSION, executed: true, automated: true },
+        actor_id: context.userId,
+        started_at: nowIso,
+        last_report_at: nowIso,
+      })
+      .select("*")
+      .single();
+    if (opError) {
+      if ((opError as { code?: string }).code === "23505")
+        throw new Error("Já existe uma operação em andamento nesta instalação.");
+      throw opError;
+    }
+
+    await supabase
+      .from("installations")
+      .update({
+        status: runningStatusFor("update"),
+        last_error: null,
+        active_operation_id: op.id,
+      })
+      .eq("id", data.id);
+
+    const { runAutomatedUpdate } = await import("./automation.server");
+    const { waitUntil } = await import("@/lib/wait-until.server");
+    waitUntil(
+      runAutomatedUpdate({
+        client: supabase as never,
+        operation: op as never,
+        installation: {
+          id: record.id,
+          domain: record.domain,
+          supabaseUrl: record.supabaseUrl,
+          supabaseProjectRef: record.supabaseProjectRef,
+          deployProject: record.deployProject,
+        },
+      }).catch(async (error: unknown) => {
+        const { finalizeOperation } = await import("./runner.server");
+        const message = error instanceof Error ? error.message : "falha inesperada na atualização";
+        await finalizeOperation(supabase as never, op as never, {
+          ok: false,
+          summary: `FAIL: ${message}`,
+          errorKind: "unexpected_error",
+        });
+      }),
+    );
+
+    return { result: "STARTED" as const, operationId: op.id as string, reasons: [] as string[] };
+  });
