@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyStatementByStatement,
+  isDuplicateObjectError,
   prepareVerificationSql,
+  splitSqlStatements,
   stripPsqlMetaCommands,
   summarizeVerificationRows,
 } from "@/lib/installation/baseline-sql";
@@ -90,5 +93,46 @@ describe("summarizeVerificationRows", () => {
     const s = summarizeVerificationRows([]);
     expect(s.ok).toBe(false);
     expect(s.reason).toMatch(/nenhuma verificação/);
+  });
+});
+
+describe("reexecução idempotente do baseline", () => {
+  it("divide statements preservando corpos dollar-quoted", () => {
+    const stmts = splitSqlStatements(
+      [
+        "CREATE TYPE public.alert_severity AS ENUM ('low','high');",
+        "CREATE FUNCTION f() RETURNS void AS $$ BEGIN PERFORM 1; END; $$ LANGUAGE plpgsql;",
+        "SELECT 'a;b';",
+      ].join("\n"),
+    );
+    expect(stmts).toHaveLength(3);
+    expect(stmts[1]).toContain("PERFORM 1;");
+    expect(stmts[2]).toBe("SELECT 'a;b';");
+  });
+
+  it("reconhece erros da classe 'já existe'", () => {
+    expect(isDuplicateObjectError('ERROR: 42710: type "alert_severity" already exists')).toBe(true);
+    expect(isDuplicateObjectError("ERROR: 42P07: relation \"brands\" already exists")).toBe(true);
+    expect(isDuplicateObjectError("ERROR: 42501: permission denied")).toBe(false);
+    expect(isDuplicateObjectError(null)).toBe(false);
+  });
+
+  it("reaplica ignorando duplicados e aborta em erro real", async () => {
+    const ok = await applyStatementByStatement(
+      {
+        query: async (sql) =>
+          sql.includes("CREATE TYPE")
+            ? { ok: false, rows: [], error: "42710: type already exists" }
+            : { ok: true, rows: [] },
+      },
+      "CREATE TYPE t AS ENUM ('a');\nCREATE TABLE x (id int);",
+    );
+    expect(ok).toEqual({ ok: true, skipped: 1 });
+
+    const bad = await applyStatementByStatement(
+      { query: async () => ({ ok: false, rows: [], error: "42501: permission denied" }) },
+      "CREATE TABLE x (id int);",
+    );
+    expect(bad.ok).toBe(false);
   });
 });
