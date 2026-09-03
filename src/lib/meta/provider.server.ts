@@ -3,7 +3,18 @@
 // rest of the app never talks to graph.facebook.com directly.
 
 import { peekMetaAppTypeSync } from "./app-config.server";
-
+import {
+  MAX_PAGES_PER_EDGE,
+  MAX_PORTFOLIOS_PER_SCAN,
+  PORTFOLIO_CONCURRENCY,
+  SCAN_DEADLINE_MS,
+  createGraphTelemetry,
+  isRateLimitError,
+  mapLimit,
+  shouldRetryWithSmallerFields,
+  type GraphStopReason,
+  type GraphTelemetry,
+} from "./graph-budget";
 
 const GRAPH_VERSION = "v22.0";
 const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
@@ -98,8 +109,11 @@ export type MetaPortfolioScan = {
   requestCount: number;
   /** Whether the Business Portfolio traversal ran. */
   deep: boolean;
+  /** Por que a varredura terminou (completed | deadline | page_cap | ...). */
+  stopReason: GraphStopReason;
+  /** Resumo estruturado de consumo desta varredura (log/telemetria). */
+  telemetry: ReturnType<GraphTelemetry["finish"]> | null;
 };
-
 
 /**
  * Rate limits and expired tokens must abort the whole scan; permission errors
@@ -107,9 +121,10 @@ export type MetaPortfolioScan = {
  */
 export function isFatalScanError(err: unknown): boolean {
   if (!(err instanceof MetaGraphError)) return true;
-  if (err.status === 429) return true;
-  const code = err.graph?.code;
-  return code === 4 || code === 17 || code === 32 || code === 613 || code === 190;
+  // Rate limit (4/17/32/341/613) e token inválido (190) abortam a varredura
+  // inteira: insistir em outras arestas só piora o estouro de quota.
+  if (isRateLimitError(err)) return true;
+  return err.graph?.code === 190;
 }
 
 export type MetaUser = { id: string; name?: string; email?: string };
@@ -228,7 +243,9 @@ export type MetaOAuthModeDiagnostics = {
   note: string;
 };
 
-export function metaOAuthModeDiagnostics(explicitConfigId?: string | null): MetaOAuthModeDiagnostics {
+export function metaOAuthModeDiagnostics(
+  explicitConfigId?: string | null,
+): MetaOAuthModeDiagnostics {
   const configId = explicitConfigId !== undefined ? explicitConfigId : metaBusinessConfigId();
   return configId
     ? {
@@ -290,9 +307,11 @@ export async function validateBusinessConfig(opts?: {
 
   try {
     const res = await doFetch(url.toString());
-    const body = (await res.json().catch(() => null)) as
-      | { id?: string; permissions?: unknown; error?: { message?: string } }
-      | null;
+    const body = (await res.json().catch(() => null)) as {
+      id?: string;
+      permissions?: unknown;
+      error?: { message?: string };
+    } | null;
     if (!res.ok || !body?.id) {
       const detail = body?.error?.message ?? `HTTP ${res.status}`;
       return {
@@ -305,7 +324,7 @@ export async function validateBusinessConfig(opts?: {
     const permCount = Array.isArray(perms)
       ? perms.length
       : Array.isArray((perms as { data?: unknown[] } | undefined)?.data)
-        ? ((perms as { data: unknown[] }).data.length)
+        ? (perms as { data: unknown[] }).data.length
         : null;
     if (permCount === 0) {
       return {
@@ -326,10 +345,6 @@ export async function validateBusinessConfig(opts?: {
     };
   }
 }
-
-
-
-
 
 export class MetaProvider {
   private appIdOverride: string | null;
@@ -430,7 +445,6 @@ export class MetaProvider {
     return this.readToken(url.toString());
   }
 
-
   /** Refresh = re-issue a long-lived token from a still-valid one. */
   async refreshLongLivedUserToken(currentToken: string): Promise<MetaTokenInfo> {
     return this.exchangeForLongLivedUserToken(currentToken);
@@ -485,11 +499,35 @@ export class MetaProvider {
    */
   async scanPortfolio(
     userAccessToken: string,
-    opts?: { deep?: boolean },
+    opts?: {
+      deep?: boolean;
+      /** Telemetria injetada pelo chamador (uma por operação de descoberta). */
+      telemetry?: GraphTelemetry;
+      /** Portfólios já conhecidos: evita repetir `/me/businesses`. */
+      knownBusinesses?: MetaBusiness[];
+      /** Teto de portfólios varridos nesta execução. */
+      maxPortfolios?: number;
+    },
   ): Promise<MetaPortfolioScan> {
     const deep = opts?.deep !== false;
+    const telemetry = opts?.telemetry ?? createGraphTelemetry("Meta discovery");
+    const maxPortfolios = Math.max(1, opts?.maxPortfolios ?? MAX_PORTFOLIOS_PER_SCAN);
     let requestCount = 0;
-
+    let stopReason: GraphStopReason = "completed";
+    /** Só piora o motivo de parada; nunca sobrescreve um estado mais grave. */
+    const noteStop = (reason: GraphStopReason) => {
+      const rank: Record<GraphStopReason, number> = {
+        completed: 0,
+        cached: 0,
+        deduped: 0,
+        page_cap: 1,
+        portfolio_cap: 1,
+        deadline: 2,
+        rate_limited: 3,
+        error: 3,
+      };
+      if (rank[reason] > rank[stopReason]) stopReason = reason;
+    };
 
     type PageRow = {
       id: string;
@@ -534,13 +572,16 @@ export class MetaProvider {
     };
     // Prazo total do scan. Portfólios grandes têm centenas de arestas; sem um
     // limite o request nunca retorna e o diálogo fica em loading infinito.
-    const deadline = Date.now() + 45_000;
+    const deadline = Date.now() + SCAN_DEADLINE_MS;
     let timedOut = false;
     const outOfTime = () => {
       if (Date.now() < deadline) return false;
       timedOut = true;
+      noteStop("deadline");
       return true;
     };
+    /** Arestas que atingiram o teto de páginas (dados parciais, não erro). */
+    const cappedEdges = new Set<string>();
 
     const PAGE_FIELDS =
       "id,name,access_token,category,tasks,picture.type(large){url},business{id,name}," +
@@ -593,8 +634,13 @@ export class MetaProvider {
       }
     };
 
-
-    /** Follows every `paging.next` page for a Graph edge. */
+    /**
+     * Segue `paging.next` com TETO DURO de páginas (`MAX_PAGES_PER_EDGE`).
+     * Antes o `while` podia seguir indefinidamente: uma única aresta grande
+     * gerava dezenas de requests. Ao atingir o teto a aresta é encerrada
+     * elegantemente, preservando tudo o que já foi coletado, e a execução é
+     * marcada como PARCIAL (aviso) em vez de virar erro fatal.
+     */
     const loop = async <T>(
       startPath: string,
       query: Record<string, string>,
@@ -602,8 +648,17 @@ export class MetaProvider {
     ) => {
       let nextUrl: string | null = null;
       let first = true;
+      let pageNo = 0;
       while ((first || nextUrl) && !outOfTime()) {
+        if (pageNo >= MAX_PAGES_PER_EDGE) {
+          cappedEdges.add(startPath.replace(/^\/\d+\//, "/{portfolio}/"));
+          noteStop("page_cap");
+          break;
+        }
         requestCount += 1;
+        pageNo += 1;
+        telemetry.request(startPath);
+        if (!first) telemetry.paginationPage();
         const res: Paged<T> = first
           ? await this.graph<Paged<T>>(startPath, {
               accessToken: userAccessToken,
@@ -617,10 +672,13 @@ export class MetaProvider {
     };
 
     // 1) PRIMARY SOURCE OF TRUTH — Pages administered by the user, with the
-    //    attached Instagram Business account. Meta occasionally returns a
-    //    generic HTTP 500 when a field is unavailable for one asset in a large
-    //    portfolio, so retry with progressively conservative field sets instead
-    //    of discarding the entire account list.
+    //    attached Instagram Business account.
+    //
+    //    O fallback de `fields` existe porque a Meta às vezes devolve HTTP 500
+    //    quando um campo é indisponível para UM ativo de um portfólio grande.
+    //    Mas ele só é tentado diante do erro QUE O JUSTIFICA
+    //    (`shouldRetryWithSmallerFields`): em rate limit ou token inválido
+    //    repetir a mesma leitura 3× só multiplicava o estouro de quota.
     let directPagesLoaded = false;
     let directPagesError: unknown = null;
     for (const fields of [PAGE_FIELDS, COMPAT_PAGE_FIELDS, MINIMAL_PAGE_FIELDS]) {
@@ -630,9 +688,13 @@ export class MetaProvider {
         break;
       } catch (err) {
         directPagesError = err;
-        if (isFatalScanError(err) && !(err instanceof MetaGraphError && err.status >= 500)) {
+        if (isRateLimitError(err)) {
+          telemetry.rateLimit();
+          noteStop("rate_limited");
           throw err;
         }
+        if (!shouldRetryWithSmallerFields(err)) throw err;
+        telemetry.retry();
       }
     }
     if (!directPagesLoaded) {
@@ -647,6 +709,7 @@ export class MetaProvider {
     //    acesso ao ativo pelo portfólio, não como admin direto da Página.
     //    Roda por padrão; `deep: false` só é usado em refresh rápido.
     const businesses: BusinessRow[] = [];
+    let rateLimited = false;
     if (deep) {
       const seenBusinesses = new Set<string>();
       const pushBusiness = (rows: BusinessRow[]) => {
@@ -656,25 +719,51 @@ export class MetaProvider {
           businesses.push(b);
         }
       };
-      try {
-        await loop<BusinessRow>(
-          "/me/businesses",
-          { fields: "id,name", limit: "100" },
-          pushBusiness,
-        );
-      } catch (err) {
+      // REUSO: quando a operação já conhece os portfólios desta autorização
+      // (mesma sessão/mesmo token), `/me/businesses` não é consultado de novo.
+      const known = opts?.knownBusinesses ?? [];
+      if (known.length > 0) {
+        pushBusiness(known.map((b) => ({ id: b.id, name: b.name ?? undefined })));
+        telemetry.cacheHit();
+      } else {
+        telemetry.cacheMiss();
+        try {
+          await loop<BusinessRow>(
+            "/me/businesses",
+            { fields: "id,name", limit: "100" },
+            pushBusiness,
+          );
+        } catch (err) {
+          if (isRateLimitError(err)) {
+            telemetry.rateLimit();
+            noteStop("rate_limited");
+            rateLimited = true;
+          }
+          warnings.push(
+            `Não foi possível listar seus portfólios empresariais${
+              err instanceof MetaGraphError ? `: ${err.message}` : ""
+            }. Reautorize concedendo a permissão "business_management" para ver todas as contas.`,
+          );
+        }
+      }
+
+      // TETO DE PORTFÓLIOS: cada portfólio custa 3 arestas. Sem teto, 50
+      // portfólios viravam ~150 requests em uma única ação.
+      const targets = businesses.slice(0, maxPortfolios);
+      if (businesses.length > targets.length) {
+        noteStop("portfolio_cap");
         warnings.push(
-          `Não foi possível listar seus portfólios empresariais${
-            err instanceof MetaGraphError ? `: ${err.message}` : ""
-          }. Reautorize concedendo a permissão "business_management" para ver todas as contas.`,
+          `Varremos ${targets.length} de ${businesses.length} portfólios nesta sincronização para respeitar o limite de requisições da Meta. Sincronize novamente para continuar.`,
         );
       }
 
-      for (const biz of businesses) {
-        if (outOfTime()) break;
+      /** Arestas de UM portfólio. Rodam com concorrência limitada. */
+      const scanBusiness = async (biz: BusinessRow) => {
+        if (rateLimited || outOfTime()) return;
         const label = biz.name ?? biz.id;
         const ctx = { id: biz.id, name: biz.name ?? null };
         for (const edge of ["owned_pages", "client_pages"] as const) {
+          if (rateLimited || outOfTime()) return;
           try {
             await loop<PageRow>(
               `/${biz.id}/${edge}`,
@@ -682,6 +771,14 @@ export class MetaProvider {
               (rows) => ingestPages(rows, ctx),
             );
           } catch (err) {
+            // RATE LIMIT: interrompe a travessia e PRESERVA o que já foi lido.
+            // Nunca insiste nas arestas seguintes.
+            if (isRateLimitError(err)) {
+              telemetry.rateLimit();
+              noteStop("rate_limited");
+              rateLimited = true;
+              return;
+            }
             if (isFatalScanError(err)) throw err;
             recordEdgeFailure(edge, label, err);
           }
@@ -689,6 +786,7 @@ export class MetaProvider {
 
         // NOTE: only `owned_instagram_accounts` exists. `client_instagram_accounts`
         // is not a valid edge in this Graph version and must not be requested.
+        if (rateLimited || outOfTime()) return;
         try {
           await loop<IgRow>(
             `/${biz.id}/owned_instagram_accounts`,
@@ -709,16 +807,38 @@ export class MetaProvider {
             },
           );
         } catch (err) {
+          if (isRateLimitError(err)) {
+            telemetry.rateLimit();
+            noteStop("rate_limited");
+            rateLimited = true;
+            return;
+          }
           if (isFatalScanError(err)) throw err;
           recordEdgeFailure("owned_instagram_accounts", label, err);
         }
-      }
+      };
+
+      await mapLimit(targets, PORTFOLIO_CONCURRENCY, scanBusiness);
 
       for (const [edge, count] of edgeFailureCounts) {
         const sample = edgeFailureSamples.get(edge);
         warnings.push(
           `A Meta restringiu ${count} leitura${count === 1 ? "" : "s"} em ${edge}.` +
             (sample ? ` Exemplo: ${sample}` : ""),
+        );
+      }
+
+      if (cappedEdges.size > 0) {
+        warnings.push(
+          `Algumas listas da Meta são muito longas e foram lidas parcialmente (${Array.from(
+            cappedEdges,
+          ).join(", ")}). Os ativos já encontrados foram preservados.`,
+        );
+      }
+
+      if (rateLimited) {
+        warnings.push(
+          "A Meta aplicou limite de requisições durante a varredura. Mantivemos tudo o que já foi carregado; tente novamente após o período de espera.",
         );
       }
 
@@ -729,6 +849,13 @@ export class MetaProvider {
       }
     }
 
+    telemetry.counts({
+      portfolios: businesses.length,
+      pages: pages.length,
+      instagram: pages.filter((p) => !!p.instagramBusinessId).length + standaloneInstagram.length,
+    });
+    const summary = telemetry.finish(stopReason);
+
     return {
       pages,
       standaloneInstagram,
@@ -737,8 +864,9 @@ export class MetaProvider {
       businesses: businesses.map((b) => ({ id: b.id, name: b.name ?? null })),
       requestCount,
       deep,
+      stopReason,
+      telemetry: summary,
     };
-
   }
 
   /**
@@ -790,7 +918,10 @@ export class MetaProvider {
   /**
    * Lists Meta Ads accounts the user has access to. Requires `ads_read`.
    */
-  async listAdAccounts(userAccessToken: string): Promise<MetaAdAccount[]> {
+  async listAdAccounts(
+    userAccessToken: string,
+    opts?: { telemetry?: GraphTelemetry },
+  ): Promise<MetaAdAccount[]> {
     type Row = {
       id: string;
       name?: string;
@@ -803,8 +934,15 @@ export class MetaProvider {
     const out: MetaAdAccount[] = [];
     let nextUrl: string | null = null;
     let first = true;
+    // Antes: `while (first || nextUrl)` sem teto e SEM deadline — a única
+    // paginação da Meta totalmente desprotegida no projeto.
+    let pageNo = 0;
+    const deadline = Date.now() + SCAN_DEADLINE_MS;
     try {
-      while (first || nextUrl) {
+      while ((first || nextUrl) && pageNo < MAX_PAGES_PER_EDGE && Date.now() < deadline) {
+        pageNo += 1;
+        opts?.telemetry?.request("/me/adaccounts");
+        if (!first) opts?.telemetry?.paginationPage();
         const res: Paged<Row> = first
           ? await this.graph<Paged<Row>>("/me/adaccounts", {
               accessToken: userAccessToken,
@@ -829,23 +967,41 @@ export class MetaProvider {
       }
     } catch (err) {
       // Missing scope or business setup — return empty list rather than aborting.
+      // Rate limit também PRESERVA o que já foi lido, sem nova tentativa.
+      if (isRateLimitError(err)) opts?.telemetry?.rateLimit();
       if (err instanceof MetaGraphError) return out;
       throw err;
     }
+    opts?.telemetry?.counts({ adAccounts: out.length });
     return out;
   }
 
   /**
    * Lists Threads accounts the user manages. Threads accounts are surfaced
    * per-Facebook-Page via the `threads_profile` edge (Graph v21+).
+   *
+   * Uma requisição por Página é caro: aplicamos dedupe por Page ID,
+   * concorrência limitada, deadline e parada imediata em rate limit.
    */
   async listThreadsAccounts(
     userAccessToken: string,
     pages: MetaPageAsset[],
+    opts?: { telemetry?: GraphTelemetry },
   ): Promise<MetaThreadsAccount[]> {
     const out: MetaThreadsAccount[] = [];
-    for (const page of pages) {
+    const seen = new Set<string>();
+    const targets = pages.filter((p) => {
+      if (!p.pageId || seen.has(p.pageId)) return false;
+      seen.add(p.pageId);
+      return true;
+    });
+    const deadline = Date.now() + SCAN_DEADLINE_MS;
+    let rateLimited = false;
+
+    await mapLimit(targets, PORTFOLIO_CONCURRENCY, async (page) => {
+      if (rateLimited || Date.now() >= deadline) return;
       try {
+        opts?.telemetry?.request(`/${page.pageId}/threads_profile`);
         const res = await this.graph<{
           id?: string;
           username?: string;
@@ -867,10 +1023,15 @@ export class MetaProvider {
             linkedViaPageId: page.pageId,
           });
         }
-      } catch {
+      } catch (err) {
+        if (isRateLimitError(err)) {
+          opts?.telemetry?.rateLimit();
+          rateLimited = true;
+          return;
+        }
         // No Threads profile on this page — skip silently.
       }
-    }
+    });
     return out;
   }
 

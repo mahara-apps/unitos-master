@@ -204,11 +204,16 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
           if (needPages) {
             const knownPages = cachedPages;
             const knownIg = cachedStandaloneIg;
-            const scan = await provider.scanPortfolio(userToken);
+            // Varredura COMPARTILHADA com a trilha de "Contas disponíveis":
+            // uma descoberta por operação, nunca duas.
+            const { runSharedScan } = await import("./scan-cache.server");
+            const { scan, source } = await runSharedScan(userToken, {
+              label: "Meta discovery (portfolio)",
+            });
             console.log(
-              `Meta discovery: requests=${scan.requestCount} cache=${
-                seededFromCache ? "seeded" : "miss"
-              } deep=${scan.deep} pages=${scan.pages.length} withIg=${
+              `Meta discovery: requests=${source === "fresh" ? scan.requestCount : 0} cache=${
+                source === "fresh" ? (seededFromCache ? "seeded" : "miss") : source
+              } deep=${scan.deep} stop=${scan.stopReason} pages=${scan.pages.length} withIg=${
                 scan.pages.filter((p) => !!p.instagramBusinessId).length
               } standaloneIg=${scan.standaloneInstagram.length} warnings=${scan.warnings.length}`,
             );

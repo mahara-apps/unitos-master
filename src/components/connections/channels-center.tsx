@@ -280,6 +280,9 @@ export function ChannelsCenter({
     queryFn: () => discoverFn({ data: { brandId: brandId! } }),
     enabled: !!brandId,
     staleTime: 120_000,
+    // Requisição da Meta NUNCA é repetida automaticamente: um retry silencioso
+    // dobrava o custo de uma descoberta inteira ao primeiro erro.
+    retry: false,
   });
 
   const { data: clients = [] } = useQuery({
@@ -303,6 +306,7 @@ export function ChannelsCenter({
     queryFn: () => portfolioStatusFn({ data: { brandId: brandId! } }),
     enabled: !!brandId,
     staleTime: 30_000,
+    retry: false,
   });
 
   const invalidate = () => {
@@ -333,12 +337,25 @@ export function ChannelsCenter({
     onError: () => toast.error("Não foi possível revogar a autorização Meta."),
   });
 
-  /** Nova varredura na Meta (mesma operação de antes, agora reutilizável). */
+  /**
+   * Nova varredura na Meta.
+   *
+   * O botão "Sincronizar" observava a query key BASE, mas a varredura rodava em
+   * `[..., "refresh"]`: o botão nunca desabilitava e cada clique disparava uma
+   * descoberta completa. Agora há um guard explícito de reentrada e o estado
+   * de "sincronizando" é o real.
+   */
+  const refreshingRef = useRef(false);
+  const [manualSyncing, setManualSyncing] = useState(false);
   function refreshDiscovery() {
+    if (refreshingRef.current || !brandId) return;
+    refreshingRef.current = true;
+    setManualSyncing(true);
     void qc
       .fetchQuery({
         queryKey: ["meta-discovered-accounts", brandId, "refresh"],
         queryFn: () => discoverFn({ data: { brandId: brandId!, refresh: true } }),
+        retry: false,
       })
       .then((r) => {
         qc.setQueryData(["meta-discovered-accounts", brandId], r);
@@ -351,6 +368,10 @@ export function ChannelsCenter({
       .catch((e) => {
         const m = metaIssueToast(e);
         toast.error(m.title, { description: m.description, duration: 8000 });
+      })
+      .finally(() => {
+        refreshingRef.current = false;
+        setManualSyncing(false);
       });
   }
 
@@ -407,7 +428,6 @@ export function ChannelsCenter({
     },
     [activeSessionFn, brandId, finishAuthorized],
   );
-
 
   useEffect(() => {
     function onMessage(ev: MessageEvent) {
@@ -511,9 +531,7 @@ export function ChannelsCenter({
         pollRef.current = window.setInterval(() => {
           if (!popup.closed) return;
           clearWatchdogs();
-          setFlow((prev) =>
-            prev.kind === "awaiting" ? { kind: "returning", channel } : prev,
-          );
+          setFlow((prev) => (prev.kind === "awaiting" ? { kind: "returning", channel } : prev));
           window.setTimeout(() => void resolveClosedPopup(channel), 1200);
         }, 800);
         // Timeout duro: o modal jamais fica preso em "Aguardando autorização".
@@ -770,7 +788,7 @@ export function ChannelsCenter({
                 canManage={canManage}
                 loading={loadingPortfolio}
                 loadingDiscovery={loadingDiscovery}
-                fetchingDiscovery={fetchingDiscovery}
+                fetchingDiscovery={fetchingDiscovery || manualSyncing}
                 portfolios={portfolios}
                 accounts={available}
                 discovery={discovery}
@@ -888,7 +906,7 @@ export function ChannelsCenter({
         }}
         onRefreshDiscovery={() => refreshDiscovery()}
         discovery={discovery}
-        syncing={loadingDiscovery || fetchingDiscovery}
+        syncing={loadingDiscovery || fetchingDiscovery || manualSyncing}
       />
 
       {portfolioSessionId ? (
