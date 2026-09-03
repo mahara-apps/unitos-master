@@ -3,6 +3,7 @@
 // rest of the app never talks to graph.facebook.com directly.
 
 import { peekMetaAppTypeSync } from "./app-config.server";
+import { readRuntimeEnv } from "@/lib/runtime-env.server";
 import {
   MAX_PAGES_PER_EDGE,
   MAX_PORTFOLIOS_PER_SCAN,
@@ -176,12 +177,32 @@ export class MetaGraphError extends Error {
 }
 
 function requireEnv(name: string): string {
-  const v = process.env[name];
+  const v = readRuntimeEnv(name);
   if (!v) throw new Error(`Meta integration is not configured: missing ${name}`);
   return v;
 }
 
 export const META_CALLBACK_PATH = "/api/public/meta/callback";
+
+/**
+ * Redirect URI da própria instalação, derivado quando `META_REDIRECT_URI` não
+ * foi provisionado. Ordem: origem da request (https) → `PUBLIC_APP_URL` →
+ * `VITE_PUBLIC_APP_URL`. Cada instalação registra este URI no App Meta.
+ */
+function fallbackRedirectUri(origin?: string | null): string | null {
+  const candidates = [origin, readRuntimeEnv("PUBLIC_APP_URL"), readRuntimeEnv("VITE_PUBLIC_APP_URL")];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    try {
+      const url = new URL(candidate);
+      if (url.protocol !== "https:") continue;
+      return `${url.origin}${META_CALLBACK_PATH}`;
+    } catch {
+      // ignora valores inválidos
+    }
+  }
+  return null;
+}
 
 /**
  * Resolves the OAuth redirect URI for the current request origin.
@@ -197,13 +218,16 @@ export const META_CALLBACK_PATH = "/api/public/meta/callback";
  * that Meta rejects with "URL bloqueada".
  */
 export function resolveMetaRedirectUri(origin?: string | null): string {
-  const configured = requireEnv("META_REDIRECT_URI");
+  const configured = readRuntimeEnv("META_REDIRECT_URI") ?? fallbackRedirectUri(origin);
+  if (!configured) {
+    throw new Error("Meta integration is not configured: missing META_REDIRECT_URI");
+  }
   if (!origin) return configured;
   try {
     const candidate = new URL(origin);
     if (candidate.protocol !== "https:") return configured;
     const configuredHost = new URL(configured).host.toLowerCase();
-    const extraHosts = (process.env.META_EXTRA_REDIRECT_HOSTS ?? "")
+    const extraHosts = (readRuntimeEnv("META_EXTRA_REDIRECT_HOSTS") ?? "")
       .split(/[,\s]+/)
       .map((h) => h.trim().toLowerCase())
       .filter(Boolean);
@@ -214,6 +238,7 @@ export function resolveMetaRedirectUri(origin?: string | null): string {
     return configured;
   }
 }
+
 
 /**
  * Facebook Login for Business — `config_id` de uma "Configuração de login"
@@ -233,8 +258,7 @@ export function resolveMetaRedirectUri(origin?: string | null): string {
  */
 export function metaBusinessConfigId(): string | null {
   if (peekMetaAppTypeSync() === "client") return null;
-  const v = process.env.META_BUSINESS_CONFIG_ID?.trim();
-  return v ? v : null;
+  return readRuntimeEnv("META_BUSINESS_CONFIG_ID");
 }
 
 export type MetaOAuthModeDiagnostics = {
@@ -1218,7 +1242,7 @@ async function stateSecret(): Promise<string> {
   // Per-installation secret. Several installations may share the same Meta App
   // (and therefore META_APP_SECRET), so a dedicated secret keeps an OAuth state
   // issued by installation A from being valid on installation B.
-  return process.env.META_STATE_SECRET ?? requireEnv("META_APP_SECRET");
+  return readRuntimeEnv("META_STATE_SECRET") ?? requireEnv("META_APP_SECRET");
 }
 
 export async function signOAuthState(

@@ -24,6 +24,8 @@ import {
   encryptCredential,
   maskCredential,
 } from "@/lib/credentials-crypto.server";
+import { readRuntimeEnv } from "@/lib/runtime-env.server";
+
 
 export type MetaAppType = "unitos" | "client";
 
@@ -84,8 +86,7 @@ function normalizeType(value?: string | null): MetaAppType {
 }
 
 function envValue(name: string): string | null {
-  const v = process.env[name]?.trim();
-  return v ? v : null;
+  return readRuntimeEnv(name);
 }
 
 /**
