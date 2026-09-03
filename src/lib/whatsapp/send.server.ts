@@ -101,7 +101,7 @@ export async function sendWhatsappToRecipients(
   );
 
   // Instância vinculada a um cliente só envia para destinatários daquele cliente.
-  const eligible: ResolvedRecipient[] = [];
+  const allowed: ResolvedRecipient[] = [];
   const results: WhatsappSendResult[] = [];
   for (const r of resolved) {
     if (instance.client_id && r.clientId && r.clientId !== instance.client_id) {
@@ -116,7 +116,7 @@ export async function sendWhatsappToRecipients(
       });
       continue;
     }
-    eligible.push(r);
+    allowed.push(r);
   }
 
   for (const u of unresolved) {
@@ -131,12 +131,28 @@ export async function sendWhatsappToRecipients(
     });
   }
 
+  // Teto de destinatários por lote: o excedente NUNCA é enviado silenciosamente.
+  const { accepted: eligible, overflow } = splitBatch(allowed, MAX_RECIPIENTS_PER_BATCH);
+  let stopReason: WhatsappStopReason = overflow.length ? "recipient_limit" : null;
+  for (const r of overflow) {
+    results.push({
+      recipientId: r.recipientId,
+      type: r.type,
+      label: r.label,
+      destination: maskDestination(r.destination),
+      status: "skipped",
+      providerMessageId: null,
+      error: `Limite de ${MAX_RECIPIENTS_PER_BATCH} destinatários por lote atingido.`,
+    });
+  }
+
   if (!eligible.length) {
     return {
       instanceId: instance.id,
       sent: 0,
       failed: 0,
       skipped: results.length,
+      stopReason,
       results,
     };
   }
@@ -145,18 +161,50 @@ export async function sendWhatsappToRecipients(
   const actor = actorUserId
     ? ({ kind: "user", userId: actorUserId } as const)
     : ({ kind: "service_role" } as const);
+  const budget = createDispatchBudget();
+  const key = cooldownKey(input.brandId, instance.instance_name);
 
-  for (const r of eligible) {
+  for (let index = 0; index < eligible.length; index++) {
+    const r = eligible[index]!;
     const clientId = r.clientId ?? instance.client_id ?? null;
     const scope = clientId
       ? ({ scope: "client", brandId: input.brandId, clientId } as const)
       : ({ scope: "workspace", brandId: input.brandId } as const);
+
+    // Budget da operação e cooldown vigente interrompem o lote preservando
+    // tudo o que já foi enviado (sucesso parcial explícito).
+    const halted: WhatsappStopReason = !budget.remaining()
+      ? "request_budget"
+      : isInCooldown(key)
+        ? "cooldown"
+        : null;
+    if (halted) {
+      stopReason = halted;
+      const reasonText =
+        halted === "request_budget"
+          ? "Limite de requisições da operação atingido."
+          : "Envio pausado: o servidor Evolution está limitando as requisições.";
+      for (const rest of eligible.slice(index)) {
+        results.push({
+          recipientId: rest.recipientId,
+          type: rest.type,
+          label: rest.label,
+          destination: maskDestination(rest.destination),
+          status: "skipped",
+          providerMessageId: null,
+          error: reasonText,
+        });
+      }
+      break;
+    }
+
     try {
       const { providerMessageId } = await sendWhatsappText(
         config,
         instance.instance_name,
         r.destination,
         message,
+        { budget, cooldownKey: key },
       );
       results.push({
         recipientId: r.recipientId,
@@ -200,6 +248,8 @@ export async function sendWhatsappToRecipients(
     sent: results.filter((r) => r.status === "sent").length,
     failed: results.filter((r) => r.status === "failed").length,
     skipped: results.filter((r) => r.status === "skipped").length,
+    stopReason,
     results,
   };
 }
+
