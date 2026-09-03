@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, redirect, useRouterState } from "@tanstack/react-router";
-import { Boxes, Info, Palette, Plug, ShieldAlert } from "lucide-react";
+import { Boxes, Info, Palette, Plug, Server, ShieldAlert } from "lucide-react";
 
 import { amISuperAdmin } from "@/lib/feature-flags.functions";
 import { useActiveContextOptional } from "@/hooks/use-active-context";
