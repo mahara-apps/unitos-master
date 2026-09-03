@@ -23,6 +23,10 @@ const SUPERUSER_ONLY_PATTERNS: readonly RegExp[] = [
   /^ALTER\s+DEFAULT\s+PRIVILEGES\b/i,
   /^COMMENT\s+ON\s+SCHEMA\s+public\b/i,
   /^ALTER\s+SCHEMA\s+public\s+OWNER\s+TO\b/i,
+  // storage.objects pertence a supabase_storage_admin: `must be owner of table
+  // objects`. RLS ja vem habilitado nesta tabela em qualquer projeto novo.
+  /^ALTER\s+TABLE\s+(?:ONLY\s+)?storage\.\w+\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY\b/i,
+  /^ALTER\s+TABLE\s+(?:ONLY\s+)?storage\.\w+\s+OWNER\s+TO\b/i,
 ];
 
 export type SanitizedBaseline = {

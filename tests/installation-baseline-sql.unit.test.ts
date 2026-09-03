@@ -39,3 +39,25 @@ describe("sanitizeBaselineSqlForManagementApi", () => {
     expect(result.sql).toContain("ENABLE ROW LEVEL SECURITY");
   });
 });
+
+describe("saneamento de storage", () => {
+  it("remove ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY", () => {
+    const { sql, removed } = sanitizeBaselineSqlForManagementApi(
+      [
+        "ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;",
+        "DROP POLICY IF EXISTS avatars_auth_read ON storage.objects;",
+      ].join("\n"),
+    );
+    expect(sql).not.toMatch(/ENABLE ROW LEVEL SECURITY/);
+    expect(sql).toMatch(/DROP POLICY IF EXISTS avatars_auth_read/);
+    expect(removed).toHaveLength(1);
+  });
+
+  it("preserva RLS de tabelas do schema public", () => {
+    const { sql, removed } = sanitizeBaselineSqlForManagementApi(
+      "ALTER TABLE public.brands ENABLE ROW LEVEL SECURITY;",
+    );
+    expect(sql).toMatch(/public\.brands ENABLE ROW LEVEL SECURITY/);
+    expect(removed).toHaveLength(0);
+  });
+});
