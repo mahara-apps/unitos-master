@@ -1072,7 +1072,47 @@ export async function runAutomatedProvision(input: {
   return finish(url.origin, url.source);
 }
 
+/* ------------------------------------------------------------ primeiro acesso */
+
+/**
+ * Estado real do primeiro acesso da instalação: existe Super Admin e existe
+ * EXATAMENTE um workspace. Não bloqueia a instalação (fica `attention`), mas
+ * precisa ser reportado — sem isso o núcleo nunca é comprovado e o painel não
+ * consegue afirmar que a instalação está PRONTA.
+ */
+async function readFirstAccessState(management: {
+  query: (sql: string) => Promise<{ ok: boolean; rows: readonly unknown[]; error?: string | null }>;
+}): Promise<{ superAdmin: CheckState; workspace: CheckState; detail: string }> {
+  const res = await management.query(
+    "select (public.installation_setup_state()->>'has_super_admin')::boolean as has_super_admin," +
+      " (select count(*) from public.brands) as brand_count",
+  );
+  if (!res.ok) {
+    return {
+      superAdmin: "pending",
+      workspace: "pending",
+      detail: "primeiro acesso não verificado",
+    };
+  }
+  const row = (res.rows[0] ?? {}) as { has_super_admin?: boolean | null; brand_count?: unknown };
+  const hasSuperAdmin = row.has_super_admin === true;
+  const brands = Number(row.brand_count ?? 0);
+  const workspace: CheckState = brands === 1 ? "ok" : brands === 0 ? "attention" : "error";
+  return {
+    superAdmin: hasSuperAdmin ? "ok" : "attention",
+    workspace,
+    detail: hasSuperAdmin
+      ? brands === 1
+        ? "Super Admin criado · 1 workspace"
+        : brands === 0
+          ? "Super Admin criado · workspace ainda não criado"
+          : `atenção: ${brands} workspaces (o modelo é 1 por instalação)`
+      : "crie o primeiro Super Admin em /setup",
+  };
+}
+
 /* ------------------------------------------------------- validação automática */
+
 
 /** Distribui cada verificação do verify entre as etapas de validação da UI. */
 export function classifyVerificationCheck(checkName: string): string {
