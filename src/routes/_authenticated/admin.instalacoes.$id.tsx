@@ -549,7 +549,7 @@ function InstallationDetailPage() {
                 health check. Já pode ser usada.
               </p>
               <p className="text-xs text-muted-foreground">
-                {lastValidate?.status === "succeeded"
+                {lastValidate?.status === "success"
                   ? `Validação final: ${lastValidate.summary ?? "concluída"}${
                       lastValidate.finishedAt
                         ? ` · ${new Date(lastValidate.finishedAt).toLocaleString("pt-BR")}`
