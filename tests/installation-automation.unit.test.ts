@@ -107,7 +107,7 @@ describe("secrets exclusivos da instalação", () => {
 
 describe("URL operacional automática", () => {
   it("usa a URL temporária do deploy quando não há domínio definitivo", () => {
-    const url = resolveOperationalUrl({ deploymentUrl: "unitos-pitada-abc.vercel.app" });
+    const url = resolveOperationalUrl({ deploymentUrl: "https://unitos-pitada-abc.vercel.app" });
     expect(url).toEqual({
       ok: true,
       origin: "https://unitos-pitada-abc.vercel.app",
@@ -118,8 +118,8 @@ describe("URL operacional automática", () => {
 
   it("prefere o domínio definitivo quando existe", () => {
     const url = resolveOperationalUrl({
-      customDomain: "app.pitada.com.br",
-      deploymentUrl: "unitos-pitada-abc.vercel.app",
+      customDomain: "https://app.pitada.com.br",
+      deploymentUrl: "https://unitos-pitada-abc.vercel.app",
     });
     expect(url.ok && url.source).toBe("custom_domain");
   });
