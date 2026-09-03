@@ -36,6 +36,18 @@ import {
   type OperationStep,
   type StepState,
 } from "@/lib/installation/manager-contract";
+import {
+  CORE_REQUIREMENTS,
+  CORE_STATE_LABEL,
+  OPTIONAL_CONFIG,
+  OPTIONAL_STATE_LABEL,
+  OVERALL_STATE_ICON,
+  OVERALL_STATE_LABEL,
+  computeReadiness,
+  customDomainState,
+  type CoreState,
+  type OptionalState,
+} from "@/lib/installation/readiness-contract";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
