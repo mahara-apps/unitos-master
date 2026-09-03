@@ -1,16 +1,11 @@
 import { useEffect, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { Check, ChevronsUpDown, Plus, Sparkles, Building2, Users, UserPlus } from "lucide-react";
+import { Check, ChevronsUpDown, Sparkles, Users, UserPlus } from "lucide-react";
 import { useActiveContext } from "@/hooks/use-active-context";
-import {
-  listClients,
-  createBrand,
-  // seedDemoData removido — sistema não cria mais clientes/conteúdos automáticos
-} from "@/lib/workspace.functions";
+import { listClients } from "@/lib/workspace.functions";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Command,
@@ -19,19 +14,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
 } from "@/components/ui/command";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
 import { CustomerAvatar } from "@/components/customer/customer-avatar";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { QuickCreateCustomerDrawer } from "@/components/customer/quick-create-customer-drawer";
@@ -47,17 +30,13 @@ import {
 import { useSessionUserId } from "@/hooks/use-session-user";
 
 export function ContextSwitcher() {
-  const { brandId, clientId, setBrandId, setClientId } = useActiveContext();
+  const { brandId, clientId, setClientId } = useActiveContext();
   const qc = useQueryClient();
   const sessionUserId = useSessionUserId();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { role, allowedClientIds, brandRole } = useAccessRole();
+  const { role, allowedClientIds } = useAccessRole();
   const isAdmin = role === "admin";
-  // Regra do produto: 1 workspace por conta. Quem já é Owner não cria outro
-  // (a barreira real está no banco, em can_create_brand); super admin é livre.
-  const canCreateWorkspace = brandRole !== "owner";
-  const create = useServerFn(createBrand);
   const listCl = useServerFn(listClients);
 
   const brandsQ = useMyBrandsQuery();
@@ -118,27 +97,6 @@ export function ContextSwitcher() {
     if (customerMatch) void navigate({ to: "/customers", replace: true });
   };
 
-  const handleSelectBrand = (id: string) => {
-    setBrandId(id);
-    setPopoverOpen(false);
-    resetScopeCache(qc, [id, brandId, clientId]);
-    if (customerMatch) void navigate({ to: "/dashboard", replace: true });
-  };
-
-  const createMut = useMutation({
-    mutationFn: (n: string) => create({ data: { name: n } }),
-    onSuccess: async (b) => {
-      await qc.invalidateQueries({ queryKey: ["brands"] });
-      setBrandId(b.id);
-      resetScopeCache(qc, [b.id]);
-      toast.success("Workspace criado", {
-        description: "Cadastre seu primeiro cliente para começar.",
-      });
-      setDialogOpen(false);
-      setName("");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
 
   // A resolução do workspace ativo NÃO vive mais aqui: ela é feita por
@@ -270,35 +228,6 @@ export function ContextSwitcher() {
         </PopoverContent>
       </Popover>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Novo workspace</DialogTitle>
-            <DialogDescription>
-              Um workspace é o contêiner da sua agência. Cada conta pode ter 1 workspace.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label>Nome</Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Minha agência"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => createMut.mutate(name)}
-              disabled={name.trim().length < 2 || createMut.isPending}
-            >
-              Criar workspace
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
 
       <QuickCreateCustomerDrawer
