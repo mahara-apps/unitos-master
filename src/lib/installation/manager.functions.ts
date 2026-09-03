@@ -352,6 +352,25 @@ export const startInstallationOperationFn = createServerFn({ method: "POST" })
     const target = assertOperationTarget(record);
     if (!target.ok) throw new Error(target.error);
 
+    // Fluxo manual é fallback: com credenciais de gestão do MASTER disponíveis
+    // a operação precisa ir pelo caminho automatizado. Sem isso, um clique
+    // antes da capability carregar criava uma operação "pending" que ninguém
+    // executava e travava a instalação em "Validando"/"Provisionando".
+    {
+      const { resolveAutomationCapability, resolveAutomationTarget } = await import(
+        "./automation-contract"
+      );
+      const { runtimeEnv } = await import("@/lib/runtime-env.server");
+      const capability = resolveAutomationCapability(runtimeEnv());
+      const autoTarget = resolveAutomationTarget(record);
+      if (capability.available && autoTarget.ok) {
+        throw new Error(
+          "Esta instalação usa o fluxo automatizado do MASTER. Use “Provisionar automaticamente” ou “Validar automaticamente”.",
+        );
+      }
+    }
+
+
     if (kind === "update") {
       if (!isUpdateAvailable(record.currentVersion, record.availableVersion)) {
         throw new Error("A instalação já está na versão do MASTER — nada a atualizar.");

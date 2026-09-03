@@ -354,9 +354,11 @@ function InstallationDetailPage() {
             size="sm"
             disabled={
               !canStartOperation("provision", inst.status) ||
+              capability.isPending ||
               start.isPending ||
               autoProvision.isPending ||
               !!activeOp
+
             }
             onClick={() =>
               automated ? autoProvision.mutate() : start.mutate({ kind: "provision" })
@@ -380,9 +382,11 @@ function InstallationDetailPage() {
             variant="outline"
             disabled={
               !canStartOperation("validate", inst.status) ||
+              capability.isPending ||
               start.isPending ||
               autoValidate.isPending ||
               !!activeOp
+
             }
             onClick={() =>
               automated ? autoValidate.mutate() : start.mutate({ kind: "validate" })
