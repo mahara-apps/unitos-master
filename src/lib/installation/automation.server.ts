@@ -780,7 +780,13 @@ export async function runAutomatedProvision(input: {
     await saveBaselineProgress(client, operation, progress);
 
   }
+  // O PostgREST mantém um cache do schema. Sem recarregar, todas as tabelas e
+  // funções recém-criadas respondem PGRST205/PGRST202 ("Could not find the
+  // table ... in the schema cache") e a instalação sobe aparentemente vazia.
+  await management.query("NOTIFY pgrst, 'reload schema';");
+
   checks.database = "ok";
+
   checks.storage = "ok";
   await mark("database", "done", "baseline aplicado no destino");
   await mark("storage", "done", "buckets e policies aplicados");
