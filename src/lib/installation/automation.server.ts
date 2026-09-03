@@ -811,6 +811,7 @@ export async function runAutomatedProvision(input: {
     token: deployToken,
     project: target.deployProject,
     teamId,
+    masterRepo: (env["UNITOS_MASTER_REPO"] ?? "").trim() || null,
     fetchImpl: input.fetchImpl,
   });
 
