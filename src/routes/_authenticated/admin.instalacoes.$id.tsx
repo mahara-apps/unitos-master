@@ -130,7 +130,29 @@ const OPTIONAL_TONE: Record<OptionalState, string> = {
   not_configured: "border-border/60 text-muted-foreground",
 };
 
+/** Campos editáveis da instalação — o domínio pode mudar depois do cadastro. */
+type EditForm = {
+  name: string;
+  domain: string;
+  supabaseUrl: string;
+  supabaseProjectRef: string;
+  gitRepoUrl: string;
+  deployProject: string;
+  notes: string;
+};
+
+const EMPTY_FORM: EditForm = {
+  name: "",
+  domain: "",
+  supabaseUrl: "",
+  supabaseProjectRef: "",
+  gitRepoUrl: "",
+  deployProject: "",
+  notes: "",
+};
+
 function InstallationDetailPage() {
+
   const { id } = Route.useParams();
   const { novo } = Route.useSearch();
   const qc = useQueryClient();
