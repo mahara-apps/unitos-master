@@ -149,6 +149,9 @@ function InstallationDetailPage() {
   const resumeFn = useServerFn(resumeAutomatedProvisionFn);
 
   const [runCommand, setRunCommand] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [form, setForm] = useState<EditForm>(EMPTY_FORM);
+
   const [updateOpen, setUpdateOpen] = useState(false);
   const resumePendingRef = useRef(false);
 
