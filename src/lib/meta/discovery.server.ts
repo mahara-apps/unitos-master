@@ -6,6 +6,13 @@ import {
   type PublishAuthorizationInfo,
   type DiscoveredAccountStatus,
 } from "./portfolio-shared";
+import {
+  decideDiscoveryMode,
+  mergeIncrementalPayload,
+  type DiscoveryMode,
+  type DiscoveryModeReason,
+} from "./refresh-policy";
+
 
 /**
  * Descoberta Meta compartilhada (server-only).
