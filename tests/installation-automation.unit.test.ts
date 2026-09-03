@@ -207,7 +207,7 @@ function fakeClient() {
         updates.push(patch);
         return { eq: async () => ({ error: null }) };
       },
-      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }),
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { status: "running", steps: [] } }) }) }),
     }),
   };
   return { api, updates };

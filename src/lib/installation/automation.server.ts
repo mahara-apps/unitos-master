@@ -33,7 +33,6 @@ import verifySql from "../../../supabase/install/verify-installation.sql?raw";
 import { runtimeEnv } from "@/lib/runtime-env.server";
 
 import {
-  isDuplicateObjectError,
   prepareVerificationSql,
   sanitizeBaselineSqlForManagementApi,
   splitSqlStatements,
