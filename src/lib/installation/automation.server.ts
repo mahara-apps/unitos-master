@@ -114,7 +114,11 @@ export async function applyStatementByStatement(
   },
 ): Promise<{ ok: true; skipped: number } | { ok: false; error?: string; processed?: number }> {
   const statements = splitSqlStatements(sql);
-  const batchSize = 150;
+  // Lotes grandes (150 statements) chegaram a ultrapassar a janela real do
+  // Worker/Management API: o request era encerrado antes do AbortController e
+  // o checkpoint ficava parado exatamente no limite do lote (ex.: 150/264 =
+  // 57% no delta). 25 mantém cada chamada curta e deixa um checkpoint fino.
+  const batchSize = 25;
   const from = Math.min(Math.max(options?.startIndex ?? 0, 0), statements.length);
   let processed = from;
 
@@ -183,7 +187,9 @@ export function createManagementClient(input: {
   return {
     async query(sql) {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 60_000);
+      // Precisa expirar ANTES do limite do runtime. Um timeout de 60s não
+      // ajudava: o isolate podia morrer primeiro e a operação ficava running.
+      const timer = setTimeout(() => controller.abort(), 15_000);
       try {
         const res = await doFetch(`${base}/database/query`, {
           method: "POST",
@@ -199,7 +205,7 @@ export function createManagementClient(input: {
         return { ok: true, rows: Array.isArray(body) ? body : [] };
       } catch (e) {
         const aborted = e instanceof Error && e.name === "AbortError";
-        return { ok: false, rows: [], error: aborted ? "timeout de 60s na Management API" : (e as Error).message };
+        return { ok: false, rows: [], error: aborted ? "timeout de 15s na Management API" : (e as Error).message };
       } finally {
         clearTimeout(timer);
       }
@@ -626,37 +632,30 @@ export async function runAutomatedProvision(input: {
     // exclusivos de superusuário do dump são removidos antes de enviar.
     const prepared = sanitizeBaselineSqlForManagementApi(file.sql);
     const alreadyApplied = progress[file.label] ?? 0;
-    const applied =
-      alreadyApplied > 0
-        ? { ok: false as const, rows: [] as unknown[], error: "retomada por checkpoint" }
-        : await management.query(prepared.sql);
-    if (!applied.ok) {
-      // Reexecução após falha parcial: a Management API aborta o arquivo no
-      // primeiro "já existe". Reaplica statement por statement, ignorando
-      // SOMENTE erros da classe duplicate (idempotência), nunca outros.
-      const retryable = alreadyApplied > 0 || isDuplicateObjectError(applied.error);
-      const perStatement = retryable
-        ? await applyStatementByStatement(management, prepared.sql, {
-            isCancelled,
-            startIndex: alreadyApplied,
-            onProgress: async (processed, total) => {
-              progress[file.label] = processed;
-              await saveBaselineProgress(client, operation, progress);
-              const percent = Math.min(99, Math.round((processed / Math.max(total, 1)) * 100));
-              await mark(file.id, "running", `${file.label}: retomando aplicação (${percent}%)`);
-            },
-          })
-        : { ok: false as const, error: applied.error };
-      if (!perStatement.ok) {
-        if (typeof perStatement.processed === "number" && perStatement.processed > 0) {
-          progress[file.label] = perStatement.processed;
-          await saveBaselineProgress(client, operation, progress);
-        }
-        failures.push(`${file.label}: ${perStatement.error ?? applied.error ?? "falha ao aplicar"}`);
-        await mark(file.id, "error", `${file.label} falhou`);
-        checks[file.id === "seeds" ? "database" : (file.id as HealthCheckId)] = "error";
-        return finish(null, null);
+    // Nunca envie o arquivo inteiro em uma única chamada. Além de não gerar
+    // heartbeat durante sua execução, 001 (530 KB) e 007 podiam exceder a vida
+    // do runtime. O mesmo caminho curto/idempotente vale para primeira execução
+    // e retomada, portanto todos os arquivos do instalador ficam protegidos.
+    const perStatement = await applyStatementByStatement(management, prepared.sql, {
+      isCancelled,
+      startIndex: alreadyApplied,
+      onProgress: async (processed, total) => {
+        progress[file.label] = processed;
+        await saveBaselineProgress(client, operation, progress);
+        const percent = Math.min(99, Math.round((processed / Math.max(total, 1)) * 100));
+        const action = alreadyApplied > 0 ? "retomando aplicação" : "aplicando";
+        await mark(file.id, "running", `${file.label}: ${action} (${percent}%)`);
+      },
+    });
+    if (!perStatement.ok) {
+      if (typeof perStatement.processed === "number" && perStatement.processed > 0) {
+        progress[file.label] = perStatement.processed;
+        await saveBaselineProgress(client, operation, progress);
       }
+      failures.push(`${file.label}: ${perStatement.error ?? "falha ao aplicar"}`);
+      await mark(file.id, "error", `${file.label} falhou`);
+      checks[file.id === "seeds" ? "database" : (file.id as HealthCheckId)] = "error";
+      return finish(null, null);
     }
     progress[file.label] = DONE;
     await saveBaselineProgress(client, operation, progress);

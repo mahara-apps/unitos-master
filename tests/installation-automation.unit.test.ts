@@ -417,6 +417,18 @@ describe("runAutomatedProvision", () => {
     expect(result.result).toBe("FAIL");
   });
 
+  it("aplica todo baseline em lotes curtos, sem enviar arquivo integral", async () => {
+    const { applyStatementByStatement } = await import("@/lib/installation/automation.server");
+    const sizes: number[] = [];
+    const sql = Array.from({ length: 57 }, (_, index) => `SELECT ${index};`).join("\n");
+    const result = await applyStatementByStatement(
+      { query: async (batch) => { sizes.push((batch.match(/DO \$unitos_guard\$/g) ?? []).length); return { ok: true, rows: [] }; } },
+      sql,
+    );
+    expect(result).toEqual({ ok: true, skipped: 0 });
+    expect(sizes).toEqual([25, 25, 7]);
+  });
+
   it("recusa instalação apontada para o MASTER", async () => {
     const { api } = fakeClient();
     const result = await runAutomatedProvision({
