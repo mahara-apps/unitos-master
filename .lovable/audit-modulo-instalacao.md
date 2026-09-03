@@ -83,3 +83,14 @@ em qualquer execução real, além de drift do baseline em relação ao banco at
 4. Disparar deployment na Vercel após gravar env e checar HTTP 200 da URL antes de agendar cron.
 5. Teste que valide o SQL enviado (sem `\`, sem placeholder, ordem dos arquivos) e um teste do
    parser de verify com linhas PASS/FAIL reais.
+
+---
+
+## Fechamento (correcoes aplicadas)
+
+- **P0 meta-comandos psql:** `stripPsqlMetaCommands` aplicado a `010`, `011`, `020` e ao verify antes da Management API.
+- **P0 parser do verify:** `prepareVerificationSql` remove o statement de RESUMO e `summarizeVerificationRows` decide apenas pela coluna `status`; zero linhas = inconclusivo (nunca PASS).
+- **P0 baseline defasado:** criado `supabase/baseline-snapshot/007_delta_migrations.sql` (29 migrations pos-dump) + gerador `tools/build_delta.py`, aplicado no bootstrap e na automacao.
+- **P1 deploy:** `deploy.redeploy()` dispara novo deployment de producao apos gravar as variaveis; `probeOperationalUrl` faz GET real e `checks.frontend` so vira `ok` com resposta HTTP 2xx/3xx.
+- **P2 limites do verify:** atualizados para 95 tabelas / >=250 funcoes / >=215 policies / >=100 triggers.
+- **Testes:** `tests/installation-baseline-completeness.unit.test.ts` (delta, meta-comandos, parser) e novos casos de redeploy/probe em `tests/installation-automation.unit.test.ts`.
