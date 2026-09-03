@@ -91,7 +91,7 @@ import {
 } from "@/lib/client-channels.functions";
 import { listClients } from "@/lib/workspace.functions";
 import { WhatsappCenter } from "./whatsapp-center";
-import { disconnectMeta, startMetaOAuth } from "@/lib/meta/meta.functions";
+import { disconnectMeta, getActiveMetaSession, startMetaOAuth } from "@/lib/meta/meta.functions";
 import {
   applyMetaReconnectFn,
   inspectMetaConnectionFn,
@@ -232,6 +232,7 @@ export function ChannelsCenter({
   const historyFn = useServerFn(listChannelHistoryFn);
   const clientsFn = useServerFn(listClients);
   const startMetaFn = useServerFn(startMetaOAuth);
+  const activeSessionFn = useServerFn(getActiveMetaSession);
 
   const [tab, setTab] = useState<"meta" | "whatsapp">("meta");
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -364,6 +365,50 @@ export function ChannelsCenter({
     timeoutRef.current = null;
   }, []);
 
+  /** Conclui a autorização (terminal) a partir de uma sessão Meta válida. */
+  const finishAuthorized = useCallback(
+    (channel: "facebook" | "instagram", sessionId: string) => {
+      if (reauthRef.current) {
+        setFlow({ kind: "idle" });
+        return;
+      }
+      setFlow({ kind: "authorized", channel, sessionId });
+      setPortfolioSessionId(sessionId);
+      setPortfolioChannel(channel);
+      qc.invalidateQueries({ queryKey: ["meta-discovered-accounts", brandId] });
+      qc.invalidateQueries({ queryKey: ["meta-portfolio-status", brandId] });
+      if (!connectOpen) setPortfolioOpen(true);
+    },
+    [brandId, connectOpen, qc],
+  );
+
+  /**
+   * A janela fechou sem `postMessage` recebido. Isso NÃO significa cancelamento:
+   * COOP/bloqueadores podem cortar o `window.opener`, ou a origem do
+   * META_REDIRECT_URI pode divergir da origem atual. Antes de marcar como
+   * cancelado, confirmamos no servidor se existe sessão Meta ativa.
+   */
+  const resolveClosedPopup = useCallback(
+    async (channel: "facebook" | "instagram") => {
+      if (!brandId) return;
+      let sessionId: string | null = null;
+      try {
+        const res = await activeSessionFn({ data: { brandId } });
+        sessionId = res?.sessionId ?? null;
+      } catch {
+        sessionId = null;
+      }
+      setFlow((prev) => {
+        if (prev.kind !== "awaiting" && prev.kind !== "returning") return prev;
+        if (sessionId) return prev; // resolvido abaixo por finishAuthorized
+        return { kind: "error", channel, reason: "cancelled", detail: null };
+      });
+      if (sessionId) finishAuthorized(channel, sessionId);
+    },
+    [activeSessionFn, brandId, finishAuthorized],
+  );
+
+
   useEffect(() => {
     function onMessage(ev: MessageEvent) {
       const d = ev.data as {
@@ -393,12 +438,7 @@ export function ChannelsCenter({
       if (d.ok && d.sessionId) {
         // Autorização é terminal aqui: a SINCRONIZAÇÃO dos ativos é etapa
         // separada e não pode bloquear a confirmação para o usuário.
-        setFlow({ kind: "authorized", channel: channel ?? "facebook", sessionId: d.sessionId });
-        setPortfolioSessionId(d.sessionId);
-        setPortfolioChannel(d.channel ?? null);
-        qc.invalidateQueries({ queryKey: ["meta-discovered-accounts", brandId] });
-        qc.invalidateQueries({ queryKey: ["meta-portfolio-status", brandId] });
-        if (!connectOpen) setPortfolioOpen(true);
+        finishAuthorized(channel ?? "facebook", d.sessionId);
       } else {
         const detail = d.error ?? d.message ?? null;
         console.warn("[meta-oauth] falha na autorização:", detail);
@@ -465,15 +505,16 @@ export function ChannelsCenter({
       if (popup) {
         popup.location.href = authorizeUrl;
         setFlow({ kind: "awaiting", channel });
-        // Cancelamento do usuário: janela fechada sem retorno do callback.
+        // Janela fechada sem retorno do callback: pode ser cancelamento OU
+        // `postMessage` perdido (COOP / divergência de origem). Damos uma
+        // janela de graça e confirmamos no servidor antes de acusar cancelamento.
         pollRef.current = window.setInterval(() => {
           if (!popup.closed) return;
           clearWatchdogs();
           setFlow((prev) =>
-            prev.kind === "awaiting" || prev.kind === "returning"
-              ? { kind: "error", channel, reason: "cancelled", detail: null }
-              : prev,
+            prev.kind === "awaiting" ? { kind: "returning", channel } : prev,
           );
+          window.setTimeout(() => void resolveClosedPopup(channel), 1200);
         }, 800);
         // Timeout duro: o modal jamais fica preso em "Aguardando autorização".
         timeoutRef.current = window.setTimeout(() => {

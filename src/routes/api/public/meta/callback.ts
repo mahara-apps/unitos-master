@@ -182,14 +182,22 @@ function htmlResult(result: {
 <script>
   try {
     if (window.opener) {
-      window.opener.postMessage(${JSON.stringify({ source: "meta-oauth", ok: result.ok, error: result.error, message: result.message, sessionId: result.sessionId ?? null, channel: result.channel ?? null })}, ${JSON.stringify(targetOrigin)});
-      ${
+      // A origem do opener pode ser o preview ou o domínio publicado, que não
+      // necessariamente coincide com META_REDIRECT_URI. Entregamos a mensagem
+      // para as origens conhecidas (nunca "*").
+      var origins = [${JSON.stringify(targetOrigin)}, window.location.origin, document.referrer ? new URL(document.referrer).origin : ""]
+        .filter(function (o, i, a) { return o && o.indexOf("http") === 0 && a.indexOf(o) === i; });
+      var payloads = [${JSON.stringify({ source: "meta-oauth", ok: result.ok, error: result.error, message: result.message, sessionId: result.sessionId ?? null, channel: result.channel ?? null })}${
         result.missingScopes && result.missingScopes.length > 0
-          ? `window.opener.postMessage(${JSON.stringify({ source: "meta-oauth", type: "missing-scopes", scopes: result.missingScopes })}, ${JSON.stringify(targetOrigin)});`
+          ? `, ${JSON.stringify({ source: "meta-oauth", type: "missing-scopes", scopes: result.missingScopes })}`
           : ""
-      }
-      window.close();
-      setTimeout(() => window.close(), 100);
+      }];
+      origins.forEach(function (origin) {
+        payloads.forEach(function (payload) {
+          try { window.opener.postMessage(payload, origin); } catch (e) {}
+        });
+      });
+      setTimeout(() => window.close(), 250);
     } else {
       setTimeout(() => { window.location.href = ${JSON.stringify(target)}; }, 1500);
     }
