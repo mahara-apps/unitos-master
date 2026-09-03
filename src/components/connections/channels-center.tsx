@@ -74,6 +74,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { MetaPortfolioDialog } from "@/components/connections/meta-portfolio-dialog";
+import { ConnectChannelsDialog } from "@/components/connections/connect-channels-dialog";
 import { MetaPortfoliosPanel } from "@/components/connections/meta-portfolios-panel";
 
 import {
