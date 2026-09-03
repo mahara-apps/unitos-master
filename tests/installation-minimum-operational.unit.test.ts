@@ -76,8 +76,15 @@ describe("núcleo da instalação", () => {
   it("check desconhecido nunca é assumido como ok", () => {
     const report = computeReadiness({ core: {} });
     expect(report.ready).toBe(false);
-    expect(report.missingCore.length).toBe(CORE_REQUIREMENTS.length);
+    // Só os itens bloqueantes entram em missingCore (primeiro acesso fica fora).
+    expect(report.missingCore.length).toBe(
+      CORE_REQUIREMENTS.length - FIRST_ACCESS_REQUIREMENTS.length,
+    );
+    for (const id of FIRST_ACCESS_REQUIREMENTS) {
+      expect(report.core[id].state).toBe("pending");
+    }
   });
+
 });
 
 describe("URL operacional", () => {
