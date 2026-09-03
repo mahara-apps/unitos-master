@@ -167,7 +167,7 @@ export async function buildMultimodalContent(
     }
 
     if (att.kind === "pdf" || att.mime === "application/pdf") {
-      const bytes = await downloadBase64(url);
+      const bytes = await downloadBase64(url, att.name);
       if (!bytes) {
         skipped.push(`${att.name} (>20MB ou falha no download)`);
         continue;
@@ -177,7 +177,7 @@ export async function buildMultimodalContent(
     }
 
     if (att.mime.startsWith("text/") || att.mime === "application/json") {
-      const bytes = await downloadBase64(url);
+      const bytes = await downloadBase64(url, att.name);
       if (bytes) {
         const asText = new TextDecoder().decode(bytes).slice(0, 20_000);
         blocks.push({
