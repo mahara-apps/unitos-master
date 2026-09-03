@@ -76,6 +76,11 @@ export type OperationDetail = {
   warnings?: boolean;
   /** true quando o MASTER executou a operação automaticamente (sem comando manual). */
   automated?: boolean;
+  stageProgress?: {
+    updateDeploymentId?: string;
+    updateDeploymentSource?: "git" | "rebuild";
+    updateDeploymentRef?: string;
+  };
 };
 
 export type InstallationOperationRecord = {

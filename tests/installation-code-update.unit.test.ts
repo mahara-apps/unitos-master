@@ -100,4 +100,21 @@ describe("atualização de código da instalação", () => {
       url: "https://x.vercel.app",
     });
   });
+
+  it("o checkpoint de atualização usa campos não sensíveis e reutilizáveis", () => {
+    const detail = {
+      automated: true,
+      stageProgress: {
+        updateDeploymentId: "dpl_1",
+        updateDeploymentSource: "git" as const,
+        updateDeploymentRef: "main",
+      },
+    };
+    expect(detail.stageProgress).toEqual({
+      updateDeploymentId: "dpl_1",
+      updateDeploymentSource: "git",
+      updateDeploymentRef: "main",
+    });
+    expect(JSON.stringify(detail)).not.toMatch(/token|secret|password/i);
+  });
 });
