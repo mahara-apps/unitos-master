@@ -177,6 +177,7 @@ function InstallationDetailPage() {
   const [form, setForm] = useState<EditForm>(EMPTY_FORM);
 
   const [updateOpen, setUpdateOpen] = useState(false);
+  const [opsPageRaw, setOpsPage] = useState(1);
   const resumePendingRef = useRef(false);
 
   const detail = useQuery({
@@ -385,6 +386,10 @@ function InstallationDetailPage() {
 
   const inst = detail.data.installation;
   const operations = detail.data.operations;
+  const opsPerPage = 10;
+  const opsTotalPages = Math.max(1, Math.ceil(operations.length / opsPerPage));
+  const opsPage = Math.min(Math.max(1, opsPageRaw), opsTotalPages);
+  const pagedOperations = operations.slice((opsPage - 1) * opsPerPage, opsPage * opsPerPage);
   const activeOp = operations.find((op) => op.status === "pending" || op.status === "running");
   const lastProvision = operations.find((op) => op.kind === "provision" || op.kind === "update");
   const lastValidate = operations.find((op) => op.kind === "validate");
@@ -913,7 +918,7 @@ function InstallationDetailPage() {
           {operations.length === 0 && (
             <p className="text-xs text-muted-foreground">Nenhuma operação registrada.</p>
           )}
-          {operations.map((op) => (
+          {pagedOperations.map((op) => (
             <div key={op.id} className="rounded-lg border border-border/60 px-3 py-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-medium">{OPERATION_KIND_LABEL[op.kind]}</span>
@@ -975,6 +980,35 @@ function InstallationDetailPage() {
               )}
             </div>
           ))}
+          {operations.length > opsPerPage && (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2">
+              <span className="text-[11px] text-muted-foreground">
+                {(opsPage - 1) * opsPerPage + 1}–{Math.min(opsPage * opsPerPage, operations.length)} de{" "}
+                {operations.length} operações
+              </span>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={opsPage <= 1}
+                  onClick={() => setOpsPage(opsPage - 1)}
+                >
+                  Anterior
+                </Button>
+                <span className="text-[11px] text-muted-foreground">
+                  {opsPage}/{opsTotalPages}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={opsPage >= opsTotalPages}
+                  onClick={() => setOpsPage(opsPage + 1)}
+                >
+                  Próxima
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
