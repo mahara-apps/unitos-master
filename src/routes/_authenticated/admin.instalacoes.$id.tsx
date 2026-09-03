@@ -23,6 +23,7 @@ import {
   resumeAutomatedProvisionFn,
   restartAutomatedProvisionFn,
   runAutomatedProvisionFn,
+  runAutomatedValidateFn,
   startInstallationOperationFn,
 } from "@/lib/installation/manager.functions";
 import {
@@ -132,6 +133,7 @@ function InstallationDetailPage() {
   const healthFn = useServerFn(refreshInstallationHealthFn);
   const capabilityFn = useServerFn(getAutomationCapabilityFn);
   const autoFn = useServerFn(runAutomatedProvisionFn);
+  const autoValidateFn = useServerFn(runAutomatedValidateFn);
   const restartFn = useServerFn(restartAutomatedProvisionFn);
   const resumeFn = useServerFn(resumeAutomatedProvisionFn);
 
@@ -195,6 +197,23 @@ function InstallationDetailPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  // Validação: READ-ONLY e executada pelo próprio MASTER. O comando manual só
+  // volta a aparecer quando a automação estiver realmente indisponível.
+  const autoValidate = useMutation({
+    mutationFn: () => autoValidateFn({ data: { id } }),
+    onSuccess: (result) => {
+      if (result.result === "STARTED") {
+        toast.success("Validação iniciada. Acompanhe o resultado por etapa abaixo.");
+      } else {
+        toast.error(`BLOCKED: ${result.reasons.join(" | ")}`);
+      }
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
 
   const restartProvision = useMutation({
     mutationFn: (input: { force: boolean }) => restartFn({ data: { id, force: input.force } }),
@@ -359,10 +378,23 @@ function InstallationDetailPage() {
           <Button
             size="sm"
             variant="outline"
-            disabled={!canStartOperation("validate", inst.status) || start.isPending || !!activeOp}
-            onClick={() => start.mutate({ kind: "validate" })}
+            disabled={
+              !canStartOperation("validate", inst.status) ||
+              start.isPending ||
+              autoValidate.isPending ||
+              !!activeOp
+            }
+            onClick={() =>
+              automated ? autoValidate.mutate() : start.mutate({ kind: "validate" })
+            }
           >
-            <ShieldCheck className="mr-1.5 h-3.5 w-3.5" /> Validar instalação
+            {autoValidate.isPending ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            {automated ? "Validar automaticamente" : "Validar instalação"}
+
           </Button>
           <Button
             size="sm"

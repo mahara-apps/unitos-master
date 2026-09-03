@@ -52,7 +52,12 @@ import {
   type GeneratedSecretVar,
 } from "./automation-contract";
 import { applyProgressReport, finalizeOperation, sanitize, type OperationRow } from "./runner.server";
-import { MASTER_RELEASE_VERSION, type CheckState, type HealthCheckId } from "./manager-contract";
+import {
+  MASTER_RELEASE_VERSION,
+  VALIDATE_STEPS,
+  type CheckState,
+  type HealthCheckId,
+} from "./manager-contract";
 
 /* --------------------------------------------------------------- utilidades */
 
@@ -981,4 +986,145 @@ export async function runAutomatedProvision(input: {
   );
 
   return finish(url.origin, url.source);
+}
+
+/* ------------------------------------------------------- validação automática */
+
+/** Distribui cada verificação do verify entre as etapas de validação da UI. */
+export function classifyVerificationCheck(checkName: string): string {
+  const name = checkName.toLowerCase();
+  if (name.startsWith("isolamento") || name.startsWith("installation.app_url")) return "isolation";
+  if (name.startsWith("sem dados de negócio")) return "isolation";
+  if (name.startsWith("storage:")) return "storage";
+  if (name.startsWith("cron:") || name.startsWith("vault:") || name.includes("brain_stats_mv"))
+    return "cron";
+  if (
+    name.startsWith("rls ") ||
+    name.includes("policies") ||
+    name.includes("triggers") ||
+    name.startsWith("trigger ")
+  )
+    return "rls";
+  return "database";
+}
+
+type VerificationRow = { status: string; check_name: string; observed: string | null };
+
+function normalizeVerificationRows(rows: readonly unknown[]): VerificationRow[] {
+  return rows
+    .filter((r): r is Record<string, unknown> => !!r && typeof r === "object")
+    .map((r) => ({
+      status: String(r["status"] ?? "").trim().toUpperCase(),
+      check_name: String(r["check_name"] ?? "verificação sem nome"),
+      observed: r["observed"] == null ? null : String(r["observed"]),
+    }));
+}
+
+/**
+ * Validação READ-ONLY executada pelo próprio MASTER via Management API, com as
+ * credenciais de gestão do MASTER. Nada é criado ou alterado no destino — é o
+ * mesmo `verify-installation.sql` do fallback manual, sem pedir Bash.
+ */
+export async function runAutomatedValidate(input: {
+  client: Client;
+  operation: OperationRow;
+  installation: AutomationInstallation;
+  env?: Record<string, string | undefined>;
+  fetchImpl?: Fetcher;
+}): Promise<{ result: "PASS" | "FAIL" | "BLOCKED"; reasons: string[]; total: number }> {
+  const env = input.env ?? runtimeEnv();
+  const { client, operation, installation } = input;
+  const stepIds = VALIDATE_STEPS.map((s) => s.id);
+
+  const fail = async (result: "FAIL" | "BLOCKED", reason: string, stepId = stepIds[0]!) => {
+    await report(client, operation, stepId, "error", reason);
+    await finalizeOperation(client as never, operation as never, {
+      ok: false,
+      summary: `${result}: ${reason}`,
+      errorKind: result.toLowerCase(),
+    }).catch(() => undefined);
+    return { result, reasons: [reason], total: 0 };
+  };
+
+  const capability = resolveAutomationCapability(env);
+  if (!capability.available) return fail("BLOCKED", capability.blockedReasons.join(" | "));
+
+  const target = resolveAutomationTarget(installation);
+  if (!target.ok) return fail("BLOCKED", target.reason);
+
+  const management = createManagementClient({
+    token: (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim(),
+    projectRef: target.projectRef,
+    fetchImpl: input.fetchImpl,
+  });
+
+  for (const id of stepIds) await report(client, operation, id, "running");
+
+  const verify = await management.query(prepareVerificationSql(verifySql).sql);
+  if (!verify.ok) {
+    return fail("BLOCKED", `verify-installation não pôde ser executado: ${verify.error ?? "falha"}`);
+  }
+
+  const rows = normalizeVerificationRows(verify.rows);
+  if (rows.length === 0) {
+    return fail("FAIL", "verify-installation não retornou nenhuma verificação");
+  }
+
+  const failedByStep = new Map<string, string[]>();
+  const totalByStep = new Map<string, number>();
+  for (const row of rows) {
+    const step = classifyVerificationCheck(row.check_name);
+    totalByStep.set(step, (totalByStep.get(step) ?? 0) + 1);
+    if (row.status === "FAIL") {
+      const list = failedByStep.get(step) ?? [];
+      list.push(row.check_name);
+      failedByStep.set(step, list);
+    }
+  }
+
+  const checks: Partial<Record<HealthCheckId, CheckState>> = {};
+  const checkByStep: Record<string, HealthCheckId> = {
+    isolation: "configuration",
+    database: "database",
+    rls: "database",
+    storage: "storage",
+    cron: "cron",
+  };
+
+  for (const id of stepIds) {
+    const failed = failedByStep.get(id) ?? [];
+    const total = totalByStep.get(id) ?? 0;
+    const healthId = checkByStep[id];
+    if (healthId && checks[healthId] !== "error") {
+      checks[healthId] = failed.length > 0 ? "error" : "ok";
+    }
+    await report(
+      client,
+      operation,
+      id,
+      failed.length > 0 ? "error" : "done",
+      failed.length > 0
+        ? `${failed.length} de ${total} em FAIL: ${failed.slice(0, 4).join("; ")}`
+        : `${total} verificação(ões) PASS`,
+    );
+  }
+
+  const summary = summarizeVerificationRows(verify.rows);
+  if (summary.ok) checks.connectivity = "ok";
+
+  await finalizeOperation(client as never, operation as never, {
+    ok: summary.ok,
+    version: summary.ok ? MASTER_RELEASE_VERSION : null,
+    summary: summary.ok
+      ? `Validação automática concluída — ${summary.total} verificações PASS.`
+      : `FAIL: ${summary.reason ?? "verificações em FAIL"}`,
+    errorKind: summary.ok ? null : "fail",
+    checks: checks as never,
+  }).catch(() => undefined);
+
+  return {
+    result: summary.ok ? "PASS" : "FAIL",
+    reasons: summary.ok ? [] : summary.failedChecks,
+    total: summary.total,
+  };
 }

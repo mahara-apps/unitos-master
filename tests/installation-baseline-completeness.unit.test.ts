@@ -126,7 +126,7 @@ describe("reexecução idempotente do baseline", () => {
       },
       "CREATE TYPE t AS ENUM ('a');\nCREATE TABLE x (id int);",
     );
-    expect(ok).toEqual({ ok: true, skipped: 0 });
+    expect(ok).toMatchObject({ ok: true, skipped: 0, complete: true });
 
     const bad = await applyStatementByStatement(
       { query: async () => ({ ok: false, rows: [], error: "42501: permission denied" }) },
@@ -151,11 +151,18 @@ describe("reexecução idempotente do baseline", () => {
         },
       },
       sql,
-      { onProgress: (processed) => void progress.push(processed) },
+      { onProgress: (processed) => void progress.push(processed), maxStatements: 256 },
     );
-    expect(result).toEqual({ ok: true, skipped: 0 });
+    expect(result).toEqual({
+      ok: true,
+      skipped: 0,
+      processed: 256,
+      total: 256,
+      complete: true,
+    });
     expect(calls).toBe(11);
     expect(progress.at(-1)).toBe(256);
+
   });
 
   it("interrompe a retomada quando a operação foi cancelada", async () => {
