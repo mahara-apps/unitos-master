@@ -687,8 +687,11 @@ function InstallationDetailPage() {
           <CardTitle className="text-sm">Saúde medida</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-2 sm:grid-cols-4">
-          {HEALTH_CHECKS.map((check) => {
+          {HEALTH_CHECKS.filter((c) =>
+            (INFRA_HEALTH_CHECK_IDS as readonly string[]).includes(c.id),
+          ).map((check) => {
             const result = inst.healthChecks[check.id];
+
             return (
               <div key={check.id} className="rounded-lg border border-border/60 px-3 py-2">
                 <p className="text-[10px] uppercase text-muted-foreground">{check.label}</p>
