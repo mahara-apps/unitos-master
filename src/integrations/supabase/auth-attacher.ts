@@ -7,9 +7,21 @@ import { supabase } from "./client";
 export const attachSupabaseAuth = createMiddleware({ type: "function" }).client(
   async ({ next }) => {
     const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
+    let session = data.session;
+
+    // `getSession` pode devolver um access_token já expirado (ou a segundos de
+    // expirar) quando o refresh automático não rodou — o servidor então
+    // rejeita com "Unauthorized: Invalid token". Renovamos antes de enviar.
+    const expiresAt = session?.expires_at ? session.expires_at * 1000 : 0;
+    if (session && expiresAt && expiresAt - Date.now() < 30_000) {
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      session = refreshed.session ?? session;
+    }
+
+    const token = session?.access_token;
     return next({
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
   },
 );
+
