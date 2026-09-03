@@ -27,11 +27,12 @@ function useHasSession(): boolean {
 
 export function useBrandFeatures() {
   const { brandId } = useActiveContextOptional();
+  const hasSession = useHasSession();
   const list = useServerFn(listBrandFeatures);
   return useQuery({
     queryKey: ["brand-features", brandId],
     queryFn: () => list({ data: { brandId: brandId! } }),
-    enabled: !!brandId,
+    enabled: !!brandId && hasSession,
     staleTime: 60_000,
   });
 }
@@ -50,10 +51,14 @@ export function useFeatureAccess(featureKey: string): { enabled: boolean; loadin
 }
 
 export function useIsSuperAdmin() {
+  const hasSession = useHasSession();
   const fn = useServerFn(amISuperAdmin);
   return useQuery({
     queryKey: ["me-is-super-admin"],
     queryFn: () => fn(),
+    enabled: hasSession,
+    retry: false,
     staleTime: 5 * 60_000,
   });
+
 }
