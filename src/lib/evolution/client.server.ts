@@ -46,8 +46,9 @@ export class EvolutionApiError extends Error {
   }
 }
 
-const DEFAULT_TIMEOUT_MS = 8_000;
-const MAX_ATTEMPTS = 3;
+const DEFAULT_TIMEOUT_MS = REQUEST_TIMEOUT_MS;
+const MAX_ATTEMPTS = MAX_ATTEMPTS_PER_MESSAGE;
+
 
 function messageForStatus(status: number): { code: EvolutionErrorCode; message: string } {
   if (status === 401 || status === 403) {
