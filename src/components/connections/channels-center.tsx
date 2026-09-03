@@ -106,9 +106,11 @@ import { metaIssueToast } from "@/lib/meta/issue-messages";
 import {
   busyChannel,
   classifyConnectFailure,
-  isConnectBusy,
   type MetaConnectState,
 } from "@/lib/meta/connect-flow";
+
+/** Limite duro de espera pelo consentimento antes de virar estado de timeout. */
+const OAUTH_TIMEOUT_MS = 4 * 60_000;
 import { maskId } from "@/lib/meta/reconnect-diagnosis";
 import { linkMetaAccount } from "@/lib/meta/portfolio.functions";
 import {
@@ -825,10 +827,27 @@ export function ChannelsCenter({
 
       <ConnectChannelsDialog
         open={connectOpen}
-        onOpenChange={setConnectOpen}
-        connecting={connecting}
+        onOpenChange={(v) => {
+          setConnectOpen(v);
+          if (!v) {
+            clearWatchdogs();
+            setFlow({ kind: "idle" });
+          }
+        }}
+        state={flow}
         onConnect={(channel) => void connectMeta(channel)}
+        onCancel={() => {
+          clearWatchdogs();
+          setFlow({ kind: "idle" });
+        }}
+        onContinue={() => {
+          setConnectOpen(false);
+          setFlow({ kind: "idle" });
+          if (portfolioSessionId) setPortfolioOpen(true);
+        }}
+        onRefreshDiscovery={() => refreshDiscovery()}
         discovery={discovery}
+        syncing={loadingDiscovery || fetchingDiscovery}
       />
 
       {portfolioSessionId ? (
