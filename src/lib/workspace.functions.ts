@@ -11,6 +11,7 @@ import {
 
 import { callRpc } from "@/lib/supabase-rpc";
 import { computeBriefingCompletion } from "@/lib/briefing-progress";
+import { SINGLE_WORKSPACE_ERROR } from "@/lib/workspace-singleton";
 import type { BrandHubData } from "@/lib/brand-hub.functions";
 
 /**
