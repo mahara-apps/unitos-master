@@ -258,6 +258,21 @@ export type DeployClient = {
   deploymentUrl: () => Promise<{ ok: boolean; url?: string; error?: string }>;
   /** Redeploy da producao — necessario para que as variaveis gravadas valham. */
   redeploy: () => Promise<{ ok: boolean; deploymentId?: string; error?: string }>;
+  /**
+   * Novo build a partir do repositorio ligado ao projeto (codigo mais recente
+   * do MASTER). Sem repositorio ligado, cai para `redeploy()` — que reaproveita
+   * o mesmo snapshot e portanto NAO traz codigo novo (source: "rebuild").
+   */
+  deployLatestCode: () => Promise<{
+    ok: boolean;
+    deploymentId?: string;
+    source?: "git" | "rebuild";
+    ref?: string;
+    error?: string;
+  }>;
+  deploymentState: (
+    id: string,
+  ) => Promise<{ ok: boolean; state?: string; url?: string; error?: string }>;
   setEnv: (
     entries: readonly { key: string; value: string; sensitive: boolean }[],
   ) => Promise<{ ok: boolean; applied: number; error?: string }>;
