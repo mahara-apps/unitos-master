@@ -169,6 +169,8 @@ function InstallationDetailPage() {
   const autoUpdateFn = useServerFn(runAutomatedUpdateFn);
   const restartFn = useServerFn(restartAutomatedProvisionFn);
   const resumeFn = useServerFn(resumeAutomatedProvisionFn);
+  const editFn = useServerFn(updateInstallationFn);
+
 
   const [runCommand, setRunCommand] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
