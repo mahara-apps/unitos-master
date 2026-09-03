@@ -373,23 +373,60 @@ export function createDeployClient(input: {
     },
     async deployLatestCode() {
       try {
-        const res = await doFetch(
-          `https://api.vercel.com/v9/projects/${project}?${qs()}`.replace(/\?$/, ""),
-          { headers },
-        );
-        if (!res.ok) {
-          return { ok: false, error: `HTTP ${res.status} ao consultar o projeto de deploy` };
-        }
-        const body = (await res.json().catch(() => ({}))) as {
-          name?: string;
-          link?: {
-            type?: string;
-            repoId?: number | string;
-            repo?: string;
-            org?: string;
-            productionBranch?: string;
+        const readProject = async () => {
+          const res = await doFetch(
+            `https://api.vercel.com/v9/projects/${project}?${qs()}`.replace(/\?$/, ""),
+            { headers },
+          );
+          if (!res.ok) return null;
+          return (await res.json().catch(() => ({}))) as {
+            id?: string;
+            name?: string;
+            link?: {
+              type?: string;
+              repoId?: number | string;
+              repo?: string;
+              org?: string;
+              productionBranch?: string;
+            };
           };
         };
+
+        let body = await readProject();
+        if (!body) {
+          return { ok: false, error: "não foi possível consultar o projeto de deploy" };
+        }
+
+        // O projeto precisa apontar para o repositório do MASTER. Se estiver
+        // ligado a um repositório próprio (parado no commit inicial), religa —
+        // é o que faz a atualização realmente trazer código novo.
+        const current = `${body.link?.org ?? ""}/${body.link?.repo ?? ""}`.toLowerCase();
+        if (current !== masterRepo.toLowerCase()) {
+          const id = encodeURIComponent(body.id ?? input.project);
+          if (body.link?.repo) {
+            await doFetch(
+              `https://api.vercel.com/v9/projects/${id}/link?${qs()}`.replace(/\?$/, ""),
+              { method: "DELETE", headers },
+            );
+          }
+          const linked = await doFetch(
+            `https://api.vercel.com/v10/projects/${id}/link?${qs()}`.replace(/\?$/, ""),
+            {
+              method: "POST",
+              headers,
+              body: JSON.stringify({ type: "github", repo: masterRepo, gitBranch: "main" }),
+            },
+          );
+          if (!linked.ok) {
+            const text = await linked.text().catch(() => "");
+            return {
+              ok: false,
+              error: `HTTP ${linked.status} ao ligar o projeto ao repositório do MASTER (${text.slice(0, 200)})`,
+            };
+          }
+          body = (await readProject()) ?? body;
+        }
+
         const link = body.link;
         const repoId = link?.repoId;
         if (!link?.type || repoId === undefined || repoId === null) {
@@ -397,6 +434,7 @@ export function createDeployClient(input: {
           return { ...fallback, source: "rebuild" as const };
         }
         const ref = (link.productionBranch ?? "main").trim() || "main";
+
         const created = await doFetch(`https://api.vercel.com/v13/deployments?${qs("forceNew=1")}`, {
           method: "POST",
           headers,
