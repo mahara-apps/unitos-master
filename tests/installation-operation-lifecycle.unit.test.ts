@@ -75,7 +75,7 @@ describe("progresso por etapa", () => {
     const steps = initialSteps("provision");
     expect(steps).toHaveLength(9);
     expect(stepsProgress(steps).percent).toBe(0);
-    expect(operationStatusFromSteps(steps)).toBe("running");
+    expect(operationStatusFromSteps(steps)).toBe("pending");
   });
 
   it("etapa com erro marca a operação como falha", () => {
