@@ -280,6 +280,9 @@ export function ChannelsCenter({
     queryFn: () => discoverFn({ data: { brandId: brandId! } }),
     enabled: !!brandId,
     staleTime: 120_000,
+    // Requisição da Meta NUNCA é repetida automaticamente: um retry silencioso
+    // dobrava o custo de uma descoberta inteira ao primeiro erro.
+    retry: false,
   });
 
   const { data: clients = [] } = useQuery({
@@ -303,6 +306,7 @@ export function ChannelsCenter({
     queryFn: () => portfolioStatusFn({ data: { brandId: brandId! } }),
     enabled: !!brandId,
     staleTime: 30_000,
+    retry: false,
   });
 
   const invalidate = () => {
@@ -787,7 +791,7 @@ export function ChannelsCenter({
                 canManage={canManage}
                 loading={loadingPortfolio}
                 loadingDiscovery={loadingDiscovery}
-                fetchingDiscovery={fetchingDiscovery}
+                fetchingDiscovery={fetchingDiscovery || manualSyncing}
                 portfolios={portfolios}
                 accounts={available}
                 discovery={discovery}
@@ -905,7 +909,7 @@ export function ChannelsCenter({
         }}
         onRefreshDiscovery={() => refreshDiscovery()}
         discovery={discovery}
-        syncing={loadingDiscovery || fetchingDiscovery}
+        syncing={loadingDiscovery || fetchingDiscovery || manualSyncing}
       />
 
       {portfolioSessionId ? (
