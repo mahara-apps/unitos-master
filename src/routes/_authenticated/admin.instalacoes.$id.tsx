@@ -99,6 +99,20 @@ const STEP_TONE: Record<StepState, string> = {
   error: "text-destructive",
 };
 
+const CORE_TONE: Record<CoreState, string> = {
+  ok: "border-health-good/40 text-health-good",
+  attention: "border-severity-warning/40 text-severity-warning",
+  running: "border-severity-info/40 text-severity-info",
+  error: "border-destructive/40 text-destructive",
+  pending: "border-border/60 text-muted-foreground",
+};
+
+const OPTIONAL_TONE: Record<OptionalState, string> = {
+  configured: "border-health-good/40 text-health-good",
+  pending: "border-severity-warning/40 text-severity-warning",
+  not_configured: "border-border/60 text-muted-foreground",
+};
+
 function InstallationDetailPage() {
   const { id } = Route.useParams();
   const { novo } = Route.useSearch();
