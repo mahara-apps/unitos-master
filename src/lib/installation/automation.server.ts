@@ -372,7 +372,89 @@ export type AutomationRunResult = AutomationOutcome & {
   steps: { id: string; state: CheckState | "done" | "error"; detail: string | null }[];
 };
 
+/* ------------------------------------------------- checkpoint do baseline */
+
+/** Marcador de arquivo integralmente aplicado. */
+export const DONE = -1;
+
+export type BaselineProgress = Record<string, number>;
+
+/**
+ * Lê o checkpoint da instalação: a última operação (inclusive a atual) que
+ * registrou progresso de baseline. Permite retomar sem reaplicar tudo.
+ */
+export async function readBaselineProgress(
+  client: Client,
+  installationId: string,
+  operation: OperationRow,
+): Promise<BaselineProgress> {
+  try {
+    const db = client as never as {
+      from: (t: string) => {
+        select: (c: string) => {
+          eq: (
+            c: string,
+            v: string,
+          ) => {
+            order: (
+              c: string,
+              o: { ascending: boolean },
+            ) => { limit: (n: number) => Promise<{ data?: { detail?: unknown }[] | null }> };
+          };
+        };
+      };
+    };
+    const { data } = await db
+      .from("installation_operations")
+      .select("detail")
+      .eq("installation_id", installationId)
+      .order("started_at", { ascending: false })
+      .limit(5);
+    const rows = [{ detail: operation.detail }, ...(data ?? [])];
+    for (const row of rows) {
+      const raw = (row?.detail as { baselineProgress?: unknown } | null)?.baselineProgress;
+      if (raw && typeof raw === "object") {
+        const out: BaselineProgress = {};
+        for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+          if (typeof value === "number" && Number.isFinite(value)) out[key] = value;
+        }
+        if (Object.keys(out).length > 0) return out;
+      }
+    }
+  } catch {
+    // checkpoint é otimização: falha na leitura só significa aplicar do zero.
+  }
+  return {};
+}
+
+/** Persiste o checkpoint no detalhe da operação (nunca contém secrets). */
+export async function saveBaselineProgress(
+  client: Client,
+  operation: OperationRow,
+  progress: BaselineProgress,
+): Promise<void> {
+  try {
+    const db = client as never as {
+      from: (t: string) => {
+        update: (v: Record<string, unknown>) => {
+          eq: (c: string, v: string) => Promise<unknown>;
+        };
+      };
+    };
+    await db
+      .from("installation_operations")
+      .update({
+        detail: { ...((operation.detail ?? {}) as Record<string, unknown>), baselineProgress: progress },
+        last_report_at: new Date().toISOString(),
+      })
+      .eq("id", operation.id);
+  } catch {
+    // idem: perder o checkpoint não invalida a operação.
+  }
+}
+
 async function report(
+
   client: Client,
   op: OperationRow,
   step: string,
