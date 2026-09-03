@@ -286,10 +286,61 @@ function InstallationDetailPage() {
         </CardContent>
       </Card>
 
-      {/* 2. SAÚDE */}
+      {/* 2. NÚCLEO DA INSTALAÇÃO — obrigatório, define READY */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm">Núcleo da instalação</CardTitle>
+          <span className="text-xs text-muted-foreground">
+            {readiness.ready
+              ? "READY: infraestrutura, secrets, cron, health check, Super Admin e 1 workspace"
+              : `Pendente: ${readiness.missingCore.length} item(ns) obrigatório(s)`}
+          </span>
+        </CardHeader>
+        <CardContent className="grid gap-2 sm:grid-cols-4">
+          {CORE_REQUIREMENTS.map((req) => {
+            const result = readiness.core[req.id];
+            return (
+              <div key={req.id} className="rounded-lg border border-border/60 px-3 py-2">
+                <p className="text-[10px] uppercase text-muted-foreground">{req.label}</p>
+                <Badge variant="outline" className={cn("mt-1 text-[10px]", CORE_TONE[result.state])}>
+                  {CORE_STATE_LABEL[result.state]}
+                </Badge>
+                {result.detail && (
+                  <p className="mt-1 truncate text-[11px] text-muted-foreground">{result.detail}</p>
+                )}
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      {/* 3. CONFIGURAÇÃO OPCIONAL — nunca bloqueia a instalação */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm">Configuração opcional</CardTitle>
+          <span className="text-xs text-muted-foreground">
+            Não bloqueia: a instalação continua operacional sem estas integrações.
+          </span>
+        </CardHeader>
+        <CardContent className="grid gap-2 sm:grid-cols-3">
+          {OPTIONAL_CONFIG.map((item) => {
+            const state = readiness.optional[item.id];
+            return (
+              <div key={item.id} className="rounded-lg border border-border/60 px-3 py-2">
+                <p className="text-[10px] uppercase text-muted-foreground">{item.label}</p>
+                <Badge variant="outline" className={cn("mt-1 text-[10px]", OPTIONAL_TONE[state])}>
+                  {OPTIONAL_STATE_LABEL[state]}
+                </Badge>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      {/* Saúde medida pelo MASTER (probe + última validação reportada) */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Saúde</CardTitle>
+          <CardTitle className="text-sm">Saúde medida</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-2 sm:grid-cols-4">
           {HEALTH_CHECKS.map((check) => {
