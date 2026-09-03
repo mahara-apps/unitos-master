@@ -378,10 +378,23 @@ function InstallationDetailPage() {
           <Button
             size="sm"
             variant="outline"
-            disabled={!canStartOperation("validate", inst.status) || start.isPending || !!activeOp}
-            onClick={() => start.mutate({ kind: "validate" })}
+            disabled={
+              !canStartOperation("validate", inst.status) ||
+              start.isPending ||
+              autoValidate.isPending ||
+              !!activeOp
+            }
+            onClick={() =>
+              automated ? autoValidate.mutate() : start.mutate({ kind: "validate" })
+            }
           >
-            <ShieldCheck className="mr-1.5 h-3.5 w-3.5" /> Validar instalação
+            {autoValidate.isPending ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            {automated ? "Validar automaticamente" : "Validar instalação"}
+
           </Button>
           <Button
             size="sm"
