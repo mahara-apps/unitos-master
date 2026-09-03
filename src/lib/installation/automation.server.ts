@@ -21,6 +21,7 @@
 import baseline000 from "../../../supabase/baseline-snapshot/000_extensions.sql?raw";
 import baseline001 from "../../../supabase/baseline-snapshot/001_initial_schema.sql?raw";
 import baseline005 from "../../../supabase/baseline-snapshot/005_auth_trigger.sql?raw";
+import baseline007 from "../../../supabase/baseline-snapshot/007_delta_migrations.sql?raw";
 import baseline003 from "../../../supabase/baseline-snapshot/003_storage_buckets.sql?raw";
 import baseline006 from "../../../supabase/baseline-snapshot/006_storage_policies.sql?raw";
 import baseline004 from "../../../supabase/baseline-snapshot/004_seeds.sql?raw";
@@ -31,7 +32,12 @@ import verifySql from "../../../supabase/install/verify-installation.sql?raw";
 
 import { runtimeEnv } from "@/lib/runtime-env.server";
 
-import { sanitizeBaselineSqlForManagementApi } from "./baseline-sql";
+import {
+  prepareVerificationSql,
+  sanitizeBaselineSqlForManagementApi,
+  stripPsqlMetaCommands,
+  summarizeVerificationRows,
+} from "./baseline-sql";
 import { containsMasterReference } from "./bootstrap-contract";
 import {
   GENERATED_SECRET_VARS,
@@ -66,7 +72,8 @@ function sqlLiteral(value: string): string {
 
 /** Substitui as variáveis psql (`:'app_url'`) usadas pelos scripts. */
 function bindAppUrl(sql: string, appUrl: string): string {
-  return sql.replace(/:'app_url'/g, sqlLiteral(appUrl)).replace(/:app_url\b/g, sqlLiteral(appUrl));
+  const pure = stripPsqlMetaCommands(sql).sql;
+  return pure.replace(/:'app_url'/g, sqlLiteral(appUrl)).replace(/:app_url\b/g, sqlLiteral(appUrl));
 }
 
 type Fetcher = typeof fetch;
@@ -365,6 +372,7 @@ export async function runAutomatedProvision(input: {
     { id: "database", label: "000_extensions", sql: baseline000 },
     { id: "database", label: "001_initial_schema", sql: baseline001 },
     { id: "database", label: "005_auth_trigger", sql: baseline005 },
+    { id: "database", label: "007_delta_migrations", sql: baseline007 },
     { id: "storage", label: "003_storage_buckets", sql: baseline003 },
     { id: "storage", label: "006_storage_policies", sql: baseline006 },
     { id: "seeds", label: "004_seeds", sql: baseline004 },
@@ -476,7 +484,7 @@ export async function runAutomatedProvision(input: {
 
   /* 6. Brain stats */
   await mark("brain", "running");
-  const brain = await management.query(install011);
+  const brain = await management.query(stripPsqlMetaCommands(install011).sql);
   if (!brain.ok) {
     failures.push(`brain_stats_mv: ${brain.error ?? "falha"}`);
     await mark("brain", "error", "brain_stats_mv não inicializada");
@@ -500,18 +508,16 @@ export async function runAutomatedProvision(input: {
 
   /* 8. verificação final READ-ONLY */
   await mark("validation", "running");
-  const verify = await management.query(verifySql);
+  const verify = await management.query(prepareVerificationSql(verifySql).sql);
   if (!verify.ok) {
     failures.push(`verify-installation: ${verify.error ?? "falha"}`);
     await mark("validation", "error", "verificação final falhou");
     return finish(url.origin, url.source);
   }
-  const verifyFail = verify.rows.filter((row) =>
-    JSON.stringify(row ?? {}).includes("FAIL"),
-  ).length;
-  if (verifyFail > 0) {
-    failures.push(`verify-installation reportou ${verifyFail} verificação(ões) em FAIL.`);
-    await mark("validation", "error", `${verifyFail} verificações em FAIL`);
+  const summary = summarizeVerificationRows(verify.rows);
+  if (!summary.ok) {
+    failures.push(`verify-installation: ${summary.reason ?? "resultado inconclusivo"}`);
+    await mark("validation", "error", summary.reason);
     return finish(url.origin, url.source);
   }
   checks.connectivity = "ok";
@@ -527,8 +533,8 @@ export async function runAutomatedProvision(input: {
     "validation",
     "done",
     hasSuperAdmin
-      ? "todas as verificações PASS · Super Admin já criado"
-      : `todas as verificações PASS · crie o primeiro Super Admin em ${url.origin}/setup`,
+      ? `${summary.total} verificações PASS · Super Admin já criado`
+      : `${summary.total} verificações PASS · crie o primeiro Super Admin em ${url.origin}/setup`,
   );
 
   return finish(url.origin, url.source);
