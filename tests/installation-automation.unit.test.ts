@@ -124,6 +124,28 @@ describe("URL operacional automática", () => {
     expect(url.ok && url.source).toBe("custom_domain");
   });
 
+  it("normaliza domínio definitivo sem protocolo para HTTPS", () => {
+    const url = resolveOperationalUrl({
+      customDomain: "app.pitada.com.br",
+      deploymentUrl: "https://unitos-pitada-abc.vercel.app",
+    });
+    expect(url).toEqual({
+      ok: true,
+      origin: "https://app.pitada.com.br",
+      kind: "custom",
+      source: "custom_domain",
+    });
+  });
+
+  it("mantém a proteção anti-MASTER ao normalizar domínio sem protocolo", () => {
+    const url = resolveOperationalUrl({
+      customDomain: "unitos-master.lovable.app",
+      deploymentUrl: "https://unitos-pitada-abc.vercel.app",
+    });
+    expect(url.ok).toBe(false);
+    if (!url.ok) expect(url.reason).toContain("MASTER");
+  });
+
   it("BLOCKED sem domínio e sem URL de deploy", () => {
     const url = resolveOperationalUrl({});
     expect(url.ok).toBe(false);
