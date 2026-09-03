@@ -382,9 +382,11 @@ function InstallationDetailPage() {
             variant="outline"
             disabled={
               !canStartOperation("validate", inst.status) ||
+              capability.isPending ||
               start.isPending ||
               autoValidate.isPending ||
               !!activeOp
+
             }
             onClick={() =>
               automated ? autoValidate.mutate() : start.mutate({ kind: "validate" })
