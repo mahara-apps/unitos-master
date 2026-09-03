@@ -460,6 +460,8 @@ export function createDeployClient(input: {
       }
     },
   };
+
+  return client;
 }
 
 /* --------------------------------------------------------------- execução */
