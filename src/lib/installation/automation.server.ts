@@ -1059,23 +1059,60 @@ export async function runAutomatedProvision(input: {
 
   // Primeiro acesso NÃO bloqueia: a instalação já está operacional e o Super
   // Admin é criado no fluxo /setup da própria instalação.
-  const setup = await management.query(
-    "select (public.installation_setup_state()->>'has_super_admin')::boolean as has_super_admin",
-  );
-  const hasSuperAdmin =
-    (setup.rows[0] as { has_super_admin?: boolean | null } | undefined)?.has_super_admin === true;
+  const firstAccess = await readFirstAccessState(management);
+  checks.super_admin = firstAccess.superAdmin;
+  checks.workspace = firstAccess.workspace;
   await mark(
     "validation",
     "done",
-    hasSuperAdmin
-      ? `${summary.total} verificações PASS · Super Admin já criado`
-      : `${summary.total} verificações PASS · crie o primeiro Super Admin em ${url.origin}/setup`,
+    `${summary.total} verificações PASS · ${firstAccess.detail}`,
   );
+
 
   return finish(url.origin, url.source);
 }
 
+/* ------------------------------------------------------------ primeiro acesso */
+
+/**
+ * Estado real do primeiro acesso da instalação: existe Super Admin e existe
+ * EXATAMENTE um workspace. Não bloqueia a instalação (fica `attention`), mas
+ * precisa ser reportado — sem isso o núcleo nunca é comprovado e o painel não
+ * consegue afirmar que a instalação está PRONTA.
+ */
+async function readFirstAccessState(management: {
+  query: (sql: string) => Promise<{ ok: boolean; rows: readonly unknown[]; error?: string | null }>;
+}): Promise<{ superAdmin: CheckState; workspace: CheckState; detail: string }> {
+  const res = await management.query(
+    "select (public.installation_setup_state()->>'has_super_admin')::boolean as has_super_admin," +
+      " (select count(*) from public.brands) as brand_count",
+  );
+  if (!res.ok) {
+    return {
+      superAdmin: "pending",
+      workspace: "pending",
+      detail: "primeiro acesso não verificado",
+    };
+  }
+  const row = (res.rows[0] ?? {}) as { has_super_admin?: boolean | null; brand_count?: unknown };
+  const hasSuperAdmin = row.has_super_admin === true;
+  const brands = Number(row.brand_count ?? 0);
+  const workspace: CheckState = brands === 1 ? "ok" : brands === 0 ? "attention" : "error";
+  return {
+    superAdmin: hasSuperAdmin ? "ok" : "attention",
+    workspace,
+    detail: hasSuperAdmin
+      ? brands === 1
+        ? "Super Admin criado · 1 workspace"
+        : brands === 0
+          ? "Super Admin criado · workspace ainda não criado"
+          : `atenção: ${brands} workspaces (o modelo é 1 por instalação)`
+      : "crie o primeiro Super Admin em /setup",
+  };
+}
+
 /* ------------------------------------------------------- validação automática */
+
 
 /** Distribui cada verificação do verify entre as etapas de validação da UI. */
 export function classifyVerificationCheck(checkName: string): string {
@@ -1199,15 +1236,22 @@ export async function runAutomatedValidate(input: {
   const summary = summarizeVerificationRows(verify.rows);
   if (summary.ok) checks.connectivity = "ok";
 
+  // Reporta também o primeiro acesso (Super Admin + workspace único) para que o
+  // painel possa concluir READY sem depender de inspeção manual.
+  const firstAccess = await readFirstAccessState(management);
+  checks.super_admin = firstAccess.superAdmin;
+  checks.workspace = firstAccess.workspace;
+
   await finalizeOperation(client as never, operation as never, {
     ok: summary.ok,
     version: summary.ok ? MASTER_RELEASE_VERSION : null,
     summary: summary.ok
-      ? `Validação automática concluída — ${summary.total} verificações PASS.`
+      ? `Validação automática concluída — ${summary.total} verificações PASS · ${firstAccess.detail}.`
       : `FAIL: ${summary.reason ?? "verificações em FAIL"}`,
     errorKind: summary.ok ? null : "fail",
     checks: checks as never,
   }).catch(() => undefined);
+
 
   return {
     result: summary.ok ? "PASS" : "FAIL",

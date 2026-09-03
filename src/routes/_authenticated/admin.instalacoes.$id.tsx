@@ -9,6 +9,7 @@ import {
   Copy,
   Loader2,
   ArrowDownToLine,
+  Pencil,
   RefreshCw,
   Rocket,
   ShieldCheck,
@@ -27,10 +28,13 @@ import {
   runAutomatedValidateFn,
   runAutomatedUpdateFn,
   startInstallationOperationFn,
+  updateInstallationFn,
 } from "@/lib/installation/manager.functions";
+
 import {
   CHECK_STATE_LABEL,
   HEALTH_CHECKS,
+  INFRA_HEALTH_CHECK_IDS,
   INSTALLATION_HEALTH_LABEL,
   INSTALLATION_STATUS_LABEL,
   OPERATION_KIND_LABEL,
@@ -53,6 +57,7 @@ import {
   OVERALL_STATE_LABEL,
   computeReadiness,
   customDomainState,
+  isTemporaryDeployUrl,
   type CoreState,
   type OptionalState,
 } from "@/lib/installation/readiness-contract";
@@ -67,9 +72,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { STATUS_TONE } from "./admin.instalacoes.index";
+
 
 export const Route = createFileRoute("/_authenticated/admin/instalacoes/$id")({
   validateSearch: (search: Record<string, unknown>): { novo?: true } =>
@@ -122,7 +130,29 @@ const OPTIONAL_TONE: Record<OptionalState, string> = {
   not_configured: "border-border/60 text-muted-foreground",
 };
 
+/** Campos editáveis da instalação — o domínio pode mudar depois do cadastro. */
+type EditForm = {
+  name: string;
+  domain: string;
+  supabaseUrl: string;
+  supabaseProjectRef: string;
+  gitRepoUrl: string;
+  deployProject: string;
+  notes: string;
+};
+
+const EMPTY_FORM: EditForm = {
+  name: "",
+  domain: "",
+  supabaseUrl: "",
+  supabaseProjectRef: "",
+  gitRepoUrl: "",
+  deployProject: "",
+  notes: "",
+};
+
 function InstallationDetailPage() {
+
   const { id } = Route.useParams();
   const { novo } = Route.useSearch();
   const qc = useQueryClient();
@@ -139,8 +169,13 @@ function InstallationDetailPage() {
   const autoUpdateFn = useServerFn(runAutomatedUpdateFn);
   const restartFn = useServerFn(restartAutomatedProvisionFn);
   const resumeFn = useServerFn(resumeAutomatedProvisionFn);
+  const editFn = useServerFn(updateInstallationFn);
+
 
   const [runCommand, setRunCommand] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [form, setForm] = useState<EditForm>(EMPTY_FORM);
+
   const [updateOpen, setUpdateOpen] = useState(false);
   const resumePendingRef = useRef(false);
 
@@ -301,6 +336,32 @@ function InstallationDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Edição dos dados da instalação: o domínio definitivo normalmente só chega
+  // depois do provisionamento, então precisa ser alterável sem recadastrar.
+  const edit = useMutation({
+    mutationFn: () =>
+      editFn({
+        data: {
+          id,
+          name: form.name.trim(),
+          domain: form.domain,
+          supabaseUrl: form.supabaseUrl,
+          supabaseProjectRef: form.supabaseProjectRef,
+          gitRepoUrl: form.gitRepoUrl,
+          deployProject: form.deployProject,
+          notes: form.notes,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Dados da instalação atualizados.");
+      setEditOpen(false);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
+
   if (detail.isLoading) {
     return (
       <div className="flex items-center gap-2 py-16 text-sm text-muted-foreground">
@@ -339,6 +400,23 @@ function InstallationDetailPage() {
     optional: { custom_domain: customDomainState(inst.domain) },
     operationRunning: !!activeOp,
   });
+  const coreLabel = (id: (typeof CORE_REQUIREMENTS)[number]["id"]) =>
+    CORE_REQUIREMENTS.find((r) => r.id === id)?.label ?? id;
+
+  const openEdit = () => {
+    setForm({
+      name: inst.name,
+      domain: inst.domain ?? "",
+      supabaseUrl: inst.supabaseUrl ?? "",
+      supabaseProjectRef: inst.supabaseProjectRef ?? "",
+      gitRepoUrl: inst.gitRepoUrl ?? "",
+      deployProject: inst.deployProject ?? "",
+      notes: inst.notes ?? "",
+    });
+    setEditOpen(true);
+  };
+
+
 
   return (
     <div className="space-y-5">
@@ -369,6 +447,11 @@ function InstallationDetailPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
+          <Button size="sm" variant="outline" onClick={openEdit}>
+            <Pencil className="mr-1.5 h-3.5 w-3.5" />
+            Editar dados
+          </Button>
+
           <Button
             size="sm"
             disabled={
@@ -451,6 +534,57 @@ function InstallationDetailPage() {
           </Button>
         </div>
       </div>
+
+      {/* Conclusão explícita: o painel afirma se a instalação está PRONTA e, se
+          não estiver, diz exatamente qual item do núcleo falta. */}
+      {!activeOp &&
+        (readiness.ready ? (
+          <Card className="border-emerald-500/40 bg-emerald-500/5">
+            <CardContent className="space-y-1.5 py-4">
+              <p className="flex items-center gap-2 text-sm font-semibold text-emerald-600">
+                <CheckCircle2 className="h-4 w-4" /> Instalação pronta e operacional
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Núcleo comprovado ({CORE_REQUIREMENTS.length}/{CORE_REQUIREMENTS.length}):
+                banco, schema, RLS, Storage, seeds, secrets, cron, deploy, health check, Super
+                Admin e workspace único. Já pode ser usada.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {readiness.pendingOptional.length
+                  ? `Opcional pendente (não bloqueia): ${readiness.pendingOptional
+                      .map((o) => OPTIONAL_CONFIG.find((x) => x.id === o)?.label ?? o)
+                      .join(", ")}.`
+                  : "Todas as integrações opcionais estão configuradas."}
+              </p>
+              {inst.domain && isTemporaryDeployUrl(inst.domain) && (
+                <p className="text-xs text-muted-foreground">
+                  Domínio atual é o temporário do deploy. Quando o cliente informar o definitivo,
+                  use “Editar dados”.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-amber-500/40 bg-amber-500/5">
+            <CardContent className="space-y-1.5 py-4">
+              <p className="text-sm font-semibold text-amber-600">
+                Instalação ainda não confirmada como pronta
+              </p>
+              {readiness.failedCore.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Em falha: {readiness.failedCore.map(coreLabel).join(", ")}.
+                </p>
+              )}
+              {readiness.missingCore.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Falta comprovar: {readiness.missingCore.map(coreLabel).join(", ")} — rode
+                  “Validar automaticamente” para o MASTER reler o estado real do destino.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+
 
       {novo && !inst.lastProvisionedAt && (
         <Card className="border-primary/40 bg-primary/5">
@@ -553,8 +687,11 @@ function InstallationDetailPage() {
           <CardTitle className="text-sm">Saúde medida</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-2 sm:grid-cols-4">
-          {HEALTH_CHECKS.map((check) => {
+          {HEALTH_CHECKS.filter((c) =>
+            (INFRA_HEALTH_CHECK_IDS as readonly string[]).includes(c.id),
+          ).map((check) => {
             const result = inst.healthChecks[check.id];
+
             return (
               <div key={check.id} className="rounded-lg border border-border/60 px-3 py-2">
                 <p className="text-[10px] uppercase text-muted-foreground">{check.label}</p>
@@ -847,7 +984,58 @@ function InstallationDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edição dos dados da instalação — inclui a troca do domínio definitivo. */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar dados da instalação</DialogTitle>
+            <DialogDescription>
+              Atualize o domínio quando o definitivo for informado. Alterar aqui não redeploya:
+              depois da troca, rode “Validar automaticamente” para reconferir o núcleo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {(
+              [
+                ["name", "Nome", "Instalação do cliente"],
+                ["domain", "Domínio operacional", "https://cliente.com.br"],
+                ["supabaseUrl", "Supabase URL", "https://xxxx.supabase.co"],
+                ["supabaseProjectRef", "Supabase project ref", "xxxxxxxxxxxx"],
+                ["deployProject", "Projeto de deploy", "unitos-cliente"],
+                ["gitRepoUrl", "Repositório", "https://github.com/org/repo"],
+                ["notes", "Notas", "observações internas"],
+              ] as const
+            ).map(([key, label, placeholder]) => (
+              <div key={key} className="space-y-1.5">
+                <Label htmlFor={`edit-${key}`} className="text-xs">
+                  {label}
+                </Label>
+                <Input
+                  id={`edit-${key}`}
+                  value={form[key]}
+                  placeholder={placeholder}
+                  onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                />
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={edit.isPending || !form.name.trim()}
+              onClick={() => edit.mutate()}
+            >
+              {edit.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Salvar alterações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 }
 
