@@ -187,12 +187,17 @@ export function computeReadiness(input: ReadinessInput): ReadinessReport {
     optional[item.id] = input.optional?.[item.id] ?? "not_configured";
   }
 
+  // Primeiro acesso: informativo. O Super Admin e o workspace são criados pelo
+  // próprio cliente em /setup, então "ainda não reportado" NUNCA bloqueia a
+  // instalação — só uma falha real (ex.: mais de um workspace) bloqueia.
+  const blocking = CORE_REQUIREMENTS.filter((r) => !FIRST_ACCESS_REQUIREMENTS.includes(r.id));
+
   const failedCore = CORE_REQUIREMENTS.filter((r) => core[r.id].state === "error").map((r) => r.id);
   const runningCore = CORE_REQUIREMENTS.some((r) => core[r.id].state === "running");
-  const missingCore = CORE_REQUIREMENTS.filter(
-    (r) => core[r.id].state === "pending" || core[r.id].state === "running",
-  ).map((r) => r.id);
-  const attentionCore = CORE_REQUIREMENTS.some((r) => core[r.id].state === "attention");
+  const missingCore = blocking
+    .filter((r) => core[r.id].state === "pending" || core[r.id].state === "running")
+    .map((r) => r.id);
+  const attentionCore = blocking.some((r) => core[r.id].state === "attention");
   const pendingOptional = OPTIONAL_CONFIG.filter((o) => optional[o.id] !== "configured").map(
     (o) => o.id,
   );
@@ -208,6 +213,7 @@ export function computeReadiness(input: ReadinessInput): ReadinessReport {
 
   return { ready, state, core, optional, missingCore, failedCore, pendingOptional };
 }
+
 
 /* ----------------------------------------------------------- URL operacional */
 
