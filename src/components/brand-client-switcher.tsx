@@ -204,52 +204,18 @@ export function ContextSwitcher() {
         </PopoverTrigger>
         <PopoverContent align="start" sideOffset={8} className="w-72 p-0">
           <Command>
-            <CommandInput placeholder="Buscar workspace ou cliente…" className="h-9" />
+            <CommandInput placeholder="Buscar cliente…" className="h-9" />
             <CommandList className="max-h-80">
               <CommandEmpty>Nenhum resultado.</CommandEmpty>
-              <CommandGroup
-                heading={
-                  <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                    <Building2 className="h-3 w-3" /> WORKSPACES
-                  </span>
-                }
-              >
-                {brandsQ.data && brandsQ.data.length === 0 && (
-                  <div className="px-2 py-3 text-xs text-muted-foreground">
-                    Sua conta ainda não está vinculada a nenhum workspace. Peça a um Admin desta
-                    instalação para vincular seu e-mail em Configurações → Equipe & Acesso. Criar um
-                    novo workspace inicia uma agência vazia, separada da atual.
-                  </div>
-                )}
-                {brandsQ.data?.map((b) => (
-                  <CommandItem
-                    key={b.id}
-                    value={`workspace ${b.name}`}
-                    onSelect={() => void handleSelectBrand(b.id)}
-                  >
-                    <div
-                      className="flex h-5 w-5 items-center justify-center rounded"
-                      style={{ background: b.color ?? "#8b5cf6" }}
-                    />
-                    <span className="flex-1 truncate">{b.name}</span>
-                    {b.id === brandId && <Check className="h-3.5 w-3.5" />}
-                  </CommandItem>
-                ))}
-                {canCreateWorkspace && (
-                  <CommandItem
-                    value="create workspace"
-                    onSelect={() => {
-                      setPopoverOpen(false);
-                      setDialogOpen(true);
-                    }}
-                    className="text-muted-foreground"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>Novo workspace</span>
-                  </CommandItem>
-                )}
-              </CommandGroup>
-              <CommandSeparator />
+              {/* Workspace é singleton da instalação: nenhuma UI de seleção,
+                  troca ou criação de workspace. O contexto é resolvido
+                  automaticamente por <WorkspaceResolver />. */}
+              {brandsQ.data && brandsQ.data.length === 0 && (
+                <div className="px-2 py-3 text-xs text-muted-foreground">
+                  Sua conta ainda não está vinculada ao workspace desta instalação. Peça a um Admin
+                  para vincular seu e-mail em Configurações → Equipe &amp; Acesso.
+                </div>
+              )}
               <CommandGroup
                 heading={
                   <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
