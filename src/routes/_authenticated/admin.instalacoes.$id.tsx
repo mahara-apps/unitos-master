@@ -336,6 +336,32 @@ function InstallationDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Edição dos dados da instalação: o domínio definitivo normalmente só chega
+  // depois do provisionamento, então precisa ser alterável sem recadastrar.
+  const edit = useMutation({
+    mutationFn: () =>
+      editFn({
+        data: {
+          id,
+          name: form.name.trim(),
+          domain: form.domain,
+          supabaseUrl: form.supabaseUrl,
+          supabaseProjectRef: form.supabaseProjectRef,
+          gitRepoUrl: form.gitRepoUrl,
+          deployProject: form.deployProject,
+          notes: form.notes,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Dados da instalação atualizados.");
+      setEditOpen(false);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
+
   if (detail.isLoading) {
     return (
       <div className="flex items-center gap-2 py-16 text-sm text-muted-foreground">
