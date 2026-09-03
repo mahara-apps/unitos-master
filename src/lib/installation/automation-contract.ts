@@ -237,7 +237,11 @@ export function resolveOperationalUrl(input: {
 }): ResolvedOperationalUrl {
   const custom = (input.customDomain ?? "").trim();
   if (custom) {
-    const classified = classifyOperationalUrl(custom);
+    // O cadastro apresenta o domínio como hostname (ex.: app.cliente.com.br),
+    // enquanto PUBLIC_APP_URL exige uma URL HTTPS absoluta. Normalize somente
+    // este metadado antes da validação; URLs com protocolo continuam literais.
+    const normalizedCustom = /^https?:\/\//i.test(custom) ? custom : `https://${custom}`;
+    const classified = classifyOperationalUrl(normalizedCustom);
     if (!classified.ok) return { ok: false, reason: classified.reason };
     if (classified.kind === "custom") {
       return { ok: true, origin: classified.origin, kind: "custom", source: "custom_domain" };
