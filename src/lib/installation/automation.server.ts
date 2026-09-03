@@ -489,7 +489,77 @@ export async function saveBaselineProgress(
   }
 }
 
+/** Checkpoint das fases pós-baseline (nunca contém secrets). */
+export type StageProgress = {
+  deployDone?: boolean;
+  appUrl?: string;
+  urlSource?: string;
+  frontendOk?: boolean;
+};
+
+export async function readStageProgress(
+  client: Client,
+  operation: OperationRow,
+): Promise<StageProgress> {
+  try {
+    const { data } = await (client as never as {
+      from: (t: string) => {
+        select: (c: string) => {
+          eq: (c: string, v: string) => { maybeSingle: () => Promise<{ data?: { detail?: unknown } | null }> };
+        };
+      };
+    })
+      .from("installation_operations")
+      .select("detail")
+      .eq("id", operation.id)
+      .maybeSingle();
+    const raw = (data?.detail as { stageProgress?: unknown } | null | undefined)?.stageProgress;
+    if (raw && typeof raw === "object") return raw as StageProgress;
+  } catch {
+    // checkpoint é otimização/idempotência: leitura falha => refaz a fase.
+  }
+  return {};
+}
+
+export async function saveStageProgress(
+  client: Client,
+  operation: OperationRow,
+  patch: StageProgress,
+): Promise<void> {
+  try {
+    const { data: fresh } = await (client as never as {
+      from: (t: string) => {
+        select: (c: string) => {
+          eq: (c: string, v: string) => { maybeSingle: () => Promise<{ data?: { detail?: unknown } | null }> };
+        };
+      };
+    })
+      .from("installation_operations")
+      .select("detail")
+      .eq("id", operation.id)
+      .maybeSingle();
+    const detail = (fresh?.detail ?? operation.detail ?? {}) as Record<string, unknown>;
+    await (client as never as {
+      from: (t: string) => {
+        update: (v: Record<string, unknown>) => { eq: (c: string, v: string) => Promise<unknown> };
+      };
+    })
+      .from("installation_operations")
+      .update({
+        detail: {
+          ...detail,
+          stageProgress: { ...((detail.stageProgress ?? {}) as StageProgress), ...patch },
+        },
+        last_report_at: new Date().toISOString(),
+      })
+      .eq("id", operation.id);
+  } catch {
+    // idem.
+  }
+}
+
 async function report(
+
 
   client: Client,
   op: OperationRow,
