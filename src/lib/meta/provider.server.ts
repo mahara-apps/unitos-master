@@ -639,7 +639,13 @@ export class MetaProvider {
     };
 
 
-    /** Follows every `paging.next` page for a Graph edge. */
+    /**
+     * Segue `paging.next` com TETO DURO de páginas (`MAX_PAGES_PER_EDGE`).
+     * Antes o `while` podia seguir indefinidamente: uma única aresta grande
+     * gerava dezenas de requests. Ao atingir o teto a aresta é encerrada
+     * elegantemente, preservando tudo o que já foi coletado, e a execução é
+     * marcada como PARCIAL (aviso) em vez de virar erro fatal.
+     */
     const loop = async <T>(
       startPath: string,
       query: Record<string, string>,
@@ -647,8 +653,17 @@ export class MetaProvider {
     ) => {
       let nextUrl: string | null = null;
       let first = true;
+      let pageNo = 0;
       while ((first || nextUrl) && !outOfTime()) {
+        if (pageNo >= MAX_PAGES_PER_EDGE) {
+          cappedEdges.add(startPath.replace(/^\/\d+\//, "/{portfolio}/"));
+          noteStop("page_cap");
+          break;
+        }
         requestCount += 1;
+        pageNo += 1;
+        telemetry.request(startPath);
+        if (!first) telemetry.paginationPage();
         const res: Paged<T> = first
           ? await this.graph<Paged<T>>(startPath, {
               accessToken: userAccessToken,
