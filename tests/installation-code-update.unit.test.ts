@@ -36,11 +36,14 @@ describe("atualização de código da instalação", () => {
     );
   });
 
-  it("dispara deployment a partir do repositório ligado (código novo)", async () => {
+  it("dispara deployment a partir do repositório do MASTER (código novo)", async () => {
     const { impl, calls } = fakeFetch([
       {
         match: /v9\/projects\//,
-        body: { name: "unitos-teste", link: { type: "github", repoId: 42, productionBranch: "main" } },
+        body: {
+          name: "unitos-teste",
+          link: { type: "github", org: "mahara-apps", repo: "unitos-master", repoId: 42, productionBranch: "main" },
+        },
       },
       { match: /v13\/deployments\?/, body: { id: "dpl_1" } },
     ]);
@@ -53,6 +56,27 @@ describe("atualização de código da instalação", () => {
       gitSource: { type: "github", repoId: "42", ref: "main" },
     });
   });
+
+  it("projeto ligado a outro repositório é religado ao MASTER antes do deploy", async () => {
+    const { impl, calls } = fakeFetch([
+      {
+        match: /v9\/projects\/[^/]+$/,
+        body: {
+          id: "prj_1",
+          name: "unitos-teste",
+          link: { type: "github", org: "mahara-apps", repo: "unitos-teste", repoId: 7, productionBranch: "main" },
+        },
+      },
+      { match: /\/link/, body: { ok: true } },
+      { match: /v13\/deployments\?/, body: { id: "dpl_2" } },
+    ]);
+    const client = createDeployClient({ token: "t", project: "unitos-teste", fetchImpl: impl });
+    await client.deployLatestCode();
+    expect(calls.some((c) => c.method === "DELETE" && /\/link/.test(c.url))).toBe(true);
+    const link = calls.find((c) => c.method === "POST" && /\/link/.test(c.url));
+    expect(link?.body).toMatchObject({ repo: "mahara-apps/unitos-master", gitBranch: "main" });
+  });
+
 
   it("sem repositório ligado cai para rebuild e sinaliza que não traz código novo", async () => {
     const { impl } = fakeFetch([
