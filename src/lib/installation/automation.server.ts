@@ -309,10 +309,10 @@ export async function runAutomatedProvision(input: {
     return finish(null, null);
   }
 
-  const managementToken =
-    (env["SUPABASE_MANAGEMENT_TOKEN"] ?? env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim();
-  const deployToken = (env["VERCEL_TOKEN"] ?? env["UNITOS_VERCEL_TOKEN"] ?? "").trim();
-  const teamId = (env["VERCEL_TEAM_ID"] ?? env["UNITOS_VERCEL_TEAM_ID"] ?? "").trim() || null;
+  const managementToken = (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim();
+  const deployToken = (env["UNITOS_VERCEL_TOKEN"] ?? "").trim();
+  const teamId = (env["UNITOS_VERCEL_TEAM_ID"] ?? "").trim() || null;
+
 
   const management = createManagementClient({
     token: managementToken,
