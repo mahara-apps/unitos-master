@@ -1236,15 +1236,22 @@ export async function runAutomatedValidate(input: {
   const summary = summarizeVerificationRows(verify.rows);
   if (summary.ok) checks.connectivity = "ok";
 
+  // Reporta também o primeiro acesso (Super Admin + workspace único) para que o
+  // painel possa concluir READY sem depender de inspeção manual.
+  const firstAccess = await readFirstAccessState(management);
+  checks.super_admin = firstAccess.superAdmin;
+  checks.workspace = firstAccess.workspace;
+
   await finalizeOperation(client as never, operation as never, {
     ok: summary.ok,
     version: summary.ok ? MASTER_RELEASE_VERSION : null,
     summary: summary.ok
-      ? `Validação automática concluída — ${summary.total} verificações PASS.`
+      ? `Validação automática concluída — ${summary.total} verificações PASS · ${firstAccess.detail}.`
       : `FAIL: ${summary.reason ?? "verificações em FAIL"}`,
     errorKind: summary.ok ? null : "fail",
     checks: checks as never,
   }).catch(() => undefined);
+
 
   return {
     result: summary.ok ? "PASS" : "FAIL",
