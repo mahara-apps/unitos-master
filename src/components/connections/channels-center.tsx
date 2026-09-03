@@ -224,6 +224,7 @@ export function ChannelsCenter({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [portfolioDetailsOpen, setPortfolioDetailsOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
+  const [revokeAllOpen, setRevokeAllOpen] = useState(false);
   const [connecting, setConnecting] = useState<null | "facebook" | "instagram">(null);
   const [portfolioSessionId, setPortfolioSessionId] = useState<string | null>(null);
   const [portfolioOpen, setPortfolioOpen] = useState(false);
