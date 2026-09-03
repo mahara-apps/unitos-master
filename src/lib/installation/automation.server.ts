@@ -507,7 +507,21 @@ export async function runAutomatedProvision(input: {
     return finish(url.origin, url.source);
   }
   checks.connectivity = "ok";
-  await mark("validation", "done", "todas as verificações PASS");
+
+  // Primeiro acesso NÃO bloqueia: a instalação já está operacional e o Super
+  // Admin é criado no fluxo /setup da própria instalação.
+  const setup = await management.query(
+    "select (public.installation_setup_state()->>'has_super_admin')::boolean as has_super_admin",
+  );
+  const hasSuperAdmin =
+    (setup.rows[0] as { has_super_admin?: boolean | null } | undefined)?.has_super_admin === true;
+  await mark(
+    "validation",
+    "done",
+    hasSuperAdmin
+      ? "todas as verificações PASS · Super Admin já criado"
+      : `todas as verificações PASS · crie o primeiro Super Admin em ${url.origin}/setup`,
+  );
 
   return finish(url.origin, url.source);
 }
