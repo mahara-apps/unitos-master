@@ -56,8 +56,94 @@ export function sanitizeBaselineSqlForManagementApi(sql: string): SanitizedBasel
       removed.push(trimmed.slice(0, 120));
       continue;
     }
+    if (isPsqlMetaCommand(trimmed)) {
+      removed.push(trimmed.slice(0, 120));
+      continue;
+    }
     out.push(line);
   }
 
   return { sql: out.join("\n"), removed };
 }
+
+/**
+ * Meta-comandos do cliente `psql` (`\set`, `\pset`, `\timing`, `\echo`, ...).
+ * Eles NAO sao SQL: enviados a Management API causam erro de sintaxe. Os
+ * scripts de `supabase/install/` sao escritos para psql, entao precisam ser
+ * saneados antes de rodar pela API.
+ */
+function isPsqlMetaCommand(line: string): boolean {
+  return /^\\[a-z]/i.test(line);
+}
+
+/** Remove meta-comandos psql mantendo todo o restante literal. */
+export function stripPsqlMetaCommands(sql: string): SanitizedBaseline {
+  const removed: string[] = [];
+  const out: string[] = [];
+  for (const line of sql.split("\n")) {
+    if (isPsqlMetaCommand(line.trim())) {
+      removed.push(line.trim().slice(0, 120));
+      continue;
+    }
+    out.push(line);
+  }
+  return { sql: out.join("\n"), removed };
+}
+
+/**
+ * Prepara `verify-installation.sql` para a Management API.
+ *
+ * A API retorna SOMENTE as linhas do ULTIMO statement. O script termina com um
+ * SELECT de resumo cujo texto contem a palavra "FAIL", o que produzia um FAIL
+ * falso e escondia o resultado real. Aqui o statement de resumo é removido,
+ * deixando a consulta de checks como ultimo statement.
+ */
+export function prepareVerificationSql(sql: string): SanitizedBaseline {
+  const stripped = stripPsqlMetaCommands(sql);
+  const removed = [...stripped.removed];
+  const summary = /(--[^\n]*\n)*\s*SELECT\s+'RESUMO'[\s\S]*?;\s*$/i;
+  const match = summary.exec(stripped.sql);
+  if (match) removed.push("SELECT 'RESUMO' ... (statement de resumo)");
+  return { sql: stripped.sql.replace(summary, "").trimEnd(), removed };
+}
+
+export type VerificationSummary = {
+  total: number;
+  failed: number;
+  failedChecks: string[];
+  ok: boolean;
+  reason: string | null;
+};
+
+/**
+ * Interpreta as linhas do verify: só a coluna `status` decide PASS/FAIL.
+ * Nunca busca a palavra "FAIL" no JSON inteiro da linha (o texto do check
+ * também contém "FAIL"). Zero linhas => resultado inconclusivo => não-ok.
+ */
+export function summarizeVerificationRows(rows: readonly unknown[]): VerificationSummary {
+  const parsed = rows.filter((r): r is Record<string, unknown> => !!r && typeof r === "object");
+  if (parsed.length === 0) {
+    return {
+      total: 0,
+      failed: 0,
+      failedChecks: [],
+      ok: false,
+      reason: "verify-installation não retornou nenhuma verificação",
+    };
+  }
+  const failedChecks = parsed
+    .filter((row) => String(row["status"] ?? "").trim().toUpperCase() === "FAIL")
+    .map((row) => String(row["check_name"] ?? "verificação sem nome"));
+
+  return {
+    total: parsed.length,
+    failed: failedChecks.length,
+    failedChecks,
+    ok: failedChecks.length === 0,
+    reason:
+      failedChecks.length === 0
+        ? null
+        : `${failedChecks.length} verificação(ões) em FAIL: ${failedChecks.slice(0, 5).join("; ")}`,
+  };
+}
+
