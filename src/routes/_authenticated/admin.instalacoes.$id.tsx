@@ -177,6 +177,7 @@ function InstallationDetailPage() {
   const [form, setForm] = useState<EditForm>(EMPTY_FORM);
 
   const [updateOpen, setUpdateOpen] = useState(false);
+  const [opsPageRaw, setOpsPage] = useState(1);
   const resumePendingRef = useRef(false);
 
   const detail = useQuery({
