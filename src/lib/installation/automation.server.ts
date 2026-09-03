@@ -637,6 +637,10 @@ export type StageProgress = {
   appUrl?: string;
   urlSource?: string;
   frontendOk?: boolean;
+  /** Deployment de atualização já criado; retomadas apenas consultam este ID. */
+  updateDeploymentId?: string;
+  updateDeploymentSource?: "git" | "rebuild";
+  updateDeploymentRef?: string;
 };
 
 export async function readStageProgress(
@@ -1388,13 +1392,28 @@ export async function runAutomatedUpdate(input: {
     fetchImpl: input.fetchImpl,
   });
 
-  await report(client, operation, "code", "running");
-  const created = await deploy.deployLatestCode();
-  if (!created.ok || !created.deploymentId) {
-    return fail("FAIL", created.error ?? "não foi possível disparar o deployment");
+  const checkpoint = await readStageProgress(client, operation);
+  let deploymentId = checkpoint.updateDeploymentId ?? null;
+  let deploymentSource = checkpoint.updateDeploymentSource;
+  let deploymentRef = checkpoint.updateDeploymentRef;
+
+  if (!deploymentId) {
+    await report(client, operation, "code", "running");
+    const created = await deploy.deployLatestCode();
+    if (!created.ok || !created.deploymentId) {
+      return fail("FAIL", created.error ?? "não foi possível disparar o deployment");
+    }
+    deploymentId = created.deploymentId;
+    deploymentSource = created.source;
+    deploymentRef = created.ref;
+    await saveStageProgress(client, operation, {
+      updateDeploymentId: deploymentId,
+      updateDeploymentSource: deploymentSource,
+      updateDeploymentRef: deploymentRef,
+    });
   }
 
-  if (created.source === "rebuild") {
+  if (deploymentSource === "rebuild") {
     await report(
       client,
       operation,
@@ -1419,7 +1438,7 @@ export async function runAutomatedUpdate(input: {
     operation,
     "code",
     "done",
-    `deployment criado a partir de ${created.ref ?? "produção"}`,
+    `deployment criado a partir de ${deploymentRef ?? "produção"}`,
   );
 
   await report(client, operation, "build", "running");
@@ -1428,13 +1447,16 @@ export async function runAutomatedUpdate(input: {
   let state = "QUEUED";
   let url: string | null = null;
   while (Date.now() < deadline) {
-    const status = await deploy.deploymentState(created.deploymentId);
+    const status = await deploy.deploymentState(deploymentId);
     if (status.ok) {
       state = status.state ?? state;
       url = status.url ?? url;
       if (state === "READY") break;
       if (state === "ERROR" || state === "CANCELED") break;
     }
+    // Mantém a lease viva durante builds longos: UI e cron não podem iniciar
+    // outro runner nem criar deployments redundantes enquanto este responde.
+    await saveStageProgress(client, operation, { updateDeploymentId: deploymentId });
     await sleep(3_000);
   }
 
@@ -1443,15 +1465,10 @@ export async function runAutomatedUpdate(input: {
   }
 
   if (state !== "READY") {
-    await report(client, operation, "build", "done", `build em andamento (${state})`);
-    await report(client, operation, "version", "done", "versão será registrada ao concluir o build");
-    await finalizeOperation(client as never, operation as never, {
-      ok: true,
-      warnings: true,
-      version: null,
-      summary:
-        "Deployment do código mais recente disparado. O build ainda estava em andamento no fim da verificação — acompanhe e revalide em alguns minutos.",
-    }).catch(() => undefined);
+    // Não encerra prematuramente. O cron/watchdog retomará a MESMA operação e
+    // consultará o MESMO deployment persistido até READY ou erro terminal.
+    await report(client, operation, "build", "running", `build em andamento (${state})`);
+    await saveStageProgress(client, operation, { updateDeploymentId: deploymentId });
     return { result: "PENDING", reasons: [`build em ${state}`] };
   }
 

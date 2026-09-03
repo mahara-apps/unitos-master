@@ -185,7 +185,7 @@ export async function applyProgressReport(
   // a etapa 01 parecia "pulada"). A verdade é sempre a linha persistida.
   const { data: fresh } = await client
     .from("installation_operations")
-    .select("steps")
+    .select("steps, detail")
     .eq("id", op.id)
     .maybeSingle();
   const current = readSteps(fresh?.steps ?? op.steps);
@@ -260,7 +260,7 @@ export async function finalizeOperation(
       summary,
       error_kind: report.ok ? null : (sanitize(report.errorKind) ?? "operation_failed"),
       detail: {
-        ...((op.detail ?? {}) as Record<string, unknown>),
+        ...(((fresh?.detail ?? op.detail) ?? {}) as Record<string, unknown>),
         executed: true,
         warnings: outcome.warnings,
         releaseVersion: MASTER_RELEASE_VERSION,
