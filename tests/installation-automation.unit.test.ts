@@ -199,7 +199,7 @@ describe("resultado do fluxo automatizado", () => {
 
 /* --------------------------------------------------- execução com fetch mock */
 
-function fakeClient() {
+function fakeClient(detail: Record<string, unknown> = {}) {
   const updates: Record<string, unknown>[] = [];
   const api = {
     from: () => ({
@@ -207,11 +207,16 @@ function fakeClient() {
         updates.push(patch);
         return { eq: async () => ({ error: null }) };
       },
-      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { status: "running", steps: [] } }) }) }),
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({ data: { status: "running", steps: [], detail } }),
+        }),
+      }),
     }),
   };
   return { api, updates };
 }
+
 
 const OP = {
   id: "00000000-0000-0000-0000-000000000001",
