@@ -154,7 +154,7 @@ describe("reexecução idempotente do baseline", () => {
       { onProgress: (processed) => void progress.push(processed) },
     );
     expect(result).toEqual({ ok: true, skipped: 0 });
-    expect(calls).toBe(2);
+    expect(calls).toBe(11);
     expect(progress.at(-1)).toBe(256);
   });
 

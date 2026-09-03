@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -20,6 +20,7 @@ import {
   getInstallationFn,
   getAutomationCapabilityFn,
   refreshInstallationHealthFn,
+  resumeAutomatedProvisionFn,
   restartAutomatedProvisionFn,
   runAutomatedProvisionFn,
   startInstallationOperationFn,
@@ -132,6 +133,7 @@ function InstallationDetailPage() {
   const capabilityFn = useServerFn(getAutomationCapabilityFn);
   const autoFn = useServerFn(runAutomatedProvisionFn);
   const restartFn = useServerFn(restartAutomatedProvisionFn);
+  const resumeFn = useServerFn(resumeAutomatedProvisionFn);
 
   const [runCommand, setRunCommand] = useState<string | null>(null);
   const [updateOpen, setUpdateOpen] = useState(false);
@@ -202,6 +204,27 @@ function InstallationDetailPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const resumeProvision = useMutation({
+    mutationFn: () => resumeFn({ data: { id } }),
+    onSuccess: (result) => {
+      if (result.resumed) invalidate();
+    },
+  });
+
+  // O Worker pode ser reciclado entre lotes. Enquanto esta tela acompanha uma
+  // operação automática, o watchdog retoma apenas se não houver heartbeat há
+  // 35s; a lease condicional no servidor evita execução concorrente.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const live = detail.data?.operations.find(
+        (op) =>
+          (op.status === "pending" || op.status === "running") && op.detail.automated === true,
+      );
+      if (live && !resumeProvision.isPending) resumeProvision.mutate();
+    }, 15_000);
+    return () => window.clearInterval(timer);
+  }, [detail.data?.operations, resumeProvision.isPending]);
 
 
   const complete = useMutation({

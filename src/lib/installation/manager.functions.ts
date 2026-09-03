@@ -726,6 +726,67 @@ export const runAutomatedProvisionFn = createServerFn({ method: "POST" })
   });
 
 /**
+ * Watchdog do provisionamento automático. O polling da tela chama esta função;
+ * ela só assume uma operação automatizada que esteja realmente sem heartbeat.
+ * O update condicional funciona como lease e impede duas retomadas concorrentes.
+ */
+export const resumeAutomatedProvisionFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await guard(context);
+    const cutoff = new Date(Date.now() - 35_000).toISOString();
+    const { data: rows, error } = await context.supabase
+      .from("installation_operations")
+      .update({
+        last_report_at: new Date().toISOString(),
+        summary: "Provisionamento automático retomado pelo watchdog do MASTER.",
+      })
+      .eq("installation_id", data.id)
+      .in("status", ["pending", "running"])
+      .eq("detail->>automated", "true")
+      .lt("last_report_at", cutoff)
+      .select("*")
+      .limit(1);
+    if (error) throw error;
+    const op = (rows ?? [])[0];
+    if (!op) return { resumed: false as const };
+
+    const { data: installation, error: installationError } = await context.supabase
+      .from("installations")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (installationError) throw installationError;
+    if (!installation) throw new Error("Instalação não encontrada.");
+    const record = mapInstallation(installation);
+    const { runAutomatedProvision } = await import("./automation.server");
+    const { waitUntil } = await import("@/lib/wait-until.server");
+    waitUntil(
+      runAutomatedProvision({
+        client: context.supabase as never,
+        operation: op as never,
+        installation: {
+          id: record.id,
+          domain: record.domain,
+          supabaseUrl: record.supabaseUrl,
+          supabaseProjectRef: record.supabaseProjectRef,
+          deployProject: record.deployProject,
+        },
+      }).catch(async (caught: unknown) => {
+        const { finalizeOperation } = await import("./runner.server");
+        const message = caught instanceof Error ? caught.message : "falha inesperada na retomada";
+        await finalizeOperation(context.supabase as never, op as never, {
+          ok: false,
+          summary: `FAIL: ${message}`,
+          errorKind: "unexpected_error",
+        });
+      }),
+    );
+    return { resumed: true as const };
+  });
+
+/**
  * Reinício seguro: encerra a operação viva (registrando o cancelamento no
  * histórico com o resultado parcial preservado) e abre UMA nova operação
  * automatizada. Nunca cria duas operações concorrentes.
