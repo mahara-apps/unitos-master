@@ -163,6 +163,21 @@ function AdminMetaAppPage() {
 
       <Card>
         <CardHeader className="pb-3">
+          <CardTitle className="text-base">URLs desta instalação</CardTitle>
+          <CardDescription>
+            Cole estes valores no painel do App Meta (Facebook Login, Webhooks e conformidade).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {META_URLS.map((u) => (
+            <UrlRow key={u.path} label={u.label} url={`${origin}${u.path}`} hint={u.hint} />
+          ))}
+          <UrlRow label="Domínio do app" url={origin} hint="App Domains / URL do site" />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
           <CardTitle className="text-base">Diagnóstico</CardTitle>
           <CardDescription>Somente leitura.</CardDescription>
         </CardHeader>
