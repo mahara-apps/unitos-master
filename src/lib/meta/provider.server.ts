@@ -924,7 +924,10 @@ export class MetaProvider {
   /**
    * Lists Meta Ads accounts the user has access to. Requires `ads_read`.
    */
-  async listAdAccounts(userAccessToken: string): Promise<MetaAdAccount[]> {
+  async listAdAccounts(
+    userAccessToken: string,
+    opts?: { telemetry?: GraphTelemetry },
+  ): Promise<MetaAdAccount[]> {
     type Row = {
       id: string;
       name?: string;
@@ -937,8 +940,15 @@ export class MetaProvider {
     const out: MetaAdAccount[] = [];
     let nextUrl: string | null = null;
     let first = true;
+    // Antes: `while (first || nextUrl)` sem teto e SEM deadline — a única
+    // paginação da Meta totalmente desprotegida no projeto.
+    let pageNo = 0;
+    const deadline = Date.now() + SCAN_DEADLINE_MS;
     try {
-      while (first || nextUrl) {
+      while ((first || nextUrl) && pageNo < MAX_PAGES_PER_EDGE && Date.now() < deadline) {
+        pageNo += 1;
+        opts?.telemetry?.request("/me/adaccounts");
+        if (!first) opts?.telemetry?.paginationPage();
         const res: Paged<Row> = first
           ? await this.graph<Paged<Row>>("/me/adaccounts", {
               accessToken: userAccessToken,
@@ -963,23 +973,41 @@ export class MetaProvider {
       }
     } catch (err) {
       // Missing scope or business setup — return empty list rather than aborting.
+      // Rate limit também PRESERVA o que já foi lido, sem nova tentativa.
+      if (isRateLimitError(err)) opts?.telemetry?.rateLimit();
       if (err instanceof MetaGraphError) return out;
       throw err;
     }
+    opts?.telemetry?.counts({ adAccounts: out.length });
     return out;
   }
 
   /**
    * Lists Threads accounts the user manages. Threads accounts are surfaced
    * per-Facebook-Page via the `threads_profile` edge (Graph v21+).
+   *
+   * Uma requisição por Página é caro: aplicamos dedupe por Page ID,
+   * concorrência limitada, deadline e parada imediata em rate limit.
    */
   async listThreadsAccounts(
     userAccessToken: string,
     pages: MetaPageAsset[],
+    opts?: { telemetry?: GraphTelemetry },
   ): Promise<MetaThreadsAccount[]> {
     const out: MetaThreadsAccount[] = [];
-    for (const page of pages) {
+    const seen = new Set<string>();
+    const targets = pages.filter((p) => {
+      if (!p.pageId || seen.has(p.pageId)) return false;
+      seen.add(p.pageId);
+      return true;
+    });
+    const deadline = Date.now() + SCAN_DEADLINE_MS;
+    let rateLimited = false;
+
+    await mapLimit(targets, PORTFOLIO_CONCURRENCY, async (page) => {
+      if (rateLimited || Date.now() >= deadline) return;
       try {
+        opts?.telemetry?.request(`/${page.pageId}/threads_profile`);
         const res = await this.graph<{
           id?: string;
           username?: string;
@@ -1001,10 +1029,15 @@ export class MetaProvider {
             linkedViaPageId: page.pageId,
           });
         }
-      } catch {
+      } catch (err) {
+        if (isRateLimitError(err)) {
+          opts?.telemetry?.rateLimit();
+          rateLimited = true;
+          return;
+        }
         // No Threads profile on this page — skip silently.
       }
-    }
+    });
     return out;
   }
 
