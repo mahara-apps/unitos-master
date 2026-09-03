@@ -214,6 +214,14 @@ function InstallationDetailPage() {
   const lastValidate = operations.find((op) => op.kind === "validate");
   const shownProvision = activeOp?.kind === "validate" ? lastProvision : (activeOp ?? lastProvision);
 
+  // Estado definitivo: o núcleo decide READY; integrações opcionais nunca
+  // bloqueiam. O MASTER só afirma "configurado" no que a instalação reportou.
+  const readiness = computeReadiness({
+    core: inst.healthChecks,
+    optional: { custom_domain: customDomainState(inst.domain) },
+    operationRunning: !!activeOp,
+  });
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -226,6 +234,9 @@ function InstallationDetailPage() {
           </Link>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-semibold">{inst.name}</h2>
+            <Badge variant="outline" className={cn("text-[10px]", CORE_TONE[readiness.ready ? "ok" : "pending"])}>
+              {OVERALL_STATE_ICON[readiness.state]} {OVERALL_STATE_LABEL[readiness.state]}
+            </Badge>
             <Badge variant="outline" className={cn("text-[10px]", STATUS_TONE[inst.status])}>
               {INSTALLATION_STATUS_LABEL[inst.status]}
             </Badge>
@@ -234,8 +245,8 @@ function InstallationDetailPage() {
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">
-            {inst.domain ?? "domínio não informado"} · 1 instalação = 1 Supabase = 1 workspace = 1
-            domínio
+            {inst.domain ?? "domínio não informado"} · 1 instalação = 1 aplicação = 1 Supabase = 1
+            workspace = 1 domínio operacional
           </p>
         </div>
 
