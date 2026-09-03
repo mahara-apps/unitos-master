@@ -522,3 +522,37 @@ export function updateSummary(
   return `Atualização disponível: ${current} → ${availableVersion}`;
 }
 
+
+/* -------------------------------------------------- operação travada (stale) */
+
+/**
+ * Uma operação viva sem qualquer report novo por este tempo é considerada
+ * TRAVADA. O MASTER nunca decide isso sozinho: a UI oferece o reinício seguro
+ * (cancela a travada e abre UMA nova operação, nunca duas concorrentes).
+ */
+export const STALE_OPERATION_MS = 4 * 60 * 1000;
+
+export type LiveOperationLike = {
+  status: InstallationOperationStatus;
+  startedAt: string;
+  lastReportAt: string | null;
+};
+
+/** Instante do último sinal de vida da operação (report ou início). */
+export function lastSignalAt(op: LiveOperationLike): number {
+  const report = op.lastReportAt ? Date.parse(op.lastReportAt) : NaN;
+  const started = Date.parse(op.startedAt);
+  const values = [report, started].filter((v) => Number.isFinite(v));
+  return values.length ? Math.max(...values) : 0;
+}
+
+export function isOperationStale(
+  op: LiveOperationLike,
+  nowMs: number = Date.now(),
+  thresholdMs: number = STALE_OPERATION_MS,
+): boolean {
+  if (op.status !== "pending" && op.status !== "running") return false;
+  const signal = lastSignalAt(op);
+  if (!signal) return false;
+  return nowMs - signal > thresholdMs;
+}
