@@ -726,6 +726,109 @@ export const runAutomatedProvisionFn = createServerFn({ method: "POST" })
   });
 
 /**
+ * Validação automática (READ-ONLY) executada pelo próprio MASTER: roda o mesmo
+ * `verify-installation.sql` do fallback manual via Management API, sem pedir
+ * Bash na instalação de destino. Sem credenciais de gestão devolve BLOCKED e a
+ * tela volta a oferecer o comando manual.
+ */
+export const runAutomatedValidateFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await guard(context);
+
+    const { resolveAutomationCapability, resolveAutomationTarget } = await import(
+      "./automation-contract"
+    );
+    const { runtimeEnv } = await import("@/lib/runtime-env.server");
+    const capability = resolveAutomationCapability(runtimeEnv());
+    if (!capability.available) {
+      return { result: "BLOCKED" as const, operationId: null, reasons: capability.blockedReasons };
+    }
+
+    const { data: current, error: readError } = await context.supabase
+      .from("installations")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (readError) throw readError;
+    if (!current) throw new Error("Instalação não encontrada.");
+
+    const record = mapInstallation(current);
+    const target = resolveAutomationTarget(record);
+    if (!target.ok) {
+      return { result: "BLOCKED" as const, operationId: null, reasons: [target.reason] };
+    }
+    if (!canStartOperation("validate", record.status)) {
+      throw new Error(
+        `A instalação está em “${INSTALLATION_STATUS_LABEL[record.status]}” e não aceita esta operação agora.`,
+      );
+    }
+
+    const { data: active } = await context.supabase
+      .from("installation_operations")
+      .select("id")
+      .eq("installation_id", data.id)
+      .in("status", ["pending", "running"])
+      .maybeSingle();
+    if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
+
+    const nowIso = new Date().toISOString();
+    const { data: op, error: opError } = await context.supabase
+      .from("installation_operations")
+      .insert({
+        installation_id: data.id,
+        kind: "validate",
+        status: "running",
+        summary: "Validação automática em execução pelo MASTER (somente leitura).",
+        steps: initialSteps("validate"),
+        detail: { releaseVersion: MASTER_RELEASE_VERSION, executed: true, automated: true },
+        actor_id: context.userId,
+        started_at: nowIso,
+        last_report_at: nowIso,
+      })
+      .select("*")
+      .single();
+    if (opError) {
+      if ((opError as { code?: string }).code === "23505")
+        throw new Error("Já existe uma operação em andamento nesta instalação.");
+      throw opError;
+    }
+
+    await context.supabase
+      .from("installations")
+      .update({ status: runningStatusFor("validate"), last_error: null, active_operation_id: op.id })
+      .eq("id", data.id);
+
+    const { runAutomatedValidate } = await import("./automation.server");
+    const { waitUntil } = await import("@/lib/wait-until.server");
+    waitUntil(
+      runAutomatedValidate({
+        client: context.supabase as never,
+        operation: op as never,
+        installation: {
+          id: record.id,
+          domain: record.domain,
+          supabaseUrl: record.supabaseUrl,
+          supabaseProjectRef: record.supabaseProjectRef,
+          deployProject: record.deployProject,
+        },
+      }).catch(async (caught: unknown) => {
+        const { finalizeOperation } = await import("./runner.server");
+        const message = caught instanceof Error ? caught.message : "falha inesperada na validação";
+        await finalizeOperation(context.supabase as never, op as never, {
+          ok: false,
+          summary: `FAIL: ${message}`,
+          errorKind: "unexpected_error",
+        });
+      }),
+    );
+
+    return { result: "STARTED" as const, operationId: op.id as string, reasons: [] };
+  });
+
+
+/**
  * Watchdog do provisionamento automático. O polling da tela chama esta função;
  * ela só assume uma operação automatizada que esteja realmente sem heartbeat.
  * O update condicional funciona como lease e impede duas retomadas concorrentes.
