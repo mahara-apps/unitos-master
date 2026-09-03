@@ -222,3 +222,20 @@ export function classifyConnectFailure(raw: unknown): MetaConnectErrorKind {
   if (kind === "permission") return "permission";
   return "unknown";
 }
+
+/**
+ * Lê `authorizeUrl` do retorno de `startMetaOAuth` sem desestruturar às cegas.
+ * Lança erro legível quando o retorno é indefinido ou incompleto — nunca
+ * "Cannot destructure property 'authorizeUrl' of undefined".
+ */
+export function readAuthorizeUrl(res: unknown): string {
+  if (!res || typeof res !== "object") {
+    throw new Error("A Meta não devolveu os dados de autorização. Tente novamente.");
+  }
+  const raw = (res as { authorizeUrl?: unknown }).authorizeUrl;
+  const url = typeof raw === "string" ? raw.trim() : "";
+  if (!url) {
+    throw new Error("A Meta não devolveu o endereço de autorização. Tente novamente.");
+  }
+  return url;
+}

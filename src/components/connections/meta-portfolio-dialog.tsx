@@ -171,10 +171,9 @@ export function MetaPortfolioDialog({
       }, 120_000);
     }
     try {
-      const { authorizeUrl, redirectUri } = await startFn({
-        data: { brandId, channel, forceReauth: true },
-      });
-      console.log("[MetaPortfolio] oauth redirect_uri", redirectUri);
+      const startRes = await startFn({ data: { brandId, channel, forceReauth: true } });
+      const authorizeUrl = readAuthorizeUrl(startRes);
+      console.log("[MetaPortfolio] oauth redirect_uri", startRes?.redirectUri);
       if (popup) popup.location.href = authorizeUrl;
       else window.location.href = authorizeUrl;
     } catch (err) {

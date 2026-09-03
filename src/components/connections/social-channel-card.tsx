@@ -390,9 +390,11 @@ function ConnectButton({
     setConnecting(true);
     try {
       const metaChannel = metaChannelFromId(channel.id);
-      const { authorizeUrl } = await startFn({
-        data: { brandId, ...(metaChannel ? { channel: metaChannel } : {}), forceReauth: true },
-      });
+      const authorizeUrl = readAuthorizeUrl(
+        await startFn({
+          data: { brandId, ...(metaChannel ? { channel: metaChannel } : {}), forceReauth: true },
+        }),
+      );
       if (popup) popup.location.href = authorizeUrl;
       else window.location.href = authorizeUrl;
       // Detect popup closed without completing OAuth so the button doesn't
@@ -661,13 +663,15 @@ function ManageSheet({
       }, 120_000);
     }
     try {
-      const { authorizeUrl } = await startOAuthFn({
-        data: {
-          brandId,
-          ...(metaChannel ? { channel: metaChannel } : {}),
-          forceReauth: true,
-        },
-      });
+      const authorizeUrl = readAuthorizeUrl(
+        await startOAuthFn({
+          data: {
+            brandId,
+            ...(metaChannel ? { channel: metaChannel } : {}),
+            forceReauth: true,
+          },
+        }),
+      );
       if (popup) popup.location.href = authorizeUrl;
       else window.location.href = authorizeUrl;
     } catch (e) {

@@ -106,6 +106,7 @@ import { metaIssueToast } from "@/lib/meta/issue-messages";
 import {
   busyChannel,
   classifyConnectFailure,
+  readAuthorizeUrl,
   type MetaConnectState,
 } from "@/lib/meta/connect-flow";
 
@@ -1198,13 +1199,15 @@ function ReconnectDialog({
       "width=760,height=820,resizable=yes,scrollbars=yes",
     );
     try {
-      const { authorizeUrl } = await startMetaFn({
-        data: {
-          brandId,
-          channel: row.channel as "facebook" | "instagram",
-          forceReauth: true,
-        },
-      });
+      const authorizeUrl = readAuthorizeUrl(
+        await startMetaFn({
+          data: {
+            brandId,
+            channel: row.channel as "facebook" | "instagram",
+            forceReauth: true,
+          },
+        }),
+      );
       if (popup) popup.location.href = authorizeUrl;
       else window.location.href = authorizeUrl;
     } catch (err) {
