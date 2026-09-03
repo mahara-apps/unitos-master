@@ -294,23 +294,44 @@ else
   fail "verify-installation" "$(printf '%s' "$out" | tail -n 3 | tr '\n' ' ')"
 fi
 
+# ------------------------------------------------ primeiro acesso (não bloqueia)
+step "Primeiro acesso — Super Admin e workspace único"
+SETUP_JSON="$(psql_value "select public.installation_setup_state()::text")"
+CORE_ADMIN="pending"
+CORE_WORKSPACE="pending"
+case "$SETUP_JSON" in
+  *'"needs_super_admin":false'*) CORE_ADMIN="ok" ;;
+esac
+case "$SETUP_JSON" in
+  *'"has_workspace":true'*) CORE_WORKSPACE="ok" ;;
+esac
+if [ "$CORE_ADMIN" = "ok" ]; then
+  pass "primeiro acesso" "Super Admin já existe nesta instalação"
+else
+  skip "primeiro acesso" "abra $APP_ORIGIN/setup e crie o Super Admin (o 1º usuário vira Super Admin e cria o workspace único)"
+fi
+
 print_report
 
-cat <<'MANUAL'
+cat <<MANUAL
 
-Pendências MANUAIS desta instalação (não automatizáveis pelo bootstrap):
-  * publicar os secrets gerados no gerenciador do deploy (mesmos valores usados aqui);
-  * DNS/TLS do domínio próprio;
-  * App Meta (modo "unitos" ou "client"), redirect URI e webhook desta instalação;
-  * domínio verificado no Resend e instância Evolution (se usados);
-  * signup do primeiro Super Admin, criação do primeiro workspace;
-  * branding institucional, logo de login, remetente e chaves BYOK de IA na UI.
+NÚCLEO (obrigatório — define READY, já coberto por este bootstrap):
+  * Supabase, schema, RLS, Storage, seeds, secrets próprios, cron, URL própria,
+    health check; primeiro Super Admin + workspace único em ${APP_ORIGIN}/setup.
+  * publicar os secrets gerados no gerenciador do deploy (mesmos valores usados aqui).
+
+CONFIGURAÇÃO OPCIONAL (não bloqueia — a instalação já é OPERACIONAL sem isso):
+  * domínio definitivo (DNS/TLS) — a URL temporária do deploy é válida;
+  * App Meta (modo "unitos" ou "client"), redirect URI e webhook;
+  * Resend (domínio verificado) e instância Evolution/WhatsApp;
+  * chaves BYOK de IA e branding institucional na UI.
 MANUAL
+
+CORE_CHECKS="{\"database\":\"ok\",\"schema\":\"ok\",\"rls\":\"ok\",\"seeds\":\"ok\",\"storage\":\"ok\",\"cron\":\"ok\",\"secrets\":\"ok\",\"deploy\":\"ok\",\"health_check\":\"ok\",\"super_admin\":\"$CORE_ADMIN\",\"workspace\":\"$CORE_WORKSPACE\"}"
 
 if [ "$FAILURES" -eq 0 ]; then
   report_step validation done "todas as verificações PASS"
-  report_done true "$RELEASE_VERSION" "Provisionamento concluído sem falhas." false \
-    '{"database":"ok","storage":"ok","cron":"ok","secrets":"ok"}'
+  report_done true "$RELEASE_VERSION" "Provisionamento concluído sem falhas." false "$CORE_CHECKS"
   exit 0
 fi
 
