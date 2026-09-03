@@ -384,7 +384,8 @@ export type AutomationInstallation = {
 
 type Client = { from: (table: string) => unknown };
 
-export type AutomationRunResult = AutomationOutcome & {
+export type AutomationRunResult = Omit<AutomationOutcome, "result"> & {
+  result: AutomationOutcome["result"] | "RUNNING";
   appUrl: string | null;
   urlSource: "custom_domain" | "deploy" | null;
   steps: { id: string; state: CheckState | "done" | "error"; detail: string | null }[];
@@ -513,6 +514,8 @@ export async function runAutomatedProvision(input: {
   installation: AutomationInstallation;
   env?: Record<string, string | undefined>;
   fetchImpl?: Fetcher;
+  /** Sobrescrita exclusiva para testes determinísticos ponta a ponta. */
+  maxStatementsPerInvocation?: number;
 }): Promise<AutomationRunResult> {
   const env = input.env ?? runtimeEnv();
   const { client, operation, installation } = input;
@@ -669,6 +672,9 @@ export async function runAutomatedProvision(input: {
       isCancelled,
       startIndex: alreadyApplied,
       maxStatements: BASELINE_STATEMENTS_PER_INVOCATION,
+      ...(input.maxStatementsPerInvocation !== undefined
+        ? { maxStatements: input.maxStatementsPerInvocation }
+        : {}),
       onProgress: async (processed, total) => {
         progress[file.label] = processed;
         await saveBaselineProgress(client, operation, progress);
@@ -693,7 +699,7 @@ export async function runAutomatedProvision(input: {
       // checkpoint/heartbeat já foi persistido; o watchdog inicia a próxima
       // invocação, exatamente no statement seguinte, sem concorrência.
       return {
-        result: "STARTED",
+        result: "RUNNING",
         reasons: [],
         appUrl: null,
         urlSource: null,
