@@ -918,7 +918,7 @@ function InstallationDetailPage() {
           {operations.length === 0 && (
             <p className="text-xs text-muted-foreground">Nenhuma operação registrada.</p>
           )}
-          {operations.map((op) => (
+          {pagedOperations.map((op) => (
             <div key={op.id} className="rounded-lg border border-border/60 px-3 py-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-medium">{OPERATION_KIND_LABEL[op.kind]}</span>
