@@ -131,6 +131,9 @@ function AdminMetaAppPage() {
   });
 
   const data = q.data;
+  // Fora do MASTER, o App oficial do Unitos é somente leitura: chega pronto no
+  // provisionamento e a instalação só precisa cadastrar as URLs na Meta.
+  const officialReadOnly = appType === "unitos" && data ? !data.officialEditable : false;
 
   return (
     <div className="space-y-5">
