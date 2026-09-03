@@ -102,6 +102,7 @@ import { Route as ApiPublicHooksBrainSynthesisRouteImport } from './routes/api/p
 import { Route as ApiPublicHooksBrainConsolidateRouteImport } from './routes/api/public/hooks/brain-consolidate'
 import { Route as ApiPublicHooksAiModelsHealthRouteImport } from './routes/api/public/hooks/ai-models-health'
 import { Route as ApiPublicCronSlaCheckRouteImport } from './routes/api/public/cron/sla-check'
+import { Route as ApiPublicCronInstallationResumeRouteImport } from './routes/api/public/cron/installation-resume'
 import { Route as ApiPublicCronImportWorkerRouteImport } from './routes/api/public/cron/import-worker'
 import { Route as ApiPublicCronImportReaperRouteImport } from './routes/api/public/cron/import-reaper'
 import { Route as ApiPublicApprovalTokenRouteImport } from './routes/api/public/approval.$token'
@@ -617,6 +618,12 @@ const ApiPublicCronSlaCheckRoute = ApiPublicCronSlaCheckRouteImport.update({
   path: '/api/public/cron/sla-check',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCronInstallationResumeRoute =
+  ApiPublicCronInstallationResumeRouteImport.update({
+    id: '/api/public/cron/installation-resume',
+    path: '/api/public/cron/installation-resume',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCronImportWorkerRoute =
   ApiPublicCronImportWorkerRouteImport.update({
     id: '/api/public/cron/import-worker',
@@ -760,6 +767,7 @@ export interface FileRoutesByFullPath {
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/cron/import-reaper': typeof ApiPublicCronImportReaperRoute
   '/api/public/cron/import-worker': typeof ApiPublicCronImportWorkerRoute
+  '/api/public/cron/installation-resume': typeof ApiPublicCronInstallationResumeRoute
   '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
   '/api/public/hooks/ai-models-health': typeof ApiPublicHooksAiModelsHealthRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
@@ -855,6 +863,7 @@ export interface FileRoutesByTo {
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/cron/import-reaper': typeof ApiPublicCronImportReaperRoute
   '/api/public/cron/import-worker': typeof ApiPublicCronImportWorkerRoute
+  '/api/public/cron/installation-resume': typeof ApiPublicCronInstallationResumeRoute
   '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
   '/api/public/hooks/ai-models-health': typeof ApiPublicHooksAiModelsHealthRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
@@ -961,6 +970,7 @@ export interface FileRoutesById {
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/cron/import-reaper': typeof ApiPublicCronImportReaperRoute
   '/api/public/cron/import-worker': typeof ApiPublicCronImportWorkerRoute
+  '/api/public/cron/installation-resume': typeof ApiPublicCronInstallationResumeRoute
   '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
   '/api/public/hooks/ai-models-health': typeof ApiPublicHooksAiModelsHealthRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
@@ -1066,6 +1076,7 @@ export interface FileRouteTypes {
     | '/api/public/approval/$token'
     | '/api/public/cron/import-reaper'
     | '/api/public/cron/import-worker'
+    | '/api/public/cron/installation-resume'
     | '/api/public/cron/sla-check'
     | '/api/public/hooks/ai-models-health'
     | '/api/public/hooks/brain-consolidate'
@@ -1161,6 +1172,7 @@ export interface FileRouteTypes {
     | '/api/public/approval/$token'
     | '/api/public/cron/import-reaper'
     | '/api/public/cron/import-worker'
+    | '/api/public/cron/installation-resume'
     | '/api/public/cron/sla-check'
     | '/api/public/hooks/ai-models-health'
     | '/api/public/hooks/brain-consolidate'
@@ -1266,6 +1278,7 @@ export interface FileRouteTypes {
     | '/api/public/approval/$token'
     | '/api/public/cron/import-reaper'
     | '/api/public/cron/import-worker'
+    | '/api/public/cron/installation-resume'
     | '/api/public/cron/sla-check'
     | '/api/public/hooks/ai-models-health'
     | '/api/public/hooks/brain-consolidate'
@@ -1309,6 +1322,7 @@ export interface RootRouteChildren {
   ApiPublicApprovalTokenRoute: typeof ApiPublicApprovalTokenRoute
   ApiPublicCronImportReaperRoute: typeof ApiPublicCronImportReaperRoute
   ApiPublicCronImportWorkerRoute: typeof ApiPublicCronImportWorkerRoute
+  ApiPublicCronInstallationResumeRoute: typeof ApiPublicCronInstallationResumeRoute
   ApiPublicCronSlaCheckRoute: typeof ApiPublicCronSlaCheckRoute
   ApiPublicHooksAiModelsHealthRoute: typeof ApiPublicHooksAiModelsHealthRoute
   ApiPublicHooksBrainConsolidateRoute: typeof ApiPublicHooksBrainConsolidateRoute
@@ -1982,6 +1996,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCronSlaCheckRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/installation-resume': {
+      id: '/api/public/cron/installation-resume'
+      path: '/api/public/cron/installation-resume'
+      fullPath: '/api/public/cron/installation-resume'
+      preLoaderRoute: typeof ApiPublicCronInstallationResumeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cron/import-worker': {
       id: '/api/public/cron/import-worker'
       path: '/api/public/cron/import-worker'
@@ -2349,6 +2370,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicApprovalTokenRoute: ApiPublicApprovalTokenRoute,
   ApiPublicCronImportReaperRoute: ApiPublicCronImportReaperRoute,
   ApiPublicCronImportWorkerRoute: ApiPublicCronImportWorkerRoute,
+  ApiPublicCronInstallationResumeRoute: ApiPublicCronInstallationResumeRoute,
   ApiPublicCronSlaCheckRoute: ApiPublicCronSlaCheckRoute,
   ApiPublicHooksAiModelsHealthRoute: ApiPublicHooksAiModelsHealthRoute,
   ApiPublicHooksBrainConsolidateRoute: ApiPublicHooksBrainConsolidateRoute,
