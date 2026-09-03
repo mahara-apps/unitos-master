@@ -171,7 +171,9 @@ const DUPLICATE_SQLSTATES = [
 /** True quando o erro é apenas "objeto já existe" (retry idempotente). */
 export function isDuplicateObjectError(message: string | null | undefined): boolean {
   if (!message) return false;
-  return DUPLICATE_SQLSTATES.some((code) => message.includes(code)) || /already exists/i.test(message);
+  return DUPLICATE_SQLSTATES.some((code) => message.includes(code))
+    || (/42P16/i.test(message) && /multiple primary keys?/i.test(message))
+    || /already exists/i.test(message);
 }
 
 /**
