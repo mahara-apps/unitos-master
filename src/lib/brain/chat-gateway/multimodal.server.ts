@@ -26,16 +26,116 @@ async function signedUrl(supabase: SupabaseClient, path: string): Promise<string
   return data?.signedUrl ?? null;
 }
 
-async function downloadBase64(url: string): Promise<Uint8Array | null> {
+// Resiliência do download de anexos (padrão PADRAO_INTEGRACOES_EXTERNAS):
+// timeout 15s, classificação, retry apenas para rede/5xx/429 e telemetria.
+export const MULTIMODAL_DOWNLOAD_TIMEOUT_MS = 15_000;
+export const MULTIMODAL_MAX_ATTEMPTS = 2;
+
+export type MultimodalDownloadOutcome =
+  | { kind: "http"; status: number }
+  | { kind: "timeout" }
+  | { kind: "network" };
+
+export function classifyMultimodalOutcome(o: MultimodalDownloadOutcome): "recoverable" | "terminal" {
+  if (o.kind === "timeout" || o.kind === "network") return "recoverable";
+  if (o.status === 429 || o.status >= 500) return "recoverable";
+  return "terminal";
+}
+
+export interface MultimodalDeps {
+  fetchImpl?: typeof fetch;
+  sleep?: (ms: number) => Promise<void>;
+  rand?: () => number;
+  now?: () => number;
+  logger?: (line: Record<string, unknown>) => void;
+}
+
+function multimodalLog(logger: MultimodalDeps["logger"], line: Record<string, unknown>) {
   try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const buf = new Uint8Array(await res.arrayBuffer());
-    if (buf.length > MAX_FILE_MB * 1024 * 1024) return null;
-    return buf;
-  } catch {
-    return null;
+    (logger ?? ((l) => console.warn("[multimodal]", JSON.stringify(l))))(line);
+  } catch { /* telemetria nunca derruba o fluxo */ }
+}
+
+export function multimodalBackoffMs(attempt: number, rand: () => number = Math.random): number {
+  // 500ms, 1000ms... + jitter de até 50%
+  return Math.round(500 * 2 ** (attempt - 1) * (1 + rand() * 0.5));
+}
+
+export interface DownloadFailure {
+  reason: "timeout" | "network" | "http" | "too_large";
+  status?: number;
+  attempts: number;
+}
+
+/**
+ * Baixa um anexo com timeout e retry limitado. Retorna null somente após
+ * esgotar tentativas recuperáveis ou em erro terminal — nunca silenciosamente:
+ * toda falha é registrada em telemetria estruturada e em `lastFailure`.
+ */
+export async function downloadAttachment(
+  url: string,
+  name: string,
+  deps: MultimodalDeps = {},
+  lastFailure?: { current?: DownloadFailure },
+): Promise<Uint8Array | null> {
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  const sleep = deps.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+  const rand = deps.rand ?? Math.random;
+  const now = deps.now ?? Date.now;
+
+  for (let attempt = 1; attempt <= MULTIMODAL_MAX_ATTEMPTS; attempt++) {
+    const startedAt = now();
+    let outcome: MultimodalDownloadOutcome | null = null;
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), MULTIMODAL_DOWNLOAD_TIMEOUT_MS);
+      let res: Response;
+      try {
+        res = await fetchImpl(url, { signal: ctrl.signal });
+      } finally {
+        clearTimeout(timer);
+      }
+      if (!res.ok) {
+        outcome = { kind: "http", status: res.status };
+      } else {
+        const buf = new Uint8Array(await res.arrayBuffer());
+        if (buf.length > MAX_FILE_MB * 1024 * 1024) {
+          multimodalLog(deps.logger, { event: "attachment_download", name, attempts: attempt, reason: "too_large", bytes: buf.length });
+          if (lastFailure) lastFailure.current = { reason: "too_large", attempts: attempt };
+          return null;
+        }
+        return buf;
+      }
+    } catch (err) {
+      const isAbort = err instanceof DOMException && err.name === "AbortError";
+      outcome = isAbort ? { kind: "timeout" } : { kind: "network" };
+    }
+
+    const classification = classifyMultimodalOutcome(outcome);
+    multimodalLog(deps.logger, {
+      event: "attachment_download",
+      name,
+      attempts: attempt,
+      reason: outcome.kind,
+      status: outcome.kind === "http" ? outcome.status : undefined,
+      classification,
+      durationMs: now() - startedAt,
+    });
+    if (lastFailure) {
+      lastFailure.current = {
+        reason: outcome.kind,
+        status: outcome.kind === "http" ? outcome.status : undefined,
+        attempts: attempt,
+      };
+    }
+    if (classification === "terminal" || attempt === MULTIMODAL_MAX_ATTEMPTS) return null;
+    await sleep(multimodalBackoffMs(attempt, rand));
   }
+  return null;
+}
+
+async function downloadBase64(url: string, name: string): Promise<Uint8Array | null> {
+  return downloadAttachment(url, name);
 }
 
 /**
