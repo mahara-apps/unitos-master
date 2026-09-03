@@ -9,7 +9,7 @@ import {
   isConnectBusy,
   readAuthorizeUrl,
   type MetaConnectState,
-} from "../connect-flow";
+} from "../src/lib/meta/connect-flow";
 
 const err = (reason: Parameters<typeof connectErrorCopy>[0]): MetaConnectState => ({
   kind: "error",
