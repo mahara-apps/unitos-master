@@ -57,8 +57,35 @@ function readChannel(
   return { granted: flat, broad: flat, targets: [] };
 }
 
-/** Consulta `debug_token` e extrai a autorização granular por canal. */
+/**
+ * Cache TTL + dedupe de `/debug_token`.
+ *
+ * A mesma operação (OAuth → discovery → abertura do portfólio) validava o
+ * token 2–3 vezes. A autorização granular não muda em segundos, então uma
+ * janela curta elimina essas repetições sem alterar o comportamento.
+ */
+const authCache = createSharedCache<PublishAuthorization>(DEBUG_TOKEN_TTL_MS);
+
+/** Chave estável e não reversível do token (nunca logamos o token). */
+function tokenKey(token: string): string {
+  let h = 2166136261;
+  for (let i = 0; i < token.length; i++) {
+    h ^= token.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return `t${(h >>> 0).toString(36)}:${token.length}`;
+}
+
+/** Consulta `debug_token` (com reuso em janela curta) e extrai a autorização. */
 export async function getPublishAuthorization(userToken: string): Promise<PublishAuthorization> {
+  const key = tokenKey(userToken);
+  const { value } = await authCache.run(key, () => fetchPublishAuthorization(userToken));
+  // Resultado indisponível não é memorizado: a próxima tentativa deve reconsultar.
+  if (value.unavailable) authCache.invalidate(key);
+  return value;
+}
+
+async function fetchPublishAuthorization(userToken: string): Promise<PublishAuthorization> {
   let appId: string;
   let appSecret: string;
   try {
