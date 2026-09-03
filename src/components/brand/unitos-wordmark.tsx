@@ -1,6 +1,8 @@
 import { cn } from "@/lib/utils";
-import wordmarkAsset from "@/assets/unitos-wordmark.png.asset.json";
-import markAsset from "@/assets/unitos-mark.png.asset.json";
+import {
+  UNITOS_MARK_DATA_URL,
+  UNITOS_WORDMARK_DATA_URL,
+} from "@/assets/unitos-logo-data";
 
 /**
  * LOGO OFICIAL DO UNITOS (única marca institucional do sistema).
@@ -51,9 +53,9 @@ function MaskedLogo({
 }
 
 export function UnitosMarkGlyph({ className }: { className?: string }) {
-  return <MaskedLogo url={markAsset.url} className={className} label="Unitos" />;
+  return <MaskedLogo url={UNITOS_MARK_DATA_URL} className={className} label="Unitos" />;
 }
 
 export function UnitosWordmarkGlyph({ className }: { className?: string }) {
-  return <MaskedLogo url={wordmarkAsset.url} className={className} label="Unitos" />;
+  return <MaskedLogo url={UNITOS_WORDMARK_DATA_URL} className={className} label="Unitos" />;
 }
