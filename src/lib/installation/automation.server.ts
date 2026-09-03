@@ -359,6 +359,77 @@ export function createDeployClient(input: {
         return { ok: false, error: (e as Error).message };
       }
     },
+    async deployLatestCode() {
+      try {
+        const res = await doFetch(
+          `https://api.vercel.com/v9/projects/${project}?${qs()}`.replace(/\?$/, ""),
+          { headers },
+        );
+        if (!res.ok) {
+          return { ok: false, error: `HTTP ${res.status} ao consultar o projeto de deploy` };
+        }
+        const body = (await res.json().catch(() => ({}))) as {
+          name?: string;
+          link?: {
+            type?: string;
+            repoId?: number | string;
+            repo?: string;
+            org?: string;
+            productionBranch?: string;
+          };
+place: undefined;
+        };
+        const link = body.link;
+        const repoId = link?.repoId;
+        if (!link?.type || repoId === undefined || repoId === null) {
+          const fallback = await this.redeploy();
+          return { ...fallback, source: "rebuild" as const };
+        }
+        const ref = (link.productionBranch ?? "main").trim() || "main";
+        const created = await doFetch(`https://api.vercel.com/v13/deployments?${qs("forceNew=1")}`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            name: body.name ?? input.project,
+            target: "production",
+            gitSource: { type: link.type, repoId: String(repoId), ref },
+          }),
+        });
+        if (!created.ok) {
+          const text = await created.text().catch(() => "");
+          return {
+            ok: false,
+            error: `HTTP ${created.status} ao disparar deployment do código (${text.slice(0, 200)})`,
+          };
+        }
+        const json = (await created.json().catch(() => ({}))) as { id?: string; uid?: string };
+        return { ok: true, deploymentId: json.id ?? json.uid, source: "git" as const, ref };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+    async deploymentState(id) {
+      try {
+        const res = await doFetch(
+          `https://api.vercel.com/v13/deployments/${encodeURIComponent(id)}?${qs()}`.replace(
+            /\?$/,
+            "",
+          ),
+          { headers },
+        );
+        if (!res.ok) {
+          return { ok: false, error: `HTTP ${res.status} ao consultar o deployment` };
+        }
+        const body = (await res.json().catch(() => ({}))) as { readyState?: string; url?: string };
+        return {
+          ok: true,
+          state: body.readyState ?? undefined,
+          url: body.url ? `https://${body.url}` : undefined,
+        };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
     async setEnv(entries) {
       try {
         const res = await doFetch(
