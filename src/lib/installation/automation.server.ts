@@ -99,6 +99,28 @@ export async function probeOperationalUrl(
 
 /* ------------------------------------------------ Supabase Management API */
 
+/**
+ * Reaplica um arquivo do baseline statement por statement, ignorando SOMENTE
+ * erros de "objeto já existe". Qualquer outro erro aborta e é reportado.
+ */
+export async function applyStatementByStatement(
+  management: { query: (sql: string) => Promise<{ ok: boolean; rows: unknown[]; error?: string }> },
+  sql: string,
+): Promise<{ ok: true; skipped: number } | { ok: false; error?: string }> {
+  let skipped = 0;
+  for (const statement of splitSqlStatements(sql)) {
+    const res = await management.query(statement);
+    if (res.ok) continue;
+    if (isDuplicateObjectError(res.error)) {
+      skipped += 1;
+      continue;
+    }
+    return { ok: false, error: res.error };
+  }
+  return { ok: true, skipped };
+}
+
+
 export type ManagementClient = {
   query: (sql: string) => Promise<{ ok: boolean; rows: unknown[]; error?: string }>;
   keys: () => Promise<{ ok: boolean; publishableKey?: string; serviceRoleKey?: string; error?: string }>;
