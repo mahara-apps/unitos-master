@@ -123,8 +123,13 @@ export async function probeInstallationHealth(input: {
     frontend,
     secrets: stored.secrets,
     configuration,
+    // Primeiro acesso é reportado pela validação/provisionamento automáticos
+    // (leitura real do destino); a sonda HTTP preserva o que já foi comprovado.
+    super_admin: stored.super_admin,
+    workspace: stored.workspace,
   };
 }
+
 
 /* ------------------------------------------------------- report / finalize */
 
