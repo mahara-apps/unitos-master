@@ -151,11 +151,18 @@ describe("reexecução idempotente do baseline", () => {
         },
       },
       sql,
-      { onProgress: (processed) => void progress.push(processed) },
+      { onProgress: (processed) => void progress.push(processed), maxStatements: 256 },
     );
-    expect(result).toEqual({ ok: true, skipped: 0 });
+    expect(result).toEqual({
+      ok: true,
+      skipped: 0,
+      processed: 256,
+      total: 256,
+      complete: true,
+    });
     expect(calls).toBe(11);
     expect(progress.at(-1)).toBe(256);
+
   });
 
   it("interrompe a retomada quando a operação foi cancelada", async () => {
