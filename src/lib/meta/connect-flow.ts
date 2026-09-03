@@ -56,7 +56,7 @@ export function connectStepIndex(state: MetaConnectState): number {
   return state.kind === "authorized" ? 1 : 0;
 }
 
-export type ChecklistItemState = "done" | "current" | "pending" | "error";
+export type ChecklistItemState = "done" | "current" | "pending" | "error" | "warning";
 
 export type ChecklistItem = { label: string; state: ChecklistItemState };
 
