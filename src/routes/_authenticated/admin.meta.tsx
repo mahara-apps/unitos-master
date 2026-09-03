@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Copy, Loader2 } from "lucide-react";
 
 import { getMetaAppSettingsFn, saveMetaAppSettingsFn } from "@/lib/meta/app-config.functions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
