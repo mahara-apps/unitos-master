@@ -7,6 +7,8 @@
 // Este módulo só LÊ o token (nenhuma escrita, nenhum efeito colateral) e
 // devolve, por canal, a lista de targets autorizados para publicação.
 
+import { DEBUG_TOKEN_TTL_MS, createSharedCache } from "./graph-budget";
+
 const GRAPH_BASE = "https://graph.facebook.com/v22.0";
 
 export type ChannelAuthorization = {
