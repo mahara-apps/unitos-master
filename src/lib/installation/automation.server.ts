@@ -1001,6 +1001,31 @@ export async function runAutomatedProvision(input: {
     }
     url = { origin: resolved.origin, source: resolved.source };
 
+    // App Meta oficial do Unitos: propagado do MASTER para a instalação nova,
+    // de modo que o modo padrão “Unitos — App Meta oficial” já venha resolvido.
+    // Falha aqui NÃO bloqueia: a instalação segue operacional e o Super Admin
+    // resolve o Meta depois.
+    let officialMetaApp: {
+      appId?: string | null;
+      appSecret?: string | null;
+      businessConfigId?: string | null;
+    } | null = null;
+    try {
+      const { resolveMetaAppCredentials, resolveMetaBusinessConfigId } = await import(
+        "@/lib/meta/app-config.server"
+      );
+      const creds = await resolveMetaAppCredentials();
+      if (creds.appType === "unitos" && creds.appId && creds.appSecret) {
+        officialMetaApp = {
+          appId: creds.appId,
+          appSecret: creds.appSecret,
+          businessConfigId: creds.businessConfigId ?? (await resolveMetaBusinessConfigId()),
+        };
+      }
+    } catch {
+      officialMetaApp = null;
+    }
+
     const plan = buildDeployEnvPlan({
       appUrl: url.origin,
       supabaseUrl: installation.supabaseUrl ?? `https://${target.projectRef}.supabase.co`,
@@ -1008,6 +1033,7 @@ export async function runAutomatedProvision(input: {
       serviceRoleKey: keys.serviceRoleKey,
       projectRef: target.projectRef,
       secrets,
+      officialMetaApp,
     });
     if (!plan.ok) {
       failures.push(plan.reason);

@@ -57,6 +57,14 @@ export type MetaAppSettings = {
     businessConfigId: string | null;
   };
   updatedAt: string | null;
+  /**
+   * Esta é a instalação MASTER? Só nela o App oficial do Unitos é editável;
+   * nas instalações cliente ele chega pronto (env propagada no provisionamento)
+   * e a UI é somente leitura.
+   */
+  isMaster: boolean;
+  /** Somente o MASTER edita as credenciais do App oficial. */
+  officialEditable: boolean;
 };
 
 type Row = {
@@ -207,6 +215,8 @@ export async function resolveMetaBusinessConfigId(): Promise<string | null> {
 
 /** Resumo para a UI de Super Admin — sem expor o segredo. */
 export async function getMetaAppSettings(): Promise<MetaAppSettings> {
+  const { detectMaster } = await import("@/lib/installation/manager.server");
+  const isMaster = detectMaster();
   const row = await readRow({ fresh: true });
   const appId = row.app_id?.trim() || null;
   const ciphertext = row.app_secret_ciphertext?.trim() || null;
@@ -258,6 +268,8 @@ export async function getMetaAppSettings(): Promise<MetaAppSettings> {
             : null,
     },
     updatedAt: row.updated_at ?? null,
+    isMaster,
+    officialEditable: isMaster,
   };
 }
 

@@ -131,6 +131,9 @@ function AdminMetaAppPage() {
   });
 
   const data = q.data;
+  // Fora do MASTER, o App oficial do Unitos é somente leitura: chega pronto no
+  // provisionamento e a instalação só precisa cadastrar as URLs na Meta.
+  const officialReadOnly = appType === "unitos" && data ? !data.officialEditable : false;
 
   return (
     <div className="space-y-5">
@@ -173,51 +176,78 @@ function AdminMetaAppPage() {
         })}
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">
-            {appType === "client" ? "Credenciais do App do cliente" : "Credenciais do App oficial"}
-          </CardTitle>
-          <CardDescription>
-            {appType === "client"
-              ? "O App Secret é armazenado cifrado e nunca é exibido de volta."
-              : "Se o ambiente já define META_APP_ID/META_APP_SECRET, esses valores têm prioridade. Sem eles, o fluxo “Conectar Meta” usa as credenciais informadas aqui (segredo cifrado)."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="meta-app-id">App ID</Label>
-            <Input
-              id="meta-app-id"
-              value={appId}
-              onChange={(e) => setAppId(e.target.value)}
-              placeholder="1234567890"
-              autoComplete="off"
+      {officialReadOnly ? (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">App Meta oficial — já configurado</CardTitle>
+            <CardDescription>
+              As credenciais do App oficial do Unitos vêm resolvidas por padrão nesta instalação e
+              não são editáveis aqui. Você só precisa cadastrar as URLs abaixo no App Meta em
+              developers.facebook.com.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
+            <Row label="App ID em uso" value={data?.effective.appId ?? "—"} />
+            <Row
+              label="Config ID (Login for Business)"
+              value={data?.effective.businessConfigId ?? "—"}
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="meta-app-secret">App Secret</Label>
-            <Input
-              id="meta-app-secret"
-              type="password"
-              value={secret}
-              onChange={(e) => setSecret(e.target.value)}
-              placeholder={data?.client.hasSecret ? "•••••••• (mantido)" : "App Secret"}
-              autoComplete="new-password"
+            <Row label="App Secret" value="gerenciado pelo Unitos (nunca exibido)" />
+            <Row
+              label="Status"
+              value={data?.effective.appId ? "pronto para conectar contas" : "pendente no MASTER"}
             />
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="meta-config-id">Config ID (Facebook Login for Business)</Label>
-            <Input
-              id="meta-config-id"
-              value={configId}
-              onChange={(e) => setConfigId(e.target.value)}
-              placeholder="Opcional — sem ele o consentimento usa escopos legados"
-              autoComplete="off"
-            />
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">
+              {appType === "client"
+                ? "Credenciais do App do cliente"
+                : "Credenciais do App oficial"}
+            </CardTitle>
+            <CardDescription>
+              {appType === "client"
+                ? "O App Secret é armazenado cifrado e nunca é exibido de volta."
+                : "Se o ambiente já define META_APP_ID/META_APP_SECRET, esses valores têm prioridade. Sem eles, o fluxo “Conectar Meta” usa as credenciais informadas aqui (segredo cifrado). Instalações cliente recebem estes valores automaticamente no provisionamento."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="meta-app-id">App ID</Label>
+              <Input
+                id="meta-app-id"
+                value={appId}
+                onChange={(e) => setAppId(e.target.value)}
+                placeholder="1234567890"
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="meta-app-secret">App Secret</Label>
+              <Input
+                id="meta-app-secret"
+                type="password"
+                value={secret}
+                onChange={(e) => setSecret(e.target.value)}
+                placeholder={data?.client.hasSecret ? "•••••••• (mantido)" : "App Secret"}
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="meta-config-id">Config ID (Facebook Login for Business)</Label>
+              <Input
+                id="meta-config-id"
+                value={configId}
+                onChange={(e) => setConfigId(e.target.value)}
+                placeholder="Opcional — sem ele o consentimento usa escopos legados"
+                autoComplete="off"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="pb-3">

@@ -280,6 +280,16 @@ export function buildDeployEnvPlan(input: {
   serviceRoleKey: string;
   projectRef: string;
   secrets: Partial<Record<GeneratedSecretVar, string>>;
+  /**
+   * App Meta OFICIAL do Unitos (compartilhado entre instalações). Quando
+   * disponível no MASTER, é propagado para a instalação nova: assim o modo
+   * “Unitos — App Meta oficial” já vem resolvido, sem digitação na UI.
+   */
+  officialMetaApp?: {
+    appId?: string | null;
+    appSecret?: string | null;
+    businessConfigId?: string | null;
+  } | null;
 }): DeployEnvPlan {
   const identity = `${input.appUrl} ${input.supabaseUrl} ${input.projectRef}`;
   if (containsMasterReference(identity)) {
@@ -304,6 +314,25 @@ export function buildDeployEnvPlan(input: {
     const value = (input.secrets[name] ?? "").trim();
     if (!value) return { ok: false, reason: `${name} ausente no plano de variáveis.` };
     entries.push({ key: name, value, sensitive: true });
+  }
+
+  // App Meta oficial: credenciais compartilhadas do App central do Unitos +
+  // Redirect URI da PRÓPRIA instalação. Sem elas o modo oficial fica pendente
+  // (não é bloqueante: a instalação segue operacional).
+  const metaAppId = (input.officialMetaApp?.appId ?? "").trim();
+  const metaAppSecret = (input.officialMetaApp?.appSecret ?? "").trim();
+  if (metaAppId && metaAppSecret) {
+    entries.push({ key: "META_APP_ID", value: metaAppId, sensitive: false });
+    entries.push({ key: "META_APP_SECRET", value: metaAppSecret, sensitive: true });
+    const configId = (input.officialMetaApp?.businessConfigId ?? "").trim();
+    if (configId) {
+      entries.push({ key: "META_BUSINESS_CONFIG_ID", value: configId, sensitive: false });
+    }
+    entries.push({
+      key: "META_REDIRECT_URI",
+      value: `${url.origin}/api/public/meta/callback`,
+      sensitive: false,
+    });
   }
 
   const empty = entries.find((e) => !e.value.trim());

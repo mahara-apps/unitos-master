@@ -187,6 +187,28 @@ describe("plano de variáveis do deploy", () => {
     const plan = buildDeployEnvPlan({ ...base, secrets: { CRON_SECRET: "x".repeat(40) } });
     expect(plan.ok).toBe(false);
   });
+
+  it("propaga o App Meta oficial e o Redirect URI da própria instalação", () => {
+    const plan = buildDeployEnvPlan({
+      ...base,
+      officialMetaApp: { appId: "111", appSecret: "sec", businessConfigId: "222" },
+    });
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    const get = (k: string) => plan.entries.find((e) => e.key === k);
+    expect(get("META_APP_ID")?.value).toBe("111");
+    expect(get("META_APP_SECRET")?.sensitive).toBe(true);
+    expect(get("META_BUSINESS_CONFIG_ID")?.value).toBe("222");
+    expect(get("META_REDIRECT_URI")?.value).toContain("/api/public/meta/callback");
+    expect(get("META_REDIRECT_URI")?.value.startsWith("https://")).toBe(true);
+  });
+
+  it("sem App Meta oficial no MASTER o plano segue válido, apenas sem variáveis Meta", () => {
+    const plan = buildDeployEnvPlan({ ...base, officialMetaApp: null });
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    expect(plan.entries.some((e) => e.key.startsWith("META_APP"))).toBe(false);
+  });
 });
 
 describe("resultado do fluxo automatizado", () => {
