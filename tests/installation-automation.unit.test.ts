@@ -425,8 +425,31 @@ describe("runAutomatedProvision", () => {
       { query: async (batch) => { sizes.push((batch.match(/DO \$unitos_guard\$/g) ?? []).length); return { ok: true, rows: [] }; } },
       sql,
     );
-    expect(result).toEqual({ ok: true, skipped: 0 });
-    expect(sizes).toEqual([25, 25, 7]);
+    expect(result).toEqual({
+      ok: true,
+      skipped: 0,
+      processed: 25,
+      total: 57,
+      complete: false,
+    });
+    expect(sizes).toEqual([25]);
+  });
+
+  it("retoma a fatia seguinte e conclui sem reaplicar statements", async () => {
+    const { applyStatementByStatement } = await import("@/lib/installation/automation.server");
+    const sizes: number[] = [];
+    const sql = Array.from({ length: 57 }, (_, index) => `SELECT ${index};`).join("\n");
+    const management = {
+      query: async (batch: string) => {
+        sizes.push((batch.match(/DO \$unitos_guard\$/g) ?? []).length);
+        return { ok: true, rows: [] };
+      },
+    };
+    const second = await applyStatementByStatement(management, sql, { startIndex: 25 });
+    const third = await applyStatementByStatement(management, sql, { startIndex: 50 });
+    expect(second).toMatchObject({ processed: 50, total: 57, complete: false });
+    expect(third).toMatchObject({ processed: 57, total: 57, complete: true });
+    expect(sizes).toEqual([25, 7]);
   });
 
   it("recusa instalação apontada para o MASTER", async () => {

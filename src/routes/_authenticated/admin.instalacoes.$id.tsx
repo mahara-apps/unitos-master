@@ -213,8 +213,8 @@ function InstallationDetailPage() {
   });
 
   // O Worker pode ser reciclado entre lotes. Enquanto esta tela acompanha uma
-  // operação automática, o watchdog retoma apenas se não houver heartbeat há
-  // 35s; a lease condicional no servidor evita execução concorrente.
+  // operação automática, o watchdog agenda a próxima fatia curta do baseline;
+  // a lease condicional no servidor evita execução concorrente.
   useEffect(() => {
     const timer = window.setInterval(() => {
       const live = detail.data?.operations.find(
@@ -222,7 +222,7 @@ function InstallationDetailPage() {
           (op.status === "pending" || op.status === "running") && op.detail.automated === true,
       );
       if (live && !resumeProvision.isPending) resumeProvision.mutate();
-    }, 15_000);
+    }, 6_000);
     return () => window.clearInterval(timer);
   }, [detail.data?.operations, resumeProvision.isPending]);
 
