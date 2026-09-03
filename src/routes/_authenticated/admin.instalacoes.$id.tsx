@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Copy,
   Loader2,
+  ArrowDownToLine,
   RefreshCw,
   Rocket,
   ShieldCheck,
@@ -24,6 +25,7 @@ import {
   restartAutomatedProvisionFn,
   runAutomatedProvisionFn,
   runAutomatedValidateFn,
+  runAutomatedUpdateFn,
   startInstallationOperationFn,
 } from "@/lib/installation/manager.functions";
 import {
@@ -134,6 +136,7 @@ function InstallationDetailPage() {
   const capabilityFn = useServerFn(getAutomationCapabilityFn);
   const autoFn = useServerFn(runAutomatedProvisionFn);
   const autoValidateFn = useServerFn(runAutomatedValidateFn);
+  const autoUpdateFn = useServerFn(runAutomatedUpdateFn);
   const restartFn = useServerFn(restartAutomatedProvisionFn);
   const resumeFn = useServerFn(resumeAutomatedProvisionFn);
 
@@ -163,6 +166,8 @@ function InstallationDetailPage() {
     staleTime: 60_000,
   });
   const automated = capability.data?.available === true;
+  // Atualizar código só depende do token de deploy — não do Supabase Management.
+  const deployAutomated = capability.data?.vercel.available === true;
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["installation", id] });
@@ -214,6 +219,20 @@ function InstallationDetailPage() {
   });
 
 
+
+  // Traz o código publicado no MASTER para o deploy da instalação.
+  const autoUpdate = useMutation({
+    mutationFn: () => autoUpdateFn({ data: { id } }),
+    onSuccess: (result) => {
+      if (result.result === "STARTED") {
+        toast.success("Atualização iniciada. Acompanhe o progresso por etapa abaixo.");
+      } else {
+        toast.error(`BLOCKED: ${result.reasons.join(" | ")}`);
+      }
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const restartProvision = useMutation({
     mutationFn: (input: { force: boolean }) => restartFn({ data: { id, force: input.force } }),
