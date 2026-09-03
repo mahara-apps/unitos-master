@@ -535,6 +535,57 @@ function InstallationDetailPage() {
         </div>
       </div>
 
+      {/* Conclusão explícita: o painel afirma se a instalação está PRONTA e, se
+          não estiver, diz exatamente qual item do núcleo falta. */}
+      {!activeOp &&
+        (readiness.ready ? (
+          <Card className="border-emerald-500/40 bg-emerald-500/5">
+            <CardContent className="space-y-1.5 py-4">
+              <p className="flex items-center gap-2 text-sm font-semibold text-emerald-600">
+                <CheckCircle2 className="h-4 w-4" /> Instalação pronta e operacional
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Núcleo comprovado ({CORE_REQUIREMENTS.length}/{CORE_REQUIREMENTS.length}):
+                banco, schema, RLS, Storage, seeds, secrets, cron, deploy, health check, Super
+                Admin e workspace único. Já pode ser usada.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {readiness.pendingOptional.length
+                  ? `Opcional pendente (não bloqueia): ${readiness.pendingOptional
+                      .map((o) => OPTIONAL_CONFIG.find((x) => x.id === o)?.label ?? o)
+                      .join(", ")}.`
+                  : "Todas as integrações opcionais estão configuradas."}
+              </p>
+              {inst.domain && isTemporaryDeployUrl(inst.domain) && (
+                <p className="text-xs text-muted-foreground">
+                  Domínio atual é o temporário do deploy. Quando o cliente informar o definitivo,
+                  use “Editar dados”.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-amber-500/40 bg-amber-500/5">
+            <CardContent className="space-y-1.5 py-4">
+              <p className="text-sm font-semibold text-amber-600">
+                Instalação ainda não confirmada como pronta
+              </p>
+              {readiness.failedCore.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Em falha: {readiness.failedCore.map(coreLabel).join(", ")}.
+                </p>
+              )}
+              {readiness.missingCore.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Falta comprovar: {readiness.missingCore.map(coreLabel).join(", ")} — rode
+                  “Validar automaticamente” para o MASTER reler o estado real do destino.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+
+
       {novo && !inst.lastProvisionedAt && (
         <Card className="border-primary/40 bg-primary/5">
           <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
