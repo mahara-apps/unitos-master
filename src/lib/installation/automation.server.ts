@@ -1215,3 +1215,131 @@ export async function runAutomatedValidate(input: {
     total: summary.total,
   };
 }
+
+/* ----------------------------------------------------- atualização de código */
+
+/**
+ * ATUALIZAÇÃO DE CÓDIGO — traz o código publicado no MASTER para o deploy da
+ * instalação. Dispara um novo build a partir do repositório ligado ao projeto
+ * de deploy (branch de produção) e acompanha o estado até `READY`.
+ *
+ * Sem repositório ligado, o Vercel só permite reaproveitar o snapshot anterior:
+ * nesse caso a operação termina em `attention` explicando que o código novo
+ * exige um deploy ligado ao repositório — nunca finge sucesso.
+ */
+export async function runAutomatedUpdate(input: {
+  client: Client;
+  operation: OperationRow;
+  installation: AutomationInstallation;
+  env?: Record<string, string | undefined>;
+  fetchImpl?: Fetcher;
+  /** Tempo máximo aguardando o build ficar READY. */
+  waitMs?: number;
+  sleep?: (ms: number) => Promise<void>;
+}): Promise<{ result: "PASS" | "PENDING" | "FAIL" | "BLOCKED"; reasons: string[] }> {
+  const env = input.env ?? runtimeEnv();
+  const { client, operation, installation } = input;
+
+  const fail = async (result: "FAIL" | "BLOCKED", reason: string, stepId = "code") => {
+    await report(client, operation, stepId, "error", reason);
+    await finalizeOperation(client as never, operation as never, {
+      ok: false,
+      summary: `${result}: ${reason}`,
+      errorKind: result.toLowerCase(),
+    }).catch(() => undefined);
+    return { result, reasons: [reason] };
+  };
+
+  const capability = resolveAutomationCapability(env);
+  if (!capability.vercel.ok) {
+    return fail("BLOCKED", capability.vercel.reason ?? "token de deploy indisponível no MASTER");
+  }
+  const project = (installation.deployProject ?? "").trim();
+  if (!project) {
+    return fail("BLOCKED", "a instalação não tem projeto de deploy configurado");
+  }
+
+  const deploy = createDeployClient({
+    token: (env["UNITOS_VERCEL_TOKEN"] ?? "").trim(),
+    project,
+    teamId: (env["UNITOS_VERCEL_TEAM_ID"] ?? "").trim() || null,
+    fetchImpl: input.fetchImpl,
+  });
+
+  await report(client, operation, "code", "running");
+  const created = await deploy.deployLatestCode();
+  if (!created.ok || !created.deploymentId) {
+    return fail("FAIL", created.error ?? "não foi possível disparar o deployment");
+  }
+
+  if (created.source === "rebuild") {
+    await report(
+      client,
+      operation,
+      "code",
+      "done",
+      "projeto de deploy sem repositório ligado — apenas rebuild do último snapshot",
+    );
+    await report(client, operation, "build", "done", "rebuild disparado");
+    await report(client, operation, "version", "done", "versão não avançada");
+    await finalizeOperation(client as never, operation as never, {
+      ok: true,
+      warnings: true,
+      version: null,
+      summary:
+        "Rebuild disparado, mas o projeto de deploy não está ligado a um repositório: o código novo do MASTER não é aplicado assim. Ligue o projeto ao repositório e repita a atualização.",
+    }).catch(() => undefined);
+    return { result: "PENDING", reasons: ["deploy sem repositório ligado"] };
+  }
+
+  await report(
+    client,
+    operation,
+    "code",
+    "done",
+    `deployment criado a partir de ${created.ref ?? "produção"}`,
+  );
+
+  await report(client, operation, "build", "running");
+  const sleep = input.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  const deadline = Date.now() + (input.waitMs ?? 45_000);
+  let state = "QUEUED";
+  let url: string | null = null;
+  while (Date.now() < deadline) {
+    const status = await deploy.deploymentState(created.deploymentId);
+    if (status.ok) {
+      state = status.state ?? state;
+      url = status.url ?? url;
+      if (state === "READY") break;
+      if (state === "ERROR" || state === "CANCELED") break;
+    }
+    await sleep(3_000);
+  }
+
+  if (state === "ERROR" || state === "CANCELED") {
+    return fail("FAIL", `o build terminou em ${state}`, "build");
+  }
+
+  if (state !== "READY") {
+    await report(client, operation, "build", "done", `build em andamento (${state})`);
+    await report(client, operation, "version", "done", "versão será registrada ao concluir o build");
+    await finalizeOperation(client as never, operation as never, {
+      ok: true,
+      warnings: true,
+      version: null,
+      summary:
+        "Deployment do código mais recente disparado. O build ainda estava em andamento no fim da verificação — acompanhe e revalide em alguns minutos.",
+    }).catch(() => undefined);
+    return { result: "PENDING", reasons: [`build em ${state}`] };
+  }
+
+  await report(client, operation, "build", "done", url ? `publicado em ${url}` : "publicado");
+  await report(client, operation, "version", "done", MASTER_RELEASE_VERSION);
+  await finalizeOperation(client as never, operation as never, {
+    ok: true,
+    version: MASTER_RELEASE_VERSION,
+    summary: `Atualização aplicada: código do MASTER (${MASTER_RELEASE_VERSION}) publicado na instalação.`,
+  }).catch(() => undefined);
+
+  return { result: "PASS", reasons: [] };
+}
