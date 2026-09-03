@@ -536,7 +536,6 @@ export function ChannelsCenter({
             </DropdownMenu>
           </div>
         ) : null}
-
       </div>
 
       <AlertDialog open={revokeAllOpen} onOpenChange={setRevokeAllOpen}>
@@ -545,8 +544,7 @@ export function ChannelsCenter({
             <AlertDialogTitle>Revogar acesso à Meta?</AlertDialogTitle>
             <AlertDialogDescription>
               A autorização atual será revogada para este workspace. Os canais já conectados
-              permanecem funcionando, mas novas descobertas de contas exigirão uma nova
-              autorização.
+              permanecem funcionando, mas novas descobertas de contas exigirão uma nova autorização.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -562,7 +560,6 @@ export function ChannelsCenter({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="space-y-4">
         <TabsList className="h-8">
@@ -735,8 +732,6 @@ export function ChannelsCenter({
         onConnect={(channel) => void connectMeta(channel)}
         discovery={discovery}
       />
-
-
 
       {portfolioSessionId ? (
         <MetaPortfolioDialog

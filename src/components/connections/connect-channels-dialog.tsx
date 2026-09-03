@@ -8,14 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import {
-  ArrowRight,
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  Loader2,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowRight, Check, CheckCircle2, ChevronDown, Loader2, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CONNECTABLE_CHANNELS, UPCOMING_CHANNELS } from "@/components/connections/channel-meta";
 import { metaIssueState } from "@/lib/meta/issue-messages";
@@ -306,9 +299,7 @@ export function ConnectChannelsDialog({
                         <span
                           className={cn(
                             "grid h-11 w-11 shrink-0 place-items-center rounded-xl transition-colors",
-                            def.key === "instagram"
-                              ? "bg-pink-500/10"
-                              : "bg-sky-500/10",
+                            def.key === "instagram" ? "bg-pink-500/10" : "bg-sky-500/10",
                           )}
                         >
                           <Icon className={cn("h-5 w-5", def.tone)} />
