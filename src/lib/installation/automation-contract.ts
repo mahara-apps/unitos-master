@@ -25,21 +25,15 @@ import {
 
 /**
  * Credenciais de gestão que ficam SOMENTE no ambiente do MASTER.
- * Aceitamos os aliases usados pelas próprias plataformas (Supabase CLI usa
- * `SUPABASE_ACCESS_TOKEN`; Vercel usa `VERCEL_TOKEN`/`VERCEL_API_TOKEN`) para
- * que o operador não precise duplicar o mesmo token com outro nome.
+ * O prefixo `SUPABASE_` é reservado pela plataforma, então os nomes oficiais
+ * usam o prefixo `UNITOS_`.
  */
 export const AUTOMATION_CREDENTIAL_VARS = {
-  supabaseManagement: [
-    "SUPABASE_MANAGEMENT_TOKEN",
-    "UNITOS_SUPABASE_MANAGEMENT_TOKEN",
-    "SUPABASE_ACCESS_TOKEN",
-    "SUPABASE_MANAGEMENT_API_TOKEN",
-    "SUPABASE_PAT",
-  ],
-  vercel: ["VERCEL_TOKEN", "UNITOS_VERCEL_TOKEN", "VERCEL_API_TOKEN", "VERCEL_ACCESS_TOKEN"],
-  vercelTeam: ["VERCEL_TEAM_ID", "UNITOS_VERCEL_TEAM_ID", "VERCEL_ORG_ID"],
+  supabaseManagement: ["UNITOS_SUPABASE_MANAGEMENT_TOKEN"],
+  vercel: ["UNITOS_VERCEL_TOKEN"],
+  vercelTeam: ["UNITOS_VERCEL_TEAM_ID"],
 } as const;
+
 
 export type AutomationEnv = Record<string, string | undefined | null>;
 
