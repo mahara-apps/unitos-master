@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   CORE_REQUIREMENTS,
+  FIRST_ACCESS_REQUIREMENTS,
   classifyOperationalUrl,
   computeReadiness,
   customDomainState,
@@ -46,13 +47,19 @@ describe("núcleo da instalação", () => {
     expect(report.missingCore).toEqual(["cron"]);
   });
 
-  it("primeiro Super Admin e workspace único fazem parte do núcleo", () => {
+  it("primeiro Super Admin e workspace aparecem no núcleo, mas não bloqueiam READY", () => {
     const ids = CORE_REQUIREMENTS.map((r) => r.id);
     expect(ids).toContain("super_admin");
     expect(ids).toContain("workspace");
+    // Criados pelo cliente em /setup: pendente é informação, não bloqueio.
     const semAdmin = computeReadiness({ core: { ...CORE_OK, super_admin: { state: "pending" } } });
-    expect(semAdmin.ready).toBe(false);
+    expect(semAdmin.ready).toBe(true);
+    // Falha real (ex.: mais de um workspace) continua bloqueando.
+    expect(computeReadiness({ core: { ...CORE_OK, workspace: { state: "error" } } }).ready).toBe(
+      false,
+    );
   });
+
 
   it("ressalva no núcleo vira ATENÇÃO, mas continua READY", () => {
     const report = computeReadiness({ core: { ...CORE_OK, storage: { state: "attention" } } });
@@ -70,8 +77,15 @@ describe("núcleo da instalação", () => {
   it("check desconhecido nunca é assumido como ok", () => {
     const report = computeReadiness({ core: {} });
     expect(report.ready).toBe(false);
-    expect(report.missingCore.length).toBe(CORE_REQUIREMENTS.length);
+    // Só os itens bloqueantes entram em missingCore (primeiro acesso fica fora).
+    expect(report.missingCore.length).toBe(
+      CORE_REQUIREMENTS.length - FIRST_ACCESS_REQUIREMENTS.length,
+    );
+    for (const id of FIRST_ACCESS_REQUIREMENTS) {
+      expect(report.core[id].state).toBe("pending");
+    }
   });
+
 });
 
 describe("URL operacional", () => {

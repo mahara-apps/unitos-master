@@ -545,9 +545,27 @@ function InstallationDetailPage() {
                 <CheckCircle2 className="h-4 w-4" /> Instalação pronta e operacional
               </p>
               <p className="text-xs text-muted-foreground">
-                Núcleo comprovado ({CORE_REQUIREMENTS.length}/{CORE_REQUIREMENTS.length}):
-                banco, schema, RLS, Storage, seeds, secrets, cron, deploy, health check, Super
-                Admin e workspace único. Já pode ser usada.
+                Núcleo comprovado: banco, schema, RLS, Storage, seeds, secrets, cron, deploy e
+                health check. Já pode ser usada.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {lastValidate?.status === "success"
+                  ? `Validação final: ${lastValidate.summary ?? "concluída"}${
+                      lastValidate.finishedAt
+                        ? ` · ${new Date(lastValidate.finishedAt).toLocaleString("pt-BR")}`
+                        : ""
+                    }`
+                  : "Validação final ainda não executada — rode “Validar automaticamente”."}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Primeiro acesso:{" "}
+                {readiness.core.super_admin.state === "ok"
+                  ? "Super Admin criado"
+                  : "aguardando criação do Super Admin em /setup"}
+                {" · "}
+                {readiness.core.workspace.state === "ok"
+                  ? "1 workspace"
+                  : "workspace ainda não reportado"}
               </p>
               <p className="text-xs text-muted-foreground">
                 {readiness.pendingOptional.length
@@ -556,6 +574,7 @@ function InstallationDetailPage() {
                       .join(", ")}.`
                   : "Todas as integrações opcionais estão configuradas."}
               </p>
+
               {inst.domain && isTemporaryDeployUrl(inst.domain) && (
                 <p className="text-xs text-muted-foreground">
                   Domínio atual é o temporário do deploy. Quando o cliente informar o definitivo,
