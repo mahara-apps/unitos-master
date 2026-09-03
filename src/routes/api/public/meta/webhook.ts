@@ -124,9 +124,11 @@ export const Route = createFileRoute("/api/public/meta/webhook")({
         //     configured in META_WEBHOOK_PEERS (infrastructure config only).
         const unmatched = externalIds.filter((id) => !byExternalId.has(id));
         if (unmatched.length > 0 && !isForwardedWebhook(request.headers)) {
-          const peers = parseInstallationPeers(
-            process.env.META_WEBHOOK_PEERS,
-            new URL(request.url).origin,
+          const selfOrigin = new URL(request.url).origin;
+          const peers = mergePeers(
+            parseInstallationPeers(process.env.META_WEBHOOK_PEERS, selfOrigin),
+            // Instalações registradas no Installation Manager (MASTER).
+            await loadRegisteredInstallationPeers(selfOrigin),
           );
           if (peers.length > 0) {
             const outcomes = await forwardMetaWebhook({
