@@ -154,24 +154,54 @@ export async function resolveMetaAppCredentials(): Promise<MetaAppCredentials> {
     };
   }
 
-  const appId = envValue("META_APP_ID");
-  const appSecret = envValue("META_APP_SECRET");
-  if (!appId) throw new Error("Meta integration is not configured: missing META_APP_ID");
-  if (!appSecret) throw new Error("Meta integration is not configured: missing META_APP_SECRET");
+  // Modo oficial: env tem prioridade; sem env, usa as credenciais gravadas
+  // nesta instalação (mesmo singleton, segredo cifrado). Assim uma instalação
+  // nova consegue operar sem depender de variáveis de ambiente.
+  const envAppId = envValue("META_APP_ID");
+  const envSecret = envValue("META_APP_SECRET");
+  if (envAppId && envSecret) {
+    return {
+      appType,
+      appId: envAppId,
+      appSecret: envSecret,
+      businessConfigId: envValue("META_BUSINESS_CONFIG_ID"),
+    };
+  }
+
+  const storedAppId = row.app_id?.trim() || null;
+  const storedCiphertext = row.app_secret_ciphertext?.trim() || null;
+  if (!storedAppId || !storedCiphertext) {
+    throw new Error(
+      "O App Meta desta instalação ainda não foi configurado. Informe App ID e App Secret em Administração → App Meta (ou defina META_APP_ID e META_APP_SECRET no ambiente).",
+    );
+  }
+  let storedSecret: string;
+  try {
+    storedSecret = await decryptCredential(storedCiphertext);
+  } catch {
+    throw new Error(
+      "Não foi possível descriptografar o App Secret salvo. Informe o segredo novamente em Administração → App Meta.",
+    );
+  }
   return {
     appType,
-    appId,
-    appSecret,
-    businessConfigId: envValue("META_BUSINESS_CONFIG_ID"),
+    appId: storedAppId,
+    appSecret: storedSecret,
+    businessConfigId: row.business_config_id?.trim() || envValue("META_BUSINESS_CONFIG_ID"),
   };
 }
 
 /** Config ID do Facebook Login for Business do App em uso. */
 export async function resolveMetaBusinessConfigId(): Promise<string | null> {
   const row = await readRow();
-  if (normalizeType(row.app_type) === "client") return row.business_config_id?.trim() || null;
-  return envValue("META_BUSINESS_CONFIG_ID");
+  const stored = row.business_config_id?.trim() || null;
+  if (normalizeType(row.app_type) === "client") return stored;
+  if (envValue("META_APP_ID") && envValue("META_APP_SECRET")) {
+    return envValue("META_BUSINESS_CONFIG_ID") ?? stored;
+  }
+  return stored ?? envValue("META_BUSINESS_CONFIG_ID");
 }
+
 
 /** Resumo para a UI de Super Admin — sem expor o segredo. */
 export async function getMetaAppSettings(): Promise<MetaAppSettings> {
