@@ -438,12 +438,7 @@ export function ChannelsCenter({
       if (d.ok && d.sessionId) {
         // Autorização é terminal aqui: a SINCRONIZAÇÃO dos ativos é etapa
         // separada e não pode bloquear a confirmação para o usuário.
-        setFlow({ kind: "authorized", channel: channel ?? "facebook", sessionId: d.sessionId });
-        setPortfolioSessionId(d.sessionId);
-        setPortfolioChannel(d.channel ?? null);
-        qc.invalidateQueries({ queryKey: ["meta-discovered-accounts", brandId] });
-        qc.invalidateQueries({ queryKey: ["meta-portfolio-status", brandId] });
-        if (!connectOpen) setPortfolioOpen(true);
+        finishAuthorized(channel ?? "facebook", d.sessionId);
       } else {
         const detail = d.error ?? d.message ?? null;
         console.warn("[meta-oauth] falha na autorização:", detail);
