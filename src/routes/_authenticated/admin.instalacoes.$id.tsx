@@ -133,6 +133,7 @@ function InstallationDetailPage() {
   const healthFn = useServerFn(refreshInstallationHealthFn);
   const capabilityFn = useServerFn(getAutomationCapabilityFn);
   const autoFn = useServerFn(runAutomatedProvisionFn);
+  const autoValidateFn = useServerFn(runAutomatedValidateFn);
   const restartFn = useServerFn(restartAutomatedProvisionFn);
   const resumeFn = useServerFn(resumeAutomatedProvisionFn);
 
