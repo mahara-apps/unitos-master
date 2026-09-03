@@ -524,37 +524,61 @@ export async function runAutomatedProvision(input: {
     { id: "seeds", label: "004_seeds", sql: baseline004 },
   ];
 
+  // Checkpoint: o Worker tem vida limitada. Cada arquivo (e cada lote dentro
+  // do arquivo) é registrado, então uma retomada continua de onde parou em vez
+  // de reaplicar o baseline inteiro — a causa do travamento em 99%.
+  const progress = await readBaselineProgress(client, installation.id, operation);
+
   let currentGroup = "";
   for (const file of baseline) {
     if (file.id !== currentGroup) {
       currentGroup = file.id;
       await mark(file.id, "running");
     }
+    if (progress[file.label] === DONE) {
+      await mark(file.id, "running", `${file.label}: já aplicado (checkpoint)`);
+      continue;
+    }
+    await mark(file.id, "running", `${file.label}: aplicando`);
     // A Management API executa como `postgres` (não superusuário): comandos
     // exclusivos de superusuário do dump são removidos antes de enviar.
     const prepared = sanitizeBaselineSqlForManagementApi(file.sql);
-    const applied = await management.query(prepared.sql);
+    const alreadyApplied = progress[file.label] ?? 0;
+    const applied =
+      alreadyApplied > 0
+        ? { ok: false as const, rows: [] as unknown[], error: "retomada por checkpoint" }
+        : await management.query(prepared.sql);
     if (!applied.ok) {
       // Reexecução após falha parcial: a Management API aborta o arquivo no
       // primeiro "já existe". Reaplica statement por statement, ignorando
       // SOMENTE erros da classe duplicate (idempotência), nunca outros.
-      const retryable = isDuplicateObjectError(applied.error);
+      const retryable = alreadyApplied > 0 || isDuplicateObjectError(applied.error);
       const perStatement = retryable
         ? await applyStatementByStatement(management, prepared.sql, {
             isCancelled,
+            startIndex: alreadyApplied,
             onProgress: async (processed, total) => {
+              progress[file.label] = processed;
+              await saveBaselineProgress(client, operation, progress);
               const percent = Math.min(99, Math.round((processed / Math.max(total, 1)) * 100));
               await mark(file.id, "running", `${file.label}: retomando aplicação (${percent}%)`);
             },
           })
         : { ok: false as const, error: applied.error };
       if (!perStatement.ok) {
+        if (typeof perStatement.processed === "number" && perStatement.processed > 0) {
+          progress[file.label] = perStatement.processed;
+          await saveBaselineProgress(client, operation, progress);
+        }
         failures.push(`${file.label}: ${perStatement.error ?? applied.error ?? "falha ao aplicar"}`);
         await mark(file.id, "error", `${file.label} falhou`);
         checks[file.id === "seeds" ? "database" : (file.id as HealthCheckId)] = "error";
         return finish(null, null);
       }
     }
+    progress[file.label] = DONE;
+    await saveBaselineProgress(client, operation, progress);
+
   }
   checks.database = "ok";
   checks.storage = "ok";
