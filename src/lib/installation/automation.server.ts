@@ -110,8 +110,13 @@ export async function applyStatementByStatement(
     isCancelled?: () => Promise<boolean>;
     /** Retomada: statements já aplicados numa execução anterior. */
     startIndex?: number;
+    /** Limita o trabalho por invocação para caber na janela do Worker. */
+    maxStatements?: number;
   },
-): Promise<{ ok: true; skipped: number } | { ok: false; error?: string; processed?: number }> {
+): Promise<
+  | { ok: true; skipped: number; processed: number; total: number; complete: boolean }
+  | { ok: false; error?: string; processed?: number; total?: number }
+> {
   const statements = splitSqlStatements(sql);
   // Lotes grandes (150 statements) chegaram a ultrapassar a janela real do
   // Worker/Management API: o request era encerrado antes do AbortController e
@@ -119,17 +124,19 @@ export async function applyStatementByStatement(
   // 57% no delta). 25 mantém cada chamada curta e deixa um checkpoint fino.
   const batchSize = 25;
   const from = Math.min(Math.max(options?.startIndex ?? 0, 0), statements.length);
+  const maxStatements = Math.max(options?.maxStatements ?? batchSize, 1);
+  const stopAt = Math.min(statements.length, from + maxStatements);
   let processed = from;
 
   // Cada statement é protegido no próprio Postgres e os lotes são enviados em
   // poucas chamadas. Assim um objeto duplicado é ignorado isoladamente, mas
   // qualquer erro diferente continua abortando. Isso evita as ~1.800 chamadas
   // sequenciais que excediam a vida do Worker em retomadas parciais.
-  for (let start = from; start < statements.length; start += batchSize) {
+  for (let start = from; start < stopAt; start += batchSize) {
     if (await options?.isCancelled?.()) {
       return { ok: false, error: "Operação cancelada pelo Super Admin.", processed };
     }
-    const batch = statements.slice(start, start + batchSize);
+    const batch = statements.slice(start, Math.min(start + batchSize, stopAt));
     const guarded = batch
       .map((statement, index) => {
         let suffix = index;
@@ -161,7 +168,13 @@ export async function applyStatementByStatement(
     processed += batch.length;
     await options?.onProgress?.(processed, statements.length);
   }
-  return { ok: true, skipped: 0 };
+  return {
+    ok: true,
+    skipped: 0,
+    processed,
+    total: statements.length,
+    complete: processed >= statements.length,
+  };
 }
 
 
@@ -371,7 +384,8 @@ export type AutomationInstallation = {
 
 type Client = { from: (table: string) => unknown };
 
-export type AutomationRunResult = AutomationOutcome & {
+export type AutomationRunResult = Omit<AutomationOutcome, "result"> & {
+  result: AutomationOutcome["result"] | "RUNNING";
   appUrl: string | null;
   urlSource: "custom_domain" | "deploy" | null;
   steps: { id: string; state: CheckState | "done" | "error"; detail: string | null }[];
@@ -383,6 +397,9 @@ export type AutomationRunResult = AutomationOutcome & {
 export const DONE = -1;
 
 export type BaselineProgress = Record<string, number>;
+
+/** Janela pequena: cada invocação faz um lote e devolve o controle ao runtime. */
+export const BASELINE_STATEMENTS_PER_INVOCATION = 25;
 
 /**
  * Lê o checkpoint da instalação: a última operação (inclusive a atual) que
@@ -446,10 +463,24 @@ export async function saveBaselineProgress(
         };
       };
     };
+    const { data: fresh } = await (client as never as {
+      from: (t: string) => {
+        select: (c: string) => {
+          eq: (c: string, v: string) => { maybeSingle: () => Promise<{ data?: { detail?: unknown } | null }> };
+        };
+      };
+    })
+      .from("installation_operations")
+      .select("detail")
+      .eq("id", operation.id)
+      .maybeSingle();
     await db
       .from("installation_operations")
       .update({
-        detail: { ...((operation.detail ?? {}) as Record<string, unknown>), baselineProgress: progress },
+        detail: {
+          ...((fresh?.detail ?? operation.detail ?? {}) as Record<string, unknown>),
+          baselineProgress: progress,
+        },
         last_report_at: new Date().toISOString(),
       })
       .eq("id", operation.id);
@@ -483,6 +514,8 @@ export async function runAutomatedProvision(input: {
   installation: AutomationInstallation;
   env?: Record<string, string | undefined>;
   fetchImpl?: Fetcher;
+  /** Sobrescrita exclusiva para testes determinísticos ponta a ponta. */
+  maxStatementsPerInvocation?: number;
 }): Promise<AutomationRunResult> {
   const env = input.env ?? runtimeEnv();
   const { client, operation, installation } = input;
@@ -638,6 +671,10 @@ export async function runAutomatedProvision(input: {
     const perStatement = await applyStatementByStatement(management, prepared.sql, {
       isCancelled,
       startIndex: alreadyApplied,
+      maxStatements: BASELINE_STATEMENTS_PER_INVOCATION,
+      ...(input.maxStatementsPerInvocation !== undefined
+        ? { maxStatements: input.maxStatementsPerInvocation }
+        : {}),
       onProgress: async (processed, total) => {
         progress[file.label] = processed;
         await saveBaselineProgress(client, operation, progress);
@@ -655,6 +692,19 @@ export async function runAutomatedProvision(input: {
       await mark(file.id, "error", `${file.label} falhou`);
       checks[file.id === "seeds" ? "database" : (file.id as HealthCheckId)] = "error";
       return finish(null, null);
+    }
+    if (!perStatement.complete) {
+      // Não mantenha uma única Promise viva por centenas de requests: o
+      // waitUntil do Worker tem uma janela curta e cancela a tarefa. O
+      // checkpoint/heartbeat já foi persistido; o watchdog inicia a próxima
+      // invocação, exatamente no statement seguinte, sem concorrência.
+      return {
+        result: "RUNNING",
+        reasons: [],
+        appUrl: null,
+        urlSource: null,
+        steps,
+      };
     }
     progress[file.label] = DONE;
     await saveBaselineProgress(client, operation, progress);

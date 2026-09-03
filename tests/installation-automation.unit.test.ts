@@ -232,11 +232,15 @@ const INSTALLATION = {
   deployProject: "unitos-pitada",
 };
 
+const runProvision = (
+  input: Parameters<typeof runAutomatedProvision>[0],
+) => runAutomatedProvision({ ...input, maxStatementsPerInvocation: Number.POSITIVE_INFINITY });
+
 describe("runAutomatedProvision", () => {
   it("BLOCKED sem credenciais de gestão — sem nenhuma chamada externa", async () => {
     const { api } = fakeClient();
     const fetchImpl = vi.fn();
-    const result = await runAutomatedProvision({
+    const result = await runProvision({
       client: api,
       operation: OP,
       installation: INSTALLATION,
@@ -250,7 +254,7 @@ describe("runAutomatedProvision", () => {
   it("BLOCKED quando o Supabase destino não responde", async () => {
     const { api } = fakeClient();
     const fetchImpl = vi.fn(async () => new Response("no", { status: 401 }));
-    const result = await runAutomatedProvision({
+    const result = await runProvision({
       client: api,
       operation: OP,
       installation: INSTALLATION,
@@ -288,7 +292,7 @@ describe("runAutomatedProvision", () => {
       return new Response("{}", { status: 200 });
     });
 
-    const result = await runAutomatedProvision({
+    const result = await runProvision({
       client: api,
       operation: OP,
       installation: INSTALLATION,
@@ -323,7 +327,7 @@ describe("runAutomatedProvision", () => {
       if (url.includes("v6/deployments")) return Response.json({ deployments: [] });
       return new Response("{}", { status: 200 });
     });
-    const result = await runAutomatedProvision({
+    const result = await runProvision({
       client: api,
       operation: OP,
       installation: INSTALLATION,
@@ -355,7 +359,7 @@ describe("runAutomatedProvision", () => {
       if (url === "https://x-abc.vercel.app") return new Response("erro", { status: 502 });
       return new Response("{}", { status: 200 });
     });
-    const result = await runAutomatedProvision({
+    const result = await runProvision({
       client: api,
       operation: OP,
       installation: INSTALLATION,
@@ -379,7 +383,7 @@ describe("runAutomatedProvision", () => {
       if (url.includes("api.vercel.com/v9/projects")) return new Response("no", { status: 404 });
       return Response.json({});
     });
-    const result = await runAutomatedProvision({
+    const result = await runProvision({
       client: api,
       operation: OP,
       installation: INSTALLATION,
@@ -407,7 +411,7 @@ describe("runAutomatedProvision", () => {
       }
       return Response.json({});
     });
-    const result = await runAutomatedProvision({
+    const result = await runProvision({
       client: api,
       operation: OP,
       installation: INSTALLATION,
@@ -425,13 +429,36 @@ describe("runAutomatedProvision", () => {
       { query: async (batch) => { sizes.push((batch.match(/DO \$unitos_guard\$/g) ?? []).length); return { ok: true, rows: [] }; } },
       sql,
     );
-    expect(result).toEqual({ ok: true, skipped: 0 });
-    expect(sizes).toEqual([25, 25, 7]);
+    expect(result).toEqual({
+      ok: true,
+      skipped: 0,
+      processed: 25,
+      total: 57,
+      complete: false,
+    });
+    expect(sizes).toEqual([25]);
+  });
+
+  it("retoma a fatia seguinte e conclui sem reaplicar statements", async () => {
+    const { applyStatementByStatement } = await import("@/lib/installation/automation.server");
+    const sizes: number[] = [];
+    const sql = Array.from({ length: 57 }, (_, index) => `SELECT ${index};`).join("\n");
+    const management = {
+      query: async (batch: string) => {
+        sizes.push((batch.match(/DO \$unitos_guard\$/g) ?? []).length);
+        return { ok: true, rows: [] };
+      },
+    };
+    const second = await applyStatementByStatement(management, sql, { startIndex: 25 });
+    const third = await applyStatementByStatement(management, sql, { startIndex: 50 });
+    expect(second).toMatchObject({ processed: 50, total: 57, complete: false });
+    expect(third).toMatchObject({ processed: 57, total: 57, complete: true });
+    expect(sizes).toEqual([25, 7]);
   });
 
   it("recusa instalação apontada para o MASTER", async () => {
     const { api } = fakeClient();
-    const result = await runAutomatedProvision({
+    const result = await runProvision({
       client: api,
       operation: OP,
       installation: { ...INSTALLATION, supabaseUrl: `https://${MASTER_REF}.supabase.co`, supabaseProjectRef: MASTER_REF },
