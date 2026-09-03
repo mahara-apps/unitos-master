@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyProgressReport } from "@/lib/installation/runner.server";
-import { buildInitialSteps } from "@/lib/installation/manager-contract";
+import { initialSteps } from "@/lib/installation/manager-contract";
 
 /** Cliente Supabase falso com uma única linha de installation_operations. */
 function fakeClient(initialSteps: unknown) {
@@ -31,7 +31,7 @@ function fakeClient(initialSteps: unknown) {
 
 describe("applyProgressReport acumula etapas", () => {
   it("preserva etapas já concluídas ao reportar a próxima", async () => {
-    const initial = buildInitialSteps("provision");
+    const initial = initialSteps("provision");
     const { client, row } = fakeClient(initial);
     const op = { id: "op-1", kind: "provision", steps: initial } as never;
 
