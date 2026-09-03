@@ -57,6 +57,14 @@ export type MetaAppSettings = {
     businessConfigId: string | null;
   };
   updatedAt: string | null;
+  /**
+   * Esta é a instalação MASTER? Só nela o App oficial do Unitos é editável;
+   * nas instalações cliente ele chega pronto (env propagada no provisionamento)
+   * e a UI é somente leitura.
+   */
+  isMaster: boolean;
+  /** Somente o MASTER edita as credenciais do App oficial. */
+  officialEditable: boolean;
 };
 
 type Row = {
