@@ -44,6 +44,30 @@ export type SharedScanResult = {
 };
 
 /**
+ * Registro de tokens já varridos PROFUNDAMENTE nesta instância.
+ *
+ * Serve à política de refresh incremental: um token que nunca passou por uma
+ * varredura profunda aqui é tratado como "autorização nova" e recebe descoberta
+ * completa. Guarda apenas o fingerprint (nunca o token).
+ */
+const deepScanned = new Map<string, number>();
+const DEEP_SCAN_MEMORY_MS = 24 * 60 * 60 * 1000;
+
+export function wasTokenDeepScanned(userToken: string, now = Date.now()): boolean {
+  const at = deepScanned.get(tokenFingerprint(userToken));
+  if (at === undefined) return false;
+  if (now - at > DEEP_SCAN_MEMORY_MS) {
+    deepScanned.delete(tokenFingerprint(userToken));
+    return false;
+  }
+  return true;
+}
+
+export function rememberDeepScan(userToken: string, now = Date.now()): void {
+  deepScanned.set(tokenFingerprint(userToken), now);
+}
+
+/**
  * Executa (ou reutiliza) uma varredura de portfólio para este token.
  *
  * @param label Origem da chamada, apenas para o log de telemetria.
@@ -52,7 +76,8 @@ export async function runSharedScan(
   userToken: string,
   opts?: { label?: string; deep?: boolean; force?: boolean },
 ): Promise<SharedScanResult> {
-  const key = `${tokenFingerprint(userToken)}:${opts?.deep === false ? "shallow" : "deep"}`;
+  const deep = opts?.deep !== false;
+  const key = `${tokenFingerprint(userToken)}:${deep ? "deep" : "shallow"}`;
   if (opts?.force) scanCache.invalidate(key);
 
   const { value, source } = await scanCache.run(key, async () => {
@@ -64,6 +89,7 @@ export async function runSharedScan(
         telemetry,
       });
       console.log(telemetry.logLine(scan.telemetry ?? undefined));
+      if (deep) rememberDeepScan(userToken);
       return scan;
     } catch (err) {
       console.log(telemetry.logLine(telemetry.finish("error")));
@@ -82,4 +108,6 @@ export async function runSharedScan(
 /** Invalida o reuso após ações que mudam a autorização (revogação, reauth). */
 export function invalidateSharedScans(): void {
   scanCache.clear();
+  deepScanned.clear();
 }
+
