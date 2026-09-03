@@ -48,6 +48,7 @@ import {
 } from "@/lib/meta/portfolio-shared";
 import { humanizeMetaError } from "@/lib/meta/error-messages";
 import { DiscoveryProgress } from "./discovery-progress";
+import { readAuthorizeUrl } from "@/lib/meta/connect-flow";
 
 /**
  * Status canônico por conta descoberta: 🟢 Pronto · 🟠 Autorização necessária
