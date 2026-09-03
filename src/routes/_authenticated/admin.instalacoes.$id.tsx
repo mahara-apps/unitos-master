@@ -198,6 +198,23 @@ function InstallationDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Validação: READ-ONLY e executada pelo próprio MASTER. O comando manual só
+  // volta a aparecer quando a automação estiver realmente indisponível.
+  const autoValidate = useMutation({
+    mutationFn: () => autoValidateFn({ data: { id } }),
+    onSuccess: (result) => {
+      if (result.result === "STARTED") {
+        toast.success("Validação iniciada. Acompanhe o resultado por etapa abaixo.");
+      } else {
+        toast.error(`BLOCKED: ${result.reasons.join(" | ")}`);
+      }
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
+
   const restartProvision = useMutation({
     mutationFn: (input: { force: boolean }) => restartFn({ data: { id, force: input.force } }),
     onSuccess: (result) => {
