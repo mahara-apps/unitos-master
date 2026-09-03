@@ -505,15 +505,16 @@ export function ChannelsCenter({
       if (popup) {
         popup.location.href = authorizeUrl;
         setFlow({ kind: "awaiting", channel });
-        // Cancelamento do usuário: janela fechada sem retorno do callback.
+        // Janela fechada sem retorno do callback: pode ser cancelamento OU
+        // `postMessage` perdido (COOP / divergência de origem). Damos uma
+        // janela de graça e confirmamos no servidor antes de acusar cancelamento.
         pollRef.current = window.setInterval(() => {
           if (!popup.closed) return;
           clearWatchdogs();
           setFlow((prev) =>
-            prev.kind === "awaiting" || prev.kind === "returning"
-              ? { kind: "error", channel, reason: "cancelled", detail: null }
-              : prev,
+            prev.kind === "awaiting" ? { kind: "returning", channel } : prev,
           );
+          window.setTimeout(() => void resolveClosedPopup(channel), 1200);
         }, 800);
         // Timeout duro: o modal jamais fica preso em "Aguardando autorização".
         timeoutRef.current = window.setTimeout(() => {
