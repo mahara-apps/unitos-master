@@ -365,6 +365,50 @@ export function ChannelsCenter({
     timeoutRef.current = null;
   }, []);
 
+  /** Conclui a autorização (terminal) a partir de uma sessão Meta válida. */
+  const finishAuthorized = useCallback(
+    (channel: "facebook" | "instagram", sessionId: string) => {
+      if (reauthRef.current) {
+        setFlow({ kind: "idle" });
+        return;
+      }
+      setFlow({ kind: "authorized", channel, sessionId });
+      setPortfolioSessionId(sessionId);
+      setPortfolioChannel(channel);
+      qc.invalidateQueries({ queryKey: ["meta-discovered-accounts", brandId] });
+      qc.invalidateQueries({ queryKey: ["meta-portfolio-status", brandId] });
+      if (!connectOpen) setPortfolioOpen(true);
+    },
+    [brandId, connectOpen, qc],
+  );
+
+  /**
+   * A janela fechou sem `postMessage` recebido. Isso NÃO significa cancelamento:
+   * COOP/bloqueadores podem cortar o `window.opener`, ou a origem do
+   * META_REDIRECT_URI pode divergir da origem atual. Antes de marcar como
+   * cancelado, confirmamos no servidor se existe sessão Meta ativa.
+   */
+  const resolveClosedPopup = useCallback(
+    async (channel: "facebook" | "instagram") => {
+      if (!brandId) return;
+      let sessionId: string | null = null;
+      try {
+        const res = await activeSessionFn({ data: { brandId } });
+        sessionId = res?.sessionId ?? null;
+      } catch {
+        sessionId = null;
+      }
+      setFlow((prev) => {
+        if (prev.kind !== "awaiting" && prev.kind !== "returning") return prev;
+        if (sessionId) return prev; // resolvido abaixo por finishAuthorized
+        return { kind: "error", channel, reason: "cancelled", detail: null };
+      });
+      if (sessionId) finishAuthorized(channel, sessionId);
+    },
+    [activeSessionFn, brandId, finishAuthorized],
+  );
+
+
   useEffect(() => {
     function onMessage(ev: MessageEvent) {
       const d = ev.data as {
