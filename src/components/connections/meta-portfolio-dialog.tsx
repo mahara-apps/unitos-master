@@ -956,6 +956,47 @@ export function MetaAssetsPanel({
             </TabsContent>
           </Tabs>
         )}
+      </div>
+    </>
+  );
+}
+
+/**
+ * Wrapper legado — mantém o modal autônomo para as telas que ainda abrem a
+ * seleção de contas fora do fluxo "Conectar canais".
+ */
+export function MetaPortfolioDialog({
+  brandId,
+  clientId,
+  sessionId,
+  open,
+  channel,
+  onOpenChange,
+}: {
+  brandId: string;
+  clientId?: string;
+  sessionId: string | null;
+  open: boolean;
+  channel?: "facebook" | "instagram" | "threads" | "ads" | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl border-border/60 bg-background/95 backdrop-blur">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Selecione as contas da Meta</DialogTitle>
+          <DialogDescription>
+            Escolha quais contas da Meta você deseja vincular.
+          </DialogDescription>
+        </DialogHeader>
+        <MetaAssetsPanel
+          brandId={brandId}
+          clientId={clientId}
+          sessionId={sessionId}
+          active={open}
+          channel={channel}
+          onClose={() => onOpenChange(false)}
+        />
       </DialogContent>
     </Dialog>
   );
