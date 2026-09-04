@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Trash2, Clock, RotateCcw } from "lucide-react";
+import { Plus, Trash2, Clock, RotateCcw, CheckCircle2, Paperclip } from "lucide-react";
 import { ExpandedModal } from "@/components/ui/expanded-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TaskTimerWidget } from "@/components/tasks/task-timer-widget";
 import {
   listTimeEntriesFn,
@@ -40,11 +41,14 @@ type Props = {
     start_date?: string | null;
     due_at?: string | null;
   } | null;
-  /** Caminho da hierarquia (Projeto › Job) mostrado no topo. */
+  /** Caminho da hierarquia (Cliente › Projeto › Job) mostrado no topo. */
   breadcrumb?: string;
   /** Equipe da workspace para escolher o responsável (1 por tarefa). */
   team?: TeamOption[];
   currentUserId?: string | null;
+  /** Concluir/reabrir a tarefa a partir do próprio detalhe. */
+  onToggleDone?: () => void;
+  taskDone?: boolean;
 };
 
 export function TaskTimesheetSheet({
@@ -55,6 +59,8 @@ export function TaskTimesheetSheet({
   breadcrumb,
   team = [],
   currentUserId,
+  onToggleDone,
+  taskDone = false,
 }: Props) {
   const qc = useQueryClient();
   const listFn = useServerFn(listTimeEntriesFn);
@@ -140,19 +146,29 @@ export function TaskTimesheetSheet({
     <ExpandedModal
       open={open}
       onOpenChange={onOpenChange}
-      size="md"
+      size="lg"
       title={task?.title ?? "Tarefa"}
+      description={breadcrumb}
+      headerExtra={
+        task && onToggleDone ? (
+          <Button size="sm" className="h-8 gap-1.5" onClick={onToggleDone}>
+            {taskDone ? (
+              <>
+                <RotateCcw className="h-3.5 w-3.5" /> Reabrir
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5" /> Concluir
+              </>
+            )}
+          </Button>
+        ) : null
+      }
     >
       {task && (
-        <div className="space-y-6">
-          {breadcrumb ? (
-            <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              {breadcrumb}
-            </div>
-          ) : null}
-
-          {/* Responsável (1 por tarefa), status e datas */}
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 p-3">
+        <div className="space-y-5">
+          {/* Faixa de atribuições: responsável, status e datas */}
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-background/40 p-2.5">
             <AssigneePicker
               value={task.assignee_id ?? null}
               options={team}
@@ -166,19 +182,20 @@ export function TaskTimesheetSheet({
             />
             <Input
               type="date"
-              className="h-8 w-[150px]"
+              className="h-8 w-[140px] text-xs"
               aria-label="Início"
               defaultValue={task.start_date ? task.start_date.slice(0, 10) : ""}
               onBlur={(e) => metaMut.mutate({ start_date: e.target.value || null })}
             />
             <Input
               type="date"
-              className="h-8 w-[150px]"
+              className="h-8 w-[140px] text-xs"
               aria-label="Prazo"
               defaultValue={task.due_at ? task.due_at.slice(0, 10) : ""}
               onBlur={(e) => metaMut.mutate({ due_at: e.target.value || null })}
             />
           </div>
+
           {/* Timer (Play · Pause · Stop) */}
           <TaskTimerWidget
             brandId={brandId}
@@ -186,134 +203,154 @@ export function TaskTimesheetSheet({
             estimatedMinutes={task.estimated_minutes}
           />
           {reworkSeconds > 0 && (
-            <div className="-mt-4 text-[11px] text-muted-foreground">
+            <div className="-mt-3 text-[11px] text-muted-foreground">
               Retrabalho: <span className="font-mono">{formatSeconds(reworkSeconds)}</span>
             </div>
           )}
 
-          {/* Estimativa */}
-          <div className="grid gap-1.5">
-            <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              Estimativa (HH:MM)
-            </Label>
-            <div className="flex gap-2">
-              <Input
-                value={estimated}
-                onChange={(e) => setEstimated(e.target.value)}
-                placeholder="02:00"
-                className="h-9"
-              />
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  if (!estimated.trim()) {
-                    estMut.mutate(null);
-                    return;
-                  }
-                  const s = parseDurationToSeconds(estimated);
-                  if (s == null) return toast.error("Formato inválido");
-                  estMut.mutate(Math.round(s / 60));
-                }}
-              >
-                Salvar
-              </Button>
-            </div>
-          </div>
+          <Tabs defaultValue="comments">
+            <TabsList className="w-full justify-start">
+              <TabsTrigger value="comments">Comentários</TabsTrigger>
+              <TabsTrigger value="timesheet">Timesheet</TabsTrigger>
+              <TabsTrigger value="history">Histórico</TabsTrigger>
+              <TabsTrigger value="files">Anexos</TabsTrigger>
+            </TabsList>
 
-          {/* Apontamento manual */}
-          <div className="rounded-lg border border-border/60 p-4">
-            <div className="mb-3 flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              <Plus className="h-3 w-3" /> Apontar manualmente
-            </div>
-            <div className="grid gap-3">
-              <div className="grid grid-cols-[130px_1fr] gap-2">
-                <Input
-                  placeholder="HH:MM:SS"
-                  value={manualTime}
-                  onChange={(e) => setManualTime(e.target.value)}
-                  className="h-9"
-                />
-                <Textarea
-                  placeholder="Descrição (opcional)"
-                  value={manualDesc}
-                  onChange={(e) => setManualDesc(e.target.value)}
-                  rows={1}
-                  className="min-h-9 resize-none"
+            <TabsContent value="comments" className="mt-3">
+              <div className="overflow-hidden rounded-lg border border-border/60">
+                <CommentThread
+                  brandId={brandId}
+                  level="task"
+                  taskId={task.id}
+                  currentUserId={currentUserId}
+                  placeholder="Observação sobre esta tarefa…"
                 />
               </div>
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Checkbox checked={manualRework} onCheckedChange={(v) => setManualRework(!!v)} />
-                  <RotateCcw className="h-3 w-3" /> Retrabalho
-                </label>
-                <Button size="sm" onClick={submitManual} disabled={addMut.isPending}>
-                  Adicionar
-                </Button>
-              </div>
-            </div>
-          </div>
+            </TabsContent>
 
-          {/* Histórico */}
-          <div>
-            <div className="mb-2 flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              <Clock className="h-3 w-3" /> Histórico ({entries.length})
-            </div>
-            {entries.length === 0 ? (
-              <div className="rounded-md border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
-                Nenhum apontamento ainda.
+            <TabsContent value="timesheet" className="mt-3 space-y-4">
+              <div className="grid gap-1.5">
+                <Label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Estimativa (HH:MM)
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={estimated}
+                    onChange={(e) => setEstimated(e.target.value)}
+                    placeholder="02:00"
+                    className="h-9"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      if (!estimated.trim()) {
+                        estMut.mutate(null);
+                        return;
+                      }
+                      const s = parseDurationToSeconds(estimated);
+                      if (s == null) return toast.error("Formato inválido");
+                      estMut.mutate(Math.round(s / 60));
+                    }}
+                  >
+                    Salvar
+                  </Button>
+                </div>
               </div>
-            ) : (
-              <div className="divide-y divide-border/60 rounded-md border border-border/60">
-                {entries.map((e) => (
-                  <div key={e.id} className="flex items-center gap-3 px-3 py-2 text-sm">
-                    <div className="w-20 font-mono tabular-nums">
-                      {e.ended_at ? formatSeconds(entryDurationSeconds(e)) : "em curso"}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate">
-                        {e.description || (e.source === "timer" ? "Timer" : "Manual")}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {e.user_name ?? "—"} ·{" "}
-                        {new Date(e.started_at).toLocaleString("pt-BR", {
-                          day: "2-digit",
-                          month: "short",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </div>
-                    </div>
-                    {e.is_rework && (
-                      <Badge variant="outline" className="text-[10px]">
-                        Retrabalho
-                      </Badge>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => delMut.mutate(e.id)}
-                      aria-label="Excluir"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
+
+              <div className="rounded-lg border border-border/60 p-4">
+                <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  <Plus className="h-3 w-3" /> Apontar manualmente
+                </div>
+                <div className="grid gap-3">
+                  <div className="grid grid-cols-[130px_1fr] gap-2">
+                    <Input
+                      placeholder="HH:MM:SS"
+                      value={manualTime}
+                      onChange={(e) => setManualTime(e.target.value)}
+                      className="h-9"
+                    />
+                    <Textarea
+                      placeholder="Descrição (opcional)"
+                      value={manualDesc}
+                      onChange={(e) => setManualDesc(e.target.value)}
+                      rows={1}
+                      className="min-h-9 resize-none"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Checkbox
+                        checked={manualRework}
+                        onCheckedChange={(v) => setManualRework(!!v)}
+                      />
+                      <RotateCcw className="h-3 w-3" /> Retrabalho
+                    </label>
+                    <Button size="sm" onClick={submitManual} disabled={addMut.isPending}>
+                      Adicionar
                     </Button>
                   </div>
-                ))}
+                </div>
               </div>
-            )}
-          </div>
+            </TabsContent>
 
-          {/* Comentários da TAREFA (nível mais baixo da hierarquia) */}
-          <div className="overflow-hidden rounded-lg border border-border/60">
-            <CommentThread
-              brandId={brandId}
-              level="task"
-              taskId={task.id}
-              currentUserId={currentUserId}
-              placeholder="Observação sobre esta tarefa…"
-            />
-          </div>
+            <TabsContent value="history" className="mt-3">
+              <div className="mb-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                <Clock className="h-3 w-3" /> Apontamentos ({entries.length})
+              </div>
+              {entries.length === 0 ? (
+                <div className="rounded-md border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
+                  Nenhum apontamento ainda.
+                </div>
+              ) : (
+                <div className="divide-y divide-border/60 rounded-md border border-border/60">
+                  {entries.map((e) => (
+                    <div key={e.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                      <div className="w-20 font-mono tabular-nums">
+                        {e.ended_at ? formatSeconds(entryDurationSeconds(e)) : "em curso"}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate">
+                          {e.description || (e.source === "timer" ? "Timer" : "Manual")}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {e.user_name ?? "—"} ·{" "}
+                          {new Date(e.started_at).toLocaleString("pt-BR", {
+                            day: "2-digit",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </div>
+                      </div>
+                      {e.is_rework && (
+                        <Badge variant="outline" className="text-[10px]">
+                          Retrabalho
+                        </Badge>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => delMut.mutate(e.id)}
+                        aria-label="Excluir"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="files" className="mt-3">
+              <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border/60 p-8 text-center text-xs text-muted-foreground">
+                <Paperclip className="h-4 w-4" />
+                Anexos da tarefa ainda não estão disponíveis. Use os arquivos do cliente na área de
+                Mídia.
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       )}
     </ExpandedModal>
