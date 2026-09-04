@@ -308,21 +308,60 @@ export const DEFAULT_MASTER_REPO = "mahara-apps/unitos-master";
 
 /* ------------------------------------------------------------- GitHub API */
 
+export type PublishSnapshotOptions = {
+  /** Blobs já copiados (sha do MASTER -> sha no destino), de retomadas. */
+  blobMap?: Record<string, string>;
+  /** Tempo máximo desta execução; ao esgotar, devolve `partial`. */
+  timeBudgetMs?: number;
+  onProgress?: (progress: { percent: number; detail: string }) => void | Promise<void>;
+  /** Persiste o mapa de blobs a cada lote para permitir retomada. */
+  onCheckpoint?: (blobMap: Record<string, string>) => void | Promise<void>;
+  /** Só compara: não cria blob, árvore nem commit. Usado na adoção manual. */
+  dryRun?: boolean;
+
+};
+
+export type PublishSnapshotResult = {
+  ok: boolean;
+  /** true quando o orçamento de tempo acabou: retomar continua de onde parou. */
+  partial?: boolean;
+  commitSha?: string;
+  changed?: number;
+  error?: string;
+};
+
 export type CodeClient = {
-  /** Cria (do template do MASTER) ou confirma o repositório da instalação. */
-  ensureRepo: () => Promise<{ ok: boolean; created?: boolean; error?: string }>;
+  /** Cria (template -> fork -> vazio) ou confirma o repositório da instalação. */
+  ensureRepo: () => Promise<{
+    ok: boolean;
+    created?: boolean;
+    /** "template" | "fork" | "blank" | "existing" */
+    via?: string;
+    error?: string;
+  }>;
   /** Commit atual da branch de produção do MASTER — versão a publicar. */
   masterHeadSha: () => Promise<{ ok: boolean; sha?: string; error?: string }>;
+  /** Diagnóstico do token: alcance da organização, criação e template. */
+  diagnose: () => Promise<{
+    ok: boolean;
+    detail: string;
+    masterIsTemplate?: boolean;
+    canCreate?: boolean;
+  }>;
   /**
    * Publica no repositório da instalação exatamente a árvore do MASTER no
-   * commit informado. Copia só o que difere (blobs são endereçados por
-   * conteúdo), então repetir a operação não gera trabalho nem commit novo.
+   * commit informado. Quando os objetos são compartilhados (template/fork), a
+   * árvore é montada direto com os SHAs do MASTER — 3 chamadas. Caso contrário
+   * copia só o que difere, em paralelo, com checkpoint e orçamento de tempo.
    */
   publishSnapshot: (
     sha: string,
-    onProgress?: (progress: { percent: number; detail: string }) => void | Promise<void>,
-  ) => Promise<{ ok: boolean; commitSha?: string; changed?: number; error?: string }>;
+    options?:
+      | PublishSnapshotOptions
+      | ((progress: { percent: number; detail: string }) => void | Promise<void>),
+  ) => Promise<PublishSnapshotResult>;
 };
+
 
 type TreeEntry = { path?: string; mode?: string; type?: string; sha?: string };
 
@@ -348,23 +387,85 @@ export function createCodeClient(input: {
     "content-type": "application/json",
     "user-agent": "unitos-installation-manager",
   };
-  const api = (path: string, init?: RequestInit) =>
+  const rawApi = (path: string, init?: RequestInit) =>
     doFetch(`https://api.github.com${path}`, { ...init, headers });
+
+  /**
+   * Recuo automático em limite de uso do GitHub (403/429 com Retry-After ou
+   * cabeçalho de rate limit esgotado). Nunca espera mais que ~8s por tentativa.
+   */
+  const api = async (path: string, init?: RequestInit): Promise<Response> => {
+    let attempt = 0;
+    for (;;) {
+      const res = await rawApi(path, init);
+      const limited =
+        (res.status === 403 || res.status === 429) &&
+        (res.headers.get("retry-after") !== null ||
+          res.headers.get("x-ratelimit-remaining") === "0");
+      if (!limited || attempt >= 2) return res;
+      const retryAfter = Number(res.headers.get("retry-after") ?? "0");
+      const waitMs = Math.min(8000, Math.max(1000, (retryAfter || 2) * 1000));
+      attempt += 1;
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
+  };
 
   const fail = async (res: Response, what: string) => {
     const text = await res.text().catch(() => "");
     return `HTTP ${res.status} ao ${what} (${text.slice(0, 200)})`;
   };
 
+  const viewerLogin = async () => {
+    const viewer = await api(`/user`);
+    if (!viewer.ok) return "";
+    return ((await viewer.json().catch(() => ({}))) as { login?: string }).login ?? "";
+  };
+
   return {
+    async diagnose() {
+      try {
+        const masterRes = await api(`/repos/${master}`);
+        if (!masterRes.ok) {
+          return {
+            ok: false,
+            detail: await fail(masterRes, `ler o repositório do MASTER ${master}`),
+          };
+        }
+        const masterJson = (await masterRes.json().catch(() => ({}))) as {
+          is_template?: boolean;
+        };
+        const ownerRes = await api(`/orgs/${input.owner}`);
+        const login = await viewerLogin();
+        const isPersonal = login.toLowerCase() === input.owner.trim().toLowerCase();
+        const reachesOwner = ownerRes.ok || isPersonal;
+        const parts = [
+          `MASTER ${master} acessível`,
+          masterJson.is_template
+            ? "marcado como template (criação rápida disponível)"
+            : "NÃO está marcado como template (a criação usará fork ou repositório vazio)",
+          reachesOwner
+            ? `destino ${input.owner} alcançado`
+            : `destino ${input.owner} inacessível com este token`,
+        ];
+        return {
+          ok: reachesOwner,
+          detail: parts.join(" · "),
+          masterIsTemplate: Boolean(masterJson.is_template),
+          canCreate: reachesOwner,
+        };
+      } catch (e) {
+        return { ok: false, detail: (e as Error).message };
+      }
+    },
     async ensureRepo() {
       try {
         const existing = await api(`/repos/${target}`);
-        if (existing.ok) return { ok: true, created: false };
+        if (existing.ok) return { ok: true, created: false, via: "existing" };
         if (existing.status !== 404) {
           return { ok: false, error: await fail(existing, `consultar o repositório ${target}`) };
         }
-        // 1ª tentativa: gerar do template do MASTER (mantém histórico inicial).
+        // 1ª tentativa: gerar do template do MASTER. Objetos compartilhados =>
+        // a publicação da versão termina em segundos.
         const created = await api(`/repos/${master}/generate`, {
           method: "POST",
           body: JSON.stringify({
@@ -375,43 +476,62 @@ export function createCodeClient(input: {
             description: "Instalação Unitos gerada a partir do MASTER",
           }),
         });
-        if (created.ok) return { ok: true, created: true };
+        if (created.ok) return { ok: true, created: true, via: "template" };
         const templateError = await fail(
           created,
           `criar ${target} a partir do template ${master}`,
         );
 
-        // 2ª tentativa: criar repositório vazio; o código do MASTER é
-        // publicado logo depois pelo publishSnapshot.
+        // 2ª tentativa: fork do MASTER. Também compartilha objetos, então a
+        // publicação continua sendo rápida mesmo sem template.
+        const forked = await api(`/repos/${master}/forks`, {
+          method: "POST",
+          body: JSON.stringify({
+            organization: input.owner,
+            name: input.repo,
+            default_branch_only: true,
+          }),
+        });
+        let forkError = "";
+        if (forked.ok || forked.status === 202) {
+          // O fork é assíncrono: espera o repositório aparecer.
+          for (let i = 0; i < 10; i += 1) {
+            const check = await api(`/repos/${target}`);
+            if (check.ok) return { ok: true, created: true, via: "fork" };
+            await new Promise((r) => setTimeout(r, 1500));
+          }
+          forkError = `fork de ${master} solicitado, mas ${target} não ficou disponível`;
+        } else {
+          forkError = await fail(forked, `criar ${target} como fork de ${master}`);
+        }
+
+        // 3ª tentativa: repositório vazio; o código do MASTER é publicado
+        // arquivo por arquivo (mais lento, com checkpoint e retomada).
         const body = JSON.stringify({
           name: input.repo,
           private: true,
           auto_init: false,
           description: "Instalação Unitos (código publicado a partir do MASTER)",
         });
-        const viewer = await api(`/user`);
-        const viewerLogin = viewer.ok
-          ? ((await viewer.json().catch(() => ({}))) as { login?: string }).login ?? ""
-          : "";
-        const isPersonal =
-          viewerLogin.toLowerCase() === input.owner.trim().toLowerCase();
+        const login = await viewerLogin();
+        const isPersonal = login.toLowerCase() === input.owner.trim().toLowerCase();
         const blank = isPersonal
           ? await api(`/user/repos`, { method: "POST", body })
           : await api(`/orgs/${input.owner}/repos`, { method: "POST", body });
-        if (blank.ok) return { ok: true, created: true };
+        if (blank.ok) return { ok: true, created: true, via: "blank" };
         const blankError = await fail(blank, `criar o repositório vazio ${target}`);
         return {
           ok: false,
           error:
-            `${templateError}; ${blankError}. Verifique se o token tem permissão de ` +
+            `${templateError}; ${forkError}; ${blankError}. Verifique se o token tem permissão de ` +
             `criação de repositórios (fine-grained: Administration = Read and write ` +
             `na organização ${input.owner}) e se o MASTER está marcado como template.`,
         };
-
       } catch (e) {
         return { ok: false, error: (e as Error).message };
       }
     },
+
     async masterHeadSha() {
       try {
         const res = await api(`/repos/${master}/commits/${branch}`);
@@ -423,7 +543,15 @@ export function createCodeClient(input: {
         return { ok: false, error: (e as Error).message };
       }
     },
-    async publishSnapshot(sha, onProgress) {
+    async publishSnapshot(sha, options) {
+      const opts: PublishSnapshotOptions =
+        typeof options === "function" ? { onProgress: options } : (options ?? {});
+      const onProgress = opts.onProgress;
+      const startedAt = Date.now();
+      const budgetMs = opts.timeBudgetMs ?? 0;
+      const outOfTime = () => budgetMs > 0 && Date.now() - startedAt > budgetMs;
+      const blobMap: Record<string, string> = { ...(opts.blobMap ?? {}) };
+
       // Throttle: um report por ~2% evita centenas de escritas em repositórios
       // grandes sem perder a sensação de tempo real.
       let lastNotified = -5;
@@ -435,6 +563,13 @@ export function createCodeClient(input: {
           await onProgress?.({ percent: rounded, detail });
         } catch {
           // progresso é informativo: nunca interrompe a publicação.
+        }
+      };
+      const checkpoint = async () => {
+        try {
+          await opts.onCheckpoint?.({ ...blobMap });
+        } catch {
+          // checkpoint é otimização: perder não invalida a publicação.
         }
       };
       try {
@@ -498,44 +633,126 @@ export function createCodeClient(input: {
         if (!changed.length && !removed.length && parent) {
           return { ok: true, commitSha: parent, changed: 0 };
         }
+        if (opts.dryRun) {
+          return { ok: true, commitSha: parent ?? undefined, changed: changed.length + removed.length };
+        }
 
-        // Blobs são endereçados por conteúdo: copiar apenas os que faltam.
         const entries: Array<Record<string, unknown>> = [];
-        let copied = 0;
-        for (const file of changed) {
-          const blob = await api(`/repos/${master}/git/blobs/${file.sha}`);
-          if (!blob.ok) return { ok: false, error: await fail(blob, `ler ${file.path} do MASTER`) };
-          const body = (await blob.json().catch(() => ({}))) as {
-            content?: string;
-            encoding?: string;
-          };
-          const created = await api(`/repos/${target}/git/blobs`, {
-            method: "POST",
-            body: JSON.stringify({
-              content: body.content ?? "",
-              encoding: body.encoding ?? "base64",
-            }),
-          });
-          if (!created.ok) {
-            return { ok: false, error: await fail(created, `publicar ${file.path} em ${target}`) };
+
+
+        // Caminho rápido: repositório gerado do template ou fork do MASTER já
+        // contém os objetos, então a árvore aponta direto para os SHAs do
+        // MASTER — 3 chamadas em vez de 2 por arquivo.
+        const probe = changed[0];
+        let sharedObjects = false;
+        if (probe?.sha) {
+          const check = await api(`/repos/${target}/git/blobs/${probe.sha}`);
+          sharedObjects = check.ok;
+        }
+
+        if (sharedObjects) {
+          await notify(80, `${changed.length} arquivos reaproveitados do MASTER`);
+          for (const file of changed) {
+            entries.push({
+              path: file.path,
+              mode: file.mode ?? "100644",
+              type: "blob",
+              sha: file.sha,
+            });
           }
-          const json = (await created.json().catch(() => ({}))) as { sha?: string };
-          entries.push({
-            path: file.path,
-            mode: file.mode ?? "100644",
-            type: "blob",
-            sha: json.sha,
-          });
-          copied += 1;
-          // 5%–90% da etapa: cópia dos arquivos que diferem.
-          await notify(
-            5 + (copied / Math.max(changed.length, 1)) * 85,
-            `${copied}/${changed.length} arquivos publicados`,
-          );
+        } else {
+          // Sem objetos compartilhados: copiar em paralelo controlado, em lotes,
+          // com checkpoint por lote e orçamento de tempo.
+          const pending = changed.filter((f) => !blobMap[f.sha ?? ""]);
+          for (const file of changed) {
+            const existing = blobMap[file.sha ?? ""];
+            if (existing) {
+              entries.push({
+                path: file.path,
+                mode: file.mode ?? "100644",
+                type: "blob",
+                sha: existing,
+              });
+            }
+          }
+          const BATCH = 100;
+          const CONCURRENCY = 8;
+          let copied = 0;
+          for (let i = 0; i < pending.length; i += BATCH) {
+            const batch = pending.slice(i, i + BATCH);
+            let cursor = 0;
+            let batchError: string | null = null;
+            const worker = async () => {
+              for (;;) {
+                const index = cursor;
+                cursor += 1;
+                const file = batch[index];
+                if (!file || batchError) return;
+                const blob = await api(`/repos/${master}/git/blobs/${file.sha}`);
+                if (!blob.ok) {
+                  batchError = await fail(blob, `ler ${file.path} do MASTER`);
+                  return;
+                }
+                const body = (await blob.json().catch(() => ({}))) as {
+                  content?: string;
+                  encoding?: string;
+                };
+                const created = await api(`/repos/${target}/git/blobs`, {
+                  method: "POST",
+                  body: JSON.stringify({
+                    content: body.content ?? "",
+                    encoding: body.encoding ?? "base64",
+                  }),
+                });
+                if (!created.ok) {
+                  batchError = await fail(created, `publicar ${file.path} em ${target}`);
+                  return;
+                }
+                const json = (await created.json().catch(() => ({}))) as { sha?: string };
+                if (json.sha) blobMap[file.sha ?? ""] = json.sha;
+                copied += 1;
+                // 5%–90% da etapa: cópia dos arquivos que diferem.
+                await notify(
+                  5 + (copied / Math.max(pending.length, 1)) * 85,
+                  `${copied}/${pending.length} arquivos publicados`,
+                );
+              }
+            };
+            await Promise.all(
+              Array.from({ length: Math.min(CONCURRENCY, batch.length) }, () => worker()),
+            );
+            if (batchError) {
+              await checkpoint();
+              return { ok: false, error: batchError };
+            }
+            await checkpoint();
+            if (outOfTime() && i + BATCH < pending.length) {
+              // Devolve o controle: o watchdog retoma exatamente daqui.
+              return {
+                ok: true,
+                partial: true,
+                changed: copied,
+              };
+            }
+          }
+          for (const file of changed) {
+            if (entries.some((e) => e.path === file.path)) continue;
+            const mapped = blobMap[file.sha ?? ""];
+            if (!mapped) {
+              return { ok: false, error: `blob de ${file.path} não publicado em ${target}` };
+            }
+            entries.push({
+              path: file.path,
+              mode: file.mode ?? "100644",
+              type: "blob",
+              sha: mapped,
+            });
+          }
         }
         for (const path of removed) {
           entries.push({ path, mode: "100644", type: "blob", sha: null });
         }
+
 
         await notify(92, "montando a árvore do repositório");
         const newTree = await api(`/repos/${target}/git/trees`, {
@@ -1017,6 +1234,11 @@ export type StageProgress = {
   codeDone?: boolean;
   codeSha?: string;
   codeRepo?: string;
+  /** Blobs já copiados na publicação (sha do MASTER -> sha no destino). */
+  codeBlobs?: Record<string, string>;
+  /** Commit do MASTER que a publicação em andamento está copiando. */
+  codeSourceSha?: string;
+
   /** Deployment de atualização já criado; retomadas apenas consultam este ID. */
   updateDeploymentId?: string;
   updateDeploymentSource?: "git" | "rebuild";
@@ -1286,8 +1508,28 @@ export async function runAutomatedProvision(input: {
       checks.code = "error";
       return finish(null, null);
     }
-    const published = await code.publishSnapshot(masterHead.sha, async (p) => {
-      await mark("code", "running", p.detail, p.percent);
+    // Retomada continua do checkpoint: blobs já copiados não são copiados de
+    // novo. Se o commit do MASTER mudou, o mapa antigo é descartado.
+    const reusableBlobs =
+      codeStage.codeSourceSha === masterHead.sha ? (codeStage.codeBlobs ?? {}) : {};
+    await saveStageProgress(client, operation, {
+      codeSourceSha: masterHead.sha,
+      codeBlobs: reusableBlobs,
+    });
+    const published = await code.publishSnapshot(masterHead.sha, {
+      blobMap: reusableBlobs,
+      // Janela curta do Worker: ao esgotar, devolve `partial` e o watchdog
+      // retoma a MESMA operação exatamente daqui.
+      timeBudgetMs: 20_000,
+      onProgress: async (p) => {
+        await mark("code", "running", p.detail, p.percent);
+      },
+      onCheckpoint: async (blobMap) => {
+        await saveStageProgress(client, operation, {
+          codeSourceSha: masterHead.sha,
+          codeBlobs: blobMap,
+        });
+      },
     });
     if (!published.ok) {
       failures.push(`Código não publicado em ${repo.slug}: ${published.error ?? ""}`.trim());
@@ -1295,19 +1537,33 @@ export async function runAutomatedProvision(input: {
       checks.code = "error";
       return finish(null, null);
     }
+    if (published.partial) {
+      await mark(
+        "code",
+        "running",
+        `publicando código em ${repo.slug} — ${published.changed ?? 0} arquivos nesta rodada (continua)`,
+      );
+      return { result: "RUNNING", reasons: [], appUrl: null, urlSource: null, steps };
+    }
     await saveStageProgress(client, operation, {
       codeDone: true,
       codeSha: masterHead.sha,
       codeRepo: repo.slug,
+      codeBlobs: {},
     });
     checks.code = "ok";
     await mark(
       "code",
       "done",
-      `${ensured.created ? "repositório criado do template e " : ""}código do MASTER publicado em ${
-        repo.slug
-      } (${masterHead.sha.slice(0, 7)}${published.changed !== undefined ? `, ${published.changed} arquivos` : ""})`,
+      `${
+        ensured.created
+          ? `repositório criado (${ensured.via ?? "novo"}) e `
+          : ""
+      }código do MASTER publicado em ${repo.slug} (${masterHead.sha.slice(0, 7)}${
+        published.changed !== undefined ? `, ${published.changed} arquivos` : ""
+      })`,
     );
+
   }
   checks.code = checks.code ?? "ok";
 
