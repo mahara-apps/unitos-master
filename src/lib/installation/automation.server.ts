@@ -1817,9 +1817,14 @@ export async function runAutomatedProvision(input: {
   return null;
   };
 
+  /* 4. banco, storage e seeds — ANTES dos secrets: o segredo do cron é gravado
+   * por uma função criada pelo baseline (public.set_cron_secret). Com a ordem
+   * invertida o provisionamento falhava em banco novo e as variáveis do deploy
+   * nunca eram gravadas. */
+  const baselineEarly = await runBaselinePhase(null, null);
+  if (baselineEarly) return baselineEarly;
 
-
-  /* 4 + 5. secrets exclusivos, URL operacional e variáveis do deploy.
+  /* 5 + 6. secrets exclusivos, URL operacional e variáveis do deploy.
    * Fase atômica com checkpoint: uma retomada NÃO regera secrets nem
    * reconfigura/republica o deploy quando a fase já foi concluída. */
   const stage = await readStageProgress(client, operation);
@@ -1995,9 +2000,9 @@ export async function runAutomatedProvision(input: {
     );
   }
 
-  /* 5. banco, storage e seeds — só agora, com código publicado e URL própria. */
-  const baselineEarly = await runBaselinePhase(url.origin, url.source);
-  if (baselineEarly) return baselineEarly;
+  // banco/storage/seeds já foram aplicados antes dos secrets (fase 4).
+
+
 
 
   /* 6. Brain stats */
