@@ -31,6 +31,7 @@ import install020 from "../../../supabase/install/020_cron.sql?raw";
 import verifySql from "../../../supabase/install/verify-installation.sql?raw";
 
 import { runtimeEnv } from "@/lib/runtime-env.server";
+import { formatDateTimeBr } from "@/lib/timezone";
 
 import {
   prepareVerificationSql,
@@ -426,15 +427,40 @@ export type DeployClient = {
     source?: "git" | "rebuild";
     ref?: string;
     error?: string;
+    /** Cota diária de deployments da API esgotada (402 / free-per-day). */
+    quotaExceeded?: boolean;
+    /** Epoch (s) em que a cota volta, quando a Vercel informa. */
+    resetAt?: number;
   }>;
   deploymentState: (
     id: string,
   ) => Promise<{ ok: boolean; state?: string; url?: string; error?: string }>;
 
+  /** Garante que o domínio definitivo esteja atribuído ao projeto de deploy. */
+  ensureDomain: (
+    domain: string,
+  ) => Promise<{ ok: boolean; added?: boolean; verified?: boolean; error?: string }>;
+
   setEnv: (
     entries: readonly { key: string; value: string; sensitive: boolean }[],
   ) => Promise<{ ok: boolean; applied: number; error?: string }>;
 };
+
+/**
+ * Reconhece o limite de deployments por dia dos planos gratuitos da Vercel
+ * (`api-deployments-free-per-day`, HTTP 402). Não é erro de configuração: o
+ * provisionamento pode seguir e a publicação acontece pelo Git ou depois.
+ */
+export function parseDeployQuotaError(
+  status: number,
+  text: string,
+): { quotaExceeded: boolean; resetAt?: number } {
+  if (status !== 402 && !/api-deployments-free-per-day|payment_required/i.test(text)) {
+    return { quotaExceeded: false };
+  }
+  const reset = /"reset"\s*:\s*(\d+)/.exec(text)?.[1];
+  return { quotaExceeded: true, resetAt: reset ? Number(reset) : undefined };
+}
 
 /**
  * Repositório de código do MASTER. Toda instalação faz deploy DESTE repositório
@@ -479,6 +505,14 @@ export type CodeClient = {
   }>;
   /** Commit atual da branch de produção do MASTER — versão a publicar. */
   masterHeadSha: () => Promise<{ ok: boolean; sha?: string; error?: string }>;
+  /**
+   * Commit vazio na branch de produção do repositório DA INSTALAÇÃO para que a
+   * integração Git da Vercel publique — usado quando a cota de deployments por
+   * API do plano gratuito está esgotada.
+   */
+  nudgeDeploy: (
+    message?: string,
+  ) => Promise<{ ok: boolean; commitSha?: string; error?: string }>;
   /** Diagnóstico do token: alcance da organização, criação e template. */
   diagnose: () => Promise<{
     ok: boolean;
@@ -677,6 +711,48 @@ export function createCodeClient(input: {
         const body = (await res.json().catch(() => ({}))) as { sha?: string };
         if (!body.sha) return { ok: false, error: "commit do MASTER não retornado" };
         return { ok: true, sha: body.sha };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+
+    async nudgeDeploy(message) {
+      // Commit vazio na branch de produção do repositório DA INSTALAÇÃO: a
+      // integração Git da Vercel publica sem consumir a cota de deployments
+      // por API do plano gratuito.
+      try {
+        const refRes = await api(`/repos/${target}/git/ref/heads/${branch}`);
+        if (!refRes.ok) return { ok: false, error: await fail(refRes, "ler a branch do destino") };
+        const refBody = (await refRes.json().catch(() => ({}))) as { object?: { sha?: string } };
+        const headSha = refBody.object?.sha;
+        if (!headSha) return { ok: false, error: "HEAD do destino não retornado" };
+
+        const commitRes = await api(`/repos/${target}/git/commits/${headSha}`);
+        if (!commitRes.ok) {
+          return { ok: false, error: await fail(commitRes, "ler o commit do destino") };
+        }
+        const commitBody = (await commitRes.json().catch(() => ({}))) as { tree?: { sha?: string } };
+        const treeSha = commitBody.tree?.sha;
+        if (!treeSha) return { ok: false, error: "árvore do commit do destino não retornada" };
+
+        const created = await api(`/repos/${target}/git/commits`, {
+          method: "POST",
+          body: JSON.stringify({
+            message: (message ?? "").trim() || "chore(unitos): republicar com variáveis atualizadas",
+            tree: treeSha,
+            parents: [headSha],
+          }),
+        });
+        if (!created.ok) return { ok: false, error: await fail(created, "criar o commit de publicação") };
+        const newSha = ((await created.json().catch(() => ({}))) as { sha?: string }).sha;
+        if (!newSha) return { ok: false, error: "commit de publicação não retornado" };
+
+        const updated = await api(`/repos/${target}/git/refs/heads/${branch}`, {
+          method: "PATCH",
+          body: JSON.stringify({ sha: newSha, force: false }),
+        });
+        if (!updated.ok) return { ok: false, error: await fail(updated, "atualizar a branch do destino") };
+        return { ok: true, commitSha: newSha };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
       }
@@ -1218,13 +1294,51 @@ export function createDeployClient(input: {
         });
         if (!created.ok) {
           const text = await created.text().catch(() => "");
+          const quota = parseDeployQuotaError(created.status, text);
           return {
             ok: false,
-            error: `HTTP ${created.status} ao disparar deployment do código (${text.slice(0, 200)})`,
+            quotaExceeded: quota.quotaExceeded || undefined,
+            resetAt: quota.resetAt,
+            error: quota.quotaExceeded
+              ? "cota diária de deployments da Vercel esgotada (plano gratuito: 100/dia)"
+              : `HTTP ${created.status} ao disparar deployment do código (${text.slice(0, 200)})`,
           };
         }
         const json = (await created.json().catch(() => ({}))) as { id?: string; uid?: string };
         return { ok: true, deploymentId: json.id ?? json.uid, source: "git" as const, ref };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+
+    async ensureDomain(domain) {
+      const host = (domain ?? "").trim().replace(/^https?:\/\//i, "").replace(/\/.*$/, "");
+      if (!host) return { ok: false, error: "domínio vazio" };
+      try {
+        const read = await doFetch(
+          `https://api.vercel.com/v9/projects/${project}/domains/${encodeURIComponent(host)}?${qs()}`.replace(
+            /\?$/,
+            "",
+          ),
+          { headers },
+        );
+        if (read.ok) {
+          const body = (await read.json().catch(() => ({}))) as { verified?: boolean };
+          return { ok: true, added: false, verified: body.verified === true };
+        }
+        const created = await doFetch(
+          `https://api.vercel.com/v10/projects/${project}/domains?${qs()}`.replace(/\?$/, ""),
+          { method: "POST", headers, body: JSON.stringify({ name: host }) },
+        );
+        if (!created.ok) {
+          const text = await created.text().catch(() => "");
+          return {
+            ok: false,
+            error: `HTTP ${created.status} ao atribuir o domínio ${host} (${text.slice(0, 200)})`,
+          };
+        }
+        const body = (await created.json().catch(() => ({}))) as { verified?: boolean };
+        return { ok: true, added: true, verified: body.verified === true };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
       }
@@ -2044,20 +2158,63 @@ export async function runAutomatedProvision(input: {
     // ainda não tem NENHUM deployment (repositório publicado à mão, primeiro
     // build). Sem repositório ligado, cai para rebuild do último snapshot.
     const redeployed = await deploy.deployLatestCode();
+    let publishNote = redeployed.ok ? "novo deployment disparado" : "";
     if (!redeployed.ok) {
-      blocked.push(
-        `Novo deployment nao disparado (as variaveis so valem apos republicar): ${
-          redeployed.error ?? ""
-        }`.trim(),
-      );
+      if (redeployed.quotaExceeded) {
+        // Plano gratuito: 100 deployments por API/dia. A publicação pelo Git NÃO
+        // consome essa cota, então religamos o build automático e empurramos um
+        // commit vazio. Cota esgotada não invalida o provisionamento.
+        const auto = await deploy.setAutoDeploy(true);
+        const nudge = await code.nudgeDeploy(
+          "chore(unitos): republicar com as variaveis da instalacao",
+        );
+        const resetAt = redeployed.resetAt
+          ? ` — cota volta em ${formatDateTimeBr(new Date(redeployed.resetAt * 1000))}`
+          : "";
+        if (nudge.ok) {
+          publishNote = `publicação pelo Git (cota de deployments por API esgotada${resetAt})`;
+        } else {
+          failures.push(
+            `Publicação pendente: cota diária de deployments da Vercel esgotada${resetAt}. Tentativa pelo Git também não funcionou: ${
+              nudge.error ?? ""
+            }${auto.ok ? "" : ` · auto-deploy: ${auto.error ?? ""}`}`.trim(),
+          );
+          publishNote = "publicação pendente (cota da Vercel)";
+        }
+      } else {
+        blocked.push(
+          `Novo deployment nao disparado (as variaveis so valem apos republicar): ${
+            redeployed.error ?? ""
+          }`.trim(),
+        );
+      }
     }
 
+    // Domínio definitivo precisa estar atribuído ao projeto de deploy — sem isso
+    // a URL responde 404 mesmo com o app publicado.
+    let domainNote = "";
+    if (url.source === "custom_domain") {
+      const domain = await deploy.ensureDomain(url.origin);
+      if (!domain.ok) {
+        failures.push(`Domínio não atribuído ao projeto de deploy: ${domain.error ?? ""}`.trim());
+        domainNote = " · domínio pendente";
+      } else if (!domain.verified) {
+        domainNote = " · domínio aguardando verificação de DNS";
+      }
+    }
 
     // Estado do frontend so vira "ok" com resposta HTTP real da URL operacional.
     const probe = await probeOperationalUrl(url.origin, input.fetchImpl);
     checks.frontend = probe.ok ? "ok" : "attention";
     if (!probe.ok) {
-      blocked.push(`Frontend ainda nao respondeu em ${url.origin}: ${probe.detail}`);
+      // Sem publicação nova (cota) ou com DNS/domínio ainda propagando, o 404 é
+      // esperado: é pendência de acompanhamento, não bloqueio do provisionamento.
+      const pendingPublish = redeployed.quotaExceeded === true || domainNote !== "";
+      const message = `Frontend ainda nao respondeu em ${url.origin}: ${probe.detail}${
+        pendingPublish ? " — aguardando a publicação/DNS concluir" : ""
+      }`;
+      if (pendingPublish) failures.push(message);
+      else blocked.push(message);
     }
 
     await saveStageProgress(client, operation, {
@@ -2072,7 +2229,7 @@ export async function runAutomatedProvision(input: {
       "done",
       `${envResult.applied} variáveis gravadas — URL operacional ${url.origin} (${
         url.source === "deploy" ? "temporária do deploy" : "domínio definitivo"
-      })${redeployed.ok ? " · novo deployment disparado" : " · redeploy pendente"}${
+      })${publishNote ? ` · ${publishNote}` : " · redeploy pendente"}${domainNote}${
         probe.ok ? " · frontend respondendo" : ` · frontend ${probe.detail}`
       }`,
     );
