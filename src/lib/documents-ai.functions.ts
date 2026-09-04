@@ -32,6 +32,7 @@ export type ClientDocumentAi = {
   mime_type: string | null;
   size_bytes: number | null;
   created_at: string;
+  updated_at: string | null;
   ai_status: "idle" | "queued" | "running" | "done" | "failed";
   ai_model: string | null;
   ai_error: string | null;
@@ -84,7 +85,7 @@ export const listClientDocumentsAi = createServerFn({ method: "GET" })
     )
       .from("client_documents")
       .select(
-        "id, name, storage_path, mime_type, size_bytes, created_at, ai_status, ai_model, ai_error, analyzed_at, applied_to_briefing_at, ai_summary, visible_to_client",
+        "id, name, storage_path, mime_type, size_bytes, created_at, updated_at, ai_status, ai_model, ai_error, analyzed_at, applied_to_briefing_at, ai_summary, visible_to_client",
       )
       .eq("brand_id", data.brandId)
       .eq("client_id", data.clientId)
