@@ -15,12 +15,15 @@ type ProjectListRow = {
   name: string;
   description: string | null;
   status: string;
+  status_id: string | null;
   color: string | null;
   progress: number | null;
   start_date: string | null;
   due_at: string | null;
   goals: string | null;
   owner_id: string | null;
+  done_at: string | null;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
   monthly_plan_id: string | null;
@@ -44,7 +47,7 @@ export const listProjects = createServerFn({ method: "GET" })
     let query = context.supabase
       .from("projects")
       .select(
-        "id, brand_id, client_id, name, description, status, color, progress, start_date, due_at, goals, owner_id, created_at, updated_at, monthly_plan_id, monthly_plans!projects_monthly_plan_id_fkey(id, title, status)",
+        "id, brand_id, client_id, name, description, status, status_id, color, progress, start_date, due_at, goals, owner_id, done_at, archived_at, created_at, updated_at, monthly_plan_id, monthly_plans!projects_monthly_plan_id_fkey(id, title, status)",
       )
       .eq("brand_id", data.brandId)
       .order("created_at", { ascending: false });
@@ -132,7 +135,7 @@ export const getProject = createServerFn({ method: "GET" })
     const { data: projectRaw, error } = await context.supabase
       .from("projects")
       .select(
-        "id, brand_id, client_id, name, description, status, color, progress, start_date, due_at, goals, owner_id, created_at, updated_at, monthly_plan_id, monthly_plans!projects_monthly_plan_id_fkey(id, title, status)",
+        "id, brand_id, client_id, name, description, status, status_id, color, progress, start_date, due_at, goals, owner_id, done_at, archived_at, created_at, updated_at, monthly_plan_id, monthly_plans!projects_monthly_plan_id_fkey(id, title, status)",
       )
       .eq("brand_id", data.brandId)
       .eq("id", data.projectId)
@@ -298,6 +301,8 @@ const ProjectPayload = z.object({
   start_date: z.string().nullable().optional(),
   due_at: z.string().nullable().optional(),
   goals: z.string().max(4000).nullable().optional(),
+  status_id: z.string().uuid().nullable().optional(),
+  done_at: z.string().nullable().optional(),
 });
 
 export const createProject = createServerFn({ method: "POST" })
