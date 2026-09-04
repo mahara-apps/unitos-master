@@ -427,7 +427,24 @@ export function stepsProgress(steps: OperationStep[]): StepProgress {
     running,
     failed,
     pending: total - done - running - failed,
-    percent: total === 0 ? 0 : Math.round(((done + failed) / total) * 100),
+    // O progresso interno da etapa em execução conta como fração de etapa,
+    // então a barra avança em tempo real mesmo em etapas longas.
+    percent:
+      total === 0
+        ? 0
+        : Math.min(
+            100,
+            Math.round(
+              ((done +
+                failed +
+                steps
+                  .filter((s) => s.state === "running")
+                  .reduce((acc, s) => acc + (normalizeStepPercent(s.percent) ?? 0) / 100, 0)) /
+                total) *
+                100,
+            ),
+          ),
+
   };
 }
 
