@@ -523,7 +523,7 @@ export function BriefingImportDialog({
           <div className="space-y-4">
             <ContextExplainer />
 
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className={embedded ? "grid gap-4" : "grid gap-4 lg:grid-cols-2"}>
               <section className="flex min-w-0 flex-col gap-2">
                 <div className="flex items-baseline justify-between gap-3">
                   <h3 className="text-[13px] font-semibold tracking-tight">
