@@ -1,16 +1,37 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Crown, Info, Layers, Loader2, ShieldCheck, Users } from "lucide-react";
+import {
+  Crown,
+  Info,
+  Layers,
+  Loader2,
+  ShieldCheck,
+  SlidersHorizontal,
+  UserPlus,
+  Users,
+} from "lucide-react";
 
 import { listBrandTeam } from "@/lib/team.functions";
+import { listAccessProfiles } from "@/lib/access-profiles.functions";
 import { useActiveContext } from "@/hooks/use-active-context";
+import { useAccessRole } from "@/hooks/use-access-role";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
+import { AccessProfilesManager } from "@/components/settings/access-profiles-manager";
+import { AddUserDialog } from "@/components/settings/add-user-dialog";
+import {
+  MemberPermissionsModal,
+  type PermissionMemberInput,
+} from "@/components/settings/member-permissions-modal";
+import { ROLE_SHORT, memberInitials, toAssignableRole } from "@/components/settings/team-shared";
+import { hasCustomOverrides, profileLabel } from "@/lib/module-permissions";
 
 export const Route = createFileRoute("/_authenticated/settings/permissions")({
   component: PermissionsPage,
