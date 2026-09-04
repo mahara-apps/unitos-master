@@ -58,6 +58,10 @@ import { TaskDialog } from "@/components/content/task-dialog";
 import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { JobsPanel } from "@/components/projects/jobs-panel";
+import {
+  PautaDetailModal,
+  type PautaDetailItem,
+} from "@/components/projects/pauta-detail-modal";
 import { InvolvedPeople } from "@/components/projects/involved-people";
 import { StatusPicker } from "@/components/projects/status-picker";
 import { AssigneePicker } from "@/components/projects/assignee-picker";
@@ -145,6 +149,7 @@ function ProjectDetailPage() {
   const navigate = useNavigate();
   const [openNewTask, setOpenNewTask] = useState(false);
   const [openSettings, setOpenSettings] = useState(false);
+  const [openPautaKey, setOpenPautaKey] = useState<string | null>(null);
   const { userId, role } = useAccessRole();
   // `role` já colapsa admin/manager/super_admin no nível legado "admin".
   const canEditProject = role === "admin";
@@ -576,6 +581,19 @@ function ProjectDetailPage() {
             compact
           />
         }
+      />
+
+      {/* Resumo da pauta em modal — evita sair da gestão do projeto */}
+      <PautaDetailModal
+        open={!!openPautaKey}
+        onOpenChange={(o) => !o && setOpenPautaKey(null)}
+        brandId={brandId!}
+        projectId={projectId}
+        clientId={project.client_id ?? null}
+        item={pautaDetails.find((d) => d.key === openPautaKey) ?? null}
+        team={team}
+        currentUserId={userId}
+        canEdit={canEditProject}
       />
 
       {/* Configurações do projeto */}
