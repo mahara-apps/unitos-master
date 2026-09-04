@@ -11,7 +11,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { CheckCircle2, KeyRound, Loader2, MinusCircle, Plug } from "lucide-react";
+import { CheckCircle2, ExternalLink, KeyRound, Loader2, MinusCircle, Plug } from "lucide-react";
 
 import {
   clearInstallationCredentialsFn,
@@ -46,6 +46,7 @@ const FIELDS: {
   hint: string;
   secret: boolean;
   placeholder: string;
+  link?: { href: string; label: string };
 }[] = [
   {
     key: "supabaseManagementToken",
@@ -53,6 +54,10 @@ const FIELDS: {
     hint: "Precisa pertencer à organização do banco desta instalação.",
     secret: true,
     placeholder: "sbp_...",
+    link: {
+      href: "https://supabase.com/dashboard/account/tokens",
+      label: "Gerar token no Supabase",
+    },
   },
   {
     key: "vercelToken",
@@ -60,6 +65,7 @@ const FIELDS: {
     hint: "Usado para variáveis, vínculo do repositório e publicação.",
     secret: true,
     placeholder: "token de deploy",
+    link: { href: "https://vercel.com/account/settings/tokens", label: "Gerar token na Vercel" },
   },
   {
     key: "vercelTeamId",
@@ -74,6 +80,10 @@ const FIELDS: {
     hint: "Publica o código do MASTER no repositório desta instalação.",
     secret: true,
     placeholder: "ghp_...",
+    link: {
+      href: "https://github.com/settings/personal-access-tokens/new",
+      label: "Gerar token no GitHub",
+    },
   },
 ];
 
@@ -205,7 +215,23 @@ export function InstallationCredentialsCard({ installationId }: { installationId
                       setDraft((prev) => ({ ...prev, [field.key]: event.target.value }))
                     }
                   />
-                  <p className="text-[11px] text-muted-foreground">{field.hint}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {field.hint}
+                    {field.link && (
+                      <>
+                        {" "}
+                        <a
+                          href={field.link.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-0.5 font-medium text-primary underline-offset-2 hover:underline"
+                        >
+                          {field.link.label}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </>
+                    )}
+                  </p>
                 </div>
               );
             })}

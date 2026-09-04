@@ -707,6 +707,7 @@ function InstallationDetailPage() {
           <TabsTrigger value="visao">Visão geral</TabsTrigger>
           <TabsTrigger value="versoes">Versões</TabsTrigger>
           <TabsTrigger value="saude">Saúde</TabsTrigger>
+          <TabsTrigger value="acessos">Acessos</TabsTrigger>
           <TabsTrigger value="execucoes">Execuções</TabsTrigger>
         </TabsList>
 
@@ -790,6 +791,12 @@ function InstallationDetailPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ACESSOS */}
+        <TabsContent value="acessos" className="space-y-4">
+          <InstallationCredentialsCard installationId={id} />
+        </TabsContent>
+
 
         {/* VERSÕES */}
         <TabsContent value="versoes" className="space-y-4">
@@ -992,7 +999,7 @@ function InstallationDetailPage() {
             </CardContent>
           </Card>
 
-          <InstallationCredentialsCard installationId={id} />
+
 
           {lastValidate && (
             <Card>
