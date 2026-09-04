@@ -324,13 +324,15 @@ export function ConnectChannelsDialog({
                 sessionId={assetsSessionId}
                 active={open}
                 channel={assetsChannel}
+                assign
                 onClose={() => onFinishAssets?.()}
               />
             </div>
             <div className="flex items-center gap-2 border-t bg-muted/20 px-6 py-3.5">
               <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted-foreground">
-                Cada ativo ativado já fica vinculado — você pode ajustar isso depois.
+                Cada ativo ativado já fica disponível no workspace — no rodapé acima você escolhe o
+                cliente e conclui.
               </p>
               {onBackFromAssets ? (
                 <Button
@@ -342,17 +344,10 @@ export function ConnectChannelsDialog({
                   Voltar
                 </Button>
               ) : null}
-              <Button
-                size="sm"
-                className="h-8 shrink-0 text-xs"
-                onClick={() => onFinishAssets?.()}
-              >
-                Concluir
-                <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-              </Button>
             </div>
           </>
         ) : (
+
         <div className="max-h-[62vh] space-y-5 overflow-y-auto border-t px-6 py-5">
           {/* --------------------------- erro terminal do fluxo -------------------------- */}
           {errorCopy ? (
@@ -496,8 +491,9 @@ export function ConnectChannelsDialog({
                         </p>
                         <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
                           {issue.kind === "rate_limit"
-                            ? "A Meta atingiu o limite de consultas neste momento. Os dados já carregados continuam disponíveis. Você pode continuar com os ativos disponíveis ou tentar novamente em alguns minutos."
-                            : "A Meta não permitiu acessar parte dos ativos deste portfólio. Isso pode estar relacionado às permissões concedidas ou ao acesso disponível para esta conta."}
+                            ? "A Meta atingiu o limite de consultas neste momento. Não é necessário autorizar novamente: os dados já carregados continuam válidos. Siga com os ativos disponíveis ou tente sincronizar em alguns minutos."
+                            : "A Meta não liberou parte dos ativos deste portfólio. Os ativos já listados podem ser usados normalmente; se faltar alguma conta, refaça a autorização marcando as Páginas e contas desejadas."}
+
                         </p>
                         <div className="mt-2.5 flex flex-wrap items-center gap-2">
                           <Button
@@ -648,8 +644,9 @@ export function ConnectChannelsDialog({
             {state.kind === "authorized" ? (
               <Button size="sm" className="h-8 shrink-0 text-xs" onClick={onContinue}>
                 {summary && summary.total > 0
-                  ? "Selecionar ativos"
+                  ? `Selecionar ativos · ${summary.total}`
                   : "Continuar com dados disponíveis"}
+
                 <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
               </Button>
             ) : (
