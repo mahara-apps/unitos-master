@@ -4180,6 +4180,47 @@ export type Database = {
         }
         Relationships: []
       }
+      installation_credentials: {
+        Row: {
+          created_at: string
+          github_token_ciphertext: string | null
+          installation_id: string
+          supabase_management_token_ciphertext: string | null
+          updated_at: string
+          updated_by: string | null
+          vercel_team_id: string | null
+          vercel_token_ciphertext: string | null
+        }
+        Insert: {
+          created_at?: string
+          github_token_ciphertext?: string | null
+          installation_id: string
+          supabase_management_token_ciphertext?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          vercel_team_id?: string | null
+          vercel_token_ciphertext?: string | null
+        }
+        Update: {
+          created_at?: string
+          github_token_ciphertext?: string | null
+          installation_id?: string
+          supabase_management_token_ciphertext?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          vercel_team_id?: string | null
+          vercel_token_ciphertext?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_credentials_installation_id_fkey"
+            columns: ["installation_id"]
+            isOneToOne: true
+            referencedRelation: "installations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       installation_meta_app: {
         Row: {
           app_id: string | null

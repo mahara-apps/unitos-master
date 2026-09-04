@@ -55,9 +55,14 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
     // Cada tipo de operação tem o próprio conjunto de etapas: retomar tudo como
     // provisionamento deixava UPDATE/VALIDATE presos reportando etapas inexistentes.
     const kind = (op as { kind?: string }).kind ?? "provision";
+    // Cada instalação pode ter credenciais próprias (banco/deploy/repositório
+    // do cliente): a retomada precisa usar as MESMAS credenciais do início.
+    const { resolveInstallationEnv } = await import("./credentials.server");
+    const env = await resolveInstallationEnv(supabaseAdmin as never, row.id as string);
     const args = {
       client: supabaseAdmin as never,
       operation: op as never,
+      env,
       installation: {
         id: row.id as string,
         domain: (row.domain ?? null) as string | null,

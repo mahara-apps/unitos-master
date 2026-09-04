@@ -99,6 +99,7 @@ import {
   StepList,
   failedStepLabel,
 } from "@/components/installations/operation-views";
+import { InstallationCredentialsCard } from "@/components/installations/installation-credentials-card";
 
 export const Route = createFileRoute("/_authenticated/admin/instalacoes/$id")({
   validateSearch: (search: Record<string, unknown>): { novo?: true } =>
@@ -202,8 +203,10 @@ function InstallationDetailPage() {
   // Provisionamento automático: o MASTER usa as próprias credenciais de gestão.
   // Sem elas, a UI mostra o motivo do BLOCKED e mantém o fallback manual.
   const capability = useQuery({
-    queryKey: ["installation-automation"],
-    queryFn: () => capabilityFn({ data: undefined }),
+    // Capability DESTA instalação: credenciais próprias têm precedência sobre
+    // as do MASTER, então a chave precisa incluir o id.
+    queryKey: ["installation-automation", id],
+    queryFn: () => capabilityFn({ data: { id } }),
     retry: false,
     staleTime: 60_000,
   });
@@ -988,6 +991,8 @@ function InstallationDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          <InstallationCredentialsCard installationId={id} />
 
           {lastValidate && (
             <Card>
