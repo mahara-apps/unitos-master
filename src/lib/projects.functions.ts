@@ -434,6 +434,8 @@ export const deleteProject = createServerFn({ method: "POST" })
  * tela do projeto: briefing, legenda, agendamento, rede, formato e local de
  * postagem. Nada é gravado aqui; edição continua na tela de Conteúdo.
  */
+type PautaJson = string | number | boolean | null | PautaJson[] | { [k: string]: PautaJson };
+
 export type PautaPlacement = {
   id: string;
   format: string | null;
@@ -468,12 +470,12 @@ export type PautaDetail = {
     priority: string | null;
     tags: string[];
     copy: string | null;
-    script: unknown;
+    script: PautaJson;
     internal_briefing: string | null;
     client_briefing: string | null;
     design_brief: string | null;
-    references: unknown;
-    reference_media: unknown;
+    references: PautaJson;
+    reference_media: PautaJson;
     cover_url: string | null;
   } | null;
   placements: PautaPlacement[];
@@ -530,12 +532,12 @@ export const getPautaDetailFn = createServerFn({ method: "GET" })
           priority: (r["priority"] as string | null) ?? null,
           tags: (r["tags"] as string[] | null) ?? [],
           copy: (r["copy"] as string | null) ?? null,
-          script: r["script"] ?? null,
+          script: (r["script"] as PautaJson) ?? null,
           internal_briefing: (r["internal_briefing"] as string | null) ?? null,
           client_briefing: (r["client_briefing"] as string | null) ?? null,
           design_brief: (r["design_brief"] as string | null) ?? null,
-          references: r["references"] ?? null,
-          reference_media: r["reference_media"] ?? null,
+          references: (r["references"] as PautaJson) ?? null,
+          reference_media: (r["reference_media"] as PautaJson) ?? null,
           cover_url: (r["cover_url"] as string | null) ?? null,
         };
       }
