@@ -373,7 +373,11 @@ describe("runAutomatedProvision", () => {
       }
       if (url.includes("/database/query")) {
         const body = String((init?.body as string) ?? "");
-        if (body.includes("select public.set_cron_secret(")) order.push("cron_secret");
+        if (body.includes("select public.set_cron_secret(")) {
+          order.push("cron_secret");
+          expect(body).toContain("create or replace function public.set_cron_secret(_value text)");
+          expect(body).toMatch(/select public\.set_cron_secret\('[^']+'::text\)/);
+        }
         else if (body.includes("create table") || body.includes("CREATE TABLE")) {
           if (!order.includes("baseline")) order.push("baseline");
         }
