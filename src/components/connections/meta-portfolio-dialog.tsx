@@ -364,7 +364,11 @@ export function MetaAssetsPanel({
         }
         return { ...old, connected };
       });
-      toast.success(vars.connect ? "Conta vinculada" : "Conta desvinculada");
+      toast.success(
+        vars.connect
+          ? "Conta ativada — escolha o cliente no rodapé para concluir"
+          : "Conta desativada",
+      );
       invalidate();
     },
 
