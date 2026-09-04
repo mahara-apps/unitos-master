@@ -482,8 +482,8 @@ export function MetaAssetsPanel({
   const showStoredRateLimitState = data?.portfolioStatus === "rate_limited";
 
   return (
-    <>
-      <div className="space-y-4">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 space-y-4">
         <div className="space-y-1.5">
           <div className="flex items-start justify-between gap-3">
             <h3 className="text-sm font-semibold">Selecione as contas da Meta</h3>
