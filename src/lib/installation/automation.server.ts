@@ -1457,9 +1457,17 @@ export async function runAutomatedUpdate(input: {
   let deploymentSource = checkpoint.updateDeploymentSource;
   let deploymentRef = checkpoint.updateDeploymentRef;
 
+  // Commit autorizado pelo Super Admin (gravado na operação). Sem ele, fixa o
+  // commit atual da branch do MASTER no momento da autorização.
+  let targetSha = (input.commitSha ?? "").trim() || null;
+  if (!targetSha) {
+    const head = await deploy.latestCommit();
+    targetSha = head.ok && head.sha ? head.sha : null;
+  }
+
   if (!deploymentId) {
     await report(client, operation, "code", "running");
-    const created = await deploy.deployLatestCode();
+    const created = await deploy.deployLatestCode({ sha: targetSha });
     if (!created.ok || !created.deploymentId) {
       return fail("FAIL", created.error ?? "não foi possível disparar o deployment");
     }
@@ -1472,6 +1480,7 @@ export async function runAutomatedUpdate(input: {
       updateDeploymentRef: deploymentRef,
     });
   }
+
 
   if (deploymentSource === "rebuild") {
     await report(
