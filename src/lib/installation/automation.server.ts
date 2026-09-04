@@ -637,44 +637,33 @@ export function createCodeClient(input: {
           return { ok: true, commitSha: parent ?? undefined, changed: changed.length + removed.length };
         }
 
-        const entries: Array<Record<string, unknown>> = [];
+        const removalEntries = removed.map((path) => ({
+          path,
+          mode: "100644",
+          type: "blob",
+          sha: null,
+        }));
 
+        /** Árvore apontando direto para os SHAs do MASTER (template/fork). */
+        const sharedEntries = () =>
+          changed.map((file) => ({
+            path: file.path,
+            mode: file.mode ?? "100644",
+            type: "blob",
+            sha: file.sha,
+          }));
 
-        // Caminho rápido: repositório gerado do template ou fork do MASTER já
-        // contém os objetos, então a árvore aponta direto para os SHAs do
-        // MASTER — 3 chamadas em vez de 2 por arquivo.
-        const probe = changed[0];
-        let sharedObjects = false;
-        if (probe?.sha) {
-          const check = await api(`/repos/${target}/git/blobs/${probe.sha}`);
-          sharedObjects = check.ok;
-        }
-
-        if (sharedObjects) {
-          await notify(80, `${changed.length} arquivos reaproveitados do MASTER`);
-          for (const file of changed) {
-            entries.push({
-              path: file.path,
-              mode: file.mode ?? "100644",
-              type: "blob",
-              sha: file.sha,
-            });
-          }
-        } else {
-          // Sem objetos compartilhados: copiar em paralelo controlado, em lotes,
-          // com checkpoint por lote e orçamento de tempo.
+        /**
+         * Cópia dos blobs para o destino, em paralelo controlado, com
+         * checkpoint por lote e orçamento de tempo.
+         */
+        const copiedEntries = async (): Promise<
+          | { ok: true; partial: true; changed: number }
+          | { ok: true; entries: Array<Record<string, unknown>> }
+          | { ok: false; error: string }
+        > => {
+          const entries: Array<Record<string, unknown>> = [];
           const pending = changed.filter((f) => !blobMap[f.sha ?? ""]);
-          for (const file of changed) {
-            const existing = blobMap[file.sha ?? ""];
-            if (existing) {
-              entries.push({
-                path: file.path,
-                mode: file.mode ?? "100644",
-                type: "blob",
-                sha: existing,
-              });
-            }
-          }
           const BATCH = 100;
           const CONCURRENCY = 8;
           let copied = 0;
@@ -728,15 +717,10 @@ export function createCodeClient(input: {
             await checkpoint();
             if (outOfTime() && i + BATCH < pending.length) {
               // Devolve o controle: o watchdog retoma exatamente daqui.
-              return {
-                ok: true,
-                partial: true,
-                changed: copied,
-              };
+              return { ok: true, partial: true, changed: copied };
             }
           }
           for (const file of changed) {
-            if (entries.some((e) => e.path === file.path)) continue;
             const mapped = blobMap[file.sha ?? ""];
             if (!mapped) {
               return { ok: false, error: `blob de ${file.path} não publicado em ${target}` };
@@ -748,18 +732,59 @@ export function createCodeClient(input: {
               sha: mapped,
             });
           }
-        }
-        for (const path of removed) {
-          entries.push({ path, mode: "100644", type: "blob", sha: null });
+          return { ok: true, entries };
+        };
+
+        // Caminho rápido: repositório gerado do template ou fork do MASTER já
+        // contém os objetos, então a árvore aponta direto para os SHAs do
+        // MASTER — 3 chamadas em vez de 2 por arquivo. A checagem usa uma
+        // amostra e só vale se TODOS os objetos amostrados existirem.
+        const samples = [0, 1, Math.floor(changed.length / 2), changed.length - 1]
+          .filter((i, at, all) => i >= 0 && all.indexOf(i) === at)
+          .map((i) => changed[i]?.sha)
+          .filter((s): s is string => Boolean(s));
+        let sharedObjects = samples.length > 0;
+        for (const candidate of samples) {
+          const check = await api(`/repos/${target}/git/blobs/${candidate}`);
+          if (!check.ok) {
+            sharedObjects = false;
+            break;
+          }
         }
 
+        let entries: Array<Record<string, unknown>>;
+        if (sharedObjects) {
+          await notify(80, `${changed.length} arquivos reaproveitados do MASTER`);
+          entries = sharedEntries();
+        } else {
+          const copied = await copiedEntries();
+          if (!copied.ok) return { ok: false, error: copied.error };
+          if ("partial" in copied) return copied;
+          entries = copied.entries;
+        }
 
         await notify(92, "montando a árvore do repositório");
-        const newTree = await api(`/repos/${target}/git/trees`, {
-          method: "POST",
-          body: JSON.stringify(parent ? { base_tree: parent, tree: entries } : { tree: entries }),
-        });
+        const buildTree = async (list: Array<Record<string, unknown>>) =>
+          api(`/repos/${target}/git/trees`, {
+            method: "POST",
+            body: JSON.stringify(
+              parent ? { base_tree: parent, tree: [...list, ...removalEntries] } : { tree: [...list, ...removalEntries] },
+            ),
+          });
+
+        let newTree = await buildTree(entries);
+        if (!newTree.ok && sharedObjects && (newTree.status === 422 || newTree.status === 404)) {
+          // O repositório não compartilha os objetos do MASTER (fork ainda
+          // sincronizando ou repositório criado vazio): copia os blobs.
+          await notify(6, "objetos do MASTER indisponíveis; copiando arquivos");
+          const copied = await copiedEntries();
+          if (!copied.ok) return { ok: false, error: copied.error };
+          if ("partial" in copied) return copied;
+          entries = copied.entries;
+          newTree = await buildTree(entries);
+        }
         if (!newTree.ok) return { ok: false, error: await fail(newTree, `montar a árvore de ${target}`) };
+
         const treeJson = (await newTree.json().catch(() => ({}))) as { sha?: string };
 
         await notify(96, "criando o commit da versão");
