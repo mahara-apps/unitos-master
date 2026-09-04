@@ -1,5 +1,15 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { Bell, History, Loader2, Lock, Palette, ShieldCheck, User, Users } from "lucide-react";
+import {
+  Bell,
+  History,
+  ListChecks,
+  Loader2,
+  Lock,
+  Palette,
+  ShieldCheck,
+  User,
+  Users,
+} from "lucide-react";
 
 import { useAccessRole } from "@/hooks/use-access-role";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,6 +49,12 @@ const GROUPS: TabGroup[] = [
       { to: "/settings/identity", label: "Agência", icon: Palette, admin: true },
       { to: "/settings/team", label: "Equipe & Acesso", icon: Users, admin: true },
       { to: "/settings/permissions", label: "Permissões", icon: ShieldCheck, admin: true },
+      {
+        to: "/settings/work-statuses",
+        label: "Status de trabalho",
+        icon: ListChecks,
+        admin: true,
+      },
       { to: "/settings/logs", label: "Auditoria", icon: History, admin: true },
     ],
   },

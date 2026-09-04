@@ -65,6 +65,7 @@ import { Route as PortalAreaBriefingRouteImport } from './routes/_portal/area.br
 import { Route as PortalAreaArquivosRouteImport } from './routes/_portal/area.arquivos'
 import { Route as PortalAreaAprovacoesRouteImport } from './routes/_portal/area.aprovacoes'
 import { Route as AuthenticatedSuperAdminFeaturesRouteImport } from './routes/_authenticated/super-admin.features'
+import { Route as AuthenticatedSettingsWorkStatusesRouteImport } from './routes/_authenticated/settings.work-statuses'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsSlaRouteImport } from './routes/_authenticated/settings.sla'
 import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_authenticated/settings.profile'
@@ -401,6 +402,12 @@ const AuthenticatedSuperAdminFeaturesRoute =
     path: '/super-admin/features',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedSettingsWorkStatusesRoute =
+  AuthenticatedSettingsWorkStatusesRouteImport.update({
+    id: '/work-statuses',
+    path: '/work-statuses',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsTeamRoute =
   AuthenticatedSettingsTeamRouteImport.update({
     id: '/team',
@@ -732,6 +739,7 @@ export interface FileRoutesByFullPath {
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/sla': typeof AuthenticatedSettingsSlaRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/settings/work-statuses': typeof AuthenticatedSettingsWorkStatusesRoute
   '/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
   '/area/aprovacoes': typeof PortalAreaAprovacoesRoute
   '/area/arquivos': typeof PortalAreaArquivosRoute
@@ -828,6 +836,7 @@ export interface FileRoutesByTo {
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/sla': typeof AuthenticatedSettingsSlaRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/settings/work-statuses': typeof AuthenticatedSettingsWorkStatusesRoute
   '/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
   '/area/aprovacoes': typeof PortalAreaAprovacoesRoute
   '/area/arquivos': typeof PortalAreaArquivosRoute
@@ -935,6 +944,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/_authenticated/settings/sla': typeof AuthenticatedSettingsSlaRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/_authenticated/settings/work-statuses': typeof AuthenticatedSettingsWorkStatusesRoute
   '/_authenticated/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
   '/_portal/area/aprovacoes': typeof PortalAreaAprovacoesRoute
   '/_portal/area/arquivos': typeof PortalAreaArquivosRoute
@@ -1041,6 +1051,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/sla'
     | '/settings/team'
+    | '/settings/work-statuses'
     | '/super-admin/features'
     | '/area/aprovacoes'
     | '/area/arquivos'
@@ -1137,6 +1148,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/sla'
     | '/settings/team'
+    | '/settings/work-statuses'
     | '/super-admin/features'
     | '/area/aprovacoes'
     | '/area/arquivos'
@@ -1243,6 +1255,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/profile'
     | '/_authenticated/settings/sla'
     | '/_authenticated/settings/team'
+    | '/_authenticated/settings/work-statuses'
     | '/_authenticated/super-admin/features'
     | '/_portal/area/aprovacoes'
     | '/_portal/area/arquivos'
@@ -1737,6 +1750,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSuperAdminFeaturesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/settings/work-statuses': {
+      id: '/_authenticated/settings/work-statuses'
+      path: '/work-statuses'
+      fullPath: '/settings/work-statuses'
+      preLoaderRoute: typeof AuthenticatedSettingsWorkStatusesRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/team': {
       id: '/_authenticated/settings/team'
       path: '/team'
@@ -2222,6 +2242,7 @@ interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsProfileRoute: typeof AuthenticatedSettingsProfileRoute
   AuthenticatedSettingsSlaRoute: typeof AuthenticatedSettingsSlaRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
+  AuthenticatedSettingsWorkStatusesRoute: typeof AuthenticatedSettingsWorkStatusesRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
 }
 
@@ -2237,6 +2258,8 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsProfileRoute: AuthenticatedSettingsProfileRoute,
   AuthenticatedSettingsSlaRoute: AuthenticatedSettingsSlaRoute,
   AuthenticatedSettingsTeamRoute: AuthenticatedSettingsTeamRoute,
+  AuthenticatedSettingsWorkStatusesRoute:
+    AuthenticatedSettingsWorkStatusesRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
 }
 
