@@ -88,7 +88,33 @@ const FIELD_LABELS: Record<keyof DocumentBriefingSummary, string> = {
   goals: "Metas",
 };
 
-function statusBadge(s: ClientDocumentAi["ai_status"]) {
+/** Minutos desde a última mudança de estado do documento. */
+function minutesSince(iso: string | null): number {
+  if (!iso) return Number.POSITIVE_INFINITY;
+  return (Date.now() - new Date(iso).getTime()) / 60_000;
+}
+
+/** Leitura pendente. */
+function isPending(d: ClientDocumentAi): boolean {
+  return d.ai_status === "queued" || d.ai_status === "running";
+}
+
+/**
+ * Pendente há tempo demais: a UI para de esperar, libera "Reanalisar" e
+ * explica o que aconteceu, em vez de girar indefinidamente.
+ */
+function isStalled(d: ClientDocumentAi): boolean {
+  return isPending(d) && minutesSince(d.updated_at ?? d.created_at) > 5;
+}
+
+function statusBadge(s: ClientDocumentAi["ai_status"], stalled = false) {
+  if (stalled) {
+    return (
+      <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+        <XCircle className="mr-1 h-3 w-3" /> Interrompida
+      </Badge>
+    );
+  }
   switch (s) {
     case "done":
       return (
@@ -155,15 +181,17 @@ export function DocumentsTab({
     queryFn: () => list({ data: { brandId, clientId } }),
     refetchInterval: (q) => {
       const rows = (q.state.data ?? []) as ClientDocumentAi[];
-      const pending = rows.some((r) => r.ai_status === "queued" || r.ai_status === "running");
-      return pending ? 3000 : false;
+      // Só espera enquanto houver leitura recente em andamento: leitura
+      // interrompida não mantém a tela recarregando para sempre.
+      const waiting = rows.some((r) => isPending(r) && !isStalled(r));
+      return waiting ? 3000 : false;
     },
   });
 
   const invalidate = () =>
     qc.invalidateQueries({ queryKey: ["client-documents", brandId, clientId] });
 
-  const analyzeDoc = async (documentId: string) => {
+  const analyzeDoc = async (documentId: string, force = false) => {
     const { data: session } = await supabase.auth.getSession();
     const token = session.session?.access_token;
     if (!token) {
@@ -176,7 +204,7 @@ export function DocumentsTab({
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ brandId, clientId, documentId }),
+      body: JSON.stringify({ brandId, clientId, documentId, ...(force ? { force: true } : {}) }),
     });
     if (!res.ok) {
       const msg = await res.text().catch(() => "Falha ao iniciar análise");
@@ -283,7 +311,7 @@ export function DocumentsTab({
 
   const renderAi = (d: ClientDocumentAi) => (
     <div className="flex flex-col items-start gap-1">
-      {statusBadge(d.ai_status)}
+      {statusBadge(d.ai_status, isStalled(d))}
       {d.ai_status === "done" && d.ai_summary?.briefing ? (
         <button
           type="button"
@@ -343,11 +371,11 @@ export function DocumentsTab({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem
-          disabled={d.ai_status === "queued" || d.ai_status === "running"}
-          onClick={() => void analyzeDoc(d.id)}
+          disabled={isPending(d) && !isStalled(d)}
+          onClick={() => void analyzeDoc(d.id, isStalled(d))}
         >
           <Sparkles className="mr-2 h-3.5 w-3.5" />
-          {d.ai_status === "done" ? "Reanalisar" : "Analisar com IA"}
+          {d.ai_status === "done" || isStalled(d) ? "Reanalisar" : "Analisar com IA"}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => download(d.id)}>
           <Download className="mr-2 h-3.5 w-3.5" /> Download
