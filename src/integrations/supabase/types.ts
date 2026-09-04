@@ -7321,6 +7321,10 @@ export type Database = {
       }
       reap_brain_learning_queue: { Args: never; Returns: number }
       reap_stuck_ai_jobs: { Args: never; Returns: number }
+      reconcile_client_document_ai: {
+        Args: { _brand_id: string; _client_id: string }
+        Returns: number
+      }
       refresh_brain_stats: { Args: never; Returns: undefined }
       refresh_task_total_minutes: {
         Args: { _task_id: string }
