@@ -426,15 +426,40 @@ export type DeployClient = {
     source?: "git" | "rebuild";
     ref?: string;
     error?: string;
+    /** Cota diária de deployments da API esgotada (402 / free-per-day). */
+    quotaExceeded?: boolean;
+    /** Epoch (s) em que a cota volta, quando a Vercel informa. */
+    resetAt?: number;
   }>;
   deploymentState: (
     id: string,
   ) => Promise<{ ok: boolean; state?: string; url?: string; error?: string }>;
 
+  /** Garante que o domínio definitivo esteja atribuído ao projeto de deploy. */
+  ensureDomain: (
+    domain: string,
+  ) => Promise<{ ok: boolean; added?: boolean; verified?: boolean; error?: string }>;
+
   setEnv: (
     entries: readonly { key: string; value: string; sensitive: boolean }[],
   ) => Promise<{ ok: boolean; applied: number; error?: string }>;
 };
+
+/**
+ * Reconhece o limite de deployments por dia dos planos gratuitos da Vercel
+ * (`api-deployments-free-per-day`, HTTP 402). Não é erro de configuração: o
+ * provisionamento pode seguir e a publicação acontece pelo Git ou depois.
+ */
+export function parseDeployQuotaError(
+  status: number,
+  text: string,
+): { quotaExceeded: boolean; resetAt?: number } {
+  if (status !== 402 && !/api-deployments-free-per-day|payment_required/i.test(text)) {
+    return { quotaExceeded: false };
+  }
+  const reset = /"reset"\s*:\s*(\d+)/.exec(text)?.[1];
+  return { quotaExceeded: true, resetAt: reset ? Number(reset) : undefined };
+}
 
 /**
  * Repositório de código do MASTER. Toda instalação faz deploy DESTE repositório
