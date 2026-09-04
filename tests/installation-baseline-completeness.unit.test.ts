@@ -299,10 +299,11 @@ describe("tabelas auxiliares da automação e RLS", () => {
 
   it("reprova a verificação 15 mostrando os nomes das tabelas sem RLS", () => {
     const summary = summarizeVerificationRows([
-      { id: 15, check: "RLS habilitado em todas as tabelas de public", value: "_unitos_applied_deltas", status: "FAIL" },
-      { id: 16, check: "trigger on_auth_user_created em auth.users", value: "1", status: "PASS" },
+      { status: "FAIL", check_name: "RLS habilitado em todas as tabelas de public", observed: "_unitos_applied_deltas" },
+      { status: "PASS", check_name: "trigger on_auth_user_created em auth.users", observed: "1" },
     ]);
     expect(summary.ok).toBe(false);
     expect(summary.reason).toContain("RLS habilitado em todas as tabelas de public");
+    expect(summary.reason).toContain("_unitos_applied_deltas");
   });
 });
