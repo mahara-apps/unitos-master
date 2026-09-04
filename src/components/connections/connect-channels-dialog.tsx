@@ -198,6 +198,13 @@ export function ConnectChannelsDialog({
   onRefreshDiscovery,
   discovery,
   syncing = false,
+  assetsStep = false,
+  brandId,
+  clientId,
+  assetsSessionId = null,
+  assetsChannel = null,
+  onBackFromAssets,
+  onFinishAssets,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -213,6 +220,14 @@ export function ConnectChannelsDialog({
   discovery?: DiscoveredAccountsResult;
   /** true enquanto a descoberta de ativos está em andamento. */
   syncing?: boolean;
+  /** Etapa 02 "Ativos" acontece DENTRO deste mesmo modal. */
+  assetsStep?: boolean;
+  brandId?: string;
+  clientId?: string;
+  assetsSessionId?: string | null;
+  assetsChannel?: "facebook" | "instagram" | "threads" | "ads" | null;
+  onBackFromAssets?: () => void;
+  onFinishAssets?: () => void;
 }) {
   const busy = isConnectBusy(state);
   const busyChannelKey = busy ? (state as { channel: MetaConnectChannel }).channel : null;
