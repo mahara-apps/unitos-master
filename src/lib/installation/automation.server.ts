@@ -936,6 +936,15 @@ export function createDeployClient(input: {
         );
         if (res.ok) return { ok: true };
         const text = await res.text().catch(() => "");
+        // Planos Hobby não têm política de deployment: seguimos com o build
+        // automático ligado em vez de bloquear o provisionamento.
+        if (res.status === 403 && /pro_plan_required|not available for Hobby/i.test(text)) {
+          return {
+            ok: true,
+            unsupported: true,
+            error: "plano da Vercel não permite política de deployment (auto-deploy segue ligado)",
+          };
+        }
         return {
           ok: false,
           error: `HTTP ${res.status} ao ajustar o build automático (${text.slice(0, 200)})`,
