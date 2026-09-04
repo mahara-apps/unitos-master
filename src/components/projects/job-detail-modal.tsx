@@ -9,7 +9,6 @@ import type { ReactNode } from "react";
 import { CheckCircle2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { VisuallyHidden } from "@/components/ui/visually-hidden";
 
 export function JobDetailModal({
   open,
@@ -38,12 +37,9 @@ export function JobDetailModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        showCloseButton
         className="flex h-[90vh] max-h-[90vh] w-[min(1200px,96vw)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
       >
-        <VisuallyHidden>
-          <DialogTitle>{title}</DialogTitle>
-        </VisuallyHidden>
+        <DialogTitle className="sr-only">{title}</DialogTitle>
 
         {/* Barra de ações */}
         <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-muted/40 px-5 py-3 pr-14">
