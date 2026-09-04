@@ -65,6 +65,11 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
         supabaseProjectRef: (row.supabase_project_ref ?? null) as string | null,
         deployProject: (row.deploy_project ?? null) as string | null,
       },
+      // Retomada nunca "atualiza para o mais novo": segue o commit autorizado
+      // quando a operação foi aberta.
+      commitSha:
+        ((op as { detail?: { targetCommitSha?: string } }).detail?.targetCommitSha ?? null) ||
+        ((row.pinned_commit_sha ?? null) as string | null),
     };
     try {
       if (kind === "update") {

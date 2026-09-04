@@ -89,6 +89,43 @@ describe("atualização de código da instalação", () => {
     expect(res).toMatchObject({ ok: true, source: "rebuild" });
   });
 
+  it("desliga o build automático da branch e publica o commit autorizado", async () => {
+    const { impl, calls } = fakeFetch([
+      {
+        match: /v9\/projects\//,
+        body: {
+          name: "unitos-teste",
+          link: {
+            type: "github",
+            org: "mahara-apps",
+            repo: "unitos-master",
+            repoId: 42,
+            productionBranch: "main",
+          },
+        },
+      },
+      { match: /v13\/deployments\?/, body: { id: "dpl_9" } },
+    ]);
+    const client = createDeployClient({ token: "t", project: "unitos-teste", fetchImpl: impl });
+    const res = await client.deployLatestCode({ sha: "abcdef1234567890" });
+    expect(res).toMatchObject({ ok: true, deploymentId: "dpl_9", ref: "abcdef1234567890" });
+    // auto-deploy desligado: a instalação externa não publica sozinha
+    const patch = calls.find((c) => c.method === "PATCH");
+    expect(patch?.body).toMatchObject({ git: { deploymentEnabled: { main: false, master: false } } });
+    const created = calls.find((c) => c.method === "POST");
+    expect(created?.body).toMatchObject({
+      gitSource: { repoId: "42", ref: "abcdef1234567890" },
+    });
+  });
+
+  it("lê o commit atual da branch de produção do MASTER", async () => {
+    const { impl } = fakeFetch([
+      { match: /api\.github\.com\/repos\/.+\/commits\/main/, body: { sha: "cafe1234567" } },
+    ]);
+    const client = createDeployClient({ token: "t", project: "p", fetchImpl: impl });
+    await expect(client.latestCommit()).resolves.toMatchObject({ ok: true, sha: "cafe1234567" });
+  });
+
   it("lê o estado do deployment", async () => {
     const { impl } = fakeFetch([
       { match: /v13\/deployments\/dpl_1/, body: { readyState: "READY", url: "x.vercel.app" } },

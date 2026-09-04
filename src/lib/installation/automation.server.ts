@@ -259,11 +259,22 @@ export type DeployClient = {
   /** Redeploy da producao — necessario para que as variaveis gravadas valham. */
   redeploy: () => Promise<{ ok: boolean; deploymentId?: string; error?: string }>;
   /**
-   * Novo build a partir do repositorio ligado ao projeto (codigo mais recente
-   * do MASTER). Sem repositorio ligado, cai para `redeploy()` — que reaproveita
-   * o mesmo snapshot e portanto NAO traz codigo novo (source: "rebuild").
+   * Desliga (ou religa) o build automatico da branch de producao no projeto de
+   * deploy. Instalacoes externas NAO podem publicar sozinhas a cada commit no
+   * MASTER: elas so avancam quando o Super Admin autoriza uma atualizacao.
    */
-  deployLatestCode: () => Promise<{
+  setAutoDeploy: (
+    enabled: boolean,
+  ) => Promise<{ ok: boolean; error?: string }>;
+  /** Commit atual da branch de producao do repositorio do MASTER. */
+  latestCommit: () => Promise<{ ok: boolean; sha?: string; error?: string }>;
+  /**
+   * Novo build a partir do repositorio ligado ao projeto. Recebe o commit
+   * autorizado (`sha`); sem ele usa o commit atual da branch. Sem repositorio
+   * ligado, cai para `redeploy()` — que reaproveita o mesmo snapshot e portanto
+   * NAO traz codigo novo (source: "rebuild").
+   */
+  deployLatestCode: (options?: { sha?: string | null }) => Promise<{
     ok: boolean;
     deploymentId?: string;
     source?: "git" | "rebuild";
@@ -273,6 +284,7 @@ export type DeployClient = {
   deploymentState: (
     id: string,
   ) => Promise<{ ok: boolean; state?: string; url?: string; error?: string }>;
+
   setEnv: (
     entries: readonly { key: string; value: string; sensitive: boolean }[],
   ) => Promise<{ ok: boolean; applied: number; error?: string }>;
@@ -371,7 +383,48 @@ export function createDeployClient(input: {
         return { ok: false, error: (e as Error).message };
       }
     },
-    async deployLatestCode() {
+    async setAutoDeploy(enabled) {
+      try {
+        const res = await doFetch(
+          `https://api.vercel.com/v9/projects/${project}?${qs()}`.replace(/\?$/, ""),
+          {
+            method: "PATCH",
+            headers,
+            body: JSON.stringify({
+              git: { deploymentEnabled: { main: enabled, master: enabled } },
+            }),
+          },
+        );
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          return {
+            ok: false,
+            error: `HTTP ${res.status} ao ajustar o build automático (${text.slice(0, 200)})`,
+          };
+        }
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+    async latestCommit() {
+      try {
+        const res = await doFetch(
+          `https://api.github.com/repos/${masterRepo}/commits/main`,
+          { headers: { accept: "application/vnd.github+json" } },
+        );
+        if (!res.ok) {
+          return { ok: false, error: `HTTP ${res.status} ao consultar o commit do MASTER` };
+        }
+        const body = (await res.json().catch(() => ({}))) as { sha?: string };
+        if (!body.sha) return { ok: false, error: "commit do MASTER não retornado" };
+        return { ok: true, sha: body.sha };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+    async deployLatestCode(options) {
+
       try {
         const readProject = async () => {
           const res = await doFetch(
@@ -427,13 +480,20 @@ export function createDeployClient(input: {
           body = (await readProject()) ?? body;
         }
 
+        // Instalação externa NUNCA publica sozinha a cada commit no MASTER:
+        // o build automático da branch fica desligado e o deploy só acontece
+        // aqui, quando o Super Admin autoriza a atualização.
+        await client.setAutoDeploy(false);
+
         const link = body.link;
         const repoId = link?.repoId;
         if (!link?.type || repoId === undefined || repoId === null) {
           const fallback = await client.redeploy();
           return { ...fallback, source: "rebuild" as const };
         }
-        const ref = (link.productionBranch ?? "main").trim() || "main";
+        const branch = (link.productionBranch ?? "main").trim() || "main";
+        const ref = (options?.sha ?? "").trim() || branch;
+
 
         const created = await doFetch(`https://api.vercel.com/v13/deployments?${qs("forceNew=1")}`, {
           method: "POST",
@@ -1044,7 +1104,11 @@ export async function runAutomatedProvision(input: {
       await mark("deploy", "error", plan.reason);
       return finish(url.origin, url.source);
     }
+    // Instalação externa não pode republicar sozinha a cada commit no MASTER:
+    // desliga o build automático da branch já no provisionamento.
+    await deploy.setAutoDeploy(false);
     const envResult = await deploy.setEnv(plan.entries);
+
     if (!envResult.ok) {
       blocked.push(`Variáveis do deploy não configuradas: ${envResult.error ?? ""}`.trim());
       await mark("deploy", "error", "falha ao gravar variáveis do deploy");
@@ -1358,6 +1422,9 @@ export async function runAutomatedUpdate(input: {
   installation: AutomationInstallation;
   env?: Record<string, string | undefined>;
   fetchImpl?: Fetcher;
+  /** Commit do MASTER autorizado pelo Super Admin para esta instalação. */
+  commitSha?: string | null;
+
   /** Tempo máximo aguardando o build ficar READY. */
   waitMs?: number;
   sleep?: (ms: number) => Promise<void>;
@@ -1397,9 +1464,17 @@ export async function runAutomatedUpdate(input: {
   let deploymentSource = checkpoint.updateDeploymentSource;
   let deploymentRef = checkpoint.updateDeploymentRef;
 
+  // Commit autorizado pelo Super Admin (gravado na operação). Sem ele, fixa o
+  // commit atual da branch do MASTER no momento da autorização.
+  let targetSha = (input.commitSha ?? "").trim() || null;
+  if (!targetSha) {
+    const head = await deploy.latestCommit();
+    targetSha = head.ok && head.sha ? head.sha : null;
+  }
+
   if (!deploymentId) {
     await report(client, operation, "code", "running");
-    const created = await deploy.deployLatestCode();
+    const created = await deploy.deployLatestCode({ sha: targetSha });
     if (!created.ok || !created.deploymentId) {
       return fail("FAIL", created.error ?? "não foi possível disparar o deployment");
     }
@@ -1412,6 +1487,7 @@ export async function runAutomatedUpdate(input: {
       updateDeploymentRef: deploymentRef,
     });
   }
+
 
   if (deploymentSource === "rebuild") {
     await report(
@@ -1473,12 +1549,43 @@ export async function runAutomatedUpdate(input: {
   }
 
   await report(client, operation, "build", "done", url ? `publicado em ${url}` : "publicado");
-  await report(client, operation, "version", "done", MASTER_RELEASE_VERSION);
+  const shortSha = targetSha ? targetSha.slice(0, 7) : null;
+  await report(
+    client,
+    operation,
+    "version",
+    "done",
+    shortSha ? `${MASTER_RELEASE_VERSION} (${shortSha})` : MASTER_RELEASE_VERSION,
+  );
+
+  // Fixa a versão publicada: a instalação passa a ficar parada neste ponto do
+  // código até uma nova autorização.
+  if (targetSha) {
+    await (
+      client.from("installations") as unknown as {
+        update: (v: Record<string, unknown>) => { eq: (c: string, v: string) => Promise<unknown> };
+      }
+    )
+      .update({
+        pinned_commit_sha: targetSha,
+        pinned_release: MASTER_RELEASE_VERSION,
+        pinned_at: new Date().toISOString(),
+      })
+      .eq("id", installation.id)
+      .then(
+        () => undefined,
+        () => undefined,
+      );
+  }
+
   await finalizeOperation(client as never, operation as never, {
     ok: true,
     version: MASTER_RELEASE_VERSION,
-    summary: `Atualização aplicada: código do MASTER (${MASTER_RELEASE_VERSION}) publicado na instalação.`,
+    summary: shortSha
+      ? `Atualização aplicada: código do MASTER (${MASTER_RELEASE_VERSION} · ${shortSha}) publicado na instalação.`
+      : `Atualização aplicada: código do MASTER (${MASTER_RELEASE_VERSION}) publicado na instalação.`,
   }).catch(() => undefined);
+
 
   return { result: "PASS", reasons: [] };
 }

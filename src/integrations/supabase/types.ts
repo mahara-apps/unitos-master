@@ -4294,6 +4294,10 @@ export type Database = {
           last_validated_at: string | null
           name: string
           notes: string | null
+          pinned_at: string | null
+          pinned_by: string | null
+          pinned_commit_sha: string | null
+          pinned_release: string | null
           slug: string
           status: string
           supabase_project_ref: string | null
@@ -4318,6 +4322,10 @@ export type Database = {
           last_validated_at?: string | null
           name: string
           notes?: string | null
+          pinned_at?: string | null
+          pinned_by?: string | null
+          pinned_commit_sha?: string | null
+          pinned_release?: string | null
           slug: string
           status?: string
           supabase_project_ref?: string | null
@@ -4342,6 +4350,10 @@ export type Database = {
           last_validated_at?: string | null
           name?: string
           notes?: string | null
+          pinned_at?: string | null
+          pinned_by?: string | null
+          pinned_commit_sha?: string | null
+          pinned_release?: string | null
           slug?: string
           status?: string
           supabase_project_ref?: string | null
