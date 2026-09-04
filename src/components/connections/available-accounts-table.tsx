@@ -132,6 +132,7 @@ export function AvailableAccountsTable({
   emptyDescription,
   actions,
   clientByExternalId,
+  hideControls = false,
 }: {
   accounts: Account[];
   canManage: boolean;
@@ -142,6 +143,12 @@ export function AvailableAccountsTable({
   actions?: React.ReactNode;
   /** Cliente já vinculado ao ativo (quando existir), por ID externo da Meta. */
   clientByExternalId?: Map<string, string>;
+  /**
+   * Apenas apresentação: omite abas/busca/filtro/ordenação quando a tabela é
+   * aberta dentro de uma tela que já oferece esses controles (evita filtros
+   * duplicados). Contador, paginação e `actions` continuam visíveis.
+   */
+  hideControls?: boolean;
 }) {
   const [rawSearch, setRawSearch] = useState("");
   const [search, setSearch] = useState("");
@@ -211,26 +218,30 @@ export function AvailableAccountsTable({
   return (
     <div className="space-y-3">
       {/* ---------------------------- abas por tipo ---------------------------- */}
-      <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-muted/30 p-1">
-        {CHANNEL_TABS.map((t) => (
-          <button
-            key={t.value}
-            type="button"
-            onClick={() => setFilters((f) => ({ ...f, channel: t.value }))}
-            className={cn(
-              "h-7 rounded-md px-2.5 text-xs font-medium transition-colors",
-              filters.channel === t.value
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {hideControls ? null : (
+        <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-muted/30 p-1">
+          {CHANNEL_TABS.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => setFilters((f) => ({ ...f, channel: t.value }))}
+              className={cn(
+                "h-7 rounded-md px-2.5 text-xs font-medium transition-colors",
+                filters.channel === t.value
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* -------------------------- barra de controle -------------------------- */}
       <div className="flex flex-wrap items-center gap-2">
+        {hideControls ? null : (
+        <>
         <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -376,6 +387,8 @@ export function AvailableAccountsTable({
             Limpar
           </Button>
         ) : null}
+        </>
+        )}
 
         <div className="ml-auto flex items-center gap-2">
           <span className="text-xs text-muted-foreground">

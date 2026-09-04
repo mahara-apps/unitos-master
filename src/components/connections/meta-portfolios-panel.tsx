@@ -55,6 +55,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { AvailableAccountsTable } from "@/components/connections/available-accounts-table";
 import { formatRelative } from "@/components/connections/channel-meta";
 import { useRefreshCooldown } from "@/hooks/use-refresh-cooldown";
@@ -126,16 +132,53 @@ function pageNumbers(current: number, total: number): (number | "…")[] {
   return out;
 }
 
-function StateBadge({ state }: { state: PortfolioState }) {
+/**
+ * Motivo legível do status do portfólio. Nunca expõe texto cru da Graph API:
+ * quando a sincronização trouxe aviso da Meta, usa o estado operacional já
+ * traduzido em `issue-messages.ts`.
+ */
+function portfolioReason(
+  p: MetaPortfolioSummary,
+  state: PortfolioState,
+  metaIssue: string | null,
+): string {
+  if (state === "error") {
+    return (
+      metaIssue ??
+      "A autorização da Meta para este portfólio não está mais válida. Reautorize na Meta mantendo todas as Páginas e contas do Instagram marcadas."
+    );
+  }
+  if (state === "attention") {
+    const n = p.attentionCount;
+    return `${n} conta(s) deste portfólio precisam de atenção. ${
+      metaIssue ?? "Verifique as permissões na Meta e sincronize novamente."
+    }`;
+  }
+  return "Autorização válida na última sincronização.";
+}
+
+function StateBadge({ state, reason }: { state: PortfolioState; reason: string }) {
   const m = STATE_STYLE[state];
   return (
-    <Badge
-      variant="outline"
-      className={cn("h-5 shrink-0 gap-1 px-1.5 text-[11px] font-medium", m.chip)}
-    >
-      <span className={cn("h-1.5 w-1.5 rounded-full", m.dot)} />
-      {m.label}
-    </Badge>
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge
+            variant="outline"
+            className={cn(
+              "h-5 shrink-0 cursor-help gap-1 px-1.5 text-[11px] font-medium",
+              m.chip,
+            )}
+          >
+            <span className={cn("h-1.5 w-1.5 rounded-full", m.dot)} />
+            {m.label}
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs">
+          {reason}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -310,6 +353,13 @@ export function MetaPortfoliosPanel({
   const [sort, setSort] = useState<"name" | "status" | "assets">("name");
   const [page, setPage] = useState(1);
   const retryCooldown = useRefreshCooldown(`meta-portfolios-retry:${brandId ?? "none"}`, 30_000);
+
+  // Estado operacional traduzido da última sincronização (nunca texto cru da Meta).
+  const discoveryIssue = useMemo(() => {
+    const msgs = [discovery?.error ?? null, ...(discovery?.warnings ?? [])];
+    const state = metaIssueState(msgs);
+    return state ? `${state.summary} ${state.recommendation}` : null;
+  }, [discovery?.error, discovery?.warnings]);
 
   const PAGE_SIZE = 10;
 
@@ -579,7 +629,10 @@ export function MetaPortfoliosPanel({
                           </div>
                         </TableCell>
                         <TableCell className="py-2">
-                          <StateBadge state={r.state} />
+                          <StateBadge
+                            state={r.state}
+                            reason={portfolioReason(r.p, r.state, discoveryIssue)}
+                          />
                         </TableCell>
                         <TableCell className="py-2 text-center text-xs tabular-nums">
                           {r.pages}
@@ -676,6 +729,7 @@ export function MetaPortfoliosPanel({
                                 canManage={canManage}
                                 clientByExternalId={clientByExternalId}
                                 onLink={onLinkAccount}
+                                hideControls
                                 emptyDescription={`A Meta devolveu ${
                                   discovery?.alreadyLinked ?? 0
                                 } conta(s) e todas já existem neste workspace (conectadas ou no histórico). Use “Sincronizar” após alterar permissões na Meta.`}
