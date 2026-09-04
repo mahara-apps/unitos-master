@@ -27,6 +27,7 @@ import {
   runAutomatedProvisionFn,
   runAutomatedValidateFn,
   runAutomatedUpdateFn,
+  getMasterVersionFn,
   startInstallationOperationFn,
   updateInstallationFn,
 } from "@/lib/installation/manager.functions";
@@ -167,6 +168,7 @@ function InstallationDetailPage() {
   const autoFn = useServerFn(runAutomatedProvisionFn);
   const autoValidateFn = useServerFn(runAutomatedValidateFn);
   const autoUpdateFn = useServerFn(runAutomatedUpdateFn);
+  const masterVersionFn = useServerFn(getMasterVersionFn);
   const restartFn = useServerFn(restartAutomatedProvisionFn);
   const resumeFn = useServerFn(resumeAutomatedProvisionFn);
   const editFn = useServerFn(updateInstallationFn);
@@ -198,6 +200,13 @@ function InstallationDetailPage() {
   const capability = useQuery({
     queryKey: ["installation-automation"],
     queryFn: () => capabilityFn({ data: undefined }),
+    retry: false,
+    staleTime: 60_000,
+  });
+  // Versão disponível no MASTER (commit atual da branch). Só leitura.
+  const masterVersion = useQuery({
+    queryKey: ["installation-master-version"],
+    queryFn: () => masterVersionFn({ data: undefined }),
     retry: false,
     staleTime: 60_000,
   });
@@ -258,7 +267,8 @@ function InstallationDetailPage() {
 
   // Traz o código publicado no MASTER para o deploy da instalação.
   const autoUpdate = useMutation({
-    mutationFn: () => autoUpdateFn({ data: { id } }),
+    mutationFn: (input?: { commitSha?: string | null }) =>
+      autoUpdateFn({ data: { id, commitSha: input?.commitSha ?? null } }),
     onSuccess: (result) => {
       if (result.result === "STARTED") {
         toast.success("Atualização iniciada. Acompanhe o progresso por etapa abaixo.");
@@ -519,7 +529,9 @@ function InstallationDetailPage() {
               !!activeOp
             }
             onClick={() =>
-              deployAutomated ? autoUpdate.mutate() : setUpdateOpen(true)
+              deployAutomated
+                ? autoUpdate.mutate({ commitSha: masterVersion.data?.commitSha ?? null })
+                : setUpdateOpen(true)
             }
           >
             {autoUpdate.isPending ? (
@@ -645,8 +657,22 @@ function InstallationDetailPage() {
           <Info label="Repositório" value={inst.gitRepoUrl ?? "—"} />
           <Info label="Deploy" value={inst.deployProject ?? "—"} />
           <Info label="Status geral" value={INSTALLATION_STATUS_LABEL[inst.status]} />
-          <Info label="Versão da instalação" value={inst.currentVersion ?? "—"} />
-          <Info label="Versão MASTER" value={inst.availableVersion} />
+          <Info
+            label="Versão publicada"
+            value={
+              inst.pinnedCommitSha
+                ? `${inst.pinnedRelease ?? inst.currentVersion ?? "—"} · ${inst.pinnedCommitSha.slice(0, 7)}`
+                : (inst.currentVersion ?? "—")
+            }
+          />
+          <Info
+            label="Versão MASTER"
+            value={
+              masterVersion.data?.commitSha
+                ? `${inst.availableVersion} · ${masterVersion.data.commitSha.slice(0, 7)}`
+                : inst.availableVersion
+            }
+          />
           <Info
             label="Última validação"
             value={inst.lastValidatedAt ? new Date(inst.lastValidatedAt).toLocaleString("pt-BR") : "—"}
