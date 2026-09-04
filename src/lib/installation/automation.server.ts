@@ -2528,6 +2528,118 @@ export async function runAutomatedValidate(input: {
   };
 }
 
+/* ------------------------------------------- atualização de banco (delta SQL) */
+
+/** Rótulo do arquivo de delta aplicado nas atualizações. */
+export const UPDATE_DELTA_LABEL = "007_delta_migrations";
+
+/** Assinatura do conteúdo do delta: muda sempre que novas migrations entram. */
+function deltaFingerprint(sql: string): string {
+  let h1 = 0x811c9dc5;
+  let h2 = 0x1000193;
+  for (let i = 0; i < sql.length; i += 1) {
+    const c = sql.charCodeAt(i);
+    h1 = (h1 ^ c) * 0x01000193 >>> 0;
+    h2 = (h2 + c * 31) >>> 0;
+  }
+  return `${sql.length.toString(36)}-${h1.toString(36)}-${h2.toString(36)}`;
+}
+
+/**
+ * Aplica o delta de banco do MASTER no Supabase da instalação, item por item,
+ * com checkpoint e ledger no banco de destino. Idempotente: repetir com o mesmo
+ * delta já registrado é no-op.
+ */
+export async function applyDatabaseDelta(input: {
+  client: Client;
+  operation: OperationRow;
+  installation: AutomationInstallation;
+  env?: Record<string, string | undefined>;
+  fetchImpl?: Fetcher;
+  maxStatementsPerInvocation?: number;
+}): Promise<
+  | { state: "done"; detail: string }
+  | { state: "pending"; detail: string }
+  | { state: "blocked" | "error"; detail: string }
+> {
+  const env = input.env ?? runtimeEnv();
+  const { client, operation, installation } = input;
+
+  const target = resolveAutomationTarget(installation);
+  if (!target.ok) return { state: "blocked", detail: target.reason };
+
+  const managementToken = (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim();
+  if (!managementToken) {
+    return { state: "blocked", detail: "credencial de gestão do Supabase indisponível no MASTER" };
+  }
+
+  const management = createManagementClient({
+    token: managementToken,
+    projectRef: target.projectRef,
+    fetchImpl: input.fetchImpl,
+  });
+
+  const fingerprint = deltaFingerprint(baseline007);
+  const ledgerLabel = `${UPDATE_DELTA_LABEL}:${fingerprint}`;
+
+  const ledger = await management.query(
+    [
+      "create table if not exists public._unitos_applied_deltas (label text primary key, applied_at timestamptz not null default now())",
+      `select exists(select 1 from public._unitos_applied_deltas where label = ${sqlLiteral(ledgerLabel)}) as applied`,
+    ].join(";\n"),
+  );
+  if (!ledger.ok) {
+    return { state: "error", detail: `banco da instalação inacessível: ${ledger.error ?? "falha"}` };
+  }
+  const ledgerRow = ledger.rows.find(
+    (row): row is Record<string, unknown> => !!row && typeof row === "object",
+  );
+  if (ledgerRow?.["applied"] === true || ledgerRow?.["applied"] === "true") {
+    return { state: "done", detail: "banco já está na versão do MASTER" };
+  }
+
+  const progress = await readBaselineProgress(client, installation.id, operation);
+  const checkpointKey = `update:${ledgerLabel}`;
+  const alreadyApplied = progress[checkpointKey] ?? 0;
+
+  const prepared = sanitizeBaselineSqlForManagementApi(baseline007);
+  const applied = await applyStatementByStatement(management, prepared.sql, {
+    startIndex: alreadyApplied === DONE ? 0 : alreadyApplied,
+    maxStatements: input.maxStatementsPerInvocation ?? BASELINE_STATEMENTS_PER_INVOCATION,
+  });
+
+  if (!applied.ok) {
+    await saveBaselineProgress(client, operation, {
+      ...progress,
+      [checkpointKey]: applied.processed ?? alreadyApplied,
+    });
+    return { state: "error", detail: `atualização do banco falhou: ${applied.error ?? "erro"}` };
+  }
+
+  if (!applied.complete) {
+    await saveBaselineProgress(client, operation, { ...progress, [checkpointKey]: applied.processed });
+    const percent = Math.min(
+      99,
+      Math.round((applied.processed / Math.max(applied.total, 1)) * 100),
+    );
+    return {
+      state: "pending",
+      detail: `banco em atualização (${applied.processed}/${applied.total} · ${percent}%)`,
+    };
+  }
+
+  const mark = await management.query(
+    `insert into public._unitos_applied_deltas (label) values (${sqlLiteral(ledgerLabel)}) on conflict (label) do nothing`,
+  );
+  if (!mark.ok) {
+    return { state: "error", detail: `registro da versão do banco falhou: ${mark.error ?? "erro"}` };
+  }
+  await management.query("NOTIFY pgrst, 'reload schema';").catch(() => undefined);
+  await saveBaselineProgress(client, operation, { ...progress, [checkpointKey]: DONE });
+
+  return { state: "done", detail: `banco atualizado (${applied.total} comandos verificados)` };
+}
+
 /* ----------------------------------------------------- atualização de código */
 
 /**
