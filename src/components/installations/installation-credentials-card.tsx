@@ -46,6 +46,7 @@ const FIELDS: {
   hint: string;
   secret: boolean;
   placeholder: string;
+  link?: { href: string; label: string };
 }[] = [
   {
     key: "supabaseManagementToken",
@@ -53,6 +54,10 @@ const FIELDS: {
     hint: "Precisa pertencer à organização do banco desta instalação.",
     secret: true,
     placeholder: "sbp_...",
+    link: {
+      href: "https://supabase.com/dashboard/account/tokens",
+      label: "Gerar token no Supabase",
+    },
   },
   {
     key: "vercelToken",
@@ -60,6 +65,7 @@ const FIELDS: {
     hint: "Usado para variáveis, vínculo do repositório e publicação.",
     secret: true,
     placeholder: "token de deploy",
+    link: { href: "https://vercel.com/account/settings/tokens", label: "Gerar token na Vercel" },
   },
   {
     key: "vercelTeamId",
@@ -74,6 +80,10 @@ const FIELDS: {
     hint: "Publica o código do MASTER no repositório desta instalação.",
     secret: true,
     placeholder: "ghp_...",
+    link: {
+      href: "https://github.com/settings/personal-access-tokens/new",
+      label: "Gerar token no GitHub",
+    },
   },
 ];
 
