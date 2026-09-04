@@ -58,10 +58,12 @@ import { TaskDialog } from "@/components/content/task-dialog";
 import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { JobsPanel } from "@/components/projects/jobs-panel";
-import { CommentThread } from "@/components/projects/comment-thread";
 import { InvolvedPeople } from "@/components/projects/involved-people";
 import { StatusPicker } from "@/components/projects/status-picker";
+import { AssigneePicker } from "@/components/projects/assignee-picker";
+import { ProjectHeader } from "@/components/projects/project-header";
 import { useAccessRole } from "@/hooks/use-access-role";
+
 
 export const Route = createFileRoute("/_authenticated/projects/$projectId")({
   component: ProjectDetailPage,
