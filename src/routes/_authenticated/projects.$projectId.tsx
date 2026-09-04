@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import {
   ArrowLeft,
   Archive,
+  ArchiveRestore,
+
   ExternalLink,
   FileText,
   Image as ImageIcon,
