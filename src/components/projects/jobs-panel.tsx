@@ -551,9 +551,17 @@ export function JobsPanel({
                     size="sm"
                     className="h-9"
                     onClick={() => createJobMut.mutate()}
-                    disabled={!newJobName.trim()}
+                    disabled={!newJobName.trim() || createJobMut.isPending}
                   >
-                    Ok
+                    {createJobMut.isPending ? "Criando…" : "Ok"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-9"
+                    onClick={() => setAddingJob(false)}
+                  >
+                    Cancelar
                   </Button>
                 </div>
               )}
@@ -565,11 +573,19 @@ export function JobsPanel({
                   <Skeleton className="h-10 w-4/5" />
                 </div>
               ) : visibleJobs.length === 0 ? (
-                <div className="p-10 text-center text-xs text-muted-foreground">
-                  {jobs.length === 0
-                    ? "Nenhum job ainda. Crie o primeiro (ex.: “Fazer criativos”)."
-                    : "Nenhum job encontrado para esta busca."}
+                <div className="flex flex-col items-center gap-3 p-10 text-center text-xs text-muted-foreground">
+                  <p>
+                    {jobs.length === 0
+                      ? "Nenhum job ainda. Crie o primeiro (ex.: “Fazer criativos”)."
+                      : "Nenhum job encontrado para esta busca."}
+                  </p>
+                  {jobs.length === 0 && !addingJob ? (
+                    <Button size="sm" className="h-8 gap-1.5" onClick={() => setAddingJob(true)}>
+                      <Plus className="h-3.5 w-3.5" /> Criar primeiro job
+                    </Button>
+                  ) : null}
                 </div>
+
               ) : (
                 <div className="divide-y divide-border/60">
                   {visibleJobs.map((j) => {
