@@ -320,6 +320,7 @@ export type CodeClient = {
    */
   publishSnapshot: (
     sha: string,
+    onProgress?: (progress: { percent: number; detail: string }) => void | Promise<void>,
   ) => Promise<{ ok: boolean; commitSha?: string; changed?: number; error?: string }>;
 };
 
@@ -422,8 +423,16 @@ export function createCodeClient(input: {
         return { ok: false, error: (e as Error).message };
       }
     },
-    async publishSnapshot(sha) {
+    async publishSnapshot(sha, onProgress) {
+      const notify = async (percent: number, detail: string) => {
+        try {
+          await onProgress?.({ percent: Math.max(0, Math.min(99, Math.round(percent))), detail });
+        } catch {
+          // progresso é informativo: nunca interrompe a publicação.
+        }
+      };
       try {
+        await notify(2, "lendo a árvore do MASTER");
         const tree = async (repo: string, ref: string) => {
           const res = await api(`/repos/${repo}/git/trees/${ref}?recursive=1`);
           if (!res.ok) return { ok: false as const, error: await fail(res, `ler a árvore de ${repo}`) };
@@ -486,6 +495,7 @@ export function createCodeClient(input: {
 
         // Blobs são endereçados por conteúdo: copiar apenas os que faltam.
         const entries: Array<Record<string, unknown>> = [];
+        let copied = 0;
         for (const file of changed) {
           const blob = await api(`/repos/${master}/git/blobs/${file.sha}`);
           if (!blob.ok) return { ok: false, error: await fail(blob, `ler ${file.path} do MASTER`) };
@@ -510,11 +520,18 @@ export function createCodeClient(input: {
             type: "blob",
             sha: json.sha,
           });
+          copied += 1;
+          // 5%–90% da etapa: cópia dos arquivos que diferem.
+          await notify(
+            5 + (copied / Math.max(changed.length, 1)) * 85,
+            `${copied}/${changed.length} arquivos publicados`,
+          );
         }
         for (const path of removed) {
           entries.push({ path, mode: "100644", type: "blob", sha: null });
         }
 
+        await notify(92, "montando a árvore do repositório");
         const newTree = await api(`/repos/${target}/git/trees`, {
           method: "POST",
           body: JSON.stringify(parent ? { base_tree: parent, tree: entries } : { tree: entries }),
@@ -522,6 +539,7 @@ export function createCodeClient(input: {
         if (!newTree.ok) return { ok: false, error: await fail(newTree, `montar a árvore de ${target}`) };
         const treeJson = (await newTree.json().catch(() => ({}))) as { sha?: string };
 
+        await notify(96, "criando o commit da versão");
         const commit = await api(`/repos/${target}/git/commits`, {
           method: "POST",
           body: JSON.stringify({
@@ -1069,11 +1087,13 @@ async function report(
   step: string,
   state: "running" | "done" | "error",
   detail?: string | null,
+  percent?: number | null,
 ) {
   await applyProgressReport(client as never, op as never, {
     step,
     state,
     detail: detail ?? null,
+    percent: percent ?? null,
   }).catch(() => undefined);
 }
 
@@ -1119,9 +1139,10 @@ export async function runAutomatedProvision(input: {
     id: string,
     state: "running" | "done" | "error",
     detail?: string | null,
+    percent?: number | null,
   ) => {
     if (state !== "running") steps.push({ id, state, detail: sanitize(detail ?? null) });
-    await report(client, operation, id, state, detail);
+    await report(client, operation, id, state, detail, percent);
   };
 
   const isCancelled = async () => {
@@ -1259,7 +1280,9 @@ export async function runAutomatedProvision(input: {
       checks.code = "error";
       return finish(null, null);
     }
-    const published = await code.publishSnapshot(masterHead.sha);
+    const published = await code.publishSnapshot(masterHead.sha, async (p) => {
+      await mark("code", "running", p.detail, p.percent);
+    });
     if (!published.ok) {
       failures.push(`Código não publicado em ${repo.slug}: ${published.error ?? ""}`.trim());
       await mark("code", "error", published.error ?? "publicação falhou");
