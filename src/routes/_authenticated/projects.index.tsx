@@ -866,8 +866,15 @@ function ProjectsIndexPage() {
         <DashboardPanelSurface>
           <PanelEmptyState
             icon={<FileBarChart2 className="h-4 w-4" />}
-            text="Nenhum projeto encontrado. Crie o primeiro clicando em Novo projeto."
+            text={
+              hasFilters
+                ? "Nenhum projeto corresponde aos filtros aplicados."
+                : effectiveClientId
+                  ? "Nenhum projeto para este cliente ainda. Crie o primeiro clicando em Novo projeto."
+                  : "Nenhum projeto encontrado. Crie o primeiro clicando em Novo projeto."
+            }
           />
+
         </DashboardPanelSurface>
       ) : view === "cards" ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
