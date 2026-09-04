@@ -570,15 +570,24 @@ function ProjectDetailPage() {
         }
         pautasCount={items.length + extraPosts.length}
         footer={
-          <InvolvedPeople
-            brandId={brandId!}
-            projectId={projectId}
-            team={team}
-            canEdit={canEditProject}
-            compact
-          />
+          <div className="space-y-3">
+            <WorkLinks
+              target="project"
+              targetId={projectId}
+              title="Links do projeto"
+              readOnly={!canEditProject}
+            />
+            <InvolvedPeople
+              brandId={brandId!}
+              projectId={projectId}
+              team={team}
+              canEdit={canEditProject}
+              compact
+            />
+          </div>
         }
       />
+
 
       {/* Resumo da pauta em modal — evita sair da gestão do projeto */}
       <PautaDetailModal
