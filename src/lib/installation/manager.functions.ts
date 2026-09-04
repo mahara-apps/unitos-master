@@ -1514,7 +1514,7 @@ async function findRunningProvision(
 /* ---------------------------------------------- integrações (somente leitura) */
 
 export type IntegrationInspection = {
-  id: "custom_domain" | "meta" | "email" | "whatsapp" | "ai" | "branding";
+  id: "custom_domain" | "meta" | "resend" | "evolution" | "ai" | "branding";
   state: "configured" | "pending" | "not_configured";
   detail: string;
 };
@@ -1635,11 +1635,11 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
       domainItem,
       { id: "meta", state: meta.state, detail: meta.detail },
       {
-        id: "email",
+        id: "resend",
         ...envIntegrationState({ envKeys: keys, required: ["RESEND_API_KEY"], label: "E-mail (Resend)" }),
       },
       {
-        id: "whatsapp",
+        id: "evolution",
         ...envIntegrationState({
           envKeys: keys,
           required: ["EVOLUTION_API_URL", "EVOLUTION_API_KEY"],
@@ -1648,11 +1648,11 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
       },
       {
         id: "ai",
-        ...envIntegrationState({
-          envKeys: keys,
-          required: ["GEMINI_API_KEY"],
-          label: "Provedor de IA",
-        }),
+        // IA é BYOK por workspace (credenciais no banco da instalação), não por
+        // variável de ambiente: aqui só informamos onde ela é configurada.
+        state: "not_configured" as const,
+        detail:
+          "IA é configurada dentro da instalação, em Administração → IA, com as chaves da própria agência.",
       },
     ].map((i) => ({ id: i.id, state: i.state, detail: i.detail }) as IntegrationInspection);
 
