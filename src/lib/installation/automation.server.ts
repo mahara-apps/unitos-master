@@ -363,6 +363,7 @@ export function createCodeClient(input: {
         if (existing.status !== 404) {
           return { ok: false, error: await fail(existing, `consultar o repositório ${target}`) };
         }
+        // 1ª tentativa: gerar do template do MASTER (mantém histórico inicial).
         const created = await api(`/repos/${master}/generate`, {
           method: "POST",
           body: JSON.stringify({
@@ -373,16 +374,39 @@ export function createCodeClient(input: {
             description: "Instalação Unitos gerada a partir do MASTER",
           }),
         });
-        if (!created.ok) {
-          return {
-            ok: false,
-            error: await fail(
-              created,
-              `criar ${target} a partir do template ${master} (o repositório do MASTER precisa estar marcado como template e o token precisa de permissão de criação)`,
-            ),
-          };
-        }
-        return { ok: true, created: true };
+        if (created.ok) return { ok: true, created: true };
+        const templateError = await fail(
+          created,
+          `criar ${target} a partir do template ${master}`,
+        );
+
+        // 2ª tentativa: criar repositório vazio; o código do MASTER é
+        // publicado logo depois pelo publishSnapshot.
+        const body = JSON.stringify({
+          name: input.repo,
+          private: true,
+          auto_init: false,
+          description: "Instalação Unitos (código publicado a partir do MASTER)",
+        });
+        const viewer = await api(`/user`);
+        const viewerLogin = viewer.ok
+          ? ((await viewer.json().catch(() => ({}))) as { login?: string }).login ?? ""
+          : "";
+        const isPersonal =
+          viewerLogin.toLowerCase() === input.owner.trim().toLowerCase();
+        const blank = isPersonal
+          ? await api(`/user/repos`, { method: "POST", body })
+          : await api(`/orgs/${input.owner}/repos`, { method: "POST", body });
+        if (blank.ok) return { ok: true, created: true };
+        const blankError = await fail(blank, `criar o repositório vazio ${target}`);
+        return {
+          ok: false,
+          error:
+            `${templateError}; ${blankError}. Verifique se o token tem permissão de ` +
+            `criação de repositórios (fine-grained: Administration = Read and write ` +
+            `na organização ${input.owner}) e se o MASTER está marcado como template.`,
+        };
+
       } catch (e) {
         return { ok: false, error: (e as Error).message };
       }
