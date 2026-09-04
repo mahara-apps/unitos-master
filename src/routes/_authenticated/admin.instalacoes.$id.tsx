@@ -707,6 +707,7 @@ function InstallationDetailPage() {
           <TabsTrigger value="visao">Visão geral</TabsTrigger>
           <TabsTrigger value="versoes">Versões</TabsTrigger>
           <TabsTrigger value="saude">Saúde</TabsTrigger>
+          <TabsTrigger value="acessos">Acessos</TabsTrigger>
           <TabsTrigger value="execucoes">Execuções</TabsTrigger>
         </TabsList>
 
