@@ -504,6 +504,14 @@ export type CodeClient = {
   }>;
   /** Commit atual da branch de produção do MASTER — versão a publicar. */
   masterHeadSha: () => Promise<{ ok: boolean; sha?: string; error?: string }>;
+  /**
+   * Commit vazio na branch de produção do repositório DA INSTALAÇÃO para que a
+   * integração Git da Vercel publique — usado quando a cota de deployments por
+   * API do plano gratuito está esgotada.
+   */
+  nudgeDeploy: (
+    message?: string,
+  ) => Promise<{ ok: boolean; commitSha?: string; error?: string }>;
   /** Diagnóstico do token: alcance da organização, criação e template. */
   diagnose: () => Promise<{
     ok: boolean;
