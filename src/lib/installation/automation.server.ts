@@ -267,7 +267,7 @@ export type DeployClient = {
    */
   setAutoDeploy: (
     enabled: boolean,
-  ) => Promise<{ ok: boolean; error?: string }>;
+  ) => Promise<{ ok: boolean; error?: string; unsupported?: boolean }>;
   /**
    * Liga o projeto de deploy ao repositório `owner/repo` DA INSTALAÇÃO,
    * substituindo qualquer vínculo anterior. Idempotente.
