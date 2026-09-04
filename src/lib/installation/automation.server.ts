@@ -383,7 +383,48 @@ export function createDeployClient(input: {
         return { ok: false, error: (e as Error).message };
       }
     },
-    async deployLatestCode() {
+    async setAutoDeploy(enabled) {
+      try {
+        const res = await doFetch(
+          `https://api.vercel.com/v9/projects/${project}?${qs()}`.replace(/\?$/, ""),
+          {
+            method: "PATCH",
+            headers,
+            body: JSON.stringify({
+              git: { deploymentEnabled: { main: enabled, master: enabled } },
+            }),
+          },
+        );
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          return {
+            ok: false,
+            error: `HTTP ${res.status} ao ajustar o build automático (${text.slice(0, 200)})`,
+          };
+        }
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+    async latestCommit() {
+      try {
+        const res = await doFetch(
+          `https://api.github.com/repos/${masterRepo}/commits/main`,
+          { headers: { accept: "application/vnd.github+json" } },
+        );
+        if (!res.ok) {
+          return { ok: false, error: `HTTP ${res.status} ao consultar o commit do MASTER` };
+        }
+        const body = (await res.json().catch(() => ({}))) as { sha?: string };
+        if (!body.sha) return { ok: false, error: "commit do MASTER não retornado" };
+        return { ok: true, sha: body.sha };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+    async deployLatestCode(options) {
+
       try {
         const readProject = async () => {
           const res = await doFetch(
