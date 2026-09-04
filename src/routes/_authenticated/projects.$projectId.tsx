@@ -64,7 +64,6 @@ import { AssigneePicker } from "@/components/projects/assignee-picker";
 import { ProjectHeader } from "@/components/projects/project-header";
 import { useAccessRole } from "@/hooks/use-access-role";
 
-
 export const Route = createFileRoute("/_authenticated/projects/$projectId")({
   component: ProjectDetailPage,
 });
@@ -584,7 +583,6 @@ function ProjectDetailPage() {
           />
         }
       />
-
 
       {/* Configurações do projeto */}
       <Dialog open={openSettings} onOpenChange={setOpenSettings}>

@@ -695,7 +695,9 @@ export function JobsPanel({
         onOpenChange={(v) => !v && setOpenTask(null)}
         brandId={brandId}
         breadcrumb={
-          clientName ? `${clientName} › ${projectName} › ${currentTitle}` : `${projectName} › ${currentTitle}`
+          clientName
+            ? `${clientName} › ${projectName} › ${currentTitle}`
+            : `${projectName} › ${currentTitle}`
         }
         team={team}
         currentUserId={currentUserId}

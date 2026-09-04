@@ -22,7 +22,6 @@ import {
 import { initialsOf, type TeamOption } from "@/components/projects/assignee-picker";
 import { AvatarStack } from "@/components/projects/avatar-stack";
 
-
 export function useProjectParticipants(brandId: string, projectId: string) {
   const list = useServerFn(listProjectParticipantsFn);
   return useQuery({
@@ -46,7 +45,6 @@ export function InvolvedPeople({
   /** Variante do rodapé: avatares sobrepostos em vez de chips. */
   compact?: boolean;
 }) {
-
   const qc = useQueryClient();
   const participantsQ = useProjectParticipants(brandId, projectId);
   const add = useServerFn(addProjectParticipantFn);
@@ -129,7 +127,6 @@ export function InvolvedPeople({
   }
 
   return (
-
     <div className="flex flex-wrap items-center gap-2">
       <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
         <Users className="h-3 w-3" />
