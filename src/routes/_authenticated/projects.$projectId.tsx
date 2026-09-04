@@ -457,7 +457,7 @@ function ProjectDetailPage() {
                       <span>{fmtDate(d.scheduledAt)}</span>
                     </>
                   ) : null}
-                  {d.tasksCount > 0 ? (
+                  {(d.tasksCount ?? 0) > 0 ? (
                     <>
                       <span>·</span>
                       <span>
