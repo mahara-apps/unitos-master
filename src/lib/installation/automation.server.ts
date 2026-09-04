@@ -444,6 +444,19 @@ export type DeployClient = {
   setEnv: (
     entries: readonly { key: string; value: string; sensitive: boolean }[],
   ) => Promise<{ ok: boolean; applied: number; error?: string }>;
+
+  /**
+   * Leitura SOMENTE dos nomes das variáveis do projeto de deploy, mais o valor
+   * das variáveis explicitamente NÃO sensíveis pedidas em `plainKeys` (ex.:
+   * `META_REDIRECT_URI`). Nenhum valor cifrado é lido ou devolvido.
+   */
+  listEnv: (plainKeys?: readonly string[]) => Promise<{
+    ok: boolean;
+    keys?: string[];
+    plain?: Record<string, string>;
+    error?: string;
+  }>;
+
 };
 
 /**
