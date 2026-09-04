@@ -247,6 +247,8 @@ export function ChannelsCenter({
   const flowRef = useRef<"facebook" | "instagram" | null>(null);
   const [portfolioSessionId, setPortfolioSessionId] = useState<string | null>(null);
   const [portfolioOpen, setPortfolioOpen] = useState(false);
+  /** Etapa 02 ("Ativos") renderizada dentro do modal "Conectar canais". */
+  const [assetsStep, setAssetsStep] = useState(false);
   const [portfolioChannel, setPortfolioChannel] = useState<"facebook" | "instagram" | null>(null);
   const [manage, setManage] = useState<WorkspaceChannel | null>(null);
   const [linkTarget, setLinkTarget] = useState<WorkspaceChannel | null>(null);
