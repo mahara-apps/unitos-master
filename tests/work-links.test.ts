@@ -16,9 +16,9 @@ describe("normalizeLinkUrl", () => {
 
 describe("detectLinkSource", () => {
   it("identifica as principais origens", () => {
-    expect(detectLinkSource("https://drive.google.com/file/d/1")).toBe("google_drive");
+    expect(detectLinkSource("https://drive.google.com/file/d/1")).toBe("drive");
     expect(detectLinkSource("https://www.figma.com/file/abc")).toBe("figma");
-    expect(detectLinkSource("https://exemplo.com.br/a")).toBe("other");
+    expect(detectLinkSource("https://exemplo.com.br/a")).toBe("link");
   });
 });
 
