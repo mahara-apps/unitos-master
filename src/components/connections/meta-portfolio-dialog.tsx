@@ -117,6 +117,93 @@ function metaPopupFeatures(): string {
   return `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`;
 }
 
+/** Conta ativada nesta passagem pelo painel (o que será vinculado ao cliente). */
+export type SelectedAccount = {
+  connectionId: string;
+  label: string;
+  channel: "facebook" | "instagram" | "threads" | "ads";
+  targetId: string;
+  lookupId: string | null;
+};
+
+const CHANNEL_LABEL: Record<SelectedAccount["channel"], string> = {
+  facebook: "Página",
+  instagram: "Instagram",
+  threads: "Threads",
+  ads: "Ads",
+};
+
+function ChannelGlyph({ channel }: { channel: SelectedAccount["channel"] }) {
+  if (channel === "facebook") return <Facebook className="h-3 w-3 text-[#1877F2]" />;
+  if (channel === "instagram") return <Instagram className="h-3 w-3 text-[#DD2A7B]" />;
+  if (channel === "threads") return <AtSign className="h-3 w-3" />;
+  return <BarChart3 className="h-3 w-3 text-blue-500" />;
+}
+
+/**
+ * Bandeja "Selecionadas": responde à pergunta "qual conta vai ser conectada?".
+ * Lista exatamente as contas ativadas agora, com remoção direta por etiqueta.
+ */
+function MetaSelectionTray({
+  selected,
+  onRemove,
+}: {
+  selected: SelectedAccount[];
+  onRemove: (item: SelectedAccount) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  if (selected.length === 0) return null;
+  const counts = selected.reduce<Record<string, number>>((acc, item) => {
+    acc[item.channel] = (acc[item.channel] ?? 0) + 1;
+    return acc;
+  }, {});
+  const breakdown = (Object.keys(CHANNEL_LABEL) as Array<SelectedAccount["channel"]>)
+    .filter((c) => counts[c])
+    .map((c) => `${counts[c]} ${CHANNEL_LABEL[c]}`)
+    .join(" · ");
+  const collapsed = selected.length > 6 && !expanded;
+  const shown = collapsed ? selected.slice(0, 6) : selected;
+
+  return (
+    <div className="mb-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2.5">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+          Vão ser conectadas ({selected.length}){breakdown ? ` · ${breakdown}` : ""}
+        </p>
+        {selected.length > 6 ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 px-2 text-[11px]"
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {collapsed ? `Ver todas (${selected.length})` : "Recolher"}
+          </Button>
+        ) : null}
+      </div>
+      <ul className="flex flex-wrap gap-1.5">
+        {shown.map((item) => (
+          <li key={item.connectionId}>
+            <span className="inline-flex max-w-[16rem] items-center gap-1.5 rounded-full border border-border/60 bg-background px-2 py-1 text-[11px]">
+              <ChannelGlyph channel={item.channel} />
+              <span className="truncate">{item.label}</span>
+              <button
+                type="button"
+                aria-label={`Remover ${item.label}`}
+                title={`Remover ${item.label}`}
+                className="shrink-0 rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={() => onRemove(item)}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /** Sessões Meta já varridas nesta aba do navegador. */
 const scannedSessions = new Set<string>();
 
@@ -1139,7 +1226,7 @@ function MetaAssignFooter({
   const count = state.count;
 
   return (
-    <div className="mt-4 space-y-3 border-t border-border/60 pt-3">
+    <div className="space-y-3">
       <p className="text-[11px] leading-snug text-muted-foreground">{state.message}</p>
       {clientId ? (
         <div className="flex justify-end">
