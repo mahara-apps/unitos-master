@@ -354,6 +354,13 @@ export function MetaPortfoliosPanel({
   const [page, setPage] = useState(1);
   const retryCooldown = useRefreshCooldown(`meta-portfolios-retry:${brandId ?? "none"}`, 30_000);
 
+  // Estado operacional traduzido da última sincronização (nunca texto cru da Meta).
+  const discoveryIssue = useMemo(() => {
+    const msgs = [discovery?.error ?? null, ...(discovery?.warnings ?? [])];
+    const state = metaIssueState(msgs);
+    return state ? `${state.summary} ${state.recommendation}` : null;
+  }, [discovery?.error, discovery?.warnings]);
+
   const PAGE_SIZE = 10;
 
   const disconnectMut = useMutation({
