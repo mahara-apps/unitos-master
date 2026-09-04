@@ -577,15 +577,18 @@ export function ClientsChannelsTable({
                                   <Plug className="h-3.5 w-3.5" />
                                   Conectar
                                 </Button>
-                              ) : r.metaChannels[0] ? (
+                              ) : r.metaChannels.length ? (
+                                // Grupo "Sem cliente vinculado": vincular daqui
+                                // escolheria um canal arbitrário. Abrimos a lista,
+                                // onde cada canal tem seu próprio "Vincular".
                                 <Button
                                   size="sm"
                                   variant="ghost"
                                   className="h-7 gap-1.5 px-2 text-xs"
-                                  onClick={() => actions.onLink(r.metaChannels[0])}
+                                  onClick={() => setExpanded(isOpen ? null : key)}
                                 >
                                   <Link2 className="h-3.5 w-3.5" />
-                                  Vincular
+                                  Ver canais
                                 </Button>
                               ) : null
                             ) : null}
