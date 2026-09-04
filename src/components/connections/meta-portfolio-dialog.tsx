@@ -130,6 +130,7 @@ export function MetaAssetsPanel({
   channel,
   assign,
   onClose,
+  onPendingChange,
 }: {
   brandId: string;
   clientId?: string;
