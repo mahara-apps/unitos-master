@@ -58,6 +58,7 @@ import { TaskDialog } from "@/components/content/task-dialog";
 import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { JobsPanel } from "@/components/projects/jobs-panel";
+import { PautaDetailModal, type PautaDetailItem } from "@/components/projects/pauta-detail-modal";
 import { InvolvedPeople } from "@/components/projects/involved-people";
 import { StatusPicker } from "@/components/projects/status-picker";
 import { AssigneePicker } from "@/components/projects/assignee-picker";
@@ -145,6 +146,7 @@ function ProjectDetailPage() {
   const navigate = useNavigate();
   const [openNewTask, setOpenNewTask] = useState(false);
   const [openSettings, setOpenSettings] = useState(false);
+  const [openPautaKey, setOpenPautaKey] = useState<string | null>(null);
   const { userId, role } = useAccessRole();
   // `role` já colapsa admin/manager/super_admin no nível legado "admin".
   const canEditProject = role === "admin";
@@ -344,138 +346,132 @@ function ProjectDetailPage() {
   const statusLabel =
     STATUS_OPTIONS.find((s) => s.value === project.status)?.label ?? project.status;
 
+  // Itens da pauta normalizados para linha clicável + modal de resumo.
+  const pautaDetails: PautaDetailItem[] = [
+    ...items.map((it) => ({
+      key: it.topic_id,
+      title: it.title,
+      coverUrl: it.post?.cover_url ?? null,
+      channelLabel: it.channel ? (CHANNEL_LABELS[it.channel] ?? it.channel) : null,
+      formatLabel: it.format ? contentFormatLabel(it.format) : null,
+      stateLabel: itemState(it.post).label,
+      stateClassName: TONE_CLASS[itemState(it.post).tone] ?? "",
+      scheduledAt: it.post?.scheduled_at ?? it.tasks.due_at ?? null,
+      postId: it.post?.id ?? null,
+      planId: project.plan?.id ?? null,
+      tasksCount: it.tasks.count,
+      assigneeName: it.tasks.assignee_name,
+    })),
+    ...extraPosts.map((p) => {
+      const state = itemState({
+        stage: (p.stage as string | null) ?? null,
+        review_status: (p.review_status as string | null) ?? null,
+        published_at: (p.published_at as string | null) ?? null,
+      });
+      return {
+        key: p.id as string,
+        title: (p.title as string) || "Sem título",
+        coverUrl: (p.cover_url as string | null) ?? null,
+        channelLabel: null,
+        formatLabel: p.format ? contentFormatLabel(p.format as string) : null,
+        stateLabel: state.label,
+        stateClassName: TONE_CLASS[state.tone] ?? "",
+        scheduledAt: (p.scheduled_at as string | null) ?? null,
+        postId: p.id as string,
+        outOfPlan: true,
+        planId: null,
+        tasksCount: 0,
+        assigneeName: null,
+      };
+    }),
+  ];
+
   // Conteúdo do job virtual "Pautas" (nível 2 da hierarquia).
   const pautasContent = (
-    <>
-      {/* Itens da pauta neste projeto */}
-      <DashboardPanelSurface>
-        <div className="flex items-center justify-between border-b border-border/60 bg-background/40 px-4 py-2.5">
-          <div className="flex items-center gap-2">
-            <h3 className="text-[11px] font-mono uppercase tracking-widest text-foreground">
-              {project.plan ? "Itens da pauta" : "Peças do projeto"}
-            </h3>
-            <span className="rounded-md border border-border/60 bg-background/60 px-1.5 py-0.5 font-mono text-xs tabular-nums text-foreground">
-              {items.length + extraPosts.length}
-            </span>
-          </div>
+    <DashboardPanelSurface>
+      <div className="flex items-center justify-between border-b border-border/60 bg-background/40 px-4 py-2.5">
+        <div className="flex items-center gap-2">
+          <h3 className="font-mono text-[11px] uppercase tracking-widest text-foreground">
+            {project.plan ? "Itens da pauta" : "Peças do projeto"}
+          </h3>
+          <span className="rounded-md border border-border/60 bg-background/60 px-1.5 py-0.5 font-mono text-xs tabular-nums text-foreground">
+            {pautaDetails.length}
+          </span>
         </div>
+      </div>
 
-        {items.length === 0 && extraPosts.length === 0 ? (
-          <PanelEmptyState
-            icon={<FileText className="h-4 w-4" />}
-            text={
-              project.plan
-                ? "A pauta vinculada ainda não tem itens aprovados. Abra a pauta para aprovar e enviar para produção."
-                : "Nenhuma peça vinculada a este projeto."
-            }
-          />
-        ) : (
-          <div className="divide-y divide-border/60">
-            {items.map((it) => {
-              const state = itemState(it.post);
-              return (
-                <div key={it.topic_id} className="flex items-center gap-3 px-4 py-3">
-                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md bg-muted">
-                    {it.post?.cover_url ? (
-                      <img src={it.post.cover_url} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    )}
+      {pautaDetails.length === 0 ? (
+        <PanelEmptyState
+          icon={<FileText className="h-4 w-4" />}
+          text={
+            project.plan
+              ? "A pauta vinculada ainda não tem itens aprovados. Abra a pauta para aprovar e enviar para produção."
+              : "Nenhuma peça vinculada a este projeto."
+          }
+        />
+      ) : (
+        <div className="divide-y divide-border/60">
+          {pautaDetails.map((d) => (
+            <div
+              key={d.key}
+              role="button"
+              tabIndex={0}
+              onClick={() => setOpenPautaKey(d.key)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setOpenPautaKey(d.key);
+                }
+              }}
+              className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            >
+              <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md bg-muted">
+                {d.coverUrl ? (
+                  <img src={d.coverUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{it.title}</div>
-                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                      {it.channel ? (
-                        <span>{CHANNEL_LABELS[it.channel] ?? it.channel}</span>
-                      ) : (
-                        <span>Canal não definido</span>
-                      )}
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{d.title}</div>
+                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <span>
+                    {d.outOfPlan ? "Fora da pauta" : (d.channelLabel ?? "Canal não definido")}
+                  </span>
+                  <span>·</span>
+                  <span>{d.formatLabel ?? "formato não definido"}</span>
+                  {d.assigneeName ? (
+                    <>
+                      <span>·</span>
+                      <span>{d.assigneeName}</span>
+                    </>
+                  ) : null}
+                  {d.scheduledAt ? (
+                    <>
+                      <span>·</span>
+                      <span>{fmtDate(d.scheduledAt)}</span>
+                    </>
+                  ) : null}
+                  {(d.tasksCount ?? 0) > 0 ? (
+                    <>
                       <span>·</span>
                       <span>
-                        {it.format ? contentFormatLabel(it.format) : "formato não definido"}
+                        {d.tasksCount} {d.tasksCount === 1 ? "tarefa" : "tarefas"}
                       </span>
-                      {it.tasks.assignee_name ? (
-                        <>
-                          <span>·</span>
-                          <span>{it.tasks.assignee_name}</span>
-                        </>
-                      ) : null}
-                      {it.post?.scheduled_at || it.tasks.due_at ? (
-                        <>
-                          <span>·</span>
-                          <span>{fmtDate(it.post?.scheduled_at ?? it.tasks.due_at)}</span>
-                        </>
-                      ) : null}
-                      {it.tasks.count > 0 ? (
-                        <>
-                          <span>·</span>
-                          <span>
-                            {it.tasks.count} {it.tasks.count === 1 ? "tarefa" : "tarefas"}
-                          </span>
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
-                  <Badge variant="outline" className={`text-[10px] ${TONE_CLASS[state.tone]}`}>
-                    {state.label}
-                  </Badge>
-                  {it.post ? (
-                    <Button asChild size="sm" className="h-8 px-3 text-[11px]">
-                      <Link to="/content" search={{ post: it.post.id }}>
-                        Abrir peça
-                      </Link>
-                    </Button>
-                  ) : project.plan ? (
-                    <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-[11px]">
-                      <Link to="/monthly-plan/$planId" params={{ planId: project.plan.id }}>
-                        Ver na pauta
-                      </Link>
-                    </Button>
+                    </>
                   ) : null}
                 </div>
-              );
-            })}
-
-            {extraPosts.map((p) => {
-              const state = itemState({
-                stage: (p.stage as string | null) ?? null,
-                review_status: (p.review_status as string | null) ?? null,
-                published_at: (p.published_at as string | null) ?? null,
-              });
-              return (
-                <div key={p.id} className="flex items-center gap-3 px-4 py-3">
-                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md bg-muted">
-                    {p.cover_url ? (
-                      <img src={p.cover_url} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{p.title || "Sem título"}</div>
-                    <div className="text-[11px] text-muted-foreground">
-                      Fora da pauta · {fmtDate(p.scheduled_at)}
-                    </div>
-                  </div>
-                  <Badge variant="outline" className={`text-[10px] ${TONE_CLASS[state.tone]}`}>
-                    {state.label}
-                  </Badge>
-                  <Button asChild size="sm" className="h-8 px-3 text-[11px]">
-                    <Link to="/content" search={{ post: p.id }}>
-                      Abrir peça
-                    </Link>
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </DashboardPanelSurface>
-    </>
+              </div>
+              <Badge variant="outline" className={`text-[10px] ${d.stateClassName}`}>
+                {d.stateLabel}
+              </Badge>
+            </div>
+          ))}
+        </div>
+      )}
+    </DashboardPanelSurface>
   );
 
   return (
@@ -580,6 +576,19 @@ function ProjectDetailPage() {
             compact
           />
         }
+      />
+
+      {/* Resumo da pauta em modal — evita sair da gestão do projeto */}
+      <PautaDetailModal
+        open={!!openPautaKey}
+        onOpenChange={(o) => !o && setOpenPautaKey(null)}
+        brandId={brandId!}
+        projectId={projectId}
+        clientId={project.client_id ?? null}
+        item={pautaDetails.find((d) => d.key === openPautaKey) ?? null}
+        team={team}
+        currentUserId={userId}
+        canEdit={canEditProject}
       />
 
       {/* Configurações do projeto */}
