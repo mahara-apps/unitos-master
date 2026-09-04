@@ -72,7 +72,7 @@ export function CommentThread({
   taskId,
   currentUserId,
   className,
-  placeholder = "Escreva uma observação…",
+  placeholder = "Escreva uma observação… use @ para mencionar",
 }: Props) {
   const qc = useQueryClient();
   const [body, setBody] = useState("");

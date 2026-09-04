@@ -46,6 +46,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { MentionTextarea, resolveMentions } from "@/components/ui/mention-textarea";
+import { MentionText } from "@/components/ui/mention-text";
 import {
   Select,
   SelectContent,
@@ -700,9 +702,6 @@ export function TaskDrawer({
   }, [task?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [comment, setComment] = useState("");
-  const [mentionOpen, setMentionOpen] = useState(false);
-  const [mentionQuery, setMentionQuery] = useState("");
-  const [mentionUserIds, setMentionUserIds] = useState<string[]>([]);
 
   const patchMutation = useMutation({
     mutationFn: (payload: { taskId: string; patch: Record<string, unknown> }) =>
@@ -713,10 +712,11 @@ export function TaskDrawer({
 
   const send = useMutation({
     mutationFn: () =>
-      addComment({ data: { taskId, body: comment.trim(), mentions: mentionUserIds } }),
+      addComment({
+        data: { taskId, body: comment.trim(), mentions: resolveMentions(comment, members) },
+      }),
     onSuccess: () => {
       setComment("");
-      setMentionUserIds([]);
       qc.invalidateQueries({ queryKey: ["task-comments", taskId] });
       onChanged();
     },
@@ -770,12 +770,6 @@ export function TaskDrawer({
   }, [prev?.id, next?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const members = membersQ.data ?? [];
-
-  function insertMention(userId: string, name: string) {
-    setComment((prev) => prev.replace(/(^|\s)@[^\s@]*$/, `$1@${name.split(/\s+/)[0]} `));
-    setMentionUserIds((prev) => (prev.includes(userId) ? prev : [...prev, userId]));
-    setMentionOpen(false);
-  }
 
   const isDone = task?.status === "done";
   const statusMeta = task ? STATUS_META[task.status] : null;
@@ -868,18 +862,16 @@ export function TaskDrawer({
         task ? (
           <>
             <div className="relative">
-              <Textarea
+              <MentionTextarea
                 rows={2}
                 value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && comment.trim()) {
-                    e.preventDefault();
-                    send.mutate();
-                  }
+                onChange={setComment}
+                people={members}
+                onSubmit={() => {
+                  if (comment.trim()) send.mutate();
                 }}
                 placeholder="Escreva um comentário. Use @ para mencionar. Cmd/Ctrl+Enter para enviar."
-                className="min-h-[60px] resize-none pr-12"
+                className="min-h-[60px] pr-12"
               />
               <Button
                 size="icon"
@@ -894,15 +886,6 @@ export function TaskDrawer({
                   <Send className="h-4 w-4" />
                 )}
               </Button>
-              {mentionOpen ? (
-                <div className="absolute bottom-full left-0 z-20 mb-2 w-64 rounded-md border bg-popover shadow-md">
-                  <MentionList
-                    members={members}
-                    query={mentionQuery}
-                    onPick={(u) => insertMention(u.id, u.name)}
-                  />
-                </div>
-              ) : null}
             </div>
             <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
               <span>
@@ -1111,30 +1094,14 @@ export function TaskDrawer({
                             ) : null}
                           </span>
                         </div>
-                        <p className="mt-1 whitespace-pre-wrap text-sm">{renderMentions(c.body)}</p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm">
+                          <MentionText text={c.body} people={members} />
+                        </p>
                       </div>
                     </li>
                   ))}
                 </ul>
               )}
-              {mentionUserIds.length > 0 ? (
-                <div className="flex flex-wrap gap-1">
-                  {mentionUserIds.map((id) => {
-                    const u = members.find((m) => m.id === id);
-                    if (!u) return null;
-                    return (
-                      <Badge key={id} variant="secondary" className="gap-1">
-                        @{u.name}
-                        <button
-                          onClick={() => setMentionUserIds((prev) => prev.filter((x) => x !== id))}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    );
-                  })}
-                </div>
-              ) : null}
             </div>
           </div>
         </>
