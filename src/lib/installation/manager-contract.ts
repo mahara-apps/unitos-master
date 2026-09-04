@@ -355,6 +355,8 @@ export type OperationStep = {
   script: string;
   state: StepState;
   detail?: string | null;
+  /** Progresso interno da etapa em % (0–100). Ausente = sem medição. */
+  percent?: number | null;
 };
 
 export function initialSteps(kind: InstallationOperationKind): OperationStep[] {
@@ -363,11 +365,18 @@ export function initialSteps(kind: InstallationOperationKind): OperationStep[] {
     label: s.label,
     script: s.script,
     state: "pending" as StepState,
+    percent: null,
   }));
 }
 
 export function isStepState(value: unknown): value is StepState {
   return value === "pending" || value === "running" || value === "done" || value === "error";
+}
+
+/** Normaliza um percentual reportado: inteiro entre 0 e 100 ou `null`. */
+export function normalizeStepPercent(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(100, Math.round(value)));
 }
 
 /**
@@ -377,14 +386,26 @@ export function isStepState(value: unknown): value is StepState {
  */
 export function applyStepReport(
   steps: OperationStep[],
-  report: { step: string; state: StepState; detail?: string | null },
+  report: { step: string; state: StepState; detail?: string | null; percent?: number | null },
 ): OperationStep[] {
-  return steps.map((s) =>
-    s.id === report.step
-      ? { ...s, state: report.state, detail: report.detail ?? s.detail ?? null }
-      : s,
-  );
+  const reported = normalizeStepPercent(report.percent);
+  return steps.map((s) => {
+    if (s.id !== report.step) return s;
+    const percent =
+      report.state === "done"
+        ? 100
+        : report.state === "pending"
+          ? null
+          : (reported ?? s.percent ?? (report.state === "running" ? 0 : null));
+    return {
+      ...s,
+      state: report.state,
+      detail: report.detail ?? s.detail ?? null,
+      percent,
+    };
+  });
 }
+
 
 export type StepProgress = {
   total: number;
@@ -406,7 +427,24 @@ export function stepsProgress(steps: OperationStep[]): StepProgress {
     running,
     failed,
     pending: total - done - running - failed,
-    percent: total === 0 ? 0 : Math.round(((done + failed) / total) * 100),
+    // O progresso interno da etapa em execução conta como fração de etapa,
+    // então a barra avança em tempo real mesmo em etapas longas.
+    percent:
+      total === 0
+        ? 0
+        : Math.min(
+            100,
+            Math.round(
+              ((done +
+                failed +
+                steps
+                  .filter((s) => s.state === "running")
+                  .reduce((acc, s) => acc + (normalizeStepPercent(s.percent) ?? 0) / 100, 0)) /
+                total) *
+                100,
+            ),
+          ),
+
   };
 }
 

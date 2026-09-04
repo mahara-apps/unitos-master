@@ -320,6 +320,7 @@ export type CodeClient = {
    */
   publishSnapshot: (
     sha: string,
+    onProgress?: (progress: { percent: number; detail: string }) => void | Promise<void>,
   ) => Promise<{ ok: boolean; commitSha?: string; changed?: number; error?: string }>;
 };
 
@@ -422,8 +423,22 @@ export function createCodeClient(input: {
         return { ok: false, error: (e as Error).message };
       }
     },
-    async publishSnapshot(sha) {
+    async publishSnapshot(sha, onProgress) {
+      // Throttle: um report por ~2% evita centenas de escritas em repositórios
+      // grandes sem perder a sensação de tempo real.
+      let lastNotified = -5;
+      const notify = async (percent: number, detail: string) => {
+        const rounded = Math.max(0, Math.min(99, Math.round(percent)));
+        if (rounded < 99 && rounded - lastNotified < 2) return;
+        lastNotified = rounded;
+        try {
+          await onProgress?.({ percent: rounded, detail });
+        } catch {
+          // progresso é informativo: nunca interrompe a publicação.
+        }
+      };
       try {
+        await notify(2, "lendo a árvore do MASTER");
         const tree = async (repo: string, ref: string) => {
           const res = await api(`/repos/${repo}/git/trees/${ref}?recursive=1`);
           if (!res.ok) return { ok: false as const, error: await fail(res, `ler a árvore de ${repo}`) };
@@ -486,6 +501,7 @@ export function createCodeClient(input: {
 
         // Blobs são endereçados por conteúdo: copiar apenas os que faltam.
         const entries: Array<Record<string, unknown>> = [];
+        let copied = 0;
         for (const file of changed) {
           const blob = await api(`/repos/${master}/git/blobs/${file.sha}`);
           if (!blob.ok) return { ok: false, error: await fail(blob, `ler ${file.path} do MASTER`) };
@@ -510,11 +526,18 @@ export function createCodeClient(input: {
             type: "blob",
             sha: json.sha,
           });
+          copied += 1;
+          // 5%–90% da etapa: cópia dos arquivos que diferem.
+          await notify(
+            5 + (copied / Math.max(changed.length, 1)) * 85,
+            `${copied}/${changed.length} arquivos publicados`,
+          );
         }
         for (const path of removed) {
           entries.push({ path, mode: "100644", type: "blob", sha: null });
         }
 
+        await notify(92, "montando a árvore do repositório");
         const newTree = await api(`/repos/${target}/git/trees`, {
           method: "POST",
           body: JSON.stringify(parent ? { base_tree: parent, tree: entries } : { tree: entries }),
@@ -522,6 +545,7 @@ export function createCodeClient(input: {
         if (!newTree.ok) return { ok: false, error: await fail(newTree, `montar a árvore de ${target}`) };
         const treeJson = (await newTree.json().catch(() => ({}))) as { sha?: string };
 
+        await notify(96, "criando o commit da versão");
         const commit = await api(`/repos/${target}/git/commits`, {
           method: "POST",
           body: JSON.stringify({
@@ -1069,11 +1093,13 @@ async function report(
   step: string,
   state: "running" | "done" | "error",
   detail?: string | null,
+  percent?: number | null,
 ) {
   await applyProgressReport(client as never, op as never, {
     step,
     state,
     detail: detail ?? null,
+    percent: percent ?? null,
   }).catch(() => undefined);
 }
 
@@ -1119,9 +1145,10 @@ export async function runAutomatedProvision(input: {
     id: string,
     state: "running" | "done" | "error",
     detail?: string | null,
+    percent?: number | null,
   ) => {
     if (state !== "running") steps.push({ id, state, detail: sanitize(detail ?? null) });
-    await report(client, operation, id, state, detail);
+    await report(client, operation, id, state, detail, percent);
   };
 
   const isCancelled = async () => {
@@ -1259,7 +1286,9 @@ export async function runAutomatedProvision(input: {
       checks.code = "error";
       return finish(null, null);
     }
-    const published = await code.publishSnapshot(masterHead.sha);
+    const published = await code.publishSnapshot(masterHead.sha, async (p) => {
+      await mark("code", "running", p.detail, p.percent);
+    });
     if (!published.ok) {
       failures.push(`Código não publicado em ${repo.slug}: ${published.error ?? ""}`.trim());
       await mark("code", "error", published.error ?? "publicação falhou");
@@ -1330,17 +1359,36 @@ export async function runAutomatedProvision(input: {
   // de reaplicar o baseline inteiro — a causa do travamento em 99%.
   const progress = await readBaselineProgress(client, installation.id, operation);
 
+  // Percentual da ETAPA considera todos os arquivos do grupo (ex.: "database"
+  // tem 4 arquivos), então a barra da etapa reflete o avanço real.
+  const groupTotals = baseline.reduce<Record<string, number>>((acc, f) => {
+    acc[f.id] = (acc[f.id] ?? 0) + 1;
+    return acc;
+  }, {});
+  const groupDone: Record<string, number> = {};
+  const groupPercent = (id: string, fileFraction: number) =>
+    Math.min(
+      99,
+      Math.round((((groupDone[id] ?? 0) + fileFraction) / Math.max(groupTotals[id] ?? 1, 1)) * 100),
+    );
+
   let currentGroup = "";
   for (const file of baseline) {
     if (file.id !== currentGroup) {
       currentGroup = file.id;
-      await mark(file.id, "running");
+      await mark(file.id, "running", null, groupPercent(file.id, 0));
     }
     if (progress[file.label] === DONE) {
-      await mark(file.id, "running", `${file.label}: já aplicado (checkpoint)`);
+      groupDone[file.id] = (groupDone[file.id] ?? 0) + 1;
+      await mark(
+        file.id,
+        "running",
+        `${file.label}: já aplicado (checkpoint)`,
+        groupPercent(file.id, 0),
+      );
       continue;
     }
-    await mark(file.id, "running", `${file.label}: aplicando`);
+    await mark(file.id, "running", `${file.label}: aplicando`, groupPercent(file.id, 0));
     // A Management API executa como `postgres` (não superusuário): comandos
     // exclusivos de superusuário do dump são removidos antes de enviar.
     const prepared = sanitizeBaselineSqlForManagementApi(file.sql);
@@ -1361,7 +1409,12 @@ export async function runAutomatedProvision(input: {
         await saveBaselineProgress(client, operation, progress);
         const percent = Math.min(99, Math.round((processed / Math.max(total, 1)) * 100));
         const action = alreadyApplied > 0 ? "retomando aplicação" : "aplicando";
-        await mark(file.id, "running", `${file.label}: ${action} (${percent}%)`);
+        await mark(
+          file.id,
+          "running",
+          `${file.label}: ${action} (${percent}%)`,
+          groupPercent(file.id, percent / 100),
+        );
       },
     });
     if (!perStatement.ok) {
@@ -1390,6 +1443,7 @@ export async function runAutomatedProvision(input: {
 
     }
     progress[file.label] = DONE;
+    groupDone[file.id] = (groupDone[file.id] ?? 0) + 1;
     await saveBaselineProgress(client, operation, progress);
 
   }

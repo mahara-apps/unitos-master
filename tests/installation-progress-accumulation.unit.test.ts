@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { applyProgressReport } from "@/lib/installation/runner.server";
-import { initialSteps } from "@/lib/installation/manager-contract";
+import {
+  applyStepReport,
+  initialSteps,
+  stepsProgress,
+} from "@/lib/installation/manager-contract";
 
 /** Cliente Supabase falso com uma única linha de installation_operations. */
 function fakeClient(initialSteps: unknown) {
@@ -49,5 +53,31 @@ describe("applyProgressReport acumula etapas", () => {
     expect(byId["storage"]).toBe("error");
     expect(steps.filter((s) => s.state === "done")).toHaveLength(2);
     expect(row.steps).toEqual(steps);
+  });
+});
+
+describe("percentual por etapa", () => {
+  it("guarda o percentual reportado e completa em 100% ao concluir", () => {
+    let steps = initialSteps("provision");
+    steps = applyStepReport(steps, { step: "code", state: "running", percent: 37.4 });
+    expect(steps.find((s) => s.id === "code")?.percent).toBe(37);
+
+    // Report sem percentual não apaga a última medição.
+    steps = applyStepReport(steps, { step: "code", state: "running", detail: "publicando" });
+    expect(steps.find((s) => s.id === "code")?.percent).toBe(37);
+
+    steps = applyStepReport(steps, { step: "code", state: "done" });
+    expect(steps.find((s) => s.id === "code")?.percent).toBe(100);
+  });
+
+  it("progresso geral conta a fração da etapa em execução", () => {
+    let steps = initialSteps("provision");
+    const total = steps.length;
+    steps = applyStepReport(steps, { step: "supabase", state: "done" });
+    const antes = stepsProgress(steps).percent;
+    steps = applyStepReport(steps, { step: "code", state: "running", percent: 50 });
+    const depois = stepsProgress(steps).percent;
+    expect(depois).toBeGreaterThan(antes);
+    expect(depois).toBe(Math.round(((1 + 0.5) / total) * 100));
   });
 });
