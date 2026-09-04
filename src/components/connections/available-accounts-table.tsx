@@ -387,6 +387,8 @@ export function AvailableAccountsTable({
             Limpar
           </Button>
         ) : null}
+        </>
+        )}
 
         <div className="ml-auto flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
