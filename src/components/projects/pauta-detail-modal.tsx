@@ -302,9 +302,7 @@ export function PautaDetailModal({
     post && post.channels.length > 0
       ? post.channels.map(channelLabel).join(", ")
       : (item.channelLabel ?? null);
-  const formatText = post?.format
-    ? contentFormatLabel(post.format)
-    : (item.formatLabel ?? null);
+  const formatText = post?.format ? contentFormatLabel(post.format) : (item.formatLabel ?? null);
   const scheduledText = fmtDateTime(post?.scheduled_at ?? item.scheduledAt);
   const refs = [...normalizeRefs(post?.references), ...normalizeRefs(post?.reference_media)];
   const scriptText = scriptToText(post?.script);
@@ -414,7 +412,9 @@ export function PautaDetailModal({
               <div key={p.id} className="flex items-center gap-2 px-3 py-2 text-sm">
                 <span className="min-w-0 flex-1 truncate">
                   {p.connection_label ??
-                    (p.connection_channel ? channelLabel(p.connection_channel) : "Conta não definida")}
+                    (p.connection_channel
+                      ? channelLabel(p.connection_channel)
+                      : "Conta não definida")}
                 </span>
                 {p.format ? (
                   <span className="text-[11px] text-muted-foreground">

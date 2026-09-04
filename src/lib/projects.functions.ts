@@ -373,11 +373,7 @@ export const updateProject = createServerFn({ method: "POST" })
         data.brandId,
         data.patch.client_id,
       );
-    } else if (
-      data.patch.client_id === null &&
-      role !== "super_admin" &&
-      role !== "admin"
-    ) {
+    } else if (data.patch.client_id === null && role !== "super_admin" && role !== "admin") {
       // Tornar o projeto workspace-level exige autoridade de workspace.
       throw new Error("Forbidden: projeto sem cliente exige autoridade de workspace");
     }
@@ -432,7 +428,6 @@ export const deleteProject = createServerFn({ method: "POST" })
     assertAffected(rows, "excluir");
     return { ok: true };
   });
-
 
 /**
  * Detalhe completo (SOMENTE LEITURA) de um item da pauta para o modal aberto na
@@ -552,7 +547,9 @@ export const getPautaDetailFn = createServerFn({ method: "GET" })
     if (topicId) {
       const { data: row } = await context.supabase
         .from("monthly_plan_topics" as never)
-        .select("topic_title, angle, rationale, target_audience, status, client_status, client_comment")
+        .select(
+          "topic_title, angle, rationale, target_audience, status, client_status, client_comment",
+        )
         .eq("id", topicId)
         .maybeSingle();
       if (row) {
