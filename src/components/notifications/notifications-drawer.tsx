@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bell, BellOff, CheckCheck, Eraser, X } from "lucide-react";
+import { Bell, BellOff, CheckCheck, Eraser } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -196,15 +196,9 @@ export function NotificationsBell() {
             >
               <CheckCheck className="h-3.5 w-3.5" /> Marcar todas
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-muted-foreground"
-              aria-label="Fechar"
-              onClick={() => setOpen(false)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            {/* O fechar (✕) já vem do SheetContent — não duplicar aqui. */}
+            <span className="w-6 shrink-0" aria-hidden />
+
           </header>
 
           <ScrollArea className="min-h-0 flex-1">
