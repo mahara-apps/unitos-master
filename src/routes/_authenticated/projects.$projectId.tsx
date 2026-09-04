@@ -58,8 +58,10 @@ import { TaskDialog } from "@/components/content/task-dialog";
 import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { JobsPanel } from "@/components/projects/jobs-panel";
-import { ProjectTasksPanel } from "@/components/projects/project-tasks-panel";
-import { listJobsFn } from "@/lib/project-jobs.functions";
+import { CommentThread } from "@/components/projects/comment-thread";
+import { InvolvedPeople } from "@/components/projects/involved-people";
+import { StatusPicker } from "@/components/projects/status-picker";
+import { useAccessRole } from "@/hooks/use-access-role";
 
 export const Route = createFileRoute("/_authenticated/projects/$projectId")({
   component: ProjectDetailPage,
@@ -142,7 +144,8 @@ function ProjectDetailPage() {
   const navigate = useNavigate();
   const [openNewTask, setOpenNewTask] = useState(false);
   const [openSettings, setOpenSettings] = useState(false);
-  const [showJobs, setShowJobs] = useState(false);
+  const { userId, role } = useAccessRole();
+  const canEditProject = role === "admin" || role === "super_admin" || role === "manager";
 
   const qc = useQueryClient();
 
@@ -155,13 +158,6 @@ function ProjectDetailPage() {
   const listPipes = useServerFn(listPipelinesFn);
   const ensureDefault = useServerFn(ensureDefaultPipelineFn);
   const loadBoard = useServerFn(loadBoardFn);
-  const listJobsForCount = useServerFn(listJobsFn);
-
-  const jobsCountQ = useQuery({
-    queryKey: ["project-jobs", brandId, projectId],
-    queryFn: () => listJobsForCount({ data: { brandId: brandId!, projectId } }),
-    enabled: !!brandId,
-  });
 
   const projectQ = useQuery({
     queryKey: ["project", brandId, projectId],
@@ -184,7 +180,11 @@ function ProjectDetailPage() {
     name: string;
     color: string | null;
   }>;
-  const team = (teamQ.data?.members ?? []) as Array<{ user_id: string; full_name: string | null }>;
+  const team = (teamQ.data?.members ?? []) as Array<{
+    user_id: string;
+    full_name: string | null;
+    avatar_url?: string | null;
+  }>;
 
   const project = projectQ.data?.project;
   const posts = projectQ.data?.posts ?? [];
@@ -344,68 +344,9 @@ function ProjectDetailPage() {
   const statusLabel =
     STATUS_OPTIONS.find((s) => s.value === project.status)?.label ?? project.status;
 
-  return (
-    <DashboardPageShell>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="-ml-2 h-9 w-fit"
-        onClick={() => navigate({ to: "/projects" })}
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
-      </Button>
-
-      {/* Contexto essencial */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5 font-medium text-foreground">
-          <span className="h-2 w-2 rounded-full" style={{ background: color }} />
-          {clientName}
-        </span>
-        <span>•</span>
-        <span>
-          {fmtDate(project.start_date)} — {fmtDate(project.due_at)}
-        </span>
-        <span>•</span>
-        <span>{ownerName}</span>
-        <span>•</span>
-        <Badge variant="outline" className="text-[10px]">
-          {statusLabel}
-        </Badge>
-        {project.plan ? <PlanStatusBadge status={project.plan.status} prefix="Pauta:" /> : null}
-      </div>
-
-      {/* Faixa única de progresso */}
-      <DashboardPanelSurface className="p-5">
-        <div className="mb-2 flex items-end justify-between gap-4">
-          <div>
-            <h3 className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
-              Progresso
-            </h3>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {doneItems} de {totalItems} peças concluídas
-            </p>
-          </div>
-          <span className="text-3xl font-semibold leading-none" style={{ color }}>
-            {pct}%
-          </span>
-        </div>
-        <Progress value={pct} className="h-2" />
-        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-muted-foreground">
-          <span>
-            Total <strong className="text-foreground tabular-nums">{totalItems}</strong>
-          </span>
-          <span>
-            Em produção <strong className="text-foreground tabular-nums">{stats.pending}</strong>
-          </span>
-          <span>
-            Aprovadas <strong className="text-foreground tabular-nums">{stats.approved}</strong>
-          </span>
-          <span>
-            Publicadas <strong className="text-foreground tabular-nums">{stats.published}</strong>
-          </span>
-        </div>
-      </DashboardPanelSurface>
-
+  // Conteúdo do job virtual "Pautas" (nível 2 da hierarquia).
+  const pautasContent = (
+    <>
       {/* Itens da pauta neste projeto */}
       <DashboardPanelSurface>
         <div className="flex items-center justify-between border-b border-border/60 bg-background/40 px-4 py-2.5">
@@ -534,27 +475,112 @@ function ProjectDetailPage() {
           </div>
         )}
       </DashboardPanelSurface>
+    </>
+  );
 
-      {/* Tarefas do projeto (execução operacional) */}
-      <ProjectTasksPanel
+  return (
+    <DashboardPageShell>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="-ml-2 h-9 w-fit"
+        onClick={() => navigate({ to: "/projects" })}
+      >
+        <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+      </Button>
+
+      {/* Contexto essencial */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5 font-medium text-foreground">
+          <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+          {clientName}
+        </span>
+        <span>•</span>
+        <span>
+          {fmtDate(project.start_date)} — {fmtDate(project.due_at)}
+        </span>
+        <span>•</span>
+        <span>{ownerName}</span>
+        <span>•</span>
+        <Badge variant="outline" className="text-[10px]">
+          {statusLabel}
+        </Badge>
+        {project.plan ? <PlanStatusBadge status={project.plan.status} prefix="Pauta:" /> : null}
+      </div>
+
+      {/* Faixa única de progresso */}
+      <DashboardPanelSurface className="p-5">
+        <div className="mb-2 flex items-end justify-between gap-4">
+          <div>
+            <h3 className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+              Progresso
+            </h3>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {doneItems} de {totalItems} peças concluídas
+            </p>
+          </div>
+          <span className="text-3xl font-semibold leading-none" style={{ color }}>
+            {pct}%
+          </span>
+        </div>
+        <Progress value={pct} className="h-2" />
+        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-muted-foreground">
+          <span>
+            Total <strong className="text-foreground tabular-nums">{totalItems}</strong>
+          </span>
+          <span>
+            Em produção <strong className="text-foreground tabular-nums">{stats.pending}</strong>
+          </span>
+          <span>
+            Aprovadas <strong className="text-foreground tabular-nums">{stats.approved}</strong>
+          </span>
+          <span>
+            Publicadas <strong className="text-foreground tabular-nums">{stats.published}</strong>
+          </span>
+        </div>
+      </DashboardPanelSurface>
+
+      {/* Nível 1 — PROJETO: envolvidos, status e observações */}
+      <DashboardPanelSurface className="space-y-3 p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            Status do projeto
+          </span>
+          <StatusPicker
+            brandId={brandId!}
+            scope="project"
+            value={project.status_id ?? null}
+            onChange={(statusId) => saveField({ status_id: statusId })}
+          />
+        </div>
+        <InvolvedPeople
+          brandId={brandId!}
+          projectId={projectId}
+          team={team}
+          canEdit={canEditProject}
+        />
+      </DashboardPanelSurface>
+
+      {/* Nível 2 e 3 — JOBS › TAREFAS (área operacional principal) */}
+      <JobsPanel
         brandId={brandId!}
         projectId={projectId}
-        clientId={project.client_id ?? null}
+        projectName={project.name}
+        team={team}
+        currentUserId={userId}
+        pautasContent={<div className="overflow-hidden rounded-lg border border-border/60">{pautasContent}</div>}
+        pautasCount={items.length + extraPosts.length}
       />
 
-      {/* Jobs: apenas quando existirem (fluxo opcional/avançado) */}
-      {(jobsCountQ.data?.length ?? 0) > 0 || showJobs ? (
-        <JobsPanel brandId={brandId!} projectId={projectId} />
-      ) : (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-fit px-2 text-[11px] text-muted-foreground"
-          onClick={() => setShowJobs(true)}
-        >
-          <Plus className="mr-1.5 h-3.5 w-3.5" /> Organizar em jobs (opcional)
-        </Button>
-      )}
+      <DashboardPanelSurface className="overflow-hidden">
+        <CommentThread
+          brandId={brandId!}
+          level="project"
+          projectId={projectId}
+          currentUserId={userId}
+          placeholder="Observação geral do projeto…"
+        />
+      </DashboardPanelSurface>
 
       {/* Configurações do projeto */}
       <Dialog open={openSettings} onOpenChange={setOpenSettings}>
