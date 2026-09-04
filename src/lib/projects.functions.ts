@@ -405,6 +405,38 @@ export const archiveProject = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Arquiva/restaura o projeto. Restaurar devolve o projeto para um status ativo
+ * (padrão: "in_progress") — nada é apagado nas duas direções.
+ */
+export const setProjectArchivedFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        projectId: z.string().uuid(),
+        archived: z.boolean(),
+        restoreStatus: ProjectStatus.exclude(["archived"]).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertBrandMember(context.supabase as never, context.userId, data.brandId);
+    await assertProjectScope(context.supabase as never, context.userId, data.projectId);
+    const status = data.archived ? "archived" : (data.restoreStatus ?? "in_progress");
+    const { data: rows, error } = await context.supabase
+      .from("projects")
+      .update({ status } as never)
+      .eq("id", data.projectId)
+      .eq("brand_id", data.brandId)
+      .select("id");
+    if (error) throw error;
+    assertAffected(rows, data.archived ? "arquivar" : "restaurar");
+    return { ok: true };
+  });
+
+
 export const deleteProject = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
