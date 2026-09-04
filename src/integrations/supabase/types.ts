@@ -5547,36 +5547,54 @@ export type Database = {
       }
       project_jobs: {
         Row: {
+          archived_at: string | null
+          assignee_id: string | null
           brand_id: string
           color: string | null
           created_at: string
           description: string | null
+          done_at: string | null
+          due_at: string | null
           id: string
           name: string
           position: number
           project_id: string
+          start_date: string | null
+          status_id: string | null
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
+          assignee_id?: string | null
           brand_id: string
           color?: string | null
           created_at?: string
           description?: string | null
+          done_at?: string | null
+          due_at?: string | null
           id?: string
           name: string
           position?: number
           project_id: string
+          start_date?: string | null
+          status_id?: string | null
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
+          assignee_id?: string | null
           brand_id?: string
           color?: string | null
           created_at?: string
           description?: string | null
+          done_at?: string | null
+          due_at?: string | null
           id?: string
           name?: string
           position?: number
           project_id?: string
+          start_date?: string | null
+          status_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -5596,6 +5614,59 @@ export type Database = {
           },
           {
             foreignKeyName: "project_jobs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_jobs_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "work_statuses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_participants: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_participants_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "project_participants_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_participants_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
@@ -5735,11 +5806,13 @@ export type Database = {
       }
       projects: {
         Row: {
+          archived_at: string | null
           brand_id: string
           client_id: string | null
           color: string | null
           created_at: string
           description: string | null
+          done_at: string | null
           due_at: string | null
           goals: string | null
           id: string
@@ -5749,14 +5822,17 @@ export type Database = {
           progress: number
           start_date: string | null
           status: Database["public"]["Enums"]["project_status"]
+          status_id: string | null
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
           brand_id: string
           client_id?: string | null
           color?: string | null
           created_at?: string
           description?: string | null
+          done_at?: string | null
           due_at?: string | null
           goals?: string | null
           id?: string
@@ -5766,14 +5842,17 @@ export type Database = {
           progress?: number
           start_date?: string | null
           status?: Database["public"]["Enums"]["project_status"]
+          status_id?: string | null
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
           brand_id?: string
           client_id?: string | null
           color?: string | null
           created_at?: string
           description?: string | null
+          done_at?: string | null
           due_at?: string | null
           goals?: string | null
           id?: string
@@ -5783,6 +5862,7 @@ export type Database = {
           progress?: number
           start_date?: string | null
           status?: Database["public"]["Enums"]["project_status"]
+          status_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -5812,6 +5892,13 @@ export type Database = {
             columns: ["monthly_plan_id"]
             isOneToOne: false
             referencedRelation: "monthly_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "work_statuses"
             referencedColumns: ["id"]
           },
         ]
@@ -6316,7 +6403,9 @@ export type Database = {
           post_id: string | null
           priority: Database["public"]["Enums"]["task_priority"]
           project_id: string | null
+          start_date: string | null
           status: Database["public"]["Enums"]["task_status"]
+          status_id: string | null
           title: string
           total_minutes: number
           updated_at: string
@@ -6339,7 +6428,9 @@ export type Database = {
           post_id?: string | null
           priority?: Database["public"]["Enums"]["task_priority"]
           project_id?: string | null
+          start_date?: string | null
           status?: Database["public"]["Enums"]["task_status"]
+          status_id?: string | null
           title: string
           total_minutes?: number
           updated_at?: string
@@ -6362,7 +6453,9 @@ export type Database = {
           post_id?: string | null
           priority?: Database["public"]["Enums"]["task_priority"]
           project_id?: string | null
+          start_date?: string | null
           status?: Database["public"]["Enums"]["task_status"]
+          status_id?: string | null
           title?: string
           total_minutes?: number
           updated_at?: string
@@ -6408,6 +6501,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "work_statuses"
             referencedColumns: ["id"]
           },
         ]
@@ -6535,6 +6635,125 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_comments: {
+        Row: {
+          author_id: string
+          body: string
+          brand_id: string
+          created_at: string
+          id: string
+          job_id: string | null
+          mentions: string[]
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          brand_id: string
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          mentions?: string[]
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          brand_id?: string
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          mentions?: string[]
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_comments_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "work_comments_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_comments_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "project_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_comments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_statuses: {
+        Row: {
+          brand_id: string
+          color: string
+          created_at: string
+          id: string
+          is_default: boolean
+          is_done: boolean
+          name: string
+          position: number
+          scope: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          color?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          is_done?: boolean
+          name: string
+          position?: number
+          scope: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          color?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          is_done?: boolean
+          name?: string
+          position?: number
+          scope?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_statuses_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "work_statuses_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
             referencedColumns: ["id"]
           },
         ]
