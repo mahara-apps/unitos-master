@@ -33,6 +33,7 @@ import {
   type MetaConnectState,
 } from "@/lib/meta/connect-flow";
 import type { DiscoveredAccountsResult } from "@/lib/meta/discovery.functions";
+import { MetaAssetsPanel } from "@/components/connections/meta-portfolio-dialog";
 
 /**
  * Modal "Conectar canais" — CAMADA DE APRESENTAÇÃO.
