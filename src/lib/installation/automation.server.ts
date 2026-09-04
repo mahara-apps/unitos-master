@@ -633,7 +633,7 @@ export function createCodeClient(input: {
         if (!changed.length && !removed.length && parent) {
           return { ok: true, commitSha: parent, changed: 0 };
         }
-        if (options.dryRun) {
+        if (opts.dryRun) {
           return { ok: true, commitSha: parent ?? undefined, changed: changed.length + removed.length };
         }
 

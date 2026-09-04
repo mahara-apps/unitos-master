@@ -1442,7 +1442,7 @@ export const adoptInstallationRepositoryFn = createServerFn({ method: "POST" })
     }
     // Confere o conteúdo sem publicar: 0 arquivos diferentes = repositório já
     // está na versão do MASTER.
-    const check = await code.publishSnapshot(head.sha, { timeBudgetMs: 1 });
+    const check = await code.publishSnapshot(head.sha, { dryRun: true });
     if (!check.ok) throw new Error(check.error ?? "Repositório inacessível com este token.");
 
     const operation = await findRunningProvision(context.supabase as never, data.id);
