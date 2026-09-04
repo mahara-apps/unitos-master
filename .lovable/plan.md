@@ -1,53 +1,79 @@
-# Projetos > Jobs > Tarefas: hierarquia clara + comentários por nível
+# Projetos > Jobs > Tarefas: hierarquia, responsáveis, status e comentários
 
-Reorganizar a tela do projeto para que a hierarquia fique explícita e navegável, no espírito das referências enviadas, sem quebrar dados, permissões ou fluxos existentes (pauta → produção continua igual).
+Reorganizar a área de Projetos para que a hierarquia fique explícita e navegável (referências enviadas), e completar responsabilidade, datas, status cadastráveis e conclusão/arquivamento em cada nível — sem quebrar dados, permissões ou o fluxo pauta → produção.
 
 ## Hierarquia final
 
 ```text
-Projeto  (visão geral: cliente, período, responsável, progresso, comentários do projeto)
-  └── Job  (agrupador: "Pautas" automático, "Fazer criativos", "Relatórios"...)
-        └── Tarefa  (ex.: Design cria peças, Ajustar peça 2, item de pauta)
+Projeto  (responsável + envolvidos, datas, status, progresso, comentários)
+  └── Job  (responsável, datas, status, comentários)  ex.: Pautas, Fazer criativos, Relatórios
+        └── Tarefa  (responsável, datas, status, comentários)  ex.: Design cria peças, Ajustar peça 2
 ```
 
 ## 1. Tela do Projeto (Visão geral)
 
-- Cabeçalho enxuto: cliente, período, responsável, status, badge da pauta e progresso — como hoje.
-- Bloco **Jobs** como conteúdo principal: lista de jobs em linhas densas com nome, contagem de tarefas concluídas/total, tempo somado, prazo e responsável (padrão da referência "JOBS / Pauta").
-- Clicar em um job abre a visão do job (não mais um painel lateral escondido).
-- Painel lateral direito com abas **Comentários** e **Histórico** do projeto.
-- O bloco atual "Itens da pauta / Peças do projeto" deixa de ser uma seção solta: passa a ser o job **Pautas**.
+- Cabeçalho enxuto: cliente, período, status, responsável e badge da pauta.
+- Faixa de progresso como hoje.
+- Bloco **Jobs** como conteúdo principal: linhas densas com nome, tarefas concluídas/total, tempo somado, prazo, responsável (avatar) e status — no espírito da tela "JOBS / Pauta" da referência.
+- Rodapé/faixa **Envolvidos no projeto** com avatares e botão para adicionar/remover pessoas.
+- Painel lateral direito com **Comentários** do projeto.
+- O bloco atual "Itens da pauta / Peças do projeto" passa a ser o job **Pautas**.
 
 ## 2. Job "Pautas" automático
 
-- Todo projeto com pauta vinculada exibe um job fixo **Pautas**, que lista os itens da pauta (mesma consulta e mesmos estados/badges de hoje, incluindo "Abrir peça").
-- Esse job aparece junto dos jobs manuais, mas não pode ser renomeado nem excluído (é derivado da pauta).
-- Peças sem tópico de pauta continuam listadas nesse mesmo job, numa subseção "Fora da pauta".
+- Projeto com pauta vinculada mostra um job fixo **Pautas** listando os itens da pauta (mesma consulta, mesmos estados e botão "Abrir peça").
+- Não pode ser renomeado nem excluído (é derivado da pauta). Peças sem tópico de pauta aparecem nele como "Fora da pauta".
 
 ## 3. Visão do Job
 
-- Coluna esquerda: navegação entre jobs do projeto (mantém o comportamento atual do JobsPanel).
-- Centro: tarefas do job com checkbox de concluir, responsável, prazo, status, tempo e criação rápida — tudo já existente, apenas reorganizado.
-- Direita: **Comentários** do job.
-- Breadcrumb `Projeto > Job` para deixar a hierarquia visível.
+- Esquerda: navegação entre jobs. Centro: tarefas do job. Direita: comentários do job.
+- Breadcrumb `Projeto > Job`.
+- Cabeçalho do job editável: responsável (1 pessoa), início/prazo, status, e "Concluir job".
 
 ## 4. Tarefa
 
-- Ao clicar numa tarefa abre o detalhe (drawer/modal) com breadcrumb `Projeto > Job > Tarefa`, campos já existentes (status, responsável, prazo, estimativa, timesheet, subtarefas) e a aba **Comentários** da tarefa, que já existe no banco.
+- Detalhe (drawer) com breadcrumb `Projeto > Job > Tarefa`: responsável único, início/prazo, status, prioridade, estimativa, timesheet, subtarefas e comentários.
+- Botão **Concluir** marca como concluída e arquiva automaticamente.
 
-## 5. Comentários / observações em 3 níveis
+## 5. Responsáveis e envolvidos
 
-- Projeto, Job e Tarefa passam a ter seu próprio fio de comentários, com autor, data, avatar e exclusão pelo próprio autor.
-- Tarefa reutiliza o que já existe (`task_comments`).
-- Projeto e Job usam uma nova tabela de comentários de trabalho, com as mesmas regras de acesso dos projetos (workspace + escopo de cliente).
+- **Responsável**: exatamente 1 usuário em cada nível (projeto, job, tarefa). Projeto e tarefa já têm esse campo; job passa a ter.
+- **Envolvidos**: lista de pessoas no nível do **projeto**. Jobs e tarefas herdam essa lista — os seletores de responsável de job/tarefa oferecem primeiro os envolvidos do projeto (com opção de escolher qualquer membro do workspace com acesso ao cliente).
+- Adicionar alguém como responsável de um job/tarefa inclui a pessoa nos envolvidos do projeto automaticamente.
+
+## 6. Datas, status cadastráveis e conclusão
+
+- Datas de **início** e **prazo** em projeto, job e tarefa.
+- **Status cadastráveis por workspace**, com escopo (projeto / job / tarefa): nome, cor, ordem, marcador "conclui" e "padrão". Gerenciados em Configurações; enquanto não houver status cadastrados, valem os status atuais como padrão (nada quebra).
+- **Concluir** em qualquer nível: grava data de conclusão e arquiva automaticamente (sai das listas ativas).
+- Filtro/aba **Concluídas** (e arquivadas) em cada nível, para consultar e, se preciso, reabrir.
+
+## 7. Comentários / observações em 3 níveis
+
+- Projeto, Job e Tarefa com fio próprio de comentários (autor, data, avatar, exclusão pelo autor).
+- Tarefa reutiliza o que já existe; projeto e job usam a nova tabela de comentários de trabalho.
 
 ## Detalhes técnicos
 
-- Banco: nova tabela `public.work_comments` (`brand_id`, `project_id`, `job_id` nullable, `author_id`, `body`, `mentions`), com GRANTs para `authenticated`/`service_role`, RLS habilitada e policies baseadas em `can_access_project(project_id, auth.uid())` para leitura/inserção; exclusão apenas pelo autor. Nenhuma alteração em `tasks`, `project_jobs` ou `task_comments`.
-- Novo `src/lib/work-comments.functions.ts` com `listWorkCommentsFn` / `addWorkCommentFn` / `deleteWorkCommentFn` (`createServerFn` + `requireSupabaseAuth`), espelhando o padrão de `tasks.functions.ts`.
-- Novo componente `src/components/projects/comment-thread.tsx` (thread genérica) usado nos três níveis; nas tarefas ele consome as funções de `task_comments`.
-- `src/routes/_authenticated/projects.$projectId.tsx`: reorganiza a renderização — remove o toggle `showJobs`, promove `JobsPanel` a conteúdo principal, transforma a lista de itens da pauta no job virtual "Pautas" e adiciona o painel de comentários. Nenhuma mudança nas queries `getProject`, `listJobsFn`, `listProjectTasksFn`.
-- `src/components/projects/jobs-panel.tsx`: aceita o job virtual "Pautas" (id sintético) sem permitir renomear/excluir, exibe breadcrumb e a coluna de comentários do job.
-- `ProjectTasksPanel` deixa de ser uma seção duplicada na visão geral (as tarefas passam a viver dentro dos jobs); o componente permanece no repositório para não quebrar outros usos.
-- KPIs/resumos numéricos continuam via `PageKpi`/`PageKpiGrid`; cores e tipografia só por tokens semânticos.
+Banco (uma migration, tudo aditivo e com GRANTs + RLS):
+
+- `public.work_comments`: `brand_id`, `project_id`, `job_id` nullable, `author_id`, `body`, `mentions`. Policies via `can_access_project(project_id, auth.uid())`; exclusão só pelo autor.
+- `public.project_participants`: `brand_id`, `project_id`, `user_id`, `created_at`, único por (projeto, usuário). Mesmas regras de acesso do projeto.
+- `public.work_statuses`: `brand_id`, `scope` ('project' | 'job' | 'task'), `name`, `color`, `position`, `is_done`, `is_default`. Leitura para membros do workspace; escrita conforme `workspaceAdminActions`.
+- `project_jobs`: novas colunas `assignee_id`, `start_date`, `due_at`, `status_id`, `done_at`, `archived_at`.
+- `projects`: novas colunas `status_id`, `done_at`, `archived_at` (a coluna `status` enum atual continua existindo e sendo espelhada, para não quebrar telas/filtros).
+- `tasks`: nova coluna `start_date` e `status_id`; `done`, `done_at`, `archived_at` já existem e passam a ser gravados juntos ao concluir.
+
+Código:
+
+- `src/lib/work-comments.functions.ts`, `src/lib/project-participants.functions.ts`, `src/lib/work-statuses.functions.ts` — `createServerFn` + `requireSupabaseAuth`, no padrão de `tasks.functions.ts`.
+- `src/lib/project-jobs.functions.ts`: incluir os novos campos no select/patch e ações de concluir/reabrir; listagem separa ativos de arquivados.
+- `src/lib/projects.functions.ts` e `src/lib/tasks.functions.ts`: aceitar `status_id`, `start_date` e conclusão com arquivamento.
+- Componentes novos: `comment-thread.tsx` (usada nos 3 níveis), `assignee-picker.tsx`, `involved-people.tsx`, `status-picker.tsx` (lê `work_statuses` com fallback aos status atuais).
+- `src/routes/_authenticated/projects.$projectId.tsx`: remove o toggle `showJobs`, promove `JobsPanel` a conteúdo principal, converte itens da pauta no job virtual "Pautas", adiciona envolvidos e comentários.
+- `src/components/projects/jobs-panel.tsx`: job virtual "Pautas" (id sintético, sem renomear/excluir), breadcrumb, cabeçalho do job com responsável/datas/status/concluir, aba "Concluídas".
+- `ProjectTasksPanel` deixa de ser seção duplicada na visão geral; o componente permanece no repositório.
+- KPIs via `PageKpi`/`PageKpiGrid`; cores/tipografia só por tokens semânticos; datas via `src/lib/timezone.ts` (America/Sao_Paulo).
 - Ao final: `tsgo --noEmit`, testes relacionados e build.
+
+Fora de escopo: alterar o fluxo de aprovação de pauta, RBAC e RLS existentes.
