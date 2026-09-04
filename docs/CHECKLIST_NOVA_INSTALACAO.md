@@ -141,8 +141,24 @@ Conferir:
 
 ## Bloco 5 — Variáveis aplicadas pelo provisionamento
 
+**Nunca digitar variáveis na Vercel.** É normal (e esperado) que o projeto de
+deploy esteja **sem nenhuma variável** antes de rodar o provisionamento: elas
+são criadas pela automação, na etapa *Deploy conectado*, nesta ordem:
+
+1. vincula o projeto de deploy ao repositório da instalação;
+2. desliga o auto-deploy por Git;
+3. grava todas as variáveis abaixo (production, preview e development, com as
+   sensíveis cifradas);
+4. dispara o **primeiro build** a partir do repositório — funciona mesmo quando
+   o projeto ainda não tem nenhum deployment;
+5. confere a URL operacional respondendo por HTTP.
+
+Se algo aqui falhar, a etapa fica em erro com o motivo e o provisionamento pode
+ser retomado: as etapas concluídas não são refeitas.
+
 Gravadas automaticamente no projeto de deploy. Listadas aqui para auditoria,
 não para digitação:
+
 
 | Variável | Origem |
 | --- | --- |
