@@ -414,7 +414,7 @@ export function PautaDetailModal({
               <div key={p.id} className="flex items-center gap-2 px-3 py-2 text-sm">
                 <span className="min-w-0 flex-1 truncate">
                   {p.connection_label ??
-                    (p.connection_channel ? channelLabel(p.connection_channel) : "Conta не definida")}
+                    (p.connection_channel ? channelLabel(p.connection_channel) : "Conta não definida")}
                 </span>
                 {p.format ? (
                   <span className="text-[11px] text-muted-foreground">
