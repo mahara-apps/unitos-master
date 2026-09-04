@@ -705,15 +705,6 @@ export function TaskDrawer({
     },
   });
 
-  useEffect(() => {
-    const m = /(^|\s)@([^\s@]{0,40})$/.exec(comment);
-    if (m) {
-      setMentionQuery(m[2] ?? "");
-      setMentionOpen(true);
-    } else {
-      setMentionOpen(false);
-    }
-  }, [comment]);
 
   // J/K navigation
   useEffect(() => {
