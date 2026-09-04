@@ -202,3 +202,49 @@ describe("publicação em repositório sem objetos compartilhados", () => {
     expect(dry.posted).toHaveLength(0);
   });
 });
+
+describe("objetos do MASTER apenas parcialmente disponíveis", () => {
+  it("recua para cópia de blobs quando a árvore compartilhada é recusada (422)", async () => {
+    const posted: string[] = [];
+    let treeAttempts = 0;
+    const c = createCodeClient({
+      token: "gh",
+      owner: "acme",
+      repo: "unitos-pitada",
+      masterRepo: "mahara-apps/unitos-master",
+      fetchImpl: (async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? "GET";
+        if (method !== "GET") posted.push(`${method} ${url}`);
+        if (url.includes("/repos/mahara-apps/unitos-master/git/trees")) {
+          return Response.json({
+            tree: [{ path: "a.ts", type: "blob", mode: "100644", sha: "s1" }],
+          });
+        }
+        if (url.includes("/repos/acme/unitos-pitada/git/trees/")) return Response.json({ tree: [] });
+        if (url.includes("/git/ref/heads/main")) return Response.json({ object: { sha: "dest" } });
+        // Probe passa (objeto existe), mas a árvore é recusada.
+        if (url.includes("/repos/acme/unitos-pitada/git/blobs/")) return Response.json({ sha: "s1" });
+        if (url.includes("/repos/mahara-apps/unitos-master/git/blobs/")) {
+          return Response.json({ content: "eA==", encoding: "base64" });
+        }
+        if (url.endsWith("/git/blobs")) return Response.json({ sha: "copiado" });
+        if (url.endsWith("/git/trees")) {
+          treeAttempts += 1;
+          if (treeAttempts === 1) {
+            return new Response(JSON.stringify({ message: "tree.sha s1 is not a valid blob" }), {
+              status: 422,
+            });
+          }
+          return Response.json({ sha: "tree_new" });
+        }
+        if (url.includes("/git/commits")) return Response.json({ sha: "commit_new" });
+        return Response.json({ ok: true });
+      }) as never,
+    });
+    const res = await c.publishSnapshot("master_sha");
+    expect(res.ok).toBe(true);
+    expect(res.commitSha).toBe("commit_new");
+    expect(treeAttempts).toBe(2);
+    expect(posted.some((p) => p.includes("POST") && p.endsWith("/git/blobs"))).toBe(true);
+  });
+});
