@@ -628,31 +628,34 @@ export function ConnectChannelsDialog({
             </>
           ) : null}
         </div>
+        )}
 
-        <div className="flex items-center gap-2 border-t bg-muted/20 px-6 py-3.5">
-          <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted-foreground">
-            Você será redirecionado para a plataforma oficial da Meta. O Unitos não solicita sua
-            senha.
-          </p>
-          {state.kind === "authorized" ? (
-            <Button size="sm" className="h-8 shrink-0 text-xs" onClick={onContinue}>
-              {summary && summary.total > 0
-                ? "Selecionar ativos"
-                : "Continuar com dados disponíveis"}
-              <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 shrink-0 text-xs"
-              onClick={() => onOpenChange(false)}
-            >
-              Fechar
-            </Button>
-          )}
-        </div>
+        {!inAssets ? (
+          <div className="flex items-center gap-2 border-t bg-muted/20 px-6 py-3.5">
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted-foreground">
+              Você será redirecionado para a plataforma oficial da Meta. O Unitos não solicita sua
+              senha.
+            </p>
+            {state.kind === "authorized" ? (
+              <Button size="sm" className="h-8 shrink-0 text-xs" onClick={onContinue}>
+                {summary && summary.total > 0
+                  ? "Selecionar ativos"
+                  : "Continuar com dados disponíveis"}
+                <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 shrink-0 text-xs"
+                onClick={() => onOpenChange(false)}
+              >
+                Fechar
+              </Button>
+            )}
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   );
