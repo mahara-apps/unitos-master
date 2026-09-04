@@ -1545,12 +1545,43 @@ export async function runAutomatedUpdate(input: {
   }
 
   await report(client, operation, "build", "done", url ? `publicado em ${url}` : "publicado");
-  await report(client, operation, "version", "done", MASTER_RELEASE_VERSION);
+  const shortSha = targetSha ? targetSha.slice(0, 7) : null;
+  await report(
+    client,
+    operation,
+    "version",
+    "done",
+    shortSha ? `${MASTER_RELEASE_VERSION} (${shortSha})` : MASTER_RELEASE_VERSION,
+  );
+
+  // Fixa a versão publicada: a instalação passa a ficar parada neste ponto do
+  // código até uma nova autorização.
+  if (targetSha) {
+    await (
+      client.from("installations") as unknown as {
+        update: (v: Record<string, unknown>) => { eq: (c: string, v: string) => Promise<unknown> };
+      }
+    )
+      .update({
+        pinned_commit_sha: targetSha,
+        pinned_release: MASTER_RELEASE_VERSION,
+        pinned_at: new Date().toISOString(),
+      })
+      .eq("id", installation.id)
+      .then(
+        () => undefined,
+        () => undefined,
+      );
+  }
+
   await finalizeOperation(client as never, operation as never, {
     ok: true,
     version: MASTER_RELEASE_VERSION,
-    summary: `Atualização aplicada: código do MASTER (${MASTER_RELEASE_VERSION}) publicado na instalação.`,
+    summary: shortSha
+      ? `Atualização aplicada: código do MASTER (${MASTER_RELEASE_VERSION} · ${shortSha}) publicado na instalação.`
+      : `Atualização aplicada: código do MASTER (${MASTER_RELEASE_VERSION}) publicado na instalação.`,
   }).catch(() => undefined);
+
 
   return { result: "PASS", reasons: [] };
 }
