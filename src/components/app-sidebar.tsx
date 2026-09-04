@@ -326,9 +326,12 @@ function UserProfileMenu() {
   useSidebar();
   const queryClient = useQueryClient();
   const fetchProfile = useServerFn(getMyProfile);
+  const { userId } = useSessionUser();
   const { data: profile } = useQuery({
-    queryKey: ["me", "profile"],
+    queryKey: ["me", "profile", userId],
     queryFn: () => fetchProfile(),
+    enabled: Boolean(userId),
+    retry: 0,
     staleTime: 30_000,
   });
   const user = profile
