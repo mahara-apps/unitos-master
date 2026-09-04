@@ -273,14 +273,42 @@ export function BriefingWorkspace({
   });
 
   const [form, setForm] = useState<FormState | null>(null);
-  useEffect(() => {
-    if (hubQ.data && !form) setForm(toForm(hubQ.data));
-  }, [hubQ.data, form]);
-
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  /** Versão (updated_at) do briefing que gerou o formulário em tela. */
+  const [syncedVersion, setSyncedVersion] = useState<string | null>(null);
+  /** Edições locais ainda não salvas — evita sobrescrever o trabalho do usuário. */
+  const [dirty, setDirty] = useState(false);
+  /** Versão mais nova disponível no servidor quando há edições pendentes. */
+  const [incomingVersion, setIncomingVersion] = useState<string | null>(null);
+
+  const applyServerData = useCallback((client: BrandHubClient) => {
+    setForm(toForm(client));
+    setSyncedVersion(client.updated_at ?? null);
+    setSavedAt(client.updated_at ?? null);
+    setDirty(false);
+    setIncomingVersion(null);
+  }, []);
+
+  // Sincroniza o formulário sempre que chega uma versão nova do briefing
+  // (importação por IA, geração de estratégia, edição em outra aba).
   useEffect(() => {
-    if (hubQ.data?.updated_at && !savedAt) setSavedAt(hubQ.data.updated_at);
-  }, [hubQ.data?.updated_at, savedAt]);
+    const data = hubQ.data;
+    if (!data) return;
+    const version = data.updated_at ?? null;
+    if (form && version === syncedVersion) return;
+    if (!form || !dirty) {
+      applyServerData(data);
+      return;
+    }
+    setIncomingVersion(version);
+  }, [hubQ.data, form, dirty, syncedVersion, applyServerData]);
+
+  /** Toda edição do formulário passa por aqui para marcar alterações pendentes. */
+  const updateForm = useCallback((next: FormState) => {
+    setDirty(true);
+    setForm(next);
+  }, []);
+
 
   const completion = useMemo(() => (form ? computeCompletion(form) : 0), [form]);
 
