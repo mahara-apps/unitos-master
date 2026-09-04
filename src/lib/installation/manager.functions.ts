@@ -1318,16 +1318,39 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
     });
     const project = await deploy.deploymentUrl();
 
+    // 404 na Vercel = o projeto não existe no escopo desse token (conta pessoal
+    // vs equipe). Explicamos o que conferir e listamos os projetos visíveis.
+    let deployDetail = project.ok
+      ? `projeto de deploy ${target.deployProject} acessível`
+      : (project.error ?? "acesso negado");
+    if (!project.ok && /HTTP 404/.test(deployDetail)) {
+      const teamId = (env["UNITOS_VERCEL_TEAM_ID"] ?? "").trim();
+      const url = `https://api.vercel.com/v9/projects?limit=100${
+        teamId ? `&teamId=${encodeURIComponent(teamId)}` : ""
+      }`;
+      let visible: string[] = [];
+      try {
+        const res = await fetch(url, {
+          headers: { authorization: `Bearer ${(env["UNITOS_VERCEL_TOKEN"] ?? "").trim()}` },
+        });
+        const body = (await res.json().catch(() => ({}))) as { projects?: Array<{ name?: string }> };
+        visible = (body.projects ?? []).map((p) => p.name ?? "").filter(Boolean);
+      } catch {
+        visible = [];
+      }
+      deployDetail =
+        `projeto de deploy "${target.deployProject}" não encontrado com este token` +
+        (teamId ? ` na equipe ${teamId}` : " (nenhuma equipe informada)") +
+        ". Confira o nome exato do projeto na Vercel e informe o Team ID da equipe dona." +
+        (visible.length ? ` Projetos visíveis: ${visible.slice(0, 10).join(", ")}.` : "");
+    }
+
     return {
       database: {
         ok: ping.ok,
         detail: ping.ok ? `banco ${target.projectRef} acessível` : (ping.error ?? "acesso negado"),
       },
-      deploy: {
-        ok: project.ok,
-        detail: project.ok
-          ? `projeto de deploy ${target.deployProject} acessível`
-          : (project.error ?? "acesso negado"),
-      },
+      deploy: { ok: project.ok, detail: deployDetail },
     };
+
   });
