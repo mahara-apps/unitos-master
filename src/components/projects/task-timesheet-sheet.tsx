@@ -24,6 +24,7 @@ import {
 } from "@/lib/timesheet.functions";
 import { updateJobTaskFn } from "@/lib/project-jobs.functions";
 import { CommentThread } from "@/components/projects/comment-thread";
+import { WorkLinks } from "@/components/ui/work-links";
 import { AssigneePicker, type TeamOption } from "@/components/projects/assignee-picker";
 import { StatusPicker } from "@/components/projects/status-picker";
 
