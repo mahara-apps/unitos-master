@@ -188,7 +188,7 @@ describe("publicação em repositório sem objetos compartilhados", () => {
 
   it("devolve `partial` ao esgotar o orçamento de tempo, sem commitar", async () => {
     const many = scenario(250);
-    const res = await many.client.publishSnapshot("master_sha", { timeBudgetMs: -1 });
+    const res = await many.client.publishSnapshot("master_sha", { timeBudgetMs: 1 });
     expect(res.ok).toBe(true);
     expect(res.partial).toBe(true);
     expect(many.posted.some((p) => p.includes("/git/commits"))).toBe(false);
