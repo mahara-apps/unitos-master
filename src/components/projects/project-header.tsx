@@ -35,7 +35,7 @@ export function ProjectHeader({
 
   return (
     <DashboardPanelSurface className="overflow-hidden">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 sm:flex sm:flex-wrap sm:justify-between sm:gap-4">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-4 sm:flex sm:flex-wrap sm:justify-between sm:gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <span
             aria-hidden
@@ -43,7 +43,7 @@ export function ProjectHeader({
             style={{ background: color }}
           />
           <div className="min-w-0">
-            <h2 className="truncate text-lg font-semibold leading-tight sm:text-xl">{name}</h2>
+            <h2 className="truncate text-xl font-semibold leading-tight sm:text-2xl">{name}</h2>
             <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
               <span className="font-mono uppercase tracking-widest">Cliente</span>
               {clientNode ?? <span className="truncate">{clientName}</span>}
@@ -59,7 +59,7 @@ export function ProjectHeader({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 bg-background/40 px-4 py-2 text-[11px] text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border/60 bg-background/40 px-5 py-3 text-[11px] text-muted-foreground">
         <span className="tabular-nums">{periodLabel}</span>
         <span className="tabular-nums">
           {done}/{total} peças concluídas

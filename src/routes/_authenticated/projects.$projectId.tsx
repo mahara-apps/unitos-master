@@ -65,7 +65,6 @@ import { InvolvedPeople } from "@/components/projects/involved-people";
 import { StatusPicker } from "@/components/projects/status-picker";
 import { AssigneePicker } from "@/components/projects/assignee-picker";
 import { ProjectHeader } from "@/components/projects/project-header";
-import { WorkLinks } from "@/components/ui/work-links";
 import { setProjectArchivedFn } from "@/lib/projects.functions";
 import { useAccessRole } from "@/hooks/use-access-role";
 
