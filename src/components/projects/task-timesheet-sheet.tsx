@@ -22,6 +22,9 @@ import {
   type TimeEntry,
 } from "@/lib/timesheet.functions";
 import { updateJobTaskFn } from "@/lib/project-jobs.functions";
+import { CommentThread } from "@/components/projects/comment-thread";
+import { AssigneePicker, type TeamOption } from "@/components/projects/assignee-picker";
+import { StatusPicker } from "@/components/projects/status-picker";
 
 type Props = {
   open: boolean;
@@ -32,10 +35,27 @@ type Props = {
     title: string;
     estimated_minutes: number | null;
     total_minutes: number;
+    assignee_id?: string | null;
+    status_id?: string | null;
+    start_date?: string | null;
+    due_at?: string | null;
   } | null;
+  /** Caminho da hierarquia (Projeto › Job) mostrado no topo. */
+  breadcrumb?: string;
+  /** Equipe da workspace para escolher o responsável (1 por tarefa). */
+  team?: TeamOption[];
+  currentUserId?: string | null;
 };
 
-export function TaskTimesheetSheet({ open, onOpenChange, brandId, task }: Props) {
+export function TaskTimesheetSheet({
+  open,
+  onOpenChange,
+  brandId,
+  task,
+  breadcrumb,
+  team = [],
+  currentUserId,
+}: Props) {
   const qc = useQueryClient();
   const listFn = useServerFn(listTimeEntriesFn);
   const addFn = useServerFn(addManualEntryFn);
@@ -100,6 +120,16 @@ export function TaskTimesheetSheet({ open, onOpenChange, brandId, task }: Props)
     onSuccess: () => qc.invalidateQueries({ queryKey: ["job-tasks"] }),
   });
 
+  const metaMut = useMutation({
+    mutationFn: (patch: Record<string, unknown>) =>
+      patchTaskFn({ data: { brandId, taskId: task!.id, patch: patch as never } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["job-tasks"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const entries: TimeEntry[] = useMemo(() => entriesQ.data ?? [], [entriesQ.data]);
   const reworkSeconds = useMemo(
     () => entries.reduce((sum, e) => sum + (e.is_rework ? entryDurationSeconds(e) : 0), 0),
@@ -115,6 +145,40 @@ export function TaskTimesheetSheet({ open, onOpenChange, brandId, task }: Props)
     >
       {task && (
         <div className="space-y-6">
+          {breadcrumb ? (
+            <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              {breadcrumb}
+            </div>
+          ) : null}
+
+          {/* Responsável (1 por tarefa), status e datas */}
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 p-3">
+            <AssigneePicker
+              value={task.assignee_id ?? null}
+              options={team}
+              onChange={(userId) => metaMut.mutate({ assignee_id: userId })}
+            />
+            <StatusPicker
+              brandId={brandId}
+              scope="task"
+              value={task.status_id ?? null}
+              onChange={(statusId) => metaMut.mutate({ status_id: statusId })}
+            />
+            <Input
+              type="date"
+              className="h-8 w-[150px]"
+              aria-label="Início"
+              defaultValue={task.start_date ? task.start_date.slice(0, 10) : ""}
+              onBlur={(e) => metaMut.mutate({ start_date: e.target.value || null })}
+            />
+            <Input
+              type="date"
+              className="h-8 w-[150px]"
+              aria-label="Prazo"
+              defaultValue={task.due_at ? task.due_at.slice(0, 10) : ""}
+              onBlur={(e) => metaMut.mutate({ due_at: e.target.value || null })}
+            />
+          </div>
           {/* Timer (Play · Pause · Stop) */}
           <TaskTimerWidget
             brandId={brandId}
@@ -238,6 +302,17 @@ export function TaskTimesheetSheet({ open, onOpenChange, brandId, task }: Props)
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Comentários da TAREFA (nível mais baixo da hierarquia) */}
+          <div className="overflow-hidden rounded-lg border border-border/60">
+            <CommentThread
+              brandId={brandId}
+              level="task"
+              taskId={task.id}
+              currentUserId={currentUserId}
+              placeholder="Observação sobre esta tarefa…"
+            />
           </div>
         </div>
       )}

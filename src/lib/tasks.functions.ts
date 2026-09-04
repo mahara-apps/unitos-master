@@ -19,6 +19,8 @@ export type TaskRow = {
   priority: TaskPriority;
   assignee_id: string | null;
   due_at: string | null;
+  start_date: string | null;
+  status_id: string | null;
   done: boolean;
   done_at: string | null;
   archived_at: string | null;
@@ -64,7 +66,7 @@ export const listTasksFn = createServerFn({ method: "GET" })
     let q = context.supabase
       .from("tasks")
       .select(
-        "id, brand_id, client_id, project_id, post_id, title, description, status, priority, assignee_id, due_at, done, done_at, archived_at, created_by, created_at, updated_at",
+        "id, brand_id, client_id, project_id, post_id, title, description, status, priority, assignee_id, due_at, start_date, status_id, done, done_at, archived_at, created_by, created_at, updated_at",
       )
       .eq("brand_id", data.brandId)
       .order("created_at", { ascending: false })
@@ -266,6 +268,8 @@ const CreateTaskInput = z.object({
   client_id: z.string().uuid().nullable().optional(),
   project_id: z.string().uuid().nullable().optional(),
   due_at: z.string().nullable().optional(),
+  start_date: z.string().nullable().optional(),
+  status_id: z.string().uuid().nullable().optional(),
 });
 
 export const createTaskFn = createServerFn({ method: "POST" })
@@ -320,6 +324,8 @@ export const createTaskFn = createServerFn({ method: "POST" })
         client_id: clientId,
         project_id: data.project_id ?? null,
         due_at: data.due_at ?? null,
+        start_date: data.start_date ?? null,
+        status_id: data.status_id ?? null,
         created_by: context.userId,
       })
       .select("id")
@@ -339,6 +345,8 @@ const UpdateTaskInput = z.object({
     client_id: z.string().uuid().nullable().optional(),
     project_id: z.string().uuid().nullable().optional(),
     due_at: z.string().nullable().optional(),
+    start_date: z.string().nullable().optional(),
+    status_id: z.string().uuid().nullable().optional(),
     done: z.boolean().optional(),
   }),
 });
@@ -356,8 +364,11 @@ export const updateTaskFn = createServerFn({ method: "POST" })
       client_id?: string | null;
       project_id?: string | null;
       due_at?: string | null;
+      start_date?: string | null;
+      status_id?: string | null;
       done?: boolean;
       done_at?: string | null;
+      archived_at?: string | null;
     };
     if (patch.project_id !== undefined || patch.client_id !== undefined) {
       const { data: current, error: curErr } = await context.supabase
@@ -402,10 +413,13 @@ export const updateTaskFn = createServerFn({ method: "POST" })
       });
     }
     if (patch.done === true) {
+      // Concluir arquiva automaticamente (a tarefa segue consultável em "Concluídas").
       patch.status = "done";
       patch.done_at = new Date().toISOString();
+      patch.archived_at = new Date().toISOString();
     } else if (patch.done === false) {
       patch.done_at = null;
+      patch.archived_at = null;
     }
     const { data: rows, error } = await context.supabase
       .from("tasks")
