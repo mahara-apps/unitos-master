@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { applyProgressReport } from "@/lib/installation/runner.server";
-import { initialSteps } from "@/lib/installation/manager-contract";
+import {
+  applyStepReport,
+  initialSteps,
+  stepsProgress,
+} from "@/lib/installation/manager-contract";
 
 /** Cliente Supabase falso com uma única linha de installation_operations. */
 function fakeClient(initialSteps: unknown) {
