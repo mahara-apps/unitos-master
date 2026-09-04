@@ -58,6 +58,8 @@ export const CHANNEL_DEFS: ChannelDef[] = [
     tone: "text-sky-600",
     available: true,
     provider: "meta",
+    recommended: true,
+    hint: "Traz as Páginas e as contas de Instagram vinculadas — atribuição correta dos ativos",
   },
   { key: "tiktok", label: "TikTok", icon: Music2, tone: "text-muted-foreground", available: false },
   {
