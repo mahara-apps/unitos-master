@@ -2157,20 +2157,63 @@ export async function runAutomatedProvision(input: {
     // ainda não tem NENHUM deployment (repositório publicado à mão, primeiro
     // build). Sem repositório ligado, cai para rebuild do último snapshot.
     const redeployed = await deploy.deployLatestCode();
+    let publishNote = redeployed.ok ? "novo deployment disparado" : "";
     if (!redeployed.ok) {
-      blocked.push(
-        `Novo deployment nao disparado (as variaveis so valem apos republicar): ${
-          redeployed.error ?? ""
-        }`.trim(),
-      );
+      if (redeployed.quotaExceeded) {
+        // Plano gratuito: 100 deployments por API/dia. A publicação pelo Git NÃO
+        // consome essa cota, então religamos o build automático e empurramos um
+        // commit vazio. Cota esgotada não invalida o provisionamento.
+        const auto = await deploy.setAutoDeploy(true);
+        const nudge = await code.nudgeDeploy(
+          "chore(unitos): republicar com as variaveis da instalacao",
+        );
+        const resetAt = redeployed.resetAt
+          ? ` — cota volta em ${formatDateTimeBr(new Date(redeployed.resetAt * 1000))}`
+          : "";
+        if (nudge.ok) {
+          publishNote = `publicação pelo Git (cota de deployments por API esgotada${resetAt})`;
+        } else {
+          failures.push(
+            `Publicação pendente: cota diária de deployments da Vercel esgotada${resetAt}. Tentativa pelo Git também não funcionou: ${
+              nudge.error ?? ""
+            }${auto.ok ? "" : ` · auto-deploy: ${auto.error ?? ""}`}`.trim(),
+          );
+          publishNote = "publicação pendente (cota da Vercel)";
+        }
+      } else {
+        blocked.push(
+          `Novo deployment nao disparado (as variaveis so valem apos republicar): ${
+            redeployed.error ?? ""
+          }`.trim(),
+        );
+      }
     }
 
+    // Domínio definitivo precisa estar atribuído ao projeto de deploy — sem isso
+    // a URL responde 404 mesmo com o app publicado.
+    let domainNote = "";
+    if (url.source === "custom_domain") {
+      const domain = await deploy.ensureDomain(url.origin);
+      if (!domain.ok) {
+        failures.push(`Domínio não atribuído ao projeto de deploy: ${domain.error ?? ""}`.trim());
+        domainNote = " · domínio pendente";
+      } else if (!domain.verified) {
+        domainNote = " · domínio aguardando verificação de DNS";
+      }
+    }
 
     // Estado do frontend so vira "ok" com resposta HTTP real da URL operacional.
     const probe = await probeOperationalUrl(url.origin, input.fetchImpl);
     checks.frontend = probe.ok ? "ok" : "attention";
     if (!probe.ok) {
-      blocked.push(`Frontend ainda nao respondeu em ${url.origin}: ${probe.detail}`);
+      // Sem publicação nova (cota) ou com DNS/domínio ainda propagando, o 404 é
+      // esperado: é pendência de acompanhamento, não bloqueio do provisionamento.
+      const pendingPublish = redeployed.quotaExceeded === true || domainNote !== "";
+      const message = `Frontend ainda nao respondeu em ${url.origin}: ${probe.detail}${
+        pendingPublish ? " — aguardando a publicação/DNS concluir" : ""
+      }`;
+      if (pendingPublish) failures.push(message);
+      else blocked.push(message);
     }
 
     await saveStageProgress(client, operation, {
@@ -2185,7 +2228,7 @@ export async function runAutomatedProvision(input: {
       "done",
       `${envResult.applied} variáveis gravadas — URL operacional ${url.origin} (${
         url.source === "deploy" ? "temporária do deploy" : "domínio definitivo"
-      })${redeployed.ok ? " · novo deployment disparado" : " · redeploy pendente"}${
+      })${publishNote ? ` · ${publishNote}` : " · redeploy pendente"}${domainNote}${
         probe.ok ? " · frontend respondendo" : ` · frontend ${probe.detail}`
       }`,
     );
