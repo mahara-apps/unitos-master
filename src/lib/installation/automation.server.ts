@@ -2362,7 +2362,9 @@ export async function runAutomatedProvision(input: {
 
   /* 8. verificação final READ-ONLY */
   await mark("validation", "running");
+  await hardenHelperTables(management);
   const verify = await management.query(prepareVerificationSql(verifySql).sql);
+
   if (!verify.ok) {
     failures.push(`verify-installation: ${verify.error ?? "falha"}`);
     await mark("validation", "error", "verificação final falhou");
