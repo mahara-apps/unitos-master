@@ -21,7 +21,10 @@ const STEP_TONE: Record<StepState, string> = {
 /** Etapa em execução (ou a próxima pendente) para o rótulo de progresso. */
 export function currentStepLabel(steps: OperationStep[]): string {
   const running = steps.find((step) => step.state === "running");
-  if (running) return `Executando: ${running.label}${running.detail ? ` — ${running.detail}` : ""}`;
+  if (running) {
+    const pct = typeof running.percent === "number" ? ` (${running.percent}%)` : "";
+    return `Executando: ${running.label}${pct}${running.detail ? ` — ${running.detail}` : ""}`;
+  }
   const pending = steps.find((step) => step.state === "pending");
   return pending ? `Aguardando: ${pending.label}` : "Finalizando…";
 }
@@ -48,7 +51,16 @@ export function StepList({ steps }: { steps: OperationStep[] }) {
           <span className={cn("ml-auto text-[11px]", STEP_TONE[step.state])}>
             {step.state === "running" && <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />}
             {STEP_STATE_LABEL[step.state]}
+            {typeof step.percent === "number" && step.state !== "pending" && (
+              <span className="ml-1 font-mono tabular-nums">{step.percent}%</span>
+            )}
           </span>
+          {step.state === "running" && (
+            <Progress
+              value={typeof step.percent === "number" ? step.percent : 0}
+              className="h-1 w-full"
+            />
+          )}
           {step.detail && (
             <span className="w-full truncate text-[11px] text-muted-foreground">{step.detail}</span>
           )}
