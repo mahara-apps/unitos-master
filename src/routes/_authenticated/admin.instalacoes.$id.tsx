@@ -993,7 +993,7 @@ function InstallationDetailPage() {
             </CardContent>
           </Card>
 
-          <InstallationCredentialsCard installationId={id} />
+
 
           {lastValidate && (
             <Card>
