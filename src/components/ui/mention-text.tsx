@@ -18,10 +18,7 @@ export function MentionText({ text, people }: { text: string; people?: MentionPe
     const idx = m.index ?? 0;
     if (idx > last) out.push(text.slice(last, idx));
     out.push(
-      <span
-        key={`${idx}-${m[0]}`}
-        className="rounded bg-primary/10 px-1 font-medium text-primary"
-      >
+      <span key={`${idx}-${m[0]}`} className="rounded bg-primary/10 px-1 font-medium text-primary">
         {m[0]}
       </span>,
     );

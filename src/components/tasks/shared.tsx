@@ -612,7 +612,6 @@ export function CreateTaskDialog({
 
 // ---------- Detail Drawer (persistent side panel) ----------
 
-
 export function TaskDrawer({
   taskId,
   brandId,
@@ -704,7 +703,6 @@ export function TaskDrawer({
       onClose();
     },
   });
-
 
   // J/K navigation
   useEffect(() => {
