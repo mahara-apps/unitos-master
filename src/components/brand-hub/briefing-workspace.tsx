@@ -295,13 +295,20 @@ export function BriefingWorkspace({
     const data = hubQ.data;
     if (!data) return;
     const version = data.updated_at ?? null;
-    if (form && version === syncedVersion) return;
-    if (!form || !dirty) {
+    const decision = decideBriefingFormSync({
+      hasForm: !!form,
+      dirty,
+      serverVersion: version,
+      syncedVersion,
+    });
+    if (decision === "keep") return;
+    if (decision === "apply") {
       applyServerData(data);
       return;
     }
     setIncomingVersion(version);
   }, [hubQ.data, form, dirty, syncedVersion, applyServerData]);
+
 
   /** Toda edição do formulário passa por aqui para marcar alterações pendentes. */
   const updateForm = useCallback((next: FormState) => {
