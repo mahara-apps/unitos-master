@@ -1880,9 +1880,11 @@ export async function runAutomatedProvision(input: {
     checks.configuration = "ok";
 
     // Gravar variaveis NAO republica o app: sem um novo deployment o frontend
-    // continua rodando com o env antigo. O redeploy e disparado aqui — uma
-    // única vez por operação, garantido pelo checkpoint abaixo.
-    const redeployed = await deploy.redeploy();
+    // continua rodando com o env antigo. Aqui usamos build a partir do Git do
+    // repositório DA INSTALAÇÃO — assim funciona também quando o projeto Vercel
+    // ainda não tem NENHUM deployment (repositório publicado à mão, primeiro
+    // build). Sem repositório ligado, cai para rebuild do último snapshot.
+    const redeployed = await deploy.deployLatestCode();
     if (!redeployed.ok) {
       blocked.push(
         `Novo deployment nao disparado (as variaveis so valem apos republicar): ${
@@ -1890,6 +1892,7 @@ export async function runAutomatedProvision(input: {
         }`.trim(),
       );
     }
+
 
     // Estado do frontend so vira "ok" com resposta HTTP real da URL operacional.
     const probe = await probeOperationalUrl(url.origin, input.fetchImpl);
