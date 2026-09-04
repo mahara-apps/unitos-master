@@ -449,11 +449,11 @@ export function MetaAssetsPanel({
   const showStoredRateLimitState = data?.portfolioStatus === "rate_limited";
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl border-border/60 bg-background/95 backdrop-blur">
-        <DialogHeader>
+    <>
+      <div className="space-y-4">
+        <div className="space-y-1.5">
           <div className="flex items-start justify-between gap-3">
-            <DialogTitle className="text-base">Selecione as contas da Meta</DialogTitle>
+            <h3 className="text-sm font-semibold">Selecione as contas da Meta</h3>
             {data && !isRateLimited && (
               <Button
                 size="sm"
