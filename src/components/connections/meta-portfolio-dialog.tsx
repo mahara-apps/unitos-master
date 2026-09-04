@@ -144,6 +144,8 @@ export function MetaAssetsPanel({
    */
   assign?: boolean;
   onClose: () => void;
+  /** Nº de contas ativadas e ainda sem cliente — usado para confirmar o fechamento. */
+  onPendingChange?: (count: number) => void;
 }) {
   const open = active;
   const onOpenChange = (v: boolean) => {
