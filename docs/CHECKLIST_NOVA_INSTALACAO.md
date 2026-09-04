@@ -58,11 +58,23 @@ etapa de código, e publica ali a versão autorizada.
    fixado (SHA), no card *Versão e atualizações*.
 4. Anotar a URL do repositório — ela vai no cadastro da instalação.
 
+### Repositório criado à mão (a partir do template)
+
+É um caminho válido e não atrapalha a automação:
+
+- se o conteúdo já é igual à versão do MASTER, a etapa *Código no GitHub*
+  detecta **0 arquivos diferentes** e conclui em segundos, sem republicar nada;
+- se preferir marcar explicitamente, use **Adotar repositório** na aba
+  *Acessos* — ela confere o conteúdo contra o MASTER e conclui a etapa;
+- a partir daí tudo segue automático: vínculo do deploy, variáveis, primeiro
+  build, banco e validação.
+
 Conferir antes de seguir:
 
 - [ ] repositório acessível pelo token de deploy
 - [ ] branch de referência definida (`main`)
 - [ ] auto-deploy por Git desabilitado no projeto de deploy da instalação
+
 
 ---
 
