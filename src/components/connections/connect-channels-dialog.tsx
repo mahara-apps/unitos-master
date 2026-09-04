@@ -584,11 +584,18 @@ export function ConnectChannelsDialog({
                         <span className="min-w-0 flex-1">
                           <span className="block text-sm font-semibold">{def.label}</span>
                           <span className="block text-[11px] text-muted-foreground">
-                            Meta · autorização oficial
+                            {def.hint ?? "Meta · autorização oficial"}
                           </span>
                         </span>
-                        <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                          Disponível
+                        <span
+                          className={cn(
+                            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
+                            def.recommended
+                              ? "bg-primary/10 text-primary"
+                              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                          )}
+                        >
+                          {def.recommended ? "Recomendado" : "Disponível"}
                         </span>
                         <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-all duration-150 group-hover:translate-x-0.5 group-hover:opacity-100" />
                       </button>
