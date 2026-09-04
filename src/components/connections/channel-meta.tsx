@@ -99,7 +99,10 @@ export const CHANNEL_DEFS: ChannelDef[] = [
 export const CHANNEL_ICON_SIZE = "h-4 w-4";
 
 export const CHANNEL_BY_KEY = new Map(CHANNEL_DEFS.map((c) => [c.key, c]));
-export const CONNECTABLE_CHANNELS = CHANNEL_DEFS.filter((c) => c.available);
+/** Canais conectáveis — recomendado primeiro (Facebook), demais na ordem do catálogo. */
+export const CONNECTABLE_CHANNELS = CHANNEL_DEFS.filter((c) => c.available).sort(
+  (a, b) => Number(!!b.recommended) - Number(!!a.recommended),
+);
 export const UPCOMING_CHANNELS = CHANNEL_DEFS.filter((c) => !c.available);
 
 export function channelDef(channel: string): ChannelDef {
