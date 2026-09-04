@@ -14,7 +14,10 @@ import {
   ListChecks,
 } from "lucide-react";
 import {
+  addPlanLinkPublic,
   decideMonthlyPlanPublic,
+  deletePlanLinkPublic,
+  listPlanLinksPublic,
   resolveMonthlyPlanPublic,
   type PublicPlanResolve,
   type PublicTopicClientStatus,
@@ -24,8 +27,59 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { WorkLinkForm, WorkLinkList } from "@/components/ui/work-links";
+import type { WorkLink } from "@/lib/work-links.functions";
 
 const searchSchema = z.object({ token: z.string().min(8) });
+
+/**
+ * Links de referência que o cliente anexa a uma pauta (ex.: pasta do Drive com
+ * as fotos da peça). Somente links — sem upload de arquivo.
+ */
+function PublicTopicLinks({ token, topicId }: { token: string; topicId: string }) {
+  const qc = useQueryClient();
+  const list = useServerFn(listPlanLinksPublic);
+  const add = useServerFn(addPlanLinkPublic);
+  const del = useServerFn(deletePlanLinkPublic);
+  const key = ["public-plan-links", token];
+
+  const q = useQuery({ queryKey: key, queryFn: () => list({ data: { token } }) });
+  const links = (q.data ?? []).filter((l) => l.topic_id === topicId);
+
+  const addMut = useMutation({
+    mutationFn: (v: { url: string; title: string }) =>
+      add({ data: { token, topicId, url: v.url, title: v.title || undefined } }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: key });
+      toast.success("Link anexado");
+    },
+    onError: () => toast.error("Não conseguimos salvar este link. Confira a URL."),
+  });
+  const delMut = useMutation({
+    mutationFn: (linkId: string) => del({ data: { token, linkId } }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: key }),
+    onError: () => toast.error("Não conseguimos remover este link agora."),
+  });
+
+  return (
+    <div className="mt-3 space-y-2 border-t border-border/60 pt-3">
+      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        Links de referência
+      </div>
+      <WorkLinkList
+        links={links as unknown as WorkLink[]}
+        emptyLabel="Nenhum link anexado. Cole um link do Drive, Figma, etc."
+        removingId={delMut.isPending ? delMut.variables : null}
+        onRemove={(l) => (l.created_by_client ? delMut.mutate(l.id) : undefined)}
+      />
+      <WorkLinkForm
+        compact
+        pending={addMut.isPending}
+        onSubmit={(url, title) => addMut.mutate({ url, title })}
+      />
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/pauta/$planId")({
   validateSearch: (raw: Record<string, unknown>) => searchSchema.parse(raw),
@@ -374,6 +428,8 @@ function PublicMonthlyPlanPage() {
                       “{t.client_comment}”
                     </p>
                   ) : null}
+
+                  <PublicTopicLinks token={token} topicId={t.id} />
 
                   {mode === "per_item" && !decided ? (
                     <div className="mt-3 space-y-2 border-t border-border/60 pt-3">
