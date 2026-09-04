@@ -58,10 +58,7 @@ import { TaskDialog } from "@/components/content/task-dialog";
 import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { JobsPanel } from "@/components/projects/jobs-panel";
-import {
-  PautaDetailModal,
-  type PautaDetailItem,
-} from "@/components/projects/pauta-detail-modal";
+import { PautaDetailModal, type PautaDetailItem } from "@/components/projects/pauta-detail-modal";
 import { InvolvedPeople } from "@/components/projects/involved-people";
 import { StatusPicker } from "@/components/projects/status-picker";
 import { AssigneePicker } from "@/components/projects/assignee-picker";
@@ -476,8 +473,6 @@ function ProjectDetailPage() {
       )}
     </DashboardPanelSurface>
   );
-
-
 
   return (
     <DashboardPageShell>
