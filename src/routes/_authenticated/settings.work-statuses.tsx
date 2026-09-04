@@ -180,8 +180,28 @@ function ScopeSection({ brandId, scope }: { brandId: string; scope: WorkStatusSc
         />
       ) : (
         <div className="divide-y divide-border/60">
-          {statuses.map((s) => (
+          {statuses.map((s, index) => (
             <div key={s.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5">
+              <div className="flex flex-col">
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  aria-label={`Subir ${s.name}`}
+                  disabled={index === 0 || moveMut.isPending}
+                  onClick={() => moveMut.mutate({ index, dir: -1 })}
+                >
+                  <ChevronUp className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  aria-label={`Descer ${s.name}`}
+                  disabled={index === statuses.length - 1 || moveMut.isPending}
+                  onClick={() => moveMut.mutate({ index, dir: 1 })}
+                >
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </button>
+              </div>
               <input
                 type="color"
                 value={s.color}
