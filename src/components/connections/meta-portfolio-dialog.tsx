@@ -472,7 +472,7 @@ export function MetaAssetsPanel({
               </Button>
             )}
           </div>
-          <DialogDescription className="text-xs">
+          <p className="text-[11px] leading-snug text-muted-foreground">
             {data?.metaUser.name ? `Logado como ${data.metaUser.name}. ` : ""}
             {channel === "instagram"
               ? "Escolha quais contas do Instagram Business você deseja vincular a este projeto."
@@ -483,8 +483,8 @@ export function MetaAssetsPanel({
                   : channel === "ads"
                     ? "Escolha quais Contas de Anúncio você deseja vincular a este projeto."
                     : "Escolha quais Páginas, Contas do Instagram, perfis do Threads e Contas de Anúncio você deseja vincular a este projeto."}
-          </DialogDescription>
-        </DialogHeader>
+          </p>
+        </div>
 
         {data && !isLoading ? (
           <div className="space-y-2">
