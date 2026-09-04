@@ -105,6 +105,48 @@ function readStored<T extends string>(key: string, allowed: readonly T[], fallba
   return allowed.includes(raw as T) ? (raw as T) : fallback;
 }
 
+// Requisições penduradas deixavam a tela em esqueleto infinito (parecia
+// "cliente sem projetos"). Aqui elas falham de forma visível.
+const REQUEST_TIMEOUT_MS = 20_000;
+const SLOW_HINT_MS = 8_000;
+
+function withTimeout<T>(
+  run: (signal: AbortSignal) => Promise<T>,
+  outer: AbortSignal | undefined,
+  ms = REQUEST_TIMEOUT_MS,
+): Promise<T> {
+  const controller = new AbortController();
+  const onAbort = () => controller.abort(outer?.reason);
+  if (outer) {
+    if (outer.aborted) onAbort();
+    else outer.addEventListener("abort", onAbort, { once: true });
+  }
+  const timer = setTimeout(
+    () => controller.abort(new Error("Tempo esgotado ao carregar os dados.")),
+    ms,
+  );
+  return run(controller.signal).finally(() => {
+    clearTimeout(timer);
+    outer?.removeEventListener("abort", onAbort);
+  });
+}
+
+/** Sinaliza carregamento anormalmente longo, sem travar a tela. */
+function useSlowHint(active: boolean, ms = SLOW_HINT_MS) {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!active) {
+      setSlow(false);
+      return;
+    }
+    const t = setTimeout(() => setSlow(true), ms);
+    return () => clearTimeout(t);
+  }, [active, ms]);
+  return slow;
+}
+
+
+
 const COLORS = [
   "#8b5cf6", // violet
   "#ec4899", // pink
