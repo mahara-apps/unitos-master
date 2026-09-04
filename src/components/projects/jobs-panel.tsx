@@ -435,7 +435,18 @@ export function JobsPanel({
               <Archive className="h-3 w-3" />
               {showDone ? "Ocultar concluídos" : "Ver concluídos"}
             </Button>
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 px-3 text-xs"
+              onClick={() => {
+                setMode("jobs");
+                setAddingJob(true);
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" /> Novo job
+            </Button>
           </div>
+
         </div>
 
         {mode === "overview" ? (
