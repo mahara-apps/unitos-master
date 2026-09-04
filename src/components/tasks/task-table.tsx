@@ -771,7 +771,6 @@ function TaskTableRow({
                   </span>
                 ) : null}
               </div>
-
             </div>
           </div>
         </td>

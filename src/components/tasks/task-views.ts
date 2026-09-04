@@ -8,14 +8,7 @@ import {
   Users,
 } from "lucide-react";
 
-export const VIEWS = [
-  "mine",
-  "list",
-  "kanban",
-  "board-assignee",
-  "timeline",
-  "calendar",
-] as const;
+export const VIEWS = ["mine", "list", "kanban", "board-assignee", "timeline", "calendar"] as const;
 export type View = (typeof VIEWS)[number];
 
 export const searchSchema = z.object({

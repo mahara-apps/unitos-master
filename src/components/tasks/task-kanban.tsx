@@ -216,8 +216,10 @@ export function TaskKanban({
   }, [tasks, groupMode]);
 
   const move = useMutation({
-    mutationFn: (payload: { id: string; patch: { status?: TaskStatus; done?: boolean; assignee_id?: string | null } }) =>
-      update({ data: { taskId: payload.id, patch: payload.patch } }),
+    mutationFn: (payload: {
+      id: string;
+      patch: { status?: TaskStatus; done?: boolean; assignee_id?: string | null };
+    }) => update({ data: { taskId: payload.id, patch: payload.patch } }),
     onSuccess: onChanged,
     onError: (e: Error) => toast.error(e.message),
   });
@@ -268,4 +270,3 @@ export function TaskKanban({
     </DndContext>
   );
 }
-
