@@ -596,12 +596,6 @@ function ProjectDetailPage() {
         pautasCount={items.length + extraPosts.length}
         footer={
           <div className="space-y-3">
-            <WorkLinks
-              target="project"
-              targetId={projectId}
-              title="Links do projeto"
-              readOnly={!canEditProject}
-            />
             <InvolvedPeople
               brandId={brandId!}
               projectId={projectId}
