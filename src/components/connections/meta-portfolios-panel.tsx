@@ -729,6 +729,7 @@ export function MetaPortfoliosPanel({
                                 canManage={canManage}
                                 clientByExternalId={clientByExternalId}
                                 onLink={onLinkAccount}
+                                hideControls
                                 emptyDescription={`A Meta devolveu ${
                                   discovery?.alreadyLinked ?? 0
                                 } conta(s) e todas já existem neste workspace (conectadas ou no histórico). Use “Sincronizar” após alterar permissões na Meta.`}
