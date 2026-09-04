@@ -299,3 +299,31 @@ export const setJobDoneFn = createServerFn({ method: "POST" })
     if (!rows || rows.length === 0) throw new Error("Forbidden: job fora do seu escopo");
     return { ok: true };
   });
+
+/**
+ * Arquiva/restaura um job SEM mexer na conclusão — "arquivar" só tira o job
+ * das listas ativas; "concluir" continua sendo outra ação (`setJobDoneFn`).
+ */
+export const setJobArchivedFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        jobId: z.string().uuid(),
+        archived: z.boolean(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("project_jobs")
+      .update({ archived_at: data.archived ? new Date().toISOString() : null } as never)
+      .eq("id", data.jobId)
+      .eq("brand_id", data.brandId)
+      .select("id");
+    if (error) throw error;
+    if (!rows || rows.length === 0) throw new Error("Forbidden: job fora do seu escopo");
+    return { ok: true };
+  });
+

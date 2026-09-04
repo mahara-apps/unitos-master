@@ -6704,6 +6704,117 @@ export type Database = {
           },
         ]
       }
+      work_links: {
+        Row: {
+          brand_id: string
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          created_by_client: boolean
+          id: string
+          job_id: string | null
+          post_id: string | null
+          project_id: string | null
+          source: string
+          task_id: string | null
+          title: string | null
+          topic_id: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          brand_id: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_client?: boolean
+          id?: string
+          job_id?: string | null
+          post_id?: string | null
+          project_id?: string | null
+          source?: string
+          task_id?: string | null
+          title?: string | null
+          topic_id?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          brand_id?: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_client?: boolean
+          id?: string
+          job_id?: string | null
+          post_id?: string | null
+          project_id?: string | null
+          source?: string
+          task_id?: string | null
+          title?: string | null
+          topic_id?: string | null
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_links_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "work_links_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_links_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_links_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "project_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_links_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_links_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_links_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_links_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_plan_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_statuses: {
         Row: {
           brand_id: string

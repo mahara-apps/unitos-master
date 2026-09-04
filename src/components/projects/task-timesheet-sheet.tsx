@@ -24,6 +24,7 @@ import {
 } from "@/lib/timesheet.functions";
 import { updateJobTaskFn } from "@/lib/project-jobs.functions";
 import { CommentThread } from "@/components/projects/comment-thread";
+import { WorkLinks } from "@/components/ui/work-links";
 import { AssigneePicker, type TeamOption } from "@/components/projects/assignee-picker";
 import { StatusPicker } from "@/components/projects/status-picker";
 
@@ -343,13 +344,15 @@ export function TaskTimesheetSheet({
               )}
             </TabsContent>
 
-            <TabsContent value="files" className="mt-3">
-              <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border/60 p-8 text-center text-xs text-muted-foreground">
+            <TabsContent value="files" className="mt-3 space-y-4">
+              <WorkLinks target="task" targetId={task.id} title="Links e referências" />
+              <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
                 <Paperclip className="h-4 w-4" />
-                Anexos da tarefa ainda não estão disponíveis. Use os arquivos do cliente na área de
+                Upload de arquivo não está disponível — use links (Drive, Figma…) acima ou a área de
                 Mídia.
               </div>
             </TabsContent>
+
           </Tabs>
         </div>
       )}

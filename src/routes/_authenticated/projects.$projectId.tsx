@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import {
   ArrowLeft,
   Archive,
+  ArchiveRestore,
+
   ExternalLink,
   FileText,
   Image as ImageIcon,
@@ -63,6 +65,8 @@ import { InvolvedPeople } from "@/components/projects/involved-people";
 import { StatusPicker } from "@/components/projects/status-picker";
 import { AssigneePicker } from "@/components/projects/assignee-picker";
 import { ProjectHeader } from "@/components/projects/project-header";
+import { WorkLinks } from "@/components/ui/work-links";
+import { setProjectArchivedFn } from "@/lib/projects.functions";
 import { useAccessRole } from "@/hooks/use-access-role";
 
 export const Route = createFileRoute("/_authenticated/projects/$projectId")({
@@ -254,6 +258,17 @@ function ProjectDetailPage() {
       qc.invalidateQueries({ queryKey: ["projects", brandId] });
       navigate({ to: "/projects" });
     },
+  });
+
+  const setArchived = useServerFn(setProjectArchivedFn);
+  const restoreMut = useMutation({
+    mutationFn: () => setArchived({ data: { brandId: brandId!, projectId, archived: false } }),
+    onSuccess: () => {
+      toast.success("Projeto restaurado");
+      qc.invalidateQueries({ queryKey: ["project", brandId, projectId] });
+      qc.invalidateQueries({ queryKey: ["projects", brandId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const delMut = useMutation({
@@ -542,9 +557,19 @@ function ProjectDetailPage() {
                 <DropdownMenuItem onClick={() => setOpenSettings(true)}>
                   <Settings2 className="mr-2 h-4 w-4" /> Configurações do projeto
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => archMut.mutate()} disabled={archMut.isPending}>
-                  <Archive className="mr-2 h-4 w-4" /> Arquivar
-                </DropdownMenuItem>
+                {project.status === "archived" ? (
+                  <DropdownMenuItem
+                    onClick={() => restoreMut.mutate()}
+                    disabled={restoreMut.isPending}
+                  >
+                    <ArchiveRestore className="mr-2 h-4 w-4" /> Restaurar
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={() => archMut.mutate()} disabled={archMut.isPending}>
+                    <Archive className="mr-2 h-4 w-4" /> Arquivar
+                  </DropdownMenuItem>
+                )}
+
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
                   onClick={() => setConfirmDelete(true)}
@@ -570,15 +595,24 @@ function ProjectDetailPage() {
         }
         pautasCount={items.length + extraPosts.length}
         footer={
-          <InvolvedPeople
-            brandId={brandId!}
-            projectId={projectId}
-            team={team}
-            canEdit={canEditProject}
-            compact
-          />
+          <div className="space-y-3">
+            <WorkLinks
+              target="project"
+              targetId={projectId}
+              title="Links do projeto"
+              readOnly={!canEditProject}
+            />
+            <InvolvedPeople
+              brandId={brandId!}
+              projectId={projectId}
+              team={team}
+              canEdit={canEditProject}
+              compact
+            />
+          </div>
         }
       />
+
 
       {/* Resumo da pauta em modal — evita sair da gestão do projeto */}
       <PautaDetailModal
