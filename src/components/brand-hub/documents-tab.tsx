@@ -324,6 +324,15 @@ export function DocumentsTab({
       {d.ai_status === "failed" && d.ai_error ? (
         <span className="line-clamp-2 text-[11px] text-destructive">{d.ai_error}</span>
       ) : null}
+      {isStalled(d) ? (
+        <button
+          type="button"
+          onClick={() => void analyzeDoc(d.id, true)}
+          className="text-left text-[11px] font-medium text-primary underline-offset-2 hover:underline"
+        >
+          A leitura não concluiu — tentar novamente
+        </button>
+      ) : null}
     </div>
   );
 
