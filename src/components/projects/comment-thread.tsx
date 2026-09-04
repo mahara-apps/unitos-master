@@ -10,7 +10,8 @@ import { toast } from "sonner";
 import { MessageSquare, Send, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { MentionTextarea, resolveMentions } from "@/components/ui/mention-textarea";
+import { MentionText } from "@/components/ui/mention-text";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -19,6 +20,7 @@ import {
   listWorkCommentsFn,
 } from "@/lib/work-comments.functions";
 import { addTaskCommentFn, deleteTaskCommentFn, listTaskCommentsFn } from "@/lib/tasks.functions";
+import { listBrandAssigneesFn } from "@/lib/content.functions";
 import { APP_TIMEZONE } from "@/lib/timezone";
 
 function formatWhen(iso: string) {
@@ -78,6 +80,7 @@ export function CommentThread({
   const listWork = useServerFn(listWorkCommentsFn);
   const addWork = useServerFn(addWorkCommentFn);
   const delWork = useServerFn(deleteWorkCommentFn);
+  const listAssignees = useServerFn(listBrandAssigneesFn);
   const listTask = useServerFn(listTaskCommentsFn);
   const addTask = useServerFn(addTaskCommentFn);
   const delTask = useServerFn(deleteTaskCommentFn);
@@ -98,11 +101,20 @@ export function CommentThread({
     },
   });
 
+  const peopleQ = useQuery({
+    queryKey: ["brand-assignees", brandId],
+    queryFn: () => listAssignees({ data: { brandId } }),
+    enabled: !!brandId,
+    staleTime: 60_000,
+  });
+  const people = peopleQ.data ?? [];
+
   const addMut = useMutation({
     mutationFn: async (text: string) => {
-      if (isTask) return addTask({ data: { taskId: taskId!, body: text } });
+      const mentions = resolveMentions(text, people);
+      if (isTask) return addTask({ data: { taskId: taskId!, body: text, mentions } });
       return addWork({
-        data: { brandId, projectId: projectId!, jobId: jobId ?? null, body: text },
+        data: { brandId, projectId: projectId!, jobId: jobId ?? null, body: text, mentions },
       });
     },
     onSuccess: () => {
@@ -172,7 +184,7 @@ export function CommentThread({
                   ) : null}
                 </div>
                 <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-foreground/90">
-                  {c.body}
+                  <MentionText text={c.body} people={people} />
                 </p>
               </div>
             </div>
@@ -181,16 +193,14 @@ export function CommentThread({
       </div>
 
       <div className="border-t border-border/60 p-3">
-        <Textarea
+        <MentionTextarea
           value={body}
-          onChange={(e) => setBody(e.target.value)}
+          onChange={setBody}
+          people={people}
           placeholder={placeholder}
           rows={2}
-          className="resize-none text-sm"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && body.trim()) {
-              addMut.mutate(body.trim());
-            }
+          onSubmit={() => {
+            if (body.trim()) addMut.mutate(body.trim());
           }}
         />
         <div className="mt-2 flex justify-end">
