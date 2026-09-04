@@ -490,98 +490,99 @@ function ProjectDetailPage() {
         <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
       </Button>
 
-      {/* Contexto essencial */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5 font-medium text-foreground">
-          <span className="h-2 w-2 rounded-full" style={{ background: color }} />
-          {clientName}
-        </span>
-        <span>•</span>
-        <span>
-          {fmtDate(project.start_date)} — {fmtDate(project.due_at)}
-        </span>
-        <span>•</span>
-        <span>{ownerName}</span>
-        <span>•</span>
-        <Badge variant="outline" className="text-[10px]">
-          {statusLabel}
-        </Badge>
-        {project.plan ? <PlanStatusBadge status={project.plan.status} prefix="Pauta:" /> : null}
-      </div>
-
-      {/* Faixa única de progresso */}
-      <DashboardPanelSurface className="p-5">
-        <div className="mb-2 flex items-end justify-between gap-4">
-          <div>
-            <h3 className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
-              Progresso
-            </h3>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {doneItems} de {totalItems} peças concluídas
-            </p>
-          </div>
-          <span className="text-3xl font-semibold leading-none" style={{ color }}>
-            {pct}%
-          </span>
-        </div>
-        <Progress value={pct} className="h-2" />
-        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-muted-foreground">
-          <span>
-            Total <strong className="text-foreground tabular-nums">{totalItems}</strong>
-          </span>
-          <span>
-            Em produção <strong className="text-foreground tabular-nums">{stats.pending}</strong>
-          </span>
-          <span>
-            Aprovadas <strong className="text-foreground tabular-nums">{stats.approved}</strong>
-          </span>
-          <span>
-            Publicadas <strong className="text-foreground tabular-nums">{stats.published}</strong>
-          </span>
-        </div>
-      </DashboardPanelSurface>
-
-      {/* Nível 1 — PROJETO: envolvidos, status e observações */}
-      <DashboardPanelSurface className="space-y-3 p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            Status do projeto
-          </span>
-          <StatusPicker
-            brandId={brandId!}
-            scope="project"
-            value={project.status_id ?? null}
-            onChange={(statusId) => saveField({ status_id: statusId })}
+      {/* Cabeçalho do projeto — identidade, cliente, responsável, status, ações */}
+      <ProjectHeader
+        name={project.name}
+        color={color}
+        clientName={clientName}
+        periodLabel={`${fmtDate(project.start_date)} — ${fmtDate(project.due_at)}`}
+        done={doneItems}
+        total={totalItems}
+        planBadge={
+          project.plan ? <PlanStatusBadge status={project.plan.status} prefix="Pauta:" /> : null
+        }
+        assignee={
+          <AssigneePicker
+            value={project.owner_id ?? null}
+            options={team}
+            disabled={!canEditProject}
+            className="h-8 w-[170px]"
+            onChange={(userId) => {
+              setOwnerId(userId);
+              saveField({ owner_id: userId });
+            }}
           />
-        </div>
-        <InvolvedPeople
-          brandId={brandId!}
-          projectId={projectId}
-          team={team}
-          canEdit={canEditProject}
-        />
-      </DashboardPanelSurface>
+        }
+        status={
+          <>
+            <StatusPicker
+              brandId={brandId!}
+              scope="project"
+              value={project.status_id ?? null}
+              onChange={(statusId) => saveField({ status_id: statusId })}
+            />
+            <Badge variant="outline" className="h-8 rounded-full px-3 text-[11px]">
+              {statusLabel}
+            </Badge>
+          </>
+        }
+        actions={
+          <div className="flex items-center gap-1.5">
+            {project.plan ? (
+              <Button asChild variant="outline" size="sm" className="h-8">
+                <Link to="/monthly-plan/$planId" params={{ planId: project.plan.id }}>
+                  <ExternalLink className="mr-2 h-3.5 w-3.5" /> Ver pauta
+                </Link>
+              </Button>
+            ) : null}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Mais ações">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => setOpenSettings(true)}>
+                  <Settings2 className="mr-2 h-4 w-4" /> Configurações do projeto
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => archMut.mutate()} disabled={archMut.isPending}>
+                  <Archive className="mr-2 h-4 w-4" /> Arquivar
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        }
+      />
 
-      {/* Nível 2 e 3 — JOBS › TAREFAS (área operacional principal) */}
+      {/* Níveis 2 e 3 — JOBS › TAREFAS, com comentários por nível e envolvidos no rodapé */}
       <JobsPanel
         brandId={brandId!}
         projectId={projectId}
         projectName={project.name}
+        clientName={clientName}
         team={team}
         currentUserId={userId}
-        pautasContent={<div className="overflow-hidden rounded-lg border border-border/60">{pautasContent}</div>}
+        pautasContent={
+          <div className="overflow-hidden rounded-lg border border-border/60">{pautasContent}</div>
+        }
         pautasCount={items.length + extraPosts.length}
+        footer={
+          <InvolvedPeople
+            brandId={brandId!}
+            projectId={projectId}
+            team={team}
+            canEdit={canEditProject}
+            compact
+          />
+        }
       />
 
-      <DashboardPanelSurface className="overflow-hidden">
-        <CommentThread
-          brandId={brandId!}
-          level="project"
-          projectId={projectId}
-          currentUserId={userId}
-          placeholder="Observação geral do projeto…"
-        />
-      </DashboardPanelSurface>
 
       {/* Configurações do projeto */}
       <Dialog open={openSettings} onOpenChange={setOpenSettings}>
