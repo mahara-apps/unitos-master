@@ -528,6 +528,12 @@ function ProjectsIndexPage() {
     return { count: all.length, active, total, published, approved };
   }, [projectsQ.data]);
 
+  // Sem resposta ainda: nada de exibir "0" como se fosse dado real.
+  const hasProjectData = projectsQ.data !== undefined;
+  const kpiValue = (v: number) => (hasProjectData ? v : "—");
+  const showSlowHint = useSlowHint(projectsQ.isLoading || projectsQ.isRefetching);
+
+
   const createMut = useMutation({
     mutationFn: (values: ProjectFormValues) => create({ data: { brandId: brandId!, values } }),
     onSuccess: () => {
