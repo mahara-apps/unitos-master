@@ -467,7 +467,6 @@ export function MetaPortfoliosPanel({
 
   return (
     <div className="space-y-3">
-      {/* estado operacional traduzido (sem texto cru da Meta) para as tooltips */}
       <MetaIssuesAlert
         error={discovery?.error ?? null}
         warnings={discovery?.warnings ?? []}
