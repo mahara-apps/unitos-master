@@ -597,30 +597,39 @@ function ProjectsIndexPage() {
           tone="neutral"
           icon={<Layers className="h-4 w-4" />}
           label="Projetos"
-          value={kpis.count}
-          sub={`${kpis.active} em andamento`}
+          value={kpiValue(kpis.count)}
+          sub={hasProjectData ? `${kpis.active} em andamento` : "Carregando..."}
         />
         <KpiCard
           tone="sky"
           icon={<TrendingUp className="h-4 w-4" />}
           label="Publicações"
-          value={kpis.total}
+          value={kpiValue(kpis.total)}
           sub="Total no escopo"
         />
         <KpiCard
           tone="emerald"
           icon={<CheckCircle2 className="h-4 w-4" />}
           label="Aprovadas"
-          value={kpis.approved}
-          sub={`${kpis.total > 0 ? Math.round((kpis.approved / kpis.total) * 100) : 0}% do total`}
+          value={kpiValue(kpis.approved)}
+          sub={
+            hasProjectData
+              ? `${kpis.total > 0 ? Math.round((kpis.approved / kpis.total) * 100) : 0}% do total`
+              : "—"
+          }
         />
         <KpiCard
           tone="pink"
           icon={<Send className="h-4 w-4" />}
           label="Publicadas"
-          value={kpis.published}
-          sub={`${kpis.total > 0 ? Math.round((kpis.published / kpis.total) * 100) : 0}% do total`}
+          value={kpiValue(kpis.published)}
+          sub={
+            hasProjectData
+              ? `${kpis.total > 0 ? Math.round((kpis.published / kpis.total) * 100) : 0}% do total`
+              : "—"
+          }
         />
+
       </div>
 
       {/* Filtros */}
