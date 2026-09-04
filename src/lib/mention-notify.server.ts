@@ -6,7 +6,7 @@
  */
 import { insertNotificationsDeduped, notificationDedupeKey } from "@/lib/notifications-dedupe";
 
-type AnyClient = { from: (table: string) => any };
+type AnyClient = { from: (table: string) => unknown };
 
 export type MentionNotifyInput = {
   brandId: string;
@@ -32,8 +32,20 @@ export async function notifyMentions(
   if (targets.length === 0) return 0;
 
   // Só notifica quem é membro do workspace (revalidação server-side do escopo).
-  const { data: members, error } = await supabase
-    .from("brand_members")
+  const query = supabase.from("brand_members") as {
+    select: (cols: string) => {
+      eq: (
+        c: string,
+        v: string,
+      ) => {
+        in: (
+          c: string,
+          v: string[],
+        ) => Promise<{ data: Array<{ user_id: string }> | null; error: unknown }>;
+      };
+    };
+  };
+  const { data: members, error } = await query
     .select("user_id")
     .eq("brand_id", input.brandId)
     .in("user_id", targets);
