@@ -517,12 +517,38 @@ export function BriefingWorkspace({
 
   return (
     <>
+      {incomingVersion ? (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3">
+          <p className="text-xs text-foreground">
+            A IA atualizou este briefing. Você tem alterações não salvas nos campos abaixo.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 text-xs"
+              onClick={() => setIncomingVersion(null)}
+            >
+              Manter minhas edições
+            </Button>
+            <Button
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => {
+                if (hubQ.data) applyServerData(hubQ.data);
+              }}
+            >
+              Atualizar campos
+            </Button>
+          </div>
+        </div>
+      ) : null}
       <StackedBrainLayout
         brandId={brandId}
         clientId={clientId}
         client={hubQ.data}
         form={form}
-        setForm={setForm}
+        setForm={updateForm}
         completion={completion}
         onSave={() => save.mutate()}
         saving={save.isPending}
@@ -550,9 +576,15 @@ export function BriefingWorkspace({
         clientId={clientId}
         open={importOpen}
         onOpenChange={setImportOpen}
+        onApplied={async () => {
+          const fresh = await hubQ.refetch();
+          if (fresh.data) applyServerData(fresh.data);
+          toast.success("Campos do briefing atualizados com a análise da IA.");
+        }}
       />
     </>
   );
+
 }
 
 
