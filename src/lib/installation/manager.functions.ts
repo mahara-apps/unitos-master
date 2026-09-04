@@ -995,13 +995,53 @@ export const restartAutomatedProvisionFn = createServerFn({ method: "POST" })
 /* -------------------------------------------------- atualização de código */
 
 /**
+ * Versão disponível no MASTER: commit atual da branch de produção do
+ * repositório de código, usado no painel para comparar com a versão fixada em
+ * cada instalação. Só leitura — não dispara deploy nenhum.
+ */
+export const getMasterVersionFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await guard(context);
+    const { runtimeEnv } = await import("@/lib/runtime-env.server");
+    const { createDeployClient } = await import("./automation.server");
+    const env = runtimeEnv();
+    const deploy = createDeployClient({
+      token: (env["UNITOS_VERCEL_TOKEN"] ?? "").trim(),
+      project: "master",
+      teamId: (env["UNITOS_VERCEL_TEAM_ID"] ?? "").trim() || null,
+      masterRepo: (env["UNITOS_MASTER_REPO"] ?? "").trim() || null,
+    });
+    const head = await deploy.latestCommit();
+    return {
+      release: MASTER_RELEASE_VERSION,
+      commitSha: head.ok ? (head.sha ?? null) : null,
+      error: head.ok ? null : (head.error ?? "commit do MASTER indisponível"),
+    };
+  });
+
+/**
  * Puxa o código publicado no MASTER para o deploy da instalação: abre uma
  * operação `update` persistida e dispara a execução em background. A UI
  * acompanha as etapas pelo mesmo polling das outras operações.
+ *
+ * A instalação externa nunca publica sozinha: este é o único caminho de
+ * atualização, e ele exige autorização do Super Admin.
  */
 export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        commitSha: z
+          .string()
+          .regex(/^[0-9a-f]{7,40}$/i)
+          .optional()
+          .nullable(),
+      })
+      .parse(input),
+  )
   .handler(async ({ data, context }) => {
     await guard(context);
 
@@ -1059,7 +1099,18 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
         status: "running",
         summary: "Atualização de código disparada pelo MASTER.",
         steps: initialSteps("update"),
-        detail: { releaseVersion: MASTER_RELEASE_VERSION, executed: true, automated: true },
+        detail: {
+          releaseVersion: MASTER_RELEASE_VERSION,
+          executed: true,
+          automated: true,
+          targetCommitSha: data.commitSha ?? undefined,
+          fromVersion: record.pinnedCommitSha
+            ? `${record.pinnedRelease ?? record.currentVersion ?? "?"} · ${record.pinnedCommitSha.slice(0, 7)}`
+            : (record.currentVersion ?? null),
+          toVersion: data.commitSha
+            ? `${MASTER_RELEASE_VERSION} · ${data.commitSha.slice(0, 7)}`
+            : MASTER_RELEASE_VERSION,
+        },
         actor_id: context.userId,
         started_at: nowIso,
         last_report_at: nowIso,
@@ -1078,6 +1129,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
         status: runningStatusFor("update"),
         last_error: null,
         active_operation_id: op.id,
+        pinned_by: context.userId,
       })
       .eq("id", data.id);
 
@@ -1087,6 +1139,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
       runAutomatedUpdate({
         client: supabase as never,
         operation: op as never,
+        commitSha: data.commitSha ?? null,
         installation: {
           id: record.id,
           domain: record.domain,
