@@ -294,6 +294,7 @@ export function JobsPanel({
         },
       ]}
       className="h-full"
+      contentClassName="px-6 py-5"
     />
   );
 
@@ -451,7 +452,7 @@ export function JobsPanel({
 
         {mode === "overview" ? (
           /* Nível 1 — entradas de navegação + contexto do projeto */
-          <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_min(600px,45vw)]">
             <div className="space-y-3 p-5 lg:border-r lg:border-border/60">
               <button
                 type="button"
@@ -490,7 +491,7 @@ export function JobsPanel({
               ) : null}
             </div>
 
-            <div className="min-h-[420px] border-t border-border/60 lg:border-t-0">
+            <div className="min-h-[420px] border-t border-border/60 lg:border-t-0 lg:pl-8">
               {projectContext}
             </div>
           </div>
