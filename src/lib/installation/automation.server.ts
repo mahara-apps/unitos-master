@@ -259,11 +259,22 @@ export type DeployClient = {
   /** Redeploy da producao — necessario para que as variaveis gravadas valham. */
   redeploy: () => Promise<{ ok: boolean; deploymentId?: string; error?: string }>;
   /**
-   * Novo build a partir do repositorio ligado ao projeto (codigo mais recente
-   * do MASTER). Sem repositorio ligado, cai para `redeploy()` — que reaproveita
-   * o mesmo snapshot e portanto NAO traz codigo novo (source: "rebuild").
+   * Desliga (ou religa) o build automatico da branch de producao no projeto de
+   * deploy. Instalacoes externas NAO podem publicar sozinhas a cada commit no
+   * MASTER: elas so avancam quando o Super Admin autoriza uma atualizacao.
    */
-  deployLatestCode: () => Promise<{
+  setAutoDeploy: (
+    enabled: boolean,
+  ) => Promise<{ ok: boolean; error?: string }>;
+  /** Commit atual da branch de producao do repositorio do MASTER. */
+  latestCommit: () => Promise<{ ok: boolean; sha?: string; error?: string }>;
+  /**
+   * Novo build a partir do repositorio ligado ao projeto. Recebe o commit
+   * autorizado (`sha`); sem ele usa o commit atual da branch. Sem repositorio
+   * ligado, cai para `redeploy()` — que reaproveita o mesmo snapshot e portanto
+   * NAO traz codigo novo (source: "rebuild").
+   */
+  deployLatestCode: (options?: { sha?: string | null }) => Promise<{
     ok: boolean;
     deploymentId?: string;
     source?: "git" | "rebuild";
@@ -273,6 +284,7 @@ export type DeployClient = {
   deploymentState: (
     id: string,
   ) => Promise<{ ok: boolean; state?: string; url?: string; error?: string }>;
+
   setEnv: (
     entries: readonly { key: string; value: string; sensitive: boolean }[],
   ) => Promise<{ ok: boolean; applied: number; error?: string }>;
