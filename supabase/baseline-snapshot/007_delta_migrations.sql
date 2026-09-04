@@ -1748,3 +1748,398 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- 20260904003109_e946ede4-70ec-4dcc-ab46-fcff03508f2a.sql
+-- ---------------------------------------------------------------------------
+-- 1) Comentários de projeto e job
+CREATE TABLE public.work_comments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  brand_id uuid NOT NULL REFERENCES public.brands(id) ON DELETE CASCADE,
+  project_id uuid NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+  job_id uuid REFERENCES public.project_jobs(id) ON DELETE CASCADE,
+  author_id uuid NOT NULL,
+  body text NOT NULL,
+  mentions uuid[] NOT NULL DEFAULT '{}',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX work_comments_project_idx ON public.work_comments (project_id, created_at);
+CREATE INDEX work_comments_job_idx ON public.work_comments (job_id, created_at);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.work_comments TO authenticated;
+GRANT ALL ON public.work_comments TO service_role;
+ALTER TABLE public.work_comments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "work_comments_select" ON public.work_comments
+  FOR SELECT TO authenticated
+  USING (public.can_access_project(project_id, auth.uid()));
+CREATE POLICY "work_comments_insert" ON public.work_comments
+  FOR INSERT TO authenticated
+  WITH CHECK (author_id = auth.uid() AND public.can_access_project(project_id, auth.uid()));
+CREATE POLICY "work_comments_update_own" ON public.work_comments
+  FOR UPDATE TO authenticated
+  USING (author_id = auth.uid() AND public.can_access_project(project_id, auth.uid()))
+  WITH CHECK (author_id = auth.uid());
+CREATE POLICY "work_comments_delete_own" ON public.work_comments
+  FOR DELETE TO authenticated
+  USING (author_id = auth.uid() AND public.can_access_project(project_id, auth.uid()));
+
+CREATE TRIGGER work_comments_touch
+  BEFORE UPDATE ON public.work_comments
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+-- 2) Envolvidos no projeto
+CREATE TABLE public.project_participants (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  brand_id uuid NOT NULL REFERENCES public.brands(id) ON DELETE CASCADE,
+  project_id uuid NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (project_id, user_id)
+);
+CREATE INDEX project_participants_project_idx ON public.project_participants (project_id);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.project_participants TO authenticated;
+GRANT ALL ON public.project_participants TO service_role;
+ALTER TABLE public.project_participants ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "project_participants_select" ON public.project_participants
+  FOR SELECT TO authenticated
+  USING (public.can_access_project(project_id, auth.uid()));
+CREATE POLICY "project_participants_insert" ON public.project_participants
+  FOR INSERT TO authenticated
+  WITH CHECK (public.can_access_project(project_id, auth.uid()));
+CREATE POLICY "project_participants_delete" ON public.project_participants
+  FOR DELETE TO authenticated
+  USING (public.can_access_project(project_id, auth.uid()));
+
+-- 3) Status cadastráveis por workspace
+CREATE TABLE public.work_statuses (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  brand_id uuid NOT NULL REFERENCES public.brands(id) ON DELETE CASCADE,
+  scope text NOT NULL CHECK (scope IN ('project', 'job', 'task')),
+  name text NOT NULL,
+  color text NOT NULL DEFAULT '#8b5cf6',
+  position integer NOT NULL DEFAULT 0,
+  is_done boolean NOT NULL DEFAULT false,
+  is_default boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX work_statuses_brand_scope_idx ON public.work_statuses (brand_id, scope, position);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.work_statuses TO authenticated;
+GRANT ALL ON public.work_statuses TO service_role;
+ALTER TABLE public.work_statuses ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "work_statuses_select" ON public.work_statuses
+  FOR SELECT TO authenticated
+  USING (public.brand_member_role(auth.uid(), brand_id) IS NOT NULL);
+CREATE POLICY "work_statuses_write" ON public.work_statuses
+  FOR ALL TO authenticated
+  USING (public.brand_member_role(auth.uid(), brand_id) IN ('owner', 'admin'))
+  WITH CHECK (public.brand_member_role(auth.uid(), brand_id) IN ('owner', 'admin'));
+
+CREATE TRIGGER work_statuses_touch
+  BEFORE UPDATE ON public.work_statuses
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+-- 4) Campos adicionais em jobs, projetos e tarefas
+ALTER TABLE public.project_jobs
+  ADD COLUMN IF NOT EXISTS assignee_id uuid,
+  ADD COLUMN IF NOT EXISTS start_date date,
+  ADD COLUMN IF NOT EXISTS due_at date,
+  ADD COLUMN IF NOT EXISTS status_id uuid REFERENCES public.work_statuses(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS done_at timestamptz,
+  ADD COLUMN IF NOT EXISTS archived_at timestamptz;
+
+ALTER TABLE public.projects
+  ADD COLUMN IF NOT EXISTS status_id uuid REFERENCES public.work_statuses(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS done_at timestamptz,
+  ADD COLUMN IF NOT EXISTS archived_at timestamptz;
+
+ALTER TABLE public.tasks
+  ADD COLUMN IF NOT EXISTS start_date date,
+  ADD COLUMN IF NOT EXISTS status_id uuid REFERENCES public.work_statuses(id) ON DELETE SET NULL;
+
+-- ---------------------------------------------------------------------------
+-- 20260904020708_29c957ce-462d-471e-8ce0-63fb81b6756f.sql
+-- ---------------------------------------------------------------------------
+CREATE TABLE public.work_links (
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  brand_id uuid NOT NULL REFERENCES public.brands(id) ON DELETE CASCADE,
+  client_id uuid REFERENCES public.clients(id) ON DELETE CASCADE,
+  project_id uuid REFERENCES public.projects(id) ON DELETE CASCADE,
+  job_id uuid REFERENCES public.project_jobs(id) ON DELETE CASCADE,
+  task_id uuid REFERENCES public.tasks(id) ON DELETE CASCADE,
+  post_id uuid REFERENCES public.posts(id) ON DELETE CASCADE,
+  topic_id uuid REFERENCES public.monthly_plan_topics(id) ON DELETE CASCADE,
+  url text NOT NULL,
+  title text,
+  source text NOT NULL DEFAULT 'link',
+  created_by uuid,
+  created_by_client boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT work_links_url_scheme CHECK (url ~* '^https?://.{3,}$' AND length(url) <= 2000),
+  CONSTRAINT work_links_single_target CHECK (
+    (CASE WHEN project_id IS NOT NULL THEN 1 ELSE 0 END)
+    + (CASE WHEN job_id IS NOT NULL THEN 1 ELSE 0 END)
+    + (CASE WHEN task_id IS NOT NULL THEN 1 ELSE 0 END)
+    + (CASE WHEN post_id IS NOT NULL THEN 1 ELSE 0 END)
+    + (CASE WHEN topic_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+  )
+);
+
+CREATE INDEX work_links_project_idx ON public.work_links (project_id) WHERE project_id IS NOT NULL;
+CREATE INDEX work_links_job_idx ON public.work_links (job_id) WHERE job_id IS NOT NULL;
+CREATE INDEX work_links_task_idx ON public.work_links (task_id) WHERE task_id IS NOT NULL;
+CREATE INDEX work_links_post_idx ON public.work_links (post_id) WHERE post_id IS NOT NULL;
+CREATE INDEX work_links_topic_idx ON public.work_links (topic_id) WHERE topic_id IS NOT NULL;
+CREATE INDEX work_links_brand_idx ON public.work_links (brand_id, created_at DESC);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.work_links TO authenticated;
+GRANT ALL ON public.work_links TO service_role;
+
+ALTER TABLE public.work_links ENABLE ROW LEVEL SECURITY;
+
+-- Membros do workspace: escopo herdado do cliente (owner/admin cobrem o workspace;
+-- manager/user só clientes atribuídos). Links sem cliente exigem membership no brand.
+CREATE POLICY "work_links_select_members" ON public.work_links
+  FOR SELECT TO authenticated
+  USING (
+    (client_id IS NOT NULL AND public.can_access_client(client_id, auth.uid()))
+    OR (client_id IS NULL AND public.brand_member_role(auth.uid(), brand_id) IS NOT NULL)
+    OR (client_id IS NOT NULL AND public.is_portal_client_of(client_id, auth.uid()))
+  );
+
+CREATE POLICY "work_links_insert_members" ON public.work_links
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    (client_id IS NOT NULL AND public.can_access_client(client_id, auth.uid()))
+    OR (client_id IS NULL AND public.brand_member_role(auth.uid(), brand_id) IS NOT NULL)
+    OR (client_id IS NOT NULL AND public.is_portal_client_of(client_id, auth.uid()) AND created_by_client)
+  );
+
+CREATE POLICY "work_links_update_members" ON public.work_links
+  FOR UPDATE TO authenticated
+  USING (
+    (client_id IS NOT NULL AND public.can_access_client(client_id, auth.uid()))
+    OR (client_id IS NULL AND public.brand_member_role(auth.uid(), brand_id) IS NOT NULL)
+  )
+  WITH CHECK (
+    (client_id IS NOT NULL AND public.can_access_client(client_id, auth.uid()))
+    OR (client_id IS NULL AND public.brand_member_role(auth.uid(), brand_id) IS NOT NULL)
+  );
+
+-- Agência apaga qualquer link do seu escopo; cliente do portal apaga só o que ele enviou.
+CREATE POLICY "work_links_delete_members" ON public.work_links
+  FOR DELETE TO authenticated
+  USING (
+    (client_id IS NOT NULL AND public.can_access_client(client_id, auth.uid()))
+    OR (client_id IS NULL AND public.brand_member_role(auth.uid(), brand_id) IS NOT NULL)
+    OR (
+      client_id IS NOT NULL
+      AND public.is_portal_client_of(client_id, auth.uid())
+      AND created_by_client
+      AND created_by = auth.uid()
+    )
+  );
+
+CREATE TRIGGER work_links_touch_updated_at
+  BEFORE UPDATE ON public.work_links
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+-- ---------------------------------------------------------------------------
+-- 20260904115915_6e08f179-be62-4672-b2e3-f11228737de8.sql
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.installations
+  ADD COLUMN IF NOT EXISTS pinned_commit_sha text,
+  ADD COLUMN IF NOT EXISTS pinned_release text,
+  ADD COLUMN IF NOT EXISTS pinned_at timestamptz,
+  ADD COLUMN IF NOT EXISTS pinned_by uuid;
+
+-- ---------------------------------------------------------------------------
+-- 20260904125113_2795b058-5c51-4688-a3a4-38d30dc022c3.sql
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.reconcile_client_document_ai(_brand_id uuid, _client_id uuid)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  _touched integer := 0;
+  _n integer := 0;
+BEGIN
+  IF _brand_id IS NULL OR _client_id IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF NOT public.can_access_client(_client_id, auth.uid()) THEN
+    RAISE EXCEPTION 'forbidden';
+  END IF;
+
+  WITH latest AS (
+    SELECT r.document_id, r.status, r.error,
+           row_number() OVER (PARTITION BY r.document_id ORDER BY r.created_at DESC) AS rn
+      FROM public.briefing_import_runs r
+     WHERE r.brand_id = _brand_id
+       AND r.client_id = _client_id
+       AND r.document_id IS NOT NULL
+  ), upd AS (
+    UPDATE public.client_documents d
+       SET ai_status = 'failed',
+           ai_error = COALESCE(NULLIF(l.error, ''), 'A leitura nao foi concluida. Tente analisar novamente.'),
+           updated_at = now()
+      FROM latest l
+     WHERE l.rn = 1
+       AND l.document_id = d.id
+       AND d.brand_id = _brand_id
+       AND d.client_id = _client_id
+       AND d.ai_status IN ('queued', 'running')
+       AND l.status IN ('failed', 'expired', 'cancelled')
+    RETURNING 1
+  )
+  SELECT count(*) INTO _n FROM upd;
+  _touched := _touched + _n;
+
+  WITH upd2 AS (
+    UPDATE public.client_documents d
+       SET ai_status = 'failed',
+           ai_error = COALESCE(NULLIF(d.ai_error, ''), 'A leitura ficou parada e foi encerrada. Clique em Reanalisar para tentar de novo.'),
+           updated_at = now()
+     WHERE d.brand_id = _brand_id
+       AND d.client_id = _client_id
+       AND d.ai_status IN ('queued', 'running')
+       AND d.updated_at < now() - interval '20 minutes'
+       AND NOT EXISTS (
+         SELECT 1 FROM public.briefing_import_runs r
+          WHERE r.document_id = d.id
+            AND r.status IN ('queued', 'running')
+       )
+    RETURNING 1
+  )
+  SELECT count(*) INTO _n FROM upd2;
+  _touched := _touched + _n;
+
+  RETURN _touched;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.reconcile_client_document_ai(uuid, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.reconcile_client_document_ai(uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.reconcile_client_document_ai(uuid, uuid) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.briefing_import_reap()
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  _requeued integer := 0;
+  _expired integer := 0;
+  _docs integer := 0;
+BEGIN
+  WITH stalled AS (
+    SELECT id FROM public.briefing_import_runs
+     WHERE status = 'running'
+       AND lease_expires_at IS NOT NULL
+       AND lease_expires_at < now()
+       AND attempt + 1 < max_attempts
+       AND (deadline_at IS NULL OR deadline_at > now())
+     LIMIT 50
+  ), upd AS (
+    UPDATE public.briefing_import_runs r
+       SET status = 'queued',
+           attempt = r.attempt + 1,
+           lease_owner = NULL,
+           lease_expires_at = NULL,
+           resume_step = COALESCE(r.resume_step, r.current_step),
+           error = NULL,
+           error_kind = NULL,
+           updated_at = now()
+     WHERE r.id IN (SELECT id FROM stalled)
+    RETURNING 1
+  )
+  SELECT count(*) INTO _requeued FROM upd;
+
+  WITH dead AS (
+    SELECT id FROM public.briefing_import_runs
+     WHERE status IN ('queued','running')
+       AND (
+         (deadline_at IS NOT NULL AND deadline_at < now())
+         OR (status = 'running' AND lease_expires_at IS NOT NULL AND lease_expires_at < now())
+       )
+     LIMIT 50
+  ), upd2 AS (
+    UPDATE public.briefing_import_runs r
+       SET status = 'expired',
+           lease_owner = NULL,
+           lease_expires_at = NULL,
+           finished_at = now(),
+           error_kind = COALESCE(NULLIF(r.error_kind, ''), CASE WHEN NULLIF(r.error, '') IS NOT NULL THEN NULL ELSE 'stalled' END, 'stalled'),
+           error = COALESCE(NULLIF(r.error, ''), 'Processamento interrompido antes de concluir. Tente novamente.'),
+           updated_at = now()
+     WHERE r.id IN (SELECT id FROM dead)
+    RETURNING r.id, r.document_id, r.error
+  ), docs AS (
+    UPDATE public.client_documents d
+       SET ai_status = 'failed',
+           ai_error = COALESCE(NULLIF(u.error, ''), 'Processamento interrompido antes de concluir. Tente novamente.'),
+           updated_at = now()
+      FROM upd2 u
+     WHERE u.document_id = d.id
+       AND d.ai_status IN ('queued','running')
+    RETURNING 1
+  ), counted AS (
+    SELECT (SELECT count(*) FROM upd2) AS runs, (SELECT count(*) FROM docs) AS synced
+  )
+  SELECT runs, synced INTO _expired, _docs FROM counted;
+
+  -- Documentos presos sem nenhuma execucao viva (kick perdido, isolate morto).
+  UPDATE public.client_documents d
+     SET ai_status = 'failed',
+         ai_error = COALESCE(NULLIF(d.ai_error, ''), 'A leitura ficou parada e foi encerrada. Clique em Reanalisar para tentar de novo.'),
+         updated_at = now()
+   WHERE d.ai_status IN ('queued','running')
+     AND d.updated_at < now() - interval '20 minutes'
+     AND NOT EXISTS (
+       SELECT 1 FROM public.briefing_import_runs r
+        WHERE r.document_id = d.id
+          AND r.status IN ('queued','running')
+     );
+
+  RETURN jsonb_build_object('requeued', _requeued, 'expired', _expired, 'documents_synced', _docs);
+END;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 20260904142244_dba3410c-bae3-4b0a-b002-e179789cc6e6.sql
+-- ---------------------------------------------------------------------------
+CREATE TABLE public.installation_credentials (
+  installation_id uuid PRIMARY KEY REFERENCES public.installations(id) ON DELETE CASCADE,
+  supabase_management_token_ciphertext text,
+  vercel_token_ciphertext text,
+  vercel_team_id text,
+  github_token_ciphertext text,
+  updated_by uuid,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.installation_credentials TO authenticated;
+GRANT ALL ON public.installation_credentials TO service_role;
+
+ALTER TABLE public.installation_credentials ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "installation_credentials_super_admin_all" ON public.installation_credentials
+  FOR ALL
+  TO authenticated
+  USING (public.is_super_admin(auth.uid()))
+  WITH CHECK (public.is_super_admin(auth.uid()));
+
+CREATE TRIGGER update_installation_credentials_updated_at
+  BEFORE UPDATE ON public.installation_credentials
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
