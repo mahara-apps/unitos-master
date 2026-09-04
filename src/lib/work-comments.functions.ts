@@ -87,16 +87,37 @@ export const addWorkCommentFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("work_comments").insert({
-      brand_id: data.brandId,
-      project_id: data.projectId,
-      job_id: data.jobId ?? null,
-      author_id: context.userId,
-      body: data.body,
-      mentions: data.mentions ?? [],
-    } as never);
+    const { data: inserted, error } = await context.supabase
+      .from("work_comments")
+      .insert({
+        brand_id: data.brandId,
+        project_id: data.projectId,
+        job_id: data.jobId ?? null,
+        author_id: context.userId,
+        body: data.body,
+        mentions: data.mentions ?? [],
+      } as never)
+      .select("id")
+      .single();
     if (error) throw error;
-    return { ok: true };
+
+    const mentions = data.mentions ?? [];
+    if (mentions.length > 0) {
+      const { notifyMentionsSafe } = await import("@/lib/mention-notify.server");
+      const href = data.jobId
+        ? `/projects/${data.projectId}?job=${data.jobId}`
+        : `/projects/${data.projectId}`;
+      await notifyMentionsSafe(context.supabase, {
+        brandId: data.brandId,
+        authorId: context.userId,
+        mentions,
+        commentId: (inserted as { id: string } | null)?.id ?? null,
+        title: data.jobId ? "Você foi mencionado em um job" : "Você foi mencionado em um projeto",
+        body: data.body,
+        href,
+      });
+    }
+    return { ok: true, id: (inserted as { id: string } | null)?.id ?? null };
   });
 
 export const deleteWorkCommentFn = createServerFn({ method: "POST" })
