@@ -192,7 +192,7 @@ export const addPlanLinkPublic = createServerFn({ method: "POST" })
           {
             user_id: ownerId,
             brand_id: session.brand_id,
-            kind: "info",
+            kind: "system",
             title: "Cliente anexou um link na pauta",
             body: (plan as { title?: string | null } | null)?.title ?? null,
             href: `/content/plans/${session.monthly_plan_id}`,
