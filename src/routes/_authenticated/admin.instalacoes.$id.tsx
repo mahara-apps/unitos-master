@@ -78,14 +78,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatDateTimeBr } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import {
+  CheckList,
+  CheckRow,
+  CollapsibleChecks,
   DataCell,
   DataGrid,
   LifecycleSteps,
   StateBadge,
   StatusBadge,
   VersionPair,
+  formatVersion,
   lifecycleIndex,
   type VisualState,
 } from "@/components/installations/installation-visuals";
@@ -420,6 +425,9 @@ function InstallationDetailPage() {
     optional: { custom_domain: customDomainState(inst.domain) },
     operationRunning: !!activeOp,
   });
+  const optionalConfigured = OPTIONAL_CONFIG.filter(
+    (o) => readiness.optional[o.id] === "configured",
+  ).length;
   const coreLabel = (coreId: (typeof CORE_REQUIREMENTS)[number]["id"]) =>
     CORE_REQUIREMENTS.find((r) => r.id === coreId)?.label ?? coreId;
 
@@ -498,7 +506,6 @@ function InstallationDetailPage() {
                 state={readiness.ready ? "ok" : "pending"}
                 label={`${OVERALL_STATE_ICON[readiness.state]} ${OVERALL_STATE_LABEL[readiness.state]}`}
               />
-              <StatusBadge status={inst.status} />
               <StateBadge
                 state={HEALTH_STATE[inst.health]}
                 label={INSTALLATION_HEALTH_LABEL[inst.health]}
@@ -507,7 +514,7 @@ function InstallationDetailPage() {
             <p className="truncate text-xs text-muted-foreground">
               {inst.domain ?? "domínio não informado"}
             </p>
-            <LifecycleSteps activeIndex={lifecycleIndex(inst)} />
+            <LifecycleSteps activeIndex={lifecycleIndex(inst)} complete={readiness.ready} />
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5">
@@ -603,31 +610,46 @@ function InstallationDetailPage() {
               <p className="flex items-center gap-2 text-sm font-semibold text-health-good">
                 <CheckCircle2 className="h-4 w-4" /> Instalação pronta e operacional
               </p>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <StateBadge
+              <CheckList>
+                <CheckRow
                   state={lastValidate?.status === "success" ? "ok" : "attention"}
-                  label={
+                  label="Validação"
+                  value={
                     lastValidate?.status === "success"
-                      ? `Validada${lastValidate.finishedAt ? ` · ${new Date(lastValidate.finishedAt).toLocaleString("pt-BR")}` : ""}`
-                      : "Validação final pendente"
+                      ? formatDateTimeBr(lastValidate.finishedAt)
+                      : "pendente"
                   }
                 />
-                <StateBadge
+                <CheckRow
                   state={readiness.core.super_admin.state === "ok" ? "ok" : "attention"}
-                  label={
-                    readiness.core.super_admin.state === "ok"
-                      ? "Super Admin criado"
-                      : "Super Admin pendente em /setup"
+                  label="Super Admin"
+                  value={
+                    readiness.core.super_admin.state === "ok" ? "criado" : "pendente em /setup"
                   }
                 />
-                {readiness.pendingOptional.map((o) => (
-                  <StateBadge
-                    key={o}
-                    state="pending"
-                    label={`Opcional: ${OPTIONAL_CONFIG.find((x) => x.id === o)?.label ?? o}`}
-                  />
-                ))}
-              </div>
+                <CheckRow
+                  state="ok"
+                  label="Núcleo obrigatório"
+                  value={`${CORE_REQUIREMENTS.length - readiness.missingCore.length - readiness.failedCore.length} de ${CORE_REQUIREMENTS.length} comprovados`}
+                />
+                <CollapsibleChecks
+                  label="Configurações opcionais"
+                  state={optionalConfigured === OPTIONAL_CONFIG.length ? "ok" : "pending"}
+                  summary={`${optionalConfigured} de ${OPTIONAL_CONFIG.length} configuradas`}
+                >
+                  {OPTIONAL_CONFIG.map((item) => {
+                    const state = readiness.optional[item.id];
+                    return (
+                      <CheckRow
+                        key={item.id}
+                        state={OPTIONAL_STATE[state]}
+                        label={item.label}
+                        value={OPTIONAL_STATE_LABEL[state]}
+                      />
+                    );
+                  })}
+                </CollapsibleChecks>
+              </CheckList>
               {inst.domain && isTemporaryDeployUrl(inst.domain) && (
                 <p className="text-xs text-muted-foreground">
                   Domínio atual é o temporário do deploy. Quando o cliente informar o definitivo, use
@@ -642,14 +664,14 @@ function InstallationDetailPage() {
               <p className="text-sm font-semibold text-severity-warning">
                 Instalação ainda não confirmada como pronta
               </p>
-              <div className="flex flex-wrap gap-1.5">
+              <CheckList>
                 {readiness.failedCore.map((c) => (
-                  <StateBadge key={c} state="error" label={coreLabel(c)} />
+                  <CheckRow key={c} state="error" label={coreLabel(c)} value="com falha" />
                 ))}
                 {readiness.missingCore.map((c) => (
-                  <StateBadge key={c} state="pending" label={coreLabel(c)} />
+                  <CheckRow key={c} state="pending" label={coreLabel(c)} value="não comprovado" />
                 ))}
-              </div>
+              </CheckList>
               <p className="text-xs text-muted-foreground">
                 Rode “Validar” para o MASTER reler o estado real do destino.
               </p>
@@ -701,11 +723,7 @@ function InstallationDetailPage() {
                 <DataCell label="Deploy" value={inst.deployProject} />
                 <DataCell
                   label="Última validação"
-                  value={
-                    inst.lastValidatedAt
-                      ? new Date(inst.lastValidatedAt).toLocaleString("pt-BR")
-                      : "—"
-                  }
+                  value={formatDateTimeBr(inst.lastValidatedAt)}
                 />
               </DataGrid>
             </CardContent>
@@ -789,7 +807,7 @@ function InstallationDetailPage() {
                   mono
                   value={
                     inst.pinnedCommitSha
-                      ? `${inst.pinnedRelease ?? "—"} · ${inst.pinnedCommitSha.slice(0, 7)}`
+                      ? `${inst.pinnedRelease ? formatVersion(inst.pinnedRelease) : "—"} · ${inst.pinnedCommitSha.slice(0, 7)}`
                       : "ainda não fixado"
                   }
                 />
@@ -806,7 +824,7 @@ function InstallationDetailPage() {
                 />
                 <DataCell
                   label="Autorizado em"
-                  value={inst.pinnedAt ? new Date(inst.pinnedAt).toLocaleString("pt-BR") : "—"}
+                  value={formatDateTimeBr(inst.pinnedAt)}
                 />
               </DataGrid>
               <div className="flex flex-wrap items-center gap-2 border-t border-border/50 pt-3">
@@ -881,7 +899,7 @@ function InstallationDetailPage() {
               </DataGrid>
               <p className="text-[11px] text-muted-foreground">
                 {inst.healthCheckedAt
-                  ? `Última medição em ${new Date(inst.healthCheckedAt).toLocaleString("pt-BR")}.`
+                  ? `Última medição em ${formatDateTimeBr(inst.healthCheckedAt)}.`
                   : "Nenhuma medição registrada ainda."}
               </p>
             </CardContent>
@@ -1039,9 +1057,9 @@ function InstallationDetailPage() {
                       </span>
                     )}
                     <span className="ml-auto text-[11px] text-muted-foreground">
-                      {new Date(op.startedAt).toLocaleString("pt-BR")}
+                      {formatDateTimeBr(op.startedAt)}
                       {op.finishedAt
-                        ? ` → ${new Date(op.finishedAt).toLocaleString("pt-BR")}`
+                        ? ` → ${formatDateTimeBr(op.finishedAt)}`
                         : ""}
                     </span>
                   </div>
