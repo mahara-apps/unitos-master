@@ -2686,6 +2686,27 @@ export async function runAutomatedUpdate(input: {
     return fail("BLOCKED", "a instalação não tem projeto de deploy configurado");
   }
 
+  /* 0. banco antes do código: o build novo depende do schema atualizado. */
+  await report(client, operation, "database", "running");
+  const delta = await applyDatabaseDelta({
+    client,
+    operation,
+    installation,
+    env,
+    ...(input.fetchImpl ? { fetchImpl: input.fetchImpl } : {}),
+  });
+  if (delta.state === "blocked" || delta.state === "error") {
+    return fail(delta.state === "blocked" ? "BLOCKED" : "FAIL", delta.detail, "database");
+  }
+  if (delta.state === "pending") {
+    // O watchdog retoma a MESMA operação e continua do checkpoint.
+    await report(client, operation, "database", "running", delta.detail);
+    return { result: "PENDING", reasons: [delta.detail] };
+  }
+  await report(client, operation, "database", "done", delta.detail, 100);
+
+
+
   const masterRepo = (env["UNITOS_MASTER_REPO"] ?? "").trim() || null;
   const repo = resolveInstallationRepo({
     gitRepoUrl: installation.gitRepoUrl ?? null,
