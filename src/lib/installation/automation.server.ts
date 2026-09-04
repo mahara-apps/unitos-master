@@ -434,17 +434,46 @@ export function createCodeClient(input: {
         const source = await tree(master, sha);
         if (!source.ok) return { ok: false, error: source.error };
 
-        const head = await api(`/repos/${target}/git/ref/heads/${branch}`);
-        let parent: string | null = null;
-        if (head.ok) {
-          const body = (await head.json().catch(() => ({}))) as { object?: { sha?: string } };
-          parent = body.object?.sha ?? null;
-        } else if (head.status !== 404 && head.status !== 409) {
-          return { ok: false, error: await fail(head, `ler a branch ${branch} de ${target}`) };
+        const readHead = async () => {
+          const res = await api(`/repos/${target}/git/ref/heads/${branch}`);
+          if (res.ok) {
+            const body = (await res.json().catch(() => ({}))) as { object?: { sha?: string } };
+            return { ok: true as const, sha: body.object?.sha ?? null };
+          }
+          if (res.status === 404 || res.status === 409) return { ok: true as const, sha: null };
+          return { ok: false as const, error: await fail(res, `ler a branch ${branch} de ${target}`) };
+        };
+
+        const first = await readHead();
+        if (!first.ok) return { ok: false, error: first.error };
+        let parent: string | null = first.sha;
+
+        // Repositório recém-criado sem commits: a API de blobs recusa (409
+        // "Git Repository is empty"). Criamos o commit inicial pela API de
+        // conteúdo, que é a única que funciona em repositório vazio.
+        if (!parent) {
+          const seed = await api(`/repos/${target}/contents/README.md`, {
+            method: "PUT",
+            body: JSON.stringify({
+              message: "Unitos: inicializar repositório da instalação",
+              content: Buffer.from(
+                `# ${input.repo}\n\nInstalação Unitos. Código publicado a partir do MASTER.\n`,
+                "utf8",
+              ).toString("base64"),
+              branch,
+            }),
+          });
+          if (!seed.ok && seed.status !== 422) {
+            return { ok: false, error: await fail(seed, `inicializar ${target}`) };
+          }
+          const again = await readHead();
+          if (!again.ok) return { ok: false, error: again.error };
+          parent = again.sha;
         }
 
         const destination = parent ? await tree(target, parent) : { ok: true as const, entries: [] };
         if (!destination.ok) return { ok: false, error: destination.error };
+
         const current = new Map(destination.entries.map((e) => [e.path ?? "", e.sha ?? ""]));
 
         const changed = source.entries.filter((e) => current.get(e.path ?? "") !== e.sha);
