@@ -1104,7 +1104,11 @@ export async function runAutomatedProvision(input: {
       await mark("deploy", "error", plan.reason);
       return finish(url.origin, url.source);
     }
+    // Instalação externa não pode republicar sozinha a cada commit no MASTER:
+    // desliga o build automático da branch já no provisionamento.
+    await deploy.setAutoDeploy(false);
     const envResult = await deploy.setEnv(plan.entries);
+
     if (!envResult.ok) {
       blocked.push(`Variáveis do deploy não configuradas: ${envResult.error ?? ""}`.trim());
       await mark("deploy", "error", "falha ao gravar variáveis do deploy");
