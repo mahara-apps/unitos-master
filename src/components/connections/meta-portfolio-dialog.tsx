@@ -1093,7 +1093,7 @@ function MetaAssignFooter({
           <div className="min-w-0 sm:w-72">
             <Select value={target} onValueChange={setTarget} disabled={saving || count === 0}>
               <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder="Vincular a um cliente (opcional)" />
+                <SelectValue placeholder="Vincular ao cliente" />
               </SelectTrigger>
               <SelectContent>
                 {clients.map((c) => (
