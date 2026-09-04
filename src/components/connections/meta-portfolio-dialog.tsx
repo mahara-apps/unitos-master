@@ -1154,26 +1154,66 @@ export function MetaPortfolioDialog({
   channel?: "facebook" | "instagram" | "threads" | "ads" | null;
   onOpenChange: (open: boolean) => void;
 }) {
+  const [pending, setPending] = useState(0);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const onPendingChange = useCallback((n: number) => setPending(n), []);
+
+  function requestClose() {
+    if (pending > 0 && !clientId) {
+      setConfirmClose(true);
+      return;
+    }
+    onOpenChange(false);
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl border-border/60 bg-background/95 backdrop-blur">
-        <DialogHeader>
-          <DialogTitle className="text-base">Selecione as contas da Meta</DialogTitle>
-          <DialogDescription className="text-xs">
-            Ative as contas que você vai usar e, no final, escolha o cliente que vai recebê-las.
-          </DialogDescription>
-        </DialogHeader>
-        <MetaAssetsPanel
-          brandId={brandId}
-          clientId={clientId}
-          sessionId={sessionId}
-          active={open}
-          channel={channel}
-          assign
-          onClose={() => onOpenChange(false)}
-        />
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={open} onOpenChange={(v) => (v ? onOpenChange(true) : requestClose())}>
+        <DialogContent className="flex max-h-[88vh] max-w-3xl flex-col overflow-hidden border-border/60 bg-background/95 backdrop-blur">
+          <DialogHeader>
+            <DialogTitle className="text-base">Selecione as contas da Meta</DialogTitle>
+            <DialogDescription className="text-xs">
+              Ative as contas que você vai usar e, no final, escolha o cliente que vai recebê-las.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pr-1">
+            <MetaAssetsPanel
+              brandId={brandId}
+              clientId={clientId}
+              sessionId={sessionId}
+              active={open}
+              channel={channel}
+              assign
+              onPendingChange={onPendingChange}
+              onClose={() => onOpenChange(false)}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Vincular a um cliente agora?</AlertDialogTitle>
+            <AlertDialogDescription>
+              As contas ativadas ficaram salvas no workspace, mas ainda não pertencem a nenhum
+              cliente. Você pode escolher o cliente agora no rodapé da tela.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Vincular</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmClose(false);
+                onOpenChange(false);
+              }}
+            >
+              Sair
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
