@@ -814,24 +814,55 @@ function ProjectsIndexPage() {
       </DashboardPanelSurface>
 
       {/* Lista de projetos */}
-      {projectsQ.isLoading ? (
-        view === "cards" ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-[104px] animate-pulse rounded-lg border border-border/60 bg-muted/50"
-              />
-            ))}
+      {projectsQ.isError ? (
+        <DashboardPanelSurface className="space-y-3 p-6 text-center">
+          <p className="text-sm font-medium text-foreground">
+            Não foi possível carregar os projetos
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {(projectsQ.error as Error | null)?.message ||
+              "Falha de comunicação com o servidor. Isso não significa que o cliente esteja sem projetos."}
+          </p>
+          <div>
+            <Button size="sm" variant="outline" onClick={() => void projectsQ.refetch()}>
+              Tentar novamente
+            </Button>
           </div>
-        ) : (
-          <DashboardPanelSurface className="space-y-2 p-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-10 animate-pulse rounded-md bg-muted/60" />
-            ))}
-          </DashboardPanelSurface>
-        )
+        </DashboardPanelSurface>
+      ) : projectsQ.isLoading ? (
+        <div className="space-y-2">
+          {showSlowHint ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
+              <span>Está demorando mais que o normal para carregar os projetos.</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-[11px]"
+                onClick={() => void projectsQ.refetch()}
+              >
+                Recarregar
+              </Button>
+            </div>
+          ) : null}
+          {view === "cards" ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-[104px] animate-pulse rounded-lg border border-border/60 bg-muted/50"
+                />
+              ))}
+            </div>
+          ) : (
+            <DashboardPanelSurface className="space-y-2 p-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-10 animate-pulse rounded-md bg-muted/60" />
+              ))}
+            </DashboardPanelSurface>
+          )}
+        </div>
       ) : rows.length === 0 ? (
+
         <DashboardPanelSurface>
           <PanelEmptyState
             icon={<FileBarChart2 className="h-4 w-4" />}
