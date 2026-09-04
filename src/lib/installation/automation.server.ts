@@ -169,6 +169,55 @@ export async function probeOperationalUrl(
 /* ------------------------------------------------ Supabase Management API */
 
 /**
+ * Tabelas auxiliares da automação (`_unitos_*`) vivem em `public` mas NÃO fazem
+ * parte do produto: sem RLS elas reprovavam a verificação 15 do
+ * `verify-installation.sql` ("RLS habilitado em todas as tabelas de public").
+ * Sem policies e sem grants, ficam invisíveis pela Data API e acessíveis apenas
+ * pela Management API / service role.
+ */
+export const HELPER_TABLE_HARDENING_SQL = (table: string): string =>
+  [
+    `alter table ${table} enable row level security`,
+    `revoke all on ${table} from anon, authenticated`,
+  ].join(";\n");
+
+/** Nomes das tabelas auxiliares criadas pela automação no banco de destino. */
+export const HELPER_TABLES = [
+  "public._unitos_applied_deltas",
+  "public._unitos_deferred_sql",
+] as const;
+
+/**
+ * Auto-reparo idempotente antes da validação final: liga RLS e revoga grants em
+ * qualquer tabela auxiliar remanescente de execuções anteriores e descarta a
+ * fila de statements adiados quando ela já está vazia.
+ */
+export async function hardenHelperTables(management: {
+  query: (sql: string) => Promise<{ ok: boolean; rows: unknown[]; error?: string }>;
+}): Promise<{ ok: boolean; error?: string }> {
+  const sql = [
+    "DO $unitos_harden$",
+    "DECLARE t text; leftover int;",
+    "BEGIN",
+    `  FOREACH t IN ARRAY ARRAY[${HELPER_TABLES.map((n) => `'${n}'`).join(", ")}] LOOP`,
+    "    IF to_regclass(t) IS NOT NULL THEN",
+    "      EXECUTE format('alter table %s enable row level security', t);",
+    "      EXECUTE format('revoke all on %s from anon, authenticated', t);",
+    "    END IF;",
+    "  END LOOP;",
+    "  IF to_regclass('public._unitos_deferred_sql') IS NOT NULL THEN",
+    "    EXECUTE 'SELECT count(*) FROM public._unitos_deferred_sql WHERE stmt NOT LIKE ''-- __unitos%''' INTO leftover;",
+    "    IF leftover = 0 THEN DROP TABLE IF EXISTS public._unitos_deferred_sql; END IF;",
+    "  END IF;",
+    "END",
+    "$unitos_harden$;",
+  ].join("\n");
+  const res = await management.query(sql);
+  return res.ok ? { ok: true } : { ok: false, error: res.error };
+}
+
+
+/**
  * Reaplica um arquivo do baseline statement por statement, ignorando SOMENTE
  * erros de "objeto já existe". Qualquer outro erro aborta e é reportado.
  */
