@@ -3,7 +3,13 @@
  * A lista de opções vem da equipe da workspace (com destaque para envolvidos).
  */
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export type TeamOption = {
   user_id: string;

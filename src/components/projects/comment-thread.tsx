@@ -18,11 +18,7 @@ import {
   deleteWorkCommentFn,
   listWorkCommentsFn,
 } from "@/lib/work-comments.functions";
-import {
-  addTaskCommentFn,
-  deleteTaskCommentFn,
-  listTaskCommentsFn,
-} from "@/lib/tasks.functions";
+import { addTaskCommentFn, deleteTaskCommentFn, listTaskCommentsFn } from "@/lib/tasks.functions";
 import { APP_TIMEZONE } from "@/lib/timezone";
 
 function formatWhen(iso: string) {
@@ -155,15 +151,11 @@ export function CommentThread({
             <div key={c.id} className="flex gap-2.5">
               <Avatar className="h-7 w-7 shrink-0">
                 {c.author_avatar ? <AvatarImage src={c.author_avatar} alt="" /> : null}
-                <AvatarFallback className="text-[10px]">
-                  {initials(c.author_name)}
-                </AvatarFallback>
+                <AvatarFallback className="text-[10px]">{initials(c.author_name)}</AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-xs font-medium">
-                    {c.author_name ?? "Usuário"}
-                  </span>
+                  <span className="truncate text-xs font-medium">{c.author_name ?? "Usuário"}</span>
                   <span className="text-[10px] text-muted-foreground">
                     {formatWhen(c.created_at)}
                   </span>
