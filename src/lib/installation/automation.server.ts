@@ -1418,6 +1418,9 @@ export async function runAutomatedUpdate(input: {
   installation: AutomationInstallation;
   env?: Record<string, string | undefined>;
   fetchImpl?: Fetcher;
+  /** Commit do MASTER autorizado pelo Super Admin para esta instalação. */
+  commitSha?: string | null;
+
   /** Tempo máximo aguardando o build ficar READY. */
   waitMs?: number;
   sleep?: (ms: number) => Promise<void>;
