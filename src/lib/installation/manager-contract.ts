@@ -325,6 +325,7 @@ export const VALIDATE_STEPS = [
  * instalação (novo build a partir do repositório) e registra a versão.
  */
 export const UPDATE_STEPS = [
+  { id: "database", label: "Atualização do banco", script: "supabase/baseline-snapshot/007_delta_migrations.sql" },
   { id: "code", label: "Novo deployment do código do MASTER", script: "vercel: POST /v13/deployments" },
   { id: "build", label: "Build e publicação", script: "vercel: GET /v13/deployments/{id}" },
   { id: "version", label: "Versão registrada", script: "installations.current_version" },
