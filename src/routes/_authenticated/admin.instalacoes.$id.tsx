@@ -792,6 +792,12 @@ function InstallationDetailPage() {
           </Card>
         </TabsContent>
 
+        {/* ACESSOS */}
+        <TabsContent value="acessos" className="space-y-4">
+          <InstallationCredentialsCard installationId={id} />
+        </TabsContent>
+
+
         {/* VERSÕES */}
         <TabsContent value="versoes" className="space-y-4">
           <Card>
