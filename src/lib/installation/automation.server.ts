@@ -706,6 +706,48 @@ export function createCodeClient(input: {
         return { ok: false, error: (e as Error).message };
       }
     },
+
+    async nudgeDeploy(message) {
+      // Commit vazio na branch de produção do repositório DA INSTALAÇÃO: a
+      // integração Git da Vercel publica sem consumir a cota de deployments
+      // por API do plano gratuito.
+      try {
+        const refRes = await api(`/repos/${target}/git/ref/heads/${branch}`);
+        if (!refRes.ok) return { ok: false, error: await fail(refRes, "ler a branch do destino") };
+        const refBody = (await refRes.json().catch(() => ({}))) as { object?: { sha?: string } };
+        const headSha = refBody.object?.sha;
+        if (!headSha) return { ok: false, error: "HEAD do destino não retornado" };
+
+        const commitRes = await api(`/repos/${target}/git/commits/${headSha}`);
+        if (!commitRes.ok) {
+          return { ok: false, error: await fail(commitRes, "ler o commit do destino") };
+        }
+        const commitBody = (await commitRes.json().catch(() => ({}))) as { tree?: { sha?: string } };
+        const treeSha = commitBody.tree?.sha;
+        if (!treeSha) return { ok: false, error: "árvore do commit do destino não retornada" };
+
+        const created = await api(`/repos/${target}/git/commits`, {
+          method: "POST",
+          body: JSON.stringify({
+            message: (message ?? "").trim() || "chore(unitos): republicar com variáveis atualizadas",
+            tree: treeSha,
+            parents: [headSha],
+          }),
+        });
+        if (!created.ok) return { ok: false, error: await fail(created, "criar o commit de publicação") };
+        const newSha = ((await created.json().catch(() => ({}))) as { sha?: string }).sha;
+        if (!newSha) return { ok: false, error: "commit de publicação não retornado" };
+
+        const updated = await api(`/repos/${target}/git/refs/heads/${branch}`, {
+          method: "PATCH",
+          body: JSON.stringify({ sha: newSha, force: false }),
+        });
+        if (!updated.ok) return { ok: false, error: await fail(updated, "atualizar a branch do destino") };
+        return { ok: true, commitSha: newSha };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
     async publishSnapshot(sha, options) {
       const opts: PublishSnapshotOptions =
         typeof options === "function" ? { onProgress: options } : (options ?? {});
