@@ -992,17 +992,19 @@ export function MetaAssetsPanel({
       </div>
 
       {assign ? (
-        <MetaAssignFooter
-          brandId={brandId}
-          clientId={clientId}
-          linked={linkedNow}
-          onDone={() => {
-            setLinkedNow([]);
-            onOpenChange(false);
-          }}
-        />
+        <div className="sticky bottom-0 z-10 -mx-1 mt-2 bg-background/95 px-1 backdrop-blur">
+          <MetaAssignFooter
+            brandId={brandId}
+            clientId={clientId}
+            linked={linkedNow}
+            onDone={() => {
+              setLinkedNow([]);
+              onOpenChange(false);
+            }}
+          />
+        </div>
       ) : null}
-    </>
+    </div>
   );
 }
 
