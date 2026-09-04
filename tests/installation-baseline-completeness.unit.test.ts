@@ -38,7 +38,56 @@ describe("delta do baseline", () => {
   it("não contém meta-comandos psql", () => {
     expect(delta).not.toMatch(/^\\[a-z]/im);
   });
+
+  /**
+   * Regressão real: o delta ficou parado em 2026-09-03 enquanto o código já
+   * usava `work_statuses`, `work_links`, `projects.status_id` e
+   * `tasks.start_date`. A instalação nascia com schema antigo e as telas de
+   * Projetos/Tarefas falhavam ao ler colunas inexistentes.
+   */
+  it("cobre TODAS as migrations posteriores ao corte do dump", () => {
+    const manifest = new Set(
+      manifestRaw
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean),
+    );
+    const all = Object.keys(migrationFiles)
+      .map((p) => p.split("/").pop()!)
+      .sort();
+    const start = "20260829121019_8a4f7bd3-bff7-464d-997c-d72f8676ebec.sql";
+    const posteriores = all.filter((n) => n >= start);
+    // Migrations exclusivas do MASTER (cron apontando para a URL do MASTER)
+    // ficam de fora de propósito: a instalação recebe cron próprio em 020_cron.
+    const masterOnly = posteriores.filter((n) =>
+      (migrationFiles[
+        Object.keys(migrationFiles).find((p) => p.endsWith(n))!
+      ] as string).includes("project--3f33732a-cb8b-43ae-84fb-01d9e367fb0c"),
+    );
+    const faltando = posteriores.filter((n) => !manifest.has(n) && !masterOnly.includes(n));
+    expect(faltando).toEqual([]);
+  });
+
+  for (const objeto of [
+    "work_statuses",
+    "work_links",
+    "work_comments",
+    "project_participants",
+  ] as const) {
+    it(`delta cria ${objeto}`, () => {
+      expect(delta).toContain(`public.${objeto}`);
+    });
+  }
+
+  for (const coluna of ["projects.status_id", "tasks.start_date"] as const) {
+    it(`delta adiciona ${coluna}`, () => {
+      const [tabela, campo] = coluna.split(".");
+      const bloco = delta.slice(delta.indexOf(`ALTER TABLE public.${tabela}\n`));
+      expect(bloco).toContain(campo!);
+    });
+  }
 });
+
 
 describe("stripPsqlMetaCommands", () => {
   it("remove \\set, \\pset e \\timing mantendo o SQL", () => {
