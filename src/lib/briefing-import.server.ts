@@ -336,6 +336,10 @@ export async function startImportRun(
       idempotency_key: key,
       input_fingerprint: fingerprint,
       base_version_id: args.baseVersionId ?? null,
+      // Prazo já na criação: run que nunca foi reivindicada por um worker
+      // também expira (antes ficava `queued` para sempre, e a UI esperava
+      // indefinidamente por uma leitura que nunca ia acontecer).
+      deadline_at: new Date(Date.now() + 15 * 60_000).toISOString(),
     })
 
     .select(RUN_COLUMNS)
