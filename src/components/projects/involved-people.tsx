@@ -20,6 +20,8 @@ import {
   removeProjectParticipantFn,
 } from "@/lib/project-participants.functions";
 import { initialsOf, type TeamOption } from "@/components/projects/assignee-picker";
+import { AvatarStack } from "@/components/projects/avatar-stack";
+
 
 export function useProjectParticipants(brandId: string, projectId: string) {
   const list = useServerFn(listProjectParticipantsFn);
