@@ -374,28 +374,42 @@ function ProjectsIndexPage() {
 
   const projectsQ = useQuery({
     queryKey: ["projects", brandId, statusFilter, ownerFilter, effectiveClientId],
-    queryFn: () =>
-      list({
-        data: {
-          brandId: brandId!,
-          status: statusFilter === "all" ? null : (statusFilter as never),
-          ownerId: ownerFilter === "all" ? null : ownerFilter,
-          clientId: effectiveClientId,
-        },
-      }),
+    queryFn: ({ signal }) =>
+      withTimeout(
+        (s) =>
+          list({
+            signal: s,
+            data: {
+              brandId: brandId!,
+              status: statusFilter === "all" ? null : (statusFilter as never),
+              ownerId: ownerFilter === "all" ? null : ownerFilter,
+              clientId: effectiveClientId,
+            },
+          }),
+        signal,
+      ),
     enabled: !!brandId,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1500 * 2 ** attempt, 6000),
   });
 
   const clientsQ = useQuery({
     queryKey: ["clients", brandId],
-    queryFn: () => clientsFn({ data: { brandId: brandId! } }),
+    queryFn: ({ signal }) =>
+      withTimeout((s) => clientsFn({ signal: s, data: { brandId: brandId! } }), signal),
     enabled: !!brandId,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1500 * 2 ** attempt, 6000),
   });
   const teamQ = useQuery({
     queryKey: ["team", brandId],
-    queryFn: () => teamFn({ data: { brandId: brandId! } }),
+    queryFn: ({ signal }) =>
+      withTimeout((s) => teamFn({ signal: s, data: { brandId: brandId! } }), signal),
     enabled: !!brandId,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1500 * 2 ** attempt, 6000),
   });
+
   const team = (teamQ.data?.members ?? []) as Array<{ user_id: string; full_name: string | null }>;
   const clients = (clientsQ.data ?? []) as Array<{
     id: string;
