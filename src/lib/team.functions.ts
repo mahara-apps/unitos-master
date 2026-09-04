@@ -457,6 +457,37 @@ export const acceptBrandInvite = createServerFn({ method: "POST" })
       _token: data.token,
     });
     if (error) throw error;
+
+    // Aplica o perfil de acesso escolhido no convite (permissões por módulo).
+    // Best-effort: nunca impede a entrada do usuário no workspace.
+    if (typeof brandId === "string" && brandId) {
+      try {
+        const { data: invite } = await context.supabase
+          .from("brand_invites")
+          .select("access_profile_key")
+          .eq("token", data.token)
+          .maybeSingle();
+        const key = invite?.access_profile_key ?? null;
+        if (key) {
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const { data: prof } = await supabaseAdmin
+            .from("access_profiles")
+            .select("id")
+            .eq("brand_id", brandId)
+            .eq("key", key)
+            .maybeSingle();
+          if (prof?.id) {
+            await supabaseAdmin
+              .from("brand_members")
+              .update({ access_profile_id: prof.id })
+              .eq("brand_id", brandId)
+              .eq("user_id", context.userId);
+          }
+        }
+      } catch (e) {
+        console.error("[accept invite] perfil de acesso não aplicado", e);
+      }
+    }
     return { brandId };
   });
 
