@@ -117,6 +117,9 @@ export async function probeInstallationHealth(input: {
   return {
     connectivity,
     supabase,
+    // Publicação do código é comprovada pelo provisionamento/atualização.
+    code: stored.code,
+
     database: stored.database,
     storage: stored.storage,
     cron: stored.cron,

@@ -64,6 +64,7 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
         supabaseUrl: (row.supabase_url ?? null) as string | null,
         supabaseProjectRef: (row.supabase_project_ref ?? null) as string | null,
         deployProject: (row.deploy_project ?? null) as string | null,
+        gitRepoUrl: (row.git_repo_url ?? null) as string | null,
       },
       // Retomada nunca "atualiza para o mais novo": segue o commit autorizado
       // quando a operação foi aberta.

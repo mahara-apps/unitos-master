@@ -47,7 +47,9 @@ import {
   buildDeployEnvPlan,
   resolveAutomationCapability,
   resolveAutomationTarget,
+  resolveInstallationRepo,
   resolveOperationalUrl,
+
   type AutomationOutcome,
   type GeneratedSecretVar,
 } from "./automation-contract";
@@ -266,8 +268,14 @@ export type DeployClient = {
   setAutoDeploy: (
     enabled: boolean,
   ) => Promise<{ ok: boolean; error?: string }>;
+  /**
+   * Liga o projeto de deploy ao repositório `owner/repo` DA INSTALAÇÃO,
+   * substituindo qualquer vínculo anterior. Idempotente.
+   */
+  linkRepository: (repo: string) => Promise<{ ok: boolean; error?: string }>;
   /** Commit atual da branch de producao do repositorio do MASTER. */
   latestCommit: () => Promise<{ ok: boolean; sha?: string; error?: string }>;
+
   /**
    * Novo build a partir do repositorio ligado ao projeto. Recebe o commit
    * autorizado (`sha`); sem ele usa o commit atual da branch. Sem repositorio
@@ -298,12 +306,211 @@ export type DeployClient = {
  */
 export const DEFAULT_MASTER_REPO = "mahara-apps/unitos-master";
 
+/* ------------------------------------------------------------- GitHub API */
+
+export type CodeClient = {
+  /** Cria (do template do MASTER) ou confirma o repositório da instalação. */
+  ensureRepo: () => Promise<{ ok: boolean; created?: boolean; error?: string }>;
+  /** Commit atual da branch de produção do MASTER — versão a publicar. */
+  masterHeadSha: () => Promise<{ ok: boolean; sha?: string; error?: string }>;
+  /**
+   * Publica no repositório da instalação exatamente a árvore do MASTER no
+   * commit informado. Copia só o que difere (blobs são endereçados por
+   * conteúdo), então repetir a operação não gera trabalho nem commit novo.
+   */
+  publishSnapshot: (
+    sha: string,
+  ) => Promise<{ ok: boolean; commitSha?: string; changed?: number; error?: string }>;
+};
+
+type TreeEntry = { path?: string; mode?: string; type?: string; sha?: string };
+
+/**
+ * Cliente GitHub do provisionamento. Publica o código do MASTER no repositório
+ * DA INSTALAÇÃO — o MASTER é sempre a origem (template), nunca o destino.
+ */
+export function createCodeClient(input: {
+  token: string;
+  owner: string;
+  repo: string;
+  masterRepo?: string | null;
+  branch?: string | null;
+  fetchImpl?: Fetcher;
+}): CodeClient {
+  const doFetch = input.fetchImpl ?? fetch;
+  const master = (input.masterRepo ?? "").trim() || DEFAULT_MASTER_REPO;
+  const branch = (input.branch ?? "").trim() || "main";
+  const target = `${input.owner}/${input.repo}`;
+  const headers = {
+    authorization: `Bearer ${input.token}`,
+    accept: "application/vnd.github+json",
+    "content-type": "application/json",
+    "user-agent": "unitos-installation-manager",
+  };
+  const api = (path: string, init?: RequestInit) =>
+    doFetch(`https://api.github.com${path}`, { ...init, headers });
+
+  const fail = async (res: Response, what: string) => {
+    const text = await res.text().catch(() => "");
+    return `HTTP ${res.status} ao ${what} (${text.slice(0, 200)})`;
+  };
+
+  return {
+    async ensureRepo() {
+      try {
+        const existing = await api(`/repos/${target}`);
+        if (existing.ok) return { ok: true, created: false };
+        if (existing.status !== 404) {
+          return { ok: false, error: await fail(existing, `consultar o repositório ${target}`) };
+        }
+        const created = await api(`/repos/${master}/generate`, {
+          method: "POST",
+          body: JSON.stringify({
+            owner: input.owner,
+            name: input.repo,
+            private: true,
+            include_all_branches: false,
+            description: "Instalação Unitos gerada a partir do MASTER",
+          }),
+        });
+        if (!created.ok) {
+          return {
+            ok: false,
+            error: await fail(
+              created,
+              `criar ${target} a partir do template ${master} (o repositório do MASTER precisa estar marcado como template e o token precisa de permissão de criação)`,
+            ),
+          };
+        }
+        return { ok: true, created: true };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+    async masterHeadSha() {
+      try {
+        const res = await api(`/repos/${master}/commits/${branch}`);
+        if (!res.ok) return { ok: false, error: await fail(res, "ler o commit do MASTER") };
+        const body = (await res.json().catch(() => ({}))) as { sha?: string };
+        if (!body.sha) return { ok: false, error: "commit do MASTER não retornado" };
+        return { ok: true, sha: body.sha };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+    async publishSnapshot(sha) {
+      try {
+        const tree = async (repo: string, ref: string) => {
+          const res = await api(`/repos/${repo}/git/trees/${ref}?recursive=1`);
+          if (!res.ok) return { ok: false as const, error: await fail(res, `ler a árvore de ${repo}`) };
+          const body = (await res.json().catch(() => ({}))) as { tree?: TreeEntry[] };
+          return { ok: true as const, entries: (body.tree ?? []).filter((e) => e.type === "blob") };
+        };
+
+        const source = await tree(master, sha);
+        if (!source.ok) return { ok: false, error: source.error };
+
+        const head = await api(`/repos/${target}/git/ref/heads/${branch}`);
+        let parent: string | null = null;
+        if (head.ok) {
+          const body = (await head.json().catch(() => ({}))) as { object?: { sha?: string } };
+          parent = body.object?.sha ?? null;
+        } else if (head.status !== 404 && head.status !== 409) {
+          return { ok: false, error: await fail(head, `ler a branch ${branch} de ${target}`) };
+        }
+
+        const destination = parent ? await tree(target, parent) : { ok: true as const, entries: [] };
+        if (!destination.ok) return { ok: false, error: destination.error };
+        const current = new Map(destination.entries.map((e) => [e.path ?? "", e.sha ?? ""]));
+
+        const changed = source.entries.filter((e) => current.get(e.path ?? "") !== e.sha);
+        const removed = destination.entries
+          .filter((e) => !source.entries.some((s) => s.path === e.path))
+          .map((e) => e.path ?? "");
+        if (!changed.length && !removed.length && parent) {
+          return { ok: true, commitSha: parent, changed: 0 };
+        }
+
+        // Blobs são endereçados por conteúdo: copiar apenas os que faltam.
+        const entries: Array<Record<string, unknown>> = [];
+        for (const file of changed) {
+          const blob = await api(`/repos/${master}/git/blobs/${file.sha}`);
+          if (!blob.ok) return { ok: false, error: await fail(blob, `ler ${file.path} do MASTER`) };
+          const body = (await blob.json().catch(() => ({}))) as {
+            content?: string;
+            encoding?: string;
+          };
+          const created = await api(`/repos/${target}/git/blobs`, {
+            method: "POST",
+            body: JSON.stringify({
+              content: body.content ?? "",
+              encoding: body.encoding ?? "base64",
+            }),
+          });
+          if (!created.ok) {
+            return { ok: false, error: await fail(created, `publicar ${file.path} em ${target}`) };
+          }
+          const json = (await created.json().catch(() => ({}))) as { sha?: string };
+          entries.push({
+            path: file.path,
+            mode: file.mode ?? "100644",
+            type: "blob",
+            sha: json.sha,
+          });
+        }
+        for (const path of removed) {
+          entries.push({ path, mode: "100644", type: "blob", sha: null });
+        }
+
+        const newTree = await api(`/repos/${target}/git/trees`, {
+          method: "POST",
+          body: JSON.stringify(parent ? { base_tree: parent, tree: entries } : { tree: entries }),
+        });
+        if (!newTree.ok) return { ok: false, error: await fail(newTree, `montar a árvore de ${target}`) };
+        const treeJson = (await newTree.json().catch(() => ({}))) as { sha?: string };
+
+        const commit = await api(`/repos/${target}/git/commits`, {
+          method: "POST",
+          body: JSON.stringify({
+            message: `Unitos: publicar versão do MASTER (${sha.slice(0, 7)})`,
+            tree: treeJson.sha,
+            parents: parent ? [parent] : [],
+          }),
+        });
+        if (!commit.ok) return { ok: false, error: await fail(commit, `criar o commit em ${target}`) };
+        const commitJson = (await commit.json().catch(() => ({}))) as { sha?: string };
+
+        const refPath = `/repos/${target}/git/refs`;
+        const update = parent
+          ? await api(`${refPath}/heads/${branch}`, {
+              method: "PATCH",
+              body: JSON.stringify({ sha: commitJson.sha, force: true }),
+            })
+          : await api(refPath, {
+              method: "POST",
+              body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: commitJson.sha }),
+            });
+        if (!update.ok) {
+          return { ok: false, error: await fail(update, `atualizar a branch ${branch} de ${target}`) };
+        }
+        return { ok: true, commitSha: commitJson.sha, changed: changed.length + removed.length };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+  };
+}
+
+
+
 export function createDeployClient(input: {
   token: string;
   project: string;
   teamId?: string | null;
   /** `org/repo` do código do MASTER; default `DEFAULT_MASTER_REPO`. */
   masterRepo?: string | null;
+  /** `owner/repo` DA INSTALAÇÃO — repositório que o deploy realmente constrói. */
+  repo?: string | null;
   fetchImpl?: Fetcher;
 }): DeployClient {
   const doFetch = input.fetchImpl ?? fetch;
@@ -315,6 +522,8 @@ export function createDeployClient(input: {
   };
   const project = encodeURIComponent(input.project);
   const masterRepo = (input.masterRepo ?? "").trim() || DEFAULT_MASTER_REPO;
+  const targetRepo = (input.repo ?? "").trim() || masterRepo;
+
 
 
   const client: DeployClient = {
@@ -407,6 +616,49 @@ export function createDeployClient(input: {
         return { ok: false, error: (e as Error).message };
       }
     },
+    async linkRepository(repo) {
+      const slug = (repo ?? "").trim() || targetRepo;
+      try {
+        const res = await doFetch(
+          `https://api.vercel.com/v9/projects/${project}?${qs()}`.replace(/\?$/, ""),
+          { headers },
+        );
+        if (!res.ok) {
+          return { ok: false, error: `HTTP ${res.status} ao consultar o projeto de deploy` };
+        }
+        const body = (await res.json().catch(() => ({}))) as {
+          id?: string;
+          link?: { repo?: string; org?: string };
+        };
+        const id = encodeURIComponent(body.id ?? input.project);
+        const current = `${body.link?.org ?? ""}/${body.link?.repo ?? ""}`.toLowerCase();
+        if (current === slug.toLowerCase()) return { ok: true };
+        if (body.link?.repo) {
+          await doFetch(`https://api.vercel.com/v9/projects/${id}/link?${qs()}`.replace(/\?$/, ""), {
+            method: "DELETE",
+            headers,
+          });
+        }
+        const linked = await doFetch(
+          `https://api.vercel.com/v10/projects/${id}/link?${qs()}`.replace(/\?$/, ""),
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ type: "github", repo: slug, gitBranch: "main" }),
+          },
+        );
+        if (!linked.ok) {
+          const text = await linked.text().catch(() => "");
+          return {
+            ok: false,
+            error: `HTTP ${linked.status} ao ligar o projeto ao repositório ${slug} (${text.slice(0, 200)})`,
+          };
+        }
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
     async latestCommit() {
       try {
         const res = await doFetch(
@@ -423,6 +675,7 @@ export function createDeployClient(input: {
         return { ok: false, error: (e as Error).message };
       }
     },
+
     async deployLatestCode(options) {
 
       try {
@@ -450,35 +703,18 @@ export function createDeployClient(input: {
           return { ok: false, error: "não foi possível consultar o projeto de deploy" };
         }
 
-        // O projeto precisa apontar para o repositório do MASTER. Se estiver
-        // ligado a um repositório próprio (parado no commit inicial), religa —
-        // é o que faz a atualização realmente trazer código novo.
+        // O projeto precisa apontar para o repositório DA INSTALAÇÃO (o código
+        // do MASTER é publicado nele). Se estiver ligado a outro repositório,
+        // religa — é o que faz a atualização realmente trazer código novo.
         const current = `${body.link?.org ?? ""}/${body.link?.repo ?? ""}`.toLowerCase();
-        if (current !== masterRepo.toLowerCase()) {
-          const id = encodeURIComponent(body.id ?? input.project);
-          if (body.link?.repo) {
-            await doFetch(
-              `https://api.vercel.com/v9/projects/${id}/link?${qs()}`.replace(/\?$/, ""),
-              { method: "DELETE", headers },
-            );
-          }
-          const linked = await doFetch(
-            `https://api.vercel.com/v10/projects/${id}/link?${qs()}`.replace(/\?$/, ""),
-            {
-              method: "POST",
-              headers,
-              body: JSON.stringify({ type: "github", repo: masterRepo, gitBranch: "main" }),
-            },
-          );
-          if (!linked.ok) {
-            const text = await linked.text().catch(() => "");
-            return {
-              ok: false,
-              error: `HTTP ${linked.status} ao ligar o projeto ao repositório do MASTER (${text.slice(0, 200)})`,
-            };
+        if (current !== targetRepo.toLowerCase()) {
+          const relinked = await client.linkRepository(targetRepo);
+          if (!relinked.ok) {
+            return { ok: false, error: relinked.error };
           }
           body = (await readProject()) ?? body;
         }
+
 
         // Instalação externa NUNCA publica sozinha a cada commit no MASTER:
         // o build automático da branch fica desligado e o deploy só acontece
@@ -582,7 +818,10 @@ export type AutomationInstallation = {
   supabaseUrl: string | null;
   supabaseProjectRef: string | null;
   deployProject: string | null;
+  /** Repositório Git DA INSTALAÇÃO (`https://github.com/owner/repo`). */
+  gitRepoUrl?: string | null;
 };
+
 
 type Client = { from: (table: string) => unknown };
 
@@ -697,11 +936,16 @@ export type StageProgress = {
   appUrl?: string;
   urlSource?: string;
   frontendOk?: boolean;
+  /** Código do MASTER já publicado no repositório da instalação. */
+  codeDone?: boolean;
+  codeSha?: string;
+  codeRepo?: string;
   /** Deployment de atualização já criado; retomadas apenas consultam este ID. */
   updateDeploymentId?: string;
   updateDeploymentSource?: "git" | "rebuild";
   updateDeploymentRef?: string;
 };
+
 
 export async function readStageProgress(
   client: Client,
@@ -861,8 +1105,21 @@ export async function runAutomatedProvision(input: {
     return finish(null, null);
   }
 
+  const masterRepo = (env["UNITOS_MASTER_REPO"] ?? "").trim() || null;
+  const repo = resolveInstallationRepo({
+    gitRepoUrl: installation.gitRepoUrl ?? null,
+    masterRepo: masterRepo ?? DEFAULT_MASTER_REPO,
+  });
+  if (!repo.ok) {
+    blocked.push(repo.reason);
+    await mark("code", "error", repo.reason);
+    checks.configuration = "attention";
+    return finish(null, null);
+  }
+
   const managementToken = (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim();
   const deployToken = (env["UNITOS_VERCEL_TOKEN"] ?? "").trim();
+  const githubToken = (env["UNITOS_GITHUB_TOKEN"] ?? "").trim();
   const teamId = (env["UNITOS_VERCEL_TEAM_ID"] ?? "").trim() || null;
 
 
@@ -871,13 +1128,22 @@ export async function runAutomatedProvision(input: {
     projectRef: target.projectRef,
     fetchImpl: input.fetchImpl,
   });
+  const code = createCodeClient({
+    token: githubToken,
+    owner: repo.owner,
+    repo: repo.repo,
+    masterRepo,
+    fetchImpl: input.fetchImpl,
+  });
   const deploy = createDeployClient({
     token: deployToken,
     project: target.deployProject,
     teamId,
-    masterRepo: (env["UNITOS_MASTER_REPO"] ?? "").trim() || null,
+    masterRepo,
+    repo: repo.slug,
     fetchImpl: input.fetchImpl,
   });
+
 
   /* 2. Supabase destino: conectividade, plataforma e chaves */
   await mark("supabase", "running");
@@ -910,8 +1176,93 @@ export async function runAutomatedProvision(input: {
   checks.supabase = "ok";
   await mark("supabase", "done", `projeto ${target.projectRef} acessível`);
 
-  /* 3. baseline */
+  /* 3. código no repositório DA INSTALAÇÃO (gerado do template do MASTER).
+   * Sem código publicado o deploy não tem o que construir — por isso esta etapa
+   * vem antes de conectar a Vercel, gravar variáveis e preparar o banco. */
+  const codeStage = await readStageProgress(client, operation);
+  await mark("code", "running");
+  if (codeStage.codeDone && codeStage.codeSha) {
+    await mark(
+      "code",
+      "done",
+      `código já publicado em ${repo.slug} (${codeStage.codeSha.slice(0, 7)}) — checkpoint`,
+    );
+  } else {
+    const ensured = await code.ensureRepo();
+    if (!ensured.ok) {
+      blocked.push(`Repositório da instalação indisponível: ${ensured.error ?? ""}`.trim());
+      await mark("code", "error", ensured.error ?? "repositório indisponível");
+      checks.code = "error";
+      return finish(null, null);
+    }
+    const masterHead = await code.masterHeadSha();
+    if (!masterHead.ok || !masterHead.sha) {
+      blocked.push(
+        `Commit do MASTER não lido para publicar no repositório da instalação: ${
+          masterHead.error ?? ""
+        }`.trim(),
+      );
+      await mark("code", "error", "commit do MASTER indisponível");
+      checks.code = "error";
+      return finish(null, null);
+    }
+    const published = await code.publishSnapshot(masterHead.sha);
+    if (!published.ok) {
+      failures.push(`Código não publicado em ${repo.slug}: ${published.error ?? ""}`.trim());
+      await mark("code", "error", published.error ?? "publicação falhou");
+      checks.code = "error";
+      return finish(null, null);
+    }
+    await saveStageProgress(client, operation, {
+      codeDone: true,
+      codeSha: masterHead.sha,
+      codeRepo: repo.slug,
+    });
+    checks.code = "ok";
+    await mark(
+      "code",
+      "done",
+      `${ensured.created ? "repositório criado do template e " : ""}código do MASTER publicado em ${
+        repo.slug
+      } (${masterHead.sha.slice(0, 7)}${published.changed !== undefined ? `, ${published.changed} arquivos` : ""})`,
+    );
+  }
+  checks.code = checks.code ?? "ok";
+
+  /* 4. deploy conectado ao repositório da instalação, sem auto-deploy por Git */
+  await mark("deploy_link", "running");
+  const linked = await deploy.linkRepository(repo.slug);
+  if (!linked.ok) {
+    blocked.push(`Projeto de deploy não ligado a ${repo.slug}: ${linked.error ?? ""}`.trim());
+    await mark("deploy_link", "error", linked.error ?? "vínculo do repositório falhou");
+    checks.configuration = "attention";
+    return finish(null, null);
+  }
+  // Instalação externa nunca publica sozinha a cada commit: o build automático
+  // fica desligado e só o MASTER autoriza novas publicações. Fail-closed: se o
+  // desligamento não pode ser confirmado, o provisionamento não segue.
+  const autoDeployOff = await deploy.setAutoDeploy(false);
+  if (!autoDeployOff.ok) {
+    blocked.push(
+      `Auto-deploy por Git não pôde ser desligado em ${target.deployProject}: ${
+        autoDeployOff.error ?? ""
+      }`.trim(),
+    );
+    await mark("deploy_link", "error", autoDeployOff.error ?? "auto-deploy segue ligado");
+    checks.configuration = "attention";
+    return finish(null, null);
+  }
+  await mark("deploy_link", "done", `projeto ligado a ${repo.slug} · auto-deploy por Git desligado`);
+
+
+  /* 5. baseline do banco — roda DEPOIS de código, deploy conectado e variáveis:
+   * sem código publicado e sem URL própria não faz sentido preparar o banco. */
+  const runBaselinePhase = async (
+    appUrl: string | null,
+    urlSource: "custom_domain" | "deploy" | null,
+  ): Promise<AutomationRunResult | null> => {
   const baseline: { id: string; label: string; sql: string }[] = [
+
     { id: "database", label: "000_extensions", sql: baseline000 },
     { id: "database", label: "001_initial_schema", sql: baseline001 },
     { id: "database", label: "005_auth_trigger", sql: baseline005 },
@@ -968,7 +1319,8 @@ export async function runAutomatedProvision(input: {
       failures.push(`${file.label}: ${perStatement.error ?? "falha ao aplicar"}`);
       await mark(file.id, "error", `${file.label} falhou`);
       checks[file.id === "seeds" ? "database" : (file.id as HealthCheckId)] = "error";
-      return finish(null, null);
+      return finish(appUrl, urlSource);
+
     }
     if (!perStatement.complete) {
       // Não mantenha uma única Promise viva por centenas de requests: o
@@ -978,10 +1330,11 @@ export async function runAutomatedProvision(input: {
       return {
         result: "RUNNING",
         reasons: [],
-        appUrl: null,
-        urlSource: null,
+        appUrl,
+        urlSource,
         steps,
       };
+
     }
     progress[file.label] = DONE;
     await saveBaselineProgress(client, operation, progress);
@@ -998,6 +1351,10 @@ export async function runAutomatedProvision(input: {
   await mark("database", "done", "baseline aplicado no destino");
   await mark("storage", "done", "buckets e policies aplicados");
   await mark("seeds", "done", "seeds de catálogo aplicados");
+  return null;
+  };
+
+
 
   /* 4 + 5. secrets exclusivos, URL operacional e variáveis do deploy.
    * Fase atômica com checkpoint: uma retomada NÃO regera secrets nem
@@ -1160,6 +1517,10 @@ export async function runAutomatedProvision(input: {
       }`,
     );
   }
+
+  /* 5. banco, storage e seeds — só agora, com código publicado e URL própria. */
+  const baselineEarly = await runBaselinePhase(url.origin, url.source);
+  if (baselineEarly) return baselineEarly;
 
 
   /* 6. Brain stats */
@@ -1451,11 +1812,31 @@ export async function runAutomatedUpdate(input: {
     return fail("BLOCKED", "a instalação não tem projeto de deploy configurado");
   }
 
+  const masterRepo = (env["UNITOS_MASTER_REPO"] ?? "").trim() || null;
+  const repo = resolveInstallationRepo({
+    gitRepoUrl: installation.gitRepoUrl ?? null,
+    masterRepo: masterRepo ?? DEFAULT_MASTER_REPO,
+  });
+  if (!repo.ok) {
+    return fail("BLOCKED", repo.reason);
+  }
+  if (!capability.github.available) {
+    return fail("BLOCKED", capability.github.reason ?? "token do GitHub indisponível no MASTER");
+  }
+
   const deploy = createDeployClient({
     token: (env["UNITOS_VERCEL_TOKEN"] ?? "").trim(),
     project,
     teamId: (env["UNITOS_VERCEL_TEAM_ID"] ?? "").trim() || null,
-    masterRepo: (env["UNITOS_MASTER_REPO"] ?? "").trim() || null,
+    masterRepo,
+    repo: repo.slug,
+    fetchImpl: input.fetchImpl,
+  });
+  const code = createCodeClient({
+    token: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
+    owner: repo.owner,
+    repo: repo.repo,
+    masterRepo,
     fetchImpl: input.fetchImpl,
   });
 
@@ -1468,13 +1849,42 @@ export async function runAutomatedUpdate(input: {
   // commit atual da branch do MASTER no momento da autorização.
   let targetSha = (input.commitSha ?? "").trim() || null;
   if (!targetSha) {
-    const head = await deploy.latestCommit();
-    targetSha = head.ok && head.sha ? head.sha : null;
+    const head = await code.masterHeadSha();
+    if (!head.ok || !head.sha) {
+      // Fail-closed: sem versão de origem identificada não há o que publicar.
+      return fail("BLOCKED", head.error ?? "versão do MASTER não pôde ser identificada");
+    }
+    targetSha = head.sha;
   }
+
+  // A instalação constrói o SEU repositório: a versão autorizada do MASTER é
+  // publicada nele antes do build. Sem isso o deployment repetiria o código
+  // antigo. Idempotente: repetir não gera commit novo (devolve o commit atual).
+  let buildRef: string | null = null;
+  if (!deploymentId) {
+    await report(client, operation, "code", "running");
+    const ensured = await code.ensureRepo();
+    if (!ensured.ok) {
+      return fail("BLOCKED", ensured.error ?? `repositório ${repo.slug} indisponível`);
+    }
+    const published = await code.publishSnapshot(targetSha);
+    if (!published.ok) {
+      return fail("FAIL", published.error ?? `não foi possível publicar em ${repo.slug}`);
+    }
+    buildRef = published.commitSha ?? null;
+    await saveStageProgress(client, operation, {
+      codeDone: true,
+      codeSha: targetSha,
+      codeRepo: repo.slug,
+    });
+  }
+
 
   if (!deploymentId) {
     await report(client, operation, "code", "running");
-    const created = await deploy.deployLatestCode({ sha: targetSha });
+    // O build usa o commit do repositório DA INSTALAÇÃO (o snapshot recém
+    // publicado), nunca o SHA do MASTER — ele não existe no outro repositório.
+    const created = await deploy.deployLatestCode({ sha: buildRef });
     if (!created.ok || !created.deploymentId) {
       return fail("FAIL", created.error ?? "não foi possível disparar o deployment");
     }

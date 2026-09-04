@@ -61,6 +61,21 @@ Cobre isolamento, buckets/policies, RLS, funções/triggers, extensões, seeds,
 Vault, URLs de cron, `installation.app_url`, `brain_stats_mv`, ausência de
 referências ao MASTER e as contagens esperadas do baseline.
 
+## Ordem no provisionamento automático (MASTER)
+
+O bootstrap por script acima cuida do banco. Quando o provisionamento é
+disparado pelo MASTER (*Administração → Instalações*), a ordem é:
+
+```text
+Supabase destino → código no GitHub da instalação (do template do MASTER)
+→ projeto de deploy ligado a esse repositório (auto-deploy Git desligado)
+→ secrets próprios → variáveis + primeira publicação + URL operacional
+→ banco/RLS/funções → storage → seeds → Brain stats → cron → validação
+```
+
+Requer no MASTER, além dos tokens de Supabase e deploy, o
+`UNITOS_GITHUB_TOKEN` e o repositório do MASTER marcado como **template**.
+
 ## Continua manual
 
 Publicar os secrets no deploy, DNS/TLS, App Meta (`unitos` ou `client`) com

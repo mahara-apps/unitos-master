@@ -14,6 +14,8 @@ import { INSTALLATION_SECRET_VARS } from "./preflight-contract";
 /** Etapas aceitas — qualquer outro identificador é recusado. */
 export const REPORT_STEP_IDS = [
   "supabase",
+  "code",
+  "deploy_link",
   "database",
   "rls",
   "storage",

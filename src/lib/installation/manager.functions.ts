@@ -725,6 +725,7 @@ async function openAutomatedProvision(
         supabaseUrl: record.supabaseUrl,
         supabaseProjectRef: record.supabaseProjectRef,
         deployProject: record.deployProject,
+        gitRepoUrl: record.gitRepoUrl,
       },
     }).catch(async (error: unknown) => {
       // Nenhuma exceção de rede/runtime pode deixar uma operação viva para
@@ -849,6 +850,7 @@ export const runAutomatedValidateFn = createServerFn({ method: "POST" })
           supabaseUrl: record.supabaseUrl,
           supabaseProjectRef: record.supabaseProjectRef,
           deployProject: record.deployProject,
+          gitRepoUrl: record.gitRepoUrl,
         },
       }).catch(async (caught: unknown) => {
         const { finalizeOperation } = await import("./runner.server");
@@ -930,6 +932,7 @@ export const resumeAutomatedProvisionFn = createServerFn({ method: "POST" })
           supabaseUrl: record.supabaseUrl,
           supabaseProjectRef: record.supabaseProjectRef,
           deployProject: record.deployProject,
+          gitRepoUrl: record.gitRepoUrl,
         },
       }).catch(async (caught: unknown) => {
         const { finalizeOperation } = await import("./runner.server");
@@ -1150,6 +1153,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
           supabaseUrl: record.supabaseUrl,
           supabaseProjectRef: record.supabaseProjectRef,
           deployProject: record.deployProject,
+          gitRepoUrl: record.gitRepoUrl,
         },
       }).catch(async (error: unknown) => {
         const { finalizeOperation } = await import("./runner.server");
