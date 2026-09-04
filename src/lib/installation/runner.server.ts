@@ -15,6 +15,7 @@
 import {
   MASTER_RELEASE_VERSION,
   applyStepReport,
+  normalizeStepPercent,
   healthFromChecks,
   isStepState,
   normalizeHealthChecks,
@@ -161,11 +162,18 @@ function readSteps(raw: unknown): OperationStep[] {
       script: String(s["script"] ?? ""),
       state: isStepState(s["state"]) ? s["state"] : "pending",
       detail: typeof s["detail"] === "string" ? s["detail"] : null,
+      percent: normalizeStepPercent(s["percent"]),
     }))
     .filter((s) => s.id);
 }
 
-export type StepReport = { step: string; state: string; detail?: string | null };
+export type StepReport = {
+  step: string;
+  state: string;
+  detail?: string | null;
+  /** Progresso interno da etapa (0–100) para etapas longas. */
+  percent?: number | null;
+};
 
 export type FinalReport = {
   ok: boolean;
@@ -197,6 +205,7 @@ export async function applyProgressReport(
     step: report.step,
     state,
     detail: sanitize(report.detail),
+    percent: report.percent ?? null,
   });
   const { error } = await client
     .from("installation_operations")

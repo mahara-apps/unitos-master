@@ -33,6 +33,8 @@ export const reportEventSchema = z.object({
   step: z.enum(REPORT_STEP_IDS).optional(),
   state: z.enum(["pending", "running", "done", "error"]).optional(),
   detail: z.string().max(2000).nullable().optional(),
+  /** Progresso interno da etapa (0–100), para etapas longas. */
+  percent: z.number().min(0).max(100).nullable().optional(),
   done: z.boolean().optional(),
   ok: z.boolean().optional(),
   warnings: z.boolean().optional(),
@@ -78,7 +80,12 @@ export type ParsedReport =
   | {
       ok: true;
       kind: "progress";
-      event: ReportEvent & { step: string; state: string; detail: string | null };
+      event: ReportEvent & {
+        step: string;
+        state: string;
+        detail: string | null;
+        percent: number | null;
+      };
     }
   | {
       ok: true;
@@ -121,6 +128,10 @@ export function parseReportEvent(payload: unknown): ParsedReport {
       step: event.step,
       state: event.state,
       detail: redactReportText(event.detail ?? null),
+      percent:
+        typeof event.percent === "number"
+          ? Math.max(0, Math.min(100, Math.round(event.percent)))
+          : null,
     },
   };
 }
