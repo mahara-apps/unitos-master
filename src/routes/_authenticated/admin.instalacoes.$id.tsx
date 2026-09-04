@@ -680,6 +680,70 @@ function InstallationDetailPage() {
         </CardContent>
       </Card>
 
+      {/* 1.1 VERSÃO E ATUALIZAÇÕES — instalação externa só avança com autorização */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Versão e atualizações</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-xs">
+          <p className="text-muted-foreground">
+            Esta instalação não publica sozinha: o build automático da branch está desligado e o
+            código só avança quando você autoriza a atualização aqui.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Info
+              label="Publicado nesta instalação"
+              value={
+                inst.pinnedCommitSha
+                  ? `${inst.pinnedRelease ?? "—"} · ${inst.pinnedCommitSha.slice(0, 7)}`
+                  : "ainda não fixado"
+              }
+            />
+            <Info
+              label="Disponível no MASTER"
+              value={
+                masterVersion.isPending
+                  ? "consultando…"
+                  : masterVersion.data?.commitSha
+                    ? `${masterVersion.data.release} · ${masterVersion.data.commitSha.slice(0, 7)}`
+                    : (masterVersion.data?.error ?? "indisponível")
+              }
+            />
+            <Info
+              label="Autorizado em"
+              value={inst.pinnedAt ? new Date(inst.pinnedAt).toLocaleString("pt-BR") : "—"}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              disabled={
+                !deployAutomated ||
+                !!activeOp ||
+                autoUpdate.isPending ||
+                !canStartOperation("update", inst.status)
+              }
+              onClick={() =>
+                autoUpdate.mutate({ commitSha: masterVersion.data?.commitSha ?? null })
+              }
+            >
+              {autoUpdate.isPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <ArrowDownToLine className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Autorizar atualização
+            </Button>
+            <span className="text-muted-foreground">
+              {masterVersion.data?.commitSha &&
+              inst.pinnedCommitSha === masterVersion.data.commitSha
+                ? "Instalação já está na versão do MASTER."
+                : "Publica exatamente a versão listada como disponível."}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* 2. NÚCLEO DA INSTALAÇÃO — obrigatório, define READY */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
