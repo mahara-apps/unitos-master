@@ -72,4 +72,10 @@ impressão de que nada foi concluído.
 - O fluxo dentro do modal "Conectar canais" (etapa Ativos) mantém o botão "Concluir" atual e
   apenas herda o seletor de cliente quando nenhum cliente estiver definido.
 - Testes: caso unitário para a regra de conclusão (contas ativadas + cliente escolhido → vínculo;
-  sem cliente → conclui mantendo no workspace).
+  sem cliente → conclui mantendo no workspace) e para o texto de limite parcial da Meta.
+- Fluxo único: `channels-center.tsx` e `routes/_authenticated/connections.tsx` deixam de abrir
+  `MetaPortfolioDialog` como modal paralelo; a etapa Ativos vive só em `connect-channels-dialog.tsx`.
+  O wrapper legado é mantido apenas para retomada explícita ("Retomar seleção de contas").
+- Mensagens de limite/parcialidade reaproveitam `classifyMetaIssue` / `issue-messages.ts`; nenhum
+  ajuste em varredura, orçamento de requisições ou cache de descoberta.
+
