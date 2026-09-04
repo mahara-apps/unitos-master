@@ -646,10 +646,14 @@ function InstallationDetailPage() {
                   }
                 />
                 <CheckRow
-                  state={readiness.core.super_admin.state === "ok" ? "ok" : "attention"}
+                  // Primeiro acesso é do cliente (em /setup): não é falha da
+                  // instalação, então nunca aparece como "atenção".
+                  state={readiness.core.super_admin.state === "ok" ? "ok" : "pending"}
                   label="Super Admin"
                   value={
-                    readiness.core.super_admin.state === "ok" ? "criado" : "pendente em /setup"
+                    readiness.core.super_admin.state === "ok"
+                      ? "criado"
+                      : "aguardando primeiro acesso em /setup"
                   }
                 />
                 <CheckRow
