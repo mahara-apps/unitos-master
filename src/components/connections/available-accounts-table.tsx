@@ -132,6 +132,7 @@ export function AvailableAccountsTable({
   emptyDescription,
   actions,
   clientByExternalId,
+  hideControls = false,
 }: {
   accounts: Account[];
   canManage: boolean;
@@ -142,6 +143,12 @@ export function AvailableAccountsTable({
   actions?: React.ReactNode;
   /** Cliente já vinculado ao ativo (quando existir), por ID externo da Meta. */
   clientByExternalId?: Map<string, string>;
+  /**
+   * Apenas apresentação: omite abas/busca/filtro/ordenação quando a tabela é
+   * aberta dentro de uma tela que já oferece esses controles (evita filtros
+   * duplicados). Contador, paginação e `actions` continuam visíveis.
+   */
+  hideControls?: boolean;
 }) {
   const [rawSearch, setRawSearch] = useState("");
   const [search, setSearch] = useState("");
