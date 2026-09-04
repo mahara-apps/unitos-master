@@ -52,6 +52,14 @@ export const listClientDocumentsAi = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => Scope.parse(i))
   .handler(async ({ data, context }): Promise<ClientDocumentAi[]> => {
+    // Auto-cura na leitura: documento cuja execução morreu/expirou nunca fica
+    // preso em "Analisando" — a rotina do banco fecha o estado com o motivo real.
+    const { callRpc } = await import("@/lib/supabase-rpc");
+    await callRpc(context.supabase, "reconcile_client_document_ai", {
+      _brand_id: data.brandId,
+      _client_id: data.clientId,
+    }).catch(() => undefined);
+
     const { data: rows, error } = await (
       context.supabase as unknown as {
         from: (t: string) => {
