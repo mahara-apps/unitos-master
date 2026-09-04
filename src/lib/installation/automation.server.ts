@@ -2505,7 +2505,9 @@ export async function runAutomatedValidate(input: {
 
   for (const id of stepIds) await report(client, operation, id, "running");
 
+  await hardenHelperTables(management);
   const verify = await management.query(prepareVerificationSql(verifySql).sql);
+
   if (!verify.ok) {
     return fail("BLOCKED", `verify-installation não pôde ser executado: ${verify.error ?? "falha"}`);
   }
