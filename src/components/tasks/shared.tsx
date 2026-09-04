@@ -612,48 +612,6 @@ export function CreateTaskDialog({
 
 // ---------- Detail Drawer (persistent side panel) ----------
 
-function renderMentions(text: string): ReactNode {
-  const parts = text.split(/(@\w+)/g);
-  return parts.map((p, i) =>
-    p.startsWith("@") ? (
-      <span key={i} className="rounded bg-primary/10 px-1 font-medium text-primary">
-        {p}
-      </span>
-    ) : (
-      <span key={i}>{p}</span>
-    ),
-  );
-}
-
-function MentionList({
-  members,
-  query,
-  onPick,
-}: {
-  members: Array<{ id: string; name: string; avatar_url: string | null }>;
-  query: string;
-  onPick: (u: { id: string; name: string }) => void;
-}) {
-  const filtered = members.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()));
-  if (filtered.length === 0)
-    return <p className="p-3 text-xs text-muted-foreground">Nenhum membro</p>;
-  return (
-    <ul className="max-h-56 overflow-y-auto py-1">
-      {filtered.slice(0, 8).map((m) => (
-        <li key={m.id}>
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-muted"
-            onClick={() => onPick(m)}
-          >
-            <TaskAssignee name={m.name} avatarUrl={m.avatar_url} size={20} />
-            {m.name}
-          </button>
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 export function TaskDrawer({
   taskId,
