@@ -1243,13 +1243,51 @@ export function createDeployClient(input: {
         });
         if (!created.ok) {
           const text = await created.text().catch(() => "");
+          const quota = parseDeployQuotaError(created.status, text);
           return {
             ok: false,
-            error: `HTTP ${created.status} ao disparar deployment do código (${text.slice(0, 200)})`,
+            quotaExceeded: quota.quotaExceeded || undefined,
+            resetAt: quota.resetAt,
+            error: quota.quotaExceeded
+              ? "cota diária de deployments da Vercel esgotada (plano gratuito: 100/dia)"
+              : `HTTP ${created.status} ao disparar deployment do código (${text.slice(0, 200)})`,
           };
         }
         const json = (await created.json().catch(() => ({}))) as { id?: string; uid?: string };
         return { ok: true, deploymentId: json.id ?? json.uid, source: "git" as const, ref };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+
+    async ensureDomain(domain) {
+      const host = (domain ?? "").trim().replace(/^https?:\/\//i, "").replace(/\/.*$/, "");
+      if (!host) return { ok: false, error: "domínio vazio" };
+      try {
+        const read = await doFetch(
+          `https://api.vercel.com/v9/projects/${project}/domains/${encodeURIComponent(host)}?${qs()}`.replace(
+            /\?$/,
+            "",
+          ),
+          { headers },
+        );
+        if (read.ok) {
+          const body = (await read.json().catch(() => ({}))) as { verified?: boolean };
+          return { ok: true, added: false, verified: body.verified === true };
+        }
+        const created = await doFetch(
+          `https://api.vercel.com/v10/projects/${project}/domains?${qs()}`.replace(/\?$/, ""),
+          { method: "POST", headers, body: JSON.stringify({ name: host }) },
+        );
+        if (!created.ok) {
+          const text = await created.text().catch(() => "");
+          return {
+            ok: false,
+            error: `HTTP ${created.status} ao atribuir o domínio ${host} (${text.slice(0, 200)})`,
+          };
+        }
+        const body = (await created.json().catch(() => ({}))) as { verified?: boolean };
+        return { ok: true, added: true, verified: body.verified === true };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
       }
