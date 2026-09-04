@@ -117,7 +117,7 @@ export function PautaDetailModal({
       size="md"
       title={item.title}
       description={
-        [item.channelLabel, item.formatLabel].filter(Boolean).join(" · ') ") ||
+        [item.channelLabel, item.formatLabel].filter(Boolean).join(" · ") ||
         (item.outOfPlan ? "Peça fora da pauta" : "Item da pauta")
       }
       headerExtra={
