@@ -1173,7 +1173,7 @@ function MetaAssignFooter({
 }: {
   brandId: string;
   clientId?: string;
-  linked: Array<{ connectionId: string; label: string }>;
+  linked: SelectedAccount[];
   onDone: () => void;
 }) {
   const qc = useQueryClient();
@@ -1220,16 +1220,22 @@ function MetaAssignFooter({
     }
   }
 
+  const channels = linked.reduce<Record<string, number>>((acc, item) => {
+    acc[item.channel] = (acc[item.channel] ?? 0) + 1;
+    return acc;
+  }, {});
   const state = assignFinishState({
     activated: linked.map((l) => l.label),
     clientId,
     target: target || undefined,
+    clientName: clients.find((c) => c.id === target)?.name,
+    channels,
   });
   const count = state.count;
 
   return (
     <div className="space-y-3">
-      <p className="text-[11px] leading-snug text-muted-foreground">{state.message}</p>
+      <p className="text-[11px] leading-snug text-muted-foreground">{state.destination}</p>
       {clientId ? (
         <div className="flex justify-end">
           <Button size="sm" onClick={() => void finish(false)} disabled={saving}>
