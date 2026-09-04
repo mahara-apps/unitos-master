@@ -765,7 +765,13 @@ function TaskTableRow({
                     <Folder className="h-3 w-3 shrink-0" /> {task.project_name}
                   </span>
                 ) : null}
+                {task.client_name ? (
+                  <span className="inline-flex min-w-0 items-center gap-1 truncate">
+                    <Users className="h-3 w-3 shrink-0" /> {task.client_name}
+                  </span>
+                ) : null}
               </div>
+
             </div>
           </div>
         </td>
