@@ -54,7 +54,11 @@ export function InstallationCard({
           <div className="min-w-0 space-y-1.5">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <h3 className="truncate text-sm font-semibold">{i.name}</h3>
-              <StatusBadge status={i.status} />
+              {/* "Atualizada"/"Atualização disponível" já é dito pelo bloco de
+                  versão abaixo — aqui só entram estados que ele não cobre. */}
+              {i.status !== "up_to_date" && i.status !== "update_available" && (
+                <StatusBadge status={i.status} />
+              )}
               <StateBadge
                 state={HEALTH_STATE[i.health]}
                 label={INSTALLATION_HEALTH_LABEL[i.health]}
