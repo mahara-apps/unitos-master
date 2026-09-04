@@ -11,7 +11,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { CheckCircle2, KeyRound, Loader2, MinusCircle, Plug } from "lucide-react";
+import { CheckCircle2, ExternalLink, KeyRound, Loader2, MinusCircle, Plug } from "lucide-react";
 
 import {
   clearInstallationCredentialsFn,
