@@ -2636,6 +2636,8 @@ export async function applyDatabaseDelta(input: {
   const ledger = await management.query(
     [
       "create table if not exists public._unitos_applied_deltas (label text primary key, applied_at timestamptz not null default now())",
+      HELPER_TABLE_HARDENING_SQL("public._unitos_applied_deltas"),
+
       `select exists(select 1 from public._unitos_applied_deltas where label = ${sqlLiteral(ledgerLabel)}) as applied`,
     ].join(";\n"),
   );
