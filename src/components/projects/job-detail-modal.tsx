@@ -36,9 +36,7 @@ export function JobDetailModal({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="flex h-[90vh] max-h-[90vh] w-[min(1200px,96vw)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
-      >
+      <DialogContent className="flex h-[90vh] max-h-[90vh] w-[min(1200px,96vw)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
         <DialogTitle className="sr-only">{title}</DialogTitle>
 
         {/* Barra de ações */}

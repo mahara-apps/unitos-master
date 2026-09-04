@@ -9,7 +9,6 @@ import {
   ArrowLeft,
   Archive,
   ArchiveRestore,
-
   ExternalLink,
   FileText,
   Image as ImageIcon,
@@ -605,7 +604,6 @@ function ProjectDetailPage() {
           </div>
         }
       />
-
 
       {/* Resumo da pauta em modal — evita sair da gestão do projeto */}
       <PautaDetailModal

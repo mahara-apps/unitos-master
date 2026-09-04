@@ -322,7 +322,9 @@ export function JobsPanel({
             options={team}
             className="h-8 w-[46px] justify-center px-1 [&>svg]:hidden sm:w-[150px] sm:justify-between sm:px-3 sm:[&>svg]:block"
             placeholder="—"
-            onChange={(userId) => patchTaskMut.mutate({ taskId: t.id, patch: { assignee_id: userId } })}
+            onChange={(userId) =>
+              patchTaskMut.mutate({ taskId: t.id, patch: { assignee_id: userId } })
+            }
           />
         }
         dateLabel={formatRange(t.start_date, t.due_at)}
@@ -347,7 +349,12 @@ export function JobsPanel({
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Ações da tarefa">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  aria-label="Ações da tarefa"
+                >
                   <MoreHorizontal className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -574,7 +581,11 @@ export function JobsPanel({
                           ) : null
                         }
                         assignee={
-                          <AssigneeAvatar userId={j.assignee_id} options={team} className="h-7 w-7" />
+                          <AssigneeAvatar
+                            userId={j.assignee_id}
+                            options={team}
+                            className="h-7 w-7"
+                          />
                         }
                         dateLabel={formatShortDate(j.due_at)}
                         overdue={isOverdue(j.due_at, done)}
@@ -605,7 +616,10 @@ export function JobsPanel({
                                 onSelect={() => {
                                   const name = window.prompt("Renomear job", j.name);
                                   if (name && name.trim())
-                                    patchJobMut.mutate({ jobId: j.id, patch: { name: name.trim() } });
+                                    patchJobMut.mutate({
+                                      jobId: j.id,
+                                      patch: { name: name.trim() },
+                                    });
                                 }}
                               >
                                 Renomear job
@@ -841,9 +855,7 @@ export function JobsPanel({
                 {
                   value: "links",
                   label: "Anexos e links",
-                  content: (
-                    <WorkLinks target="job" targetId={currentJob.id} title="Links do job" />
-                  ),
+                  content: <WorkLinks target="job" targetId={currentJob.id} title="Links do job" />,
                 },
               ]}
             />

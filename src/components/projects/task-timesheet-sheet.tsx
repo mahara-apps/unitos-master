@@ -352,7 +352,6 @@ export function TaskTimesheetSheet({
                 Mídia.
               </div>
             </TabsContent>
-
           </Tabs>
         </div>
       )}
