@@ -555,9 +555,19 @@ function ProjectDetailPage() {
                 <DropdownMenuItem onClick={() => setOpenSettings(true)}>
                   <Settings2 className="mr-2 h-4 w-4" /> Configurações do projeto
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => archMut.mutate()} disabled={archMut.isPending}>
-                  <Archive className="mr-2 h-4 w-4" /> Arquivar
-                </DropdownMenuItem>
+                {project.status === "archived" ? (
+                  <DropdownMenuItem
+                    onClick={() => restoreMut.mutate()}
+                    disabled={restoreMut.isPending}
+                  >
+                    <ArchiveRestore className="mr-2 h-4 w-4" /> Restaurar
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={() => archMut.mutate()} disabled={archMut.isPending}>
+                    <Archive className="mr-2 h-4 w-4" /> Arquivar
+                  </DropdownMenuItem>
+                )}
+
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
                   onClick={() => setConfirmDelete(true)}
