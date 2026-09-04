@@ -55,6 +55,35 @@ const SCOPE_LABEL: Record<WorkStatusScope, string> = {
 
 const DEFAULT_COLOR = "#8b5cf6";
 
+/** Conjuntos sugeridos, diferentes por escopo — criados só quando o usuário pede. */
+const SCOPE_PRESETS: Record<
+  WorkStatusScope,
+  Array<{ name: string; color: string; isDone?: boolean }>
+> = {
+  project: [
+    { name: "Não iniciado", color: "#9ca3af" },
+    { name: "Em planejamento/briefing", color: "#a78bfa" },
+    { name: "Campanha ativa", color: "#86c887" },
+    { name: "Campanha pausada", color: "#d9c65c" },
+    { name: "Concluído", color: "#22c55e", isDone: true },
+    { name: "Cancelado", color: "#ef4444", isDone: true },
+  ],
+  job: [
+    { name: "Não iniciado", color: "#9ca3af" },
+    { name: "Em produção", color: "#e0a458" },
+    { name: "Em revisão", color: "#a78bfa" },
+    { name: "Aprovado", color: "#86c887" },
+    { name: "Entregue", color: "#22c55e", isDone: true },
+  ],
+  task: [
+    { name: "A fazer", color: "#9ca3af" },
+    { name: "Em andamento", color: "#e0a458" },
+    { name: "Aguardando cliente", color: "#a78bfa" },
+    { name: "Bloqueado", color: "#ef4444" },
+    { name: "Concluída", color: "#22c55e", isDone: true },
+  ],
+};
+
 function ScopeSection({ brandId, scope }: { brandId: string; scope: WorkStatusScope }) {
   const qc = useQueryClient();
   const list = useServerFn(listWorkStatusesFn);
