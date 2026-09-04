@@ -205,10 +205,13 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
             const knownPages = cachedPages;
             const knownIg = cachedStandaloneIg;
             // Varredura COMPARTILHADA com a trilha de "Contas disponíveis":
-            // uma descoberta por operação, nunca duas.
-            const { runSharedScan } = await import("./scan-cache.server");
+            // uma descoberta por operação, nunca duas. Se este token já passou
+            // por uma varredura PROFUNDA nesta instância, a rasa reaproveita o
+            // resultado em vez de repetir todas as arestas.
+            const { runSharedScan, wasTokenDeepScanned } = await import("./scan-cache.server");
             const { scan, source } = await runSharedScan(userToken, {
               label: "Meta discovery (portfolio)",
+              deep: !wasTokenDeepScanned(userToken),
             });
             console.log(
               `Meta discovery: requests=${source === "fresh" ? scan.requestCount : 0} cache=${

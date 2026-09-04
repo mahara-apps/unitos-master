@@ -105,25 +105,33 @@ function metaStuckMessage(): string {
 }
 
 /**
- * Post-OAuth account selector. Reads the captured portfolio for a
- * `meta_oauth_sessions` id and lets the user toggle which Facebook Pages
- * and Instagram Business accounts should be bound to the current brand.
+ * Post-OAuth account selector — PAINEL (sem modal próprio).
+ *
+ * Reads the captured portfolio for a `meta_oauth_sessions` id and lets the user
+ * toggle which Facebook Pages / Instagram Business accounts are bound to the
+ * brand. Vive como painel para poder ser embutido na etapa "Ativos" do modal
+ * único "Conectar canais" — evitando modais empilhados.
  */
-export function MetaPortfolioDialog({
+export function MetaAssetsPanel({
   brandId,
   clientId,
   sessionId,
-  open,
+  active,
   channel,
-  onOpenChange,
+  onClose,
 }: {
   brandId: string;
   clientId?: string;
   sessionId: string | null;
-  open: boolean;
+  /** true enquanto o painel está visível (controla a query). */
+  active: boolean;
   channel?: "facebook" | "instagram" | "threads" | "ads" | null;
-  onOpenChange: (open: boolean) => void;
+  onClose: () => void;
 }) {
+  const open = active;
+  const onOpenChange = (v: boolean) => {
+    if (!v) onClose();
+  };
   const qc = useQueryClient();
   const getFn = useServerFn(getMetaPortfolio);
   const linkFn = useServerFn(linkMetaAccount);
@@ -441,11 +449,11 @@ export function MetaPortfolioDialog({
   const showStoredRateLimitState = data?.portfolioStatus === "rate_limited";
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl border-border/60 bg-background/95 backdrop-blur">
-        <DialogHeader>
+    <>
+      <div className="space-y-4">
+        <div className="space-y-1.5">
           <div className="flex items-start justify-between gap-3">
-            <DialogTitle className="text-base">Selecione as contas da Meta</DialogTitle>
+            <h3 className="text-sm font-semibold">Selecione as contas da Meta</h3>
             {data && !isRateLimited && (
               <Button
                 size="sm"
@@ -464,7 +472,7 @@ export function MetaPortfolioDialog({
               </Button>
             )}
           </div>
-          <DialogDescription className="text-xs">
+          <p className="text-[11px] leading-snug text-muted-foreground">
             {data?.metaUser.name ? `Logado como ${data.metaUser.name}. ` : ""}
             {channel === "instagram"
               ? "Escolha quais contas do Instagram Business você deseja vincular a este projeto."
@@ -475,8 +483,8 @@ export function MetaPortfolioDialog({
                   : channel === "ads"
                     ? "Escolha quais Contas de Anúncio você deseja vincular a este projeto."
                     : "Escolha quais Páginas, Contas do Instagram, perfis do Threads e Contas de Anúncio você deseja vincular a este projeto."}
-          </DialogDescription>
-        </DialogHeader>
+          </p>
+        </div>
 
         {data && !isLoading ? (
           <div className="space-y-2">
@@ -948,6 +956,47 @@ export function MetaPortfolioDialog({
             </TabsContent>
           </Tabs>
         )}
+      </div>
+    </>
+  );
+}
+
+/**
+ * Wrapper legado — mantém o modal autônomo para as telas que ainda abrem a
+ * seleção de contas fora do fluxo "Conectar canais".
+ */
+export function MetaPortfolioDialog({
+  brandId,
+  clientId,
+  sessionId,
+  open,
+  channel,
+  onOpenChange,
+}: {
+  brandId: string;
+  clientId?: string;
+  sessionId: string | null;
+  open: boolean;
+  channel?: "facebook" | "instagram" | "threads" | "ads" | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl border-border/60 bg-background/95 backdrop-blur">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Selecione as contas da Meta</DialogTitle>
+          <DialogDescription>
+            Escolha quais contas da Meta você deseja vincular.
+          </DialogDescription>
+        </DialogHeader>
+        <MetaAssetsPanel
+          brandId={brandId}
+          clientId={clientId}
+          sessionId={sessionId}
+          active={open}
+          channel={channel}
+          onClose={() => onOpenChange(false)}
+        />
       </DialogContent>
     </Dialog>
   );

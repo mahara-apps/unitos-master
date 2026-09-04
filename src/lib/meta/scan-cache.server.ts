@@ -77,8 +77,25 @@ export async function runSharedScan(
   opts?: { label?: string; deep?: boolean; force?: boolean },
 ): Promise<SharedScanResult> {
   const deep = opts?.deep !== false;
-  const key = `${tokenFingerprint(userToken)}:${deep ? "deep" : "shallow"}`;
-  if (opts?.force) scanCache.invalidate(key);
+  const fp = tokenFingerprint(userToken);
+  const key = `${fp}:${deep ? "deep" : "shallow"}`;
+  if (opts?.force) {
+    scanCache.invalidate(key);
+    scanCache.invalidate(`${fp}:deep`);
+  }
+
+  // Uma varredura PROFUNDA recente já contém tudo que uma rasa devolveria:
+  // reutilizá-la evita uma segunda rodada de requisições à Graph API quando as
+  // duas trilhas (descoberta e seleção de ativos) rodam na mesma operação.
+  if (!deep && !opts?.force) {
+    const deepHit = scanCache.peek(`${fp}:deep`);
+    if (deepHit) {
+      console.log(
+        `${opts?.label ?? "Meta discovery"}: requests=0 cache=deep-reuse pages=${deepHit.pages.length}`,
+      );
+      return { scan: deepHit, source: "cache" };
+    }
+  }
 
   const { value, source } = await scanCache.run(key, async () => {
     const { MetaProvider } = await import("./provider.server");

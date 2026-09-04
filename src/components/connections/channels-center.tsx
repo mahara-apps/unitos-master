@@ -247,6 +247,8 @@ export function ChannelsCenter({
   const flowRef = useRef<"facebook" | "instagram" | null>(null);
   const [portfolioSessionId, setPortfolioSessionId] = useState<string | null>(null);
   const [portfolioOpen, setPortfolioOpen] = useState(false);
+  /** Etapa 02 ("Ativos") renderizada dentro do modal "Conectar canais". */
+  const [assetsStep, setAssetsStep] = useState(false);
   const [portfolioChannel, setPortfolioChannel] = useState<"facebook" | "instagram" | null>(null);
   const [manage, setManage] = useState<WorkspaceChannel | null>(null);
   const [linkTarget, setLinkTarget] = useState<WorkspaceChannel | null>(null);
@@ -907,6 +909,9 @@ export function ChannelsCenter({
           if (!v) {
             clearWatchdogs();
             setFlow({ kind: "idle" });
+            setAssetsStep(false);
+            setPortfolioSessionId(null);
+            invalidate();
           }
         }}
         state={flow}
@@ -916,16 +921,29 @@ export function ChannelsCenter({
           setFlow({ kind: "idle" });
         }}
         onContinue={() => {
-          setConnectOpen(false);
-          setFlow({ kind: "idle" });
-          if (portfolioSessionId) setPortfolioOpen(true);
+          // Etapa 02 acontece NO MESMO popup — nunca um segundo modal.
+          if (portfolioSessionId) setAssetsStep(true);
+          else setConnectOpen(false);
         }}
         onRefreshDiscovery={() => refreshDiscovery()}
         discovery={discovery}
         syncing={loadingDiscovery || fetchingDiscovery || manualSyncing}
+        assetsStep={assetsStep}
+        brandId={brandId ?? undefined}
+        assetsSessionId={portfolioSessionId}
+        assetsChannel={portfolioChannel}
+        onBackFromAssets={() => setAssetsStep(false)}
+        onFinishAssets={() => {
+          setAssetsStep(false);
+          setConnectOpen(false);
+          setFlow({ kind: "idle" });
+          setPortfolioSessionId(null);
+          invalidate();
+        }}
       />
 
-      {portfolioSessionId ? (
+      {/* Fluxo legado (fora do wizard): seleção de contas em modal próprio. */}
+      {portfolioSessionId && !connectOpen ? (
         <MetaPortfolioDialog
           open={portfolioOpen}
           onOpenChange={(v) => {
