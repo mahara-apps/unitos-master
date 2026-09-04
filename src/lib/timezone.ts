@@ -136,3 +136,38 @@ export function addYearsInTz(d: Date, years: number): Date {
   const p = zonedParts(d);
   return zonedTimeToUtc(p.year + years, p.month, Math.min(p.day, 28), 12, 0, 0, 0);
 }
+
+/* --------------------------------------------------- FORMATAÇÃO PARA A TELA */
+
+const dateTimeBrFormatter = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: APP_TIMEZONE,
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+const dateBrFormatter = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: APP_TIMEZONE,
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+
+/** `03/09/2026 16:42` no fuso de Brasília. Nunca usa o fuso do host. */
+export function formatDateTimeBr(value: string | number | Date | null | undefined): string {
+  if (value === null || value === undefined || value === "") return "—";
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return dateTimeBrFormatter.format(d).replace(",", "");
+}
+
+/** `03/09/2026` no fuso de Brasília. */
+export function formatDateBr(value: string | number | Date | null | undefined): string {
+  if (value === null || value === undefined || value === "") return "—";
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return dateBrFormatter.format(d);
+}
