@@ -105,6 +105,48 @@ function readStored<T extends string>(key: string, allowed: readonly T[], fallba
   return allowed.includes(raw as T) ? (raw as T) : fallback;
 }
 
+// Requisições penduradas deixavam a tela em esqueleto infinito (parecia
+// "cliente sem projetos"). Aqui elas falham de forma visível.
+const REQUEST_TIMEOUT_MS = 20_000;
+const SLOW_HINT_MS = 8_000;
+
+function withTimeout<T>(
+  run: (signal: AbortSignal) => Promise<T>,
+  outer: AbortSignal | undefined,
+  ms = REQUEST_TIMEOUT_MS,
+): Promise<T> {
+  const controller = new AbortController();
+  const onAbort = () => controller.abort(outer?.reason);
+  if (outer) {
+    if (outer.aborted) onAbort();
+    else outer.addEventListener("abort", onAbort, { once: true });
+  }
+  const timer = setTimeout(
+    () => controller.abort(new Error("Tempo esgotado ao carregar os dados.")),
+    ms,
+  );
+  return run(controller.signal).finally(() => {
+    clearTimeout(timer);
+    outer?.removeEventListener("abort", onAbort);
+  });
+}
+
+/** Sinaliza carregamento anormalmente longo, sem travar a tela. */
+function useSlowHint(active: boolean, ms = SLOW_HINT_MS) {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!active) {
+      setSlow(false);
+      return;
+    }
+    const t = setTimeout(() => setSlow(true), ms);
+    return () => clearTimeout(t);
+  }, [active, ms]);
+  return slow;
+}
+
+
+
 const COLORS = [
   "#8b5cf6", // violet
   "#ec4899", // pink
@@ -374,28 +416,42 @@ function ProjectsIndexPage() {
 
   const projectsQ = useQuery({
     queryKey: ["projects", brandId, statusFilter, ownerFilter, effectiveClientId],
-    queryFn: () =>
-      list({
-        data: {
-          brandId: brandId!,
-          status: statusFilter === "all" ? null : (statusFilter as never),
-          ownerId: ownerFilter === "all" ? null : ownerFilter,
-          clientId: effectiveClientId,
-        },
-      }),
+    queryFn: ({ signal }) =>
+      withTimeout(
+        (s) =>
+          list({
+            signal: s,
+            data: {
+              brandId: brandId!,
+              status: statusFilter === "all" ? null : (statusFilter as never),
+              ownerId: ownerFilter === "all" ? null : ownerFilter,
+              clientId: effectiveClientId,
+            },
+          }),
+        signal,
+      ),
     enabled: !!brandId,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1500 * 2 ** attempt, 6000),
   });
 
   const clientsQ = useQuery({
     queryKey: ["clients", brandId],
-    queryFn: () => clientsFn({ data: { brandId: brandId! } }),
+    queryFn: ({ signal }) =>
+      withTimeout((s) => clientsFn({ signal: s, data: { brandId: brandId! } }), signal),
     enabled: !!brandId,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1500 * 2 ** attempt, 6000),
   });
   const teamQ = useQuery({
     queryKey: ["team", brandId],
-    queryFn: () => teamFn({ data: { brandId: brandId! } }),
+    queryFn: ({ signal }) =>
+      withTimeout((s) => teamFn({ signal: s, data: { brandId: brandId! } }), signal),
     enabled: !!brandId,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1500 * 2 ** attempt, 6000),
   });
+
   const team = (teamQ.data?.members ?? []) as Array<{ user_id: string; full_name: string | null }>;
   const clients = (clientsQ.data ?? []) as Array<{
     id: string;
@@ -472,6 +528,12 @@ function ProjectsIndexPage() {
     return { count: all.length, active, total, published, approved };
   }, [projectsQ.data]);
 
+  // Sem resposta ainda: nada de exibir "0" como se fosse dado real.
+  const hasProjectData = projectsQ.data !== undefined;
+  const kpiValue = (v: number) => (hasProjectData ? v : "—");
+  const showSlowHint = useSlowHint(projectsQ.isLoading || projectsQ.isRefetching);
+
+
   const createMut = useMutation({
     mutationFn: (values: ProjectFormValues) => create({ data: { brandId: brandId!, values } }),
     onSuccess: () => {
@@ -535,30 +597,39 @@ function ProjectsIndexPage() {
           tone="neutral"
           icon={<Layers className="h-4 w-4" />}
           label="Projetos"
-          value={kpis.count}
-          sub={`${kpis.active} em andamento`}
+          value={kpiValue(kpis.count)}
+          sub={hasProjectData ? `${kpis.active} em andamento` : "Carregando..."}
         />
         <KpiCard
           tone="sky"
           icon={<TrendingUp className="h-4 w-4" />}
           label="Publicações"
-          value={kpis.total}
+          value={kpiValue(kpis.total)}
           sub="Total no escopo"
         />
         <KpiCard
           tone="emerald"
           icon={<CheckCircle2 className="h-4 w-4" />}
           label="Aprovadas"
-          value={kpis.approved}
-          sub={`${kpis.total > 0 ? Math.round((kpis.approved / kpis.total) * 100) : 0}% do total`}
+          value={kpiValue(kpis.approved)}
+          sub={
+            hasProjectData
+              ? `${kpis.total > 0 ? Math.round((kpis.approved / kpis.total) * 100) : 0}% do total`
+              : "—"
+          }
         />
         <KpiCard
           tone="pink"
           icon={<Send className="h-4 w-4" />}
           label="Publicadas"
-          value={kpis.published}
-          sub={`${kpis.total > 0 ? Math.round((kpis.published / kpis.total) * 100) : 0}% do total`}
+          value={kpiValue(kpis.published)}
+          sub={
+            hasProjectData
+              ? `${kpis.total > 0 ? Math.round((kpis.published / kpis.total) * 100) : 0}% do total`
+              : "—"
+          }
         />
+
       </div>
 
       {/* Filtros */}
@@ -698,8 +769,13 @@ function ProjectsIndexPage() {
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[11px] text-muted-foreground">
-            {rows.length} {rows.length === 1 ? "projeto" : "projetos"}
+            {hasProjectData
+              ? `${rows.length} ${rows.length === 1 ? "projeto" : "projetos"}`
+              : projectsQ.isError
+                ? "Não carregado"
+                : "Carregando projetos..."}
           </span>
+
           {q.trim() ? <FilterChip label={`Busca: ${q.trim()}`} onClear={() => setQ("")} /> : null}
           {statusFilter !== "all" ? (
             <FilterChip
@@ -738,29 +814,67 @@ function ProjectsIndexPage() {
       </DashboardPanelSurface>
 
       {/* Lista de projetos */}
-      {projectsQ.isLoading ? (
-        view === "cards" ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-[104px] animate-pulse rounded-lg border border-border/60 bg-muted/50"
-              />
-            ))}
+      {projectsQ.isError ? (
+        <DashboardPanelSurface className="space-y-3 p-6 text-center">
+          <p className="text-sm font-medium text-foreground">
+            Não foi possível carregar os projetos
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {(projectsQ.error as Error | null)?.message ||
+              "Falha de comunicação com o servidor. Isso não significa que o cliente esteja sem projetos."}
+          </p>
+          <div>
+            <Button size="sm" variant="outline" onClick={() => void projectsQ.refetch()}>
+              Tentar novamente
+            </Button>
           </div>
-        ) : (
-          <DashboardPanelSurface className="space-y-2 p-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-10 animate-pulse rounded-md bg-muted/60" />
-            ))}
-          </DashboardPanelSurface>
-        )
+        </DashboardPanelSurface>
+      ) : projectsQ.isLoading ? (
+        <div className="space-y-2">
+          {showSlowHint ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
+              <span>Está demorando mais que o normal para carregar os projetos.</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-[11px]"
+                onClick={() => void projectsQ.refetch()}
+              >
+                Recarregar
+              </Button>
+            </div>
+          ) : null}
+          {view === "cards" ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-[104px] animate-pulse rounded-lg border border-border/60 bg-muted/50"
+                />
+              ))}
+            </div>
+          ) : (
+            <DashboardPanelSurface className="space-y-2 p-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-10 animate-pulse rounded-md bg-muted/60" />
+              ))}
+            </DashboardPanelSurface>
+          )}
+        </div>
       ) : rows.length === 0 ? (
+
         <DashboardPanelSurface>
           <PanelEmptyState
             icon={<FileBarChart2 className="h-4 w-4" />}
-            text="Nenhum projeto encontrado. Crie o primeiro clicando em Novo projeto."
+            text={
+              hasFilters
+                ? "Nenhum projeto corresponde aos filtros aplicados."
+                : effectiveClientId
+                  ? "Nenhum projeto para este cliente ainda. Crie o primeiro clicando em Novo projeto."
+                  : "Nenhum projeto encontrado. Crie o primeiro clicando em Novo projeto."
+            }
           />
+
         </DashboardPanelSurface>
       ) : view === "cards" ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
