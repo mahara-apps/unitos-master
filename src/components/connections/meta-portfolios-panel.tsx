@@ -126,16 +126,53 @@ function pageNumbers(current: number, total: number): (number | "…")[] {
   return out;
 }
 
-function StateBadge({ state }: { state: PortfolioState }) {
+/**
+ * Motivo legível do status do portfólio. Nunca expõe texto cru da Graph API:
+ * quando a sincronização trouxe aviso da Meta, usa o estado operacional já
+ * traduzido em `issue-messages.ts`.
+ */
+function portfolioReason(
+  p: MetaPortfolioSummary,
+  state: PortfolioState,
+  metaIssue: string | null,
+): string {
+  if (state === "error") {
+    return (
+      metaIssue ??
+      "A autorização da Meta para este portfólio não está mais válida. Reautorize na Meta mantendo todas as Páginas e contas do Instagram marcadas."
+    );
+  }
+  if (state === "attention") {
+    const n = p.attentionCount;
+    return `${n} conta(s) deste portfólio precisam de atenção. ${
+      metaIssue ?? "Verifique as permissões na Meta e sincronize novamente."
+    }`;
+  }
+  return "Autorização válida na última sincronização.";
+}
+
+function StateBadge({ state, reason }: { state: PortfolioState; reason: string }) {
   const m = STATE_STYLE[state];
   return (
-    <Badge
-      variant="outline"
-      className={cn("h-5 shrink-0 gap-1 px-1.5 text-[11px] font-medium", m.chip)}
-    >
-      <span className={cn("h-1.5 w-1.5 rounded-full", m.dot)} />
-      {m.label}
-    </Badge>
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge
+            variant="outline"
+            className={cn(
+              "h-5 shrink-0 cursor-help gap-1 px-1.5 text-[11px] font-medium",
+              m.chip,
+            )}
+          >
+            <span className={cn("h-1.5 w-1.5 rounded-full", m.dot)} />
+            {m.label}
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs">
+          {reason}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
