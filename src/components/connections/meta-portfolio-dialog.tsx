@@ -168,7 +168,7 @@ export function MetaAssetsPanel({
   const startFn = useServerFn(startMetaOAuth);
 
   /** Conexões ativadas nesta passagem pelo painel (para vincular ao cliente). */
-  const [linkedNow, setLinkedNow] = useState<Array<{ connectionId: string; label: string }>>([]);
+  const [linkedNow, setLinkedNow] = useState<SelectedAccount[]>([]);
   useEffect(() => {
     onPendingChange?.(linkedNow.length);
   }, [linkedNow.length, onPendingChange]);
@@ -367,10 +367,15 @@ export function MetaAssetsPanel({
               old.adAccounts?.find((a) => a.adAccountId === vars.targetId)?.name ??
               vars.targetId;
             const connectionId = result.connectionId;
+            const entry: SelectedAccount = {
+              connectionId,
+              label,
+              channel: vars.channel,
+              targetId: vars.targetId,
+              lookupId,
+            };
             setLinkedNow((prev) =>
-              prev.some((x) => x.connectionId === connectionId)
-                ? prev
-                : [...prev, { connectionId, label }],
+              prev.some((x) => x.connectionId === connectionId) ? prev : [...prev, entry],
             );
           }
         } else {
@@ -489,15 +494,31 @@ export function MetaAssetsPanel({
    * consulta extra à Meta e nenhuma alteração no fluxo de seleção.
    */
   const [assetQuery, setAssetQuery] = useState("");
+  /** Mostra apenas as contas ativadas nesta passagem (revisão final). */
+  const [onlySelected, setOnlySelected] = useState(false);
+  const selectedKeys = useMemo(
+    () => new Set(linkedNow.map((item) => `${item.channel}:${item.targetId}`)),
+    [linkedNow],
+  );
+  const keep = (channel: SelectedAccount["channel"], targetId: string) =>
+    !onlySelected || selectedKeys.has(`${channel}:${targetId}`);
   const q = assetQuery.trim().toLowerCase();
   const match = (...parts: Array<string | null | undefined>) =>
     !q || parts.filter(Boolean).join(" ").toLowerCase().includes(q);
-  const visibleFb = fbPages.filter((p) => match(p.pageName, p.category, p.pageId));
-  const visibleIg = igPages.filter((p) =>
-    match(p.pageName, p.instagramUsername, p.instagramBusinessId, p.pageId),
+  const visibleFb = fbPages.filter(
+    (p) => keep("facebook", p.pageId) && match(p.pageName, p.category, p.pageId),
   );
-  const visibleThreads = threadsAccounts.filter((t) => match(t.username, t.name, t.threadsUserId));
-  const visibleAds = adAccounts.filter((a) => match(a.name, a.adAccountId, a.businessName));
+  const visibleIg = igPages.filter(
+    (p) =>
+      keep("instagram", p.pageId) &&
+      match(p.pageName, p.instagramUsername, p.instagramBusinessId, p.pageId),
+  );
+  const visibleThreads = threadsAccounts.filter(
+    (t) => keep("threads", t.threadsUserId) && match(t.username, t.name, t.threadsUserId),
+  );
+  const visibleAds = adAccounts.filter(
+    (a) => keep("ads", a.adAccountId) && match(a.name, a.adAccountId, a.businessName),
+  );
 
   const showNotLoadedState = data?.portfolioStatus === "not_loaded";
   const showStoredRateLimitState = data?.portfolioStatus === "rate_limited";
@@ -706,6 +727,22 @@ export function MetaAssetsPanel({
                 className="h-9 pl-8 text-xs"
               />
             </div>
+            {linkedNow.length > 0 ? (
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <Button
+                  size="sm"
+                  variant={onlySelected ? "secondary" : "ghost"}
+                  className="h-7 gap-1.5 text-[11px]"
+                  onClick={() => setOnlySelected((v) => !v)}
+                >
+                  <CheckCircle2 className="h-3 w-3" />
+                  {onlySelected ? "Mostrar todas" : "Só as selecionadas"}
+                </Button>
+                <span className="text-[11px] text-muted-foreground">
+                  {linkedNow.length} selecionada{linkedNow.length === 1 ? "" : "s"}
+                </span>
+              </div>
+            ) : null}
             {!channel && (
               <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="facebook" className="gap-2 text-xs">
@@ -1013,7 +1050,13 @@ export function MetaAssetsPanel({
       </div>
 
       {assign ? (
-        <div className="sticky bottom-0 z-10 -mx-1 mt-2 bg-background/95 px-1 backdrop-blur">
+        <div className="-mx-1 mt-3 border-t border-border/60 bg-background px-1 pt-3">
+          <MetaSelectionTray
+            selected={linkedNow}
+            onRemove={(item) =>
+              void handleToggle(item.channel, item.targetId, item.lookupId, false)
+            }
+          />
           <MetaAssignFooter
             brandId={brandId}
             clientId={clientId}
