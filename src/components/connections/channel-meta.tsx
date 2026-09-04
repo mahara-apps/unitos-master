@@ -36,6 +36,10 @@ export type ChannelDef = {
   /** true = OAuth implementado (Meta). false = "Em breve". */
   available: boolean;
   provider?: "meta";
+  /** Caminho recomendado de conexão (aparece primeiro e com selo). */
+  recommended?: boolean;
+  /** Explicação curta exibida no cartão de conexão. */
+  hint?: string;
 };
 
 export const CHANNEL_DEFS: ChannelDef[] = [
