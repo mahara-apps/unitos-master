@@ -212,9 +212,11 @@ export async function applyStatementByStatement(
   const prep = await management.query(
     [
       "create table if not exists public._unitos_deferred_sql (id bigserial primary key, stmt text not null)",
+      HELPER_TABLE_HARDENING_SQL("public._unitos_deferred_sql"),
       `select exists(select 1 from public._unitos_deferred_sql where stmt = '${marker}') as initialized`,
     ].join(";\n"),
   );
+
   if (!prep.ok) return { ok: false, error: prep.error, processed };
 
   const prepRow = prep.rows.find((row): row is Record<string, unknown> => !!row && typeof row === "object");
