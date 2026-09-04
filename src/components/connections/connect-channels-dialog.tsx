@@ -331,8 +331,8 @@ export function ConnectChannelsDialog({
             <div className="flex items-center gap-2 border-t bg-muted/20 px-6 py-3.5">
               <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted-foreground">
-                Cada ativo ativado já fica disponível no workspace — no rodapé acima você escolhe o
-                cliente e conclui.
+                Ativar deixa a conta disponível no workspace; vincular ao cliente é o passo
+                seguinte.
               </p>
               {onBackFromAssets ? (
                 <Button

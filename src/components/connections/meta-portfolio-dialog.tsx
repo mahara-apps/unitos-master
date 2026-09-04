@@ -1,4 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -58,6 +68,7 @@ import {
 import { humanizeMetaError } from "@/lib/meta/error-messages";
 import { DiscoveryProgress } from "./discovery-progress";
 import { readAuthorizeUrl } from "@/lib/meta/connect-flow";
+import { assignFinishState } from "@/lib/meta/assign-completion";
 
 /**
  * Status canônico por conta descoberta: 🟢 Pronto · 🟠 Autorização necessária
@@ -129,6 +140,7 @@ export function MetaAssetsPanel({
   channel,
   assign,
   onClose,
+  onPendingChange,
 }: {
   brandId: string;
   clientId?: string;
@@ -142,6 +154,8 @@ export function MetaAssetsPanel({
    */
   assign?: boolean;
   onClose: () => void;
+  /** Nº de contas ativadas e ainda sem cliente — usado para confirmar o fechamento. */
+  onPendingChange?: (count: number) => void;
 }) {
   const open = active;
   const onOpenChange = (v: boolean) => {
@@ -155,6 +169,9 @@ export function MetaAssetsPanel({
 
   /** Conexões ativadas nesta passagem pelo painel (para vincular ao cliente). */
   const [linkedNow, setLinkedNow] = useState<Array<{ connectionId: string; label: string }>>([]);
+  useEffect(() => {
+    onPendingChange?.(linkedNow.length);
+  }, [linkedNow.length, onPendingChange]);
 
   // A primeira abertura de uma sessão recém-autorizada faz varredura nova na
   // Graph API, para que TODAS as contas aprovadas no consentimento apareçam.
@@ -363,7 +380,11 @@ export function MetaAssetsPanel({
         }
         return { ...old, connected };
       });
-      toast.success(vars.connect ? "Conta vinculada" : "Conta desvinculada");
+      toast.success(
+        vars.connect
+          ? "Conta ativada — escolha o cliente no rodapé para concluir"
+          : "Conta desativada",
+      );
       invalidate();
     },
 
@@ -482,8 +503,8 @@ export function MetaAssetsPanel({
   const showStoredRateLimitState = data?.portfolioStatus === "rate_limited";
 
   return (
-    <>
-      <div className="space-y-4">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 space-y-4">
         <div className="space-y-1.5">
           <div className="flex items-start justify-between gap-3">
             <h3 className="text-sm font-semibold">Selecione as contas da Meta</h3>
@@ -992,17 +1013,19 @@ export function MetaAssetsPanel({
       </div>
 
       {assign ? (
-        <MetaAssignFooter
-          brandId={brandId}
-          clientId={clientId}
-          linked={linkedNow}
-          onDone={() => {
-            setLinkedNow([]);
-            onOpenChange(false);
-          }}
-        />
+        <div className="sticky bottom-0 z-10 -mx-1 mt-2 bg-background/95 px-1 backdrop-blur">
+          <MetaAssignFooter
+            brandId={brandId}
+            clientId={clientId}
+            linked={linkedNow}
+            onDone={() => {
+              setLinkedNow([]);
+              onOpenChange(false);
+            }}
+          />
+        </div>
       ) : null}
-    </>
+    </div>
   );
 }
 
@@ -1065,17 +1088,16 @@ function MetaAssignFooter({
     }
   }
 
-  const count = linked.length;
+  const state = assignFinishState({
+    activated: linked.map((l) => l.label),
+    clientId,
+    target: target || undefined,
+  });
+  const count = state.count;
 
   return (
     <div className="mt-4 space-y-3 border-t border-border/60 pt-3">
-      <p className="text-[11px] leading-snug text-muted-foreground">
-        {count === 0
-          ? "Ative acima as contas que deseja usar. Elas ficam disponíveis no workspace e podem ser vinculadas a um cliente."
-          : `${count} ${count === 1 ? "conta ativada" : "contas ativadas"}: ${linked
-              .map((l) => l.label)
-              .join(", ")}`}
-      </p>
+      <p className="text-[11px] leading-snug text-muted-foreground">{state.message}</p>
       {clientId ? (
         <div className="flex justify-end">
           <Button size="sm" onClick={() => void finish(false)} disabled={saving}>
@@ -1087,7 +1109,7 @@ function MetaAssignFooter({
           <div className="min-w-0 sm:w-72">
             <Select value={target} onValueChange={setTarget} disabled={saving || count === 0}>
               <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder="Vincular a um cliente (opcional)" />
+                <SelectValue placeholder="Vincular ao cliente" />
               </SelectTrigger>
               <SelectContent>
                 {clients.map((c) => (
@@ -1099,13 +1121,18 @@ function MetaAssignFooter({
             </Select>
           </div>
           <div className="flex flex-wrap justify-end gap-2">
-            <Button size="sm" variant="ghost" onClick={() => void finish(false)} disabled={saving}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void finish(false)}
+              disabled={saving || !state.canFinishWithoutClient}
+            >
               Concluir sem cliente
             </Button>
             <Button
               size="sm"
               onClick={() => void finish(true)}
-              disabled={saving || count === 0 || !target}
+              disabled={saving || !state.canLink}
               className="gap-2"
             >
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
@@ -1137,26 +1164,66 @@ export function MetaPortfolioDialog({
   channel?: "facebook" | "instagram" | "threads" | "ads" | null;
   onOpenChange: (open: boolean) => void;
 }) {
+  const [pending, setPending] = useState(0);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const onPendingChange = useCallback((n: number) => setPending(n), []);
+
+  function requestClose() {
+    if (pending > 0 && !clientId) {
+      setConfirmClose(true);
+      return;
+    }
+    onOpenChange(false);
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl border-border/60 bg-background/95 backdrop-blur">
-        <DialogHeader>
-          <DialogTitle className="text-base">Selecione as contas da Meta</DialogTitle>
-          <DialogDescription className="text-xs">
-            Ative as contas que você vai usar e, no final, escolha o cliente que vai recebê-las.
-          </DialogDescription>
-        </DialogHeader>
-        <MetaAssetsPanel
-          brandId={brandId}
-          clientId={clientId}
-          sessionId={sessionId}
-          active={open}
-          channel={channel}
-          assign
-          onClose={() => onOpenChange(false)}
-        />
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={open} onOpenChange={(v) => (v ? onOpenChange(true) : requestClose())}>
+        <DialogContent className="flex max-h-[88vh] max-w-3xl flex-col overflow-hidden border-border/60 bg-background/95 backdrop-blur">
+          <DialogHeader>
+            <DialogTitle className="text-base">Selecione as contas da Meta</DialogTitle>
+            <DialogDescription className="text-xs">
+              Ative as contas que você vai usar e, no final, escolha o cliente que vai recebê-las.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pr-1">
+            <MetaAssetsPanel
+              brandId={brandId}
+              clientId={clientId}
+              sessionId={sessionId}
+              active={open}
+              channel={channel}
+              assign
+              onPendingChange={onPendingChange}
+              onClose={() => onOpenChange(false)}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Vincular a um cliente agora?</AlertDialogTitle>
+            <AlertDialogDescription>
+              As contas ativadas ficaram salvas no workspace, mas ainda não pertencem a nenhum
+              cliente. Você pode escolher o cliente agora no rodapé da tela.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Vincular</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmClose(false);
+                onOpenChange(false);
+              }}
+            >
+              Sair
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
