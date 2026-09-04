@@ -622,7 +622,10 @@ export function MetaPortfoliosPanel({
                           </div>
                         </TableCell>
                         <TableCell className="py-2">
-                          <StateBadge state={r.state} />
+                          <StateBadge
+                            state={r.state}
+                            reason={portfolioReason(r.p, r.state, discoveryIssue)}
+                          />
                         </TableCell>
                         <TableCell className="py-2 text-center text-xs tabular-nums">
                           {r.pages}
