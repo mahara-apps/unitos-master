@@ -257,9 +257,17 @@ export function validateInstallationInput(input: InstallationInput): ValidationR
   if (input.supabaseUrl?.trim() && !normalizeHost(input.supabaseUrl)) {
     return { ok: false, error: "Informe a URL do Supabase da instalação de destino." };
   }
-  if (input.gitRepoUrl?.trim() && !normalizeHost(input.gitRepoUrl)) {
+  if (!input.gitRepoUrl?.trim()) {
+    return {
+      ok: false,
+      error:
+        "Informe o repositório Git da instalação: o provisionamento publica o código do MASTER nele antes de conectar o deploy.",
+    };
+  }
+  if (!normalizeHost(input.gitRepoUrl)) {
     return { ok: false, error: "Informe a URL do repositório Git da instalação." };
   }
+
 
   const blob = [
     input.domain,
@@ -291,15 +299,18 @@ export function validateInstallationInput(input: InstallationInput): ValidationR
  */
 export const PROVISION_STEPS = [
   { id: "supabase", label: "Supabase", script: "supabase/install/bootstrap.sh" },
+  { id: "code", label: "Código no GitHub", script: "github: POST /repos/{template}/generate" },
+  { id: "deploy_link", label: "Deploy conectado", script: "vercel: POST /v10/projects/{id}/link" },
+  { id: "secrets", label: "Secrets próprios", script: "supabase/install/bootstrap.sh" },
+  { id: "deploy", label: "Variáveis + publicação", script: "supabase/install/010_installation_identity.sql" },
   { id: "database", label: "Banco + RLS + funções", script: "supabase/baseline-snapshot/001_initial_schema.sql" },
   { id: "storage", label: "Storage", script: "supabase/baseline-snapshot/003_storage_buckets.sql" },
   { id: "seeds", label: "Seeds de catálogo", script: "supabase/baseline-snapshot/004_seeds.sql" },
-  { id: "secrets", label: "Secrets próprios", script: "supabase/install/bootstrap.sh" },
-  { id: "cron", label: "Cron na própria origem", script: "supabase/install/020_cron.sql" },
   { id: "brain", label: "Brain stats", script: "supabase/install/011_brain_stats_init.sql" },
-  { id: "deploy", label: "Deploy / URL própria", script: "supabase/install/010_installation_identity.sql" },
+  { id: "cron", label: "Cron na própria origem", script: "supabase/install/020_cron.sql" },
   { id: "validation", label: "Validação final", script: "supabase/install/verify-installation.sql" },
 ] as const;
+
 
 export const VALIDATE_STEPS = [
   { id: "isolation", label: "Isolamento do Supabase", script: "supabase/install/verify-installation.sql" },
@@ -422,6 +433,8 @@ export const CHECK_STATE_LABEL: Record<CheckState, string> = {
 export const HEALTH_CHECKS = [
   { id: "connectivity", label: "Conectividade" },
   { id: "supabase", label: "Supabase" },
+  { id: "code", label: "Código publicado" },
+
   { id: "database", label: "Banco" },
   { id: "storage", label: "Storage" },
   { id: "cron", label: "Cron" },

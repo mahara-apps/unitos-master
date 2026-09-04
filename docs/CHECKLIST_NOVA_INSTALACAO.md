@@ -26,7 +26,8 @@ Sem isso o botão de provisionar aparece **BLOCKED**, nunca "sucesso".
 | Token de gestão Supabase | secret `UNITOS_SUPABASE_MANAGEMENT_TOKEN` | Supabase → Account → Access Tokens |
 | Token de deploy | secret `UNITOS_VERCEL_TOKEN` | Vercel → Account Settings → Tokens |
 | Time/escopo do deploy | secret `UNITOS_VERCEL_TEAM_ID` | obrigatório quando o projeto vive num Team |
-| Repositório de referência | secret `UNITOS_MASTER_REPO` (`org/repo`) | é o código que será publicado nas instalações |
+| Repositório de referência | secret `UNITOS_MASTER_REPO` (`org/repo`) | é o código que será publicado nas instalações; precisa estar marcado como **template** no GitHub |
+| Token do GitHub | secret `UNITOS_GITHUB_TOKEN` | cria o repositório da instalação a partir do template e publica o código |
 | URL do MASTER | `PUBLIC_APP_URL` | usada pelo destino para reportar progresso |
 
 Regras que o sistema aplica sozinho e que **não** devem ser contornadas:
@@ -44,10 +45,14 @@ Regras que o sistema aplica sozinho e que **não** devem ser contornadas:
 
 ## Bloco 1 — Git (repositório da instalação)
 
-1. Definir a origem do código: o padrão é publicar o mesmo repositório do
-   MASTER (`UNITOS_MASTER_REPO`, branch `main`).
-2. Se a instalação terá repositório próprio (fork/espelho), criar o repositório
-   e garantir que o token de deploy tem acesso de leitura a ele.
+Cada instalação tem o **seu próprio repositório**. Ele não precisa existir
+antes: o provisionamento cria a partir do template do MASTER, na primeira
+etapa de código, e publica ali a versão autorizada.
+
+1. Definir onde o repositório da instalação vai morar (conta/organização e
+   nome) e informar essa URL no cadastro — é ela que o provisionamento usa.
+2. Garantir que `UNITOS_GITHUB_TOKEN` tem permissão de criar repositório nessa
+   conta/organização e que o token de deploy consegue ler o repositório.
 3. **Desligar auto-deploy por Git na instalação.** Instalações externas não
    atualizam sozinhas: cada atualização é autorizada no MASTER, com commit
    fixado (SHA), no card *Versão e atualizações*.
@@ -151,15 +156,17 @@ opera. Não bloqueiam o provisionamento.
 Sequência das nove etapas, na ordem em que aparecem na tela:
 
 ```text
-01 Supabase              projeto, chaves e extensões
-02 Banco + RLS + funções baseline completo
-03 Storage               buckets e policies
-04 Seeds de catálogo     catálogo, sem dado de negócio
-05 Secrets próprios      gerados e exclusivos
-06 Cron na própria origem agendado na URL da instalação
-07 Brain stats           view inicial
-08 Deploy / URL própria  variáveis e publicação
-09 Validação final       verify-installation.sql
+01 Supabase destino       projeto, chaves e extensões
+02 Código no GitHub       repositório da instalação criado do template + versão publicada
+03 Deploy conectado       projeto ligado ao repositório da instalação, auto-deploy Git desligado
+04 Secrets próprios       gerados e exclusivos
+05 Variáveis + publicação variáveis gravadas, build e URL operacional
+06 Banco + RLS + funções  baseline completo
+07 Storage                buckets e policies
+08 Seeds de catálogo      catálogo, sem dado de negócio
+09 Brain stats            view inicial
+10 Cron na própria origem agendado na URL da instalação
+11 Validação final        verify-installation.sql
 ```
 
 Comportamento esperado:
@@ -172,7 +179,7 @@ Comportamento esperado:
 
 Conferir:
 
-- [ ] nove etapas concluídas
+- [ ] onze etapas concluídas
 - [ ] operação sem BLOCKED/erro no histórico
 
 ---
@@ -214,7 +221,8 @@ Cada item aparece na lista recolhível *Configurações opcionais* da instalaç�
 | Sintoma | Causa provável | Correção |
 | --- | --- | --- |
 | `HTTP 403 ... does not have the necessary privileges` na etapa 01 | token de gestão sem acesso à organização do projeto Supabase | recriar o token na conta/organização dona do projeto, ou mover o projeto para o escopo correto |
-| Provisionamento **BLOCKED** antes de começar | falta `UNITOS_SUPABASE_MANAGEMENT_TOKEN` ou `UNITOS_VERCEL_TOKEN` no MASTER | cadastrar os secrets e repetir |
+| Provisionamento **BLOCKED** antes de começar | falta `UNITOS_SUPABASE_MANAGEMENT_TOKEN`, `UNITOS_VERCEL_TOKEN` ou `UNITOS_GITHUB_TOKEN` no MASTER | cadastrar os secrets e repetir |
+| Etapa "Código no GitHub" bloqueada | repositório do MASTER não é template, ou o token não pode criar repositório nessa conta | marcar o MASTER como template e revisar o escopo do `UNITOS_GITHUB_TOKEN` |
 | Etapa de deploy falha ao ligar o repositório | token sem acesso ao repositório, ou Team divergente | revisar acesso e `UNITOS_VERCEL_TEAM_ID` |
 | Plano de variáveis recusado | algum campo do cadastro aponta para o MASTER | corrigir domínio/Supabase/project ref |
 | Secret recusado com "herança do MASTER não é permitida" | valor herdado do ambiente sem declaração | deixar o valor em branco para ser gerado |
@@ -231,7 +239,8 @@ MASTER pronto (tokens UNITOS_*)
         └─ projeto de deploy criado (sem variáveis)
              └─ projeto Supabase criado na organização do token
                   └─ cadastro no MASTER (só metadados)
-                       └─ provisionar (9 etapas, idempotente)
+                       └─ provisionar (11 etapas, idempotente:
+                          código → deploy conectado → variáveis → banco)
                             └─ validar
                                  └─ /setup: Super Admin + workspace
                                       └─ validar de novo → "Pronto" verde

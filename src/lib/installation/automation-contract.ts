@@ -32,7 +32,9 @@ export const AUTOMATION_CREDENTIAL_VARS = {
   supabaseManagement: ["UNITOS_SUPABASE_MANAGEMENT_TOKEN"],
   vercel: ["UNITOS_VERCEL_TOKEN"],
   vercelTeam: ["UNITOS_VERCEL_TEAM_ID"],
+  github: ["UNITOS_GITHUB_TOKEN"],
 } as const;
+
 
 
 export type AutomationEnv = Record<string, string | undefined | null>;
@@ -67,6 +69,8 @@ export type AutomationCapability = {
   supabase: CapabilityState;
   /** Configuração automática das variáveis e leitura da URL do deploy. */
   vercel: CapabilityState;
+  /** Publicação do código do MASTER no repositório da instalação. */
+  github: CapabilityState;
   /** True quando o fluxo automatizado pode ser oferecido na UI. */
   available: boolean;
   /** Motivos explícitos de BLOCKED — exibidos ao operador, sem valores. */
@@ -80,6 +84,8 @@ export type AutomationCapability = {
 export function resolveAutomationCapability(env: AutomationEnv): AutomationCapability {
   const management = pick(env, AUTOMATION_CREDENTIAL_VARS.supabaseManagement);
   const vercel = pick(env, AUTOMATION_CREDENTIAL_VARS.vercel);
+  const github = pick(env, AUTOMATION_CREDENTIAL_VARS.github);
+
 
   const supabase: CapabilityState = management
     ? {
@@ -113,11 +119,30 @@ export function resolveAutomationCapability(env: AutomationEnv): AutomationCapab
         acceptedNames: AUTOMATION_CREDENTIAL_VARS.vercel,
       };
 
-  const blockedReasons = [supabase.reason, vercelState.reason].filter((r): r is string => !!r);
+  const githubState: CapabilityState = github
+    ? {
+        available: true,
+        reason: null,
+        resolvedFrom: pickName(env, AUTOMATION_CREDENTIAL_VARS.github),
+        acceptedNames: AUTOMATION_CREDENTIAL_VARS.github,
+      }
+    : {
+        available: false,
+        reason:
+          "Token do GitHub ausente no runtime do MASTER — publicação do código no repositório da instalação BLOCKED. Nomes aceitos: " +
+          AUTOMATION_CREDENTIAL_VARS.github.join(", "),
+        resolvedFrom: null,
+        acceptedNames: AUTOMATION_CREDENTIAL_VARS.github,
+      };
+
+  const blockedReasons = [supabase.reason, vercelState.reason, githubState.reason].filter(
+    (r): r is string => !!r,
+  );
   return {
     supabase,
     vercel: vercelState,
-    available: supabase.available && vercelState.available,
+    github: githubState,
+    available: supabase.available && vercelState.available && githubState.available,
     blockedReasons,
   };
 }
@@ -181,6 +206,69 @@ export function resolveAutomationTarget(input: {
 
   return { ok: true, projectRef, deployProject };
 }
+
+/* --------------------------------------------------- repositório da instalação */
+
+export type InstallationRepo =
+  | { ok: true; owner: string; repo: string; slug: string }
+  | { ok: false; reason: string };
+
+/**
+ * Converte a URL do repositório cadastrada em `owner/repo`. Recusa qualquer
+ * referência ao MASTER e o próprio repositório de referência do MASTER: o
+ * código do MASTER é o TEMPLATE, nunca o destino da publicação.
+ */
+export function resolveInstallationRepo(input: {
+  gitRepoUrl?: string | null;
+  masterRepo?: string | null;
+}): InstallationRepo {
+  const raw = (input.gitRepoUrl ?? "").trim();
+  if (!raw) {
+    return {
+      ok: false,
+      reason:
+        "Informe o repositório Git da instalação: o código do MASTER precisa ser publicado nele antes do deploy.",
+    };
+  }
+  if (containsMasterReference(raw)) {
+    return {
+      ok: false,
+      reason: "O repositório informado aponta para o MASTER — publicação recusada.",
+    };
+  }
+
+  const withoutProtocol = raw
+    .replace(/^git\+/i, "")
+    .replace(/^https?:\/\//i, "")
+    .replace(/^git@/i, "")
+    .replace(/^github\.com[:/]/i, "")
+    .replace(/\.git$/i, "")
+    .replace(/^\/+|\/+$/g, "");
+  const parts = withoutProtocol.split("/").filter(Boolean);
+  const [owner, repo] = parts.length >= 2 ? [parts[0]!, parts[1]!] : ["", ""];
+  const valid = /^[A-Za-z0-9._-]+$/;
+  if (!owner || !repo || !valid.test(owner) || !valid.test(repo)) {
+    return {
+      ok: false,
+      reason:
+        "Repositório inválido: use o formato https://github.com/<conta>/<repositorio> no cadastro da instalação.",
+    };
+  }
+
+  const slug = `${owner}/${repo}`;
+  const master = (input.masterRepo ?? "").trim().toLowerCase();
+  if (master && slug.toLowerCase() === master) {
+    return {
+      ok: false,
+      reason:
+        "O repositório da instalação é o mesmo do MASTER — a instalação precisa do seu próprio repositório.",
+    };
+  }
+
+  return { ok: true, owner, repo, slug };
+}
+
+
 
 /* ---------------------------------------------------------------- secrets */
 
@@ -349,15 +437,18 @@ export function buildDeployEnvPlan(input: {
  */
 export const AUTOMATED_PROVISION_PLAN = [
   { id: "supabase", label: "Supabase destino", detail: "Projeto, chaves e extensões" },
+  { id: "code", label: "Código no GitHub", detail: "Repositório da instalação a partir do template" },
+  { id: "deploy_link", label: "Deploy conectado", detail: "Projeto ligado ao repositório da instalação" },
+  { id: "secrets", label: "Secrets próprios", detail: "Gerados e exclusivos da instalação" },
+  { id: "deploy", label: "Variáveis + publicação", detail: "Variáveis e URL operacional" },
   { id: "database", label: "Banco + RLS + funções", detail: "Baseline aplicado no destino" },
   { id: "storage", label: "Storage", detail: "Buckets e policies" },
   { id: "seeds", label: "Seeds de catálogo", detail: "Catálogo, sem dado de negócio" },
-  { id: "secrets", label: "Secrets próprios", detail: "Gerados e exclusivos da instalação" },
-  { id: "cron", label: "Cron na própria origem", detail: "Agendado na URL operacional" },
   { id: "brain", label: "Brain stats", detail: "Materialized view inicializada" },
-  { id: "deploy", label: "Deploy / URL própria", detail: "Variáveis e URL operacional" },
+  { id: "cron", label: "Cron na própria origem", detail: "Agendado na URL operacional" },
   { id: "validation", label: "Validação final", detail: "verify-installation.sql" },
 ] as const;
+
 
 export type AutomatedStepId = (typeof AUTOMATED_PROVISION_PLAN)[number]["id"];
 

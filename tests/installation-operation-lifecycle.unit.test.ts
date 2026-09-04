@@ -71,9 +71,9 @@ describe("reinício e nova tentativa", () => {
 });
 
 describe("progresso por etapa", () => {
-  it("provisionamento começa com 9 etapas pendentes", () => {
+  it("provisionamento começa com 11 etapas pendentes", () => {
     const steps = initialSteps("provision");
-    expect(steps).toHaveLength(9);
+    expect(steps).toHaveLength(11);
     expect(stepsProgress(steps).percent).toBe(0);
     expect(operationStatusFromSteps(steps)).toBe("pending");
   });
