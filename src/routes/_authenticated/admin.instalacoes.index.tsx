@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { ArrowRight, Loader2, Plus, RefreshCw, Server, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Loader2, Plus, RefreshCw, Search, Server } from "lucide-react";
 
 import {
   createInstallationFn,
@@ -11,16 +11,12 @@ import {
   listInstallationsFn,
   type InstallationRecord,
 } from "@/lib/installation/manager.functions";
-import {
-  INSTALLATION_HEALTH_LABEL,
-  INSTALLATION_STATUS_LABEL,
-  type InstallationStatus,
-} from "@/lib/installation/manager-contract";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -31,21 +27,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
+import { InstallationCard } from "@/components/installations/installation-card";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin/instalacoes/")({
   component: AdminInstallationsPage,
 });
-
-export const STATUS_TONE: Record<InstallationStatus, string> = {
-  preparing: "border-border/60 text-muted-foreground",
-  provisioning: "border-severity-info/40 text-severity-info",
-  validating: "border-severity-info/40 text-severity-info",
-  update_available: "border-severity-warning/40 text-severity-warning",
-  up_to_date: "border-health-good/40 text-health-good",
-  attention: "border-severity-warning/40 text-severity-warning",
-  error: "border-destructive/40 text-destructive",
-};
 
 type FormState = {
   name: string;
@@ -67,44 +54,21 @@ const EMPTY_FORM: FormState = {
   notes: "",
 };
 
-/** Ciclo de vida de uma instalação — a UI deixa isso explícito. */
-const LIFECYCLE = ["Cadastrar", "Provisionar", "Validar", "Configurar", "Pronto"] as const;
+type Filter = "all" | "running" | "outdated" | "problems";
 
-function LifecycleTrail({ activeIndex }: { activeIndex: number }) {
-  return (
-    <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-      {LIFECYCLE.map((label, index) => (
-        <span key={label} className="flex items-center gap-1.5">
-          <span
-            className={cn(
-              "rounded-full border px-2 py-0.5",
-              index < activeIndex && "border-health-good/40 text-health-good",
-              index === activeIndex && "border-primary/50 bg-primary/10 text-primary",
-              index > activeIndex && "border-border/60 text-muted-foreground",
-            )}
-          >
-            {label}
-          </span>
-          {index < LIFECYCLE.length - 1 && (
-            <ArrowRight className="h-3 w-3 text-muted-foreground/60" />
-          )}
-        </span>
-      ))}
-    </div>
-  );
-}
+const FILTERS: { id: Filter; label: string }[] = [
+  { id: "all", label: "Todas" },
+  { id: "running", label: "Em execução" },
+  { id: "outdated", label: "Atualização" },
+  { id: "problems", label: "Atenção" },
+];
 
-export function lifecycleIndex(i: {
-  status: InstallationStatus;
-  lastProvisionedAt: string | null;
-  lastValidatedAt: string | null;
-}): number {
-  if (i.status === "up_to_date") return 4;
-  if (i.lastValidatedAt) return 3;
-  if (i.lastProvisionedAt) return 2;
-  if (i.status === "provisioning" || i.status === "validating") return 1;
-  return 0;
-}
+const matchesFilter = (i: InstallationRecord, filter: Filter) => {
+  if (filter === "running") return i.status === "provisioning" || i.status === "validating";
+  if (filter === "outdated") return i.status === "update_available";
+  if (filter === "problems") return i.status === "error" || i.status === "attention";
+  return true;
+};
 
 function AdminInstallationsPage() {
   const qc = useQueryClient();
@@ -129,6 +93,8 @@ function AdminInstallationsPage() {
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [createOpen, setCreateOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
 
   const create = useMutation({
     mutationFn: () =>
@@ -168,6 +134,17 @@ function AdminInstallationsPage() {
     };
   }, [installations]);
 
+  const visible = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return installations.filter(
+      (i) =>
+        matchesFilter(i, filter) &&
+        (!term ||
+          i.name.toLowerCase().includes(term) ||
+          (i.domain ?? "").toLowerCase().includes(term)),
+    );
+  }, [installations, search, filter]);
+
   if (access.isLoading) {
     return (
       <div className="flex items-center gap-2 py-16 text-sm text-muted-foreground">
@@ -188,24 +165,30 @@ function AdminInstallationsPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="space-y-2">
-          <h2 className="text-lg font-semibold">Instalações</h2>
-          <p className="text-sm text-muted-foreground">
-            1 instalação = 1 aplicação = 1 Supabase = 1 workspace = 1 domínio. Somente metadados —
-            nenhuma credencial do destino é armazenada. Release do MASTER:{" "}
-            <span className="font-mono">{access.data?.releaseVersion}</span>
+    <div className="space-y-6">
+      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
+        <div className="min-w-0 space-y-1.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h2 className="truncate text-lg font-semibold">Instalações</h2>
+            <Badge variant="outline" className="text-[10px]">
+              {installations.length} cadastrada{installations.length === 1 ? "" : "s"}
+            </Badge>
+            <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground">
+              MASTER {access.data?.releaseVersion}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Cada instalação é uma aplicação independente — só metadados ficam aqui, nunca credenciais
+            do destino.
           </p>
-          <LifecycleTrail activeIndex={0} />
         </div>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
+        <Button size="sm" className="shrink-0" onClick={() => setCreateOpen(true)}>
           <Plus className="mr-2 h-4 w-4" /> Nova instalação
         </Button>
-      </div>
+      </header>
 
       <PageKpiGrid>
-        <PageKpi icon={<Server />} label="Instalações" value={kpis.total} />
+        <PageKpi icon={<Server />} label="Total" value={kpis.total} />
         <PageKpi icon={<Loader2 />} label="Em execução" value={kpis.running} status="info" />
         <PageKpi
           icon={<RefreshCw />}
@@ -213,64 +196,80 @@ function AdminInstallationsPage() {
           value={kpis.outdated}
           status="warning"
         />
-        <PageKpi
-          icon={<ShieldCheck />}
-          label="Atenção / erro"
-          value={kpis.problems}
-          status="danger"
-        />
+        <PageKpi icon={<AlertTriangle />} label="Atenção" value={kpis.problems} status="danger" />
       </PageKpiGrid>
 
-      <Card>
-        <CardContent className="p-0">
-          {list.isLoading ? (
-            <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Carregando instalações…
-            </div>
-          ) : installations.length === 0 ? (
-            <div className="p-10 text-center text-sm text-muted-foreground">
-              Nenhuma instalação cadastrada ainda.
-            </div>
-          ) : (
-            <ul className="divide-y divide-border/60">
-              {installations.map((i) => (
-                <li key={i.id}>
-                  <button
-                    type="button"
-                    className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left transition hover:bg-muted/40"
-                    onClick={() =>
-                      void navigate({ to: "/admin/instalacoes/$id", params: { id: i.id } })
-                    }
-                  >
-                    <div className="min-w-[220px] flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{i.name}</span>
-                        <Badge
-                          variant="outline"
-                          className={cn("text-[10px]", STATUS_TONE[i.status])}
-                        >
-                          {INSTALLATION_STATUS_LABEL[i.status]}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {i.domain ?? "domínio não informado"} · {INSTALLATION_HEALTH_LABEL[i.health]}
-                      </p>
-                    </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+        <div className="relative min-w-0">
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nome ou domínio"
+            className="h-9 pl-9"
+          />
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-1">
+          {FILTERS.map((f) => (
+            <Button
+              key={f.id}
+              size="sm"
+              variant={filter === f.id ? "secondary" : "ghost"}
+              className={cn("h-9 text-xs", filter === f.id && "font-semibold")}
+              onClick={() => setFilter(f.id)}
+            >
+              {f.label}
+            </Button>
+          ))}
+        </div>
+      </div>
 
-                    <LifecycleTrail activeIndex={lifecycleIndex(i)} />
-
-                    <div className="text-right text-xs text-muted-foreground">
-                      <div className="font-mono">{i.currentVersion ?? "—"}</div>
-                      <div>disponível {i.availableVersion}</div>
-                    </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      {list.isLoading ? (
+        <div className="grid gap-3 lg:grid-cols-2">
+          {[0, 1, 2, 3].map((n) => (
+            <Card key={n}>
+              <CardContent className="space-y-3 p-4">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-56" />
+                <Skeleton className="h-3 w-32" />
+                <Skeleton className="h-3 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : installations.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
+            <Server className="h-8 w-8 text-muted-foreground/60" />
+            <p className="text-sm font-medium">Nenhuma instalação cadastrada</p>
+            <p className="max-w-sm text-xs text-muted-foreground">
+              Cadastre a primeira instalação para provisionar, validar e acompanhar a versão
+              publicada.
+            </p>
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Nova instalação
+            </Button>
+          </CardContent>
+        </Card>
+      ) : visible.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+            Nenhuma instalação corresponde à busca ou ao filtro selecionado.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-3 lg:grid-cols-2">
+          {visible.map((i) => (
+            <InstallationCard
+              key={i.id}
+              installation={i}
+              onOpen={() =>
+                void navigate({ to: "/admin/instalacoes/$id", params: { id: i.id } })
+              }
+            />
+          ))}
+        </div>
+      )}
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-[620px]">

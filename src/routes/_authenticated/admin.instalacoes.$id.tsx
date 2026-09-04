@@ -4,11 +4,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
+  ArrowDownToLine,
   ArrowLeft,
   CheckCircle2,
   Copy,
   Loader2,
-  ArrowDownToLine,
+  MoreHorizontal,
   Pencil,
   RefreshCw,
   Rocket,
@@ -37,17 +38,12 @@ import {
   HEALTH_CHECKS,
   INFRA_HEALTH_CHECK_IDS,
   INSTALLATION_HEALTH_LABEL,
-  INSTALLATION_STATUS_LABEL,
   OPERATION_KIND_LABEL,
-  OPERATION_STATUS_LABEL,
-  STEP_STATE_LABEL,
   canStartOperation,
   isOperationStale,
   updateSummary,
-  type CheckState,
+  type InstallationHealth,
   type InstallationOperationKind,
-  type OperationStep,
-  type StepState,
 } from "@/lib/installation/manager-contract";
 import {
   CORE_REQUIREMENTS,
@@ -59,7 +55,6 @@ import {
   computeReadiness,
   customDomainState,
   isTemporaryDeployUrl,
-  type CoreState,
   type OptionalState,
 } from "@/lib/installation/readiness-contract";
 import { Badge } from "@/components/ui/badge";
@@ -73,12 +68,33 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { STATUS_TONE } from "./admin.instalacoes.index";
-
+import {
+  DataCell,
+  DataGrid,
+  LifecycleSteps,
+  StateBadge,
+  StatusBadge,
+  VersionPair,
+  lifecycleIndex,
+  type VisualState,
+} from "@/components/installations/installation-visuals";
+import {
+  LiveOperationBar,
+  OperationStatusBadge,
+  StepList,
+  failedStepLabel,
+} from "@/components/installations/operation-views";
 
 export const Route = createFileRoute("/_authenticated/admin/instalacoes/$id")({
   validateSearch: (search: Record<string, unknown>): { novo?: true } =>
@@ -103,32 +119,17 @@ export const Route = createFileRoute("/_authenticated/admin/instalacoes/$id")({
   }),
 });
 
-const CHECK_TONE: Record<CheckState, string> = {
-  ok: "border-health-good/40 text-health-good",
-  attention: "border-severity-warning/40 text-severity-warning",
-  error: "border-destructive/40 text-destructive",
-  pending: "border-border/60 text-muted-foreground",
+const HEALTH_STATE: Record<InstallationHealth, VisualState> = {
+  unknown: "pending",
+  healthy: "ok",
+  degraded: "attention",
+  failing: "error",
 };
 
-const STEP_TONE: Record<StepState, string> = {
-  pending: "text-muted-foreground",
-  running: "text-severity-info",
-  done: "text-health-good",
-  error: "text-destructive",
-};
-
-const CORE_TONE: Record<CoreState, string> = {
-  ok: "border-health-good/40 text-health-good",
-  attention: "border-severity-warning/40 text-severity-warning",
-  running: "border-severity-info/40 text-severity-info",
-  error: "border-destructive/40 text-destructive",
-  pending: "border-border/60 text-muted-foreground",
-};
-
-const OPTIONAL_TONE: Record<OptionalState, string> = {
-  configured: "border-health-good/40 text-health-good",
-  pending: "border-severity-warning/40 text-severity-warning",
-  not_configured: "border-border/60 text-muted-foreground",
+const OPTIONAL_STATE: Record<OptionalState, VisualState> = {
+  configured: "ok",
+  pending: "attention",
+  not_configured: "pending",
 };
 
 /** Campos editáveis da instalação — o domínio pode mudar depois do cadastro. */
@@ -153,7 +154,6 @@ const EMPTY_FORM: EditForm = {
 };
 
 function InstallationDetailPage() {
-
   const { id } = Route.useParams();
   const { novo } = Route.useSearch();
   const qc = useQueryClient();
@@ -173,13 +173,13 @@ function InstallationDetailPage() {
   const resumeFn = useServerFn(resumeAutomatedProvisionFn);
   const editFn = useServerFn(updateInstallationFn);
 
-
   const [runCommand, setRunCommand] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState<EditForm>(EMPTY_FORM);
 
   const [updateOpen, setUpdateOpen] = useState(false);
   const [opsPageRaw, setOpsPage] = useState(1);
+  const [tab, setTab] = useState("visao");
   const resumePendingRef = useRef(false);
 
   const detail = useQuery({
@@ -221,7 +221,13 @@ function InstallationDetailPage() {
 
   const start = useMutation({
     mutationFn: (input: { kind: InstallationOperationKind; confirm?: boolean }) =>
-      startFn({ data: { id, kind: input.kind as "provision" | "validate" | "update", confirm: input.confirm } }),
+      startFn({
+        data: {
+          id,
+          kind: input.kind as "provision" | "validate" | "update",
+          confirm: input.confirm,
+        },
+      }),
     onSuccess: (result) => {
       setRunCommand(result.runCommand);
       setUpdateOpen(false);
@@ -262,8 +268,6 @@ function InstallationDetailPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
-
-
 
   // Traz o código publicado no MASTER para o deploy da instalação.
   const autoUpdate = useMutation({
@@ -318,7 +322,6 @@ function InstallationDetailPage() {
     return () => window.clearInterval(timer);
   }, [detail.data?.operations]);
 
-
   const complete = useMutation({
     mutationFn: (input: { operationId: string; ok: boolean; version?: string | null }) =>
       completeFn({ data: input }),
@@ -371,8 +374,6 @@ function InstallationDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-
-
   if (detail.isLoading) {
     return (
       <div className="flex items-center gap-2 py-16 text-sm text-muted-foreground">
@@ -386,7 +387,11 @@ function InstallationDetailPage() {
       <Card>
         <CardContent className="space-y-3 py-14 text-center text-sm text-muted-foreground">
           <p>{(detail.error as Error | null)?.message ?? "Instalação indisponível."}</p>
-          <Button size="sm" variant="outline" onClick={() => void navigate({ to: "/admin/instalacoes" })}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void navigate({ to: "/admin/instalacoes" })}
+          >
             Voltar
           </Button>
         </CardContent>
@@ -415,8 +420,11 @@ function InstallationDetailPage() {
     optional: { custom_domain: customDomainState(inst.domain) },
     operationRunning: !!activeOp,
   });
-  const coreLabel = (id: (typeof CORE_REQUIREMENTS)[number]["id"]) =>
-    CORE_REQUIREMENTS.find((r) => r.id === id)?.label ?? id;
+  const coreLabel = (coreId: (typeof CORE_REQUIREMENTS)[number]["id"]) =>
+    CORE_REQUIREMENTS.find((r) => r.id === coreId)?.label ?? coreId;
+
+  const updatePending =
+    !!masterVersion.data?.commitSha && inst.pinnedCommitSha !== masterVersion.data.commitSha;
 
   const openEdit = () => {
     setForm({
@@ -431,213 +439,238 @@ function InstallationDetailPage() {
     setEditOpen(true);
   };
 
+  const provisionAction = () =>
+    automated ? autoProvision.mutate() : start.mutate({ kind: "provision" });
+  const validateAction = () =>
+    automated ? autoValidate.mutate() : start.mutate({ kind: "validate" });
+  const updateAction = () =>
+    deployAutomated
+      ? autoUpdate.mutate({ commitSha: masterVersion.data?.commitSha ?? null })
+      : setUpdateOpen(true);
 
+  /** Uma única ação primária, escolhida pelo estado real da instalação. */
+  const primary: {
+    label: string;
+    icon: typeof Rocket;
+    run: () => void;
+    disabled: boolean;
+    pending: boolean;
+  } = !inst.lastProvisionedAt
+    ? {
+        label: automated ? "Provisionar automaticamente" : "Provisionar instalação",
+        icon: Rocket,
+        run: provisionAction,
+        disabled: !canStartOperation("provision", inst.status) || capability.isPending,
+        pending: autoProvision.isPending || start.isPending,
+      }
+    : updatePending
+      ? {
+          label: deployAutomated ? "Autorizar atualização" : "Atualizar instalação",
+          icon: ArrowDownToLine,
+          run: updateAction,
+          disabled: !canStartOperation("update", inst.status) || capability.isPending,
+          pending: autoUpdate.isPending,
+        }
+      : {
+          label: automated ? "Validar automaticamente" : "Validar instalação",
+          icon: ShieldCheck,
+          run: validateAction,
+          disabled: !canStartOperation("validate", inst.status) || capability.isPending,
+          pending: autoValidate.isPending,
+        };
+  const PrimaryIcon = primary.icon;
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Link
-            to="/admin/instalacoes"
-            className="mb-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" /> Instalações
-          </Link>
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold">{inst.name}</h2>
-            <Badge variant="outline" className={cn("text-[10px]", CORE_TONE[readiness.ready ? "ok" : "pending"])}>
-              {OVERALL_STATE_ICON[readiness.state]} {OVERALL_STATE_LABEL[readiness.state]}
-            </Badge>
-            <Badge variant="outline" className={cn("text-[10px]", STATUS_TONE[inst.status])}>
-              {INSTALLATION_STATUS_LABEL[inst.status]}
-            </Badge>
-            <Badge variant="outline" className="text-[10px]">
-              {INSTALLATION_HEALTH_LABEL[inst.health]}
-            </Badge>
+      {/* IDENTIDADE + AÇÕES */}
+      <header className="space-y-3">
+        <Link
+          to="/admin/instalacoes"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Instalações
+        </Link>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
+          <div className="min-w-0 space-y-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <h2 className="truncate text-xl font-semibold">{inst.name}</h2>
+              <StateBadge
+                state={readiness.ready ? "ok" : "pending"}
+                label={`${OVERALL_STATE_ICON[readiness.state]} ${OVERALL_STATE_LABEL[readiness.state]}`}
+              />
+              <StatusBadge status={inst.status} />
+              <StateBadge
+                state={HEALTH_STATE[inst.health]}
+                label={INSTALLATION_HEALTH_LABEL[inst.health]}
+              />
+            </div>
+            <p className="truncate text-xs text-muted-foreground">
+              {inst.domain ?? "domínio não informado"}
+            </p>
+            <LifecycleSteps activeIndex={lifecycleIndex(inst)} />
           </div>
-          <p className="text-xs text-muted-foreground">
-            {inst.domain ?? "domínio não informado"} · 1 instalação = 1 aplicação = 1 Supabase = 1
-            workspace = 1 domínio operacional
-          </p>
+
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Button size="sm" disabled={primary.disabled || primary.pending || !!activeOp} onClick={primary.run}>
+              {primary.pending || activeOp ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <PrimaryIcon className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {activeOp ? "Em execução…" : primary.label}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" aria-label="Mais ações">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={openEdit}>
+                  <Pencil className="mr-2 h-3.5 w-3.5" /> Editar dados
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={
+                    !!activeOp || autoProvision.isPending || !canStartOperation("provision", inst.status)
+                  }
+                  onClick={provisionAction}
+                >
+                  <Rocket className="mr-2 h-3.5 w-3.5" /> Provisionar
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={
+                    !!activeOp || autoValidate.isPending || !canStartOperation("validate", inst.status)
+                  }
+                  onClick={validateAction}
+                >
+                  <ShieldCheck className="mr-2 h-3.5 w-3.5" /> Validar
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={
+                    !!activeOp || autoUpdate.isPending || !canStartOperation("update", inst.status)
+                  }
+                  onClick={updateAction}
+                >
+                  <ArrowDownToLine className="mr-2 h-3.5 w-3.5" /> Puxar atualização do MASTER
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={health.isPending} onClick={() => health.mutate()}>
+                  <RefreshCw className="mr-2 h-3.5 w-3.5" /> Reavaliar saúde
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
+      </header>
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Button size="sm" variant="outline" onClick={openEdit}>
-            <Pencil className="mr-1.5 h-3.5 w-3.5" />
-            Editar dados
-          </Button>
-
-          <Button
-            size="sm"
-            disabled={
-              !canStartOperation("provision", inst.status) ||
-              capability.isPending ||
-              start.isPending ||
-              autoProvision.isPending ||
-              !!activeOp
-
-            }
-            onClick={() =>
-              automated ? autoProvision.mutate() : start.mutate({ kind: "provision" })
-            }
-          >
-            {autoProvision.isPending ? (
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            ) : activeOp ? (
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Rocket className="mr-1.5 h-3.5 w-3.5" />
-            )}
-            {activeOp
-              ? "Provisionando…"
-              : automated
-                ? "Provisionar automaticamente"
-                : "Provisionar instalação"}
-          </Button>
+      {/* PROGRESSO SEMPRE VISÍVEL */}
+      {activeOp && (
+        <LiveOperationBar
+          kind={activeOp.kind}
+          percent={activeOp.progress.percent}
+          done={activeOp.progress.done}
+          total={activeOp.progress.total}
+          steps={activeOp.steps}
+        >
           <Button
             size="sm"
             variant="outline"
-            disabled={
-              !canStartOperation("validate", inst.status) ||
-              capability.isPending ||
-              start.isPending ||
-              autoValidate.isPending ||
-              !!activeOp
-
-            }
-            onClick={() =>
-              automated ? autoValidate.mutate() : start.mutate({ kind: "validate" })
-            }
+            disabled={restartProvision.isPending}
+            onClick={() => restartProvision.mutate({ force: !staleActive })}
           >
-            {autoValidate.isPending ? (
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-            )}
-            {automated ? "Validar automaticamente" : "Validar instalação"}
-
-          </Button>
-          {/* Puxa o código publicado no MASTER para o deploy da instalação. */}
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={
-              !canStartOperation("update", inst.status) ||
-              capability.isPending ||
-              start.isPending ||
-              autoUpdate.isPending ||
-              !!activeOp
-            }
-            onClick={() =>
-              deployAutomated
-                ? autoUpdate.mutate({ commitSha: masterVersion.data?.commitSha ?? null })
-                : setUpdateOpen(true)
-            }
-          >
-            {autoUpdate.isPending ? (
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <ArrowDownToLine className="mr-1.5 h-3.5 w-3.5" />
-            )}
-            {deployAutomated ? "Puxar atualização do MASTER" : "Atualizar instalação"}
-          </Button>
-          <Button size="sm" variant="ghost" disabled={health.isPending} onClick={() => health.mutate()}>
-            {health.isPending ? (
+            {restartProvision.isPending ? (
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
             ) : (
               <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
             )}
-            Reavaliar saúde
+            Reiniciar
           </Button>
-        </div>
-      </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={cancel.isPending}
+            onClick={() => cancel.mutate(activeOp.id)}
+          >
+            <XCircle className="mr-1.5 h-3.5 w-3.5" /> Cancelar
+          </Button>
+        </LiveOperationBar>
+      )}
 
-      {/* Conclusão explícita: o painel afirma se a instalação está PRONTA e, se
-          não estiver, diz exatamente qual item do núcleo falta. */}
+      {/* VEREDITO CURTO */}
       {!activeOp &&
         (readiness.ready ? (
-          <Card className="border-emerald-500/40 bg-emerald-500/5">
-            <CardContent className="space-y-1.5 py-4">
-              <p className="flex items-center gap-2 text-sm font-semibold text-emerald-600">
+          <Card className="border-health-good/40 bg-health-good/5">
+            <CardContent className="space-y-2 py-3.5">
+              <p className="flex items-center gap-2 text-sm font-semibold text-health-good">
                 <CheckCircle2 className="h-4 w-4" /> Instalação pronta e operacional
               </p>
-              <p className="text-xs text-muted-foreground">
-                Núcleo comprovado: banco, schema, RLS, Storage, seeds, secrets, cron, deploy e
-                health check. Já pode ser usada.
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {lastValidate?.status === "success"
-                  ? `Validação final: ${lastValidate.summary ?? "concluída"}${
-                      lastValidate.finishedAt
-                        ? ` · ${new Date(lastValidate.finishedAt).toLocaleString("pt-BR")}`
-                        : ""
-                    }`
-                  : "Validação final ainda não executada — rode “Validar automaticamente”."}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Primeiro acesso:{" "}
-                {readiness.core.super_admin.state === "ok"
-                  ? "Super Admin criado"
-                  : "aguardando criação do Super Admin em /setup"}
-                {" · "}
-                {readiness.core.workspace.state === "ok"
-                  ? "1 workspace"
-                  : "workspace ainda não reportado"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {readiness.pendingOptional.length
-                  ? `Opcional pendente (não bloqueia): ${readiness.pendingOptional
-                      .map((o) => OPTIONAL_CONFIG.find((x) => x.id === o)?.label ?? o)
-                      .join(", ")}.`
-                  : "Todas as integrações opcionais estão configuradas."}
-              </p>
-
+              <div className="flex flex-wrap items-center gap-1.5">
+                <StateBadge
+                  state={lastValidate?.status === "success" ? "ok" : "attention"}
+                  label={
+                    lastValidate?.status === "success"
+                      ? `Validada${lastValidate.finishedAt ? ` · ${new Date(lastValidate.finishedAt).toLocaleString("pt-BR")}` : ""}`
+                      : "Validação final pendente"
+                  }
+                />
+                <StateBadge
+                  state={readiness.core.super_admin.state === "ok" ? "ok" : "attention"}
+                  label={
+                    readiness.core.super_admin.state === "ok"
+                      ? "Super Admin criado"
+                      : "Super Admin pendente em /setup"
+                  }
+                />
+                {readiness.pendingOptional.map((o) => (
+                  <StateBadge
+                    key={o}
+                    state="pending"
+                    label={`Opcional: ${OPTIONAL_CONFIG.find((x) => x.id === o)?.label ?? o}`}
+                  />
+                ))}
+              </div>
               {inst.domain && isTemporaryDeployUrl(inst.domain) && (
                 <p className="text-xs text-muted-foreground">
-                  Domínio atual é o temporário do deploy. Quando o cliente informar o definitivo,
-                  use “Editar dados”.
+                  Domínio atual é o temporário do deploy. Quando o cliente informar o definitivo, use
+                  “Editar dados”.
                 </p>
               )}
             </CardContent>
           </Card>
         ) : (
-          <Card className="border-amber-500/40 bg-amber-500/5">
-            <CardContent className="space-y-1.5 py-4">
-              <p className="text-sm font-semibold text-amber-600">
+          <Card className="border-severity-warning/40 bg-severity-warning/5">
+            <CardContent className="space-y-2 py-3.5">
+              <p className="text-sm font-semibold text-severity-warning">
                 Instalação ainda não confirmada como pronta
               </p>
-              {readiness.failedCore.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Em falha: {readiness.failedCore.map(coreLabel).join(", ")}.
-                </p>
-              )}
-              {readiness.missingCore.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Falta comprovar: {readiness.missingCore.map(coreLabel).join(", ")} — rode
-                  “Validar automaticamente” para o MASTER reler o estado real do destino.
-                </p>
-              )}
+              <div className="flex flex-wrap gap-1.5">
+                {readiness.failedCore.map((c) => (
+                  <StateBadge key={c} state="error" label={coreLabel(c)} />
+                ))}
+                {readiness.missingCore.map((c) => (
+                  <StateBadge key={c} state="pending" label={coreLabel(c)} />
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Rode “Validar” para o MASTER reler o estado real do destino.
+              </p>
             </CardContent>
           </Card>
         ))}
 
-
       {novo && !inst.lastProvisionedAt && (
         <Card className="border-primary/40 bg-primary/5">
-          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
-            <div>
+          <CardContent className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3.5">
+            <div className="min-w-0">
               <p className="text-sm font-medium">Instalação criada.</p>
               <p className="text-xs text-muted-foreground">
-                Ela ainda não está pronta — provisione para aplicar baseline, Storage, seeds,
-                secrets, cron e identidade própria.
+                Provisione para aplicar baseline, Storage, seeds, secrets, cron e identidade própria.
               </p>
             </div>
             <Button
               size="sm"
+              className="shrink-0"
               disabled={start.isPending || autoProvision.isPending || !!activeOp}
-              onClick={() =>
-                automated ? autoProvision.mutate() : start.mutate({ kind: "provision" })
-              }
+              onClick={provisionAction}
             >
               <Rocket className="mr-1.5 h-3.5 w-3.5" /> Provisionar agora
             </Button>
@@ -645,286 +678,276 @@ function InstallationDetailPage() {
         </Card>
       )}
 
-      {/* 1. RESUMO */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Resumo</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-2 text-xs sm:grid-cols-3">
-          <Info label="Domínio" value={inst.domain ?? "—"} />
-          <Info label="Supabase" value={inst.supabaseUrl ?? "—"} />
-          <Info label="Project ref" value={inst.supabaseProjectRef ?? "—"} />
-          <Info label="Repositório" value={inst.gitRepoUrl ?? "—"} />
-          <Info label="Deploy" value={inst.deployProject ?? "—"} />
-          <Info label="Status geral" value={INSTALLATION_STATUS_LABEL[inst.status]} />
-          <Info
-            label="Versão publicada"
-            value={
-              inst.pinnedCommitSha
-                ? `${inst.pinnedRelease ?? inst.currentVersion ?? "—"} · ${inst.pinnedCommitSha.slice(0, 7)}`
-                : (inst.currentVersion ?? "—")
-            }
-          />
-          <Info
-            label="Versão MASTER"
-            value={
-              masterVersion.data?.commitSha
-                ? `${inst.availableVersion} · ${masterVersion.data.commitSha.slice(0, 7)}`
-                : inst.availableVersion
-            }
-          />
-          <Info
-            label="Última validação"
-            value={inst.lastValidatedAt ? new Date(inst.lastValidatedAt).toLocaleString("pt-BR") : "—"}
-          />
-        </CardContent>
-      </Card>
+      <Tabs value={tab} onValueChange={setTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="visao">Visão geral</TabsTrigger>
+          <TabsTrigger value="versoes">Versões</TabsTrigger>
+          <TabsTrigger value="saude">Saúde</TabsTrigger>
+          <TabsTrigger value="execucoes">Execuções</TabsTrigger>
+        </TabsList>
 
-      {/* 1.1 VERSÃO E ATUALIZAÇÕES — instalação externa só avança com autorização */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Versão e atualizações</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-xs">
-          <p className="text-muted-foreground">
-            Esta instalação não publica sozinha: o build automático da branch está desligado e o
-            código só avança quando você autoriza a atualização aqui.
-          </p>
-          <div className="grid gap-2 sm:grid-cols-3">
-            <Info
-              label="Publicado nesta instalação"
-              value={
-                inst.pinnedCommitSha
-                  ? `${inst.pinnedRelease ?? "—"} · ${inst.pinnedCommitSha.slice(0, 7)}`
-                  : "ainda não fixado"
-              }
-            />
-            <Info
-              label="Disponível no MASTER"
-              value={
-                masterVersion.isPending
-                  ? "consultando…"
-                  : masterVersion.data?.commitSha
-                    ? `${masterVersion.data.release} · ${masterVersion.data.commitSha.slice(0, 7)}`
-                    : (masterVersion.data?.error ?? "indisponível")
-              }
-            />
-            <Info
-              label="Autorizado em"
-              value={inst.pinnedAt ? new Date(inst.pinnedAt).toLocaleString("pt-BR") : "—"}
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              disabled={
-                !deployAutomated ||
-                !!activeOp ||
-                autoUpdate.isPending ||
-                !canStartOperation("update", inst.status)
-              }
-              onClick={() =>
-                autoUpdate.mutate({ commitSha: masterVersion.data?.commitSha ?? null })
-              }
-            >
-              {autoUpdate.isPending ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <ArrowDownToLine className="mr-1.5 h-3.5 w-3.5" />
-              )}
-              Autorizar atualização
-            </Button>
-            <span className="text-muted-foreground">
-              {masterVersion.data?.commitSha &&
-              inst.pinnedCommitSha === masterVersion.data.commitSha
-                ? "Instalação já está na versão do MASTER."
-                : "Publica exatamente a versão listada como disponível."}
-            </span>
-          </div>
-        </CardContent>
-      </Card>
+        {/* VISÃO GERAL */}
+        <TabsContent value="visao" className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Dados da instalação</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DataGrid columns={3}>
+                <DataCell label="Domínio" value={inst.domain} />
+                <DataCell label="Supabase" value={inst.supabaseUrl} mono />
+                <DataCell label="Project ref" value={inst.supabaseProjectRef} mono />
+                <DataCell label="Repositório" value={inst.gitRepoUrl} />
+                <DataCell label="Deploy" value={inst.deployProject} />
+                <DataCell
+                  label="Última validação"
+                  value={
+                    inst.lastValidatedAt
+                      ? new Date(inst.lastValidatedAt).toLocaleString("pt-BR")
+                      : "—"
+                  }
+                />
+              </DataGrid>
+            </CardContent>
+          </Card>
 
-      {/* 2. NÚCLEO DA INSTALAÇÃO — obrigatório, define READY */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm">Núcleo da instalação</CardTitle>
-          <span className="text-xs text-muted-foreground">
-            {readiness.ready
-              ? "READY: infraestrutura, secrets, cron, health check, Super Admin e 1 workspace"
-              : `Pendente: ${readiness.missingCore.length} item(ns) obrigatório(s)`}
-          </span>
-        </CardHeader>
-        <CardContent className="grid gap-2 sm:grid-cols-4">
-          {CORE_REQUIREMENTS.map((req) => {
-            const result = readiness.core[req.id];
-            return (
-              <div key={req.id} className="rounded-lg border border-border/60 px-3 py-2">
-                <p className="text-[10px] uppercase text-muted-foreground">{req.label}</p>
-                <Badge variant="outline" className={cn("mt-1 text-[10px]", CORE_TONE[result.state])}>
-                  {CORE_STATE_LABEL[result.state]}
-                </Badge>
-                {result.detail && (
-                  <p className="mt-1 truncate text-[11px] text-muted-foreground">{result.detail}</p>
-                )}
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-3">
+              <CardTitle className="truncate text-sm">Núcleo da instalação</CardTitle>
+              <StateBadge
+                state={readiness.ready ? "ok" : "attention"}
+                label={
+                  readiness.ready
+                    ? "Núcleo comprovado"
+                    : `${readiness.missingCore.length} obrigatório(s) pendente(s)`
+                }
+              />
+            </CardHeader>
+            <CardContent>
+              <DataGrid columns={4}>
+                {CORE_REQUIREMENTS.map((req) => {
+                  const result = readiness.core[req.id];
+                  return (
+                    <DataCell key={req.id} label={req.label}>
+                      <div className="mt-1 space-y-1">
+                        <StateBadge state={result.state} label={CORE_STATE_LABEL[result.state]} />
+                        {result.detail && (
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            {result.detail}
+                          </p>
+                        )}
+                      </div>
+                    </DataCell>
+                  );
+                })}
+              </DataGrid>
+            </CardContent>
+          </Card>
 
-      {/* 3. CONFIGURAÇÃO OPCIONAL — nunca bloqueia a instalação */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm">Configuração opcional</CardTitle>
-          <span className="text-xs text-muted-foreground">
-            Não bloqueia: a instalação continua operacional sem estas integrações.
-          </span>
-        </CardHeader>
-        <CardContent className="grid gap-2 sm:grid-cols-3">
-          {OPTIONAL_CONFIG.map((item) => {
-            const state = readiness.optional[item.id];
-            return (
-              <div key={item.id} className="rounded-lg border border-border/60 px-3 py-2">
-                <p className="text-[10px] uppercase text-muted-foreground">{item.label}</p>
-                <Badge variant="outline" className={cn("mt-1 text-[10px]", OPTIONAL_TONE[state])}>
-                  {OPTIONAL_STATE_LABEL[state]}
-                </Badge>
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-3">
+              <CardTitle className="truncate text-sm">Configuração opcional</CardTitle>
+              <span className="shrink-0 text-[11px] text-muted-foreground">
+                Não bloqueia a operação
+              </span>
+            </CardHeader>
+            <CardContent>
+              <DataGrid columns={3}>
+                {OPTIONAL_CONFIG.map((item) => {
+                  const state = readiness.optional[item.id];
+                  return (
+                    <DataCell key={item.id} label={item.label}>
+                      <div className="mt-1">
+                        <StateBadge
+                          state={OPTIONAL_STATE[state]}
+                          label={OPTIONAL_STATE_LABEL[state]}
+                        />
+                      </div>
+                    </DataCell>
+                  );
+                })}
+              </DataGrid>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* Saúde medida pelo MASTER (probe + última validação reportada) */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Saúde medida</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-2 sm:grid-cols-4">
-          {HEALTH_CHECKS.filter((c) =>
-            (INFRA_HEALTH_CHECK_IDS as readonly string[]).includes(c.id),
-          ).map((check) => {
-            const result = inst.healthChecks[check.id];
-
-            return (
-              <div key={check.id} className="rounded-lg border border-border/60 px-3 py-2">
-                <p className="text-[10px] uppercase text-muted-foreground">{check.label}</p>
-                <Badge variant="outline" className={cn("mt-1 text-[10px]", CHECK_TONE[result.state])}>
-                  {CHECK_STATE_LABEL[result.state]}
-                </Badge>
-                {result.detail && (
-                  <p className="mt-1 truncate text-[11px] text-muted-foreground">{result.detail}</p>
-                )}
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
-
-      {/* 3. PROVISIONAMENTO */}
-      <Card className={cn(activeOp && "border-primary/40")}>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="flex items-center gap-2 text-sm">
-            Provisionamento
-            {activeOp && (
-              <Badge variant="outline" className="gap-1 text-[10px] text-primary">
-                <Loader2 className="h-3 w-3 animate-spin" /> Em andamento
-              </Badge>
-            )}
-          </CardTitle>
-          {shownProvision && (
-            <span className="text-xs text-muted-foreground">
-              {shownProvision.progress.done}/{shownProvision.progress.total} etapas ·{" "}
-              {shownProvision.progress.percent}%
-            </span>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-2.5">
-          {shownProvision && (
-            <>
-              <Progress value={shownProvision.progress.percent} className="h-1.5" />
-              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span>
-                  {activeOp
-                    ? currentStepLabel(shownProvision.steps)
-                    : (shownProvision.summary ?? "Última execução registrada.")}
-                </span>
-                {shownProvision.progress.failed > 0 && (
-                  <span className="text-destructive">
-                    {shownProvision.progress.failed} etapa(s) com falha
-                  </span>
-                )}
-              </div>
-            </>
-          )}
-
-          {shownProvision ? (
-            <StepList steps={shownProvision.steps} />
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              {automated
-                ? "Nenhuma execução ainda. O MASTER provisiona o Supabase de destino, gera os secrets exclusivos da instalação e configura as variáveis do deploy automaticamente — nenhum comando manual é necessário."
-                : "Nenhuma execução ainda. Clique em “Provisionar instalação” para abrir a operação."}
-            </p>
-          )}
-
-          {activeOp && staleActive && (
-            <div className="rounded-lg border border-severity-warning/40 bg-severity-warning/5 p-2.5 text-[11px] text-muted-foreground">
-              A operação não reporta progresso há alguns minutos. Você pode reiniciar o
-              provisionamento com segurança — a operação travada é encerrada e apenas UMA nova
-              operação é aberta.
-            </div>
-          )}
-
-          {failedProvision && !activeOp && (
-            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-2.5">
-              <p className="text-xs font-medium text-destructive">
-                Falhou em: {failedStepLabel(failedProvision.steps)}
+        {/* VERSÕES */}
+        <TabsContent value="versoes" className="space-y-4">
+          <Card>
+            <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-3">
+              <CardTitle className="truncate text-sm">Versão publicada</CardTitle>
+              <VersionPair installed={inst.currentVersion} available={inst.availableVersion} compact />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Esta instalação não publica sozinha: o build automático da branch está desligado e o
+                código só avança quando você autoriza a atualização aqui.
               </p>
-              {failedProvision.summary && (
-                <p className="mt-1 text-[11px] text-muted-foreground">{failedProvision.summary}</p>
-              )}
-              {failedProvision.errorKind && (
-                <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  Motivo: {failedProvision.errorKind}
-                </p>
-              )}
-            </div>
-          )}
+              <DataGrid columns={3}>
+                <DataCell
+                  label="Publicado nesta instalação"
+                  mono
+                  value={
+                    inst.pinnedCommitSha
+                      ? `${inst.pinnedRelease ?? "—"} · ${inst.pinnedCommitSha.slice(0, 7)}`
+                      : "ainda não fixado"
+                  }
+                />
+                <DataCell
+                  label="Disponível no MASTER"
+                  mono
+                  value={
+                    masterVersion.isPending
+                      ? "consultando…"
+                      : masterVersion.data?.commitSha
+                        ? `${masterVersion.data.release} · ${masterVersion.data.commitSha.slice(0, 7)}`
+                        : (masterVersion.data?.error ?? "indisponível")
+                  }
+                />
+                <DataCell
+                  label="Autorizado em"
+                  value={inst.pinnedAt ? new Date(inst.pinnedAt).toLocaleString("pt-BR") : "—"}
+                />
+              </DataGrid>
+              <div className="flex flex-wrap items-center gap-2 border-t border-border/50 pt-3">
+                <Button
+                  size="sm"
+                  disabled={
+                    !deployAutomated ||
+                    !!activeOp ||
+                    autoUpdate.isPending ||
+                    !canStartOperation("update", inst.status)
+                  }
+                  onClick={() =>
+                    autoUpdate.mutate({ commitSha: masterVersion.data?.commitSha ?? null })
+                  }
+                >
+                  {autoUpdate.isPending ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <ArrowDownToLine className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  Autorizar atualização
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {updatePending
+                    ? "Publica exatamente a versão listada como disponível."
+                    : "Instalação já está na versão do MASTER."}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          {automated && (
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {activeOp ? (
+        {/* SAÚDE */}
+        <TabsContent value="saude" className="space-y-4">
+          <Card>
+            <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-3">
+              <CardTitle className="truncate text-sm">Saúde medida pelo MASTER</CardTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0"
+                disabled={health.isPending}
+                onClick={() => health.mutate()}
+              >
+                {health.isPending ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                Reavaliar saúde
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <DataGrid columns={4}>
+                {HEALTH_CHECKS.filter((c) =>
+                  (INFRA_HEALTH_CHECK_IDS as readonly string[]).includes(c.id),
+                ).map((check) => {
+                  const result = inst.healthChecks[check.id];
+                  return (
+                    <DataCell key={check.id} label={check.label}>
+                      <div className="mt-1 space-y-1">
+                        <StateBadge state={result.state} label={CHECK_STATE_LABEL[result.state]} />
+                        {result.detail && (
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            {result.detail}
+                          </p>
+                        )}
+                      </div>
+                    </DataCell>
+                  );
+                })}
+              </DataGrid>
+              <p className="text-[11px] text-muted-foreground">
+                {inst.healthCheckedAt
+                  ? `Última medição em ${new Date(inst.healthCheckedAt).toLocaleString("pt-BR")}.`
+                  : "Nenhuma medição registrada ainda."}
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* EXECUÇÕES */}
+        <TabsContent value="execucoes" className="space-y-4">
+          <Card>
+            <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-3">
+              <CardTitle className="truncate text-sm">Provisionamento</CardTitle>
+              {shownProvision && (
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {shownProvision.progress.done}/{shownProvision.progress.total} etapas ·{" "}
+                  {shownProvision.progress.percent}%
+                </span>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {shownProvision ? (
                 <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={restartProvision.isPending}
-                    onClick={() => restartProvision.mutate({ force: !staleActive })}
-                  >
-                    {restartProvision.isPending ? (
-                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                    )}
-                    Reiniciar provisionamento
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={cancel.isPending}
-                    onClick={() => cancel.mutate(activeOp.id)}
-                  >
-                    <XCircle className="mr-1.5 h-3.5 w-3.5" /> Cancelar
-                  </Button>
+                  <Progress value={shownProvision.progress.percent} className="h-1.5" />
+                  {!activeOp && shownProvision.summary && (
+                    <p className="text-xs text-muted-foreground">{shownProvision.summary}</p>
+                  )}
+                  <StepList steps={shownProvision.steps} />
                 </>
               ) : (
+                <p className="text-xs text-muted-foreground">
+                  {automated
+                    ? "Nenhuma execução ainda. O MASTER provisiona o Supabase de destino, gera os secrets exclusivos da instalação e configura as variáveis do deploy automaticamente."
+                    : "Nenhuma execução ainda. Clique em “Provisionar” para abrir a operação."}
+                </p>
+              )}
+
+              {activeOp && staleActive && (
+                <div className="rounded-lg border border-severity-warning/40 bg-severity-warning/5 p-2.5 text-[11px] text-muted-foreground">
+                  A operação não reporta progresso há alguns minutos. Você pode reiniciar o
+                  provisionamento com segurança — a operação travada é encerrada e apenas UMA nova
+                  operação é aberta.
+                </div>
+              )}
+
+              {failedProvision && !activeOp && (
+                <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-2.5">
+                  <p className="text-xs font-medium text-destructive">
+                    Falhou em: {failedStepLabel(failedProvision.steps)}
+                  </p>
+                  {failedProvision.summary && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {failedProvision.summary}
+                    </p>
+                  )}
+                  {failedProvision.errorKind && (
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      Motivo: {failedProvision.errorKind}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {automated && !activeOp && (
                 <Button
                   size="sm"
                   variant={failedProvision ? "default" : "outline"}
-                  disabled={
-                    autoProvision.isPending || !canStartOperation("provision", inst.status)
-                  }
+                  disabled={autoProvision.isPending || !canStartOperation("provision", inst.status)}
                   onClick={() => autoProvision.mutate()}
                 >
                   {autoProvision.isPending ? (
@@ -935,174 +958,174 @@ function InstallationDetailPage() {
                   {failedProvision ? "Tentar novamente" : "Provisionar automaticamente"}
                 </Button>
               )}
-            </div>
-          )}
 
-          {capability.data && !automated && (
-            <div className="rounded-lg border border-severity-warning/40 bg-severity-warning/5 p-2.5">
-              <p className="text-xs font-medium">Provisionamento automático BLOCKED</p>
-              <ul className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
-                {capability.data.blockedReasons.map((reason) => (
-                  <li key={reason}>• {reason}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-
-      {/* 5. VALIDAÇÃO */}
-      {lastValidate && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm">Validação</CardTitle>
-            <span className="text-xs text-muted-foreground">
-              {lastValidate.progress.done} aprovados · {lastValidate.progress.failed} falhos ·{" "}
-              {lastValidate.progress.pending} pendentes
-            </span>
-          </CardHeader>
-          <CardContent className="space-y-1.5">
-            <StepList steps={lastValidate.steps} />
-            {lastValidate.summary && (
-              <p className="pt-1 text-xs text-muted-foreground">{lastValidate.summary}</p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Comando de execução (exibido uma única vez) */}
-      {runCommand && !automated && (
-        <Card className="border-severity-info/40">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Executar na instalação de destino</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-xs text-muted-foreground">
-              O token aparece uma única vez e expira em 2 horas. O MASTER guarda apenas o hash e
-              nunca armazena credenciais do destino.
-            </p>
-            <pre className="overflow-x-auto rounded-lg border border-border/60 bg-muted/40 p-3 text-[11px] leading-relaxed">
-              {runCommand}
-            </pre>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                void navigator.clipboard.writeText(runCommand);
-                toast.success("Comando copiado.");
-              }}
-            >
-              <Copy className="mr-1.5 h-3.5 w-3.5" /> Copiar comando
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 7. HISTÓRICO */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Histórico de operações</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {operations.length === 0 && (
-            <p className="text-xs text-muted-foreground">Nenhuma operação registrada.</p>
-          )}
-          {pagedOperations.map((op) => (
-            <div key={op.id} className="rounded-lg border border-border/60 px-3 py-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium">{OPERATION_KIND_LABEL[op.kind]}</span>
-                <Badge variant="outline" className="text-[10px]">
-                  {OPERATION_STATUS_LABEL[op.status]}
-                </Badge>
-                {op.detail.releaseVersion && (
-                  <span className="font-mono text-[11px] text-muted-foreground">
-                    {op.detail.releaseVersion}
-                  </span>
-                )}
-                <span className="ml-auto text-[11px] text-muted-foreground">
-                  {new Date(op.startedAt).toLocaleString("pt-BR")}
-                  {op.finishedAt ? ` → ${new Date(op.finishedAt).toLocaleString("pt-BR")}` : ""}
-                </span>
-              </div>
-              {op.summary && <p className="mt-1 text-xs text-muted-foreground">{op.summary}</p>}
-              {op.errorKind && (
-                <p className="mt-1 text-xs text-destructive">Motivo: {op.errorKind}</p>
-              )}
-              {(op.status === "pending" || op.status === "running") && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {/* Operação automatizada reporta o próprio resultado: nada de registro manual. */}
-                  {!op.detail.automated && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={complete.isPending}
-                    onClick={() =>
-                      complete.mutate({
-                        operationId: op.id,
-                        ok: true,
-                        version: inst.availableVersion,
-                      })
-                    }
-                  >
-                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Registrar sucesso
-                  </Button>
-                  )}
-                  {!op.detail.automated && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={complete.isPending}
-                    onClick={() => complete.mutate({ operationId: op.id, ok: false })}
-                  >
-                    <XCircle className="mr-1.5 h-3.5 w-3.5" /> Registrar falha
-                  </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={cancel.isPending}
-                    onClick={() => cancel.mutate(op.id)}
-                  >
-                    Cancelar operação
-                  </Button>
+              {capability.data && !automated && (
+                <div className="rounded-lg border border-severity-warning/40 bg-severity-warning/5 p-2.5">
+                  <p className="text-xs font-medium">Provisionamento automático BLOCKED</p>
+                  <ul className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
+                    {capability.data.blockedReasons.map((reason) => (
+                      <li key={reason}>• {reason}</li>
+                    ))}
+                  </ul>
                 </div>
               )}
-            </div>
-          ))}
-          {operations.length > opsPerPage && (
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2">
-              <span className="text-[11px] text-muted-foreground">
-                {(opsPage - 1) * opsPerPage + 1}–{Math.min(opsPage * opsPerPage, operations.length)} de{" "}
-                {operations.length} operações
-              </span>
-              <div className="flex items-center gap-1.5">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={opsPage <= 1}
-                  onClick={() => setOpsPage(opsPage - 1)}
-                >
-                  Anterior
-                </Button>
-                <span className="text-[11px] text-muted-foreground">
-                  {opsPage}/{opsTotalPages}
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={opsPage >= opsTotalPages}
-                  onClick={() => setOpsPage(opsPage + 1)}
-                >
-                  Próxima
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
 
-      {/* 6. ATUALIZAÇÃO — confirmação obrigatória */}
+          {lastValidate && (
+            <Card>
+              <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-3">
+                <CardTitle className="truncate text-sm">Validação</CardTitle>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {lastValidate.progress.done} aprovados · {lastValidate.progress.failed} falhos ·{" "}
+                  {lastValidate.progress.pending} pendentes
+                </span>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <StepList steps={lastValidate.steps} />
+                {lastValidate.summary && (
+                  <p className="text-xs text-muted-foreground">{lastValidate.summary}</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {runCommand && !automated && (
+            <Card className="border-severity-info/40">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Executar na instalação de destino</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  O token aparece uma única vez e expira em 2 horas. O MASTER guarda apenas o hash e
+                  nunca armazena credenciais do destino.
+                </p>
+                <pre className="overflow-x-auto rounded-lg border border-border/60 bg-muted/40 p-3 text-[11px] leading-relaxed">
+                  {runCommand}
+                </pre>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(runCommand);
+                    toast.success("Comando copiado.");
+                  }}
+                >
+                  <Copy className="mr-1.5 h-3.5 w-3.5" /> Copiar comando
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-3">
+              <CardTitle className="truncate text-sm">Histórico de operações</CardTitle>
+              <Badge variant="outline" className="shrink-0 text-[10px]">
+                {operations.length}
+              </Badge>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {operations.length === 0 && (
+                <p className="text-xs text-muted-foreground">Nenhuma operação registrada.</p>
+              )}
+              {pagedOperations.map((op) => (
+                <div key={op.id} className="rounded-lg border border-border/60 px-3 py-2.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">{OPERATION_KIND_LABEL[op.kind]}</span>
+                    <OperationStatusBadge status={op.status} />
+                    {op.detail.releaseVersion && (
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        {op.detail.releaseVersion}
+                      </span>
+                    )}
+                    <span className="ml-auto text-[11px] text-muted-foreground">
+                      {new Date(op.startedAt).toLocaleString("pt-BR")}
+                      {op.finishedAt
+                        ? ` → ${new Date(op.finishedAt).toLocaleString("pt-BR")}`
+                        : ""}
+                    </span>
+                  </div>
+                  {op.summary && <p className="mt-1 text-xs text-muted-foreground">{op.summary}</p>}
+                  {op.errorKind && (
+                    <p className="mt-1 text-xs text-destructive">Motivo: {op.errorKind}</p>
+                  )}
+                  {(op.status === "pending" || op.status === "running") && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {/* Operação automatizada reporta o próprio resultado: nada de registro manual. */}
+                      {!op.detail.automated && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={complete.isPending}
+                          onClick={() =>
+                            complete.mutate({
+                              operationId: op.id,
+                              ok: true,
+                              version: inst.availableVersion,
+                            })
+                          }
+                        >
+                          <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Registrar sucesso
+                        </Button>
+                      )}
+                      {!op.detail.automated && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={complete.isPending}
+                          onClick={() => complete.mutate({ operationId: op.id, ok: false })}
+                        >
+                          <XCircle className="mr-1.5 h-3.5 w-3.5" /> Registrar falha
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={cancel.isPending}
+                        onClick={() => cancel.mutate(op.id)}
+                      >
+                        Cancelar operação
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {operations.length > opsPerPage && (
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2.5">
+                  <span className="text-[11px] text-muted-foreground">
+                    {(opsPage - 1) * opsPerPage + 1}–
+                    {Math.min(opsPage * opsPerPage, operations.length)} de {operations.length}{" "}
+                    operações
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={opsPage <= 1}
+                      onClick={() => setOpsPage(opsPage - 1)}
+                    >
+                      Anterior
+                    </Button>
+                    <span className="text-[11px] text-muted-foreground">
+                      {opsPage}/{opsTotalPages}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={opsPage >= opsTotalPages}
+                      onClick={() => setOpsPage(opsPage + 1)}
+                    >
+                      Próxima
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* ATUALIZAÇÃO — confirmação obrigatória */}
       <Dialog open={updateOpen} onOpenChange={setUpdateOpen}>
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
@@ -1135,7 +1158,7 @@ function InstallationDetailPage() {
             <DialogTitle>Editar dados da instalação</DialogTitle>
             <DialogDescription>
               Atualize o domínio quando o definitivo for informado. Alterar aqui não redeploya:
-              depois da troca, rode “Validar automaticamente” para reconferir o núcleo.
+              depois da troca, rode “Validar” para reconferir o núcleo.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -1167,68 +1190,13 @@ function InstallationDetailPage() {
             <Button variant="ghost" onClick={() => setEditOpen(false)}>
               Cancelar
             </Button>
-            <Button
-              disabled={edit.isPending || !form.name.trim()}
-              onClick={() => edit.mutate()}
-            >
+            <Button disabled={edit.isPending || !form.name.trim()} onClick={() => edit.mutate()}>
               {edit.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Salvar alterações
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-
-  );
-}
-
-/** Etapa em execução (ou a próxima pendente) para o rótulo de progresso. */
-function currentStepLabel(steps: OperationStep[]): string {
-  const running = steps.find((step) => step.state === "running");
-  if (running) return `Executando: ${running.label}${running.detail ? ` — ${running.detail}` : ""}`;
-  const pending = steps.find((step) => step.state === "pending");
-  return pending ? `Aguardando: ${pending.label}` : "Finalizando…";
-}
-
-/** Etapa que falhou, para exibir o motivo objetivo. */
-function failedStepLabel(steps: OperationStep[]): string {
-  const failed = steps.find((step) => step.state === "error");
-  if (!failed) return "etapa não identificada";
-  return `${failed.label}${failed.detail ? ` — ${failed.detail}` : ""}`;
-}
-
-function StepList({ steps }: { steps: OperationStep[] }) {
-  return (
-    <ol className="space-y-1">
-      {steps.map((step, index) => (
-        <li
-          key={step.id}
-          className="flex flex-wrap items-center gap-2 rounded-md border border-border/50 px-3 py-1.5"
-        >
-          <span className="w-6 font-mono text-[11px] text-muted-foreground">
-            {String(index + 1).padStart(2, "0")}
-          </span>
-          <span className="text-xs font-medium">{step.label}</span>
-          <span className={cn("ml-auto text-[11px]", STEP_TONE[step.state])}>
-            {step.state === "running" && <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />}
-            {STEP_STATE_LABEL[step.state]}
-          </span>
-          {step.detail && (
-            <span className="w-full truncate text-[11px] text-muted-foreground">{step.detail}</span>
-          )}
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-border/60 px-3 py-2">
-      <p className="text-[10px] uppercase text-muted-foreground">{label}</p>
-      <p className="truncate text-xs" title={value}>
-        {value}
-      </p>
     </div>
   );
 }
