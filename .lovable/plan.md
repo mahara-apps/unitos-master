@@ -33,6 +33,29 @@ impressão de que nada foi concluído.
    - Passa a confirmar: "As contas ativadas ficaram salvas no workspace. Vincular a um cliente
      agora?" — com as opções Vincular / Sair.
 
+6. **Um único caminho — fim da segunda tela**
+   - Hoje, se você fecha o "Conectar canais", o sistema reabre um segundo modal
+     ("Selecione as contas da Meta") por um caminho antigo, e a conexão aparece como um grupo
+     solto sem cliente — só dá para vincular pelos três pontinhos. Esse caminho antigo sai de
+     cena: a seleção de contas passa a acontecer sempre dentro do mesmo modal "Conectar canais",
+     nas etapas Autorização → Ativos → Cliente → Confirmação.
+   - Se a tela for fechada no meio, um aviso no topo da tela de Conexões oferece "Retomar
+     seleção de contas", em vez de abrir outro modal sozinho.
+   - O grupo "Sem cliente" continua existindo como lista, mas com um botão claro
+     "Vincular a um cliente" em vez de depender do menu de três pontinhos.
+
+7. **Mensagem de limite da Meta mais clara** (anexos)
+   - "Permissões validadas parcialmente" e "Sincronização temporariamente limitada" passam a
+     dizer, em uma frase, o que isso significa na prática: "Carregamos 189 contas de 177
+     portfólios. A Meta pausou novas leituras por alguns minutos — você já pode selecionar e
+     vincular as contas que apareceram."
+   - Os detalhes técnicos da Meta continuam disponíveis, mas recolhidos em "Ver detalhes".
+   - Quando 0 contas do Instagram aparecem por causa do limite, a mensagem explica que faltam
+     leituras e que sincronizar de novo mais tarde completa a lista — sem sugerir reautorizar.
+   - O botão "Selecionar ativos" ganha contador ("Selecionar ativos · 189") para deixar óbvio que
+     há o que escolher na próxima etapa.
+
+
 ## Detalhes técnicos
 
 - `src/components/connections/meta-portfolio-dialog.tsx`: `MetaAssetsPanel` recebe um rodapé
@@ -49,4 +72,10 @@ impressão de que nada foi concluído.
 - O fluxo dentro do modal "Conectar canais" (etapa Ativos) mantém o botão "Concluir" atual e
   apenas herda o seletor de cliente quando nenhum cliente estiver definido.
 - Testes: caso unitário para a regra de conclusão (contas ativadas + cliente escolhido → vínculo;
-  sem cliente → conclui mantendo no workspace).
+  sem cliente → conclui mantendo no workspace) e para o texto de limite parcial da Meta.
+- Fluxo único: `channels-center.tsx` e `routes/_authenticated/connections.tsx` deixam de abrir
+  `MetaPortfolioDialog` como modal paralelo; a etapa Ativos vive só em `connect-channels-dialog.tsx`.
+  O wrapper legado é mantido apenas para retomada explícita ("Retomar seleção de contas").
+- Mensagens de limite/parcialidade reaproveitam `classifyMetaIssue` / `issue-messages.ts`; nenhum
+  ajuste em varredura, orçamento de requisições ou cache de descoberta.
+
