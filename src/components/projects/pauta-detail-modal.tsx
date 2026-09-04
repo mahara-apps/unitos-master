@@ -38,6 +38,9 @@ export type PautaDetailItem = {
   /** Item sem tópico de pauta (peça criada fora da pauta). */
   outOfPlan?: boolean;
   planId?: string | null;
+  /** Metadados usados na linha da lista. */
+  tasksCount?: number;
+  assigneeName?: string | null;
 };
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
