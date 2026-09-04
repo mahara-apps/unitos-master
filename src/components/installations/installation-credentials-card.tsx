@@ -14,11 +14,13 @@ import { toast } from "sonner";
 import { CheckCircle2, ExternalLink, KeyRound, Loader2, MinusCircle, Plug } from "lucide-react";
 
 import {
+  adoptInstallationRepositoryFn,
   clearInstallationCredentialsFn,
   getInstallationCredentialsFn,
   saveInstallationCredentialsFn,
   testInstallationCredentialsFn,
 } from "@/lib/installation/manager.functions";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -93,8 +95,11 @@ export function InstallationCredentialsCard({ installationId }: { installationId
   const saveFn = useServerFn(saveInstallationCredentialsFn);
   const clearFn = useServerFn(clearInstallationCredentialsFn);
   const testFn = useServerFn(testInstallationCredentialsFn);
+  const adoptFn = useServerFn(adoptInstallationRepositoryFn);
 
   const [draft, setDraft] = useState<Draft>(EMPTY);
+  const [repoDraft, setRepoDraft] = useState("");
+
 
   const status = useQuery({
     queryKey: ["installation-credentials", installationId],
@@ -139,14 +144,26 @@ export function InstallationCredentialsCard({ installationId }: { installationId
   const test = useMutation({
     mutationFn: () => testFn({ data: { id: installationId } }),
     onSuccess: (result) => {
-      const ok = result.database.ok && result.deploy.ok;
-      const detail = `${result.database.detail} · ${result.deploy.detail}`;
+      const ok = result.database.ok && result.deploy.ok && result.code.ok;
+      const detail = `${result.database.detail} · ${result.deploy.detail} · ${result.code.detail}`;
       if (ok) toast.success(detail);
       else toast.error(detail);
     },
     onError: (error: unknown) =>
       toast.error(error instanceof Error ? error.message : "Não foi possível testar."),
   });
+
+  const adopt = useMutation({
+    mutationFn: () => adoptFn({ data: { id: installationId, repo: repoDraft.trim() } }),
+    onSuccess: (result) => {
+      setRepoDraft("");
+      invalidate();
+      toast.success(`Repositório ${result.repo} adotado na versão ${result.version}.`);
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "Não foi possível adotar."),
+  });
+
 
   const data = status.data;
   const anyConfigured =
@@ -278,6 +295,36 @@ export function InstallationCredentialsCard({ installationId }: { installationId
             </Button>
           )}
         </div>
+
+        <div className="space-y-1.5 rounded-md border border-dashed p-3">
+          <Label htmlFor="cred-adopt-repo" className="text-xs">
+            Já criou o repositório manualmente?
+          </Label>
+          <div className="flex flex-wrap gap-2">
+            <Input
+              id="cred-adopt-repo"
+              autoComplete="off"
+              placeholder="dono/repositorio"
+              className="max-w-xs"
+              value={repoDraft}
+              onChange={(event) => setRepoDraft(event.target.value)}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={adopt.isPending || repoDraft.trim().length < 3}
+              onClick={() => adopt.mutate()}
+            >
+              {adopt.isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+              Usar este repositório
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Confere o conteúdo contra a versão do MASTER e marca a etapa de código como concluída,
+            sem sobrescrever nada.
+          </p>
+        </div>
+
       </CardContent>
     </Card>
   );

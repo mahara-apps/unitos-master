@@ -1294,14 +1294,17 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
       return {
         database: { ok: false, detail: target.reason },
         deploy: { ok: false, detail: "dados da instalação incompletos" },
+        code: { ok: false, detail: "dados da instalação incompletos" },
       };
     }
     if (!capability.available) {
       return {
         database: { ok: false, detail: capability.blockedReasons.join(" | ") },
         deploy: { ok: false, detail: capability.blockedReasons.join(" | ") },
+        code: { ok: false, detail: capability.blockedReasons.join(" | ") },
       };
     }
+
 
     const { createManagementClient, createDeployClient } = await import("./automation.server");
     const management = createManagementClient({
@@ -1345,12 +1348,165 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
         (visible.length ? ` Projetos visíveis: ${visible.slice(0, 10).join(", ")}.` : "");
     }
 
+    // GitHub: sem este diagnóstico só se descobre no meio do provisionamento
+    // que o token não cria repositório ou que o MASTER não é template.
+    const { createCodeClient, DEFAULT_MASTER_REPO } = await import("./automation.server");
+    const { resolveInstallationRepo } = await import("./automation-contract");
+    const masterRepo = (env["UNITOS_MASTER_REPO"] ?? "").trim() || DEFAULT_MASTER_REPO;
+    const repo = resolveInstallationRepo({
+      gitRepoUrl: record.gitRepoUrl ?? null,
+      masterRepo,
+    });
+    let code: { ok: boolean; detail: string } = {
+      ok: false,
+      detail: repo.ok ? "token do repositório não configurado" : repo.reason,
+    };
+    const githubToken = (env["UNITOS_GITHUB_TOKEN"] ?? "").trim();
+    if (repo.ok && githubToken) {
+      const client = createCodeClient({
+        token: githubToken,
+        owner: repo.owner,
+        repo: repo.repo,
+        masterRepo,
+      });
+      const diagnosis = await client.diagnose();
+      code = { ok: diagnosis.ok, detail: diagnosis.detail };
+    }
+
     return {
       database: {
         ok: ping.ok,
         detail: ping.ok ? `banco ${target.projectRef} acessível` : (ping.error ?? "acesso negado"),
       },
       deploy: { ok: project.ok, detail: deployDetail },
+      code,
     };
-
   });
+
+/**
+ * Adota um repositório criado à mão a partir do template do MASTER: confere se
+ * o conteúdo corresponde à versão do MASTER e marca a etapa "Código no GitHub"
+ * como concluída, sem publicar nada por cima. Serve de saída oficial quando a
+ * criação automática está bloqueada por permissão do token.
+ */
+export const adoptInstallationRepositoryFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        repo: z
+          .string()
+          .trim()
+          .min(3)
+          .max(200)
+          .regex(/^[\w.-]+\/[\w.-]+$/, "informe no formato dono/repositorio"),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await guard(context);
+
+    const { data: current, error } = await context.supabase
+      .from("installations")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!current) throw new Error("Instalação não encontrada.");
+    const record = mapInstallation(current);
+
+    const { resolveInstallationEnv } = await import("./credentials.server");
+    const env = await resolveInstallationEnv(context.supabase as never, data.id);
+    const githubToken = (env["UNITOS_GITHUB_TOKEN"] ?? "").trim();
+    if (!githubToken) throw new Error("Configure o token do repositório antes de adotar.");
+
+    const { createCodeClient, DEFAULT_MASTER_REPO, readStageProgress, saveStageProgress } =
+      await import("./automation.server");
+    const masterRepo = (env["UNITOS_MASTER_REPO"] ?? "").trim() || DEFAULT_MASTER_REPO;
+    const [owner, repoName] = data.repo.split("/");
+    if (!owner || !repoName) throw new Error("Repositório inválido.");
+    if (data.repo.toLowerCase() === masterRepo.toLowerCase()) {
+      throw new Error("O repositório do MASTER não pode ser usado como destino da instalação.");
+    }
+
+    const code = createCodeClient({
+      token: githubToken,
+      owner,
+      repo: repoName,
+      masterRepo,
+    });
+    const head = await code.masterHeadSha();
+    if (!head.ok || !head.sha) {
+      throw new Error(head.error ?? "Não foi possível ler a versão atual do MASTER.");
+    }
+    // Confere o conteúdo sem publicar: 0 arquivos diferentes = repositório já
+    // está na versão do MASTER.
+    const check = await code.publishSnapshot(head.sha, { timeBudgetMs: 1 });
+    if (!check.ok) throw new Error(check.error ?? "Repositório inacessível com este token.");
+
+    const operation = await findRunningProvision(context.supabase as never, data.id);
+    if (operation) {
+      const stage = await readStageProgress(context.supabase as never, operation as never);
+      await saveStageProgress(context.supabase as never, operation as never, {
+        ...stage,
+        codeDone: true,
+        codeSha: head.sha,
+        codeRepo: `${owner}/${repoName}`,
+        codeBlobs: {},
+      });
+      const { applyProgressReport } = await import("./runner.server");
+      await applyProgressReport(context.supabase as never, operation as never, {
+        step: "code",
+        state: "done",
+        detail: `repositório ${owner}/${repoName} adotado manualmente (${head.sha.slice(0, 7)})`,
+        percent: 100,
+      });
+    }
+
+    // Mantém o cadastro coerente com o repositório realmente usado.
+    if (record.gitRepoUrl !== `https://github.com/${owner}/${repoName}`) {
+      await context.supabase
+        .from("installations")
+        .update({ git_repo_url: `https://github.com/${owner}/${repoName}` })
+        .eq("id", data.id);
+    }
+
+    return {
+      adopted: true as const,
+      repo: `${owner}/${repoName}`,
+      version: head.sha.slice(0, 7),
+      pendingFiles: check.partial ? null : (check.changed ?? 0),
+      operationUpdated: Boolean(operation),
+    };
+  });
+
+/** Operação de provisionamento viva desta instalação, se houver. */
+async function findRunningProvision(
+  client: { from: (table: string) => never },
+  installationId: string,
+): Promise<{ id: string; detail?: unknown; steps?: unknown } | null> {
+  const db = client as never as {
+    from: (table: string) => {
+      select: (columns: string) => {
+        eq: (c: string, v: string) => {
+          eq: (c: string, v: string) => {
+            order: (c: string, o: { ascending: boolean }) => {
+              limit: (n: number) => Promise<{ data?: Array<Record<string, unknown>> | null }>;
+            };
+          };
+        };
+      };
+    };
+  };
+  const { data } = await db
+    .from("installation_operations")
+    .select("*")
+    .eq("installation_id", installationId)
+    .eq("status", "running")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  const row = data?.[0];
+  return row ? (row as never) : null;
+}
+

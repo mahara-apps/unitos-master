@@ -56,7 +56,7 @@ describe("createCodeClient", () => {
       return Response.json({ full_name: "acme/unitos-pitada" });
     });
     const res = await c.ensureRepo();
-    expect(res).toEqual({ ok: true, created: true });
+    expect(res).toEqual({ ok: true, created: true, via: "template" });
     expect(calls.some((c2) => c2.includes("/generate"))).toBe(true);
   });
 
@@ -66,7 +66,7 @@ describe("createCodeClient", () => {
       calls.push(url);
       return Response.json({ full_name: "acme/unitos-pitada" });
     });
-    expect(await c.ensureRepo()).toEqual({ ok: true, created: false });
+    expect(await c.ensureRepo()).toEqual({ ok: true, created: false, via: "existing" });
     expect(calls.some((c2) => c2.includes("/generate"))).toBe(false);
   });
 
@@ -103,7 +103,9 @@ describe("createCodeClient", () => {
     expect(res.commitSha).toBe("commit_new");
     // b.ts (novo) + antigo.ts (removido) = 2; a.ts idêntico não é recopiado.
     expect(res.changed).toBe(2);
-    expect(posted.filter((p) => p.includes("/git/blobs")).length).toBe(1);
+    // Objetos compartilhados: o SHA do MASTER é referenciado direto, sem
+    // recriar blob no destino.
+    expect(posted.filter((p) => p.includes("/git/blobs")).length).toBe(0);
   });
 
   it("não gera commit quando o repositório já está na versão do MASTER", async () => {
