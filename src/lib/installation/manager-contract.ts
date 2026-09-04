@@ -16,8 +16,12 @@
 
 import { MASTER_FORBIDDEN_TOKENS } from "./bootstrap-contract";
 
-/** Versão do baseline/release que o MASTER distribui para as instalações. */
-export const MASTER_RELEASE_VERSION = "1.0.0";
+/**
+ * Versão do baseline/release que o MASTER distribui para as instalações.
+ * Subir a cada correção de banco/código propagável: é o que habilita o botão
+ * "Atualizar" (que agora também aplica o delta de banco na instalação).
+ */
+export const MASTER_RELEASE_VERSION = "1.0.1";
 
 /* ------------------------------------------------------------------ MASTER */
 
