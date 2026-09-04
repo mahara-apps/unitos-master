@@ -105,25 +105,33 @@ function metaStuckMessage(): string {
 }
 
 /**
- * Post-OAuth account selector. Reads the captured portfolio for a
- * `meta_oauth_sessions` id and lets the user toggle which Facebook Pages
- * and Instagram Business accounts should be bound to the current brand.
+ * Post-OAuth account selector — PAINEL (sem modal próprio).
+ *
+ * Reads the captured portfolio for a `meta_oauth_sessions` id and lets the user
+ * toggle which Facebook Pages / Instagram Business accounts are bound to the
+ * brand. Vive como painel para poder ser embutido na etapa "Ativos" do modal
+ * único "Conectar canais" — evitando modais empilhados.
  */
-export function MetaPortfolioDialog({
+export function MetaAssetsPanel({
   brandId,
   clientId,
   sessionId,
-  open,
+  active,
   channel,
-  onOpenChange,
+  onClose,
 }: {
   brandId: string;
   clientId?: string;
   sessionId: string | null;
-  open: boolean;
+  /** true enquanto o painel está visível (controla a query). */
+  active: boolean;
   channel?: "facebook" | "instagram" | "threads" | "ads" | null;
-  onOpenChange: (open: boolean) => void;
+  onClose: () => void;
 }) {
+  const open = active;
+  const onOpenChange = (v: boolean) => {
+    if (!v) onClose();
+  };
   const qc = useQueryClient();
   const getFn = useServerFn(getMetaPortfolio);
   const linkFn = useServerFn(linkMetaAccount);
