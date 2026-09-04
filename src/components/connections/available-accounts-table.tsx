@@ -218,23 +218,25 @@ export function AvailableAccountsTable({
   return (
     <div className="space-y-3">
       {/* ---------------------------- abas por tipo ---------------------------- */}
-      <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-muted/30 p-1">
-        {CHANNEL_TABS.map((t) => (
-          <button
-            key={t.value}
-            type="button"
-            onClick={() => setFilters((f) => ({ ...f, channel: t.value }))}
-            className={cn(
-              "h-7 rounded-md px-2.5 text-xs font-medium transition-colors",
-              filters.channel === t.value
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {hideControls ? null : (
+        <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-muted/30 p-1">
+          {CHANNEL_TABS.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => setFilters((f) => ({ ...f, channel: t.value }))}
+              className={cn(
+                "h-7 rounded-md px-2.5 text-xs font-medium transition-colors",
+                filters.channel === t.value
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* -------------------------- barra de controle -------------------------- */}
       <div className="flex flex-wrap items-center gap-2">
