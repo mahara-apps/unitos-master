@@ -59,6 +59,10 @@ export type InstallationRecord = {
   health: InstallationHealth;
   currentVersion: string | null;
   availableVersion: string;
+  /** Commit do MASTER fixado nesta instalação (versão publicada). */
+  pinnedCommitSha: string | null;
+  pinnedRelease: string | null;
+  pinnedAt: string | null;
   updateAvailable: boolean;
   lastProvisionedAt: string | null;
   lastValidatedAt: string | null;
@@ -72,6 +76,12 @@ export type InstallationRecord = {
 
 export type OperationDetail = {
   releaseVersion?: string;
+  /** Commit do MASTER autorizado para esta atualização. */
+  targetCommitSha?: string;
+  /** Versão publicada antes desta atualização. */
+  fromVersion?: string | null;
+  /** Versão que esta atualização publica. */
+  toVersion?: string | null;
   executed?: boolean;
   warnings?: boolean;
   /** true quando o MASTER executou a operação automaticamente (sem comando manual). */
@@ -113,6 +123,9 @@ function mapInstallation(row: any): InstallationRecord {
     status,
     health: (row.health ?? "unknown") as InstallationHealth,
     currentVersion: row.current_version ?? null,
+    pinnedCommitSha: row.pinned_commit_sha ?? null,
+    pinnedRelease: row.pinned_release ?? null,
+    pinnedAt: row.pinned_at ?? null,
     availableVersion: row.available_version ?? MASTER_RELEASE_VERSION,
     updateAvailable: isUpdateAvailable(
       row.current_version,
