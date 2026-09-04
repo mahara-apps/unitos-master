@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   RotateCcw,
   Archive,
+  ArchiveRestore,
   Search,
   Sparkles,
   MessageSquare,
@@ -33,12 +34,15 @@ import {
   deleteJobFn,
   listJobsFn,
   listProjectTasksFn,
+  setJobArchivedFn,
   setJobDoneFn,
   updateJobFn,
   updateJobTaskFn,
   type JobTask,
   type ProjectJob,
 } from "@/lib/project-jobs.functions";
+import { deleteTaskFn, setTaskArchivedFn } from "@/lib/tasks.functions";
+import { WorkLinks } from "@/components/ui/work-links";
 import { formatMinutes } from "@/lib/timesheet.functions";
 import { TaskTimesheetSheet } from "./task-timesheet-sheet";
 import { CommentThread } from "./comment-thread";
@@ -83,6 +87,9 @@ export function JobsPanel({
   const updateJob = useServerFn(updateJobFn);
   const deleteJob = useServerFn(deleteJobFn);
   const setJobDone = useServerFn(setJobDoneFn);
+  const setJobArchived = useServerFn(setJobArchivedFn);
+  const setTaskArchived = useServerFn(setTaskArchivedFn);
+  const deleteTask = useServerFn(deleteTaskFn);
   const createTask = useServerFn(createJobTaskFn);
   const updateTask = useServerFn(updateJobTaskFn);
 
@@ -172,6 +179,37 @@ export function JobsPanel({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const [openTask, setOpenTask] = useState<JobTask | null>(null);
+
+  const jobArchiveMut = useMutation({
+    mutationFn: (v: { jobId: string; archived: boolean }) =>
+      setJobArchived({ data: { brandId, jobId: v.jobId, archived: v.archived } }),
+    onSuccess: (_r, v) => {
+      if (v.archived) setSelectedJobId(null);
+      invalidateJobs();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const invalidateTasks = () =>
+    qc.invalidateQueries({ queryKey: ["job-tasks", brandId, projectId] });
+
+  const taskArchiveMut = useMutation({
+    mutationFn: (v: { taskId: string; archived: boolean }) =>
+      setTaskArchived({ data: { brandId, taskId: v.taskId, archived: v.archived } }),
+    onSuccess: invalidateTasks,
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const taskDeleteMut = useMutation({
+    mutationFn: (taskId: string) => deleteTask({ data: { brandId, taskId } }),
+    onSuccess: () => {
+      setOpenTask(null);
+      invalidateTasks();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const createTaskMut = useMutation({
     mutationFn: () =>
@@ -210,8 +248,6 @@ export function JobsPanel({
     onSuccess: () => qc.invalidateQueries({ queryKey: ["job-tasks", brandId, projectId] }),
     onError: (e: Error) => toast.error(e.message),
   });
-
-  const [openTask, setOpenTask] = useState<JobTask | null>(null);
 
   const currentJob = jobs.find((j) => j.id === effectiveJobId) ?? null;
   const currentTitle = isPautasSelected ? "Pautas" : (currentJob?.name ?? "Tarefas");
@@ -451,6 +487,24 @@ export function JobsPanel({
                       Renomear job
                     </DropdownMenuItem>
                     <DropdownMenuItem
+                      onSelect={() =>
+                        jobArchiveMut.mutate({
+                          jobId: currentJob.id,
+                          archived: !currentJob.archived_at,
+                        })
+                      }
+                    >
+                      {currentJob.archived_at ? (
+                        <>
+                          <ArchiveRestore className="mr-2 h-3.5 w-3.5" /> Restaurar job
+                        </>
+                      ) : (
+                        <>
+                          <Archive className="mr-2 h-3.5 w-3.5" /> Arquivar job
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
                       className="text-destructive focus:text-destructive"
                       onSelect={() => {
                         if (
@@ -534,6 +588,12 @@ export function JobsPanel({
             </div>
           ) : null}
 
+          {currentJob ? (
+            <div className="border-b border-border/60 px-3 py-2.5">
+              <WorkLinks target="job" targetId={currentJob.id} title="Links do job" />
+            </div>
+          ) : null}
+
           {isPautasSelected ? (
             <div className="p-3">{pautasContent}</div>
           ) : (
@@ -592,15 +652,59 @@ export function JobsPanel({
                           ) : null
                         }
                         actions={
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7"
-                            aria-label="Apontar tempo"
-                            onClick={() => setOpenTask(t)}
-                          >
-                            <Play className="h-3.5 w-3.5" />
-                          </Button>
+                          <div className="flex items-center gap-0.5">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              aria-label="Apontar tempo"
+                              onClick={() => setOpenTask(t)}
+                            >
+                              <Play className="h-3.5 w-3.5" />
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                  aria-label="Ações da tarefa"
+                                >
+                                  <MoreHorizontal className="h-3.5 w-3.5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuItem
+                                  onSelect={() =>
+                                    taskArchiveMut.mutate({
+                                      taskId: t.id,
+                                      archived: !t.archived_at,
+                                    })
+                                  }
+                                >
+                                  {t.archived_at ? (
+                                    <>
+                                      <ArchiveRestore className="mr-2 h-3.5 w-3.5" /> Restaurar
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Archive className="mr-2 h-3.5 w-3.5" /> Arquivar
+                                    </>
+                                  )}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onSelect={() => {
+                                    if (window.confirm(`Excluir a tarefa "${t.title}"?`)) {
+                                      taskDeleteMut.mutate(t.id);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         }
                       />
                     );
