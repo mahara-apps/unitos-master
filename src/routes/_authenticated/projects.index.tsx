@@ -769,8 +769,13 @@ function ProjectsIndexPage() {
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[11px] text-muted-foreground">
-            {rows.length} {rows.length === 1 ? "projeto" : "projetos"}
+            {hasProjectData
+              ? `${rows.length} ${rows.length === 1 ? "projeto" : "projetos"}`
+              : projectsQ.isError
+                ? "Não carregado"
+                : "Carregando projetos..."}
           </span>
+
           {q.trim() ? <FilterChip label={`Busca: ${q.trim()}`} onClear={() => setQ("")} /> : null}
           {statusFilter !== "all" ? (
             <FilterChip
