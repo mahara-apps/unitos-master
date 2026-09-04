@@ -29,6 +29,7 @@ import {
   runAutomatedValidateFn,
   runAutomatedUpdateFn,
   getMasterVersionFn,
+  inspectInstallationIntegrationsFn,
   startInstallationOperationFn,
   updateInstallationFn,
 } from "@/lib/installation/manager.functions";
@@ -348,6 +349,18 @@ function InstallationDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Conferência das integrações: leitura sob demanda (o MASTER consulta o
+  // projeto de deploy). Nada é gravado no destino e nenhum segredo é lido.
+  const inspect = useMutation({
+    mutationFn: () => inspectFn({ data: { id } }),
+    onSuccess: (result) => {
+      setIntegrations(result);
+      if (result.ok) toast.success("Integrações conferidas.");
+      else toast.warning(result.reason ?? "Não foi possível conferir as integrações.");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const health = useMutation({
     mutationFn: () => healthFn({ data: { id } }),
     onSuccess: () => {
@@ -422,9 +435,15 @@ function InstallationDetailPage() {
 
   // Estado definitivo: o núcleo decide READY; integrações opcionais nunca
   // bloqueiam. O MASTER só afirma "configurado" no que a instalação reportou.
+  const optionalFromInspection: Partial<Record<OptionalConfigId, OptionalState>> = {};
+  const optionalDetail: Partial<Record<OptionalConfigId, string>> = {};
+  for (const item of integrations?.items ?? []) {
+    optionalFromInspection[item.id] = item.state;
+    optionalDetail[item.id] = item.detail;
+  }
   const readiness = computeReadiness({
     core: inst.healthChecks,
-    optional: { custom_domain: customDomainState(inst.domain) },
+    optional: { custom_domain: customDomainState(inst.domain), ...optionalFromInspection },
     operationRunning: !!activeOp,
   });
   const optionalConfigured = OPTIONAL_CONFIG.filter(
