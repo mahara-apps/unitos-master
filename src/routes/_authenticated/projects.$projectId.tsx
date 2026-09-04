@@ -341,8 +341,6 @@ function ProjectDetailPage() {
   }
 
   const clientName = clients.find((c) => c.id === project.client_id)?.name ?? "Sem cliente";
-  const ownerName =
-    team.find((m) => m.user_id === project.owner_id)?.full_name ?? "Sem responsável";
   const statusLabel =
     STATUS_OPTIONS.find((s) => s.value === project.status)?.label ?? project.status;
 
