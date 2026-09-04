@@ -1,7 +1,21 @@
 import { z } from "zod";
-import { CalendarDays, Kanban, ListTodo, User as UserIcon } from "lucide-react";
+import {
+  CalendarDays,
+  GanttChartSquare,
+  Kanban,
+  ListTodo,
+  User as UserIcon,
+  Users,
+} from "lucide-react";
 
-export const VIEWS = ["list", "kanban", "calendar", "mine"] as const;
+export const VIEWS = [
+  "mine",
+  "list",
+  "kanban",
+  "board-assignee",
+  "timeline",
+  "calendar",
+] as const;
 export type View = (typeof VIEWS)[number];
 
 export const searchSchema = z.object({
@@ -30,8 +44,10 @@ export const searchSchema = z.object({
 export type TasksSearch = z.infer<typeof searchSchema>;
 
 export const VIEW_META: Record<View, { label: string; icon: typeof ListTodo }> = {
-  list: { label: "Lista", icon: ListTodo },
-  kanban: { label: "Kanban", icon: Kanban },
-  calendar: { label: "Calendário", icon: CalendarDays },
   mine: { label: "Minhas tarefas", icon: UserIcon },
+  list: { label: "Lista", icon: ListTodo },
+  kanban: { label: "Kanban por status", icon: Kanban },
+  "board-assignee": { label: "Kanban por responsável", icon: Users },
+  timeline: { label: "Timeline do mês", icon: GanttChartSquare },
+  calendar: { label: "Calendário", icon: CalendarDays },
 };

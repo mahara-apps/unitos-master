@@ -190,7 +190,7 @@ export function TaskTimeline({
                           }}
                           className={cn(
                             "block truncate rounded-md px-2 py-1 text-left text-[11px] font-medium text-white transition hover:opacity-90",
-                            meta.dot.replace("bg-", "bg-"),
+                            meta.dot,
                           )}
                         >
                           {t.title}
