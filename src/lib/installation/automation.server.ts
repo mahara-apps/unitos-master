@@ -480,13 +480,20 @@ export function createDeployClient(input: {
           body = (await readProject()) ?? body;
         }
 
+        // Instalação externa NUNCA publica sozinha a cada commit no MASTER:
+        // o build automático da branch fica desligado e o deploy só acontece
+        // aqui, quando o Super Admin autoriza a atualização.
+        await client.setAutoDeploy(false);
+
         const link = body.link;
         const repoId = link?.repoId;
         if (!link?.type || repoId === undefined || repoId === null) {
           const fallback = await client.redeploy();
           return { ...fallback, source: "rebuild" as const };
         }
-        const ref = (link.productionBranch ?? "main").trim() || "main";
+        const branch = (link.productionBranch ?? "main").trim() || "main";
+        const ref = (options?.sha ?? "").trim() || branch;
+
 
         const created = await doFetch(`https://api.vercel.com/v13/deployments?${qs("forceNew=1")}`, {
           method: "POST",
