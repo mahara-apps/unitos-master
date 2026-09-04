@@ -1072,17 +1072,16 @@ function MetaAssignFooter({
     }
   }
 
-  const count = linked.length;
+  const state = assignFinishState({
+    activated: linked.map((l) => l.label),
+    clientId,
+    target: target || undefined,
+  });
+  const count = state.count;
 
   return (
     <div className="mt-4 space-y-3 border-t border-border/60 pt-3">
-      <p className="text-[11px] leading-snug text-muted-foreground">
-        {count === 0
-          ? "Ative acima as contas que deseja usar. Elas ficam disponíveis no workspace e podem ser vinculadas a um cliente."
-          : `${count} ${count === 1 ? "conta ativada" : "contas ativadas"}: ${linked
-              .map((l) => l.label)
-              .join(", ")}`}
-      </p>
+      <p className="text-[11px] leading-snug text-muted-foreground">{state.message}</p>
       {clientId ? (
         <div className="flex justify-end">
           <Button size="sm" onClick={() => void finish(false)} disabled={saving}>
