@@ -424,9 +424,15 @@ export function createCodeClient(input: {
       }
     },
     async publishSnapshot(sha, onProgress) {
+      // Throttle: um report por ~2% evita centenas de escritas em repositórios
+      // grandes sem perder a sensação de tempo real.
+      let lastNotified = -5;
       const notify = async (percent: number, detail: string) => {
+        const rounded = Math.max(0, Math.min(99, Math.round(percent)));
+        if (rounded < 99 && rounded - lastNotified < 2) return;
+        lastNotified = rounded;
         try {
-          await onProgress?.({ percent: Math.max(0, Math.min(99, Math.round(percent))), detail });
+          await onProgress?.({ percent: rounded, detail });
         } catch {
           // progresso é informativo: nunca interrompe a publicação.
         }
@@ -1353,17 +1359,36 @@ export async function runAutomatedProvision(input: {
   // de reaplicar o baseline inteiro — a causa do travamento em 99%.
   const progress = await readBaselineProgress(client, installation.id, operation);
 
+  // Percentual da ETAPA considera todos os arquivos do grupo (ex.: "database"
+  // tem 4 arquivos), então a barra da etapa reflete o avanço real.
+  const groupTotals = baseline.reduce<Record<string, number>>((acc, f) => {
+    acc[f.id] = (acc[f.id] ?? 0) + 1;
+    return acc;
+  }, {});
+  const groupDone: Record<string, number> = {};
+  const groupPercent = (id: string, fileFraction: number) =>
+    Math.min(
+      99,
+      Math.round((((groupDone[id] ?? 0) + fileFraction) / Math.max(groupTotals[id] ?? 1, 1)) * 100),
+    );
+
   let currentGroup = "";
   for (const file of baseline) {
     if (file.id !== currentGroup) {
       currentGroup = file.id;
-      await mark(file.id, "running");
+      await mark(file.id, "running", null, groupPercent(file.id, 0));
     }
     if (progress[file.label] === DONE) {
-      await mark(file.id, "running", `${file.label}: já aplicado (checkpoint)`);
+      groupDone[file.id] = (groupDone[file.id] ?? 0) + 1;
+      await mark(
+        file.id,
+        "running",
+        `${file.label}: já aplicado (checkpoint)`,
+        groupPercent(file.id, 0),
+      );
       continue;
     }
-    await mark(file.id, "running", `${file.label}: aplicando`);
+    await mark(file.id, "running", `${file.label}: aplicando`, groupPercent(file.id, 0));
     // A Management API executa como `postgres` (não superusuário): comandos
     // exclusivos de superusuário do dump são removidos antes de enviar.
     const prepared = sanitizeBaselineSqlForManagementApi(file.sql);
@@ -1384,7 +1409,12 @@ export async function runAutomatedProvision(input: {
         await saveBaselineProgress(client, operation, progress);
         const percent = Math.min(99, Math.round((processed / Math.max(total, 1)) * 100));
         const action = alreadyApplied > 0 ? "retomando aplicação" : "aplicando";
-        await mark(file.id, "running", `${file.label}: ${action} (${percent}%)`);
+        await mark(
+          file.id,
+          "running",
+          `${file.label}: ${action} (${percent}%)`,
+          groupPercent(file.id, percent / 100),
+        );
       },
     });
     if (!perStatement.ok) {
@@ -1413,6 +1443,7 @@ export async function runAutomatedProvision(input: {
 
     }
     progress[file.label] = DONE;
+    groupDone[file.id] = (groupDone[file.id] ?? 0) + 1;
     await saveBaselineProgress(client, operation, progress);
 
   }
