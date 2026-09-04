@@ -287,9 +287,16 @@ export function ConnectChannelsDialog({
 
   const errorCopy = state.kind === "error" ? connectErrorCopy(state.reason) : null;
 
+  const inAssets = assetsStep && !!assetsSessionId && !!brandId;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-[720px]">
+      <DialogContent
+        className={cn(
+          "gap-0 overflow-hidden p-0",
+          inAssets ? "sm:max-w-[900px]" : "sm:max-w-[720px]",
+        )}
+      >
         <DialogHeader className="space-y-1 px-6 pb-4 pt-6 text-left">
           <DialogTitle className="text-[17px] font-semibold tracking-tight">
             Conectar canais
@@ -301,9 +308,50 @@ export function ConnectChannelsDialog({
         </DialogHeader>
 
         <div className="px-6 pb-5">
-          <StepBar active={connectStepIndex(state)} failed={state.kind === "error"} />
+          <StepBar
+            active={inAssets ? 1 : connectStepIndex(state)}
+            failed={!inAssets && state.kind === "error"}
+          />
         </div>
 
+        {inAssets ? (
+          <>
+            <div className="max-h-[68vh] overflow-y-auto border-t px-6 py-5">
+              <MetaAssetsPanel
+                brandId={brandId!}
+                clientId={clientId}
+                sessionId={assetsSessionId}
+                active={open}
+                channel={assetsChannel}
+                onClose={() => onFinishAssets?.()}
+              />
+            </div>
+            <div className="flex items-center gap-2 border-t bg-muted/20 px-6 py-3.5">
+              <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted-foreground">
+                Cada ativo ativado já fica vinculado — você pode ajustar isso depois.
+              </p>
+              {onBackFromAssets ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 shrink-0 text-xs"
+                  onClick={onBackFromAssets}
+                >
+                  Voltar
+                </Button>
+              ) : null}
+              <Button
+                size="sm"
+                className="h-8 shrink-0 text-xs"
+                onClick={() => onFinishAssets?.()}
+              >
+                Concluir
+                <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </>
+        ) : (
         <div className="max-h-[62vh] space-y-5 overflow-y-auto border-t px-6 py-5">
           {/* --------------------------- erro terminal do fluxo -------------------------- */}
           {errorCopy ? (
