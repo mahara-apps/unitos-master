@@ -35,12 +35,16 @@ export function InvolvedPeople({
   projectId,
   team,
   canEdit,
+  compact = false,
 }: {
   brandId: string;
   projectId: string;
   team: TeamOption[];
   canEdit: boolean;
+  /** Variante do rodapé: avatares sobrepostos em vez de chips. */
+  compact?: boolean;
 }) {
+
   const qc = useQueryClient();
   const participantsQ = useProjectParticipants(brandId, projectId);
   const add = useServerFn(addProjectParticipantFn);
