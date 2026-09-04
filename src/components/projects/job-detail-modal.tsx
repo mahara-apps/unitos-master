@@ -74,11 +74,11 @@ export function JobDetailModal({
         </div>
 
         {/* Corpo em duas colunas */}
-        <div className="grid min-h-0 flex-1 grid-cols-1 border-t border-border/60 lg:grid-cols-[minmax(0,1fr)_400px]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 border-t border-border/60 lg:grid-cols-[minmax(0,1fr)_min(600px,45vw)]">
           <div className="min-h-0 min-w-0 overflow-y-auto lg:border-r lg:border-border/60">
             {main}
           </div>
-          {aside ? <div className="flex min-h-0 min-w-0 flex-col">{aside}</div> : null}
+          {aside ? <div className="flex min-h-0 min-w-0 flex-col lg:pl-8">{aside}</div> : null}
         </div>
       </DialogContent>
     </Dialog>
