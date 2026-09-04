@@ -444,6 +444,19 @@ export type DeployClient = {
   setEnv: (
     entries: readonly { key: string; value: string; sensitive: boolean }[],
   ) => Promise<{ ok: boolean; applied: number; error?: string }>;
+
+  /**
+   * Leitura SOMENTE dos nomes das variáveis do projeto de deploy, mais o valor
+   * das variáveis explicitamente NÃO sensíveis pedidas em `plainKeys` (ex.:
+   * `META_REDIRECT_URI`). Nenhum valor cifrado é lido ou devolvido.
+   */
+  listEnv: (plainKeys?: readonly string[]) => Promise<{
+    ok: boolean;
+    keys?: string[];
+    plain?: Record<string, string>;
+    error?: string;
+  }>;
+
 };
 
 /**
@@ -1395,7 +1408,39 @@ export function createDeployClient(input: {
         return { ok: false, applied: 0, error: (e as Error).message };
       }
     },
+    async listEnv(plainKeys = []) {
+      try {
+        const res = await doFetch(
+          `https://api.vercel.com/v9/projects/${project}/env?${qs("decrypt=false")}`,
+          { headers },
+        );
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          return {
+            ok: false,
+            error: `HTTP ${res.status} ao listar variáveis (${text.slice(0, 200)})`,
+          };
+        }
+        const body = (await res.json().catch(() => ({}))) as {
+          envs?: { key?: string; type?: string; value?: string }[];
+        };
+        const envs = body.envs ?? [];
+        const keys = Array.from(new Set(envs.map((e) => e.key ?? "").filter(Boolean)));
+        const wanted = new Set(plainKeys);
+        const plain: Record<string, string> = {};
+        for (const e of envs) {
+          // Só valores plain e só das chaves pedidas: nada cifrado é exposto.
+          if (e.key && wanted.has(e.key) && e.type === "plain" && typeof e.value === "string") {
+            plain[e.key] = e.value;
+          }
+        }
+        return { ok: true, keys, plain };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
   };
+
 
   return client;
 }
