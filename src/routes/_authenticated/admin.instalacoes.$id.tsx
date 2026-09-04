@@ -88,7 +88,6 @@ import {
   DataGrid,
   LifecycleSteps,
   StateBadge,
-  StatusBadge,
   VersionPair,
   formatVersion,
   lifecycleIndex,

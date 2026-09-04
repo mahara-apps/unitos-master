@@ -7,6 +7,7 @@ import {
 import type { InstallationRecord } from "@/lib/installation/manager.functions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { formatDateTimeBr } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import {
   LifecycleTrail,
@@ -72,11 +73,11 @@ export function InstallationCard({
         <VersionPair installed={i.currentVersion} available={i.availableVersion} />
 
         <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-3">
-          <LifecycleTrail activeIndex={lifecycleIndex(i)} />
+          <LifecycleTrail activeIndex={lifecycleIndex(i)} complete={i.status === "up_to_date"} />
           <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <ShieldCheck className="h-3.5 w-3.5" />
             {i.lastValidatedAt
-              ? `validada em ${new Date(i.lastValidatedAt).toLocaleString("pt-BR")}`
+              ? `validada em ${formatDateTimeBr(i.lastValidatedAt)}`
               : "nunca validada"}
           </span>
         </footer>
