@@ -123,18 +123,60 @@ function ScopeSection({ brandId, scope }: { brandId: string; scope: WorkStatusSc
 
   const statuses = (q.data ?? []) as WorkStatus[];
 
+  const presetMut = useMutation({
+    mutationFn: async () => {
+      for (const p of SCOPE_PRESETS[scope]) {
+        await create({
+          data: { brandId, scope, name: p.name, color: p.color, isDone: p.isDone ?? false },
+        });
+      }
+    },
+    onSuccess: () => {
+      toast.success(`Conjunto sugerido criado para ${SCOPE_LABEL[scope].toLowerCase()}.`);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  /** Troca a posição com o vizinho, mantendo a ordem exibida no seletor. */
+  const moveMut = useMutation({
+    mutationFn: async (v: { index: number; dir: -1 | 1 }) => {
+      const a = statuses[v.index];
+      const b = statuses[v.index + v.dir];
+      if (!a || !b) return;
+      await update({
+        data: { brandId, statusId: a.id, patch: { position: b.position } as never },
+      });
+      await update({
+        data: { brandId, statusId: b.id, patch: { position: a.position } as never },
+      });
+    },
+    onSuccess: invalidate,
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <DashboardPanelSurface className="overflow-hidden">
-      <div className="border-b border-border/60 bg-background/40 px-4 py-2.5">
+      <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-background/40 px-4 py-2.5">
         <h2 className="font-mono text-[11px] uppercase tracking-widest text-foreground">
           {SCOPE_LABEL[scope]}
         </h2>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1.5 text-[11px]"
+          disabled={presetMut.isPending}
+          onClick={() => presetMut.mutate()}
+        >
+          <Sparkles className="h-3 w-3" />
+          {presetMut.isPending ? "Criando…" : "Usar conjunto sugerido"}
+        </Button>
       </div>
 
       {statuses.length === 0 ? (
         <PanelEmptyState
           icon={<ListChecks className="h-4 w-4" />}
-          text={`Nenhum status cadastrado para ${SCOPE_LABEL[scope].toLowerCase()}. Sem cadastro, os status padrão continuam valendo.`}
+          text={`Nenhum status cadastrado para ${SCOPE_LABEL[scope].toLowerCase()}. Sem cadastro, o seletor oferece o atalho para configurar.`}
         />
       ) : (
         <div className="divide-y divide-border/60">
