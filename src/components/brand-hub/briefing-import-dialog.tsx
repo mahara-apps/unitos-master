@@ -815,19 +815,20 @@ export function BriefingImportDialog({
   if (embedded) {
     if (!open) return null;
     return (
-      <div className="space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
+      <div className="flex max-h-[52vh] flex-col overflow-hidden rounded-xl border border-border/60 bg-muted/20">
         {queue.length > 1 ? (
-          <div className="flex justify-end">
+          <div className="flex justify-end border-b border-border/60 px-4 py-2">
             <Badge variant="outline" className="text-[11px]">
               {index + 1} de {queue.length}
             </Badge>
           </div>
         ) : null}
-        {body}
-        <div className="border-t border-border/60 pt-3">{footer}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">{body}</div>
+        <div className="border-t border-border/60 bg-background/60 px-4 py-3">{footer}</div>
       </div>
     );
   }
+
 
   return (
     <ExpandedModal
