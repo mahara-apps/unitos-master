@@ -169,7 +169,7 @@ export function TaskTimesheetSheet({
       {task && (
         <div className="space-y-5">
           {/* Faixa de atribuições: responsável, status e datas */}
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-background/40 p-2.5">
+          <div className="flex flex-wrap items-center gap-2.5 rounded-lg border border-border/60 bg-background/40 p-3">
             <AssigneePicker
               value={task.assignee_id ?? null}
               options={team}
@@ -210,7 +210,7 @@ export function TaskTimesheetSheet({
           )}
 
           <Tabs defaultValue="comments">
-            <TabsList className="w-full justify-start">
+            <TabsList className="h-auto w-full justify-start gap-1 border-b border-border/60 bg-transparent p-0 [&>button]:rounded-none [&>button]:border-b-2 [&>button]:border-transparent [&>button]:bg-transparent [&>button]:px-3 [&>button]:pb-2 [&>button]:text-xs [&>button[data-state=active]]:border-primary [&>button[data-state=active]]:bg-transparent [&>button[data-state=active]]:shadow-none">
               <TabsTrigger value="comments">Comentários</TabsTrigger>
               <TabsTrigger value="timesheet">Timesheet</TabsTrigger>
               <TabsTrigger value="history">Histórico</TabsTrigger>
@@ -352,7 +352,6 @@ export function TaskTimesheetSheet({
                 Mídia.
               </div>
             </TabsContent>
-
           </Tabs>
         </div>
       )}

@@ -9,7 +9,6 @@ import {
   ArrowLeft,
   Archive,
   ArchiveRestore,
-
   ExternalLink,
   FileText,
   Image as ImageIcon,
@@ -65,7 +64,6 @@ import { InvolvedPeople } from "@/components/projects/involved-people";
 import { StatusPicker } from "@/components/projects/status-picker";
 import { AssigneePicker } from "@/components/projects/assignee-picker";
 import { ProjectHeader } from "@/components/projects/project-header";
-import { WorkLinks } from "@/components/ui/work-links";
 import { setProjectArchivedFn } from "@/lib/projects.functions";
 import { useAccessRole } from "@/hooks/use-access-role";
 
@@ -596,12 +594,6 @@ function ProjectDetailPage() {
         pautasCount={items.length + extraPosts.length}
         footer={
           <div className="space-y-3">
-            <WorkLinks
-              target="project"
-              targetId={projectId}
-              title="Links do projeto"
-              readOnly={!canEditProject}
-            />
             <InvolvedPeople
               brandId={brandId!}
               projectId={projectId}
@@ -612,7 +604,6 @@ function ProjectDetailPage() {
           </div>
         }
       />
-
 
       {/* Resumo da pauta em modal — evita sair da gestão do projeto */}
       <PautaDetailModal
