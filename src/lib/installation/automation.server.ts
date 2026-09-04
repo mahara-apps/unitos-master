@@ -633,8 +633,12 @@ export function createCodeClient(input: {
         if (!changed.length && !removed.length && parent) {
           return { ok: true, commitSha: parent, changed: 0 };
         }
+        if (options.dryRun) {
+          return { ok: true, commitSha: parent ?? undefined, changed: changed.length + removed.length };
+        }
 
         const entries: Array<Record<string, unknown>> = [];
+
 
         // Caminho rápido: repositório gerado do template ou fork do MASTER já
         // contém os objetos, então a árvore aponta direto para os SHAs do
