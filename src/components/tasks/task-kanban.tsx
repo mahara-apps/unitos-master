@@ -104,23 +104,38 @@ function KanbanCard({ task, onOpen }: { task: TaskRow; onOpen: () => void }) {
   );
 }
 
+type ColumnDef = {
+  /** Chave usada no droppable (status ou id do responsável / "none"). */
+  key: string;
+  label: string;
+  dot?: string;
+  avatar?: { name: string | null; url: string | null } | null;
+};
+
 function KanbanColumn({
-  status,
+  column,
   tasks,
   onOpen,
 }: {
-  status: TaskStatus;
+  column: ColumnDef;
   tasks: TaskRow[];
   onOpen: (id: string) => void;
 }) {
-  const meta = STATUS_META[status];
-  const { setNodeRef, isOver } = useDroppable({ id: `col:${status}` });
+  const { setNodeRef, isOver } = useDroppable({ id: `col:${column.key}` });
   return (
     <div className="flex w-[300px] shrink-0 flex-col rounded-xl border border-border/60 bg-muted/20">
       <header className="flex items-center gap-2 border-b border-border/60 bg-background/40 px-3 py-2.5">
-        <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
-        <h2 className="text-[11px] font-mono uppercase tracking-widest text-foreground">
-          {meta.label}
+        {column.avatar !== undefined ? (
+          column.avatar ? (
+            <TaskAssignee name={column.avatar.name} avatarUrl={column.avatar.url} size={20} />
+          ) : (
+            <span className="h-5 w-5 rounded-full border border-dashed border-border/60" />
+          )
+        ) : (
+          <span className={cn("h-2 w-2 rounded-full", column.dot)} />
+        )}
+        <h2 className="truncate text-[11px] font-mono uppercase tracking-widest text-foreground">
+          {column.label}
         </h2>
         <span className="ml-auto rounded-md border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
           {tasks.length}
@@ -150,29 +165,61 @@ export function TaskKanban({
   tasks,
   onOpenTask,
   onChanged,
+  groupMode = "status",
 }: {
   tasks: TaskRow[];
   onOpenTask: (id: string) => void;
   onChanged: () => void;
+  /** Colunas por status (padrão) ou por responsável. */
+  groupMode?: "status" | "assignee";
 }) {
   const update = useServerFn(updateTaskFn);
   const [activeId, setActiveId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
-  const grouped = useMemo(() => {
-    const map: Record<TaskStatus, TaskRow[]> = { todo: [], in_progress: [], review: [], done: [] };
-    for (const t of tasks) map[t.status].push(t);
-    return map;
-  }, [tasks]);
+  const { columns, grouped } = useMemo(() => {
+    const buckets = new Map<string, TaskRow[]>();
+    if (groupMode === "status") {
+      const cols: ColumnDef[] = KANBAN_COLUMNS.map((status) => ({
+        key: status,
+        label: STATUS_META[status].label,
+        dot: STATUS_META[status].dot,
+      }));
+      for (const c of cols) buckets.set(c.key, []);
+      for (const t of tasks) buckets.get(t.status)?.push(t);
+      return { columns: cols, grouped: buckets };
+    }
+
+    const people = new Map<string, { name: string | null; url: string | null }>();
+    for (const t of tasks) {
+      if (!t.assignee_id) continue;
+      if (!people.has(t.assignee_id)) {
+        people.set(t.assignee_id, {
+          name: t.assignee_name ?? null,
+          url: t.assignee_avatar ?? null,
+        });
+      }
+    }
+    const cols: ColumnDef[] = [
+      { key: "none", label: "Sem responsável", avatar: null },
+      ...Array.from(people.entries())
+        .map(([id, p]) => ({
+          key: id,
+          label: p.name ?? "Sem nome",
+          avatar: p,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label, "pt-BR")),
+    ];
+    for (const c of cols) buckets.set(c.key, []);
+    for (const t of tasks) buckets.get(t.assignee_id ?? "none")?.push(t);
+    return { columns: cols, grouped: buckets };
+  }, [tasks, groupMode]);
 
   const move = useMutation({
-    mutationFn: (payload: { id: string; status: TaskStatus }) =>
-      update({
-        data: {
-          taskId: payload.id,
-          patch: { status: payload.status, done: payload.status === "done" },
-        },
-      }),
+    mutationFn: (payload: {
+      id: string;
+      patch: { status?: TaskStatus; done?: boolean; assignee_id?: string | null };
+    }) => update({ data: { taskId: payload.id, patch: payload.patch } }),
     onSuccess: onChanged,
     onError: (e: Error) => toast.error(e.message),
   });
@@ -181,10 +228,21 @@ export function TaskKanban({
     setActiveId(null);
     const overId = String(e.over?.id ?? "");
     if (!overId.startsWith("col:")) return;
-    const nextStatus = overId.slice(4) as TaskStatus;
+    const target = overId.slice(4);
     const task = tasks.find((t) => t.id === e.active.id);
-    if (!task || task.status === nextStatus) return;
-    move.mutate({ id: task.id as string, status: nextStatus });
+    if (!task) return;
+    if (groupMode === "status") {
+      const nextStatus = target as TaskStatus;
+      if (task.status === nextStatus) return;
+      move.mutate({
+        id: task.id,
+        patch: { status: nextStatus, done: nextStatus === "done" },
+      });
+      return;
+    }
+    const nextAssignee = target === "none" ? null : target;
+    if ((task.assignee_id ?? null) === nextAssignee) return;
+    move.mutate({ id: task.id, patch: { assignee_id: nextAssignee } });
   }
 
   const activeTask = activeId ? (tasks.find((t) => t.id === activeId) ?? null) : null;
@@ -197,8 +255,13 @@ export function TaskKanban({
       onDragCancel={() => setActiveId(null)}
     >
       <div className="flex gap-3 overflow-x-auto pb-2">
-        {KANBAN_COLUMNS.map((status) => (
-          <KanbanColumn key={status} status={status} tasks={grouped[status]} onOpen={onOpenTask} />
+        {columns.map((column) => (
+          <KanbanColumn
+            key={column.key}
+            column={column}
+            tasks={grouped.get(column.key) ?? []}
+            onOpen={onOpenTask}
+          />
         ))}
       </div>
       <DragOverlay>

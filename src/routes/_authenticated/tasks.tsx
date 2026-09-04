@@ -17,7 +17,6 @@ import { cn } from "@/lib/utils";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
@@ -37,6 +36,8 @@ import {
 } from "@/components/tasks/task-table";
 import { TaskKanban } from "@/components/tasks/task-kanban";
 import { TaskCalendar } from "@/components/tasks/task-calendar";
+import { TaskTimeline } from "@/components/tasks/task-timeline";
+import { TaskViewSwitcher } from "@/components/tasks/view-switcher";
 import {
   DEFAULT_FILTERS,
   TaskToolbar,
@@ -45,7 +46,7 @@ import {
 } from "@/components/tasks/task-toolbar";
 import { Plus } from "lucide-react";
 
-import { VIEWS, VIEW_META, searchSchema, type View } from "@/components/tasks/task-views";
+import { searchSchema, type View } from "@/components/tasks/task-views";
 
 export { searchSchema };
 
@@ -297,19 +298,7 @@ function TasksPage() {
       </PageKpiGrid>
 
       {/* Views */}
-      <Tabs value={view} onValueChange={(v) => setSearch({ view: v as View })}>
-        <TabsList className="h-9">
-          {VIEWS.map((v) => {
-            const meta = VIEW_META[v];
-            const Icon = meta.icon;
-            return (
-              <TabsTrigger key={v} value={v} className="gap-1.5">
-                <Icon className="h-3.5 w-3.5" /> {meta.label}
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
-      </Tabs>
+      <TaskViewSwitcher value={view} onChange={(v) => setSearch({ view: v })} />
 
       {/* Toolbar */}
       <TaskToolbar
@@ -379,12 +368,15 @@ function TasksPage() {
             )}
           </div>
         </div>
-      ) : view === "kanban" ? (
+      ) : view === "kanban" || view === "board-assignee" ? (
         <TaskKanban
           tasks={filtered}
+          groupMode={view === "board-assignee" ? "assignee" : "status"}
           onOpenTask={(id) => setSearch({ taskId: id })}
           onChanged={invalidate}
         />
+      ) : view === "timeline" ? (
+        <TaskTimeline tasks={filtered} onOpenTask={(id) => setSearch({ taskId: id })} />
       ) : view === "calendar" ? (
         <TaskCalendar tasks={filtered} onOpenTask={(id) => setSearch({ taskId: id })} />
       ) : (
@@ -404,6 +396,12 @@ function TasksPage() {
           onChanged={invalidate}
         />
       )}
+
+      {!tasksQ.isLoading && tasks.length > 0 ? (
+        <p className="text-center text-[11px] text-muted-foreground">
+          Exibindo {filtered.length} de {tasks.length} tarefa{tasks.length === 1 ? "" : "s"}
+        </p>
+      ) : null}
 
       {createOpen ? (
         <CreateTaskDialog
