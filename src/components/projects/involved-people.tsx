@@ -66,7 +66,68 @@ export function InvolvedPeople({
   const participants = participantsQ.data ?? [];
   const available = team.filter((t) => !participants.some((p) => p.user_id === t.user_id));
 
+  const addMenu =
+    canEdit && available.length > 0 ? (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-7 w-7 shrink-0 rounded-full"
+            aria-label="Envolver pessoa"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
+          {available.map((t) => (
+            <DropdownMenuItem key={t.user_id} onClick={() => addMut.mutate(t.user_id)}>
+              <span className="flex items-center gap-2">
+                <Avatar className="h-5 w-5">
+                  {t.avatar_url ? <AvatarImage src={t.avatar_url} alt="" /> : null}
+                  <AvatarFallback className="text-[9px]">{initialsOf(t.full_name)}</AvatarFallback>
+                </Avatar>
+                {t.full_name ?? "Usuário"}
+              </span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ) : null;
+
+  if (compact) {
+    return (
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="shrink-0 font-mono text-[10px] uppercase leading-tight tracking-widest text-muted-foreground">
+          Envolvidos
+          <br />
+          no projeto
+        </span>
+        <AvatarStack people={participants} />
+        {addMenu}
+        {canEdit && participants.length > 0 ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px]">
+                Gerenciar
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
+              {participants.map((p) => (
+                <DropdownMenuItem key={p.user_id} onClick={() => removeMut.mutate(p.user_id)}>
+                  <UserMinus className="mr-2 h-3.5 w-3.5" />
+                  Remover {p.full_name ?? "usuário"}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
+
     <div className="flex flex-wrap items-center gap-2">
       <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
         <Users className="h-3 w-3" />
