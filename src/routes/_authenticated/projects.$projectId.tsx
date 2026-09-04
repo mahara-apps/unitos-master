@@ -145,7 +145,8 @@ function ProjectDetailPage() {
   const [openNewTask, setOpenNewTask] = useState(false);
   const [openSettings, setOpenSettings] = useState(false);
   const { userId, role } = useAccessRole();
-  const canEditProject = role === "admin" || role === "super_admin" || role === "manager";
+  // `role` já colapsa admin/manager/super_admin no nível legado "admin".
+  const canEditProject = role === "admin";
 
   const qc = useQueryClient();
 
