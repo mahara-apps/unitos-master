@@ -1800,8 +1800,19 @@ export async function runAutomatedProvision(input: {
       checks.secrets = "error";
       return finish(null, null);
     }
+    // O destino pode ter recebido o baseline sem os helpers do Vault (ou com
+    // versão antiga). Recria-os de forma idempotente antes de gravar o valor.
+    const vaultHelpers = await management.query(CRON_SECRET_VAULT_HELPERS_SQL);
+    if (!vaultHelpers.ok) {
+      failures.push(
+        `Helpers do Vault (set_cron_secret) não criados no destino: ${vaultHelpers.error ?? ""}`.trim(),
+      );
+      await mark("secrets", "error", "set_cron_secret indisponível no destino");
+      checks.secrets = "error";
+      return finish(null, null);
+    }
     const vault = await management.query(
-      `select public.set_cron_secret(${sqlLiteral(secrets.CRON_SECRET)});`,
+      `select public.set_cron_secret(${sqlLiteral(secrets.CRON_SECRET)}::text);`,
     );
     if (!vault.ok) {
       failures.push(`CRON_SECRET não gravado no Vault do destino: ${vault.error ?? ""}`.trim());
