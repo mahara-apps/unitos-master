@@ -1105,13 +1105,18 @@ function MetaAssignFooter({
             </Select>
           </div>
           <div className="flex flex-wrap justify-end gap-2">
-            <Button size="sm" variant="ghost" onClick={() => void finish(false)} disabled={saving}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void finish(false)}
+              disabled={saving || !state.canFinishWithoutClient}
+            >
               Concluir sem cliente
             </Button>
             <Button
               size="sm"
               onClick={() => void finish(true)}
-              disabled={saving || count === 0 || !target}
+              disabled={saving || !state.canLink}
               className="gap-2"
             >
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
