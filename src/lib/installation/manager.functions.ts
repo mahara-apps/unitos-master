@@ -126,11 +126,10 @@ function mapInstallation(row: any): InstallationRecord {
     pinnedCommitSha: row.pinned_commit_sha ?? null,
     pinnedRelease: row.pinned_release ?? null,
     pinnedAt: row.pinned_at ?? null,
-    availableVersion: row.available_version ?? MASTER_RELEASE_VERSION,
-    updateAvailable: isUpdateAvailable(
-      row.current_version,
-      row.available_version ?? MASTER_RELEASE_VERSION,
-    ),
+    // A versão disponível é SEMPRE a do MASTER em execução: valores antigos
+    // gravados no banco (formato ano.mês) não devem aparecer na tela.
+    availableVersion: MASTER_RELEASE_VERSION,
+    updateAvailable: isUpdateAvailable(row.current_version, MASTER_RELEASE_VERSION),
     lastProvisionedAt: row.last_provisioned_at ?? null,
     lastValidatedAt: row.last_validated_at ?? null,
     lastError: row.last_error ?? null,
