@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { decideBriefingFormSync } from "@/lib/briefing-form-sync";
+import { briefingContentSignature, decideBriefingFormSync } from "@/lib/briefing-form-sync";
 import { describeError, readApiError } from "@/lib/errors";
 
 import { generateMonthlyPlanFn } from "@/lib/monthly-plans.functions";
@@ -282,10 +282,13 @@ export function BriefingWorkspace({
   const [dirty, setDirty] = useState(false);
   /** Versão mais nova disponível no servidor quando há edições pendentes. */
   const [incomingVersion, setIncomingVersion] = useState<string | null>(null);
+  /** Assinatura do conteúdo que originou o formulário em tela. */
+  const [syncedSignature, setSyncedSignature] = useState<string | null>(null);
 
   const applyServerData = useCallback((client: BrandHubClient) => {
     setForm(toForm(client));
     setSyncedVersion(client.updated_at ?? null);
+    setSyncedSignature(briefingContentSignature(client));
     setSavedAt(client.updated_at ?? null);
     setDirty(false);
     setIncomingVersion(null);
@@ -293,23 +296,28 @@ export function BriefingWorkspace({
 
   // Sincroniza o formulário sempre que chega uma versão nova do briefing
   // (importação por IA, geração de estratégia, edição em outra aba).
+  // Comparamos data E conteúdo: bancos sem o gatilho de updated_at não mudam
+  // a data, e nesse caso a assinatura do conteúdo é o que revela a mudança.
   useEffect(() => {
     const data = hubQ.data;
     if (!data) return;
     const version = data.updated_at ?? null;
+    const signature = briefingContentSignature(data);
     const decision = decideBriefingFormSync({
       hasForm: !!form,
       dirty,
       serverVersion: version,
       syncedVersion,
+      serverSignature: signature,
+      syncedSignature,
     });
     if (decision === "keep") return;
     if (decision === "apply") {
       applyServerData(data);
       return;
     }
-    setIncomingVersion(version);
-  }, [hubQ.data, form, dirty, syncedVersion, applyServerData]);
+    setIncomingVersion(version ?? signature);
+  }, [hubQ.data, form, dirty, syncedVersion, syncedSignature, applyServerData]);
 
 
   /** Toda edição do formulário passa por aqui para marcar alterações pendentes. */
