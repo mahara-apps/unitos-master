@@ -378,8 +378,10 @@ export const startInstallationOperationFn = createServerFn({ method: "POST" })
       const { resolveAutomationCapability, resolveAutomationTarget } = await import(
         "./automation-contract"
       );
-      const { runtimeEnv } = await import("@/lib/runtime-env.server");
-      const capability = resolveAutomationCapability(runtimeEnv());
+      const { resolveInstallationEnv } = await import("./credentials.server");
+      const capability = resolveAutomationCapability(
+        await resolveInstallationEnv(context.supabase as never, data.id),
+      );
       const autoTarget = resolveAutomationTarget(record);
       if (capability.available && autoTarget.ok) {
         throw new Error(
@@ -591,11 +593,26 @@ export const refreshInstallationHealthFn = createServerFn({ method: "POST" })
  */
 export const getAutomationCapabilityFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((input: unknown) =>
+    z
+      .object({ id: z.string().uuid().optional().nullable() })
+      .optional()
+      .nullable()
+      .parse(input ?? {}),
+  )
+  .handler(async ({ data, context }) => {
     await guard(context);
     const { resolveAutomationCapability } = await import("./automation-contract");
     const { runtimeEnv } = await import("@/lib/runtime-env.server");
-    const capability = resolveAutomationCapability(runtimeEnv());
+    // Com id: capability da INSTALAÇÃO (credencial própria tem precedência).
+    // Sem id: capability global do MASTER.
+    const installationId = data?.id ?? null;
+    let env = runtimeEnv();
+    if (installationId) {
+      const { resolveInstallationEnv } = await import("./credentials.server");
+      env = await resolveInstallationEnv(context.supabase as never, installationId, env);
+    }
+    const capability = resolveAutomationCapability(env);
     return {
       available: capability.available,
       supabase: capability.supabase,
@@ -637,8 +654,9 @@ async function openAutomatedProvision(
   const { resolveAutomationCapability, resolveAutomationTarget } = await import(
     "./automation-contract"
   );
-  const { runtimeEnv } = await import("@/lib/runtime-env.server");
-  const capability = resolveAutomationCapability(runtimeEnv());
+  const { resolveInstallationEnv } = await import("./credentials.server");
+  const env = await resolveInstallationEnv(supabase as never, installationId);
+  const capability = resolveAutomationCapability(env);
   if (!capability.available) {
     return {
       result: "BLOCKED",
@@ -719,6 +737,7 @@ async function openAutomatedProvision(
     runAutomatedProvision({
       client: supabase as never,
       operation: op as never,
+      env,
       installation: {
         id: record.id,
         domain: record.domain,
@@ -778,8 +797,9 @@ export const runAutomatedValidateFn = createServerFn({ method: "POST" })
     const { resolveAutomationCapability, resolveAutomationTarget } = await import(
       "./automation-contract"
     );
-    const { runtimeEnv } = await import("@/lib/runtime-env.server");
-    const capability = resolveAutomationCapability(runtimeEnv());
+    const { resolveInstallationEnv } = await import("./credentials.server");
+    const env = await resolveInstallationEnv(context.supabase as never, data.id);
+    const capability = resolveAutomationCapability(env);
     if (!capability.available) {
       return { result: "BLOCKED" as const, operationId: null, reasons: capability.blockedReasons };
     }
@@ -844,6 +864,7 @@ export const runAutomatedValidateFn = createServerFn({ method: "POST" })
       runAutomatedValidate({
         client: context.supabase as never,
         operation: op as never,
+        env,
         installation: {
           id: record.id,
           domain: record.domain,
@@ -921,9 +942,12 @@ export const resumeAutomatedProvisionFn = createServerFn({ method: "POST" })
     const resumeCommitSha =
       ((op as { detail?: { targetCommitSha?: string } }).detail?.targetCommitSha ?? null) ||
       record.pinnedCommitSha;
+    const { resolveInstallationEnv } = await import("./credentials.server");
+    const env = await resolveInstallationEnv(context.supabase as never, data.id);
     waitUntil(
       runner({
         commitSha: resumeCommitSha,
+        env,
         client: context.supabase as never,
         operation: op as never,
         installation: {
@@ -1057,8 +1081,9 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
     };
 
     const { resolveAutomationCapability } = await import("./automation-contract");
-    const { runtimeEnv } = await import("@/lib/runtime-env.server");
-    const capability = resolveAutomationCapability(runtimeEnv());
+    const { resolveInstallationEnv } = await import("./credentials.server");
+    const env = await resolveInstallationEnv(supabase as never, data.id);
+    const capability = resolveAutomationCapability(env);
     if (!capability.vercel.available) {
       return {
         result: "BLOCKED" as const,
@@ -1146,6 +1171,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
       runAutomatedUpdate({
         client: supabase as never,
         operation: op as never,
+        env,
         commitSha: data.commitSha ?? null,
         installation: {
           id: record.id,
@@ -1167,4 +1193,142 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
     );
 
     return { result: "STARTED" as const, operationId: op.id as string, reasons: [] as string[] };
+  });
+
+/* ------------------------------------------- credenciais próprias por instalação */
+
+/**
+ * Estado das credenciais de automação DESTA instalação. Nunca devolve valores
+ * em claro: apenas “configurado” e máscara.
+ */
+export const getInstallationCredentialsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await guard(context);
+    const { getInstallationCredentialsStatus } = await import("./credentials.server");
+    return getInstallationCredentialsStatus(context.supabase as never, data.id);
+  });
+
+/**
+ * Grava as credenciais próprias da instalação (cifradas). Campos omitidos
+ * permanecem como estão; string vazia apaga aquele campo.
+ */
+export const saveInstallationCredentialsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        supabaseManagementToken: z.string().max(4096).optional(),
+        vercelToken: z.string().max(4096).optional(),
+        vercelTeamId: z.string().max(200).optional(),
+        githubToken: z.string().max(4096).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await guard(context);
+    const { saveInstallationCredentials, getInstallationCredentialsStatus } = await import(
+      "./credentials.server"
+    );
+    const patch: Record<string, string> = {};
+    for (const field of [
+      "supabaseManagementToken",
+      "vercelToken",
+      "vercelTeamId",
+      "githubToken",
+    ] as const) {
+      const value = data[field];
+      if (typeof value === "string") patch[field] = value;
+    }
+    await saveInstallationCredentials(
+      context.supabase as never,
+      data.id,
+      context.userId,
+      patch as never,
+    );
+    return getInstallationCredentialsStatus(context.supabase as never, data.id);
+  });
+
+/** Remove as credenciais próprias: a instalação volta a usar as do MASTER. */
+export const clearInstallationCredentialsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await guard(context);
+    const { clearInstallationCredentials, getInstallationCredentialsStatus } = await import(
+      "./credentials.server"
+    );
+    await clearInstallationCredentials(context.supabase as never, data.id);
+    return getInstallationCredentialsStatus(context.supabase as never, data.id);
+  });
+
+/**
+ * Testa as credenciais efetivas da instalação contra os serviços reais, sem
+ * abrir operação nenhuma: confirma se o token de gestão alcança o banco de
+ * destino e se o token de deploy vê o projeto. Só devolve estados e motivos.
+ */
+export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await guard(context);
+
+    const { data: current, error } = await context.supabase
+      .from("installations")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!current) throw new Error("Instalação não encontrada.");
+    const record = mapInstallation(current);
+
+    const { resolveAutomationTarget, resolveAutomationCapability } = await import(
+      "./automation-contract"
+    );
+    const { resolveInstallationEnv } = await import("./credentials.server");
+    const env = await resolveInstallationEnv(context.supabase as never, data.id);
+    const capability = resolveAutomationCapability(env);
+    const target = resolveAutomationTarget(record);
+    if (!target.ok) {
+      return {
+        database: { ok: false, detail: target.reason },
+        deploy: { ok: false, detail: "dados da instalação incompletos" },
+      };
+    }
+    if (!capability.available) {
+      return {
+        database: { ok: false, detail: capability.blockedReasons.join(" | ") },
+        deploy: { ok: false, detail: capability.blockedReasons.join(" | ") },
+      };
+    }
+
+    const { createManagementClient, createDeployClient } = await import("./automation.server");
+    const management = createManagementClient({
+      token: (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim(),
+      projectRef: target.projectRef,
+    });
+    const ping = await management.query("select 1 as ok");
+
+    const deploy = createDeployClient({
+      token: (env["UNITOS_VERCEL_TOKEN"] ?? "").trim(),
+      project: target.deployProject,
+      teamId: (env["UNITOS_VERCEL_TEAM_ID"] ?? "").trim() || null,
+      masterRepo: (env["UNITOS_MASTER_REPO"] ?? "").trim() || null,
+    });
+    const project = await deploy.deploymentUrl();
+
+    return {
+      database: {
+        ok: ping.ok,
+        detail: ping.ok ? `banco ${target.projectRef} acessível` : (ping.error ?? "acesso negado"),
+      },
+      deploy: {
+        ok: project.ok,
+        detail: project.ok
+          ? `projeto de deploy ${target.deployProject} acessível`
+          : (project.error ?? "acesso negado"),
+      },
+    };
   });
