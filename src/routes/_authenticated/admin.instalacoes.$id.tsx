@@ -32,6 +32,7 @@ import {
   inspectInstallationIntegrationsFn,
   startInstallationOperationFn,
   updateInstallationFn,
+  type IntegrationsInspection,
 } from "@/lib/installation/manager.functions";
 
 import {
@@ -56,6 +57,7 @@ import {
   computeReadiness,
   customDomainState,
   isTemporaryDeployUrl,
+  type OptionalConfigId,
   type OptionalState,
 } from "@/lib/installation/readiness-contract";
 import { Badge } from "@/components/ui/badge";
@@ -170,6 +172,7 @@ function InstallationDetailPage() {
   const completeFn = useServerFn(completeInstallationOperationFn);
   const cancelFn = useServerFn(cancelInstallationOperationFn);
   const healthFn = useServerFn(refreshInstallationHealthFn);
+  const inspectFn = useServerFn(inspectInstallationIntegrationsFn);
   const capabilityFn = useServerFn(getAutomationCapabilityFn);
   const autoFn = useServerFn(runAutomatedProvisionFn);
   const autoValidateFn = useServerFn(runAutomatedValidateFn);
@@ -180,6 +183,7 @@ function InstallationDetailPage() {
   const editFn = useServerFn(updateInstallationFn);
 
   const [runCommand, setRunCommand] = useState<string | null>(null);
+  const [integrations, setIntegrations] = useState<IntegrationsInspection | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState<EditForm>(EMPTY_FORM);
 
