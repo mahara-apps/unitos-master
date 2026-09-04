@@ -1,5 +1,13 @@
-import type { ReactNode } from "react";
-import { AlertTriangle, CheckCircle2, CircleDashed, Loader2, XCircle } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import {
+  AlertTriangle,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  CircleDashed,
+  Loader2,
+  XCircle,
+} from "lucide-react";
 
 import {
   INSTALLATION_STATUS_LABEL,
@@ -38,10 +46,14 @@ export function lifecycleIndex(i: {
 export function LifecycleTrail({
   activeIndex,
   showLabel = true,
+  complete = false,
 }: {
   activeIndex: number;
   showLabel?: boolean;
+  /** Ciclo concluído: a última etapa é CONCLUÍDA (verde), não "atual" (azul). */
+  complete?: boolean;
 }) {
+  const done = complete ? LIFECYCLE.length : activeIndex;
   return (
     <div className="flex items-center gap-2">
       <div className="flex items-center gap-1">
@@ -51,18 +63,27 @@ export function LifecycleTrail({
             title={label}
             className={cn(
               "h-1.5 rounded-full transition-all",
-              index === activeIndex ? "w-5 bg-primary" : "w-1.5",
-              index < activeIndex && "bg-health-good",
-              index > activeIndex && "bg-border",
+              index < done && "w-1.5 bg-health-good",
+              !complete && index === activeIndex && "w-5 bg-primary",
+              index >= done && !(!complete && index === activeIndex) && "w-1.5 bg-border",
             )}
           />
         ))}
       </div>
       {showLabel && (
-        <span className="text-[11px] text-muted-foreground">
-          {activeIndex >= LIFECYCLE.length - 1
-            ? "Pronto"
-            : `Etapa ${activeIndex + 1}/${LIFECYCLE.length} · ${LIFECYCLE[activeIndex]}`}
+        <span
+          className={cn(
+            "flex items-center gap-1 text-[11px]",
+            complete ? "font-medium text-health-good" : "text-muted-foreground",
+          )}
+        >
+          {complete ? (
+            <>
+              <Check className="h-3 w-3" /> Pronto
+            </>
+          ) : (
+            `Etapa ${activeIndex + 1}/${LIFECYCLE.length} · ${LIFECYCLE[activeIndex]}`
+          )}
         </span>
       )}
     </div>
@@ -70,22 +91,35 @@ export function LifecycleTrail({
 }
 
 /** Trilha completa em etapas — usada no topo da tela de detalhe. */
-export function LifecycleSteps({ activeIndex }: { activeIndex: number }) {
+export function LifecycleSteps({
+  activeIndex,
+  complete = false,
+}: {
+  activeIndex: number;
+  /** Ciclo concluído: TODAS as etapas ficam verdes, inclusive "Pronto". */
+  complete?: boolean;
+}) {
+  const done = complete ? LIFECYCLE.length : activeIndex;
   return (
     <ol className="flex flex-wrap items-center gap-1.5 text-[11px]">
-      {LIFECYCLE.map((label, index) => (
-        <li
-          key={label}
-          className={cn(
-            "rounded-full border px-2 py-0.5",
-            index < activeIndex && "border-health-good/40 text-health-good",
-            index === activeIndex && "border-primary/50 bg-primary/10 text-primary",
-            index > activeIndex && "border-border/60 text-muted-foreground",
-          )}
-        >
-          {label}
-        </li>
-      ))}
+      {LIFECYCLE.map((label, index) => {
+        const isDone = index < done;
+        const isCurrent = !complete && index === activeIndex;
+        return (
+          <li
+            key={label}
+            className={cn(
+              "flex items-center gap-1 rounded-full border px-2 py-0.5",
+              isDone && "border-health-good/40 bg-health-good/10 text-health-good",
+              isCurrent && "border-primary/50 bg-primary/10 text-primary",
+              !isDone && !isCurrent && "border-border/60 text-muted-foreground",
+            )}
+          >
+            {isDone && <Check className="h-3 w-3" />}
+            {label}
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -137,6 +171,13 @@ export function StateBadge({
   );
 }
 
+/** Versão sempre exibida como `v1.0.0`. */
+export function formatVersion(version: string | null | undefined): string {
+  const v = (version ?? "").trim();
+  if (!v) return "—";
+  return /^v/i.test(v) ? `v${v.slice(1)}` : `v${v}`;
+}
+
 /** Par de versões: instalada × disponível, com veredito visual. */
 export function VersionPair({
   installed,
@@ -150,9 +191,9 @@ export function VersionPair({
   const upToDate = !!installed && installed === available;
   return (
     <div className={cn("flex items-center gap-2", compact ? "text-[11px]" : "text-xs")}>
-      <span className="font-mono text-foreground">{installed ?? "—"}</span>
+      <span className="font-mono text-foreground">{formatVersion(installed)}</span>
       <span className="text-muted-foreground">→</span>
-      <span className="font-mono text-muted-foreground">{available}</span>
+      <span className="font-mono text-muted-foreground">{formatVersion(available)}</span>
       <StateBadge
         state={upToDate ? "ok" : "attention"}
         label={upToDate ? "Em dia" : "Atualização disponível"}
@@ -204,6 +245,89 @@ export function DataGrid({
       )}
     >
       {children}
+    </div>
+  );
+}
+
+
+/* ------------------------------------------------------- LISTA COM MARCAÇÕES */
+
+/**
+ * Uma linha de conferência: ícone de estado + rótulo + valor à direita.
+ * Substitui pilhas de badges — o estado é legível sem depender de cor.
+ */
+export function CheckRow({
+  state,
+  label,
+  value,
+  className,
+}: {
+  state: VisualState;
+  label: string;
+  value?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <li
+      className={cn(
+        "flex items-center justify-between gap-3 py-1.5 text-xs",
+        "border-b border-border/40 last:border-b-0",
+        className,
+      )}
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        <span className={cn("shrink-0", STATE_TONE[state].split(" ").pop())}>
+          {STATE_ICON[state]}
+        </span>
+        <span className="truncate font-medium text-foreground">{label}</span>
+      </span>
+      <span className="shrink-0 text-right text-[11px] text-muted-foreground">{value ?? "—"}</span>
+    </li>
+  );
+}
+
+export function CheckList({ children, className }: { children: ReactNode; className?: string }) {
+  return <ul className={cn("divide-border/40", className)}>{children}</ul>;
+}
+
+/**
+ * Bloco recolhível para itens que NÃO bloqueiam a instalação: mostra só o
+ * contador e abre a lista sob demanda, em vez de espalhar uma cápsula por item.
+ */
+export function CollapsibleChecks({
+  label,
+  summary,
+  state = "pending",
+  children,
+  defaultOpen = false,
+}: {
+  label: string;
+  summary: string;
+  state?: VisualState;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border-b border-border/40 last:border-b-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-3 py-1.5 text-left text-xs"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <span className={cn("shrink-0", STATE_TONE[state].split(" ").pop())}>
+            {STATE_ICON[state]}
+          </span>
+          <span className="truncate font-medium text-foreground">{label}</span>
+        </span>
+        <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+          {summary}
+          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+        </span>
+      </button>
+      {open && <ul className="mb-1.5 ml-5 border-l border-border/50 pl-3">{children}</ul>}
     </div>
   );
 }

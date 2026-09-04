@@ -17,7 +17,7 @@
 import { MASTER_FORBIDDEN_TOKENS } from "./bootstrap-contract";
 
 /** Versão do baseline/release que o MASTER distribui para as instalações. */
-export const MASTER_RELEASE_VERSION = "2026.09.0";
+export const MASTER_RELEASE_VERSION = "1.0.0";
 
 /* ------------------------------------------------------------------ MASTER */
 

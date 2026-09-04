@@ -206,7 +206,7 @@ describe("canal de progresso", () => {
       token: "t".repeat(40),
       done: true,
       ok: true,
-      version: "2026.09.0",
+      version: "1.0.0",
       checks: { database: "ok" },
     });
     expect(parsed.ok && parsed.kind).toBe("final");

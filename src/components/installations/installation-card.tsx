@@ -7,6 +7,7 @@ import {
 import type { InstallationRecord } from "@/lib/installation/manager.functions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { formatDateTimeBr } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import {
   LifecycleTrail,
@@ -53,7 +54,11 @@ export function InstallationCard({
           <div className="min-w-0 space-y-1.5">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <h3 className="truncate text-sm font-semibold">{i.name}</h3>
-              <StatusBadge status={i.status} />
+              {/* "Atualizada"/"Atualização disponível" já é dito pelo bloco de
+                  versão abaixo — aqui só entram estados que ele não cobre. */}
+              {i.status !== "up_to_date" && i.status !== "update_available" && (
+                <StatusBadge status={i.status} />
+              )}
               <StateBadge
                 state={HEALTH_STATE[i.health]}
                 label={INSTALLATION_HEALTH_LABEL[i.health]}
@@ -72,11 +77,11 @@ export function InstallationCard({
         <VersionPair installed={i.currentVersion} available={i.availableVersion} />
 
         <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-3">
-          <LifecycleTrail activeIndex={lifecycleIndex(i)} />
+          <LifecycleTrail activeIndex={lifecycleIndex(i)} complete={i.status === "up_to_date"} />
           <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <ShieldCheck className="h-3.5 w-3.5" />
             {i.lastValidatedAt
-              ? `validada em ${new Date(i.lastValidatedAt).toLocaleString("pt-BR")}`
+              ? `validada em ${formatDateTimeBr(i.lastValidatedAt)}`
               : "nunca validada"}
           </span>
         </footer>
