@@ -43,7 +43,10 @@ HEAD = """-- ===================================================================
 def main() -> None:
     files = sorted(glob.glob(os.path.join(MIGRATIONS, "*.sql")))
     start = os.path.join(MIGRATIONS, START_MIGRATION)
-    selected = files[files.index(start):]
+    selected = [
+        p for p in files[files.index(start):] if not _is_master_only(p)
+    ]
+
 
     parts = [HEAD]
     for path in selected:
