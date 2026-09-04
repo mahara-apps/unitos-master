@@ -25,6 +25,7 @@ import { APP_TIMEZONE } from "@/lib/timezone";
 import { AssigneePicker, type TeamOption } from "./assignee-picker";
 import { StatusPicker } from "./status-picker";
 import { CommentThread } from "./comment-thread";
+import { WorkLinks } from "@/components/ui/work-links";
 import { WorkItemRow, formatShortDate, isOverdue } from "./work-item-row";
 
 export type PautaDetailItem = {
@@ -533,6 +534,18 @@ export function PautaDetailModal({
             ))}
           </div>
         </Section>
+
+        {/* Links enviados pela equipe e pelo cliente */}
+        {item.topicId || item.postId ? (
+          <Section title="Links e referências">
+            <WorkLinks
+              target={item.topicId ? "topic" : "post"}
+              targetId={(item.topicId ?? item.postId) as string}
+              title="Links"
+              readOnly={!canEdit}
+            />
+          </Section>
+        ) : null}
 
         {/* Devolutiva do cliente */}
         <Section title="Comentário do cliente" hidden={!topic?.client_comment}>
