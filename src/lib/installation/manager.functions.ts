@@ -916,8 +916,12 @@ export const resumeAutomatedProvisionFn = createServerFn({ method: "POST" })
         : kind === "validate"
           ? runAutomatedValidate
           : runAutomatedProvision;
+    const resumeCommitSha =
+      ((op as { detail?: { targetCommitSha?: string } }).detail?.targetCommitSha ?? null) ||
+      record.pinnedCommitSha;
     waitUntil(
       runner({
+        commitSha: resumeCommitSha,
         client: context.supabase as never,
         operation: op as never,
         installation: {
