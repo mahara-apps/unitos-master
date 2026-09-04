@@ -373,7 +373,7 @@ describe("runAutomatedProvision", () => {
       }
       if (url.includes("/database/query")) {
         const body = String((init?.body as string) ?? "");
-        if (body.includes("set_cron_secret(")) order.push("cron_secret");
+        if (body.includes("select public.set_cron_secret(")) order.push("cron_secret");
         else if (body.includes("create table") || body.includes("CREATE TABLE")) {
           if (!order.includes("baseline")) order.push("baseline");
         }
