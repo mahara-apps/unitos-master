@@ -740,7 +740,7 @@ export function MetaAssetsPanel({
             )}
 
             <TabsContent value="facebook" className="mt-3">
-              <ScrollArea className="h-[420px] rounded-lg border border-border/60">
+              <ScrollArea className="h-[min(420px,42vh)] rounded-lg border border-border/60">
                 <ul className="divide-y divide-border/60">
                   {visibleFb.length === 0 ? (
                     <li className="p-6 text-center text-xs text-muted-foreground">
@@ -812,7 +812,7 @@ export function MetaAssetsPanel({
                   onReauthorize={() => reauthorize("instagram")}
                 />
               ) : (
-                <ScrollArea className="h-[420px] rounded-lg border border-border/60">
+                <ScrollArea className="h-[min(420px,42vh)] rounded-lg border border-border/60">
                   <ul className="divide-y divide-border/60">
                     {visibleIg.map((p) => {
                       const key = `instagram:${p.pageId}`;
@@ -886,7 +886,7 @@ export function MetaAssetsPanel({
             </TabsContent>
 
             <TabsContent value="threads" className="mt-3">
-              <ScrollArea className="h-[420px] rounded-lg border border-border/60">
+              <ScrollArea className="h-[min(420px,42vh)] rounded-lg border border-border/60">
                 <ul className="divide-y divide-border/60">
                   {visibleThreads.length === 0 ? (
                     <li className="p-6 text-center text-xs text-muted-foreground">
@@ -949,7 +949,7 @@ export function MetaAssetsPanel({
             </TabsContent>
 
             <TabsContent value="ads" className="mt-3">
-              <ScrollArea className="h-[420px] rounded-lg border border-border/60">
+              <ScrollArea className="h-[min(420px,42vh)] rounded-lg border border-border/60">
                 <ul className="divide-y divide-border/60">
                   {visibleAds.length === 0 ? (
                     <li className="p-6 text-center text-xs text-muted-foreground">
