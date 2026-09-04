@@ -2000,9 +2000,9 @@ export async function runAutomatedProvision(input: {
     );
   }
 
-  /* 5. banco, storage e seeds — só agora, com código publicado e URL própria. */
-  const baselineEarly = await runBaselinePhase(url.origin, url.source);
-  if (baselineEarly) return baselineEarly;
+  // banco/storage/seeds já foram aplicados antes dos secrets (fase 4).
+
+
 
 
   /* 6. Brain stats */
