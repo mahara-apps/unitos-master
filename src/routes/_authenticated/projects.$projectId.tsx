@@ -63,6 +63,8 @@ import { InvolvedPeople } from "@/components/projects/involved-people";
 import { StatusPicker } from "@/components/projects/status-picker";
 import { AssigneePicker } from "@/components/projects/assignee-picker";
 import { ProjectHeader } from "@/components/projects/project-header";
+import { WorkLinks } from "@/components/ui/work-links";
+import { setProjectArchivedFn } from "@/lib/projects.functions";
 import { useAccessRole } from "@/hooks/use-access-role";
 
 export const Route = createFileRoute("/_authenticated/projects/$projectId")({
@@ -254,6 +256,17 @@ function ProjectDetailPage() {
       qc.invalidateQueries({ queryKey: ["projects", brandId] });
       navigate({ to: "/projects" });
     },
+  });
+
+  const setArchived = useServerFn(setProjectArchivedFn);
+  const restoreMut = useMutation({
+    mutationFn: () => setArchived({ data: { brandId: brandId!, projectId, archived: false } }),
+    onSuccess: () => {
+      toast.success("Projeto restaurado");
+      qc.invalidateQueries({ queryKey: ["project", brandId, projectId] });
+      qc.invalidateQueries({ queryKey: ["projects", brandId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const delMut = useMutation({
