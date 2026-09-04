@@ -316,6 +316,9 @@ export type PublishSnapshotOptions = {
   onProgress?: (progress: { percent: number; detail: string }) => void | Promise<void>;
   /** Persiste o mapa de blobs a cada lote para permitir retomada. */
   onCheckpoint?: (blobMap: Record<string, string>) => void | Promise<void>;
+  /** Só compara: não cria blob, árvore nem commit. Usado na adoção manual. */
+  dryRun?: boolean;
+
 };
 
 export type PublishSnapshotResult = {
