@@ -215,7 +215,23 @@ export function InstallationCredentialsCard({ installationId }: { installationId
                       setDraft((prev) => ({ ...prev, [field.key]: event.target.value }))
                     }
                   />
-                  <p className="text-[11px] text-muted-foreground">{field.hint}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {field.hint}
+                    {field.link && (
+                      <>
+                        {" "}
+                        <a
+                          href={field.link.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-0.5 font-medium text-primary underline-offset-2 hover:underline"
+                        >
+                          {field.link.label}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </>
+                    )}
+                  </p>
                 </div>
               );
             })}
