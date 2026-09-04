@@ -148,7 +148,7 @@ describe("summarizeVerificationRows", () => {
       { status: "FAIL", check_name: "cron: total de jobs", observed: "0" },
     ]);
     expect(s.ok).toBe(false);
-    expect(s.failedChecks).toEqual(["cron: total de jobs"]);
+    expect(s.failedChecks).toEqual(["cron: total de jobs (observado: 0)"]);
   });
 
   it("resultado sem linhas é inconclusivo, nunca PASS", () => {
