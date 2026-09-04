@@ -159,6 +159,9 @@ export function MetaAssetsPanel({
 
   /** Conexões ativadas nesta passagem pelo painel (para vincular ao cliente). */
   const [linkedNow, setLinkedNow] = useState<Array<{ connectionId: string; label: string }>>([]);
+  useEffect(() => {
+    onPendingChange?.(linkedNow.length);
+  }, [linkedNow.length, onPendingChange]);
 
   // A primeira abertura de uma sessão recém-autorizada faz varredura nova na
   // Graph API, para que TODAS as contas aprovadas no consentimento apareçam.
