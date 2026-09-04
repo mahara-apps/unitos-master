@@ -433,3 +433,187 @@ export const deleteProject = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+
+/**
+ * Detalhe completo (SOMENTE LEITURA) de um item da pauta para o modal aberto na
+ * tela do projeto: briefing, legenda, agendamento, rede, formato e local de
+ * postagem. Nada é gravado aqui; edição continua na tela de Conteúdo.
+ */
+export type PautaPlacement = {
+  id: string;
+  format: string | null;
+  status: string | null;
+  is_primary: boolean;
+  scheduled_at: string | null;
+  published_at: string | null;
+  connection_label: string | null;
+  connection_channel: string | null;
+};
+
+export type PautaDetail = {
+  topic: {
+    title: string;
+    angle: string | null;
+    rationale: string | null;
+    target_audience: string | null;
+    status: string | null;
+    client_status: string | null;
+    client_comment: string | null;
+  } | null;
+  post: {
+    id: string;
+    title: string | null;
+    format: string | null;
+    channels: string[];
+    scheduled_at: string | null;
+    schedule_status: string | null;
+    published_at: string | null;
+    review_status: string | null;
+    stage: string | null;
+    priority: string | null;
+    tags: string[];
+    copy: string | null;
+    script: unknown;
+    internal_briefing: string | null;
+    client_briefing: string | null;
+    design_brief: string | null;
+    references: unknown;
+    reference_media: unknown;
+    cover_url: string | null;
+  } | null;
+  placements: PautaPlacement[];
+};
+
+export const getPautaDetailFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        projectId: z.string().uuid(),
+        postId: z.string().uuid().nullable().optional(),
+        topicId: z.string().uuid().nullable().optional(),
+      })
+      .refine((v) => !!v.postId || !!v.topicId, "informe postId ou topicId")
+      .parse(input),
+  )
+  .handler(async ({ data, context }): Promise<PautaDetail> => {
+    await assertBrandMember(context.supabase as never, context.userId, data.brandId);
+    await assertProjectScope(context.supabase as never, context.userId, data.projectId);
+
+    let post: PautaDetail["post"] = null;
+    if (data.postId) {
+      const { data: row, error } = await context.supabase
+        .from("posts")
+        .select(
+          "id, title, format, channels, scheduled_at, schedule_status, published_at, review_status, stage, stage_id, priority, tags, copy, script, internal_briefing, client_briefing, design_brief, references, reference_media, cover_url, monthly_plan_topic_id",
+        )
+        .eq("brand_id", data.brandId)
+        .eq("project_id", data.projectId)
+        .eq("id", data.postId)
+        .maybeSingle();
+      if (error) throw error;
+      if (row) {
+        const r = row as unknown as Record<string, unknown>;
+        const stageMap = await loadStageMap(context.supabase, [
+          (r["stage_id"] as string | null) ?? null,
+        ]);
+        post = {
+          id: r["id"] as string,
+          title: (r["title"] as string | null) ?? null,
+          format: (r["format"] as string | null) ?? null,
+          channels: (r["channels"] as string[] | null) ?? [],
+          scheduled_at: (r["scheduled_at"] as string | null) ?? null,
+          schedule_status: (r["schedule_status"] as string | null) ?? null,
+          published_at: (r["published_at"] as string | null) ?? null,
+          review_status: (r["review_status"] as string | null) ?? null,
+          stage: effectiveStage(
+            (r["stage_id"] as string | null) ?? null,
+            (r["stage"] as string | null) ?? null,
+            stageMap,
+          ),
+          priority: (r["priority"] as string | null) ?? null,
+          tags: (r["tags"] as string[] | null) ?? [],
+          copy: (r["copy"] as string | null) ?? null,
+          script: r["script"] ?? null,
+          internal_briefing: (r["internal_briefing"] as string | null) ?? null,
+          client_briefing: (r["client_briefing"] as string | null) ?? null,
+          design_brief: (r["design_brief"] as string | null) ?? null,
+          references: r["references"] ?? null,
+          reference_media: r["reference_media"] ?? null,
+          cover_url: (r["cover_url"] as string | null) ?? null,
+        };
+      }
+    }
+
+    // Tópico da pauta — pode vir do parâmetro ou da peça já criada.
+    const topicId = data.topicId ?? null;
+    let topic: PautaDetail["topic"] = null;
+    if (topicId) {
+      const { data: row } = await context.supabase
+        .from("monthly_plan_topics" as never)
+        .select("topic_title, angle, rationale, target_audience, status, client_status, client_comment")
+        .eq("id", topicId)
+        .maybeSingle();
+      if (row) {
+        const t = row as unknown as Record<string, unknown>;
+        topic = {
+          title: (t["topic_title"] as string | null) ?? "",
+          angle: (t["angle"] as string | null) ?? null,
+          rationale: (t["rationale"] as string | null) ?? null,
+          target_audience: (t["target_audience"] as string | null) ?? null,
+          status: (t["status"] as string | null) ?? null,
+          client_status: (t["client_status"] as string | null) ?? null,
+          client_comment: (t["client_comment"] as string | null) ?? null,
+        };
+      }
+    }
+
+    // Local de postagem: placements + conta conectada correspondente.
+    const placements: PautaPlacement[] = [];
+    if (post) {
+      const { data: rows } = await context.supabase
+        .from("post_placements")
+        .select("id, format, status, is_primary, scheduled_at, published_at, connection_id")
+        .eq("brand_id", data.brandId)
+        .eq("post_id", post.id)
+        .order("is_primary", { ascending: false });
+      const list = (rows ?? []) as unknown as Array<Record<string, unknown>>;
+      const connIds = Array.from(
+        new Set(list.map((p) => p["connection_id"] as string | null).filter(Boolean)),
+      ) as string[];
+      const connMap = new Map<string, { label: string | null; channel: string | null }>();
+      if (connIds.length > 0) {
+        const { data: conns } = await context.supabase
+          .from("social_connections")
+          .select("id, channel, channel_name, account_username, external_name")
+          .eq("brand_id", data.brandId)
+          .in("id", connIds);
+        for (const c of (conns ?? []) as unknown as Array<Record<string, unknown>>) {
+          connMap.set(c["id"] as string, {
+            label:
+              (c["channel_name"] as string | null) ||
+              (c["external_name"] as string | null) ||
+              (c["account_username"] as string | null) ||
+              null,
+            channel: (c["channel"] as string | null) ?? null,
+          });
+        }
+      }
+      for (const p of list) {
+        const conn = p["connection_id"] ? connMap.get(p["connection_id"] as string) : undefined;
+        placements.push({
+          id: p["id"] as string,
+          format: (p["format"] as string | null) ?? null,
+          status: (p["status"] as string | null) ?? null,
+          is_primary: !!p["is_primary"],
+          scheduled_at: (p["scheduled_at"] as string | null) ?? null,
+          published_at: (p["published_at"] as string | null) ?? null,
+          connection_label: conn?.label ?? null,
+          connection_channel: conn?.channel ?? null,
+        });
+      }
+    }
+
+    return { topic, post, placements };
+  });
