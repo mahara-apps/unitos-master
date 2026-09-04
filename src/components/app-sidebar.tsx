@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { getMyProfile } from "@/lib/profile.functions";
 import { countMyPendingTasksFn } from "@/lib/tasks.functions";
 import { useActiveContextOptional } from "@/hooks/use-active-context";
+import { useSessionUser } from "@/hooks/use-session-user";
 import { UnitosLogo } from "@/components/brand/unitos-logo";
 import {
   LayoutDashboard,
