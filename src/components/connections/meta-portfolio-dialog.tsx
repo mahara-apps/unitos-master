@@ -31,6 +31,15 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { listClients } from "@/lib/workspace.functions";
+import { toggleClientChannelFn } from "@/lib/client-channels.functions";
+import {
   getMetaPortfolio,
   SESSION_INVALID_PREFIX,
   linkMetaAccount,
@@ -118,6 +127,7 @@ export function MetaAssetsPanel({
   sessionId,
   active,
   channel,
+  assign,
   onClose,
 }: {
   brandId: string;
@@ -126,6 +136,11 @@ export function MetaAssetsPanel({
   /** true enquanto o painel está visível (controla a query). */
   active: boolean;
   channel?: "facebook" | "instagram" | "threads" | "ads" | null;
+  /**
+   * Mostra o rodapé de conclusão (resumo + escolha do cliente + "Concluir").
+   * Sem ele o usuário não tem um destino claro depois de ativar as contas.
+   */
+  assign?: boolean;
   onClose: () => void;
 }) {
   const open = active;
@@ -137,6 +152,9 @@ export function MetaAssetsPanel({
   const linkFn = useServerFn(linkMetaAccount);
   const unlinkFn = useServerFn(unlinkMetaAccount);
   const startFn = useServerFn(startMetaOAuth);
+
+  /** Conexões ativadas nesta passagem pelo painel (para vincular ao cliente). */
+  const [linkedNow, setLinkedNow] = useState<Array<{ connectionId: string; label: string }>>([]);
 
   // A primeira abertura de uma sessão recém-autorizada faz varredura nova na
   // Graph API, para que TODAS as contas aprovadas no consentimento apareçam.
@@ -154,6 +172,7 @@ export function MetaAssetsPanel({
     channel ?? "all",
     clientId ?? "workspace",
   ] as const;
+
 
   async function reauthorize(channel: "instagram" | "facebook" | "threads") {
     const popup = window.open("", "meta-oauth", metaPopupFeatures());
@@ -325,15 +344,29 @@ export function MetaAssetsPanel({
           const result = _r as Record<string, unknown>;
           if (typeof result.connectionId === "string") {
             connected[vars.channel][lookupId] = result.connectionId;
+            const label =
+              old.pages.find((p) => p.pageId === vars.targetId)?.pageName ??
+              old.threadsAccounts?.find((t) => t.threadsUserId === vars.targetId)?.username ??
+              old.adAccounts?.find((a) => a.adAccountId === vars.targetId)?.name ??
+              vars.targetId;
+            const connectionId = result.connectionId;
+            setLinkedNow((prev) =>
+              prev.some((x) => x.connectionId === connectionId)
+                ? prev
+                : [...prev, { connectionId, label }],
+            );
           }
         } else {
+          const removed = connected[vars.channel][lookupId];
           delete connected[vars.channel][lookupId];
+          if (removed) setLinkedNow((prev) => prev.filter((x) => x.connectionId !== removed));
         }
         return { ...old, connected };
       });
       toast.success(vars.connect ? "Conta vinculada" : "Conta desvinculada");
       invalidate();
     },
+
     onError: (e: Error) => {
       const friendly = humanizeMetaError(e);
       toast.error(`${friendly.title} ${friendly.description}`, { duration: 9000 });
@@ -957,7 +990,131 @@ export function MetaAssetsPanel({
           </Tabs>
         )}
       </div>
+
+      {assign ? (
+        <MetaAssignFooter
+          brandId={brandId}
+          clientId={clientId}
+          linked={linkedNow}
+          onDone={() => {
+            setLinkedNow([]);
+            onOpenChange(false);
+          }}
+        />
+      ) : null}
     </>
+  );
+}
+
+/**
+ * Rodapé de conclusão: mostra o que foi ativado, permite escolher o cliente e
+ * encerra o fluxo. Sem ele o usuário ficava sem destino após ativar as contas.
+ */
+function MetaAssignFooter({
+  brandId,
+  clientId,
+  linked,
+  onDone,
+}: {
+  brandId: string;
+  clientId?: string;
+  linked: Array<{ connectionId: string; label: string }>;
+  onDone: () => void;
+}) {
+  const qc = useQueryClient();
+  const clientsFn = useServerFn(listClients);
+  const toggleFn = useServerFn(toggleClientChannelFn);
+  const [target, setTarget] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  const clientsQ = useQuery({
+    queryKey: ["meta-assign-clients", brandId],
+    queryFn: () => clientsFn({ data: { brandId } }),
+    enabled: !clientId && !!brandId,
+    staleTime: 60_000,
+  });
+  const clients = (clientsQ.data ?? []) as Array<{ id: string; name: string }>;
+
+  async function finish(withClient: boolean) {
+    if (withClient && !target) {
+      toast.error("Escolha o cliente que vai receber estas contas.");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (withClient) {
+        for (const item of linked) {
+          await toggleFn({
+            data: { brandId, clientId: target, connectionId: item.connectionId, assigned: true },
+          });
+        }
+        toast.success(
+          linked.length === 1
+            ? "Conta vinculada ao cliente."
+            : `${linked.length} contas vinculadas ao cliente.`,
+        );
+        qc.invalidateQueries({ queryKey: ["client-channels", brandId] });
+        qc.invalidateQueries({ queryKey: ["meta-connections", brandId] });
+        qc.invalidateQueries({ queryKey: ["channels-kpis", brandId] });
+      }
+      onDone();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível vincular ao cliente.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const count = linked.length;
+
+  return (
+    <div className="mt-4 space-y-3 border-t border-border/60 pt-3">
+      <p className="text-[11px] leading-snug text-muted-foreground">
+        {count === 0
+          ? "Ative acima as contas que deseja usar. Elas ficam disponíveis no workspace e podem ser vinculadas a um cliente."
+          : `${count} ${count === 1 ? "conta ativada" : "contas ativadas"}: ${linked
+              .map((l) => l.label)
+              .join(", ")}`}
+      </p>
+      {clientId ? (
+        <div className="flex justify-end">
+          <Button size="sm" onClick={() => void finish(false)} disabled={saving}>
+            Concluir
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 sm:w-72">
+            <Select value={target} onValueChange={setTarget} disabled={saving || count === 0}>
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue placeholder="Vincular a um cliente (opcional)" />
+              </SelectTrigger>
+              <SelectContent>
+                {clients.map((c) => (
+                  <SelectItem key={c.id} value={c.id} className="text-xs">
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button size="sm" variant="ghost" onClick={() => void finish(false)} disabled={saving}>
+              Concluir sem cliente
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => void finish(true)}
+              disabled={saving || count === 0 || !target}
+              className="gap-2"
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              Vincular e concluir
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -983,10 +1140,10 @@ export function MetaPortfolioDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl border-border/60 bg-background/95 backdrop-blur">
-        <DialogHeader className="sr-only">
-          <DialogTitle>Selecione as contas da Meta</DialogTitle>
-          <DialogDescription>
-            Escolha quais contas da Meta você deseja vincular.
+        <DialogHeader>
+          <DialogTitle className="text-base">Selecione as contas da Meta</DialogTitle>
+          <DialogDescription className="text-xs">
+            Ative as contas que você vai usar e, no final, escolha o cliente que vai recebê-las.
           </DialogDescription>
         </DialogHeader>
         <MetaAssetsPanel
@@ -995,12 +1152,14 @@ export function MetaPortfolioDialog({
           sessionId={sessionId}
           active={open}
           channel={channel}
+          assign
           onClose={() => onOpenChange(false)}
         />
       </DialogContent>
     </Dialog>
   );
 }
+
 
 function PortfolioActionState({
   title,
