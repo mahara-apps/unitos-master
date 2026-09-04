@@ -9,6 +9,15 @@ import {
   summarizeVerificationRows,
 } from "@/lib/installation/baseline-sql";
 import delta from "../supabase/baseline-snapshot/007_delta_migrations.sql?raw";
+import manifestRaw from "../supabase/baseline-snapshot/tools/delta_manifest.txt?raw";
+
+// Todas as migrations do repositório, para garantir que o delta não fique defasado.
+const migrationFiles = import.meta.glob("../supabase/migrations/*.sql", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+
 import install010 from "../supabase/install/010_installation_identity.sql?raw";
 import install011 from "../supabase/install/011_brain_stats_init.sql?raw";
 import install020 from "../supabase/install/020_cron.sql?raw";
