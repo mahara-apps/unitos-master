@@ -58,6 +58,7 @@ import {
 import { humanizeMetaError } from "@/lib/meta/error-messages";
 import { DiscoveryProgress } from "./discovery-progress";
 import { readAuthorizeUrl } from "@/lib/meta/connect-flow";
+import { assignFinishState } from "@/lib/meta/assign-completion";
 
 /**
  * Status canônico por conta descoberta: 🟢 Pronto · 🟠 Autorização necessária
