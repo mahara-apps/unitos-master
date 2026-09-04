@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { decideBriefingFormSync } from "@/lib/briefing-form-sync";
+import { briefingContentSignature, decideBriefingFormSync } from "@/lib/briefing-form-sync";
 import { describeError, readApiError } from "@/lib/errors";
 
 import { generateMonthlyPlanFn } from "@/lib/monthly-plans.functions";
