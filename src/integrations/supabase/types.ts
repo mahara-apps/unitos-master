@@ -3806,6 +3806,7 @@ export type Database = {
           description: string | null
           desired_due_at: string | null
           id: string
+          links: Json
           owner_user_id: string | null
           project_id: string | null
           status: string
@@ -3825,6 +3826,7 @@ export type Database = {
           description?: string | null
           desired_due_at?: string | null
           id?: string
+          links?: Json
           owner_user_id?: string | null
           project_id?: string | null
           status?: string
@@ -3844,6 +3846,7 @@ export type Database = {
           description?: string | null
           desired_due_at?: string | null
           id?: string
+          links?: Json
           owner_user_id?: string | null
           project_id?: string | null
           status?: string
