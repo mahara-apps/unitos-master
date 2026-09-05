@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { PortalLink } from "./portal-context";
+import { PortalLink, usePortalCaps } from "./portal-context";
+import { portalCanView } from "@/lib/portal-permissions";
 import {
   PORTAL_TABS,
   PORTAL_TAB_DESCRIPTION,
@@ -37,6 +38,7 @@ export function PortalShell({
   headerActions,
   children,
 }: PortalShellProps) {
+  const { readOnly } = usePortalCaps();
   const initials = (clientName || "?")
     .split(" ")
     .map((w) => w[0])
@@ -104,6 +106,11 @@ export function PortalShell({
                   {PORTAL_TAB_DESCRIPTION[activeTab]}
                 </p>
               </div>
+              {readOnly ? (
+                <span className="w-fit rounded-full border border-border bg-muted px-3 py-1 text-[11px] font-medium text-muted-foreground">
+                  Acesso de acompanhamento — decisões exigem login
+                </span>
+              ) : null}
               {headerActions ? (
                 <div className="flex flex-wrap items-center gap-2">{headerActions}</div>
               ) : null}
@@ -120,10 +127,15 @@ export function PortalShell({
 }
 
 function PortalNavList({ activeTab, compact }: { activeTab: PortalTabId; compact?: boolean }) {
+  const { permissions } = usePortalCaps();
+  // "Início" é sempre visível; os demais seguem a permissão do cliente.
+  const tabs = PORTAL_TABS.filter(
+    (t) => t.id === "home" || portalCanView(permissions, t.id as never),
+  );
   if (compact) {
     return (
       <>
-        {PORTAL_TABS.map((t) => {
+        {tabs.map((t) => {
           const Icon = t.icon;
           const active = activeTab === t.id;
           return (
@@ -146,7 +158,7 @@ function PortalNavList({ activeTab, compact }: { activeTab: PortalTabId; compact
   }
   return (
     <nav aria-label="Navegação do portal" className="flex-1 space-y-1 px-3 py-5">
-      {PORTAL_TABS.map((t) => {
+      {tabs.map((t) => {
         const Icon = t.icon;
         const active = activeTab === t.id;
         return (

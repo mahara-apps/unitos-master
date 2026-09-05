@@ -3690,6 +3690,55 @@ export type Database = {
           },
         ]
       }
+      client_portal_access: {
+        Row: {
+          brand_id: string
+          client_id: string
+          owner_user_id: string | null
+          permissions: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          brand_id: string
+          client_id: string
+          owner_user_id?: string | null
+          permissions?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          brand_id?: string
+          client_id?: string
+          owner_user_id?: string | null
+          permissions?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_portal_access_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "client_portal_access_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_portal_access_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_social_accounts: {
         Row: {
           brand_id: string
@@ -7407,6 +7456,7 @@ export type Database = {
         Returns: Json
       }
       portal_my_clients: { Args: never; Returns: Json }
+      portal_permissions: { Args: { _client_id: string }; Returns: Json }
       portal_post: {
         Args: { _client_id?: string; _post_id?: string; _token?: string }
         Returns: Json
