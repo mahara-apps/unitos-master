@@ -61,6 +61,7 @@ import { Route as PortalAreaPedidosRouteImport } from './routes/_portal/area.ped
 import { Route as PortalAreaPautaRouteImport } from './routes/_portal/area.pauta'
 import { Route as PortalAreaMinhaMarcaRouteImport } from './routes/_portal/area.minha-marca'
 import { Route as PortalAreaInicioRouteImport } from './routes/_portal/area.inicio'
+import { Route as PortalAreaContaRouteImport } from './routes/_portal/area.conta'
 import { Route as PortalAreaCalendarioRouteImport } from './routes/_portal/area.calendario'
 import { Route as PortalAreaBriefingRouteImport } from './routes/_portal/area.briefing'
 import { Route as PortalAreaAvisosRouteImport } from './routes/_portal/area.avisos'
@@ -381,6 +382,11 @@ const PortalAreaMinhaMarcaRoute = PortalAreaMinhaMarcaRouteImport.update({
 const PortalAreaInicioRoute = PortalAreaInicioRouteImport.update({
   id: '/inicio',
   path: '/inicio',
+  getParentRoute: () => PortalAreaRoute,
+} as any)
+const PortalAreaContaRoute = PortalAreaContaRouteImport.update({
+  id: '/conta',
+  path: '/conta',
   getParentRoute: () => PortalAreaRoute,
 } as any)
 const PortalAreaCalendarioRoute = PortalAreaCalendarioRouteImport.update({
@@ -758,6 +764,7 @@ export interface FileRoutesByFullPath {
   '/area/avisos': typeof PortalAreaAvisosRoute
   '/area/briefing': typeof PortalAreaBriefingRoute
   '/area/calendario': typeof PortalAreaCalendarioRoute
+  '/area/conta': typeof PortalAreaContaRoute
   '/area/inicio': typeof PortalAreaInicioRoute
   '/area/minha-marca': typeof PortalAreaMinhaMarcaRoute
   '/area/pauta': typeof PortalAreaPautaRoute
@@ -857,6 +864,7 @@ export interface FileRoutesByTo {
   '/area/avisos': typeof PortalAreaAvisosRoute
   '/area/briefing': typeof PortalAreaBriefingRoute
   '/area/calendario': typeof PortalAreaCalendarioRoute
+  '/area/conta': typeof PortalAreaContaRoute
   '/area/inicio': typeof PortalAreaInicioRoute
   '/area/minha-marca': typeof PortalAreaMinhaMarcaRoute
   '/area/pauta': typeof PortalAreaPautaRoute
@@ -967,6 +975,7 @@ export interface FileRoutesById {
   '/_portal/area/avisos': typeof PortalAreaAvisosRoute
   '/_portal/area/briefing': typeof PortalAreaBriefingRoute
   '/_portal/area/calendario': typeof PortalAreaCalendarioRoute
+  '/_portal/area/conta': typeof PortalAreaContaRoute
   '/_portal/area/inicio': typeof PortalAreaInicioRoute
   '/_portal/area/minha-marca': typeof PortalAreaMinhaMarcaRoute
   '/_portal/area/pauta': typeof PortalAreaPautaRoute
@@ -1076,6 +1085,7 @@ export interface FileRouteTypes {
     | '/area/avisos'
     | '/area/briefing'
     | '/area/calendario'
+    | '/area/conta'
     | '/area/inicio'
     | '/area/minha-marca'
     | '/area/pauta'
@@ -1175,6 +1185,7 @@ export interface FileRouteTypes {
     | '/area/avisos'
     | '/area/briefing'
     | '/area/calendario'
+    | '/area/conta'
     | '/area/inicio'
     | '/area/minha-marca'
     | '/area/pauta'
@@ -1284,6 +1295,7 @@ export interface FileRouteTypes {
     | '/_portal/area/avisos'
     | '/_portal/area/briefing'
     | '/_portal/area/calendario'
+    | '/_portal/area/conta'
     | '/_portal/area/inicio'
     | '/_portal/area/minha-marca'
     | '/_portal/area/pauta'
@@ -1744,6 +1756,13 @@ declare module '@tanstack/react-router' {
       path: '/inicio'
       fullPath: '/area/inicio'
       preLoaderRoute: typeof PortalAreaInicioRouteImport
+      parentRoute: typeof PortalAreaRoute
+    }
+    '/_portal/area/conta': {
+      id: '/_portal/area/conta'
+      path: '/conta'
+      fullPath: '/area/conta'
+      preLoaderRoute: typeof PortalAreaContaRouteImport
       parentRoute: typeof PortalAreaRoute
     }
     '/_portal/area/calendario': {
@@ -2355,6 +2374,7 @@ interface PortalAreaRouteChildren {
   PortalAreaAvisosRoute: typeof PortalAreaAvisosRoute
   PortalAreaBriefingRoute: typeof PortalAreaBriefingRoute
   PortalAreaCalendarioRoute: typeof PortalAreaCalendarioRoute
+  PortalAreaContaRoute: typeof PortalAreaContaRoute
   PortalAreaInicioRoute: typeof PortalAreaInicioRoute
   PortalAreaMinhaMarcaRoute: typeof PortalAreaMinhaMarcaRoute
   PortalAreaPautaRoute: typeof PortalAreaPautaRoute
@@ -2367,6 +2387,7 @@ const PortalAreaRouteChildren: PortalAreaRouteChildren = {
   PortalAreaAvisosRoute: PortalAreaAvisosRoute,
   PortalAreaBriefingRoute: PortalAreaBriefingRoute,
   PortalAreaCalendarioRoute: PortalAreaCalendarioRoute,
+  PortalAreaContaRoute: PortalAreaContaRoute,
   PortalAreaInicioRoute: PortalAreaInicioRoute,
   PortalAreaMinhaMarcaRoute: PortalAreaMinhaMarcaRoute,
   PortalAreaPautaRoute: PortalAreaPautaRoute,
