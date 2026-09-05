@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolvePortalSessionScope } from "@/lib/portal-permissions.server";
 import { insertNotificationsDeduped, notificationDedupeKey } from "@/lib/notifications-dedupe";
+import { detectLinkSource, normalizeLinkUrl } from "@/lib/link-source";
 
 /**
  * Pedidos do cliente (módulo `requests` do Portal).
@@ -12,7 +13,6 @@ import { insertNotificationsDeduped, notificationDedupeKey } from "@/lib/notific
  * cliente E o nível do módulo — link sem senha não cria nem comenta nada.
  */
 
-const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
 const INTERNAL_BRAND_ROLES = ["owner", "admin", "manager"];
 const PORTAL_ROLE = "portal_client";
 
@@ -46,6 +46,14 @@ export type PortalRequestAttachment = {
   url?: string | null;
 };
 
+export type PortalRequestLink = {
+  url: string;
+  title: string | null;
+  source: string;
+};
+
+export const MAX_REQUEST_LINKS = 10;
+
 export type PortalRequest = {
   id: string;
   title: string;
@@ -57,6 +65,7 @@ export type PortalRequest = {
   createdByName: string | null;
   decisionNote: string | null;
   attachments: PortalRequestAttachment[];
+  links: PortalRequestLink[];
 };
 
 export type PortalRequestEvent = {
@@ -70,28 +79,9 @@ export type PortalRequestEvent = {
 
 const ClientIn = z.object({ clientId: z.string().uuid() });
 
-const AttachmentIn = z.object({
-  name: z.string().trim().min(1).max(180),
-  mime: z.string().trim().max(160).nullish(),
-  dataBase64: z.string().min(1),
-});
-
 type AnyClient = {
   from: (table: string) => any;
 };
-
-function decodeBase64(value: string): Uint8Array {
-  const raw =
-    value.includes(",") && value.startsWith("data:") ? value.slice(value.indexOf(",") + 1) : value;
-  const bin = atob(raw);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
-  return bytes;
-}
-
-function safeName(name: string): string {
-  return name.replace(/[^\w.-]+/g, "_").slice(-120) || "anexo";
-}
 
 function normalizeAttachments(raw: unknown): PortalRequestAttachment[] {
   if (!Array.isArray(raw)) return [];
@@ -106,6 +96,21 @@ function normalizeAttachments(raw: unknown): PortalRequestAttachment[] {
     .filter((a) => a.path);
 }
 
+function normalizeLinks(raw: unknown): PortalRequestLink[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((l): l is Record<string, unknown> => typeof l === "object" && l !== null)
+    .map((l) => {
+      const url = typeof l["url"] === "string" ? (l["url"] as string) : "";
+      return {
+        url,
+        title: typeof l["title"] === "string" && l["title"] ? (l["title"] as string) : null,
+        source: typeof l["source"] === "string" ? (l["source"] as string) : detectLinkSource(url),
+      };
+    })
+    .filter((l) => !!l.url);
+}
+
 function mapRequest(row: Record<string, unknown>): PortalRequest {
   return {
     id: row["id"] as string,
@@ -118,11 +123,12 @@ function mapRequest(row: Record<string, unknown>): PortalRequest {
     createdByName: (row["created_by_name"] as string | null) ?? null,
     decisionNote: (row["decision_note"] as string | null) ?? null,
     attachments: normalizeAttachments(row["attachments"]),
+    links: normalizeLinks(row["links"]),
   };
 }
 
 const REQUEST_COLUMNS =
-  "id, title, description, status, desired_due_at, created_at, updated_at, created_by_name, decision_note, attachments";
+  "id, title, description, status, desired_due_at, created_at, updated_at, created_by_name, decision_note, attachments, links";
 
 async function actorName(supabase: unknown, userId: string): Promise<string | null> {
   const { data } = await (supabase as AnyClient)
@@ -264,7 +270,15 @@ export const createPortalRequestFn = createServerFn({ method: "POST" })
       title: z.string().trim().min(3, "Descreva o pedido em poucas palavras").max(160),
       description: z.string().trim().max(4000).optional(),
       desiredDueAt: z.string().datetime().nullish(),
-      attachments: z.array(AttachmentIn).max(5).optional(),
+      links: z
+        .array(
+          z.object({
+            url: z.string().trim().min(4).max(2000),
+            title: z.string().trim().max(160).optional(),
+          }),
+        )
+        .max(MAX_REQUEST_LINKS)
+        .optional(),
     }).parse(i),
   )
   .handler(async ({ data, context }): Promise<{ id: string }> => {
@@ -276,28 +290,12 @@ export const createPortalRequestFn = createServerFn({ method: "POST" })
     );
     const name = await actorName(context.supabase, context.userId);
 
-    const attachments: PortalRequestAttachment[] = [];
-    if (data.attachments?.length) {
-      const { scopedAdmin } = await import("@/lib/portal-scope.server");
-      const admin = await scopedAdmin();
-      for (const file of data.attachments) {
-        const bytes = decodeBase64(file.dataBase64);
-        if (bytes.byteLength > MAX_ATTACHMENT_BYTES) throw new Error("attachment_too_large");
-        const path = `${scope.brandId}/${scope.clientId}/pedidos/${Date.now()}-${safeName(file.name)}`;
-        const { error: upErr } = await admin.storage
-          .from("brand-documents")
-          .upload(path, bytes, {
-            contentType: file.mime ?? "application/octet-stream",
-            upsert: false,
-          });
-        if (upErr) throw new Error(upErr.message);
-        attachments.push({
-          name: file.name,
-          path,
-          mime: file.mime ?? null,
-          size: bytes.byteLength,
-        });
-      }
+    const links: PortalRequestLink[] = [];
+    for (const raw of data.links ?? []) {
+      const url = normalizeLinkUrl(raw.url);
+      if (!url) throw new Error("invalid_link");
+      if (links.some((l) => l.url === url)) continue;
+      links.push({ url, title: raw.title?.trim() || null, source: detectLinkSource(url) });
     }
 
     const sb = context.supabase as AnyClient;
@@ -311,7 +309,8 @@ export const createPortalRequestFn = createServerFn({ method: "POST" })
         desired_due_at: data.desiredDueAt ?? null,
         created_by: context.userId,
         created_by_name: name,
-        attachments,
+        attachments: [],
+        links,
       })
       .select("id")
       .single();
