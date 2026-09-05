@@ -1,39 +1,61 @@
 /**
  * Textarea com menções `@`.
  *
- * A fonte de verdade das menções é sempre o TEXTO: `resolveMentions()` extrai
- * os IDs a partir dos nomes presentes no corpo, então apagar o `@Nome` remove
- * a menção automaticamente (sem IDs órfãos).
+ * A fonte de verdade continua sendo o TEXTO, mas a pessoa escolhida é gravada
+ * num token estável `@[Nome](uuid)`. Assim homônimos nunca são confundidos e
+ * apagar o trecho remove a menção (sem IDs órfãos). Comentários antigos com
+ * `@Nome` puro seguem sendo reconhecidos.
  */
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { displayName, initialsOf } from "@/lib/identity";
 
-export type MentionPerson = { id: string; name: string; avatar_url?: string | null };
+export type MentionPerson = {
+  id: string;
+  name: string;
+  email?: string | null;
+  avatar_url?: string | null;
+};
 
-function initials(name: string) {
-  return (
-    name
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((p) => p[0]?.toUpperCase())
-      .join("") || "?"
-  );
+/** `@[Nome](uuid)` */
+export const MENTION_TOKEN_RE = /@\[[^\]\n]+\]\([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\)/i;
+
+const TOKEN_GLOBAL = new RegExp(MENTION_TOKEN_RE.source, "gi");
+
+/** Rótulo exibido na lista: nome + e-mail para desambiguar homônimos. */
+export function personLabel(p: MentionPerson): string {
+  return displayName({ name: p.name, email: p.email });
 }
 
-/** IDs das pessoas realmente mencionadas no texto (match por nome completo). */
+/** IDs das pessoas realmente mencionadas no texto. */
 export function resolveMentions(text: string, people: MentionPerson[]): string[] {
-  const lower = text.toLowerCase();
   const ids = new Set<string>();
+  const known = new Set(people.map((p) => p.id));
+
+  // 1) Tokens explícitos — pessoa exata escolhida na lista.
+  let stripped = text;
+  for (const m of text.matchAll(TOKEN_GLOBAL)) {
+    const id = /\(([^)]+)\)$/.exec(m[0])?.[1];
+    if (id && known.has(id)) ids.add(id);
+    stripped = stripped.replace(m[0], " ");
+  }
+
+  // 2) Compatibilidade: `@Nome` puro. Nomes ambíguos são ignorados de propósito.
+  const lower = stripped.toLowerCase();
   for (const p of people) {
-    const name = p.name.trim();
+    const name = personLabel(p).trim();
     if (!name) continue;
-    if (lower.includes(`@${name.toLowerCase()}`)) ids.add(p.id);
+    if (!lower.includes(`@${name.toLowerCase()}`)) continue;
+    const homonyms = people.filter(
+      (o) => personLabel(o).trim().toLowerCase() === name.toLowerCase(),
+    );
+    if (homonyms.length === 1) ids.add(p.id);
   }
   return Array.from(ids);
 }
+
 
 /** Trecho digitado após o `@` mais recente antes do caret, ou null. */
 function activeQuery(text: string, caret: number): { start: number; query: string } | null {
