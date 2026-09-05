@@ -1,9 +1,7 @@
 import type { ReactNode } from "react";
 import { PortalLink, usePortalCaps, usePortalMode } from "./portal-context";
-import { portalCanView } from "@/lib/portal-permissions";
 import {
-  PORTAL_ACCOUNT_TABS,
-  PORTAL_TABS,
+  visiblePortalTabs,
   PORTAL_TAB_DESCRIPTION,
   PORTAL_TAB_LABEL,
   type PortalTabId,
@@ -178,11 +176,5 @@ export function PortalShell({
 function useVisiblePortalTabs() {
   const { permissions } = usePortalCaps();
   const mode = usePortalMode();
-  const isSession = mode.kind === "session";
-  return [...PORTAL_TABS, ...(isSession ? PORTAL_ACCOUNT_TABS : [])].filter((t) => {
-    if (t.id === "home") return true;
-    if (t.id === "notifications" || t.id === "account") return isSession;
-    if (t.id === "requests" && !isSession) return false;
-    return portalCanView(permissions, t.id as never);
-  });
+  return visiblePortalTabs(permissions, mode.kind === "session");
 }
