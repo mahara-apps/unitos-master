@@ -126,7 +126,7 @@ export function LoginForm() {
     // interna (que redirecionaria de novo, gerando um pisca).
     const access = await getCachedPortalAccess().catch(() => null);
     const target =
-      access && access.isPortalUser && !access.isTeamMember ? "/area/inicio" : resolveNext();
+      access?.isPortalUser ? "/area/inicio" : resolveNext();
     await router.invalidate();
     navigate({ to: target, replace: true });
   }

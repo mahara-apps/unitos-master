@@ -10,6 +10,7 @@ import {
   Bell,
   UserCircle,
 } from "lucide-react";
+import { portalCanView, type PortalPermissions } from "@/lib/portal-permissions";
 
 export type PortalTabId =
   | "home"
@@ -84,6 +85,23 @@ const SEGMENT = ALL_TABS.reduce(
   (acc, t) => ({ ...acc, [t.id]: t.segment }),
   {} as Record<PortalTabId, string>,
 );
+
+/**
+ * Abas visíveis para o cliente: fonte única usada pelo shell (e testada).
+ * "Início" é sempre visível; Pedidos/Avisos/Minha conta existem só com login;
+ * o resto segue a matriz de permissões do cliente.
+ */
+export function visiblePortalTabs(
+  permissions: PortalPermissions,
+  isSession: boolean,
+): Array<{ id: PortalTabId; label: string; icon: typeof Home; segment: string }> {
+  return [...PORTAL_TABS, ...(isSession ? PORTAL_ACCOUNT_TABS : [])].filter((t) => {
+    if (t.id === "home") return true;
+    if (t.id === "notifications" || t.id === "account") return isSession;
+    if (t.id === "requests" && !isSession) return false;
+    return portalCanView(permissions, t.id as never);
+  });
+}
 
 /** Path da aba no modo LOGIN. */
 export function sessionTabPath(tab: PortalTabId): string {
