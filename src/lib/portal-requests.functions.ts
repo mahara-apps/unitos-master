@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolvePortalSessionScope } from "@/lib/portal-permissions.server";
-import { insertNotificationsDeduped, notificationDedupeKey } from "@/lib/notifications-dedupe";
 import { detectLinkSource, normalizeLinkUrl } from "@/lib/link-source";
 
 /**
@@ -12,9 +11,6 @@ import { detectLinkSource, normalizeLinkUrl } from "@/lib/link-source";
  * Todo acesso passa por `resolvePortalSessionScope`, que valida vínculo com o
  * cliente E o nível do módulo — link sem senha não cria nem comenta nada.
  */
-
-const INTERNAL_BRAND_ROLES = ["owner", "admin", "manager"];
-const PORTAL_ROLE = "portal_client";
 
 export const PORTAL_REQUEST_STATUS = [
   "submitted",
