@@ -2884,3 +2884,8 @@ FOR EACH ROW EXECUTE FUNCTION public.enforce_portal_client_exclusivity();
 -- ---------------------------------------------------------------------------
 REVOKE ALL ON FUNCTION public.block_portal_client_team_link() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.enforce_portal_client_exclusivity() FROM PUBLIC, anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 20260905211211_a20d47e3-8d1e-4970-956e-ec6fad149d01.sql
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.client_requests ADD COLUMN IF NOT EXISTS links jsonb NOT NULL DEFAULT '[]'::jsonb;
