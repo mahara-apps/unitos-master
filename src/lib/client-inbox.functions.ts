@@ -231,21 +231,6 @@ export const listClientInboxFn = createServerFn({ method: "POST" })
       .slice(0, limit);
   });
 
-/** Quantidade de itens do cliente esperando resposta (badge do menu). */
-export const countClientInboxAwaitingFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid() }).parse(i))
-  .handler(async ({ data, context }): Promise<number> => {
-    const items = await (listClientInboxFn as unknown as (a: {
-      data: unknown;
-      context?: unknown;
-    }) => Promise<ClientInboxItem[]>)({
-      data: { brandId: data.brandId, awaitingOnly: true, limit: 300 },
-      context,
-    }).catch(() => [] as ClientInboxItem[]);
-    return items.length;
-  });
-
 async function teamName(supabase: unknown, userId: string): Promise<string | null> {
   const { data } = await (supabase as AnyClient)
     .from("user_profiles")
