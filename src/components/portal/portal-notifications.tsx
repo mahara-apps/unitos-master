@@ -24,7 +24,7 @@ export function PortalNotifications() {
 
   const q = useQuery({
     queryKey: ["portal", "notifications", mode.kind === "session" ? mode.clientId : "token"],
-    queryFn: () => list({ data: { scope: "history" } }),
+    queryFn: () => list({ data: { scope: "inbox" } }),
     enabled: mode.kind === "session",
   });
 
