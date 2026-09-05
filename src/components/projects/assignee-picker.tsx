@@ -10,23 +10,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { displayName, initialsOf as identityInitials } from "@/lib/identity";
 
 export type TeamOption = {
   user_id: string;
   full_name: string | null;
+  email?: string | null;
   avatar_url?: string | null;
 };
 
 const NONE = "__none__";
 
+/** Reexport da identidade canônica (mantido para os imports existentes). */
 export function initialsOf(name: string | null | undefined) {
-  if (!name) return "?";
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase())
-    .join("");
+  return identityInitials(name ?? null);
+}
+
+/** Nome exibido de uma opção de equipe. */
+export function optionName(o: TeamOption) {
+  return displayName({ full_name: o.full_name, email: o.email ?? null });
 }
 
 export function AssigneePicker({
