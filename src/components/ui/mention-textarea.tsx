@@ -187,7 +187,7 @@ export function MentionTextarea({
       {open ? (
         <ul
           role="listbox"
-          className="absolute bottom-full left-0 z-30 mb-2 w-64 overflow-hidden rounded-md border border-border bg-popover py-1 shadow-md"
+          className="absolute bottom-full left-0 z-30 mb-2 w-80 max-w-[90vw] overflow-hidden rounded-md border border-border bg-popover py-1 shadow-md"
         >
           {suggestions.map((p, i) => (
             <li key={p.id}>
@@ -203,14 +203,24 @@ export function MentionTextarea({
                 onMouseEnter={() => setHighlight(i)}
                 onClick={() => pick(p)}
               >
-                <Avatar className="h-5 w-5">
+                <Avatar className="h-6 w-6">
                   {p.avatar_url ? <AvatarImage src={p.avatar_url} alt="" /> : null}
-                  <AvatarFallback className="text-[9px]">{initials(p.name)}</AvatarFallback>
+                  <AvatarFallback className="text-[9px]">
+                    {initialsOf({ name: p.name, email: p.email })}
+                  </AvatarFallback>
                 </Avatar>
-                <span className="truncate">{p.name}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">{personLabel(p)}</span>
+                  {p.email ? (
+                    <span className="block truncate text-[11px] text-muted-foreground">
+                      {p.email}
+                    </span>
+                  ) : null}
+                </span>
               </button>
             </li>
           ))}
+
         </ul>
       ) : null}
     </div>
