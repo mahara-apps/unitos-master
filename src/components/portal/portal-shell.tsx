@@ -129,9 +129,17 @@ export function PortalShell({
 
 function PortalNavList({ activeTab, compact }: { activeTab: PortalTabId; compact?: boolean }) {
   const { permissions } = usePortalCaps();
+  const mode = usePortalMode();
+  const isSession = mode.kind === "session";
   // "Início" é sempre visível; os demais seguem a permissão do cliente.
-  const tabs = PORTAL_TABS.filter(
-    (t) => t.id === "home" || portalCanView(permissions, t.id as never),
+  // Pedidos, Avisos e Minha conta existem SOMENTE no acesso com login.
+  const tabs = [...PORTAL_TABS, ...(isSession ? PORTAL_ACCOUNT_TABS : [])].filter(
+    (t) =>
+      t.id === "home" ||
+      ((isSession || t.id !== "requests") &&
+        (t.id === "notifications" || t.id === "account"
+          ? isSession
+          : portalCanView(permissions, t.id as never))),
   );
   if (compact) {
     return (
