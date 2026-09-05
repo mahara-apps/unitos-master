@@ -55,6 +55,8 @@ type MemberRow = {
 type ProfileRow = {
   id: string;
   full_name: string | null;
+  email: string | null;
+
   avatar_url: string | null;
   phone: string | null;
   job_title: string | null;
