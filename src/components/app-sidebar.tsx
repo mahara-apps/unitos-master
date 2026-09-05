@@ -9,6 +9,7 @@ import { UnitosLogo } from "@/components/brand/unitos-logo";
 import {
   LayoutDashboard,
   Bell,
+  Inbox,
   LogOut,
   KanbanSquare,
   BarChart3,
@@ -69,7 +70,7 @@ type NavItem = {
   url: string;
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   featureKey?: string;
-  badge?: "tasks-pending" | "beta";
+  badge?: "tasks-pending" | "inbox-awaiting" | "beta";
 };
 
 const groups: Array<{ label: string; items: NavItem[] }> = [
@@ -115,6 +116,7 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
     label: "Gestão & Configurações",
     items: [
       { title: "Clientes", url: "/customers", icon: Users, featureKey: "customers" },
+      { title: "Área do cliente", url: "/inbox", icon: Inbox, badge: "inbox-awaiting" },
       { title: "Integrações", url: "/connections", icon: Plug, featureKey: "connections" },
       { title: "Notificações", url: "/notifications", icon: Bell, featureKey: "notifications" },
       { title: "Configurações", url: "/settings", icon: SettingsIcon },

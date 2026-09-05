@@ -13,6 +13,7 @@ export const CUSTOMER_TABS = [
   { value: "pauta", label: "Pauta" },
   { value: "trabalho", label: "Trabalho" },
   { value: "publicacoes", label: "Publicações" },
+  { value: "area-cliente", label: "Área do cliente" },
 ] as const;
 
 export type CustomerTab = (typeof CUSTOMER_TABS)[number]["value"];

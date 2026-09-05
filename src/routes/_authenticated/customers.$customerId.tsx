@@ -27,6 +27,7 @@ import { PanelGroup } from "@/components/customer/ui/panel-section";
 import { WorkTab } from "@/components/customer/work/work-tab";
 import { PublicationsTab } from "@/components/customer/publications/publications-tab";
 import { BasicInfoTab } from "@/components/customer/basic-info-tab";
+import { ClientInbox } from "@/components/client-inbox/client-inbox";
 import { AccountManagementTab } from "@/components/customer/account-management-tab";
 import { BriefingWorkspace } from "@/components/brand-hub/briefing-workspace";
 import { QuickOnboardingWizard } from "@/components/brand-hub/quick-onboarding-wizard";
@@ -399,6 +400,10 @@ function CustomerDetailReady({
                     onRestored={invalidateAll}
                   />
                 </PanelGroup>
+              </TabsContent>
+
+              <TabsContent value="area-cliente" className="mt-0">
+                <ClientInbox brandId={brandId} clientId={customerId} embedded />
               </TabsContent>
 
               <TabsContent value="pauta" className="mt-0">
