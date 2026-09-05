@@ -98,7 +98,13 @@ export function MentionTextarea({
   const suggestions = useMemo(() => {
     if (!trigger) return [];
     const q = trigger.query.trim().toLowerCase();
-    const list = q ? people.filter((p) => p.name.toLowerCase().includes(q)) : people;
+    const list = q
+      ? people.filter(
+          (p) =>
+            personLabel(p).toLowerCase().includes(q) ||
+            (p.email ?? "").toLowerCase().includes(q),
+        )
+      : people;
     return list.slice(0, 8);
   }, [trigger, people]);
 
@@ -114,15 +120,17 @@ export function MentionTextarea({
     if (!trigger) return;
     const el = ref.current;
     const caret = el?.selectionStart ?? value.length;
-    const next = `${value.slice(0, trigger.start)}@${person.name} ${value.slice(caret)}`;
+    const token = `@[${personLabel(person)}](${person.id})`;
+    const next = `${value.slice(0, trigger.start)}${token} ${value.slice(caret)}`;
     onChange(next);
     setTrigger(null);
     requestAnimationFrame(() => {
-      const pos = trigger.start + person.name.length + 2;
+      const pos = trigger.start + token.length + 1;
       el?.focus();
       el?.setSelectionRange(pos, pos);
     });
   }
+
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (open) {
