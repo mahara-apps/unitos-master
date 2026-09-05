@@ -7,7 +7,14 @@
  * apenas para esconder o que já está bloqueado no backend.
  */
 
-export type PortalModuleId = "approvals" | "pauta" | "calendar" | "briefing" | "files" | "brand";
+export type PortalModuleId =
+  | "approvals"
+  | "pauta"
+  | "calendar"
+  | "briefing"
+  | "files"
+  | "brand"
+  | "requests";
 
 /** Nenhum = nem aparece. Ver = acompanha. Interagir = decide/responde. */
 export type PortalPermissionLevel = "none" | "view" | "interact";
@@ -71,6 +78,12 @@ export const PORTAL_MODULES: Array<{
     interact: "",
     viewOnly: true,
   },
+  {
+    id: "requests",
+    label: "Pedidos",
+    description: "Solicitações que o cliente envia para a equipe.",
+    interact: "Abrir novos pedidos e comentar",
+  },
 ];
 
 export type PortalPermissions = Record<PortalModuleId, PortalPermissionLevel>;
@@ -83,6 +96,7 @@ export const DEFAULT_PORTAL_PERMISSIONS: PortalPermissions = {
   briefing: "interact",
   files: "view",
   brand: "view",
+  requests: "interact",
 };
 
 const isLevel = (v: unknown): v is PortalPermissionLevel =>
