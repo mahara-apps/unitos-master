@@ -64,7 +64,9 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
         // ou aba inexistente nunca derruba a página.
         tab: z.string().optional().catch(undefined),
       })
-      .catch({}),
+      .catch({})
+      .parse(s),
+
   // Guard de rota: valida o customerId e normaliza a aba ANTES de montar
   // qualquer conteúdo protegido. A autorização definitiva continua na RLS
   // (server functions) — este guard é apenas de rota/navegação.
