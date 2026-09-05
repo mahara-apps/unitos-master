@@ -306,9 +306,6 @@ export const resetPortalContactPasswordFn = createServerFn({ method: "POST" })
       await admin.from("user_profiles").update({ requires_password_change: true }).eq("id", data.userId);
 
       const email = updated?.user?.email ?? "";
-      // Defesa em profundidade: se qualquer trigger legado tiver vinculado a
-      // conta à equipe, o vínculo é removido antes do primeiro login.
-      await admin.from("brand_members").delete().eq("user_id", newUserId);
 
       let emailSent = false;
       if (data.sendEmail && email) {
