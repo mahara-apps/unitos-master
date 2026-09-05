@@ -7,7 +7,14 @@
  * apenas para esconder o que já está bloqueado no backend.
  */
 
-export type PortalModuleId = "approvals" | "pauta" | "calendar" | "briefing" | "files" | "brand";
+export type PortalModuleId =
+  | "approvals"
+  | "pauta"
+  | "calendar"
+  | "briefing"
+  | "files"
+  | "brand"
+  | "requests";
 
 /** Nenhum = nem aparece. Ver = acompanha. Interagir = decide/responde. */
 export type PortalPermissionLevel = "none" | "view" | "interact";
