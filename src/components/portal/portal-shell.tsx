@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { PortalLink, usePortalCaps } from "./portal-context";
+import { PortalLink, usePortalCaps, usePortalMode } from "./portal-context";
 import { portalCanView } from "@/lib/portal-permissions";
 import {
+  PORTAL_ACCOUNT_TABS,
   PORTAL_TABS,
   PORTAL_TAB_DESCRIPTION,
   PORTAL_TAB_LABEL,
