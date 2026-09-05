@@ -282,7 +282,7 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
             email,
             password: tempPassword,
             email_confirm: true,
-            user_metadata: { full_name: email.split("@")[0] },
+            // Sem nome inventado: a pessoa confirma o nome real no primeiro acesso.
           });
           if (createErr) {
             results.push({ email, status: "error", error: `provision_${createErr.message}` });
