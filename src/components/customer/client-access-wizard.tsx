@@ -191,11 +191,42 @@ export function ClientAccessWizard({
     <ExpandedModal
       open={open}
       onOpenChange={onOpenChange}
+      size="lg"
       title="Acesso do Cliente"
       description={
         clientName
           ? `Login e senha para ${clientName} acompanhar e aprovar pelo portal.`
           : "Login e senha para o cliente acompanhar e aprovar pelo portal."
+      }
+      footer={
+        <div className="flex w-full flex-wrap items-center justify-between gap-2">
+        <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          Cancelar
+        </Button>
+        <div className="flex items-center gap-2">
+          {step > 1 && (
+            <Button variant="outline" onClick={() => setStep(step - 1)}>
+              Voltar
+            </Button>
+          )}
+          {step < 3 ? (
+            <Button onClick={() => setStep(step + 1)}>Próximo</Button>
+          ) : (
+            <Button
+              className="gap-1.5"
+              disabled={saveMut.isPending || !perms}
+              onClick={() => saveMut.mutate()}
+            >
+              {saveMut.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="h-4 w-4" />
+              )}
+              Salvar acesso
+            </Button>
+          )}
+        </div>
+        </div>
       }
     >
       <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
@@ -481,34 +512,6 @@ export function ClientAccessWizard({
         </div>
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-4">
-        <Button variant="ghost" onClick={() => onOpenChange(false)}>
-          Cancelar
-        </Button>
-        <div className="flex items-center gap-2">
-          {step > 1 && (
-            <Button variant="outline" onClick={() => setStep(step - 1)}>
-              Voltar
-            </Button>
-          )}
-          {step < 3 ? (
-            <Button onClick={() => setStep(step + 1)}>Próximo</Button>
-          ) : (
-            <Button
-              className="gap-1.5"
-              disabled={saveMut.isPending || !perms}
-              onClick={() => saveMut.mutate()}
-            >
-              {saveMut.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="h-4 w-4" />
-              )}
-              Salvar acesso
-            </Button>
-          )}
-        </div>
-      </div>
     </ExpandedModal>
   );
 }
