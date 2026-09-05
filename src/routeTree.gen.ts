@@ -57,6 +57,7 @@ import { Route as ApiJobsCopilotRouteImport } from './routes/api/jobs/copilot'
 import { Route as ApiJobsAnalyzeDocumentRouteImport } from './routes/api/jobs/analyze-document'
 import { Route as ApiJobsAnalyzeBriefingTextRouteImport } from './routes/api/jobs/analyze-briefing-text'
 import { Route as ApiChatStreamRouteImport } from './routes/api/chat.stream'
+import { Route as PortalAreaPedidosRouteImport } from './routes/_portal/area.pedidos'
 import { Route as PortalAreaPautaRouteImport } from './routes/_portal/area.pauta'
 import { Route as PortalAreaMinhaMarcaRouteImport } from './routes/_portal/area.minha-marca'
 import { Route as PortalAreaInicioRouteImport } from './routes/_portal/area.inicio'
@@ -360,6 +361,11 @@ const ApiChatStreamRoute = ApiChatStreamRouteImport.update({
   id: '/api/chat/stream',
   path: '/api/chat/stream',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PortalAreaPedidosRoute = PortalAreaPedidosRouteImport.update({
+  id: '/pedidos',
+  path: '/pedidos',
+  getParentRoute: () => PortalAreaRoute,
 } as any)
 const PortalAreaPautaRoute = PortalAreaPautaRouteImport.update({
   id: '/pauta',
@@ -748,6 +754,7 @@ export interface FileRoutesByFullPath {
   '/area/inicio': typeof PortalAreaInicioRoute
   '/area/minha-marca': typeof PortalAreaMinhaMarcaRoute
   '/area/pauta': typeof PortalAreaPautaRoute
+  '/area/pedidos': typeof PortalAreaPedidosRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-briefing-text': typeof ApiJobsAnalyzeBriefingTextRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
@@ -845,6 +852,7 @@ export interface FileRoutesByTo {
   '/area/inicio': typeof PortalAreaInicioRoute
   '/area/minha-marca': typeof PortalAreaMinhaMarcaRoute
   '/area/pauta': typeof PortalAreaPautaRoute
+  '/area/pedidos': typeof PortalAreaPedidosRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-briefing-text': typeof ApiJobsAnalyzeBriefingTextRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
@@ -953,6 +961,7 @@ export interface FileRoutesById {
   '/_portal/area/inicio': typeof PortalAreaInicioRoute
   '/_portal/area/minha-marca': typeof PortalAreaMinhaMarcaRoute
   '/_portal/area/pauta': typeof PortalAreaPautaRoute
+  '/_portal/area/pedidos': typeof PortalAreaPedidosRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-briefing-text': typeof ApiJobsAnalyzeBriefingTextRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
@@ -1060,6 +1069,7 @@ export interface FileRouteTypes {
     | '/area/inicio'
     | '/area/minha-marca'
     | '/area/pauta'
+    | '/area/pedidos'
     | '/api/chat/stream'
     | '/api/jobs/analyze-briefing-text'
     | '/api/jobs/analyze-document'
@@ -1157,6 +1167,7 @@ export interface FileRouteTypes {
     | '/area/inicio'
     | '/area/minha-marca'
     | '/area/pauta'
+    | '/area/pedidos'
     | '/api/chat/stream'
     | '/api/jobs/analyze-briefing-text'
     | '/api/jobs/analyze-document'
@@ -1264,6 +1275,7 @@ export interface FileRouteTypes {
     | '/_portal/area/inicio'
     | '/_portal/area/minha-marca'
     | '/_portal/area/pauta'
+    | '/_portal/area/pedidos'
     | '/api/chat/stream'
     | '/api/jobs/analyze-briefing-text'
     | '/api/jobs/analyze-document'
@@ -1693,6 +1705,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/chat/stream'
       preLoaderRoute: typeof ApiChatStreamRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_portal/area/pedidos': {
+      id: '/_portal/area/pedidos'
+      path: '/pedidos'
+      fullPath: '/area/pedidos'
+      preLoaderRoute: typeof PortalAreaPedidosRouteImport
+      parentRoute: typeof PortalAreaRoute
     }
     '/_portal/area/pauta': {
       id: '/_portal/area/pauta'
@@ -2319,6 +2338,7 @@ interface PortalAreaRouteChildren {
   PortalAreaInicioRoute: typeof PortalAreaInicioRoute
   PortalAreaMinhaMarcaRoute: typeof PortalAreaMinhaMarcaRoute
   PortalAreaPautaRoute: typeof PortalAreaPautaRoute
+  PortalAreaPedidosRoute: typeof PortalAreaPedidosRoute
 }
 
 const PortalAreaRouteChildren: PortalAreaRouteChildren = {
@@ -2329,6 +2349,7 @@ const PortalAreaRouteChildren: PortalAreaRouteChildren = {
   PortalAreaInicioRoute: PortalAreaInicioRoute,
   PortalAreaMinhaMarcaRoute: PortalAreaMinhaMarcaRoute,
   PortalAreaPautaRoute: PortalAreaPautaRoute,
+  PortalAreaPedidosRoute: PortalAreaPedidosRoute,
 }
 
 const PortalAreaRouteWithChildren = PortalAreaRoute._addFileChildren(
