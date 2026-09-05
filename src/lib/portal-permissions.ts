@@ -78,6 +78,12 @@ export const PORTAL_MODULES: Array<{
     interact: "",
     viewOnly: true,
   },
+  {
+    id: "requests",
+    label: "Pedidos",
+    description: "Solicitações que o cliente envia para a equipe.",
+    interact: "Abrir novos pedidos e comentar",
+  },
 ];
 
 export type PortalPermissions = Record<PortalModuleId, PortalPermissionLevel>;
