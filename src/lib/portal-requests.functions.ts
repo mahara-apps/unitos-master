@@ -13,7 +13,6 @@ import { detectLinkSource, normalizeLinkUrl } from "@/lib/link-source";
  * cliente E o nível do módulo — link sem senha não cria nem comenta nada.
  */
 
-const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
 const INTERNAL_BRAND_ROLES = ["owner", "admin", "manager"];
 const PORTAL_ROLE = "portal_client";
 
@@ -80,28 +79,9 @@ export type PortalRequestEvent = {
 
 const ClientIn = z.object({ clientId: z.string().uuid() });
 
-const AttachmentIn = z.object({
-  name: z.string().trim().min(1).max(180),
-  mime: z.string().trim().max(160).nullish(),
-  dataBase64: z.string().min(1),
-});
-
 type AnyClient = {
   from: (table: string) => any;
 };
-
-function decodeBase64(value: string): Uint8Array {
-  const raw =
-    value.includes(",") && value.startsWith("data:") ? value.slice(value.indexOf(",") + 1) : value;
-  const bin = atob(raw);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
-  return bytes;
-}
-
-function safeName(name: string): string {
-  return name.replace(/[^\w.-]+/g, "_").slice(-120) || "anexo";
-}
 
 function normalizeAttachments(raw: unknown): PortalRequestAttachment[] {
   if (!Array.isArray(raw)) return [];
