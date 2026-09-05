@@ -36,11 +36,10 @@ import { computeBriefingCompletion } from "@/lib/briefing-progress";
 import { usePageHeader } from "@/hooks/use-page-header";
 import {
   CUSTOMER_TABS,
-  CUSTOMER_TAB_SEARCH_VALUES,
-  isCustomerTabAlias,
   resolveCustomerTab,
   type CustomerTab,
 } from "@/lib/customer-tabs";
+
 import {
   CUSTOMER_QUERY_KEYS,
   customerCoreQuery,
