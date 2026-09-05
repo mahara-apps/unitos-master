@@ -96,6 +96,7 @@ export const DEFAULT_PORTAL_PERMISSIONS: PortalPermissions = {
   briefing: "interact",
   files: "view",
   brand: "view",
+  requests: "interact",
 };
 
 const isLevel = (v: unknown): v is PortalPermissionLevel =>
