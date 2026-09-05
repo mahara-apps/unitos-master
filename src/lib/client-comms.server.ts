@@ -40,6 +40,30 @@ type BaseInput = {
   payload?: Record<string, unknown>;
 };
 
+export type Member = { user_id: string | null; role: string | null };
+
+/**
+ * Destinatários internos de um aviso do cliente: responsável pelo cliente,
+ * quem está ligado ao cliente e todos os integrantes internos do workspace.
+ * Contato de portal nunca entra, mesmo se estiver ligado ao cliente.
+ */
+export function internalRecipients(input: {
+  brandMembers: Member[];
+  clientMembers: Member[];
+  ownerUserId: string | null;
+}): Set<string> {
+  const internal = new Set<string>();
+  for (const m of input.brandMembers) {
+    if (m.user_id && m.role !== PORTAL_ROLE) internal.add(m.user_id);
+  }
+  const recipients = new Set<string>(internal);
+  for (const m of input.clientMembers) {
+    if (m.user_id && m.role !== PORTAL_ROLE && internal.has(m.user_id)) recipients.add(m.user_id);
+  }
+  if (input.ownerUserId && internal.has(input.ownerUserId)) recipients.add(input.ownerUserId);
+  return recipients;
+}
+
 /** Avisa a equipe interna sobre uma ação do cliente. */
 export async function notifyInternalTeam(input: BaseInput): Promise<void> {
   try {
@@ -52,19 +76,12 @@ export async function notifyInternalTeam(input: BaseInput): Promise<void> {
         sb.from("clients").select("name, owner_user_id").eq("id", input.clientId).maybeSingle(),
       ]);
 
-    const internal = new Set<string>();
-    for (const m of (brandMembers ?? []) as Array<{ user_id: string; role: string | null }>) {
-      if (m.user_id && m.role !== PORTAL_ROLE) internal.add(m.user_id);
-    }
-    const recipients = new Set<string>(internal);
-    for (const m of (clientMembers ?? []) as Array<{ user_id: string; role: string | null }>) {
-      // Só quem também é integrante interno do workspace (nunca contato de portal).
-      if (m.user_id && m.role !== PORTAL_ROLE && internal.has(m.user_id)) recipients.add(m.user_id);
-    }
     const client = (clientRow ?? {}) as { name?: string | null; owner_user_id?: string | null };
-    if (client.owner_user_id && internal.has(client.owner_user_id)) {
-      recipients.add(client.owner_user_id);
-    }
+    const recipients = internalRecipients({
+      brandMembers: (brandMembers ?? []) as Member[],
+      clientMembers: (clientMembers ?? []) as Member[],
+      ownerUserId: client.owner_user_id ?? null,
+    });
     if (!recipients.size) return;
 
     const who = client.name ?? "Cliente";
