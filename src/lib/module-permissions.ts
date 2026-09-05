@@ -183,8 +183,8 @@ export const MODULES: ModuleDefinition[] = [
     key: "portal",
     label: "Portal do cliente",
     group: "Administração",
-    description: "Acessos do portal e links de aprovação do cliente.",
-    urls: [],
+    description: "Acessos do portal, caixa de entrada e links de aprovação do cliente.",
+    urls: ["/inbox"],
     levels: ["none", "view", "full"],
   },
   {

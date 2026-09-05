@@ -3806,6 +3806,7 @@ export type Database = {
           description: string | null
           desired_due_at: string | null
           id: string
+          last_team_reply_at: string | null
           links: Json
           owner_user_id: string | null
           project_id: string | null
@@ -3826,6 +3827,7 @@ export type Database = {
           description?: string | null
           desired_due_at?: string | null
           id?: string
+          last_team_reply_at?: string | null
           links?: Json
           owner_user_id?: string | null
           project_id?: string | null
@@ -3846,6 +3848,7 @@ export type Database = {
           description?: string | null
           desired_due_at?: string | null
           id?: string
+          last_team_reply_at?: string | null
           links?: Json
           owner_user_id?: string | null
           project_id?: string | null

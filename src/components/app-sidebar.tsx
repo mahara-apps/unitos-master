@@ -9,6 +9,7 @@ import { UnitosLogo } from "@/components/brand/unitos-logo";
 import {
   LayoutDashboard,
   Bell,
+  Inbox,
   LogOut,
   KanbanSquare,
   BarChart3,
@@ -57,6 +58,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { useModulePermissions } from "@/hooks/use-module-permissions";
+import { listClientInboxFn } from "@/lib/client-inbox.functions";
 import { allowedSidebarUrls } from "@/lib/module-permissions";
 import { canAccessSidebarUrl } from "@/lib/permissions";
 import { useBrandFeatures } from "@/hooks/use-feature-access";
@@ -69,7 +71,7 @@ type NavItem = {
   url: string;
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   featureKey?: string;
-  badge?: "tasks-pending" | "beta";
+  badge?: "tasks-pending" | "inbox-awaiting" | "beta";
 };
 
 const groups: Array<{ label: string; items: NavItem[] }> = [
@@ -115,6 +117,7 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
     label: "Gestão & Configurações",
     items: [
       { title: "Clientes", url: "/customers", icon: Users, featureKey: "customers" },
+      { title: "Área do cliente", url: "/inbox", icon: Inbox, badge: "inbox-awaiting" },
       { title: "Integrações", url: "/connections", icon: Plug, featureKey: "connections" },
       { title: "Notificações", url: "/notifications", icon: Bell, featureKey: "notifications" },
       { title: "Configurações", url: "/settings", icon: SettingsIcon },
@@ -160,6 +163,26 @@ export function AppSidebar() {
     retry: false,
   });
   const pendingCount = pendingQ.data?.count ?? 0;
+  // Itens da área do cliente esperando resposta da equipe.
+  const listInbox = useServerFn(listClientInboxFn);
+  const inboxQ = useQuery({
+    queryKey: ["client-inbox-awaiting", brandId],
+    queryFn: async () => {
+      try {
+        const items = await listInbox({
+          data: { brandId: brandId!, awaitingOnly: true, limit: 300 },
+        });
+        return items.length;
+      } catch {
+        return 0;
+      }
+    },
+    enabled: !!brandId,
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+    retry: false,
+  });
+  const inboxAwaiting = inboxQ.data ?? 0;
   const featureEnabled = (key?: string) => {
     if (!key) return true;
     if (isSuper) return true;
@@ -258,6 +281,11 @@ export function AppSidebar() {
                         {item.badge === "tasks-pending" && pendingCount > 0 ? (
                           <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold leading-none text-destructive-foreground group-data-[collapsible=icon]:hidden">
                             {pendingCount > 99 ? "99+" : pendingCount}
+                          </span>
+                        ) : null}
+                        {item.badge === "inbox-awaiting" && inboxAwaiting > 0 ? (
+                          <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-severity-warning px-1.5 text-[10px] font-semibold leading-none text-background group-data-[collapsible=icon]:hidden">
+                            {inboxAwaiting > 99 ? "99+" : inboxAwaiting}
                           </span>
                         ) : null}
                         {item.badge === "beta" ? (

@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolvePortalSessionScope } from "@/lib/portal-permissions.server";
-import { insertNotificationsDeduped, notificationDedupeKey } from "@/lib/notifications-dedupe";
 import { detectLinkSource, normalizeLinkUrl } from "@/lib/link-source";
 
 /**
@@ -12,9 +11,6 @@ import { detectLinkSource, normalizeLinkUrl } from "@/lib/link-source";
  * Todo acesso passa por `resolvePortalSessionScope`, que valida vínculo com o
  * cliente E o nível do módulo — link sem senha não cria nem comenta nada.
  */
-
-const INTERNAL_BRAND_ROLES = ["owner", "admin", "manager"];
-const PORTAL_ROLE = "portal_client";
 
 export const PORTAL_REQUEST_STATUS = [
   "submitted",
@@ -140,63 +136,24 @@ async function actorName(supabase: unknown, userId: string): Promise<string | nu
 }
 
 /** Avisa a equipe interna (best-effort: nunca invalida o pedido do cliente). */
-async function notifyTeam(
-  input: {
-    brandId: string;
-    clientId: string;
-    requestId: string;
-    title: string;
-    body: string;
-    kindKey: string;
-  },
-): Promise<void> {
-  try {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const sb = supabaseAdmin as unknown as AnyClient;
-    const [{ data: brandMembers }, { data: clientMembers }, { data: clientRow }] =
-      await Promise.all([
-        sb
-          .from("brand_members")
-          .select("user_id, role")
-          .eq("brand_id", input.brandId)
-          .in("role", INTERNAL_BRAND_ROLES),
-        sb.from("client_members").select("user_id, role").eq("client_id", input.clientId),
-        sb.from("clients").select("name").eq("id", input.clientId).maybeSingle(),
-      ]);
-    const recipients = new Set<string>();
-    for (const m of (brandMembers ?? []) as Array<{ user_id: string }>) {
-      if (m.user_id) recipients.add(m.user_id);
-    }
-    for (const m of (clientMembers ?? []) as Array<{ user_id: string; role: string | null }>) {
-      if (m.user_id && m.role !== PORTAL_ROLE) recipients.add(m.user_id);
-    }
-    if (!recipients.size) return;
-    const who = (clientRow as { name?: string | null } | null)?.name ?? "Cliente";
-    await insertNotificationsDeduped(
-      supabaseAdmin as never,
-      [...recipients].map((userId) => ({
-        user_id: userId,
-        brand_id: input.brandId,
-        kind: "system",
-        title: input.title,
-        body: `${who} · ${input.body}`,
-        href: `/customers/${input.clientId}?tab=pedidos`,
-        dedupe_key: notificationDedupeKey(
-          "client_request",
-          input.kindKey,
-          input.requestId,
-          input.clientId,
-        ),
-        payload: {
-          scope: "client_request",
-          client_id: input.clientId,
-          request_id: input.requestId,
-        },
-      })),
-    );
-  } catch {
-    // avisos são acessórios ao pedido
-  }
+async function notifyTeam(input: {
+  brandId: string;
+  clientId: string;
+  requestId: string;
+  title: string;
+  body: string;
+  kindKey: string;
+}): Promise<void> {
+  const { notifyInternalTeam } = await import("@/lib/client-comms.server");
+  await notifyInternalTeam({
+    brandId: input.brandId,
+    clientId: input.clientId,
+    title: input.title,
+    body: input.body,
+    href: `/inbox?cliente=${input.clientId}&tipo=request`,
+    dedupeParts: ["client_request", input.kindKey, input.requestId],
+    payload: { request_id: input.requestId, inbox_type: "request" },
+  });
 }
 
 async function signAttachments(items: PortalRequestAttachment[]): Promise<PortalRequestAttachment[]> {
