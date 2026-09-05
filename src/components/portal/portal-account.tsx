@@ -80,7 +80,7 @@ export function PortalAccount() {
 
   const accountQ = useQuery({
     queryKey: ["portal", "account"],
-    queryFn: () => loadAccount({ data: {} }),
+    queryFn: () => loadAccount(),
     enabled: mode.kind === "session",
   });
   const prefsQ = useQuery({
