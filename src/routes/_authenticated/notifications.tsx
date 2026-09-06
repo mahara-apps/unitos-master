@@ -23,6 +23,7 @@ import {
   relativeTimePtBr,
   type NotificationBucket,
 } from "@/lib/notifications-format";
+import { NotificationLink } from "@/components/notifications/notification-link";
 
 export const Route = createFileRoute("/_authenticated/notifications")({
   beforeLoad: () => ensureFeatureEnabled("notifications"),
