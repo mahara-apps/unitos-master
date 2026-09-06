@@ -120,10 +120,10 @@ export function PlanStrategyPanel({ plan, items }: { plan: MediaPlan; items: Med
               key={k}
               label={STAGE_LABEL[k]!}
               value={`${split[k] ?? 0}%`}
-              hint={currency(((split[k] ?? 0) / 100) * plan.monthly_budget)}
+              description={currency(((split[k] ?? 0) / 100) * plan.monthly_budget)}
             />
           ))}
-          <PageKpi label="Campanhas" value={String(campaigns.length)} hint="prontas para subir" />
+          <PageKpi label="Campanhas" value={String(campaigns.length)} description="prontas para subir" />
         </PageKpiGrid>
 
         {strategy.funnel_rationale && (
