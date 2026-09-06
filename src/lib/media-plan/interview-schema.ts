@@ -159,7 +159,7 @@ export const INTERVIEW_QUESTIONS: InterviewQuestion[] = [
     question: "Quais lugares, exatamente?",
     help: "Cidades, estados ou o endereço de referência com o raio que faz sentido.",
     placeholder: "Ex.: São Paulo capital + ABC, raio de 15 km da loja da Vila Mariana",
-    showIf: (a) => !has(a, "coverage", "nationwide"),
+    showIf: (a) => typeof a["coverage"] === "string" && !has(a, "coverage", "nationwide"),
   },
   {
     id: "monthly_budget",
@@ -303,10 +303,12 @@ export function isInterviewComplete(answers: InterviewAnswers): boolean {
 export function parseMoney(raw: string | string[] | undefined): number {
   if (typeof raw !== "string") return 0;
   const cleaned = raw.replace(/[^\d.,-]/g, "");
-  const normalized =
-    cleaned.includes(",") && cleaned.lastIndexOf(",") > cleaned.lastIndexOf(".")
-      ? cleaned.replace(/\./g, "").replace(",", ".")
-      : cleaned.replace(/,/g, "");
+  const hasComma = cleaned.includes(",");
+  const normalized = hasComma
+    ? cleaned.replace(/\./g, "").replace(",", ".")
+    : /\.\d{3}(\D|$)/.test(cleaned)
+      ? cleaned.replace(/\./g, "")
+      : cleaned;
   const n = Number(normalized);
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
