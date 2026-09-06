@@ -12,7 +12,9 @@ export const CUSTOMER_TABS = [
   { value: "briefing", label: "Briefing" },
   { value: "pauta", label: "Pauta" },
   { value: "trabalho", label: "Trabalho" },
+  { value: "horas", label: "Horas" },
   { value: "publicacoes", label: "Publicações" },
+
   { value: "area-cliente", label: "Área do cliente" },
 ] as const;
 
