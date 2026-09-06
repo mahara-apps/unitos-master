@@ -52,7 +52,7 @@ export function PortalMessages() {
   }
 
   if (threadsQ.isPending) return <ListSkeleton />;
-  if (threadsQ.isError) return <ErrorState message={portalErrorMessage(threadsQ.error)} />;
+  if (threadsQ.isError) return <ErrorState message={portalErrorMessage((threadsQ.error as Error).message)} />;
 
   const threads = threadsQ.data ?? [];
   const active = threads.find((t) => t.id === activeId) ?? null;
@@ -189,7 +189,7 @@ function PortalThread({
       qc.invalidateQueries({ queryKey });
       onChanged();
     },
-    onError: (e) => toast.error(portalErrorMessage(e)),
+    onError: (e: Error) => toast.error(portalErrorMessage(e.message) ?? "Não conseguimos enviar sua mensagem agora."),
   });
 
   const addLink = () => {
@@ -216,7 +216,7 @@ function PortalThread({
         {listQ.isPending ? (
           <ListSkeleton />
         ) : listQ.isError ? (
-          <ErrorState message={portalErrorMessage(listQ.error)} />
+          <ErrorState message={portalErrorMessage((listQ.error as Error).message)} />
         ) : (
           (listQ.data ?? []).map((m) => (
             <div key={m.id} className={cn("flex", m.mine ? "justify-end" : "justify-start")}>
