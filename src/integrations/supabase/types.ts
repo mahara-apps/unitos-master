@@ -4455,6 +4455,7 @@ export type Database = {
       installation_credentials: {
         Row: {
           created_at: string
+          generated_secrets_ciphertext: string | null
           github_token_ciphertext: string | null
           installation_id: string
           supabase_management_token_ciphertext: string | null
@@ -4465,6 +4466,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          generated_secrets_ciphertext?: string | null
           github_token_ciphertext?: string | null
           installation_id: string
           supabase_management_token_ciphertext?: string | null
@@ -4475,6 +4477,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          generated_secrets_ciphertext?: string | null
           github_token_ciphertext?: string | null
           installation_id?: string
           supabase_management_token_ciphertext?: string | null

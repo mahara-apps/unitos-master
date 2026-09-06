@@ -2144,8 +2144,39 @@ export async function runAutomatedProvision(input: {
     );
   } else {
     await mark("secrets", "running");
+    // Secrets são gerados UMA ÚNICA VEZ por instalação e reutilizados depois.
+    // Regerar `BRAND_CREDENTIALS_SECRET` a cada execução tornava ilegíveis os
+    // tokens das contas sociais já cifrados no banco do destino (o erro
+    // "Falha ao decriptar token da conexão"), além de invalidar o segredo do
+    // cron e os segredos do Meta.
+    const { ensureInstallationSecrets } = await import("./credentials.server");
     const secrets = {} as Record<GeneratedSecretVar, string>;
-    for (const name of GENERATED_SECRET_VARS) secrets[name] = generateInstallationSecret();
+    let secretsDetail: string;
+    try {
+      const ensured = await ensureInstallationSecrets({
+        client: client as never,
+        installationId: installation.id,
+        names: GENERATED_SECRET_VARS,
+        generate: () => generateInstallationSecret(),
+      });
+      for (const name of GENERATED_SECRET_VARS) {
+        const value = (ensured.secrets[name] ?? "").trim();
+        if (!value) throw new Error(`Secret ${name} não pôde ser preparado.`);
+        secrets[name] = value;
+      }
+      secretsDetail =
+        ensured.created.length === 0
+          ? "chaves próprias reutilizadas (nenhum acesso salvo é invalidado)"
+          : `chaves próprias: ${ensured.created.length} criada(s), ${ensured.reused.length} reutilizada(s)`;
+    } catch (error) {
+      // Falha fechada de propósito: gerar novas chaves aqui invalidaria em
+      // silêncio os acessos das redes sociais já cifrados no destino.
+      const reason = error instanceof Error ? error.message : "falha ao preparar as chaves";
+      failures.push(reason);
+      await mark("secrets", "error", reason);
+      checks.secrets = "error";
+      return finish(null, null);
+    }
     const isolation = assertSecretsAreExclusive({ generated: secrets, masterEnv: env });
     if (!isolation.ok) {
       failures.push(isolation.reason);
@@ -2164,7 +2195,7 @@ export async function runAutomatedProvision(input: {
       return finish(null, null);
     }
     checks.secrets = "ok";
-    await mark("secrets", "done", "secrets próprios gerados (valores nunca exibidos)");
+    await mark("secrets", "done", secretsDetail);
 
     await mark("deploy", "running");
     const deployment = await deploy.deploymentUrl();
