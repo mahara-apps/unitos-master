@@ -23,7 +23,7 @@ function entry(over: Partial<TimesheetEntry> = {}): TimesheetEntry {
     user_id: "u1",
     user_name: "Ana Souza",
     user_email: "ana@ex.com",
-    user_avatar_url: null,
+    avatar_url: null,
     hourly_cost_cents: 10000,
     task_id: "t1",
     task_title: "Roteiro",
@@ -88,7 +88,7 @@ describe("timesheet: totais e agrupamentos", () => {
 
   it("monta heatmap por pessoa e dia", () => {
     const h = buildHeatmap(entries, "day");
-    expect(h.users.length).toBe(2);
+    expect(h.rows.length).toBe(2);
     expect(h.buckets.length).toBe(2);
     expect(h.max).toBeGreaterThan(0);
   });
