@@ -54,6 +54,8 @@ import { usePageHeader } from "@/hooks/use-page-header";
 import { AddMemberDrawer } from "@/components/settings/add-member-drawer";
 import { MemberEditModal } from "@/components/settings/member-edit-modal";
 import { PortalAccessManager } from "@/components/settings/portal-access-manager";
+import { HourlyCostsCard } from "@/components/settings/hourly-costs-card";
+
 import {
   ROLE_ACCESS,
   ROLE_SHORT,
