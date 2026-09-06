@@ -482,23 +482,25 @@ export function buildChatTools(
         if ((input.mine || onlyOwn("reports")) && userId) qb = qb.eq("user_id", userId);
         const { data, error } = await qb;
         if (error) return done("timesheet_summary", input, error, {});
-        const rows = (data ?? []) as Array<{
+        type Joined = { client_id: string | null; project_id: string | null };
+        const rows = (data ?? []) as unknown as Array<{
           user_id: string | null;
           minutes: number | null;
           seconds: number | null;
           task_id: string | null;
-          tasks?: { client_id: string | null; project_id: string | null } | null;
+          tasks?: Joined | Joined[] | null;
         }>;
         const buckets = new Map<string, number>();
         for (const r of rows) {
           const min = r.minutes ?? Math.round((r.seconds ?? 0) / 60);
+          const joined = Array.isArray(r.tasks) ? (r.tasks[0] ?? null) : (r.tasks ?? null);
           const key =
             input.group_by === "user"
               ? (r.user_id ?? "—")
               : input.group_by === "client"
-                ? (r.tasks?.client_id ?? "—")
+                ? (joined?.client_id ?? "—")
                 : input.group_by === "project"
-                  ? (r.tasks?.project_id ?? "—")
+                  ? (joined?.project_id ?? "—")
                   : (r.task_id ?? "—");
           buckets.set(key, (buckets.get(key) ?? 0) + min);
         }
