@@ -290,38 +290,64 @@ export async function applyStatementByStatement(
       return { ok: false, error: "Operação cancelada pelo Super Admin.", processed };
     }
     const batch = statements.slice(start, Math.min(start + batchSize, stopAt));
-    const guarded = batch
-      .map((statement, index) => {
-        let suffix = index;
-        let tag = `$unitos_stmt_${suffix}$`;
-        while (statement.includes(tag)) {
-          suffix += batch.length;
-          tag = `$unitos_stmt_${suffix}$`;
-        }
-        return [
-          "DO $unitos_guard$",
-          "BEGIN",
-          `  EXECUTE ${tag}${statement}${tag};`,
-          "EXCEPTION",
-          "  WHEN SQLSTATE '42710' OR SQLSTATE '42P07' OR SQLSTATE '42P06'",
-          "    OR SQLSTATE '42701' OR SQLSTATE '42723' OR SQLSTATE '23505' THEN NULL;",
-          "  WHEN SQLSTATE '42883' OR SQLSTATE '42P01' OR SQLSTATE '42704'",
-          "    OR SQLSTATE '42703' OR SQLSTATE '42P17' THEN",
-          `    INSERT INTO public._unitos_deferred_sql (stmt) VALUES (${tag}${statement}${tag});`,
-          "  WHEN SQLSTATE '42P16' THEN",
-          "    IF SQLERRM ILIKE '%multiple primary key%' THEN",
-          "      NULL;",
-          "    ELSE",
-          "      RAISE;",
-          "    END IF;",
-          "END",
-          "$unitos_guard$;",
-        ].join("\n");
-      })
-      .join("\n");
-    const result = await management.query(`SET check_function_bodies = off;\n${guarded}`);
+    // `ALTER TYPE ... ADD VALUE` não pode rodar dentro de bloco/função: o
+    // Postgres recusa com 25001/0A000. Esses statements saem do bloco protegido
+    // e vão isolados, na mesma ordem, tolerando "já existe".
+    const segments: Array<{ kind: "guarded" | "enum"; statements: string[] }> = [];
+    for (const statement of batch) {
+      const isEnumAdd = /^\s*alter\s+type\b[\s\S]*\badd\s+value\b/i.test(statement);
+      const last = segments[segments.length - 1];
+      if (last && ((last.kind === "enum") === isEnumAdd)) last.statements.push(statement);
+      else segments.push({ kind: isEnumAdd ? "enum" : "guarded", statements: [statement] });
+    }
 
-    if (!result.ok) return { ok: false, error: result.error, processed };
+    for (const segment of segments) {
+      if (segment.kind === "enum") {
+        for (const statement of segment.statements) {
+          const enumRes = await management.query(statement);
+          if (
+            !enumRes.ok &&
+            !/already exists|duplicate|does not exist/i.test(enumRes.error ?? "")
+          ) {
+            return { ok: false, error: enumRes.error, processed };
+          }
+        }
+        continue;
+      }
+
+      const guarded = segment.statements
+        .map((statement, index) => {
+          let suffix = index;
+          let tag = `$unitos_stmt_${suffix}$`;
+          while (statement.includes(tag)) {
+            suffix += segment.statements.length;
+            tag = `$unitos_stmt_${suffix}$`;
+          }
+          return [
+            "DO $unitos_guard$",
+            "BEGIN",
+            `  EXECUTE ${tag}${statement}${tag};`,
+            "EXCEPTION",
+            "  WHEN SQLSTATE '42710' OR SQLSTATE '42P07' OR SQLSTATE '42P06'",
+            "    OR SQLSTATE '42701' OR SQLSTATE '42723' OR SQLSTATE '23505' THEN NULL;",
+            "  WHEN SQLSTATE '42883' OR SQLSTATE '42P01' OR SQLSTATE '42704'",
+            "    OR SQLSTATE '42703' OR SQLSTATE '42P17' THEN",
+            `    INSERT INTO public._unitos_deferred_sql (stmt) VALUES (${tag}${statement}${tag});`,
+            "  WHEN SQLSTATE '42P16' THEN",
+            "    IF SQLERRM ILIKE '%multiple primary key%' THEN",
+            "      NULL;",
+            "    ELSE",
+            "      RAISE;",
+            "    END IF;",
+            "END",
+            "$unitos_guard$;",
+          ].join("\n");
+        })
+        .join("\n");
+      const result = await management.query(`SET check_function_bodies = off;\n${guarded}`);
+      if (!result.ok) return { ok: false, error: result.error, processed };
+    }
+
     processed += batch.length;
     await options?.onProgress?.(processed, statements.length);
   }
