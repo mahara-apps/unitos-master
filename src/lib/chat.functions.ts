@@ -172,6 +172,12 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
         .maybeSingle();
       if (convoErr || !convo) throw new Error("Conversa não encontrada");
 
+      // Workspace obrigatório: resolve/backfilla conversas legadas.
+      const { ensureConversationBrandId } = await import("./chat/workspace.server");
+      const brandId = await ensureConversationBrandId(context.supabase, context.userId, convo);
+
+
+
       // 2) Persist user message immediately
       const { data: userRow, error: userErr } = await context.supabase
         .from("chat_messages")
