@@ -32,10 +32,13 @@ describe("entrevista de mídia paga", () => {
 
   it("não exige resposta em perguntas opcionais", () => {
     const answers: Record<string, string | string[]> = {};
-    for (const q of visibleQuestions({})) {
-      answers[q.id] = q.kind === "multi" ? ["website"] : "resposta";
+    for (let pass = 0; pass < 5; pass += 1) {
+      for (const q of visibleQuestions(answers)) {
+        if (q.id === "constraints") continue;
+        if (answers[q.id] != null) continue;
+        answers[q.id] = q.kind === "multi" ? ["website"] : (q.options?.[0]?.value ?? "resposta");
+      }
     }
-    delete answers["constraints"];
     expect(isInterviewComplete(answers)).toBe(true);
   });
 
