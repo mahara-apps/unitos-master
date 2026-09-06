@@ -249,15 +249,9 @@ function NotificationRow({
   );
   return (
     <li className="hover:bg-muted/40">
-      {n.href ? (
-        <Link to={n.href} onClick={handleClick} className="block">
-          {content}
-        </Link>
-      ) : (
-        <button type="button" onClick={handleClick} className="block w-full text-left">
-          {content}
-        </button>
-      )}
+      <NotificationLink notification={n} onNavigate={handleClick} className="block">
+        {content}
+      </NotificationLink>
     </li>
   );
 }
