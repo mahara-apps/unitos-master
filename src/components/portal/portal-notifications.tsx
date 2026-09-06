@@ -90,6 +90,22 @@ export function PortalNotifications() {
         <ul className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 bg-card">
           {items.map((n) => {
             const pending = !n.read_at;
+            const target = resolvePortalNotificationTarget(
+              n,
+              mode.kind === "session" ? mode.clientId : null,
+            );
+            const body = (
+              <div className="min-w-0 space-y-1">
+                <div className="flex items-center gap-2">
+                  {pending ? (
+                    <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                  ) : null}
+                  <span className="truncate text-sm font-medium">{n.title}</span>
+                </div>
+                {n.body ? <p className="text-sm text-muted-foreground">{n.body}</p> : null}
+                <div className="text-xs text-muted-foreground">{formatDate(n.created_at)}</div>
+              </div>
+            );
             return (
               <li
                 key={n.id}
@@ -97,18 +113,20 @@ export function PortalNotifications() {
                   pending ? "bg-primary/[0.04]" : ""
                 }`}
               >
-                <div className="min-w-0 space-y-1">
-                  <div className="flex items-center gap-2">
-                    {pending ? (
-                      <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                    ) : null}
-                    <span className="truncate text-sm font-medium">{n.title}</span>
-                  </div>
-                  {n.body ? (
-                    <p className="text-sm text-muted-foreground">{n.body}</p>
-                  ) : null}
-                  <div className="text-xs text-muted-foreground">{formatDate(n.created_at)}</div>
-                </div>
+                {target ? (
+                  <Link
+                    to={target.to as never}
+                    search={(target.search ?? {}) as never}
+                    className="min-w-0 flex-1"
+                    onClick={() => {
+                      if (pending) read.mutate(n.id);
+                    }}
+                  >
+                    {body}
+                  </Link>
+                ) : (
+                  body
+                )}
                 {pending ? (
                   <Button
                     size="sm"
