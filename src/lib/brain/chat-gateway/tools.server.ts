@@ -269,7 +269,7 @@ export function buildChatTools(
       execute: async (input) => {
         let qb = supabase
           .from("posts")
-          .select("id, title, stage, scheduled_at, client_id, priority, channel")
+          .select("id, title, stage, scheduled_at, client_id, priority, format, channels")
           .is("deleted_at", null)
           .order("scheduled_at", { ascending: false, nullsFirst: false })
           .limit(input.limit);
@@ -394,7 +394,7 @@ export function buildChatTools(
       execute: async (input) => {
         let qb = supabase
           .from("posts")
-          .select("id, title, stage, scheduled_at, client_id, approval_status")
+          .select("id, title, stage, scheduled_at, client_id, review_status, client_due_at")
           .is("deleted_at", null)
           .in("stage", ["review", "approved"])
           .order("scheduled_at", { ascending: true, nullsFirst: false })
