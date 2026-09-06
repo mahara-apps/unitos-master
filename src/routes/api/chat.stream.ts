@@ -91,6 +91,44 @@ export const Route = createFileRoute("/api/chat/stream")({
           .maybeSingle();
         if (convoErr || !convo) return new Response("Conversa não encontrada", { status: 404 });
 
+        // 1.1) Workspace é obrigatório: resolve/backfilla conversas legadas.
+        const { ensureConversationBrandId, CHAT_WORKSPACE_MISSING } = await import(
+          "@/lib/chat/workspace.server"
+        );
+        let brandId: string;
+        try {
+          brandId = await ensureConversationBrandId(supabase, userId, convo);
+        } catch {
+          return new Response(
+            "Esta conversa não está vinculada a um workspace. Selecione um workspace no topo do sistema e inicie uma nova conversa.",
+            {
+              status: 409,
+              headers: {
+                "Content-Type": "text/plain; charset=utf-8",
+                "X-Ai-Error": CHAT_WORKSPACE_MISSING,
+              },
+            },
+          );
+        }
+
+        // 1.2) Hierarquia: o chat interno exige permissão no módulo `chat`
+        // (contas do Portal do Cliente nunca têm) e o nível define as tools.
+        const { resolveModulePermissions } = await import("@/lib/access-guard");
+        let permissions;
+        try {
+          permissions = await resolveModulePermissions(supabase, userId, brandId);
+        } catch (err) {
+          console.error("[chat.stream] falha ao resolver permissões", err);
+          return new Response("Não foi possível validar suas permissões.", { status: 403 });
+        }
+        if (permissions.chat === "none") {
+          return new Response("Seu perfil de acesso não inclui o Chat.", {
+            status: 403,
+            headers: { "Content-Type": "text/plain; charset=utf-8" },
+          });
+        }
+
+
         // 2) Persistir mensagem do usuário
         const { data: userRow, error: userErr } = await supabase
           .from("chat_messages")
