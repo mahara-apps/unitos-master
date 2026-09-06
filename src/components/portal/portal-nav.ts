@@ -7,6 +7,7 @@ import {
   Sparkles,
   Palette,
   Inbox,
+  MessagesSquare,
   Bell,
   UserCircle,
 } from "lucide-react";
@@ -21,6 +22,7 @@ export type PortalTabId =
   | "files"
   | "brand"
   | "requests"
+  | "messages"
   | "notifications"
   | "account";
 
@@ -45,6 +47,7 @@ export const PORTAL_TABS: Array<{
   { id: "files", label: "Arquivos", icon: FolderOpen, segment: "arquivos" },
   { id: "brand", label: "Minha Marca", icon: Palette, segment: "minha-marca" },
   { id: "requests", label: "Pedidos", icon: Inbox, segment: "pedidos" },
+  { id: "messages", label: "Mensagens", icon: MessagesSquare, segment: "mensagens" },
 ];
 
 /**
@@ -77,6 +80,7 @@ export const PORTAL_TAB_DESCRIPTION: Record<PortalTabId, string> = {
   files: "Acesse os documentos liberados para sua marca.",
   brand: "Consulte as informações que orientam a criação da sua marca.",
   requests: "Peça novos materiais e acompanhe cada solicitação.",
+  messages: "Converse com a equipe e acompanhe todo o histórico.",
   notifications: "Tudo o que precisa da sua atenção, em ordem.",
   account: "Seus dados de acesso, foto e preferências de aviso.",
 };
@@ -98,7 +102,7 @@ export function visiblePortalTabs(
   return [...PORTAL_TABS, ...(isSession ? PORTAL_ACCOUNT_TABS : [])].filter((t) => {
     if (t.id === "home") return true;
     if (t.id === "notifications" || t.id === "account") return isSession;
-    if (t.id === "requests" && !isSession) return false;
+    if ((t.id === "requests" || t.id === "messages") && !isSession) return false;
     return portalCanView(permissions, t.id as never);
   });
 }
