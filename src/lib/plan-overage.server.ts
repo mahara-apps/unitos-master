@@ -47,7 +47,8 @@ export async function loadApprovedOverage(
 /** `block` = excedente exige liberação. `warn` = volumetria livre (só aviso). */
 export type OveragePolicy = "block" | "warn";
 
-const isPolicy = (v: unknown): v is OveragePolicy => v === "block" || v === "warn";
+
+
 
 /**
  * Política efetiva: override do cliente vence; sem override usa o padrão do
