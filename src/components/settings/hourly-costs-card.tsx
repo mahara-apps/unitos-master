@@ -47,7 +47,7 @@ export function HourlyCostsCard({ brandId }: { brandId: string }) {
   }, [costsQ.data]);
 
   const members = useMemo(
-    () => (teamQ.data?.members ?? []).filter((m) => m.isActive !== false),
+    () => (teamQ.data?.members ?? []).filter((m) => m.is_active !== false),
     [teamQ.data],
   );
 
@@ -87,13 +87,13 @@ export function HourlyCostsCard({ brandId }: { brandId: string }) {
           <ul>
             {members.map((m) => (
               <CostRow
-                key={m.userId}
-                name={displayName({ full_name: m.fullName, email: m.email })}
+                key={m.user_id}
+                name={displayName({ full_name: m.full_name, email: m.email })}
                 email={m.email ?? null}
-                avatarUrl={m.avatarUrl ?? null}
-                cents={costById.get(m.userId) ?? 0}
-                saving={save.isPending && save.variables?.userId === m.userId}
-                onSave={(cents) => save.mutate({ userId: m.userId, hourlyCostCents: cents })}
+                avatarUrl={m.avatar_url ?? null}
+                cents={costById.get(m.user_id) ?? 0}
+                saving={save.isPending && save.variables?.userId === m.user_id}
+                onSave={(cents) => save.mutate({ userId: m.user_id, hourlyCostCents: cents })}
               />
             ))}
           </ul>
