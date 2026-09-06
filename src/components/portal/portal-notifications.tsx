@@ -1,7 +1,9 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { Link } from "@tanstack/react-router";
 import { Bell, BellOff, CheckCheck } from "lucide-react";
+import { resolvePortalNotificationTarget } from "@/lib/notification-target";
 import { Button } from "@/components/ui/button";
 import {
   listMyNotificationsFn,
