@@ -70,6 +70,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { KpiCard as CanonicalKpiCard, type KpiTone } from "@/components/ui/kpi-card";
 import { DashboardPageShell } from "@/components/ui/dashboard-primitives";
 import { FunnelStages } from "@/components/ui/funnel-stages";
+import { TimesheetPanel } from "@/components/analytics/timesheet/timesheet-panel";
+
 import { usePageHeader } from "@/hooks/use-page-header";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { getAnalytics, type AnalyticsResult } from "@/lib/analytics.functions";
