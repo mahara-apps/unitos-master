@@ -247,11 +247,21 @@ export const listMemberHourlyCostsFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
+    // Valor/hora é dado sensível: só quem administra o workspace pode ler.
+    const roleRes = await callRpc<string>(context.supabase, "app_access_role", {
+      _user_id: context.userId,
+      _brand_id: data.brandId,
+    });
+    const role = (roleRes.data ?? "").toLowerCase();
+    if (role !== "admin" && role !== "super_admin") {
+      throw new Error("Sem permissão para ver valores por hora deste workspace.");
+    }
     const { data: rows, error } = await context.supabase
       .from("brand_members")
       .select("user_id, hourly_cost_cents")
       .eq("brand_id", data.brandId);
     if (error) throw error;
+
     return {
       costs: ((rows ?? []) as Array<{ user_id: string; hourly_cost_cents: number | null }>).map(
         (r) => ({ userId: r.user_id, hourlyCostCents: r.hourly_cost_cents ?? 0 }),
