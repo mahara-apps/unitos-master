@@ -97,7 +97,7 @@ export function CreateMediaPlanDialog({
 
   const manualMutation = useMutation({
     mutationFn: async () => {
-      const { plan } = await createFn({
+      const res = await createFn({
         data: {
           brandId,
           clientId,
@@ -107,7 +107,7 @@ export function CreateMediaPlanDialog({
           period_end: periodEnd || null,
         },
       });
-      return plan;
+      return (res as { plan: { id: string; client_id: string } }).plan;
     },
     onSuccess: (plan) => void goToPlan(plan, "Plano criado com sucesso"),
     onError: (err) => {
@@ -117,7 +117,7 @@ export function CreateMediaPlanDialog({
 
   const interviewMutation = useMutation({
     mutationFn: async (result: InterviewResult) => {
-      const { plan } = await interviewFn({
+      const res = await interviewFn({
         data: {
           brandId,
           clientId,
@@ -129,7 +129,7 @@ export function CreateMediaPlanDialog({
           funnelSplit: result.funnelSplit,
         },
       });
-      return plan;
+      return (res as { plan: { id: string; client_id: string } }).plan;
     },
     onSuccess: (plan) => void goToPlan(plan, "Plano de mídia gerado com sucesso"),
     onError: (err) => {

@@ -23,7 +23,7 @@ export type MediaPlan = {
   status: "draft" | "approved" | "archived";
   share_token: string | null;
   share_expires_at: string | null;
-  interview: Record<string, unknown>;
+  interview: Record<string, string | string[]>;
   strategy: MediaPlanStrategy;
   plan_version: number;
   updated_at: string;
@@ -59,10 +59,10 @@ export type MediaPlanItem = {
   optimization_goal: string | null;
   conversion_event: string | null;
   daily_budget: number;
-  targeting: Record<string, unknown>;
+  targeting: { notes?: string; negative_keywords?: string[] };
   placements: string[];
   creative_brief: MediaPlanCreativeBrief;
-  estimates: Record<string, unknown>;
+  estimates: { cpa_range?: string; volume_range?: string; notes?: string };
   prerequisites: string[];
   rationale: string | null;
 };
