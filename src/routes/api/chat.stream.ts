@@ -308,6 +308,7 @@ export const Route = createFileRoute("/api/chat/stream")({
             brain: brainKnowledge,
             toolCallLog,
             user: chatUser,
+            permissions,
           });
         } catch (err) {
           // Falha ANTES de qualquer token: nada é persistido como resposta do

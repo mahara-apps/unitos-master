@@ -7,6 +7,7 @@ import type { BrainConsolidated } from "./consolidate";
 import { buildMultimodalContent, type ChatAttachmentInput } from "./multimodal.server";
 import { buildChatTools, type ToolCallLog } from "./tools.server";
 import type { BrainContext } from "../core";
+import type { ModulePermissions } from "@/lib/module-permissions";
 
 export interface ChatAttachmentMeta {
   name: string;
@@ -168,7 +169,12 @@ export async function streamAnswer(args: StreamAnswerArgs): Promise<{
     args.question,
     args.attachments,
   );
-  const tools = buildChatTools(args.supabase, args.brainCtx, args.toolCallLog);
+  const tools = buildChatTools(
+    args.supabase,
+    args.brainCtx,
+    args.toolCallLog,
+    args.permissions ?? null,
+  );
 
   const result = streamText({
     model,
