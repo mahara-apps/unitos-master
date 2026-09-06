@@ -216,7 +216,10 @@ function TeamSettingsPage() {
         </CardContent>
       </Card>
 
+      <HourlyCostsCard brandId={brandId} />
+
       <Card>
+
         <CardHeader>
           <CardTitle className="text-base">Convites pendentes</CardTitle>
           <CardDescription>Convites ainda não aceitos ou expirados.</CardDescription>
