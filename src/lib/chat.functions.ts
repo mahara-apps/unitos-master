@@ -207,7 +207,7 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
       const brainCtx: BrainContext = {
         supabase: context.supabase,
         userId: context.userId,
-        brandId: convo.brand_id,
+        brandId,
         clientId: convo.client_id,
         module: "chat",
       };
@@ -268,7 +268,7 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
           brain: brainKnowledge,
           attachments: data.attachments.map((a) => ({ name: a.name, kind: a.kind, mime: a.mime })),
           supabase: context.supabase,
-          brandId: convo.brand_id as string,
+          brandId,
         });
         answer = llm.text;
         usedLlm = true;
@@ -313,7 +313,7 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
       // 7) Feedback loop → Brain Event Bus (best-effort)
       await Promise.all([
         brain.events.publish(brainCtx, {
-          brand_id: convo.brand_id,
+          brand_id: brandId,
           client_id: convo.client_id,
           source_module: "chat",
           event_type: "chat.turn",
