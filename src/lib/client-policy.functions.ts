@@ -105,7 +105,7 @@ export const setClientPoliciesFn = createServerFn({ method: "POST" })
     }
 
     // Nada é liberado sem decisão explícita da operação.
-    let released = { plan: 0, content: 0, schedule: 0 };
+    const released = { plan: 0, content: 0, schedule: 0 };
     if (data.approval && data.pendingAction === "release") {
       const now = new Date().toISOString();
       const waived = APPROVAL_STAGES.filter((s) => data.approval?.[s] === "internal");

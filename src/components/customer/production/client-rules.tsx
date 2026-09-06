@@ -47,7 +47,7 @@ const STAGE_HINT: Record<ApprovalStage, string> = {
 export function ClientRules({ brandId, clientId }: { brandId: string; clientId: string }) {
   const qc = useQueryClient();
   const { role } = useAccessRole();
-  const canEdit = role === "admin" || role === "super_admin";
+  const canEdit = role === "admin";
 
   const get = useServerFn(getClientPoliciesFn);
   const q = useQuery({
