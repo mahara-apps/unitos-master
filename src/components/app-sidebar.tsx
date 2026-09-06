@@ -34,6 +34,7 @@ import {
   Brain,
   BrainCircuit,
   MessageSquare,
+  MessagesSquare,
   Activity,
   Palette,
   Info,
@@ -199,7 +200,7 @@ export function AppSidebar() {
       try {
         return await countUnread({ data: { brandId: brandId! } });
       } catch {
-        return { total: 0 };
+        return 0;
       }
     },
     enabled: !!brandId,
@@ -207,7 +208,7 @@ export function AppSidebar() {
     refetchInterval: 60_000,
     retry: false,
   });
-  const messagesUnread = unreadQ.data?.total ?? 0;
+  const messagesUnread = unreadQ.data ?? 0;
   const featureEnabled = (key?: string) => {
     if (!key) return true;
     if (isSuper) return true;
