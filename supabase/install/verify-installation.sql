@@ -146,6 +146,28 @@ WITH checks AS (
   SELECT 43, 'seeds: singleton installation presente',
          (SELECT count(*)::text FROM public.installation),
          CASE WHEN (SELECT count(*) FROM public.installation) = 1 THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
+  SELECT 44, 'seeds: agente media_planner_paid (plano de mídia com entrevista)',
+         (SELECT count(*)::text FROM public.agent_prompts WHERE agent_id = 'media_planner_paid'),
+         CASE WHEN EXISTS (SELECT 1 FROM public.agent_prompts WHERE agent_id = 'media_planner_paid')
+              THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
+  SELECT 45, 'schema: colunas de estratégia do plano de mídia',
+         (SELECT count(*)::text FROM information_schema.columns
+           WHERE table_schema = 'public'
+             AND ((table_name = 'media_plans' AND column_name IN ('interview','strategy','plan_version'))
+               OR (table_name = 'media_plan_items'
+                   AND column_name IN ('platform','campaign_subtype','optimization_goal',
+                                       'conversion_event','daily_budget','targeting','placements',
+                                       'creative_brief','estimates','prerequisites','rationale')))),
+         CASE WHEN (SELECT count(*) FROM information_schema.columns
+           WHERE table_schema = 'public'
+             AND ((table_name = 'media_plans' AND column_name IN ('interview','strategy','plan_version'))
+               OR (table_name = 'media_plan_items'
+                   AND column_name IN ('platform','campaign_subtype','optimization_goal',
+                                       'conversion_event','daily_budget','targeting','placements',
+                                       'creative_brief','estimates','prerequisites','rationale')))) = 14
+              THEN 'PASS' ELSE 'FAIL' END
 
   -- --------------------------------------------------- nenhum dado de negócio copiado
   UNION ALL
