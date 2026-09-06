@@ -197,7 +197,7 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
               .slice(0, 3)
               .map((l) => l.title)
               .join(", ")}${list.length > 3 ? "…" : ""}`,
-            href: `/content?post=${o.post_id}`,
+            href: `/content?post=${list[0]?.post_id ?? ""}`,
             dedupe_key: dedupeKey,
             payload: {
               count: list.length,
