@@ -6970,6 +6970,85 @@ export type Database = {
           },
         ]
       }
+      user_login_events: {
+        Row: {
+          brand_id: string | null
+          browser: string | null
+          city: string | null
+          client_id: string | null
+          country: string | null
+          created_at: string
+          device: string | null
+          email: string | null
+          event: string
+          id: string
+          ip_prefix: string | null
+          kind: string
+          os: string | null
+          provider: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          brand_id?: string | null
+          browser?: string | null
+          city?: string | null
+          client_id?: string | null
+          country?: string | null
+          created_at?: string
+          device?: string | null
+          email?: string | null
+          event?: string
+          id?: string
+          ip_prefix?: string | null
+          kind?: string
+          os?: string | null
+          provider?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          brand_id?: string | null
+          browser?: string | null
+          city?: string | null
+          client_id?: string | null
+          country?: string | null
+          created_at?: string
+          device?: string | null
+          email?: string | null
+          event?: string
+          id?: string
+          ip_prefix?: string | null
+          kind?: string
+          os?: string | null
+          provider?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_login_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "user_login_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_login_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_profiles: {
         Row: {
           avatar_url: string | null

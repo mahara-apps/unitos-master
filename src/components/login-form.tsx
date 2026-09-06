@@ -4,6 +4,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { recordFailedSignInFn, recordSignInFn } from "@/lib/login-audit.functions";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -62,6 +64,8 @@ export function LoginForm() {
   const [ready, setReady] = useState(false);
   const navigate = useNavigate();
   const router = useRouter();
+  const recordSignIn = useServerFn(recordSignInFn);
+  const recordFailedSignIn = useServerFn(recordFailedSignInFn);
 
   function resolveNext(): string {
     if (typeof window === "undefined") return "/dashboard";
@@ -116,9 +120,13 @@ export function LoginForm() {
     });
     setSubmitting(false);
     if (error) {
+      // Auditoria de acessos: registra a tentativa falha (nunca a senha).
+      void recordFailedSignIn({ data: { email: values.email } }).catch(() => null);
       toast.error("Não foi possível entrar", { description: error.message });
       return;
     }
+    // Registro de acesso — não bloqueia a navegação se falhar.
+    void recordSignIn({ data: { provider: "password" } }).catch(() => null);
     toast.success("Bem-vindo de volta");
     // A identidade mudou: o escopo memorizado do usuário anterior não vale mais.
     clearAccessCaches();
