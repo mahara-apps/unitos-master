@@ -39,13 +39,6 @@ export function PlanStrategyPanel({ plan, items }: { plan: MediaPlan; items: Med
   const [refinement, setRefinement] = useState("");
 
   const strategy = plan.strategy ?? {};
-  const hasStrategy = !!strategy.summary || (plan.plan_version ?? 0) > 0;
-  const interviewSaved = Object.keys(plan.interview ?? {}).length > 0;
-  if (!hasStrategy || !strategy.summary) return null;
-
-  const split = strategy.funnel_split ?? { topo: 0, meio: 0, fundo: 0 };
-  const campaigns = items.filter((i) => !!i.platform);
-
   const regenMut = useMutation({
     mutationFn: () =>
       regenFn({ data: { planId: plan.id, refinement: refinement.trim() || null } }),
@@ -58,6 +51,13 @@ export function PlanStrategyPanel({ plan, items }: { plan: MediaPlan; items: Med
     onError: (e: unknown) =>
       toast.error(e instanceof Error ? e.message : "Não foi possível regerar o plano"),
   });
+
+
+  const interviewSaved = Object.keys(plan.interview ?? {}).length > 0;
+  if (!strategy.summary) return null;
+
+  const split = strategy.funnel_split ?? { topo: 0, meio: 0, fundo: 0 };
+  const campaigns = items.filter((i) => !!i.platform);
 
   return (
     <div className="space-y-4">
