@@ -238,26 +238,16 @@ export function NotificationsBell() {
                   );
                   return (
                     <li key={n.id} className="transition-colors hover:bg-muted/40">
-                      {n.href ? (
-                        <Link
-                          to={n.href}
-                          onClick={() => {
-                            markOne.mutate(n.id);
-                            setOpen(false);
-                          }}
-                          className="block"
-                        >
-                          {content}
-                        </Link>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => markOne.mutate(n.id)}
-                          className="block w-full text-left"
-                        >
-                          {content}
-                        </button>
-                      )}
+                      <NotificationLink
+                        notification={n}
+                        className="block"
+                        onNavigate={() => {
+                          markOne.mutate(n.id);
+                          setOpen(false);
+                        }}
+                      >
+                        {content}
+                      </NotificationLink>
                     </li>
                   );
                 })}
