@@ -78,12 +78,16 @@ export const createChatConversationFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => CreateInput.parse(i))
   .handler(async ({ data, context }): Promise<ChatConversationRow> => {
+    // O workspace é obrigatório para o chat operacional (IA da conta, escopo e
+    // permissões). Quando a tela não informa, resolvemos pelo vínculo do usuário.
+    const { resolveUserBrandId } = await import("./chat/workspace.server");
+    const brandId = data.brandId ?? (await resolveUserBrandId(context.supabase, context.userId));
     const { data: row, error } = await context.supabase
       .from("chat_conversations")
       .insert({
         user_id: context.userId,
         title: data.title?.trim() || "Nova conversa",
-        brand_id: data.brandId ?? null,
+        brand_id: brandId,
         client_id: data.clientId ?? null,
       })
       .select("id, user_id, brand_id, client_id, title, last_message_at, created_at")
@@ -91,6 +95,7 @@ export const createChatConversationFn = createServerFn({ method: "POST" })
     if (error || !row) throw new Error(error?.message ?? "insert failed");
     return row as ChatConversationRow;
   });
+
 
 // ============ rename / delete ============
 export const renameChatConversationFn = createServerFn({ method: "POST" })
