@@ -757,10 +757,16 @@ function randomToken(len = 40): string {
 }
 
 export type PlanClientLink = {
-  token: string;
-  url: string;
+  /** Nulo quando o cliente não aprova pauta (etapa dispensada na regra do cliente). */
+  token: string | null;
+  url: string | null;
   expires_at: string | null;
+  /** true = seguiu direto para produção, sem espera pelo cliente. */
+  waived?: boolean;
+  /** Cards criados no Kanban quando a etapa é dispensada. */
+  cardsCreated?: number;
 };
+
 
 export const submitPlanToClientFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
