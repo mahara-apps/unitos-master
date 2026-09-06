@@ -47,7 +47,7 @@ export function HourlyCostsCard({ brandId }: { brandId: string }) {
   }, [costsQ.data]);
 
   const members = useMemo(
-    () => (teamQ.data?.members ?? []).filter((m) => m.is_active !== false),
+    () => (teamQ.data?.members ?? []),
     [teamQ.data],
   );
 
