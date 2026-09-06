@@ -27,8 +27,12 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { listClients } from "@/lib/workspace.functions";
-import { createMediaPlan, upsertMediaPlanItem } from "@/lib/media-plans.functions";
-import { generateMediaPlanWithAi } from "@/lib/media-plans-ai.functions";
+import { createMediaPlan } from "@/lib/media-plans.functions";
+import { createMediaPlanFromInterview } from "@/lib/media-plan-interview.functions";
+import {
+  MediaPlanInterview,
+  type InterviewResult,
+} from "@/components/media-plans/media-plan-interview";
 
 type Mode = "manual" | "ai";
 
@@ -52,8 +56,7 @@ export function CreateMediaPlanDialog({
 
   const listClientsFn = useServerFn(listClients);
   const createFn = useServerFn(createMediaPlan);
-  const upsertItemFn = useServerFn(upsertMediaPlanItem);
-  const aiFn = useServerFn(generateMediaPlanWithAi);
+  const interviewFn = useServerFn(createMediaPlanFromInterview);
 
   const clientsQ = useQuery({
     queryKey: ["workspace-clients", brandId],
@@ -66,10 +69,8 @@ export function CreateMediaPlanDialog({
   const [monthlyBudget, setMonthlyBudget] = useState<string>("");
   const [periodStart, setPeriodStart] = useState<string>("");
   const [periodEnd, setPeriodEnd] = useState<string>("");
-  const [objective, setObjective] = useState("");
-  const [topo, setTopo] = useState(30);
-  const [meio, setMeio] = useState(40);
-  const [fundo, setFundo] = useState(30);
+  /** Modo IA: passo 1 = dados básicos, passo 2 = entrevista guiada. */
+  const [stage, setStage] = useState<"basics" | "interview">("basics");
 
   useEffect(() => {
     if (!open) return;
@@ -78,40 +79,26 @@ export function CreateMediaPlanDialog({
     setMonthlyBudget("");
     setPeriodStart("");
     setPeriodEnd("");
-    setObjective("");
-    setTopo(30);
-    setMeio(40);
-    setFundo(30);
+    setStage("basics");
   }, [open, mode, defaultClientId]);
 
-  const funnelSum = topo + meio + fundo;
   const budgetNum = Number(monthlyBudget.replace(/[^\d.,-]/g, "").replace(",", "."));
-  const canSubmit =
-    !!clientId &&
-    !!title.trim() &&
-    Number.isFinite(budgetNum) &&
-    budgetNum >= 0 &&
-    (mode === "manual" || (budgetNum > 0 && funnelSum === 100));
+  const basicsReady = !!clientId && !!title.trim();
+  const canSubmit = basicsReady && Number.isFinite(budgetNum) && budgetNum >= 0;
 
-  const mutation = useMutation({
+  const goToPlan = async (plan: { id: string; client_id: string }, message: string) => {
+    await qc.invalidateQueries({ queryKey: ["brand-media-plans", brandId] });
+    toast.success(message);
+    onOpenChange(false);
+    navigate({
+      to: "/customers/$customerId/media-plan",
+      params: { customerId: plan.client_id },
+      search: { planId: plan.id },
+    });
+  };
+
+  const manualMutation = useMutation({
     mutationFn: async () => {
-      // 1. If AI, generate items first (so we don't create an empty plan when AI fails)
-      let items: Awaited<ReturnType<typeof aiFn>>["items"] = [];
-      if (mode === "ai") {
-        const res = await aiFn({
-          data: {
-            brandId,
-            clientId,
-            monthlyBudget: budgetNum,
-            objective: objective.trim() || null,
-            funnelSplit: { topo, meio, fundo },
-          },
-        });
-        items = res.items;
-        if (!items || items.length === 0) throw new Error("A IA não retornou iniciativas.");
-      }
-
-      // 2. Create plan
       const { plan } = await createFn({
         data: {
           brandId,
@@ -122,44 +109,33 @@ export function CreateMediaPlanDialog({
           period_end: periodEnd || null,
         },
       });
-
-      // 3. Insert items sequentially (small N)
-      if (mode === "ai") {
-        for (let i = 0; i < items.length; i++) {
-          const it = items[i];
-          await upsertItemFn({
-            data: {
-              planId: plan.id,
-              item: {
-                position: i,
-                product_service: it.product_service,
-                campaign_type: it.campaign_type,
-                funnel_stage: it.funnel_stage,
-                channel: it.channel,
-                main_kpi: it.main_kpi,
-                audience: it.audience,
-                budget_pct: it.budget_pct,
-                keywords: it.keywords,
-              },
-            },
-          });
-        }
-      }
-
       return plan;
     },
-    onSuccess: async (plan) => {
-      await qc.invalidateQueries({ queryKey: ["brand-media-plans", brandId] });
-      toast.success(mode === "ai" ? "Plano gerado por IA com sucesso" : "Plano criado com sucesso");
-      onOpenChange(false);
-      navigate({
-        to: "/customers/$customerId/media-plan",
-        params: { customerId: plan.client_id },
-        search: { planId: plan.id },
-      });
-    },
+    onSuccess: (plan) => void goToPlan(plan, "Plano criado com sucesso"),
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : "Não foi possível criar o plano");
+    },
+  });
+
+  const interviewMutation = useMutation({
+    mutationFn: async (result: InterviewResult) => {
+      const { plan } = await interviewFn({
+        data: {
+          brandId,
+          clientId,
+          title: title.trim() || "Plano de mídia",
+          period_start: periodStart || null,
+          period_end: periodEnd || null,
+          monthlyBudget: result.monthlyBudget,
+          interview: result.answers,
+          funnelSplit: result.funnelSplit,
+        },
+      });
+      return plan;
+    },
+    onSuccess: (plan) => void goToPlan(plan, "Plano de mídia gerado com sucesso"),
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Não foi possível gerar o plano");
     },
   });
 
@@ -169,7 +145,8 @@ export function CreateMediaPlanDialog({
   );
 
   const isAi = mode === "ai";
-  const busy = mutation.isPending;
+  const busy = manualMutation.isPending || interviewMutation.isPending;
+  const inInterview = isAi && stage === "interview";
 
   return (
     <Dialog open={open} onOpenChange={(o) => (!busy ? onOpenChange(o) : null)}>
