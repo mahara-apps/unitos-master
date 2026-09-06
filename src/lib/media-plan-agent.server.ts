@@ -70,15 +70,14 @@ export async function generateMediaPlanStrategy(input: MediaPlanGenerationInput)
   modelId: string;
 }> {
   const [prompts, canonical] = await Promise.all([
-    loadAgentPrompts(input.supabase, input.brandId, [MEDIA_PLAN_AGENT_ID]).catch(() => null),
+    loadAgentPrompts(input.brandId, [MEDIA_PLAN_AGENT_ID], input.supabase).catch(() => null),
     loadCanonicalBriefing(input.supabase, {
       clientId: input.clientId,
       brandId: input.brandId,
     }).catch(() => null),
   ]);
 
-  const system =
-    (prompts && (prompts[MEDIA_PLAN_AGENT_ID] as string | undefined)) || FALLBACK_SYSTEM;
+  const system = prompts?.get(MEDIA_PLAN_AGENT_ID)?.trim() || FALLBACK_SYSTEM;
 
   const brief = canonical ? briefingToPromptText(canonical) : "";
   const budgetBRL = new Intl.NumberFormat("pt-BR", {
