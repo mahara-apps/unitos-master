@@ -3018,3 +3018,12 @@ BEGIN
 
   RETURN jsonb_build_object('ok', true);
 END $function$;
+
+-- ---------------------------------------------------------------------------
+-- 20260906203602_51eb3c43-3c51-4742-83bd-31d535f4790c.sql
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.installation_credentials
+  ADD COLUMN IF NOT EXISTS generated_secrets_ciphertext text;
+
+COMMENT ON COLUMN public.installation_credentials.generated_secrets_ciphertext IS
+  'JSON cifrado (AES-256-GCM) com os secrets exclusivos da instalação (CRON_SECRET, BRAND_CREDENTIALS_SECRET, META_STATE_SECRET, META_WEBHOOK_VERIFY_TOKEN). Gerados uma única vez e reutilizados: regerar invalida tokens já cifrados no destino.';
