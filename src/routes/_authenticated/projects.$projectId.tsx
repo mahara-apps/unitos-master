@@ -61,6 +61,8 @@ import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { JobsPanel } from "@/components/projects/jobs-panel";
 import { PautaDetailModal, type PautaDetailItem } from "@/components/projects/pauta-detail-modal";
 import { InvolvedPeople } from "@/components/projects/involved-people";
+import { ProjectHoursCard } from "@/components/analytics/timesheet/project-hours-card";
+
 import { StatusPicker } from "@/components/projects/status-picker";
 import { AssigneePicker } from "@/components/projects/assignee-picker";
 import { ProjectHeader } from "@/components/projects/project-header";
