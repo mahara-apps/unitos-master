@@ -27,6 +27,7 @@ import {
 } from "@/lib/notifications-feed";
 import type { NotificationScope } from "@/lib/notifications-window";
 import { colorFor, iconFor, relativeTimePtBr } from "@/lib/notifications-format";
+import { NotificationLink } from "@/components/notifications/notification-link";
 
 export { NOTIFICATIONS_QUERY_ROOT, notificationsQueryKey } from "@/lib/notifications-feed";
 
