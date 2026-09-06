@@ -302,7 +302,7 @@ export const createThread = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }): Promise<{ id: string }> => {
     const { supabase, userId } = context;
-    await assertModuleAccess(supabase, userId, data.brandId, "chat", "full");
+    await assertModuleAccess(supabase, userId, data.brandId, "chat", "own");
 
     // Escopo: conversa de cliente/projeto exige cliente acessível ao autor.
     if (data.scope !== "team_dm") {
@@ -405,7 +405,7 @@ export const addThreadParticipants = createServerFn({ method: "POST" })
       .eq("id", data.threadId)
       .single();
     if (error) throw error;
-    await assertModuleAccess(supabase, userId, thread.brand_id as string, "chat", "full");
+    await assertModuleAccess(supabase, userId, thread.brand_id as string, "chat", "own");
 
     const added = await addParticipantsInternal(supabase, {
       threadId: data.threadId,
