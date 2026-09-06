@@ -2337,6 +2337,7 @@ export type Database = {
           created_at: string
           deactivated_at: string | null
           deactivated_by: string | null
+          hourly_cost_cents: number
           id: string
           is_active: boolean
           module_permissions: Json | null
@@ -2350,6 +2351,7 @@ export type Database = {
           created_at?: string
           deactivated_at?: string | null
           deactivated_by?: string | null
+          hourly_cost_cents?: number
           id?: string
           is_active?: boolean
           module_permissions?: Json | null
@@ -2363,6 +2365,7 @@ export type Database = {
           created_at?: string
           deactivated_at?: string | null
           deactivated_by?: string | null
+          hourly_cost_cents?: number
           id?: string
           is_active?: boolean
           module_permissions?: Json | null
@@ -7783,6 +7786,14 @@ export type Database = {
       safe_uuid: { Args: { _txt: string }; Returns: string }
       seed_access_profiles: { Args: { _brand_id: string }; Returns: number }
       set_cron_secret: { Args: { _value: string }; Returns: undefined }
+      set_member_hourly_cost: {
+        Args: {
+          _brand_id: string
+          _hourly_cost_cents: number
+          _user_id: string
+        }
+        Returns: number
+      }
       start_timer: {
         Args: { _brand_id: string; _task_id: string }
         Returns: string
@@ -7798,6 +7809,30 @@ export type Database = {
       sync_post_publication_state: {
         Args: { p_post_id: string }
         Returns: undefined
+      }
+      timesheet_report_entries: {
+        Args: { _brand_id: string; _from: string; _to: string }
+        Returns: {
+          avatar_url: string
+          client_id: string
+          client_name: string
+          description: string
+          ended_at: string
+          entry_id: string
+          hourly_cost_cents: number
+          is_rework: boolean
+          project_id: string
+          project_name: string
+          seconds: number
+          source: string
+          started_at: string
+          task_estimated_minutes: number
+          task_id: string
+          task_title: string
+          user_email: string
+          user_id: string
+          user_name: string
+        }[]
       }
       upsert_brain_relationship: {
         Args: {

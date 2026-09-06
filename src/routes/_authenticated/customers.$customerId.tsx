@@ -25,6 +25,8 @@ import { CustomerOverview } from "@/components/customer/overview/customer-overvi
 import { CustomerHeader } from "@/components/customer/customer-header";
 import { PanelGroup } from "@/components/customer/ui/panel-section";
 import { WorkTab } from "@/components/customer/work/work-tab";
+import { ClientHoursTab } from "@/components/analytics/timesheet/client-hours-tab";
+
 import { PublicationsTab } from "@/components/customer/publications/publications-tab";
 import { BasicInfoTab } from "@/components/customer/basic-info-tab";
 import { ClientInbox } from "@/components/client-inbox/client-inbox";
@@ -426,6 +428,11 @@ function CustomerDetailReady({
               <TabsContent value="trabalho" className="mt-0">
                 <WorkTab brandId={brandId} clientId={customerId} />
               </TabsContent>
+
+              <TabsContent value="horas" className="mt-0">
+                <ClientHoursTab brandId={brandId} clientId={customerId} />
+              </TabsContent>
+
 
               {/* Aba única "Conta": cadastro (identidade/contato/redes) +
                   gestão (contrato/jornada). Cada informação tem uma só fonte. */}
