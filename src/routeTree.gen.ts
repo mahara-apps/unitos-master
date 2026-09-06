@@ -27,6 +27,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedProjectsRouteImport } from './routes/_authenticated/projects'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedMonthlyPlanRouteImport } from './routes/_authenticated/monthly-plan'
+import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticated/messages'
 import { Route as AuthenticatedMediaPlansRouteImport } from './routes/_authenticated/media-plans'
 import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -210,6 +211,11 @@ const AuthenticatedMonthlyPlanRoute =
     path: '/monthly-plan',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedMessagesRoute = AuthenticatedMessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedMediaPlansRoute = AuthenticatedMediaPlansRouteImport.update({
   id: '/media-plans',
   path: '/media-plans',
@@ -740,6 +746,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/inbox': typeof AuthenticatedInboxRoute
   '/media-plans': typeof AuthenticatedMediaPlansRoute
+  '/messages': typeof AuthenticatedMessagesRoute
   '/monthly-plan': typeof AuthenticatedMonthlyPlanRouteWithChildren
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/projects': typeof AuthenticatedProjectsRouteWithChildren
@@ -847,6 +854,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/inbox': typeof AuthenticatedInboxRoute
   '/media-plans': typeof AuthenticatedMediaPlansRoute
+  '/messages': typeof AuthenticatedMessagesRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/area': typeof PortalAreaRouteWithChildren
@@ -955,6 +963,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
   '/_authenticated/media-plans': typeof AuthenticatedMediaPlansRoute
+  '/_authenticated/messages': typeof AuthenticatedMessagesRoute
   '/_authenticated/monthly-plan': typeof AuthenticatedMonthlyPlanRouteWithChildren
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/projects': typeof AuthenticatedProjectsRouteWithChildren
@@ -1067,6 +1076,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/inbox'
     | '/media-plans'
+    | '/messages'
     | '/monthly-plan'
     | '/notifications'
     | '/projects'
@@ -1174,6 +1184,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/inbox'
     | '/media-plans'
+    | '/messages'
     | '/notifications'
     | '/tasks'
     | '/area'
@@ -1281,6 +1292,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/inbox'
     | '/_authenticated/media-plans'
+    | '/_authenticated/messages'
     | '/_authenticated/monthly-plan'
     | '/_authenticated/notifications'
     | '/_authenticated/projects'
@@ -1543,6 +1555,13 @@ declare module '@tanstack/react-router' {
       path: '/monthly-plan'
       fullPath: '/monthly-plan'
       preLoaderRoute: typeof AuthenticatedMonthlyPlanRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/messages': {
+      id: '/_authenticated/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof AuthenticatedMessagesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/media-plans': {
@@ -2379,6 +2398,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
   AuthenticatedMediaPlansRoute: typeof AuthenticatedMediaPlansRoute
+  AuthenticatedMessagesRoute: typeof AuthenticatedMessagesRoute
   AuthenticatedMonthlyPlanRoute: typeof AuthenticatedMonthlyPlanRouteWithChildren
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedProjectsRoute: typeof AuthenticatedProjectsRouteWithChildren
@@ -2400,6 +2420,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedInboxRoute: AuthenticatedInboxRoute,
   AuthenticatedMediaPlansRoute: AuthenticatedMediaPlansRoute,
+  AuthenticatedMessagesRoute: AuthenticatedMessagesRoute,
   AuthenticatedMonthlyPlanRoute: AuthenticatedMonthlyPlanRouteWithChildren,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedProjectsRoute: AuthenticatedProjectsRouteWithChildren,
