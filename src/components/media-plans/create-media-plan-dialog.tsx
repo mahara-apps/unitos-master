@@ -16,7 +16,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -24,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { listClients } from "@/lib/workspace.functions";
 import { createMediaPlan } from "@/lib/media-plans.functions";
@@ -308,34 +306,6 @@ function Field({
       </Label>
       {children}
       {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
-    </div>
-  );
-}
-
-function FunnelSlider({
-  label,
-  value,
-  onChange,
-  disabled,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-3 py-1">
-      <div className="w-12 text-[11px] font-medium text-muted-foreground">{label}</div>
-      <Slider
-        value={[value]}
-        min={0}
-        max={100}
-        step={5}
-        disabled={disabled}
-        onValueChange={(v) => onChange(v[0] ?? 0)}
-        className="flex-1"
-      />
-      <div className="w-10 text-right text-xs tabular-nums">{value}%</div>
     </div>
   );
 }
