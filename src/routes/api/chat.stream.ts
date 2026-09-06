@@ -157,7 +157,7 @@ export const Route = createFileRoute("/api/chat/stream")({
         const brainCtx: BrainContext = {
           supabase,
           userId,
-          brandId: convo.brand_id,
+          brandId,
           clientId: convo.client_id,
           module: "chat",
         };
@@ -248,7 +248,7 @@ export const Route = createFileRoute("/api/chat/stream")({
             .single();
           await Promise.all([
             brain.events.publish(brainCtx, {
-              brand_id: convo.brand_id,
+              brand_id: brandId,
               client_id: convo.client_id,
               source_module: "chat",
               event_type: "chat.turn",
@@ -361,7 +361,7 @@ export const Route = createFileRoute("/api/chat/stream")({
 
           await Promise.all([
             brain.events.publish(brainCtx, {
-              brand_id: convo.brand_id,
+              brand_id: brandId,
               client_id: convo.client_id,
               source_module: "chat",
               event_type: "chat.turn",
