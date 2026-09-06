@@ -3223,3 +3223,10 @@ DROP TRIGGER IF EXISTS guard_brands_policy_authority ON public.brands;
 CREATE TRIGGER guard_brands_policy_authority
   BEFORE UPDATE ON public.brands
   FOR EACH ROW EXECUTE FUNCTION public.guard_client_policy_authority();
+
+-- ---------------------------------------------------------------------------
+-- 20260906215417_069ec94b-7022-41ef-b35e-d5be7c064127.sql
+-- ---------------------------------------------------------------------------
+REVOKE ALL ON FUNCTION public.guard_client_policy_authority() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.guard_client_policy_authority() FROM anon;
+REVOKE ALL ON FUNCTION public.guard_client_policy_authority() FROM authenticated;
