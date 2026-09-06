@@ -4699,18 +4699,29 @@ export type Database = {
           benchmark: string | null
           budget_amount: number
           budget_pct: number
+          campaign_subtype: string | null
           campaign_type: string | null
           channel: string | null
+          conversion_event: string | null
           created_at: string
+          creative_brief: Json
+          daily_budget: number
+          estimates: Json
           funnel_stage: string | null
           id: string
           keywords: string[]
           main_kpi: string | null
           objective: string | null
+          optimization_goal: string | null
           other_refs: string | null
+          placements: string[]
           plan_id: string
+          platform: string | null
           position: number
+          prerequisites: string[]
           product_service: string | null
+          rationale: string | null
+          targeting: Json
           updated_at: string
         }
         Insert: {
@@ -4718,18 +4729,29 @@ export type Database = {
           benchmark?: string | null
           budget_amount?: number
           budget_pct?: number
+          campaign_subtype?: string | null
           campaign_type?: string | null
           channel?: string | null
+          conversion_event?: string | null
           created_at?: string
+          creative_brief?: Json
+          daily_budget?: number
+          estimates?: Json
           funnel_stage?: string | null
           id?: string
           keywords?: string[]
           main_kpi?: string | null
           objective?: string | null
+          optimization_goal?: string | null
           other_refs?: string | null
+          placements?: string[]
           plan_id: string
+          platform?: string | null
           position?: number
+          prerequisites?: string[]
           product_service?: string | null
+          rationale?: string | null
+          targeting?: Json
           updated_at?: string
         }
         Update: {
@@ -4737,18 +4759,29 @@ export type Database = {
           benchmark?: string | null
           budget_amount?: number
           budget_pct?: number
+          campaign_subtype?: string | null
           campaign_type?: string | null
           channel?: string | null
+          conversion_event?: string | null
           created_at?: string
+          creative_brief?: Json
+          daily_budget?: number
+          estimates?: Json
           funnel_stage?: string | null
           id?: string
           keywords?: string[]
           main_kpi?: string | null
           objective?: string | null
+          optimization_goal?: string | null
           other_refs?: string | null
+          placements?: string[]
           plan_id?: string
+          platform?: string | null
           position?: number
+          prerequisites?: string[]
           product_service?: string | null
+          rationale?: string | null
+          targeting?: Json
           updated_at?: string
         }
         Relationships: [
@@ -4768,12 +4801,15 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          interview: Json
           monthly_budget: number
           period_end: string | null
           period_start: string | null
+          plan_version: number
           share_expires_at: string | null
           share_token: string | null
           status: string
+          strategy: Json
           title: string
           updated_at: string
         }
@@ -4783,12 +4819,15 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          interview?: Json
           monthly_budget?: number
           period_end?: string | null
           period_start?: string | null
+          plan_version?: number
           share_expires_at?: string | null
           share_token?: string | null
           status?: string
+          strategy?: Json
           title?: string
           updated_at?: string
         }
@@ -4798,12 +4837,15 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          interview?: Json
           monthly_budget?: number
           period_end?: string | null
           period_start?: string | null
+          plan_version?: number
           share_expires_at?: string | null
           share_token?: string | null
           status?: string
+          strategy?: Json
           title?: string
           updated_at?: string
         }
