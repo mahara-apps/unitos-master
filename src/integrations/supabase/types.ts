@@ -2644,6 +2644,7 @@ export type Database = {
       brands: {
         Row: {
           app_url: string | null
+          approval_policy: Json
           bairro: string | null
           cep: string | null
           cidade: string | null
@@ -2667,11 +2668,13 @@ export type Database = {
           overage_policy: string
           razao_social: string | null
           rua: string | null
+          scope_policy: Json
           slug: string
           updated_at: string
         }
         Insert: {
           app_url?: string | null
+          approval_policy?: Json
           bairro?: string | null
           cep?: string | null
           cidade?: string | null
@@ -2695,11 +2698,13 @@ export type Database = {
           overage_policy?: string
           razao_social?: string | null
           rua?: string | null
+          scope_policy?: Json
           slug: string
           updated_at?: string
         }
         Update: {
           app_url?: string | null
+          approval_policy?: Json
           bairro?: string | null
           cep?: string | null
           cidade?: string | null
@@ -2723,6 +2728,7 @@ export type Database = {
           overage_policy?: string
           razao_social?: string | null
           rua?: string | null
+          scope_policy?: Json
           slug?: string
           updated_at?: string
         }
@@ -3957,6 +3963,7 @@ export type Database = {
       clients: {
         Row: {
           address: string | null
+          approval_policy: Json
           archived_at: string | null
           brand_hub: Json
           brand_id: string
@@ -3989,6 +3996,7 @@ export type Database = {
           owner_user_id: string | null
           palette: Json | null
           portal_theme: Json
+          scope_policy: Json
           socials: Json | null
           tone_of_voice: string | null
           updated_at: string
@@ -3996,6 +4004,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          approval_policy?: Json
           archived_at?: string | null
           brand_hub?: Json
           brand_id: string
@@ -4028,6 +4037,7 @@ export type Database = {
           owner_user_id?: string | null
           palette?: Json | null
           portal_theme?: Json
+          scope_policy?: Json
           socials?: Json | null
           tone_of_voice?: string | null
           updated_at?: string
@@ -4035,6 +4045,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          approval_policy?: Json
           archived_at?: string | null
           brand_hub?: Json
           brand_id?: string
@@ -4067,6 +4078,7 @@ export type Database = {
           owner_user_id?: string | null
           palette?: Json | null
           portal_theme?: Json
+          scope_policy?: Json
           socials?: Json | null
           tone_of_voice?: string | null
           updated_at?: string
