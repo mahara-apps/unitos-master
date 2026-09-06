@@ -2,6 +2,16 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+export type MediaPlanStrategy = {
+  summary?: string;
+  platform_split_rationale?: string;
+  funnel_split?: { topo: number; meio: number; fundo: number };
+  funnel_rationale?: string;
+  warnings?: string[];
+  generated_at?: string;
+  model?: string;
+};
+
 export type MediaPlan = {
   id: string;
   brand_id: string;
@@ -13,8 +23,19 @@ export type MediaPlan = {
   status: "draft" | "approved" | "archived";
   share_token: string | null;
   share_expires_at: string | null;
+  interview: Record<string, unknown>;
+  strategy: MediaPlanStrategy;
+  plan_version: number;
   updated_at: string;
   created_at: string;
+};
+
+export type MediaPlanCreativeBrief = {
+  angles?: string[];
+  headlines?: string[];
+  descriptions?: string[];
+  cta?: string;
+  visual_ideas?: string[];
 };
 
 export type MediaPlanItem = {
@@ -33,6 +54,17 @@ export type MediaPlanItem = {
   keywords: string[];
   benchmark: string | null;
   other_refs: string | null;
+  platform: string | null;
+  campaign_subtype: string | null;
+  optimization_goal: string | null;
+  conversion_event: string | null;
+  daily_budget: number;
+  targeting: Record<string, unknown>;
+  placements: string[];
+  creative_brief: MediaPlanCreativeBrief;
+  estimates: Record<string, unknown>;
+  prerequisites: string[];
+  rationale: string | null;
 };
 
 const uuid = z.string().uuid();
