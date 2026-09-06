@@ -80,6 +80,7 @@ import { Route as AuthenticatedSettingsLogsRouteImport } from './routes/_authent
 import { Route as AuthenticatedSettingsIdentityRouteImport } from './routes/_authenticated/settings.identity'
 import { Route as AuthenticatedSettingsBrandingRouteImport } from './routes/_authenticated/settings.branding'
 import { Route as AuthenticatedSettingsAiLimitsRouteImport } from './routes/_authenticated/settings.ai-limits'
+import { Route as AuthenticatedSettingsAccessLogRouteImport } from './routes/_authenticated/settings.access-log'
 import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_authenticated/projects.$projectId'
 import { Route as AuthenticatedMonthlyPlanPlanIdRouteImport } from './routes/_authenticated/monthly-plan.$planId'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
@@ -492,6 +493,12 @@ const AuthenticatedSettingsAiLimitsRoute =
     path: '/ai-limits',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsAccessLogRoute =
+  AuthenticatedSettingsAccessLogRouteImport.update({
+    id: '/access-log',
+    path: '/access-log',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedProjectsProjectIdRoute =
   AuthenticatedProjectsProjectIdRouteImport.update({
     id: '/$projectId',
@@ -754,6 +761,7 @@ export interface FileRoutesByFullPath {
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/monthly-plan/$planId': typeof AuthenticatedMonthlyPlanPlanIdRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
+  '/settings/access-log': typeof AuthenticatedSettingsAccessLogRoute
   '/settings/ai-limits': typeof AuthenticatedSettingsAiLimitsRoute
   '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
   '/settings/identity': typeof AuthenticatedSettingsIdentityRoute
@@ -855,6 +863,7 @@ export interface FileRoutesByTo {
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/monthly-plan/$planId': typeof AuthenticatedMonthlyPlanPlanIdRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
+  '/settings/access-log': typeof AuthenticatedSettingsAccessLogRoute
   '/settings/ai-limits': typeof AuthenticatedSettingsAiLimitsRoute
   '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
   '/settings/identity': typeof AuthenticatedSettingsIdentityRoute
@@ -967,6 +976,7 @@ export interface FileRoutesById {
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/_authenticated/monthly-plan/$planId': typeof AuthenticatedMonthlyPlanPlanIdRoute
   '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
+  '/_authenticated/settings/access-log': typeof AuthenticatedSettingsAccessLogRoute
   '/_authenticated/settings/ai-limits': typeof AuthenticatedSettingsAiLimitsRoute
   '/_authenticated/settings/branding': typeof AuthenticatedSettingsBrandingRoute
   '/_authenticated/settings/identity': typeof AuthenticatedSettingsIdentityRoute
@@ -1078,6 +1088,7 @@ export interface FileRouteTypes {
     | '/customers/$customerId'
     | '/monthly-plan/$planId'
     | '/projects/$projectId'
+    | '/settings/access-log'
     | '/settings/ai-limits'
     | '/settings/branding'
     | '/settings/identity'
@@ -1179,6 +1190,7 @@ export interface FileRouteTypes {
     | '/customers/$customerId'
     | '/monthly-plan/$planId'
     | '/projects/$projectId'
+    | '/settings/access-log'
     | '/settings/ai-limits'
     | '/settings/branding'
     | '/settings/identity'
@@ -1290,6 +1302,7 @@ export interface FileRouteTypes {
     | '/_authenticated/customers/$customerId'
     | '/_authenticated/monthly-plan/$planId'
     | '/_authenticated/projects/$projectId'
+    | '/_authenticated/settings/access-log'
     | '/_authenticated/settings/ai-limits'
     | '/_authenticated/settings/branding'
     | '/_authenticated/settings/identity'
@@ -1903,6 +1916,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsAiLimitsRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/access-log': {
+      id: '/_authenticated/settings/access-log'
+      path: '/access-log'
+      fullPath: '/settings/access-log'
+      preLoaderRoute: typeof AuthenticatedSettingsAccessLogRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/projects/$projectId': {
       id: '/_authenticated/projects/$projectId'
       path: '/$projectId'
@@ -2308,6 +2328,7 @@ const AuthenticatedProjectsRouteWithChildren =
   )
 
 interface AuthenticatedSettingsRouteChildren {
+  AuthenticatedSettingsAccessLogRoute: typeof AuthenticatedSettingsAccessLogRoute
   AuthenticatedSettingsAiLimitsRoute: typeof AuthenticatedSettingsAiLimitsRoute
   AuthenticatedSettingsBrandingRoute: typeof AuthenticatedSettingsBrandingRoute
   AuthenticatedSettingsIdentityRoute: typeof AuthenticatedSettingsIdentityRoute
@@ -2323,6 +2344,7 @@ interface AuthenticatedSettingsRouteChildren {
 }
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
+  AuthenticatedSettingsAccessLogRoute: AuthenticatedSettingsAccessLogRoute,
   AuthenticatedSettingsAiLimitsRoute: AuthenticatedSettingsAiLimitsRoute,
   AuthenticatedSettingsBrandingRoute: AuthenticatedSettingsBrandingRoute,
   AuthenticatedSettingsIdentityRoute: AuthenticatedSettingsIdentityRoute,
