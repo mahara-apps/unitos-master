@@ -4958,6 +4958,165 @@ export type Database = {
           },
         ]
       }
+      message_thread_participants: {
+        Row: {
+          created_at: string
+          id: string
+          last_read_at: string | null
+          notify: boolean
+          role_in_thread: string
+          thread_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_read_at?: string | null
+          notify?: boolean
+          role_in_thread?: string
+          thread_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_read_at?: string | null
+          notify?: boolean
+          role_in_thread?: string
+          thread_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_thread_participants_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "message_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_threads: {
+        Row: {
+          archived_at: string | null
+          brand_id: string
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          last_message_at: string
+          last_message_preview: string | null
+          project_id: string | null
+          scope: string
+          subject: string
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          archived_at?: string | null
+          brand_id: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_message_at?: string
+          last_message_preview?: string | null
+          project_id?: string | null
+          scope: string
+          subject: string
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          archived_at?: string | null
+          brand_id?: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_message_at?: string
+          last_message_preview?: string | null
+          project_id?: string | null
+          scope?: string
+          subject?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_threads_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "message_threads_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_threads_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_threads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          author_id: string
+          author_kind: string
+          body: string
+          created_at: string
+          id: string
+          links: Json
+          mentions: string[]
+          removed_at: string | null
+          thread_id: string
+        }
+        Insert: {
+          author_id: string
+          author_kind?: string
+          body: string
+          created_at?: string
+          id?: string
+          links?: Json
+          mentions?: string[]
+          removed_at?: string | null
+          thread_id: string
+        }
+        Update: {
+          author_id?: string
+          author_kind?: string
+          body?: string
+          created_at?: string
+          id?: string
+          links?: Json
+          mentions?: string[]
+          removed_at?: string | null
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "message_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meta_compliance_events: {
         Row: {
           affected_connections: number
@@ -7557,6 +7716,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      can_access_message_thread: {
+        Args: { _thread_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_access_project: {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
@@ -7718,6 +7881,10 @@ export type Database = {
         Returns: boolean
       }
       is_global_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_message_thread_participant: {
+        Args: { _thread_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_portal_client_of: {
         Args: { _client_id: string; _user_id: string }
         Returns: boolean
@@ -7987,6 +8154,7 @@ export type Database = {
         | "system"
         | "sla_overdue"
         | "sla_overdue_manager"
+        | "message"
       post_channel:
         | "instagram"
         | "tiktok"
@@ -8164,6 +8332,7 @@ export const Constants = {
         "system",
         "sla_overdue",
         "sla_overdue_manager",
+        "message",
       ],
       post_channel: ["instagram", "tiktok", "linkedin", "x", "youtube", "blog"],
       post_stage: [
