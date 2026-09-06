@@ -25,7 +25,7 @@ import {
 } from "@/lib/messaging";
 import { LINK_SOURCE_LABEL } from "@/lib/link-source";
 import { displayName, initialsOf } from "@/lib/identity";
-import { formatDateTime } from "@/lib/timezone";
+import { formatDateTimeBr } from "@/lib/timezone";
 
 export function MessageThreadView({
   thread,
@@ -157,7 +157,7 @@ export function MessageThreadView({
                       </Badge>
                     ) : null}
                     <span className="text-[10px] text-muted-foreground">
-                      {formatDateTime(m.createdAt)}
+                      {formatDateTimeBr(m.createdAt)}
                     </span>
                     {mine && !m.removedAt ? (
                       <Button
