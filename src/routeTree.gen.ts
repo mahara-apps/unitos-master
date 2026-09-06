@@ -85,6 +85,7 @@ import { Route as AuthenticatedSettingsAiLimitsRouteImport } from './routes/_aut
 import { Route as AuthenticatedSettingsAccessLogRouteImport } from './routes/_authenticated/settings.access-log'
 import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_authenticated/projects.$projectId'
 import { Route as AuthenticatedMonthlyPlanPlanIdRouteImport } from './routes/_authenticated/monthly-plan.$planId'
+import { Route as AuthenticatedMessagesThreadIdRouteImport } from './routes/_authenticated/messages.$threadId'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_authenticated/chat.$conversationId'
 import { Route as AuthenticatedBrainDiagnosticsRouteImport } from './routes/_authenticated/brain.diagnostics'
@@ -524,6 +525,12 @@ const AuthenticatedMonthlyPlanPlanIdRoute =
     path: '/$planId',
     getParentRoute: () => AuthenticatedMonthlyPlanRoute,
   } as any)
+const AuthenticatedMessagesThreadIdRoute =
+  AuthenticatedMessagesThreadIdRouteImport.update({
+    id: '/$threadId',
+    path: '/$threadId',
+    getParentRoute: () => AuthenticatedMessagesRoute,
+  } as any)
 const AuthenticatedCustomersCustomerIdRoute =
   AuthenticatedCustomersCustomerIdRouteImport.update({
     id: '/$customerId',
@@ -773,6 +780,7 @@ export interface FileRoutesByFullPath {
   '/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  '/messages/$threadId': typeof AuthenticatedMessagesThreadIdRoute
   '/monthly-plan/$planId': typeof AuthenticatedMonthlyPlanPlanIdRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/settings/access-log': typeof AuthenticatedSettingsAccessLogRoute
@@ -876,6 +884,7 @@ export interface FileRoutesByTo {
   '/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  '/messages/$threadId': typeof AuthenticatedMessagesThreadIdRoute
   '/monthly-plan/$planId': typeof AuthenticatedMonthlyPlanPlanIdRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/settings/access-log': typeof AuthenticatedSettingsAccessLogRoute
@@ -991,6 +1000,7 @@ export interface FileRoutesById {
   '/_authenticated/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
   '/_authenticated/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  '/_authenticated/messages/$threadId': typeof AuthenticatedMessagesThreadIdRoute
   '/_authenticated/monthly-plan/$planId': typeof AuthenticatedMonthlyPlanPlanIdRoute
   '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/_authenticated/settings/access-log': typeof AuthenticatedSettingsAccessLogRoute
@@ -1105,6 +1115,7 @@ export interface FileRouteTypes {
     | '/brain/diagnostics'
     | '/chat/$conversationId'
     | '/customers/$customerId'
+    | '/messages/$threadId'
     | '/monthly-plan/$planId'
     | '/projects/$projectId'
     | '/settings/access-log'
@@ -1208,6 +1219,7 @@ export interface FileRouteTypes {
     | '/brain/diagnostics'
     | '/chat/$conversationId'
     | '/customers/$customerId'
+    | '/messages/$threadId'
     | '/monthly-plan/$planId'
     | '/projects/$projectId'
     | '/settings/access-log'
@@ -1322,6 +1334,7 @@ export interface FileRouteTypes {
     | '/_authenticated/brain/diagnostics'
     | '/_authenticated/chat/$conversationId'
     | '/_authenticated/customers/$customerId'
+    | '/_authenticated/messages/$threadId'
     | '/_authenticated/monthly-plan/$planId'
     | '/_authenticated/projects/$projectId'
     | '/_authenticated/settings/access-log'
@@ -1974,6 +1987,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMonthlyPlanPlanIdRouteImport
       parentRoute: typeof AuthenticatedMonthlyPlanRoute
     }
+    '/_authenticated/messages/$threadId': {
+      id: '/_authenticated/messages/$threadId'
+      path: '/$threadId'
+      fullPath: '/messages/$threadId'
+      preLoaderRoute: typeof AuthenticatedMessagesThreadIdRouteImport
+      parentRoute: typeof AuthenticatedMessagesRoute
+    }
     '/_authenticated/customers/$customerId': {
       id: '/_authenticated/customers/$customerId'
       path: '/$customerId'
@@ -2334,10 +2354,12 @@ const AuthenticatedCustomersRouteWithChildren =
   )
 
 interface AuthenticatedMessagesRouteChildren {
+  AuthenticatedMessagesThreadIdRoute: typeof AuthenticatedMessagesThreadIdRoute
   AuthenticatedMessagesIndexRoute: typeof AuthenticatedMessagesIndexRoute
 }
 
 const AuthenticatedMessagesRouteChildren: AuthenticatedMessagesRouteChildren = {
+  AuthenticatedMessagesThreadIdRoute: AuthenticatedMessagesThreadIdRoute,
   AuthenticatedMessagesIndexRoute: AuthenticatedMessagesIndexRoute,
 }
 
