@@ -302,12 +302,12 @@ export const createThread = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }): Promise<{ id: string }> => {
     const { supabase, userId } = context;
-    await assertModuleAccess(supabase, userId, data.brandId, "chat", "edit");
+    await assertModuleAccess(supabase, userId, data.brandId, "chat", "full");
 
     // Escopo: conversa de cliente/projeto exige cliente acessível ao autor.
     if (data.scope !== "team_dm") {
       if (!data.clientId) throw new Error("Selecione o cliente da conversa");
-      await assertClientScope(supabase, userId, data.clientId, data.brandId);
+      await assertClientScope(supabase, userId, data.clientId);
     }
     const visibility = data.scope === "client" ? data.visibility : "internal";
 
@@ -405,7 +405,7 @@ export const addThreadParticipants = createServerFn({ method: "POST" })
       .eq("id", data.threadId)
       .single();
     if (error) throw error;
-    await assertModuleAccess(supabase, userId, thread.brand_id as string, "chat", "edit");
+    await assertModuleAccess(supabase, userId, thread.brand_id as string, "chat", "full");
 
     const added = await addParticipantsInternal(supabase, {
       threadId: data.threadId,
@@ -605,7 +605,7 @@ export const listThreadCandidates = createServerFn({ method: "GET" })
 
       let contactIds: string[] = [];
       if (data.clientId) {
-        await assertClientScope(supabase, userId, data.clientId, data.brandId);
+        await assertClientScope(supabase, userId, data.clientId);
         const { data: contacts } = await supabase
           .from("client_members")
           .select("user_id, role")
