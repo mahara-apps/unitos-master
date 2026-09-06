@@ -140,7 +140,10 @@ export interface StreamAnswerArgs {
   brain: BrainConsolidated;
   toolCallLog: ToolCallLog[];
   user?: ChatUserContext;
+  /** Permissões efetivas por módulo — definem quais tools existem no turno. */
+  permissions?: ModulePermissions | null;
 }
+
 
 export async function streamAnswer(args: StreamAnswerArgs): Promise<{
   result: ReturnType<typeof streamText>;
