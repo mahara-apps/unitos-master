@@ -396,7 +396,7 @@ export function buildChatTools(
           .from("posts")
           .select("id, title, stage, scheduled_at, client_id, approval_status")
           .is("deleted_at", null)
-          .in("stage", ["internal_approval", "client_approval", "approval"])
+          .in("stage", ["review", "approved"])
           .order("scheduled_at", { ascending: true, nullsFirst: false })
           .limit(input.limit);
         if (brandId) qb = qb.eq("brand_id", brandId);
