@@ -169,7 +169,7 @@ export const MODULES: ModuleDefinition[] = [
     label: "Chat",
     group: "Inteligência",
     description: "Conversas internas e com a IA.",
-    urls: ["/chat"],
+    urls: ["/chat", "/messages"],
   },
   {
     key: "connections",

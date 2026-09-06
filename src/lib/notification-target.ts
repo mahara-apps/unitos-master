@@ -44,6 +44,12 @@ const postTarget = (postId: string, clientId?: string): NotificationTarget => ({
   ...(clientId ? { clientId } : {}),
 });
 
+const threadTarget = (threadId: string, clientId?: string): NotificationTarget => ({
+  to: "/messages/$threadId",
+  params: { threadId },
+  ...(clientId ? { clientId } : {}),
+});
+
 const taskTarget = (taskId: string): NotificationTarget => ({
   to: "/tasks",
   search: { taskId },
@@ -73,6 +79,8 @@ function fallbackForKind(kind: string | null | undefined): NotificationTarget {
       return { to: "/content" };
     case "deadline":
       return { to: "/calendar" };
+    case "message":
+      return { to: "/messages" };
     default:
       return { to: "/notifications" };
   }
@@ -103,6 +111,11 @@ function fromHref(href: string): NotificationTarget | null {
     const project = get("project");
     return { to: "/content", ...(isUuid(project) ? { search: { project } } : {}) };
   }
+
+  // /messages/<uuid> — conversa do comunicador interno.
+  const thread = /^\/messages\/([0-9a-f-]{36})$/i.exec(path);
+  if (thread) return threadTarget(thread[1] as string);
+  if (path === "/messages") return { to: "/messages" };
 
   if (path === "/tasks") {
     const taskId = get("taskId") ?? get("task");
@@ -154,6 +167,13 @@ export function resolveNotificationTarget(n: NotificationTargetLike): Notificati
       ? entityId
       : undefined;
   if (taskId) return taskTarget(taskId);
+
+  const threadId = isUuid(p["thread_id"])
+    ? (p["thread_id"] as string)
+    : source === "message" && entityId
+      ? entityId
+      : undefined;
+  if (threadId) return threadTarget(threadId, clientId);
 
   if (isUuid(p["monthly_plan_id"]) && clientId) {
     return customerTarget(clientId, "pauta", { planId: p["monthly_plan_id"] as string });

@@ -7954,6 +7954,14 @@ export type Database = {
       }
       media_plan_public_items: { Args: { _token: string }; Returns: Json }
       media_plan_public_resolve: { Args: { _token: string }; Returns: Json }
+      message_unread_counts: {
+        Args: { _brand_id: string }
+        Returns: {
+          thread_id: string
+          unread: number
+        }[]
+      }
+      message_unread_total: { Args: { _brand_id: string }; Returns: number }
       module_level_rank: { Args: { _level: string }; Returns: number }
       my_access: { Args: { _brand_id?: string }; Returns: Json }
       notification_pref_for_kind: { Args: { _kind: string }; Returns: string }

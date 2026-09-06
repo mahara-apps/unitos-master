@@ -34,6 +34,7 @@ import {
   Brain,
   BrainCircuit,
   MessageSquare,
+  MessagesSquare,
   Activity,
   Palette,
   Info,
@@ -59,6 +60,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { useModulePermissions } from "@/hooks/use-module-permissions";
 import { listClientInboxFn } from "@/lib/client-inbox.functions";
+import { countUnreadMessages } from "@/lib/messaging.functions";
 import { allowedSidebarUrls } from "@/lib/module-permissions";
 import { canAccessSidebarUrl } from "@/lib/permissions";
 import { useBrandFeatures } from "@/hooks/use-feature-access";
@@ -71,7 +73,7 @@ type NavItem = {
   url: string;
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   featureKey?: string;
-  badge?: "tasks-pending" | "inbox-awaiting" | "beta";
+  badge?: "tasks-pending" | "inbox-awaiting" | "messages-unread" | "beta";
 };
 
 const groups: Array<{ label: string; items: NavItem[] }> = [
@@ -111,6 +113,13 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
         featureKey: "brain",
       },
       { title: "Chat", url: "/chat", icon: MessageSquare, featureKey: "chat" },
+      {
+        title: "Mensagens",
+        url: "/messages",
+        icon: MessagesSquare,
+        featureKey: "chat",
+        badge: "messages-unread",
+      },
     ],
   },
   {
@@ -183,6 +192,23 @@ export function AppSidebar() {
     retry: false,
   });
   const inboxAwaiting = inboxQ.data ?? 0;
+  // Mensagens não lidas do comunicador interno (equipe + clientes).
+  const countUnread = useServerFn(countUnreadMessages);
+  const unreadQ = useQuery({
+    queryKey: ["messages-unread", brandId],
+    queryFn: async () => {
+      try {
+        return await countUnread({ data: { brandId: brandId! } });
+      } catch {
+        return 0;
+      }
+    },
+    enabled: !!brandId,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    retry: false,
+  });
+  const messagesUnread = unreadQ.data ?? 0;
   const featureEnabled = (key?: string) => {
     if (!key) return true;
     if (isSuper) return true;
@@ -281,6 +307,11 @@ export function AppSidebar() {
                         {item.badge === "tasks-pending" && pendingCount > 0 ? (
                           <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold leading-none text-destructive-foreground group-data-[collapsible=icon]:hidden">
                             {pendingCount > 99 ? "99+" : pendingCount}
+                          </span>
+                        ) : null}
+                        {item.badge === "messages-unread" && messagesUnread > 0 ? (
+                          <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold leading-none text-destructive-foreground group-data-[collapsible=icon]:hidden">
+                            {messagesUnread > 99 ? "99+" : messagesUnread}
                           </span>
                         ) : null}
                         {item.badge === "inbox-awaiting" && inboxAwaiting > 0 ? (
