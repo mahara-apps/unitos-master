@@ -594,6 +594,7 @@ function ProjectDetailPage() {
         pautasCount={items.length + extraPosts.length}
         footer={
           <div className="space-y-3">
+            <ProjectHoursCard brandId={brandId!} projectId={projectId} />
             <InvolvedPeople
               brandId={brandId!}
               projectId={projectId}
@@ -603,6 +604,7 @@ function ProjectDetailPage() {
             />
           </div>
         }
+
       />
 
       {/* Resumo da pauta em modal — evita sair da gestão do projeto */}
