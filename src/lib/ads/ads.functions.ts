@@ -325,7 +325,7 @@ export const syncAdAccount = createServerFn({ method: "POST" })
                 link_clicks: r.linkClicks,
                 results: r.results,
                 result_kind: r.resultKind,
-                raw: r.raw,
+                raw: r.raw as unknown as Record<string, never>,
               })),
               {
                 onConflict:
