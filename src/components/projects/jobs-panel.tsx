@@ -63,6 +63,10 @@ type Props = {
   pautasCount?: number;
   /** Rodapé do card (envolvidos no projeto). */
   footer?: ReactNode;
+  /** Quando informado, abrir a pauta navega na própria tela (sem modal). */
+  onOpenPautas?: () => void;
+  /** Nível inicial exibido: visão geral ou lista de jobs. */
+  initialMode?: "overview" | "jobs";
 };
 
 export function JobsPanel({
@@ -75,6 +79,8 @@ export function JobsPanel({
   pautasContent,
   pautasCount = 0,
   footer,
+  onOpenPautas,
+  initialMode = "overview",
 }: Props) {
   const qc = useQueryClient();
   const listJobs = useServerFn(listJobsFn);
@@ -93,7 +99,7 @@ export function JobsPanel({
   const [showDone, setShowDone] = useState(false);
   const [search, setSearch] = useState("");
   /** Nível 1 (visão geral) × nível 2 (lista de jobs). */
-  const [mode, setMode] = useState<"overview" | "jobs">("overview");
+  const [mode, setMode] = useState<"overview" | "jobs">(initialMode);
   /** Job aberto em modal amplo. */
   const [openJobId, setOpenJobId] = useState<string | null>(null);
   const [pautasOpen, setPautasOpen] = useState(false);
@@ -114,7 +120,8 @@ export function JobsPanel({
     [allTasks, showDone],
   );
 
-  const hasPautas = !!pautasContent;
+  const hasPautas = !!pautasContent || !!onOpenPautas;
+  const openPautas = onOpenPautas ?? (() => setPautasOpen(true));
   const effectiveJobId = openJobId;
 
   const tasksByJob = useMemo(() => {
@@ -476,7 +483,7 @@ export function JobsPanel({
               {hasPautas ? (
                 <button
                   type="button"
-                  onClick={() => setPautasOpen(true)}
+                  onClick={() => openPautas()}
                   className="flex w-full items-center gap-4 rounded-lg border border-border/60 bg-background/40 px-5 py-4 text-left transition-colors hover:bg-muted/40"
                 >
                   <Sparkles className="h-4 w-4 shrink-0 text-primary" />
@@ -526,7 +533,7 @@ export function JobsPanel({
                   <button
                     type="button"
                     className="mt-2 flex items-center gap-1.5 text-primary hover:underline"
-                    onClick={() => setPautasOpen(true)}
+                    onClick={() => openPautas()}
                   >
                     <Sparkles className="h-3 w-3" /> Ver pautas ({pautasCount})
                   </button>
@@ -566,6 +573,32 @@ export function JobsPanel({
                   </Button>
                 </div>
               )}
+
+              {/* A pauta é um TIPO de job (job de conteúdo) e entra na MESMA lista. */}
+              {hasPautas ? (
+                <div className="border-b border-border/60">
+                  <WorkItemRow
+                    className="px-5 py-4"
+                    title="Pauta de conteúdo"
+                    color="hsl(var(--primary))"
+                    onOpen={() => openPautas()}
+                    subCount={pautasCount}
+                    meta={
+                      <span className="tabular-nums">
+                        {pautasCount} {pautasCount === 1 ? "item" : "itens"} por rede
+                      </span>
+                    }
+                    status={
+                      <Badge
+                        variant="outline"
+                        className="h-5 rounded-full border-primary/40 px-2 text-[10px] text-primary"
+                      >
+                        Pauta de conteúdo
+                      </Badge>
+                    }
+                  />
+                </div>
+              ) : null}
 
               {jobsQ.isLoading ? (
                 <div className="space-y-3 p-5">
@@ -618,11 +651,19 @@ export function JobsPanel({
                         dateLabel={formatShortDate(j.due_at)}
                         overdue={isOverdue(j.due_at, done)}
                         status={
-                          j.archived_at ? (
-                            <Badge variant="outline" className="h-5 text-[10px]">
-                              arquivado
+                          <span className="flex items-center gap-1.5">
+                            <Badge
+                              variant="outline"
+                              className="h-5 rounded-full px-2 text-[10px] text-muted-foreground"
+                            >
+                              Job
                             </Badge>
-                          ) : null
+                            {j.archived_at ? (
+                              <Badge variant="outline" className="h-5 text-[10px]">
+                                arquivado
+                              </Badge>
+                            ) : null}
+                          </span>
                         }
                         actions={
                           <DropdownMenu>
