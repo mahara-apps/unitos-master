@@ -136,7 +136,7 @@ const attachSupabaseAuth = createMiddleware({ type: "function" }).client(async (
   }
 });
 
-});
+
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
