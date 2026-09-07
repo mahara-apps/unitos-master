@@ -161,6 +161,25 @@ const EMPTY_FORM: EditForm = {
   notes: "",
 };
 
+/**
+ * Explicação de apoio quando a medição não trouxe detalhe próprio. Evita que o
+ * painel mostre apenas "Atenção" sem dizer o que fazer.
+ */
+function checkHint(id: string, state: string): string | null {
+  if (state === "ok") return null;
+  if (id === "super_admin") {
+    if (state === "attention")
+      return "Primeiro Super Admin ainda não criado — abra /setup na instalação. Não bloqueia a liberação.";
+    if (state === "pending") return "Primeiro acesso ainda não verificado.";
+  }
+  if (id === "workspace" && state === "attention") {
+    return "Workspace ainda não criado na instalação (o modelo é 1 por instalação).";
+  }
+  if (state === "pending") return "Ainda não medido.";
+  return null;
+}
+
+
 function InstallationDetailPage() {
   const { id } = Route.useParams();
   const { novo } = Route.useSearch();
