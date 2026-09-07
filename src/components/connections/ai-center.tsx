@@ -532,24 +532,36 @@ function HealthPanel({
     staleTime: 5 * 60 * 1000,
   });
 
+  const [lastRun, setLastRun] = useState<string | null>(null);
+
   const runMut = useMutation({
     mutationFn: () => runFn(),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["ai-model-status", brandId] });
-      toast.success(
-        res.replacements > 0
-          ? `${res.replacements} modelo(s) atualizado(s) automaticamente`
-          : res.problems > 0
-            ? `${res.problems} verificação(ões) com problema — veja as notificações`
-            : "Todos os modelos estão ativos",
-      );
+      setLastRun(res.checkedAt);
+      const noKeys =
+        res.skipped > 0
+          ? ` · ${res.skippedProviders.length} fornecedor(es) sem chave configurada`
+          : "";
+      if (res.replacements > 0) {
+        toast.success(`${res.replacements} modelo(s) atualizado(s) automaticamente${noKeys}`);
+      } else if (res.problems > 0) {
+        toast.error(`${res.problems} modelo(s) com falha — veja as notificações${noKeys}`);
+      } else {
+        toast.success(`Todos os modelos ativos${noKeys}`);
+      }
     },
     onError: (e: unknown) =>
       toast.error(aiErrorMessage(e, "Falha ao verificar modelos")),
   });
 
   const connectedProviders = AI_PROVIDERS.filter((p) => providers?.[p.id]?.connected);
-  const replaced = (data?.models ?? []).filter((m) => m.replacedModelId);
+  const missingKeyProviders = AI_PROVIDERS.filter((p) => !providers?.[p.id]?.connected);
+  const connectedIds = new Set(connectedProviders.map((p) => p.id));
+  const replaced = (data?.models ?? []).filter(
+    (m) => m.replacedModelId && connectedIds.has(m.provider),
+  );
+  const lastCheckedAt = lastRun ?? data?.lastCheckedAt ?? null;
 
   return (
     <DashboardPanelSurface className="p-4">
