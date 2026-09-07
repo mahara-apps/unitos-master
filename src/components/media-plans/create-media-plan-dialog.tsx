@@ -202,25 +202,30 @@ export function CreateMediaPlanDialog({
           </div>
         </DialogHeader>
 
-        {inGeneration ? (
-          <PlanGenerationProgress
-            error={genError}
-            onRetry={() => {
-              if (lastInterview) startGeneration(lastInterview);
-            }}
-            onBack={() => {
-              setGenError(null);
-              setStage("interview");
-            }}
-          />
-        ) : inInterview ? (
-          <div className="max-h-[70vh] min-h-[420px]">
-            <MediaPlanInterview
-              submitting={busy}
-              onCancel={() => setStage("basics")}
-              onSubmit={startGeneration}
-            />
-          </div>
+        {inInterview || inGeneration ? (
+          <>
+            {inGeneration && (
+              <PlanGenerationProgress
+                error={genError}
+                onRetry={() => {
+                  if (lastInterview) startGeneration(lastInterview);
+                }}
+                onBack={() => {
+                  setGenError(null);
+                  setStage("interview");
+                }}
+              />
+            )}
+            {/* A entrevista fica montada durante a geração: "Rever respostas"
+                volta com tudo preenchido, sem refazer nada. */}
+            <div className={cn("max-h-[70vh] min-h-[420px]", inGeneration && "hidden")}>
+              <MediaPlanInterview
+                submitting={busy}
+                onCancel={() => setStage("basics")}
+                onSubmit={startGeneration}
+              />
+            </div>
+          </>
         ) : (
           <>
             <div className="grid gap-4 py-1">
