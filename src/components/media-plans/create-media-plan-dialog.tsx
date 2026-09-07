@@ -183,26 +183,41 @@ export function CreateMediaPlanDialog({
         ) : (
           <>
             <div className="grid gap-4 py-1">
-              <Field label="Cliente" required>
-                <Select value={clientId} onValueChange={setClientId} disabled={busy}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Selecionar cliente…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients.length === 0 ? (
-                      <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                        Nenhum cliente ativo neste workspace.
-                      </div>
-                    ) : (
-                      clients.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+              <Field
+                label="Cliente"
+                required
+                hint={
+                  lockedClient
+                    ? "Este plano será criado na operação do cliente selecionado."
+                    : undefined
+                }
+              >
+                {lockedClient ? (
+                  <div className="flex h-9 items-center rounded-md border border-border/60 bg-muted/40 px-3 text-sm font-medium">
+                    {lockedClientName}
+                  </div>
+                ) : (
+                  <Select value={clientId} onValueChange={setClientId} disabled={busy}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Selecionar cliente…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clients.length === 0 ? (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                          Nenhum cliente ativo neste workspace.
+                        </div>
+                      ) : (
+                        clients.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                )}
               </Field>
+
 
               <Field label="Título">
                 <Input
