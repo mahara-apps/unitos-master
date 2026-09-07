@@ -41,16 +41,32 @@ const NAO_VERIFICADAS = new Set([
 ]);
 
 function tabelasDoDelta(sql: string): string[] {
+  // Tabelas criadas apenas como passo intermediario e renomeadas no mesmo
+  // pacote (ex.: brain_events_new -> brain_events) nunca existem no destino:
+  // o nome final entra na verificacao, o intermediario sai.
+  const renomeadas = new Map<string, string>();
+  const reRename = /ALTER TABLE (?:IF EXISTS )?public\.([a-z0-9_]+)\s+RENAME TO ([a-z0-9_]+)/gi;
+  for (const m of sql.matchAll(reRename)) {
+    renomeadas.set(m[1]!.toLowerCase(), m[2]!.toLowerCase());
+  }
+
   const re = /CREATE TABLE (?:IF NOT EXISTS )?public\.([a-z0-9_]+)/gi;
   const out = new Set<string>();
   for (const m of sql.matchAll(re)) {
-    const nome = m[1]!.toLowerCase();
+    let nome = m[1]!.toLowerCase();
+    // Segue a cadeia de renomeacoes ate o nome final.
+    const vistos = new Set<string>();
+    while (renomeadas.has(nome) && !vistos.has(nome)) {
+      vistos.add(nome);
+      nome = renomeadas.get(nome)!;
+    }
     if (nome.startsWith("_unitos_")) continue;
     if (NAO_VERIFICADAS.has(nome)) continue;
     out.add(nome);
   }
   return [...out].sort();
 }
+
 
 describe("sincronia MASTER-first", () => {
   const { version, sha256 } = parseVersionFile(versionRaw);
