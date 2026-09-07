@@ -192,7 +192,16 @@
   --stage-published: oklch(0.72 0.22 340);
   --brand-lime: oklch(0.92 0.24 125);
   --brand-lime-foreground: oklch(0.28 0.1 130);
+  /* Status de publicação — mesmas matizes, luminosidade ajustada ao escuro */
+  --pub-draft: oklch(0.72 0.035 257.417);
+  --pub-reserved: oklch(0.82 0.15 82);
+  --pub-awaiting: oklch(0.74 0.19 354.308);
+  --pub-scheduled: oklch(0.76 0.13 231);
+  --pub-published: oklch(0.75 0.16 158);
+  --pub-ai: oklch(0.74 0.19 292.717);
+  --pub-failed: oklch(0.72 0.21 22.216);
 }
+
 
 @layer base {
   * {
