@@ -2927,10 +2927,32 @@ export async function runAutomatedUpdate(input: {
     targetSha = head.sha;
   }
 
+  // A versão que existe DENTRO do commit do MASTER. O repositório de código só
+  // avança quando o MASTER é publicado; sem esta checagem a operação enviaria o
+  // mesmo pacote de novo e ainda gravaria o número de versão novo na instalação.
+  const { compareReleaseVersions, masterNotPublishedMessage } = await import("./manager-contract");
+  const repoRelease = await code.releaseAtCommit(targetSha);
+  if (!repoRelease.ok || !repoRelease.version) {
+    return fail(
+      "BLOCKED",
+      repoRelease.error ?? "versão do pacote do MASTER não pôde ser lida no commit autorizado",
+      "code",
+    );
+  }
+  const publishedRelease = repoRelease.version;
+  if (compareReleaseVersions(publishedRelease, MASTER_RELEASE_VERSION) < 0) {
+    return fail(
+      "BLOCKED",
+      masterNotPublishedMessage(publishedRelease, MASTER_RELEASE_VERSION),
+      "code",
+    );
+  }
+
   // A instalação constrói o SEU repositório: a versão autorizada do MASTER é
   // publicada nele antes do build. Sem isso o deployment repetiria o código
   // antigo. Idempotente: repetir não gera commit novo (devolve o commit atual).
   let buildRef: string | null = null;
+  let changedFiles: number | null = null;
   if (!deploymentId) {
     await report(client, operation, "code", "running");
     const ensured = await code.ensureRepo();
@@ -2942,12 +2964,14 @@ export async function runAutomatedUpdate(input: {
       return fail("FAIL", published.error ?? `não foi possível publicar em ${repo.slug}`);
     }
     buildRef = published.commitSha ?? null;
+    changedFiles = typeof published.changed === "number" ? published.changed : null;
     await saveStageProgress(client, operation, {
       codeDone: true,
       codeSha: targetSha,
       codeRepo: repo.slug,
     });
   }
+
 
 
   if (!deploymentId) {
