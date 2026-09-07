@@ -1511,7 +1511,6 @@ export const quickPlanFn = createServerFn({ method: "POST" })
               ...(data.formatQuotas ? { formatQuotas: data.formatQuotas } : {}),
             },
           ],
-          organization: data.organization,
         },
         period,
         jobId: lock.jobId,

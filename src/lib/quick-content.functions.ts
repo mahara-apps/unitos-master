@@ -18,7 +18,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { PLAN_CHANNELS } from "@/lib/monthly-plan-fields";
-import { CONTENT_FORMATS } from "@/lib/content-formats";
+import { CONTENT_FORMATS, type ContentFormat } from "@/lib/content-formats";
 
 const QuickPostInput = z.object({
   brandId: z.string().uuid(),
@@ -29,7 +29,10 @@ const QuickPostInput = z.object({
   /** Título opcional: sem ele, a própria ideia (encurtada) vira o título. */
   title: z.string().trim().max(160).optional(),
   channel: z.enum(PLAN_CHANNELS),
-  format: z.enum(CONTENT_FORMATS),
+  format: z.custom<ContentFormat>(
+    (v) => typeof v === "string" && (CONTENT_FORMATS as readonly string[]).includes(v),
+    "formato inválido",
+  ),
 });
 
 export type QuickPostResult = {
