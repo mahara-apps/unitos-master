@@ -77,7 +77,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, LayoutGrid, List as ListIcon, Palette, Sparkles } from "lucide-react";
+import {
+  ChevronDown,
+  LayoutGrid,
+  List as ListIcon,
+  Palette,
+  SlidersHorizontal,
+  Sparkles,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProjectCard } from "@/components/projects/project-card";
 
