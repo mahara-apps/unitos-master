@@ -22,6 +22,7 @@ describe("customer panel tabs (fonte única)", () => {
       "briefing",
       "pauta",
       "trabalho",
+      "horas",
       "publicacoes",
       "area-cliente",
     ]);
