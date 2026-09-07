@@ -933,24 +933,23 @@ function ApprovalDialog({
               )}
             </div>
 
-            {/* Ações */}
-            <div className="space-y-3 border-t border-border/60 bg-card/70 px-5 py-4">
+            {/* Ações — fixas na base, alvos grandes */}
+            <div className="sticky bottom-0 space-y-2.5 border-t border-border bg-card px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:static md:px-5 md:py-4">
               {!canDecide ? (
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">
                     Este acesso é de acompanhamento: as decisões ficam com quem tem login
                     autorizado.
                   </p>
-                  <Button size="sm" variant="ghost" className="w-full" onClick={onClose}>
-                    Voltar para a lista
+                  <Button variant="ghost" className="h-12 w-full" onClick={onClose}>
+                    Voltar
                   </Button>
                 </div>
               ) : mode ? (
                 <div className="flex gap-2">
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    className="flex-1"
+                    variant="outline"
+                    className="h-12 flex-1 font-bold"
                     onClick={() => {
                       setMode(null);
                       setNote("");
@@ -959,8 +958,7 @@ function ApprovalDialog({
                     Cancelar
                   </Button>
                   <Button
-                    size="sm"
-                    className="flex-1"
+                    className="h-12 flex-1 font-bold"
                     variant={mode === "reject" ? "destructive" : "default"}
                     disabled={m.isPending || (mode !== "comment" && !note.trim())}
                     onClick={() =>
@@ -982,35 +980,47 @@ function ApprovalDialog({
                   </Button>
                 </div>
               ) : (
-                <div className="flex flex-col gap-2">
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    disabled={m.isPending}
-                    onClick={() => m.mutate({ decision: "approved" })}
-                  >
-                    {m.isPending ? (
-                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Check className="mr-1.5 h-4 w-4" />
-                    )}
-                    {decided && currentStatus === "approved" ? "Manter aprovado" : "Aprovar"}
-                  </Button>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Button size="sm" variant="outline" onClick={() => setMode("adjust")}>
-                      <MessageSquareWarning className="mr-1 h-4 w-4" /> Ajustes
+                <>
+                  <div className="flex gap-2.5">
+                    <Button
+                      variant="outline"
+                      className="h-13 min-h-[52px] flex-1 rounded-2xl text-[14.5px] font-extrabold"
+                      onClick={() => setMode("adjust")}
+                    >
+                      <MessageSquareWarning className="mr-1.5 h-[18px] w-[18px]" /> Pedir ajustes
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => setMode("reject")}>
-                      <X className="mr-1 h-4 w-4" /> Recusar
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setMode("comment")}>
-                      <MessageCircle className="mr-1 h-4 w-4" /> Comentar
+                    <Button
+                      className="h-13 min-h-[52px] flex-[1.3] rounded-2xl bg-portal-published text-[15px] font-extrabold text-white hover:bg-portal-published/90"
+                      disabled={m.isPending}
+                      onClick={() => m.mutate({ decision: "approved" })}
+                    >
+                      {m.isPending ? (
+                        <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="mr-1.5 h-[19px] w-[19px]" strokeWidth={2.6} />
+                      )}
+                      {decided && currentStatus === "approved" ? "Manter aprovado" : "Aprovar"}
                     </Button>
                   </div>
-                  <Button size="sm" variant="ghost" className="w-full" onClick={onClose}>
-                    Voltar para a lista
-                  </Button>
-                </div>
+                  <div className="flex items-center justify-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-xs text-muted-foreground"
+                      onClick={() => setMode("comment")}
+                    >
+                      <MessageCircle className="mr-1 h-4 w-4" /> Comentar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-xs text-muted-foreground"
+                      onClick={() => setMode("reject")}
+                    >
+                      <X className="mr-1 h-4 w-4" /> Recusar
+                    </Button>
+                  </div>
+                </>
               )}
             </div>
           </div>
