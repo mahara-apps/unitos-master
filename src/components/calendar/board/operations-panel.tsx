@@ -36,6 +36,7 @@ function Block({
   tone,
   title,
   count,
+  big,
   children,
   action,
 }: {
@@ -43,6 +44,8 @@ function Block({
   tone?: string;
   title: string;
   count?: React.ReactNode;
+  /** Número grande de resumo (visão Painel). */
+  big?: number;
   children: React.ReactNode;
   action?: React.ReactNode;
 }) {
@@ -58,12 +61,18 @@ function Block({
             ) : null}
           </div>
         </div>
-        {action}
+        <div className="flex items-center gap-2">
+          {big !== undefined ? (
+            <span className="text-2xl font-semibold leading-none tabular-nums">{big}</span>
+          ) : null}
+          {action}
+        </div>
       </div>
       {children}
     </DashboardPanelSurface>
   );
 }
+
 
 function Empty({ title, hint }: { title: string; hint?: string }) {
   return (
