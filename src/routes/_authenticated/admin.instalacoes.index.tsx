@@ -91,6 +91,16 @@ function AdminInstallationsPage() {
     retry: false,
   });
 
+  // Versão que existe no pacote publicado do MASTER: quando fica atrás do
+  // sistema, autorizar atualização não envia código novo.
+  const masterVersion = useQuery({
+    queryKey: ["installations-master-version"],
+    queryFn: () => masterVersionFn({ data: undefined }),
+    enabled: available,
+    retry: false,
+  });
+
+
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
