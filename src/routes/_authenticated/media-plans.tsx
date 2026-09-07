@@ -1,8 +1,17 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, Plus, Search, Share2, Sparkles, Target } from "lucide-react";
+import {
+  BarChart3,
+  CheckCircle2,
+  ChevronDown,
+  Plus,
+  Search,
+  Share2,
+  Sparkles,
+  Target,
+} from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
