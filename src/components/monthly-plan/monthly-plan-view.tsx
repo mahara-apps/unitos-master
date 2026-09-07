@@ -48,9 +48,12 @@ import { ContextSourcesRow } from "@/components/monthly-plan/context-sources-row
 import { PautaBoard } from "@/components/monthly-plan/pauta-board";
 import {
   LinkPautaProjectDialog,
+  LinkPautaProjectDialog,
   NewPautaDialog,
 } from "@/components/monthly-plan/new-pauta-dialog";
-import { PLAN_CHANNELS, PLAN_CHANNEL_LABEL as CHANNEL_LABEL } from "@/lib/monthly-plan-fields";
+import { QuickPautaDialog } from "@/components/monthly-plan/quick-pauta-dialog";
+import { QuickPostDialog } from "@/components/monthly-plan/quick-post-dialog";
+
 import {
   CONTENT_FORMATS,
   CONTENT_FORMAT_LABEL,
