@@ -7,6 +7,8 @@ const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf8");
 describe("versão exibida da instalação", () => {
   const detail = read("src/routes/_authenticated/admin.instalacoes.$id.tsx");
   const card = read("src/components/installations/installation-card.tsx");
+  const manager = read("src/lib/installation/manager.functions.ts");
+  const runner = read("src/lib/installation/runner.server.ts");
 
   it("detalhe usa a release fixada (código realmente publicado)", () => {
     expect(detail).toContain("installed={inst.pinnedRelease ?? inst.currentVersion}");
@@ -18,5 +20,15 @@ describe("versão exibida da instalação", () => {
 
   it("bloqueia autorizar atualização sem saber a versão do pacote do MASTER", () => {
     expect(detail).toContain("!masterVersion.data?.repoRelease");
+  });
+
+  it("calcula atualização pela release realmente publicada", () => {
+    expect(manager).toContain("isUpdateAvailable(installedVersion, MASTER_RELEASE_VERSION)");
+    expect(detail).toContain("inst.updateAvailable ||");
+  });
+
+  it("validação de saúde não avança a versão instalada", () => {
+    expect(runner).toContain('kind === "validate" ? { ...outcome, version: installedVersion } : outcome');
+    expect(runner).toContain('kind !== "validate" && outcome.version');
   });
 });
