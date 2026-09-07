@@ -176,6 +176,9 @@ export function MonthlyPlanView({
 
   const [wizardOpen, setWizardOpen] = useState(false);
   const [newPautaOpen, setNewPautaOpen] = useState(false);
+  const [quickPautaOpen, setQuickPautaOpen] = useState(false);
+  const [quickPostOpen, setQuickPostOpen] = useState(false);
+
 
   const requestOverage = useServerFn(requestPlanOverageFn);
   const overageM = useMutation({
