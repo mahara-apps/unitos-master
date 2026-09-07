@@ -41,6 +41,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import { supportsKind, type ProviderName as AiProviderName } from "@/lib/ai-capabilities";
+import { aiErrorMessage } from "@/lib/ai-error-display";
+
 import { getAiModelStatus, runAiModelHealthNow } from "@/lib/ai-models.functions";
 import { saveProviderKey, testProviderKey, removeProviderKey } from "@/lib/connections.functions";
 import { cn } from "@/lib/utils";
