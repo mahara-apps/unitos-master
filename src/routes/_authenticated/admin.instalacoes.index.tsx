@@ -76,6 +76,8 @@ function AdminInstallationsPage() {
   const accessFn = useServerFn(getInstallationManagerAccessFn);
   const listFn = useServerFn(listInstallationsFn);
   const createFn = useServerFn(createInstallationFn);
+  const masterVersionFn = useServerFn(getMasterVersionFn);
+
 
   const access = useQuery({
     queryKey: ["installation-manager-access"],
