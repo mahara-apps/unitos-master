@@ -751,10 +751,10 @@ function ApprovalDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-4xl gap-0 overflow-hidden p-0">
-        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+      <DialogContent className="h-dvh max-h-dvh w-full max-w-none gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-auto sm:max-h-[90vh] sm:max-w-4xl sm:rounded-lg sm:border">
+        <div className="flex h-full min-h-0 flex-col overflow-y-auto md:grid md:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] md:overflow-hidden">
           {/* Prévia */}
-          <div className="relative flex flex-col bg-muted/40">
+          <div className="relative flex shrink-0 flex-col bg-muted/40">
             <div className="relative flex aspect-[4/5] w-full items-center justify-center overflow-hidden md:aspect-auto md:flex-1">
               {current?.url ? (
                 <img
