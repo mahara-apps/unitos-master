@@ -221,7 +221,40 @@ WITH checks AS (
          coalesce((SELECT relispopulated::text FROM pg_class WHERE relname = 'brain_stats_mv' AND relkind = 'm'), 'ausente'),
          CASE WHEN (SELECT relispopulated FROM pg_class WHERE relname = 'brain_stats_mv' AND relkind = 'm')
               THEN 'PASS' ELSE 'FAIL' END
+
+  -- ------------------------------------------- cobertura do delta (MASTER-first)
+  -- Toda tabela criada por 007_delta_migrations.sql precisa existir na
+  -- instalação. Mantido em sincronia por tests/installation-master-sync.unit.test.ts.
+  UNION ALL
+  SELECT 80, 'delta: todas as tabelas do pacote MASTER existem',
+         coalesce((
+           SELECT string_agg(t, ',' ORDER BY t) FROM (
+             SELECT t FROM unnest(ARRAY[
+               'access_profiles','brain_events_new','briefing_import_changes',
+               'briefing_import_runs','briefing_import_steps','client_portal_access',
+               'client_request_events','client_requests','installation',
+               'installation_meta_app','message_thread_participants','message_threads',
+               'messages','portal_notification_prefs','post_client_comments',
+               'project_participants','user_login_events','work_comments',
+               'work_links','work_statuses'
+             ]) AS t
+             WHERE to_regclass('public.' || t) IS NULL
+           ) faltando
+         ), 'todas presentes'),
+         CASE WHEN NOT EXISTS (
+           SELECT 1 FROM unnest(ARRAY[
+             'access_profiles','brain_events_new','briefing_import_changes',
+             'briefing_import_runs','briefing_import_steps','client_portal_access',
+             'client_request_events','client_requests','installation',
+             'installation_meta_app','message_thread_participants','message_threads',
+             'messages','portal_notification_prefs','post_client_comments',
+             'project_participants','user_login_events','work_comments',
+             'work_links','work_statuses'
+           ]) AS t
+           WHERE to_regclass('public.' || t) IS NULL
+         ) THEN 'PASS' ELSE 'FAIL' END
 )
+
 SELECT status, check_name, observed
 FROM checks
 ORDER BY ord;
