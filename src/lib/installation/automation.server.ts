@@ -1134,6 +1134,8 @@ export function createDeployClient(input: {
   masterRepo?: string | null;
   /** `owner/repo` DA INSTALAÇÃO — repositório que o deploy realmente constrói. */
   repo?: string | null;
+  /** Token do GitHub — necessário para ler o commit do MASTER (repo privado). */
+  githubToken?: string | null;
   fetchImpl?: Fetcher;
 }): DeployClient {
   const doFetch = input.fetchImpl ?? fetch;
@@ -1302,13 +1304,33 @@ export function createDeployClient(input: {
       }
     },
     async latestCommit() {
+      // O repositório do MASTER é privado: sem o token do GitHub a API responde
+      // 403. Melhor dizer o que falta do que devolver um HTTP cru.
+      const gh = (input.githubToken ?? "").trim();
+      if (!gh) {
+        return {
+          ok: false,
+          error:
+            "Token do GitHub não configurado (UNITOS_GITHUB_TOKEN) — não é possível ler o commit do MASTER.",
+        };
+      }
       try {
-        const res = await doFetch(
-          `https://api.github.com/repos/${masterRepo}/commits/main`,
-          { headers: { accept: "application/vnd.github+json" } },
-        );
+        const res = await doFetch(`https://api.github.com/repos/${masterRepo}/commits/main`, {
+          headers: {
+            accept: "application/vnd.github+json",
+            authorization: `Bearer ${gh}`,
+            "x-github-api-version": "2022-11-28",
+          },
+        });
         if (!res.ok) {
-          return { ok: false, error: `HTTP ${res.status} ao consultar o commit do MASTER` };
+          const hint =
+            res.status === 403 || res.status === 404
+              ? " — verifique se o token tem acesso de leitura ao repositório do MASTER"
+              : "";
+          return {
+            ok: false,
+            error: `HTTP ${res.status} ao consultar o commit do MASTER${hint}`,
+          };
         }
         const body = (await res.json().catch(() => ({}))) as { sha?: string };
         if (!body.sha) return { ok: false, error: "commit do MASTER não retornado" };
@@ -1861,6 +1883,7 @@ export async function runAutomatedProvision(input: {
     teamId,
     masterRepo,
     repo: repo.slug,
+    githubToken,
     fetchImpl: input.fetchImpl,
   });
 
@@ -2839,6 +2862,7 @@ export async function runAutomatedUpdate(input: {
     teamId: (env["UNITOS_VERCEL_TEAM_ID"] ?? "").trim() || null,
     masterRepo,
     repo: repo.slug,
+    githubToken: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
     fetchImpl: input.fetchImpl,
   });
   const code = createCodeClient({

@@ -1041,6 +1041,7 @@ export const getMasterVersionFn = createServerFn({ method: "GET" })
       project: "master",
       teamId: (env["UNITOS_VERCEL_TEAM_ID"] ?? "").trim() || null,
       masterRepo: (env["UNITOS_MASTER_REPO"] ?? "").trim() || null,
+      githubToken: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
     });
     const head = await deploy.latestCommit();
     return {
