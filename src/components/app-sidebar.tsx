@@ -104,6 +104,14 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
         badge: "tasks-pending",
       },
       { title: "Mídia paga", url: "/media-plans", icon: Target, featureKey: "midia_paga" },
+      {
+        title: "Relatório de anúncios",
+        url: "/media-report",
+        icon: BarChart3,
+        featureKey: "midia_paga",
+        sub: true,
+      },
+
     ],
   },
   {
