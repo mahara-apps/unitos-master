@@ -681,7 +681,20 @@ function channelName(c: string) {
   return CHANNEL_NAME[c.toLowerCase()] ?? c;
 }
 
-function ApprovalDialog({ postId, onClose }: { postId: string; onClose: () => void }) {
+function ApprovalDialog({
+  postId,
+  onClose,
+  index = -1,
+  total = 0,
+  onNavigate,
+}: {
+  postId: string;
+  onClose: () => void;
+  /** Posição na lista (para "3 de 32") — opcional. */
+  index?: number;
+  total?: number;
+  onNavigate?: (dir: 1 | -1) => void;
+}) {
   const qc = useQueryClient();
   const api = usePortalApi();
   // Decisão só aparece quando o cliente realmente pode decidir.
