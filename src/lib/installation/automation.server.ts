@@ -1134,6 +1134,8 @@ export function createDeployClient(input: {
   masterRepo?: string | null;
   /** `owner/repo` DA INSTALAÇÃO — repositório que o deploy realmente constrói. */
   repo?: string | null;
+  /** Token do GitHub — necessário para ler o commit do MASTER (repo privado). */
+  githubToken?: string | null;
   fetchImpl?: Fetcher;
 }): DeployClient {
   const doFetch = input.fetchImpl ?? fetch;
