@@ -8,9 +8,11 @@ import { AlertTriangle, Loader2, Plus, RefreshCw, Search, Server } from "lucide-
 import {
   createInstallationFn,
   getInstallationManagerAccessFn,
+  getMasterVersionFn,
   listInstallationsFn,
   type InstallationRecord,
 } from "@/lib/installation/manager.functions";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
