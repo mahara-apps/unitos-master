@@ -454,7 +454,6 @@ export function JobsPanel({
               <Plus className="h-3.5 w-3.5" /> Novo job
             </Button>
           </div>
-
         </div>
 
         {mode === "overview" ? (
@@ -619,7 +618,6 @@ export function JobsPanel({
                     </Button>
                   ) : null}
                 </div>
-
               ) : (
                 <div className="divide-y divide-border/60">
                   {visibleJobs.map((j) => {

@@ -76,11 +76,7 @@ import { StageFunnel } from "@/components/projects/stage-funnel";
 import { PautaBoard, type BoardPauta, type BoardView } from "@/components/projects/pauta-board";
 import { UnitNetworkMatrix } from "@/components/projects/unit-network-matrix";
 import { UpcomingDeadlines, type DeadlineEntry } from "@/components/projects/upcoming-deadlines";
-import {
-  CONTENT_STAGES,
-  contentStageOf,
-  type ContentStage,
-} from "@/lib/content-stage-tokens";
+import { CONTENT_STAGES, contentStageOf, type ContentStage } from "@/lib/content-stage-tokens";
 
 const PROJECT_TABS = ["overview", "jobs", "comments", "links"] as const;
 type ProjectTab = (typeof PROJECT_TABS)[number];
@@ -500,8 +496,6 @@ function ProjectDetailPage() {
       onOpen: () => setOpenPautaKey(d.key),
     }));
 
-
-
   // Conteúdo do job virtual "Pautas" (nível 2 da hierarquia).
   const pautasContent = (
     <DashboardPanelSurface>
@@ -618,7 +612,6 @@ function ProjectDetailPage() {
         </span>
       </nav>
 
-
       {/* Cabeçalho do projeto — identidade, cliente, responsável, status, ações */}
       <ProjectHeader
         name={project.name}
@@ -702,10 +695,15 @@ function ProjectDetailPage() {
       {/* Funil do ciclo de conteúdo — mesma paleta usada nas pautas e nos cards */}
       <StageFunnel
         counts={funnelCounts}
-        onSelect={(stage) => setSearch({ tab: "jobs", board: "board", pauta: undefined, estagio: stage ?? undefined })}
+        onSelect={(stage) =>
+          setSearch({ tab: "jobs", board: "board", pauta: undefined, estagio: stage ?? undefined })
+        }
       />
 
-      <Tabs value={tab} onValueChange={(v) => setSearch({ tab: v as ProjectTab, board: undefined })}>
+      <Tabs
+        value={tab}
+        onValueChange={(v) => setSearch({ tab: v as ProjectTab, board: undefined })}
+      >
         <TabsList>
           {PROJECT_TABS.map((t) => (
             <TabsTrigger key={t} value={t}>
@@ -776,7 +774,6 @@ function ProjectDetailPage() {
           </aside>
         </div>
       )}
-
 
       {/* Resumo da pauta em modal — evita sair da gestão do projeto */}
       <PautaDetailModal
