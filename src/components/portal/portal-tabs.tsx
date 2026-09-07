@@ -160,13 +160,18 @@ export function HomeTab() {
     (!canPauta || plansQ.isError) &&
     (!canBriefing || briefingQ.isError) &&
     (!canCalendar || calendarQ.isError);
-  const loadingKpis =
-    metricsQ.isLoading ||
-    (canPauta && plansQ.isLoading) ||
-    (canBriefing && briefingQ.isLoading);
-  const kpiValue = (v: number) => (loadingKpis ? <Skeleton className="h-6 w-10" /> : v);
+  const loading =
+    metricsQ.isLoading || (canPauta && plansQ.isLoading) || (canBriefing && briefingQ.isLoading);
 
   const pendingCount = canApprovals ? (metricsQ.data?.pending ?? pendingPosts.length) : 0;
+  const scheduledCount = (calendarQ.data ?? []).filter(
+    (p) => p.scheduled_at && !p.published_at,
+  ).length;
+  const publishedCount = (calendarQ.data ?? []).filter((p) => p.published_at).length;
+  const todoCount =
+    (pendingCount > 0 ? 1 : 0) +
+    (plansAwaiting.length > 0 ? 1 : 0) +
+    (briefingsPending.length > 0 ? 1 : 0);
 
   if (failed)
     return (
@@ -183,188 +188,145 @@ export function HomeTab() {
     );
 
   return (
-    <div className="space-y-6">
-      <PageKpiGrid columns={5}>
-        {canApprovals ? (
-        <PortalLink tab="approvals" className="block">
-          <PageKpi
-            label="Aguardando aprovação"
-            value={kpiValue(pendingCount)}
-            icon={<Hourglass />}
-            status={pendingCount > 0 ? "warning" : "success"}
-            description={pendingCount > 0 ? "Conteúdos esperando você" : "Nada pendente"}
-          />
-        </PortalLink>
-        ) : null}
-        {canPauta ? (
-        <PortalLink tab="pauta" className="block">
-          <PageKpi
-            label="Pauta pendente"
-            value={kpiValue(plansAwaiting.length)}
-            icon={<Sparkles />}
-            status={plansAwaiting.length > 0 ? "warning" : "success"}
-            description={
-              plansAwaiting.length > 0 ? "Pautas do mês para revisar" : "Nenhuma pauta em aberto"
-            }
-          />
-        </PortalLink>
-        ) : null}
-        {canBriefing ? (
-        <PortalLink tab="briefing" className="block">
-          <PageKpi
-            label="Briefing pendente"
-            value={kpiValue(briefingsPending.length)}
-            icon={<FileText />}
-            status={briefingsPending.length > 0 ? "warning" : "success"}
-            description={
-              briefingsPending.length > 0 ? "Perguntas da equipe" : "Nenhuma pergunta em aberto"
-            }
-          />
-        </PortalLink>
-        ) : null}
-        {canCalendar ? (
-        <PortalLink tab="calendar" className="block">
-          <PageKpi
-            label="Próximos compromissos"
-            value={calendarQ.isLoading ? <Skeleton className="h-6 w-10" /> : upcoming.length}
-            icon={<CalendarClock />}
-            status="info"
-            description="Publicações já com data"
-          />
-        </PortalLink>
-        ) : null}
-        <PageKpi
-          label="Prazos de produção"
-          value={
-            metricsQ.isLoading ? (
-              <Skeleton className="h-6 w-10" />
-            ) : (
-              (metricsQ.data?.sla.overdue ?? 0)
-            )
-          }
-          icon={<ShieldCheck />}
-          status={
-            (metricsQ.data?.sla.overdue ?? 0) > 0
-              ? "danger"
-              : (metricsQ.data?.sla.atRisk ?? 0) > 0
-                ? "warning"
-                : "success"
-          }
-          description={
-            (metricsQ.data?.sla.overdue ?? 0) > 0
-              ? "Conteúdos fora do prazo"
-              : (metricsQ.data?.sla.tracked ?? 0) > 0
-                ? "Produção dentro do prazo"
-                : "Sem prazo em acompanhamento"
-          }
-        />
-      </PageKpiGrid>
+    <div>
+      <div className="px-0.5">
+        <h1 className="text-[22px] font-extrabold tracking-tight">Olá!</h1>
+        <p className="mt-0.5 text-[13.5px] text-muted-foreground">
+          {loading
+            ? "Carregando seu resumo…"
+            : todoCount === 0
+              ? "Você está em dia — nada precisa de você agora."
+              : `Você tem ${todoCount} ${todoCount === 1 ? "coisa" : "coisas"} para fazer hoje.`}
+        </p>
+      </div>
 
-      {/* Pendências */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold tracking-tight">O que precisa de você</h2>
-        {loadingKpis ? (
-          <ListSkeleton />
-        ) : pendingCount === 0 && plansAwaiting.length === 0 && briefingsPending.length === 0 ? (
-          <EmptyState
-            icon={CheckCircle2}
-            title="Você está em dia"
-            description="Assim que a equipe enviar algo para sua aprovação, aparece aqui."
+      {/* Cartão-herói: UMA tarefa em destaque */}
+      <div className="mt-4">
+        {loading ? (
+          <Skeleton className="h-44 w-full rounded-[18px]" />
+        ) : pendingCount > 0 ? (
+          <HeroCard
+            label="Precisa de você"
+            title={`${pendingCount} ${pendingCount === 1 ? "conteúdo para aprovar" : "conteúdos para aprovar"}`}
+            description="Revise as artes e legendas e aprove — ou peça ajustes num toque."
+            cta="Revisar agora"
+            tab="approvals"
+          />
+        ) : plansAwaiting.length > 0 ? (
+          <HeroCard
+            label="Precisa de você"
+            title={
+              plansAwaiting.length === 1
+                ? "1 pauta para responder"
+                : `${plansAwaiting.length} pautas para responder`
+            }
+            description="Confira os temas propostos e diga o que segue."
+            cta="Ver pauta"
+            tab="pauta"
+          />
+        ) : briefingsPending.length > 0 ? (
+          <HeroCard
+            label="Precisa de você"
+            title="Responder briefing"
+            description={
+              briefingsPending[0]?.due_at
+                ? `A equipe precisa de algumas informações até ${formatDate(briefingsPending[0].due_at)}.`
+                : "A equipe precisa de algumas informações da sua marca."
+            }
+            cta="Responder agora"
+            tab="briefing"
           />
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {pendingCount > 0 && (
-              <PendingAction
-                icon={CheckSquare}
-                title="Aprovar conteúdo"
-                description={`${pendingCount} ${pendingCount === 1 ? "conteúdo aguarda" : "conteúdos aguardam"} sua aprovação.`}
-                cta="Aprovar conteúdo"
-                tab="approvals"
-              />
-            )}
-            {plansAwaiting.length > 0 && (
-              <PendingAction
-                icon={Sparkles}
-                title="Aprovar pauta"
-                description={
-                  plansAwaiting.length === 1
-                    ? `${plansAwaiting[0].title} — ${plansAwaiting[0].pending} ${plansAwaiting[0].pending === 1 ? "item sem decisão" : "itens sem decisão"}.`
-                    : `${plansAwaiting.length} pautas aguardam sua resposta.`
-                }
-                cta="Aprovar pauta"
-                tab="pauta"
-              />
-            )}
-            {briefingsPending.length > 0 && (
-              <PendingAction
-                icon={FileText}
-                title="Responder briefing"
-                description={
-                  briefingsPending[0]?.due_at
-                    ? `Responda até ${formatDate(briefingsPending[0].due_at)}.`
-                    : "A equipe precisa de algumas informações da sua marca."
-                }
-                cta="Responder briefing"
-                tab="briefing"
-              />
-            )}
+          <div className="flex items-center gap-3 rounded-[18px] border border-border bg-card p-4">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-portal-published-soft">
+              <CheckCircle2 className="h-5 w-5 text-portal-published" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-sm font-extrabold">Tudo em dia</div>
+              <p className="text-xs text-muted-foreground">
+                Assim que a equipe enviar algo para você, aparece aqui.
+              </p>
+            </div>
           </div>
         )}
-      </section>
+      </div>
+
+      {/* Resumo curto */}
+      <div className="mt-4 grid grid-cols-3 gap-2.5">
+        <SummaryCell
+          label="Aguardando você"
+          value={pendingCount}
+          status="waiting"
+          loading={loading}
+        />
+        <SummaryCell
+          label="Agendados"
+          value={scheduledCount}
+          status="scheduled"
+          loading={calendarQ.isLoading}
+        />
+        <SummaryCell
+          label="Publicados"
+          value={publishedCount}
+          status="published"
+          loading={calendarQ.isLoading}
+        />
+      </div>
 
       {/* Próximas publicações */}
       {canCalendar ? (
-      <section className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold tracking-tight">Próximas publicações</h2>
-          <Button size="sm" variant="ghost" asChild>
-            <PortalLink tab="calendar">
-              Ver calendário <ArrowRight className="ml-1 h-3.5 w-3.5" />
+        <PortalSection
+          title="Próximas publicações"
+          action={
+            <PortalLink tab="calendar" className="text-[12.5px] font-bold text-primary">
+              Ver tudo
             </PortalLink>
-          </Button>
-        </div>
-        {calendarQ.isLoading ? (
-          <ListSkeleton />
-        ) : upcoming.length === 0 ? (
-          <EmptyState
-            icon={CalendarClock}
-            title="Nenhuma publicação com data"
-            description="Quando um conteúdo aprovado receber data, ele aparece aqui."
-          />
-        ) : (
-          <div className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 bg-card">
-            {upcoming.map((p) => (
-              <div key={p.id} className="flex items-center gap-3 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{p.title ?? "Conteúdo"}</div>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span className="inline-flex items-center gap-1">
-                      <CalendarDays className="h-3 w-3" />
-                      {new Date(p.scheduled_at as string).toLocaleString("pt-BR", {
-                        day: "2-digit",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                    {(p.channels ?? []).slice(0, 3).map((c) => (
-                      <Badge key={c} variant="secondary" className="capitalize">
-                        {c}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
+          }
+        >
+          {calendarQ.isLoading ? (
+            <ListSkeleton />
+          ) : upcoming.length === 0 ? (
+            <EmptyState
+              icon={CalendarClock}
+              title="Nenhuma publicação com data"
+              description="Quando um conteúdo aprovado receber data, ele aparece aqui."
+            />
+          ) : (
+            <div className="space-y-2.5">
+              {upcoming.map((p) => (
+                <PortalRow
+                  key={p.id}
+                  thumbUrl={(p as { cover_url?: string | null }).cover_url ?? null}
+                  title={p.title ?? "Conteúdo"}
+                  status="scheduled"
+                  statusLabel="Agendado"
+                  meta={
+                    <>
+                      <span>
+                        {new Date(p.scheduled_at as string).toLocaleString("pt-BR", {
+                          weekday: "short",
+                          day: "2-digit",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                      {(p.channels ?? []).length > 0 ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <ChannelDot /> {channelName((p.channels ?? [])[0] as string)}
+                        </span>
+                      ) : null}
+                    </>
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </PortalSection>
       ) : null}
 
       {/* Atividade recente */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold tracking-tight">Atividade recente</h2>
+      <PortalSection title="Atividade recente">
         {calendarQ.isLoading ? (
           <ListSkeleton />
         ) : recent.length === 0 ? (
@@ -374,50 +336,86 @@ export function HomeTab() {
             description="Suas aprovações e respostas ficam registradas nesta lista."
           />
         ) : (
-          <ol className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 bg-card">
-            {recent.map((r) => (
-              <li key={r.id} className="flex items-center gap-3 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm">{r.text}</div>
-                  <div className="text-xs text-muted-foreground">{r.detail}</div>
+          <ol className="space-y-2.5">
+            {recent.slice(0, 4).map((r) => (
+              <li key={r.id}>
+                <div className="flex min-h-[62px] items-center gap-3 rounded-2xl border border-border bg-card p-3">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[11px] bg-portal-published-soft">
+                    <Check className="h-5 w-5 text-portal-published" strokeWidth={2.4} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[13.5px] font-bold">{r.detail}</div>
+                    <div className="mt-0.5 truncate text-[11.5px] font-semibold text-muted-foreground">
+                      {r.text} · {formatDate(r.when)}
+                    </div>
+                  </div>
                 </div>
-                <span className="shrink-0 text-xs text-muted-foreground">{formatDate(r.when)}</span>
               </li>
             ))}
           </ol>
         )}
-      </section>
+      </PortalSection>
     </div>
   );
 }
 
-function PendingAction({
-  icon: Icon,
+/** Cartão-herói: a única tarefa em destaque no Início. */
+function HeroCard({
+  label,
   title,
   description,
   cta,
   tab,
 }: {
-  icon: typeof Hourglass;
+  label: string;
   title: string;
   description: string;
   cta: string;
   tab: PortalTabId;
 }) {
   return (
-    <div className="flex flex-col justify-between gap-3 rounded-xl border border-border/60 bg-card p-4">
-      <div className="space-y-1">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Icon className="h-4 w-4 text-severity-warning" />
-          {title}
-        </div>
-        <p className="text-xs text-muted-foreground">{description}</p>
+    <div className="rounded-[18px] bg-gradient-to-br from-portal-primary to-portal-primary-strong p-[18px] text-white shadow-lg shadow-portal-primary/25">
+      <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-2.5 py-1.5 text-[11px] font-extrabold uppercase tracking-wider">
+        <Check className="h-3.5 w-3.5" strokeWidth={2.6} /> {label}
+      </span>
+      <h2 className="mt-3 text-[20px] font-extrabold leading-tight">{title}</h2>
+      <p className="mt-1 text-[13px] leading-snug opacity-90">{description}</p>
+      <PortalLink
+        tab={tab}
+        className="mt-4 flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-white text-[15px] font-extrabold text-portal-primary-strong"
+      >
+        {cta} <ArrowRight className="h-4 w-4" strokeWidth={2.6} />
+      </PortalLink>
+    </div>
+  );
+}
+
+/** Resumo pequeno (substitui os KPIs). */
+function SummaryCell({
+  label,
+  value,
+  status,
+  loading,
+}: {
+  label: string;
+  value: number;
+  status: PortalStatus;
+  loading?: boolean;
+}) {
+  const color =
+    status === "waiting"
+      ? "text-portal-waiting"
+      : status === "scheduled"
+        ? "text-portal-scheduled"
+        : "text-portal-published";
+  return (
+    <div className="rounded-2xl border border-border bg-card px-3 py-3 text-center">
+      <div className={`text-[20px] font-extrabold leading-none ${color}`}>
+        {loading ? <Skeleton className="mx-auto h-5 w-8" /> : value}
       </div>
-      <Button size="sm" asChild className="self-start">
-        <PortalLink tab={tab}>
-          {cta} <ArrowRight className="ml-1 h-3.5 w-3.5" />
-        </PortalLink>
-      </Button>
+      <div className="mt-1.5 text-[11px] font-bold leading-tight text-muted-foreground">
+        {label}
+      </div>
     </div>
   );
 }
