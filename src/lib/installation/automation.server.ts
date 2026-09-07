@@ -815,6 +815,34 @@ export function createCodeClient(input: {
       }
     },
 
+    async releaseAtCommit(sha) {
+      try {
+        const path = "supabase/baseline-snapshot/tools/delta_version.txt";
+        const res = await api(
+          `/repos/${master}/contents/${path}?ref=${encodeURIComponent(sha)}`,
+        );
+        if (!res.ok) {
+          return { ok: false, error: await fail(res, "ler a versão do pacote no MASTER") };
+        }
+        const body = (await res.json().catch(() => ({}))) as {
+          content?: string;
+          encoding?: string;
+        };
+        const raw =
+          body.encoding === "base64" && body.content
+            ? new TextDecoder().decode(
+                Uint8Array.from(atob(body.content.replace(/\s+/g, "")), (c) => c.charCodeAt(0)),
+              )
+            : (body.content ?? "");
+        const match = /^\s*version\s*=\s*(\S+)\s*$/m.exec(raw);
+        if (!match?.[1]) return { ok: false, error: "versão do pacote não encontrada no commit" };
+        return { ok: true, version: match[1] };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+
+
     async nudgeDeploy(message) {
       // Commit vazio na branch de produção do repositório DA INSTALAÇÃO: a
       // integração Git da Vercel publica sem consumir a cota de deployments
