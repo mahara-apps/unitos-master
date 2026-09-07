@@ -28,7 +28,9 @@ describe("versão exibida da instalação", () => {
   });
 
   it("validação de saúde não avança a versão instalada", () => {
-    expect(runner).toContain('kind === "validate" ? { ...outcome, version: installedVersion } : outcome');
+    expect(runner).toContain(
+      'kind === "validate" ? { ...outcome, version: installedVersion } : outcome',
+    );
     expect(runner).toContain('kind !== "validate" && outcome.version');
   });
 });

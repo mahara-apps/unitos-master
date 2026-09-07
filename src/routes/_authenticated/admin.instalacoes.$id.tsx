@@ -908,11 +908,7 @@ function InstallationDetailPage() {
           <Card>
             <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-3">
               <CardTitle className="truncate text-sm">Versão publicada</CardTitle>
-              <VersionPair
-                installed={installedRelease}
-                available={inst.availableVersion}
-                compact
-              />
+              <VersionPair installed={installedRelease} available={inst.availableVersion} compact />
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-xs text-muted-foreground">
