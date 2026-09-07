@@ -265,7 +265,18 @@ export const testProviderKey = createServerFn({ method: "POST" })
         );
       return { status: "invalid" as const, message: unreadable, models: 0 };
     }
-    const check = await verifyProviderKey(data.provider, apiKey);
+    let check: Awaited<ReturnType<typeof verifyProviderKey>>;
+    try {
+      check = await verifyProviderKey(data.provider, apiKey);
+    } catch (err) {
+      // Nunca vazar texto técnico (ex.: DOMException do WebCrypto) para a tela.
+      const raw = err instanceof Error ? err.message : String(err);
+      const friendly = /operation-specific reason|OperationError/i.test(raw)
+        ? "A chave salva não pôde ser lida nesta instalação. Salve a chave do provedor novamente."
+        : `Não foi possível testar a chave agora: ${raw}`;
+      return { status: "invalid" as const, message: friendly, models: 0 };
+    }
+
 
     const { data: existing } = await context.supabase
       .from("brand_connections")
