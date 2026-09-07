@@ -569,8 +569,8 @@ function HealthPanel({
         <div>
           <div className="text-sm font-semibold">Saúde da IA</div>
           <p className="text-xs text-muted-foreground">
-            {data?.lastCheckedAt
-              ? `Última verificação: ${new Date(data.lastCheckedAt).toLocaleString("pt-BR")}`
+            {lastCheckedAt
+              ? `Última verificação: ${new Date(lastCheckedAt).toLocaleString("pt-BR")}`
               : "Nunca verificado"}
           </p>
         </div>
