@@ -599,7 +599,7 @@ function HealthPanel({
                     {p.name}
                   </div>
                   <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                    {ok ? "Chave válida" : bad ? "Chave inválida" : "Chave não verificada"}
+                    {keyStateLabel(c)}
                     {c?.verifiedAt ? ` · ${new Date(c.verifiedAt).toLocaleString("pt-BR")}` : ""}
                   </div>
                 </div>
@@ -614,12 +614,17 @@ function HealthPanel({
           {replaced.map((m) => (
             <div
               key={`${m.provider}-${m.role}`}
-              className="flex items-center gap-1.5 text-[11px] text-severity-warning"
+              className="flex items-start gap-1.5 text-[11px] text-severity-warning"
             >
-              <AlertTriangle className="h-3 w-3" />
-              {m.provider}: {m.modelId} substituiu {m.replacedModelId}
+              <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+              <span>
+                {providerLabel(m.provider)}: o modelo{" "}
+                {modelLabel(m.provider, m.replacedModelId!)} saiu do ar e foi substituído
+                automaticamente por {modelLabel(m.provider, m.modelId)}.
+              </span>
             </div>
           ))}
+
         </div>
       )}
     </DashboardPanelSurface>
