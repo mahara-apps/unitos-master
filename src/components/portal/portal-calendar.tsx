@@ -328,26 +328,27 @@ export function PortalCalendar() {
                 <div className="text-xs font-medium capitalize text-muted-foreground">
                   {key === "sem-data" ? "Sem data definida" : fullDateLabel(group[0].at)}
                 </div>
-                <div className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 bg-card">
+                <div className="space-y-2.5">
                   {group.map((it) => (
                     <button
                       key={it.id}
                       onClick={() => setOpenId(it.id)}
-                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/40"
+                      className="flex min-h-[68px] w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:bg-accent/40"
                     >
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium">{it.title}</div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                          <span className="inline-flex items-center gap-1">
-                            <CalendarClock className="h-3 w-3" /> {timeLabel(it.at)}
-                          </span>
+                      <PortalThumb url={it.coverUrl} alt={it.title} />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[13.5px] font-bold">{it.title}</div>
+                        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[11.5px] font-semibold text-muted-foreground">
+                          <span>{timeLabel(it.at)}</span>
                           {it.channels.length > 0 && (
-                            <span>{it.channels.map(channelLabel).join(" · ")}</span>
+                            <span className="inline-flex items-center gap-1.5">
+                              <ChannelDot /> {channelLabel(it.channels[0])}
+                            </span>
                           )}
                         </div>
                       </div>
                       <span
-                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${KIND_META[it.kind].chip}`}
+                        className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-extrabold ${KIND_META[it.kind].chip}`}
                       >
                         {KIND_META[it.kind].label}
                       </span>
