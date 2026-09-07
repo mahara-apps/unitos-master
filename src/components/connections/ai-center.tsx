@@ -659,14 +659,14 @@ function ProviderCard({
     mutationFn: () => saveFn({ data: { brandId, provider: provider.id, apiKey: apiKey.trim() } }),
     onSuccess: (res) => {
       if (res.verified === "valid") toast.success(`${provider.name} conectado — chave válida`);
-      else toast.warning(res.message);
+      else toast.warning(aiErrorMessage(res.message, "Chave salva, mas não verificada"));
       setApiKey("");
       setSaveError(null);
       setOpen(false);
       onChanged();
     },
     onError: (e: unknown) => {
-      const msg = e instanceof Error ? e.message : "Falha ao conectar";
+      const msg = aiErrorMessage(e, "Falha ao conectar");
       setSaveError(msg);
       toast.error(msg);
     },
@@ -675,13 +675,13 @@ function ProviderCard({
   const testMut = useMutation({
     mutationFn: () => testFn({ data: { brandId, provider: provider.id } }),
     onSuccess: (res) => {
-      if (res.status === "valid") toast.success(res.message);
-      else if (res.status === "invalid") toast.error(res.message);
-      else toast.warning(res.message);
+      const msg = aiErrorMessage(res.message, "Teste concluído");
+      if (res.status === "valid") toast.success(msg);
+      else if (res.status === "invalid") toast.error(msg);
+      else toast.warning(msg);
       onChanged();
     },
-    onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Falha ao testar a chave"),
+    onError: (e: unknown) => toast.error(aiErrorMessage(e, "Falha ao testar a chave")),
   });
 
   const removeMut = useMutation({
@@ -690,7 +690,9 @@ function ProviderCard({
       toast.success(`${provider.name} desconectado`);
       onChanged();
     },
+    onError: (e: unknown) => toast.error(aiErrorMessage(e, "Falha ao desconectar")),
   });
+
 
   const connected = !!config?.connected;
   const Icon = provider.icon;
