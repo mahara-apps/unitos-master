@@ -79,17 +79,56 @@ type MediaPlanSearch = {
   stage?: "topo" | "meio" | "fundo";
   channel?: string;
 };
-const searchSchema = z.object({
-  planId: z.string().uuid().optional(),
-  stage: z.enum(["topo", "meio", "fundo"]).optional(),
-  channel: z.string().optional(),
-});
+// Tolerante por campo: link antigo ou parâmetro inesperado nunca derruba a tela.
+const searchSchema = z
+  .object({
+    planId: z.string().uuid().optional().catch(undefined),
+    stage: z.enum(["topo", "meio", "fundo"]).optional().catch(undefined),
+    channel: z.string().optional().catch(undefined),
+  })
+  .catch({});
 
 export const Route = createFileRoute("/_authenticated/customers/$customerId/media-plan")({
   beforeLoad: () => ensureFeatureEnabled("midia_paga"),
   validateSearch: (raw: Record<string, unknown>): MediaPlanSearch => searchSchema.parse(raw),
   component: MediaPlanPage,
+  pendingComponent: () => (
+    <DashboardPageShell>
+      <Skeleton className="h-96 w-full" />
+    </DashboardPageShell>
+  ),
+  errorComponent: MediaPlanRouteError,
+  notFoundComponent: MediaPlanRouteError,
 });
+
+/** Nunca deixar tela branca: erro com motivo e caminhos de saída. */
+function MediaPlanRouteError({ error, reset }: { error?: Error; reset?: () => void }) {
+  const router = useRouter();
+  return (
+    <DashboardPageShell>
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 bg-card/40 px-6 py-16 text-center">
+        <AlertTriangle className="mb-4 h-10 w-10 text-amber-500" />
+        <div className="mb-1 text-lg font-medium">Não foi possível abrir o plano de mídia</div>
+        <div className="mb-6 max-w-md text-sm text-muted-foreground">
+          {error?.message?.trim() || "Tente novamente em alguns instantes."}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => {
+              void router.invalidate();
+              reset?.();
+            }}
+          >
+            Tentar novamente
+          </Button>
+          <Button variant="outline" onClick={() => void router.navigate({ to: "/media-plans" })}>
+            Voltar para Mídia paga
+          </Button>
+        </div>
+      </div>
+    </DashboardPageShell>
+  );
+}
 
 const STAGE_LABEL: Record<string, string> = { topo: "Topo", meio: "Meio", fundo: "Fundo" };
 const STAGE_TONE: Record<string, string> = {
