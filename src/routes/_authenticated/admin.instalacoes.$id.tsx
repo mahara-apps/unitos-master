@@ -986,14 +986,13 @@ function InstallationDetailPage() {
                   (INFRA_HEALTH_CHECK_IDS as readonly string[]).includes(c.id),
                 ).map((check) => {
                   const result = inst.healthChecks[check.id];
+                  const hint = result.detail ?? checkHint(check.id, result.state);
                   return (
                     <DataCell key={check.id} label={check.label}>
-                      <div className="mt-1 space-y-1">
+                      <div className="mt-1 space-y-1" title={hint ?? undefined}>
                         <StateBadge state={result.state} label={CHECK_STATE_LABEL[result.state]} />
-                        {result.detail && (
-                          <p className="truncate text-[11px] text-muted-foreground">
-                            {result.detail}
-                          </p>
+                        {hint && (
+                          <p className="line-clamp-2 text-[11px] text-muted-foreground">{hint}</p>
                         )}
                       </div>
                     </DataCell>
