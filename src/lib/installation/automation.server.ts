@@ -2862,7 +2862,7 @@ export async function runAutomatedUpdate(input: {
     teamId: (env["UNITOS_VERCEL_TEAM_ID"] ?? "").trim() || null,
     masterRepo,
     repo: repo.slug,
-    githubToken,
+    githubToken: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
     fetchImpl: input.fetchImpl,
   });
   const code = createCodeClient({
