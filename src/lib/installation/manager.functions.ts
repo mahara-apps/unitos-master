@@ -1044,11 +1044,36 @@ export const getMasterVersionFn = createServerFn({ method: "GET" })
       githubToken: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
     });
     const head = await deploy.latestCommit();
+    // Versão que existe DENTRO do pacote publicado. Quando ela fica atrás de
+    // MASTER_RELEASE_VERSION, o MASTER não foi publicado e "Atualizar" não tem
+    // código novo para enviar — o painel precisa avisar antes da tentativa.
+    let repoRelease: string | null = null;
+    let repoReleaseError: string | null = null;
+    if (head.ok && head.sha) {
+      const { createCodeClient, DEFAULT_MASTER_REPO } = await import("./automation.server");
+      const masterRepo = (env["UNITOS_MASTER_REPO"] ?? "").trim() || DEFAULT_MASTER_REPO;
+      const [owner, repo] = masterRepo.split("/");
+      const code = createCodeClient({
+        token: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
+        owner: owner ?? "",
+        repo: repo ?? "",
+        masterRepo,
+      });
+      const at = await code.releaseAtCommit(head.sha);
+      repoRelease = at.ok ? (at.version ?? null) : null;
+      repoReleaseError = at.ok ? null : (at.error ?? "versão do pacote indisponível");
+    }
+    const { compareReleaseVersions } = await import("./manager-contract");
     return {
       release: MASTER_RELEASE_VERSION,
       commitSha: head.ok ? (head.sha ?? null) : null,
+      repoRelease,
+      repoReleaseError,
+      masterPublished:
+        repoRelease ? compareReleaseVersions(repoRelease, MASTER_RELEASE_VERSION) >= 0 : null,
       error: head.ok ? null : (head.error ?? "commit do MASTER indisponível"),
     };
+
   });
 
 /**
