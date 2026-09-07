@@ -748,13 +748,6 @@ export const discardMonthlyPlanFn = createServerFn({ method: "POST" })
 
 /* ---------- Envio ao cliente ---------- */
 
-function randomToken(len = 40): string {
-  const bytes = new Uint8Array(len);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0"))
-    .join("")
-    .slice(0, len);
-}
 
 export type PlanClientLink = {
   /** Nulo quando o cliente não aprova pauta (etapa dispensada na regra do cliente). */
