@@ -99,16 +99,17 @@ export const AI_PROVIDERS: ProviderDef[] = [
   {
     id: "groq",
     name: "Groq",
-    hint: "Llama · GPT-OSS",
+    hint: "GPT-OSS · Llama",
     tone: "text-orange-500",
     docs: "console.groq.com",
     icon: Zap,
     models: [
       { id: "openai/gpt-oss-120b", label: "GPT-OSS 120B", kind: "text" },
-      { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B", kind: "text" },
+      { id: "openai/gpt-oss-20b", label: "GPT-OSS 20B", kind: "text" },
       { id: "llama-3.1-8b-instant", label: "Llama 3.1 8B Instant", kind: "text" },
     ],
   },
+
 ];
 
 const PROVIDER_BY_ID = Object.fromEntries(AI_PROVIDERS.map((p) => [p.id, p])) as Record<
