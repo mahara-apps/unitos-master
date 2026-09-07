@@ -230,7 +230,7 @@ WITH checks AS (
          coalesce((
            SELECT string_agg(t, ',' ORDER BY t) FROM (
              SELECT t FROM unnest(ARRAY[
-               'access_profiles','brain_events_new','briefing_import_changes',
+               'access_profiles','brain_events','briefing_import_changes',
                'briefing_import_runs','briefing_import_steps','client_portal_access',
                'client_request_events','client_requests','installation',
                'installation_meta_app','message_thread_participants','message_threads',
@@ -243,7 +243,7 @@ WITH checks AS (
          ), 'todas presentes'),
          CASE WHEN NOT EXISTS (
            SELECT 1 FROM unnest(ARRAY[
-             'access_profiles','brain_events_new','briefing_import_changes',
+             'access_profiles','brain_events','briefing_import_changes',
              'briefing_import_runs','briefing_import_steps','client_portal_access',
              'client_request_events','client_requests','installation',
              'installation_meta_app','message_thread_participants','message_threads',
