@@ -129,6 +129,8 @@ export function OperationsPanel({
   onOpen,
   onOpenDraft,
   onSeeAllDrafts,
+  layout = "column",
+
 }: {
   upcoming: PublicationItem[];
   attention: PublicationItem[];
