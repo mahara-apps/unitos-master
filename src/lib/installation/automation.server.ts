@@ -3054,12 +3054,16 @@ export async function runAutomatedUpdate(input: {
 
   await report(client, operation, "build", "done", url ? `publicado em ${url}` : "publicado");
   const shortSha = targetSha ? targetSha.slice(0, 7) : null;
+  // A versão fixada é a do pacote realmente publicado, nunca o número atual do
+  // MASTER: se o repositório estiver atrás, o painel precisa mostrar a verdade.
+  const appliedRelease = publishedRelease;
+  const nothingNew = changedFiles === 0;
   await report(
     client,
     operation,
     "version",
     "done",
-    shortSha ? `${MASTER_RELEASE_VERSION} (${shortSha})` : MASTER_RELEASE_VERSION,
+    shortSha ? `${appliedRelease} (${shortSha})` : appliedRelease,
   );
 
   // Fixa a versão publicada: a instalação passa a ficar parada neste ponto do
@@ -3072,7 +3076,7 @@ export async function runAutomatedUpdate(input: {
     )
       .update({
         pinned_commit_sha: targetSha,
-        pinned_release: MASTER_RELEASE_VERSION,
+        pinned_release: appliedRelease,
         pinned_at: new Date().toISOString(),
       })
       .eq("id", installation.id)
@@ -3084,11 +3088,15 @@ export async function runAutomatedUpdate(input: {
 
   await finalizeOperation(client as never, operation as never, {
     ok: true,
-    version: MASTER_RELEASE_VERSION,
-    summary: shortSha
-      ? `Atualização aplicada: código do MASTER (${MASTER_RELEASE_VERSION} · ${shortSha}) publicado na instalação.`
-      : `Atualização aplicada: código do MASTER (${MASTER_RELEASE_VERSION}) publicado na instalação.`,
+    ...(nothingNew ? { warnings: true } : {}),
+    version: appliedRelease,
+    summary: nothingNew
+      ? `Nada novo para enviar: a instalação já está no código do MASTER (${appliedRelease}${shortSha ? ` · ${shortSha}` : ""}). O banco foi conferido.`
+      : shortSha
+        ? `Atualização aplicada: código do MASTER (${appliedRelease} · ${shortSha}) publicado na instalação.`
+        : `Atualização aplicada: código do MASTER (${appliedRelease}) publicado na instalação.`,
   }).catch(() => undefined);
+
 
 
   return { result: "PASS", reasons: [] };
