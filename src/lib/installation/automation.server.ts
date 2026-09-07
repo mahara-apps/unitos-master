@@ -596,6 +596,15 @@ export type CodeClient = {
   /** Commit atual da branch de produção do MASTER — versão a publicar. */
   masterHeadSha: () => Promise<{ ok: boolean; sha?: string; error?: string }>;
   /**
+   * Versão do pacote MASTER *dentro* de um commit do repositório — lida de
+   * `supabase/baseline-snapshot/tools/delta_version.txt`. É a única forma de
+   * saber se o repositório já recebeu a publicação da versão atual do código:
+   * `MASTER_RELEASE_VERSION` vive no processo, o repositório só avança quando o
+   * MASTER é publicado.
+   */
+  releaseAtCommit: (sha: string) => Promise<{ ok: boolean; version?: string; error?: string }>;
+
+  /**
    * Commit vazio na branch de produção do repositório DA INSTALAÇÃO para que a
    * integração Git da Vercel publique — usado quando a cota de deployments por
    * API do plano gratuito está esgotada.
@@ -805,6 +814,34 @@ export function createCodeClient(input: {
         return { ok: false, error: (e as Error).message };
       }
     },
+
+    async releaseAtCommit(sha) {
+      try {
+        const path = "supabase/baseline-snapshot/tools/delta_version.txt";
+        const res = await api(
+          `/repos/${master}/contents/${path}?ref=${encodeURIComponent(sha)}`,
+        );
+        if (!res.ok) {
+          return { ok: false, error: await fail(res, "ler a versão do pacote no MASTER") };
+        }
+        const body = (await res.json().catch(() => ({}))) as {
+          content?: string;
+          encoding?: string;
+        };
+        const raw =
+          body.encoding === "base64" && body.content
+            ? new TextDecoder().decode(
+                Uint8Array.from(atob(body.content.replace(/\s+/g, "")), (c) => c.charCodeAt(0)),
+              )
+            : (body.content ?? "");
+        const match = /^\s*version\s*=\s*(\S+)\s*$/m.exec(raw);
+        if (!match?.[1]) return { ok: false, error: "versão do pacote não encontrada no commit" };
+        return { ok: true, version: match[1] };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+
 
     async nudgeDeploy(message) {
       // Commit vazio na branch de produção do repositório DA INSTALAÇÃO: a
@@ -2890,10 +2927,32 @@ export async function runAutomatedUpdate(input: {
     targetSha = head.sha;
   }
 
+  // A versão que existe DENTRO do commit do MASTER. O repositório de código só
+  // avança quando o MASTER é publicado; sem esta checagem a operação enviaria o
+  // mesmo pacote de novo e ainda gravaria o número de versão novo na instalação.
+  const { compareReleaseVersions, masterNotPublishedMessage } = await import("./manager-contract");
+  const repoRelease = await code.releaseAtCommit(targetSha);
+  if (!repoRelease.ok || !repoRelease.version) {
+    return fail(
+      "BLOCKED",
+      repoRelease.error ?? "versão do pacote do MASTER não pôde ser lida no commit autorizado",
+      "code",
+    );
+  }
+  const publishedRelease = repoRelease.version;
+  if (compareReleaseVersions(publishedRelease, MASTER_RELEASE_VERSION) < 0) {
+    return fail(
+      "BLOCKED",
+      masterNotPublishedMessage(publishedRelease, MASTER_RELEASE_VERSION),
+      "code",
+    );
+  }
+
   // A instalação constrói o SEU repositório: a versão autorizada do MASTER é
   // publicada nele antes do build. Sem isso o deployment repetiria o código
   // antigo. Idempotente: repetir não gera commit novo (devolve o commit atual).
   let buildRef: string | null = null;
+  let changedFiles: number | null = null;
   if (!deploymentId) {
     await report(client, operation, "code", "running");
     const ensured = await code.ensureRepo();
@@ -2905,12 +2964,14 @@ export async function runAutomatedUpdate(input: {
       return fail("FAIL", published.error ?? `não foi possível publicar em ${repo.slug}`);
     }
     buildRef = published.commitSha ?? null;
+    changedFiles = typeof published.changed === "number" ? published.changed : null;
     await saveStageProgress(client, operation, {
       codeDone: true,
       codeSha: targetSha,
       codeRepo: repo.slug,
     });
   }
+
 
 
   if (!deploymentId) {
@@ -2993,12 +3054,16 @@ export async function runAutomatedUpdate(input: {
 
   await report(client, operation, "build", "done", url ? `publicado em ${url}` : "publicado");
   const shortSha = targetSha ? targetSha.slice(0, 7) : null;
+  // A versão fixada é a do pacote realmente publicado, nunca o número atual do
+  // MASTER: se o repositório estiver atrás, o painel precisa mostrar a verdade.
+  const appliedRelease = publishedRelease;
+  const nothingNew = changedFiles === 0;
   await report(
     client,
     operation,
     "version",
     "done",
-    shortSha ? `${MASTER_RELEASE_VERSION} (${shortSha})` : MASTER_RELEASE_VERSION,
+    shortSha ? `${appliedRelease} (${shortSha})` : appliedRelease,
   );
 
   // Fixa a versão publicada: a instalação passa a ficar parada neste ponto do
@@ -3011,7 +3076,7 @@ export async function runAutomatedUpdate(input: {
     )
       .update({
         pinned_commit_sha: targetSha,
-        pinned_release: MASTER_RELEASE_VERSION,
+        pinned_release: appliedRelease,
         pinned_at: new Date().toISOString(),
       })
       .eq("id", installation.id)
@@ -3023,11 +3088,15 @@ export async function runAutomatedUpdate(input: {
 
   await finalizeOperation(client as never, operation as never, {
     ok: true,
-    version: MASTER_RELEASE_VERSION,
-    summary: shortSha
-      ? `Atualização aplicada: código do MASTER (${MASTER_RELEASE_VERSION} · ${shortSha}) publicado na instalação.`
-      : `Atualização aplicada: código do MASTER (${MASTER_RELEASE_VERSION}) publicado na instalação.`,
+    ...(nothingNew ? { warnings: true } : {}),
+    version: appliedRelease,
+    summary: nothingNew
+      ? `Nada novo para enviar: a instalação já está no código do MASTER (${appliedRelease}${shortSha ? ` · ${shortSha}` : ""}). O banco foi conferido.`
+      : shortSha
+        ? `Atualização aplicada: código do MASTER (${appliedRelease} · ${shortSha}) publicado na instalação.`
+        : `Atualização aplicada: código do MASTER (${appliedRelease}) publicado na instalação.`,
   }).catch(() => undefined);
+
 
 
   return { result: "PASS", reasons: [] };

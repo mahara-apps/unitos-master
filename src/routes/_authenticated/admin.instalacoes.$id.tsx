@@ -495,10 +495,20 @@ function InstallationDetailPage() {
     automated ? autoProvision.mutate() : start.mutate({ kind: "provision" });
   const validateAction = () =>
     automated ? autoValidate.mutate() : start.mutate({ kind: "validate" });
-  const updateAction = () =>
-    deployAutomated
-      ? autoUpdate.mutate({ commitSha: masterVersion.data?.commitSha ?? null })
-      : setUpdateOpen(true);
+  const updateAction = () => {
+    if (masterVersion.data?.masterPublished === false) {
+      toast.error(
+        `Publique o MASTER primeiro: o pacote de código está na versão ${masterVersion.data.repoRelease ?? "—"} e o sistema já está em ${masterVersion.data.release}.`,
+      );
+      return;
+    }
+    if (deployAutomated) {
+      autoUpdate.mutate({ commitSha: masterVersion.data?.commitSha ?? null });
+      return;
+    }
+    setUpdateOpen(true);
+  };
+
 
   /** Uma única ação primária, escolhida pelo estado real da instalação. */
   const primary: {
@@ -904,6 +914,14 @@ function InstallationDetailPage() {
                 Esta instalação não publica sozinha: o build automático da branch está desligado e o
                 código só avança quando você autoriza a atualização aqui.
               </p>
+              {masterVersion.data?.masterPublished === false && (
+                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
+                  <strong>MASTER não publicado.</strong> O pacote de código está na versão{" "}
+                  {formatVersion(masterVersion.data.repoRelease ?? "—")} e o sistema já está em{" "}
+                  {formatVersion(masterVersion.data.release)}. Publique o MASTER antes de autorizar:
+                  enviar agora repetiria o mesmo código.
+                </div>
+              )}
               <DataGrid columns={3}>
                 <DataCell
                   label="Publicado nesta instalação"
@@ -921,7 +939,7 @@ function InstallationDetailPage() {
                     masterVersion.isPending
                       ? "consultando…"
                       : masterVersion.data?.commitSha
-                        ? `${masterVersion.data.release} · ${masterVersion.data.commitSha.slice(0, 7)}`
+                        ? `${formatVersion(masterVersion.data.repoRelease ?? masterVersion.data.release)} · ${masterVersion.data.commitSha.slice(0, 7)}`
                         : (masterVersion.data?.error ?? "indisponível")
                   }
                 />
@@ -937,6 +955,7 @@ function InstallationDetailPage() {
                     !deployAutomated ||
                     !!activeOp ||
                     autoUpdate.isPending ||
+                    masterVersion.data?.masterPublished === false ||
                     !canStartOperation("update", inst.status)
                   }
                   onClick={() =>
@@ -951,11 +970,14 @@ function InstallationDetailPage() {
                   Autorizar atualização
                 </Button>
                 <span className="text-xs text-muted-foreground">
-                  {updatePending
-                    ? "Publica exatamente a versão listada como disponível."
-                    : "Instalação já está na versão do MASTER."}
+                  {masterVersion.data?.masterPublished === false
+                    ? "Publique o MASTER primeiro — não há código novo no pacote."
+                    : updatePending
+                      ? "Publica exatamente a versão listada como disponível."
+                      : "Instalação já está na versão do MASTER."}
                 </span>
               </div>
+
             </CardContent>
           </Card>
         </TabsContent>
