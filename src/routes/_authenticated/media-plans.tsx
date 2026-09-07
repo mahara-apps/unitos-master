@@ -32,6 +32,7 @@ import { useActiveContext } from "@/hooks/use-active-context";
 import { cn } from "@/lib/utils";
 import { listBrandMediaPlans, type BrandMediaPlanRow } from "@/lib/media-plans-index.functions";
 import { CreateMediaPlanDialog } from "@/components/media-plans/create-media-plan-dialog";
+import { AdsReportPanel } from "@/components/media-plans/ads-report-panel";
 import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 
 type MediaPlansTab = "planos" | "relatorio";
@@ -245,9 +246,8 @@ function PlansPanel() {
           defaultClientId={clientId ?? undefined}
           onOpenChange={(o) => setDialog((d) => ({ ...d, open: o }))}
         />
-
       )}
-    </DashboardPageShell>
+    </div>
   );
 }
 
