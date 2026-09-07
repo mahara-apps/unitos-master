@@ -92,7 +92,7 @@ export function PlanGenerationProgress({
       </div>
 
       <div className="mb-6 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        <div className="h-full w-1/3 animate-[indeterminate_1.6s_ease-in-out_infinite] rounded-full bg-indigo-600" />
+        <div className="h-full w-1/3 animate-[wizard-progress_1.6s_ease-in-out_infinite] rounded-full bg-indigo-600" />
       </div>
 
       <ol className="space-y-3">
