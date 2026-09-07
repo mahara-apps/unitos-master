@@ -11,7 +11,8 @@ describe("versão exibida da instalação", () => {
   const runner = read("src/lib/installation/runner.server.ts");
 
   it("detalhe usa a release fixada (código realmente publicado)", () => {
-    expect(detail).toContain("installed={inst.pinnedRelease ?? inst.currentVersion}");
+    expect(detail).toContain("const installedRelease = inst.pinnedRelease ?? inst.currentVersion");
+    expect(detail).toContain("installed={installedRelease}");
   });
 
   it("listagem usa a mesma fonte de versão", () => {
@@ -28,7 +29,9 @@ describe("versão exibida da instalação", () => {
   });
 
   it("validação de saúde não avança a versão instalada", () => {
-    expect(runner).toContain('kind === "validate" ? { ...outcome, version: installedVersion } : outcome');
+    expect(runner).toContain(
+      'kind === "validate" ? { ...outcome, version: installedVersion } : outcome',
+    );
     expect(runner).toContain('kind !== "validate" && outcome.version');
   });
 });

@@ -134,7 +134,6 @@ export async function probeInstallationHealth(input: {
   };
 }
 
-
 /* ------------------------------------------------------- report / finalize */
 
 type AnyClient = {
@@ -251,9 +250,7 @@ export async function finalizeOperation(
     .maybeSingle();
   const persisted = readSteps(fresh?.steps ?? op.steps);
   const steps = (persisted.length > 0 ? persisted : readSteps(op.steps)).map((s) =>
-    s.state === "running"
-      ? { ...s, state: report.ok ? ("done" as const) : ("error" as const) }
-      : s,
+    s.state === "running" ? { ...s, state: report.ok ? ("done" as const) : ("error" as const) } : s,
   );
   const finalSteps = report.ok ? steps.map((s) => ({ ...s, state: "done" as const })) : steps;
 
@@ -272,7 +269,7 @@ export async function finalizeOperation(
       summary,
       error_kind: report.ok ? null : (sanitize(report.errorKind) ?? "operation_failed"),
       detail: {
-        ...(((fresh?.detail ?? op.detail) ?? {}) as Record<string, unknown>),
+        ...((fresh?.detail ?? op.detail ?? {}) as Record<string, unknown>),
         executed: true,
         warnings: outcome.warnings,
         releaseVersion: MASTER_RELEASE_VERSION,
