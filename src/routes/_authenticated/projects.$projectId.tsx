@@ -97,7 +97,7 @@ const projectSearchSchema = z.object({
   /** Item de pauta aberto no painel lateral. */
   pauta: z.string().optional(),
   board: z.enum(["board", "list", "matrix"]).optional(),
-  stage: z.enum(CONTENT_STAGES).optional(),
+  estagio: z.enum(CONTENT_STAGES).optional(),
 });
 
 export const Route = createFileRoute("/_authenticated/projects/$projectId")({
@@ -702,7 +702,7 @@ function ProjectDetailPage() {
       {/* Funil do ciclo de conteúdo — mesma paleta usada nas pautas e nos cards */}
       <StageFunnel
         counts={funnelCounts}
-        onSelect={(stage) => setSearch({ tab: "jobs", board: "board", pauta: undefined, stage })}
+        onSelect={(stage) => setSearch({ tab: "jobs", board: "board", pauta: undefined, estagio: stage ?? undefined })}
       />
 
       <Tabs value={tab} onValueChange={(v) => setSearch({ tab: v as ProjectTab, board: undefined })}>
@@ -735,8 +735,8 @@ function ProjectDetailPage() {
           view={boardView}
           onViewChange={(v) => setSearch({ board: v })}
           onOpenItem={(key) => setOpenPautaKey(key)}
-          stage={search.stage ?? null}
-          onStageChange={(s) => setSearch({ stage: s ?? undefined })}
+          stage={search.estagio ?? null}
+          onStageChange={(s) => setSearch({ estagio: s ?? undefined })}
         />
       ) : (
         <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -772,7 +772,7 @@ function ProjectDetailPage() {
 
           <aside className="min-w-0 space-y-4">
             <UnitNetworkMatrix items={boardItems} />
-            <UpcomingDeadlines items={deadlines} />
+            <UpcomingDeadlines entries={deadlines} />
           </aside>
         </div>
       )}
