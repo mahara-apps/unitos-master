@@ -342,8 +342,32 @@ function MediaPlanPage() {
     <DashboardPageShell>
       {plansQ.isLoading ? (
         <Skeleton className="h-40 w-full" />
+      ) : plansQ.isError ? (
+        <PlanLoadError
+          message={
+            plansQ.error instanceof Error ? plansQ.error.message : "Falha ao carregar os planos."
+          }
+          onRetry={() => void plansQ.refetch()}
+        />
       ) : plans.length === 0 ? (
         <EmptyState onCreate={() => setCreating(true)} />
+      ) : planQ.isError ? (
+        <PlanLoadError
+          message={
+            planQ.error instanceof Error ? planQ.error.message : "Falha ao carregar este plano."
+          }
+          onRetry={() => void planQ.refetch()}
+        />
+      ) : !!search.planId && !plansQ.isFetching && !plans.some((p) => p.id === search.planId) ? (
+        <PlanMissing
+          onOpenLatest={() =>
+            navigate({
+              to: ".",
+              search: (p: MediaPlanSearch) => ({ ...p, planId: undefined }),
+              replace: true,
+            })
+          }
+        />
       ) : !activePlanId || !planQ.data ? (
         <Skeleton className="h-96 w-full" />
       ) : (
