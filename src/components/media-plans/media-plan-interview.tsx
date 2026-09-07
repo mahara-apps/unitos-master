@@ -1,4 +1,7 @@
 import { useMemo, useState } from "react";
+
+import { useUnsavedGuard } from "@/hooks/use-unsaved-guard";
+
 import { ArrowLeft, ArrowRight, Check, Sparkles, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +40,9 @@ export function MediaPlanInterview({ onSubmit, onCancel, submitting, submitLabel
   const [step, setStep] = useState(0);
   const [advanced, setAdvanced] = useState(false);
   const [split, setSplit] = useState({ topo: 30, meio: 40, fundo: 30 });
+  // Entrevista em andamento não pode ser perdida por um recarregamento.
+  useUnsavedGuard(Object.keys(answers).length > 0 && !submitting);
+
 
   const questions = useMemo(() => visibleQuestions(answers), [answers]);
   const index = Math.min(step, questions.length - 1);
