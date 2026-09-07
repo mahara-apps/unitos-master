@@ -3,7 +3,6 @@ import { Link } from "@tanstack/react-router";
 import {
   BarChart3,
   BrainCircuit,
-  Clock,
   ImageIcon,
   Layers,
   Loader2,
@@ -24,7 +23,6 @@ import {
   KpiSparklineTile,
   ReconnectNotice,
   SEQUENTIAL_HUE,
-  Sparkline,
   formatCompact,
   type EvolutionPoint,
 } from "./analytics-viz";
@@ -451,5 +449,3 @@ function LoadingSkeleton() {
     </div>
   );
 }
-
-export { Sparkline, Clock };
