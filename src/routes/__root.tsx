@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { SessionExpiredNotice } from "@/components/session-expired-notice";
+
 import {
   Outlet,
   Link,
