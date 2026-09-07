@@ -60,7 +60,9 @@ export function useSocialDashboard({
     enabled,
     queryKey: ["social-analytics", ...baseKey],
     queryFn: () =>
-      fetchFn({ data: { brandId: brandId!, period, since, until, clientId: clientId ?? undefined } }),
+      fetchFn({
+        data: { brandId: brandId!, period, since, until, clientId: clientId ?? undefined },
+      }),
     staleTime: SOCIAL_STALE_TIME_MS,
     gcTime: SOCIAL_GC_TIME_MS,
     placeholderData: keepPreviousData,

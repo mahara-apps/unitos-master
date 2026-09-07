@@ -354,10 +354,7 @@ export function BestTimeHeatmap({
       <div className="grid grid-cols-[64px_repeat(7,minmax(0,1fr))] gap-1">
         <span />
         {WEEKDAY_SHORT.map((d) => (
-          <span
-            key={d}
-            className="pb-0.5 text-center text-[10px] font-bold text-muted-foreground"
-          >
+          <span key={d} className="pb-0.5 text-center text-[10px] font-bold text-muted-foreground">
             {d}
           </span>
         ))}

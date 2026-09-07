@@ -81,8 +81,7 @@ export function SocialAnalyticsDashboard({
         <CardContent className="p-6 text-sm text-rose-500">{state.error}</CardContent>
       </Card>
     );
-  if (!data)
-    return <PanelEmptyState icon={<BarChart3 className="h-5 w-5" />} text="Sem dados." />;
+  if (!data) return <PanelEmptyState icon={<BarChart3 className="h-5 w-5" />} text="Sem dados." />;
   if (data.connectionsTotal === 0) return <NoChannelsEmpty clientId={clientId ?? null} />;
 
   const reconnect = Array.from(new Set(data.warnings.filter(needsReconnect)));
@@ -118,12 +117,7 @@ export function SocialAnalyticsDashboard({
           </div>
         }
       >
-        <EvolutionSection
-          data={data}
-          previous={state.previous}
-          metric={metric}
-          compare={compare}
-        />
+        <EvolutionSection data={data} previous={state.previous} metric={metric} compare={compare} />
       </Panel>
 
       <div className="grid gap-4 lg:grid-cols-2">
