@@ -288,15 +288,34 @@ export function MonthlyPlanView({
               formatos no assistente de geração.
             </p>
           </div>
-          <Button
-            variant="ai"
-            className="h-10 gap-2"
-            disabled={!hasVolumetry || volumetryQ.isLoading}
-            onClick={() => setWizardOpen(true)}
-          >
-            <Sparkles className="h-4 w-4" />
-            Gerar pauta com IA
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              className="h-10 gap-2"
+              onClick={() => setQuickPostOpen(true)}
+            >
+              <Wand2 className="h-4 w-4" />
+              Peça expressa
+            </Button>
+            <Button
+              variant="outline"
+              className="h-10 gap-2"
+              disabled={!hasVolumetry || volumetryQ.isLoading}
+              onClick={() => setQuickPautaOpen(true)}
+            >
+              <Rocket className="h-4 w-4" />
+              Pauta expressa
+            </Button>
+            <Button
+              variant="ai"
+              className="h-10 gap-2"
+              disabled={!hasVolumetry || volumetryQ.isLoading}
+              onClick={() => setWizardOpen(true)}
+            >
+              <Sparkles className="h-4 w-4" />
+              Gerar pauta com IA
+            </Button>
+          </div>
         </div>
 
         <VolumetryCards volumetry={volumetry} loading={volumetryQ.isLoading} />
@@ -316,6 +335,21 @@ export function MonthlyPlanView({
           onCreated={(id) => setPlanId(id)}
         />
 
+        <QuickPautaDialog
+          open={quickPautaOpen}
+          onOpenChange={setQuickPautaOpen}
+          brandId={brandId}
+          clientId={clientId}
+          onDone={(id) => setPlanId(id)}
+        />
+
+        <QuickPostDialog
+          open={quickPostOpen}
+          onOpenChange={setQuickPostOpen}
+          brandId={brandId}
+          clientId={clientId}
+        />
+
         <GeneratePlanWizard
           open={wizardOpen}
           onOpenChange={setWizardOpen}
@@ -330,6 +364,7 @@ export function MonthlyPlanView({
           requestingOverage={overageM.isPending}
           onRequestOverage={(items, justification) => overageM.mutate({ items, justification })}
         />
+
       </PlanShell>
     );
   }
