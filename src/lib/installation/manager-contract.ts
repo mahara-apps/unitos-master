@@ -84,9 +84,7 @@ export const INSTALLATION_HEALTH_LABEL: Record<InstallationHealth, string> = {
 };
 
 export function isInstallationStatus(value: unknown): value is InstallationStatus {
-  return (
-    typeof value === "string" && (INSTALLATION_STATUSES as readonly string[]).includes(value)
-  );
+  return typeof value === "string" && (INSTALLATION_STATUSES as readonly string[]).includes(value);
 }
 
 export type InstallationOperationKind = "register" | "provision" | "validate" | "update";
@@ -202,8 +200,6 @@ export function masterNotPublishedMessage(repoVersion: string, currentVersion: s
   );
 }
 
-
-
 /* -------------------------------------------------------------- validação */
 
 export type InstallationInput = {
@@ -311,7 +307,6 @@ export function validateInstallationInput(input: InstallationInput): ValidationR
     return { ok: false, error: "Informe a URL do repositório Git da instalação." };
   }
 
-
   const blob = [
     input.domain,
     input.supabaseUrl,
@@ -344,22 +339,49 @@ export const PROVISION_STEPS = [
   { id: "supabase", label: "Supabase", script: "supabase/install/bootstrap.sh" },
   { id: "code", label: "Código no GitHub", script: "github: POST /repos/{template}/generate" },
   { id: "deploy_link", label: "Deploy conectado", script: "vercel: POST /v10/projects/{id}/link" },
-  { id: "database", label: "Banco + RLS + funções", script: "supabase/baseline-snapshot/001_initial_schema.sql" },
+  {
+    id: "database",
+    label: "Banco + RLS + funções",
+    script: "supabase/baseline-snapshot/001_initial_schema.sql",
+  },
   { id: "storage", label: "Storage", script: "supabase/baseline-snapshot/003_storage_buckets.sql" },
   { id: "seeds", label: "Seeds de catálogo", script: "supabase/baseline-snapshot/004_seeds.sql" },
   { id: "secrets", label: "Secrets próprios", script: "supabase/install/bootstrap.sh" },
-  { id: "deploy", label: "Variáveis + publicação", script: "supabase/install/010_installation_identity.sql" },
+  {
+    id: "deploy",
+    label: "Variáveis + publicação",
+    script: "supabase/install/010_installation_identity.sql",
+  },
   { id: "brain", label: "Brain stats", script: "supabase/install/011_brain_stats_init.sql" },
   { id: "cron", label: "Cron na própria origem", script: "supabase/install/020_cron.sql" },
-  { id: "validation", label: "Validação final", script: "supabase/install/verify-installation.sql" },
+  {
+    id: "validation",
+    label: "Validação final",
+    script: "supabase/install/verify-installation.sql",
+  },
 ] as const;
 
-
 export const VALIDATE_STEPS = [
-  { id: "isolation", label: "Isolamento do Supabase", script: "supabase/install/verify-installation.sql" },
-  { id: "database", label: "Contagens do baseline", script: "supabase/install/verify-installation.sql" },
-  { id: "rls", label: "RLS, funções e triggers", script: "supabase/install/verify-installation.sql" },
-  { id: "storage", label: "Buckets e policies", script: "supabase/install/verify-installation.sql" },
+  {
+    id: "isolation",
+    label: "Isolamento do Supabase",
+    script: "supabase/install/verify-installation.sql",
+  },
+  {
+    id: "database",
+    label: "Contagens do baseline",
+    script: "supabase/install/verify-installation.sql",
+  },
+  {
+    id: "rls",
+    label: "RLS, funções e triggers",
+    script: "supabase/install/verify-installation.sql",
+  },
+  {
+    id: "storage",
+    label: "Buckets e policies",
+    script: "supabase/install/verify-installation.sql",
+  },
   { id: "cron", label: "Cron e URL própria", script: "supabase/install/verify-installation.sql" },
 ] as const;
 
@@ -368,8 +390,16 @@ export const VALIDATE_STEPS = [
  * instalação (novo build a partir do repositório) e registra a versão.
  */
 export const UPDATE_STEPS = [
-  { id: "database", label: "Atualização do banco", script: "supabase/baseline-snapshot/007_delta_migrations.sql" },
-  { id: "code", label: "Novo deployment do código do MASTER", script: "vercel: POST /v13/deployments" },
+  {
+    id: "database",
+    label: "Atualização do banco",
+    script: "supabase/baseline-snapshot/007_delta_migrations.sql",
+  },
+  {
+    id: "code",
+    label: "Novo deployment do código do MASTER",
+    script: "vercel: POST /v13/deployments",
+  },
   { id: "build", label: "Build e publicação", script: "vercel: GET /v13/deployments/{id}" },
   { id: "version", label: "Versão registrada", script: "installations.current_version" },
 ] as const;
@@ -450,7 +480,6 @@ export function applyStepReport(
   });
 }
 
-
 export type StepProgress = {
   total: number;
   done: number;
@@ -488,7 +517,6 @@ export function stepsProgress(steps: OperationStep[]): StepProgress {
                 100,
             ),
           ),
-
   };
 }
 
@@ -528,7 +556,6 @@ export const HEALTH_CHECKS = [
   { id: "super_admin", label: "Super Admin" },
   { id: "workspace", label: "Workspace único" },
 ] as const;
-
 
 export type HealthCheckId = (typeof HEALTH_CHECKS)[number]["id"];
 
@@ -579,7 +606,6 @@ export function healthFromChecks(raw: unknown): InstallationHealth {
   return "unknown";
 }
 
-
 /* ------------------------------------------------- alvo da operação */
 
 export type TargetCheck = { ok: true } | { ok: false; error: string };
@@ -605,7 +631,8 @@ export function assertOperationTarget(input: {
   if (MASTER_FORBIDDEN_TOKENS.some((t) => blob.includes(t.toLowerCase()))) {
     return {
       ok: false,
-      error: "A operação aponta para o MASTER — bloqueada. Use o Supabase e o domínio da instalação.",
+      error:
+        "A operação aponta para o MASTER — bloqueada. Use o Supabase e o domínio da instalação.",
     };
   }
   return { ok: true };
@@ -650,7 +677,6 @@ export function updateSummary(
   const current = (currentVersion ?? "").trim() || "desconhecida";
   return `Atualização disponível: ${current} → ${availableVersion}`;
 }
-
 
 /* -------------------------------------------------- operação travada (stale) */
 

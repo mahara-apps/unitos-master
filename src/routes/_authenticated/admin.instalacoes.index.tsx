@@ -80,7 +80,6 @@ function AdminInstallationsPage() {
   const createFn = useServerFn(createInstallationFn);
   const masterVersionFn = useServerFn(getMasterVersionFn);
 
-
   const access = useQuery({
     queryKey: ["installation-manager-access"],
     queryFn: () => accessFn(undefined),
@@ -103,7 +102,6 @@ function AdminInstallationsPage() {
     enabled: available,
     retry: false,
   });
-
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [createOpen, setCreateOpen] = useState(false);
@@ -192,8 +190,8 @@ function AdminInstallationsPage() {
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">
-            Cada instalação é uma aplicação independente — só metadados ficam aqui, nunca credenciais
-            do destino.
+            Cada instalação é uma aplicação independente — só metadados ficam aqui, nunca
+            credenciais do destino.
           </p>
         </div>
         <Button size="sm" className="shrink-0" onClick={() => setCreateOpen(true)}>
@@ -221,7 +219,6 @@ function AdminInstallationsPage() {
         />
         <PageKpi icon={<AlertTriangle />} label="Atenção" value={kpis.problems} status="danger" />
       </PageKpiGrid>
-
 
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <div className="relative min-w-0">
@@ -287,9 +284,7 @@ function AdminInstallationsPage() {
             <InstallationCard
               key={i.id}
               installation={i}
-              onOpen={() =>
-                void navigate({ to: "/admin/instalacoes/$id", params: { id: i.id } })
-              }
+              onOpen={() => void navigate({ to: "/admin/instalacoes/$id", params: { id: i.id } })}
             />
           ))}
         </div>
