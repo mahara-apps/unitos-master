@@ -775,19 +775,19 @@ function InstallationDetailPage() {
               <DataGrid columns={4}>
                 {CORE_REQUIREMENTS.map((req) => {
                   const result = readiness.core[req.id];
+                  const hint = result.detail ?? checkHint(req.id, result.state);
                   return (
                     <DataCell key={req.id} label={req.label}>
-                      <div className="mt-1 space-y-1">
+                      <div className="mt-1 space-y-1" title={hint ?? undefined}>
                         <StateBadge state={result.state} label={CORE_STATE_LABEL[result.state]} />
-                        {result.detail && (
-                          <p className="truncate text-[11px] text-muted-foreground">
-                            {result.detail}
-                          </p>
+                        {hint && (
+                          <p className="line-clamp-2 text-[11px] text-muted-foreground">{hint}</p>
                         )}
                       </div>
                     </DataCell>
                   );
                 })}
+
               </DataGrid>
             </CardContent>
           </Card>
