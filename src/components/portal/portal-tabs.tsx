@@ -2,8 +2,6 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckSquare,
-  CalendarDays,
-  FileText,
   Check,
   X,
   MessageSquareWarning,
@@ -13,11 +11,10 @@ import {
   ImageIcon,
   User2,
   CalendarClock,
-  Hourglass,
   CheckCircle2,
   ArrowRight,
-  Sparkles,
-  ShieldCheck,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,7 +28,14 @@ import {
   usePortalCanInteract,
   usePortalCanView,
 } from "./portal-context";
-import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
+import {
+  ChannelDot,
+  PortalRow,
+  PortalSection,
+  PortalStatusPill,
+  PortalThumb,
+  type PortalStatus,
+} from "./portal-ui";
 import type { PortalTabId } from "./portal-nav";
 import { PautaApprovals } from "./portal-pauta";
 import { PortalCalendar } from "./portal-calendar";
@@ -39,7 +43,7 @@ import { PortalBriefing } from "./portal-briefing";
 import { PortalFiles } from "./portal-files";
 import { PortalBrand } from "./portal-brand";
 import { PLAN_PENDING_CLIENT_STATUS } from "@/lib/monthly-plan-client.types";
-import { EmptyState, ErrorState, GridSkeleton, ListSkeleton, formatDate } from "./portal-shared";
+import { EmptyState, ErrorState, ListSkeleton, formatDate } from "./portal-shared";
 
 /* ---------------------------------- HOME ---------------------------------- */
 
