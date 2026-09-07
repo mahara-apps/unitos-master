@@ -271,6 +271,8 @@ export function OperationsPanel({
         tone="border-destructive/30 bg-destructive/10 text-destructive"
         icon={<XCircle className="h-4 w-4" />}
         title="Falhas recentes"
+        big={big(failures.length)}
+
         count={
           failures.length === 0
             ? "Nenhuma falha"
