@@ -27,11 +27,33 @@ async function clearInvalidSession() {
   void supabase.auth.signOut().catch(() => null);
 }
 
-function redirectToLoginWithoutThrowing() {
+/**
+ * Sessão perdida: em vez de trocar a página na hora (o que apaga formulários
+ * em edição), avisamos a UI. Só depois de falhas REAIS e consecutivas — nunca
+ * por um timeout do broker de sessão do preview, que responde por
+ * postMessage com limite de 2s.
+ */
+const SESSION_EXPIRED_EVENT = "nx:session-expired";
+const MAX_CONSECUTIVE_AUTH_FAILURES = 3;
+let consecutiveAuthFailures = 0;
+let lastAuthFailureAt = 0;
+/** Falhas espaçadas (> 2 min) não somam: tratamos como incidentes isolados. */
+const FAILURE_WINDOW_MS = 120_000;
+
+function noteAuthFailure(): number {
+  const now = Date.now();
+  if (now - lastAuthFailureAt > FAILURE_WINDOW_MS) consecutiveAuthFailures = 0;
+  lastAuthFailureAt = now;
+  consecutiveAuthFailures += 1;
+  return consecutiveAuthFailures;
+}
+
+function announceSessionExpired() {
   if (typeof window === "undefined") return;
   const next = getSafeCurrentPath();
-  window.location.replace(`/login?next=${encodeURIComponent(next)}`);
+  window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, { detail: { next } }));
 }
+
 
 // Client middleware that attaches the Supabase bearer token to every server
 // function RPC. Unlike the generated `attachSupabaseAuth`, this one proactively
