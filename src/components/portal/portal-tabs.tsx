@@ -796,8 +796,37 @@ function ApprovalDialog({
           </div>
 
           {/* Conteúdo e decisão */}
-          <div className="flex max-h-[88vh] min-w-0 flex-col">
+          <div className="flex min-w-0 flex-1 flex-col md:max-h-[88vh]">
             <DialogHeader className="space-y-2 border-b border-border/60 px-5 py-4 text-left">
+              {index >= 0 && total > 0 ? (
+                <div className="flex items-center gap-2 text-[11px] font-bold text-muted-foreground">
+                  <span>
+                    {index + 1} de {total}
+                  </span>
+                  {onNavigate ? (
+                    <span className="ml-auto flex items-center gap-1">
+                      <button
+                        type="button"
+                        aria-label="Conteúdo anterior"
+                        disabled={index <= 0}
+                        onClick={() => onNavigate(-1)}
+                        className="grid h-8 w-8 place-items-center rounded-lg bg-muted disabled:opacity-40"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Próximo conteúdo"
+                        disabled={index >= total - 1}
+                        onClick={() => onNavigate(1)}
+                        className="grid h-8 w-8 place-items-center rounded-lg bg-muted disabled:opacity-40"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
               <DialogTitle className="pr-8 text-base font-semibold leading-snug">
                 {post?.title ?? "Conteúdo"}
               </DialogTitle>
