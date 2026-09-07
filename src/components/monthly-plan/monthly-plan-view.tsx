@@ -13,12 +13,15 @@ import {
   Loader2,
   Plus,
   RefreshCw,
+  Rocket,
   Send,
   Sparkles,
   Trash2,
   Undo2,
+  Wand2,
   X,
 } from "lucide-react";
+
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
