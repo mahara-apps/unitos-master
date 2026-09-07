@@ -54,6 +54,22 @@ function announceSessionExpired() {
   window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, { detail: { next } }));
 }
 
+/**
+ * Renova a sessão tolerando falhas transitórias (rede, timeout de 2s do broker
+ * de sessão do preview). Uma tentativa extra com espera curta evita expulsar o
+ * usuário por um atraso momentâneo.
+ */
+const REFRESH_RETRY_DELAYS_MS = [0, 400, 1200];
+async function refreshWithBackoff(): Promise<{ access_token: string } | null> {
+  for (const delay of REFRESH_RETRY_DELAYS_MS) {
+    if (delay > 0) await new Promise((r) => setTimeout(r, delay));
+    const res = await supabase.auth.refreshSession().catch(() => null);
+    const token = res?.data.session?.access_token ?? null;
+    if (token) return { access_token: token };
+  }
+  return null;
+}
+
 
 // Client middleware that attaches the Supabase bearer token to every server
 // function RPC. Unlike the generated `attachSupabaseAuth`, this one proactively
