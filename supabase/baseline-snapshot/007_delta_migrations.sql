@@ -3634,3 +3634,9 @@ REGRAS DE PLANEJAMENTO
   true
 )
 ON CONFLICT (agent_id) DO NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- 20260907195447_6af1e7e4-819a-44f7-b4b4-3b9cdd127375.sql
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.ai_model_health DROP CONSTRAINT IF EXISTS ai_model_health_status_check;
+ALTER TABLE public.ai_model_health ADD CONSTRAINT ai_model_health_status_check CHECK (status = ANY (ARRAY['ok'::text, 'failed'::text, 'deprecated'::text, 'skipped'::text]));
