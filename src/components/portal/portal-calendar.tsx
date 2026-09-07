@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePortalApi } from "./portal-context";
 import { PortalSchedule } from "./portal-schedule";
+import { ChannelDot, PortalThumb } from "./portal-ui";
 import {
   EmptyState,
   ErrorState,
