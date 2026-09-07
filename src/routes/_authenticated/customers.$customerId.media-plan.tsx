@@ -99,7 +99,7 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId/medi
     </DashboardPageShell>
   ),
   errorComponent: MediaPlanRouteError,
-  notFoundComponent: MediaPlanRouteError,
+  notFoundComponent: () => <MediaPlanRouteError />,
 });
 
 /** Nunca deixar tela branca: erro com motivo e caminhos de saída. */
