@@ -596,6 +596,15 @@ export type CodeClient = {
   /** Commit atual da branch de produção do MASTER — versão a publicar. */
   masterHeadSha: () => Promise<{ ok: boolean; sha?: string; error?: string }>;
   /**
+   * Versão do pacote MASTER *dentro* de um commit do repositório — lida de
+   * `supabase/baseline-snapshot/tools/delta_version.txt`. É a única forma de
+   * saber se o repositório já recebeu a publicação da versão atual do código:
+   * `MASTER_RELEASE_VERSION` vive no processo, o repositório só avança quando o
+   * MASTER é publicado.
+   */
+  releaseAtCommit: (sha: string) => Promise<{ ok: boolean; version?: string; error?: string }>;
+
+  /**
    * Commit vazio na branch de produção do repositório DA INSTALAÇÃO para que a
    * integração Git da Vercel publique — usado quando a cota de deployments por
    * API do plano gratuito está esgotada.
