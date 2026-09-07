@@ -4,7 +4,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import type { LanguageModel } from "ai";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { decryptCredential } from "./credentials-crypto.server";
+import { decryptCredential, isCredentialDecryptError } from "./credentials-crypto.server";
 import {
   resolveModel,
   nextFallbackModel,
