@@ -596,6 +596,10 @@ function ProjectsIndexPage() {
     ownerFilter !== "all" ||
     (!activeClientId && clientFilter !== "all");
 
+  /** Quantos filtros do painel "Filtros" estão aplicados (só os que filtram dados). */
+  const extraFilterCount =
+    (ownerFilter !== "all" ? 1 : 0) + (!activeClientId && clientFilter !== "all" ? 1 : 0);
+
   return (
     <DashboardPageShell>
       {/* KPIs */}
