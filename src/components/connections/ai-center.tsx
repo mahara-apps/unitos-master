@@ -126,6 +126,31 @@ type ProviderConfig = {
   verifyMessage?: string;
 };
 
+/** Chave que existe mas não pode ser aberta nesta instalação. */
+const UNREADABLE_KEY_RE = /não pôde ser lida/i;
+
+function isUnreadableKey(config?: ProviderConfig) {
+  return config?.verified === "invalid" && UNREADABLE_KEY_RE.test(config.verifyMessage ?? "");
+}
+
+function keyStateLabel(config?: ProviderConfig) {
+  if (config?.verified === "valid") return "Chave válida";
+  if (config?.verified === "invalid")
+    return isUnreadableKey(config) ? "Precisa salvar a chave novamente" : "Chave inválida";
+  return "Chave não verificada";
+}
+
+/** Nome amigável de um modelo, quando ele estiver no catálogo da tela. */
+function modelLabel(providerId: string, modelId: string) {
+  const def = PROVIDER_BY_ID[providerId as AiProviderId];
+  return def?.models.find((m) => m.id === modelId)?.label ?? modelId;
+}
+
+function providerLabel(providerId: string) {
+  return PROVIDER_BY_ID[providerId as AiProviderId]?.name ?? providerId;
+}
+
+
 export type AiCenterData = {
   monthlyBudgetUsd?: number;
   textProvider?: AiProviderId;
