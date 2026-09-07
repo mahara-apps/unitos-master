@@ -543,7 +543,7 @@ function HealthPanel({
       );
     },
     onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Falha ao verificar modelos"),
+      toast.error(aiErrorMessage(e, "Falha ao verificar modelos")),
   });
 
   const connectedProviders = AI_PROVIDERS.filter((p) => providers?.[p.id]?.connected);
