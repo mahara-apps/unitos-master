@@ -124,7 +124,10 @@ export function QuickPostDialog({
         onOpenChange(v);
       }}
     >
-      <DialogContent className="max-w-lg" onInteractOutside={(e) => busy && e.preventDefault()}>
+      <DialogContent
+        className="w-full max-w-lg overflow-hidden"
+        onInteractOutside={(e) => busy && e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wand2 className="h-4 w-4 text-primary" />
