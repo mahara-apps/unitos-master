@@ -78,10 +78,7 @@ export function PortalShell({
             footerLabel={footerLabel}
           />
 
-          <nav
-            aria-label="Navegação do portal"
-            className="ml-4 hidden items-center gap-1 lg:flex"
-          >
+          <nav aria-label="Navegação do portal" className="ml-4 hidden items-center gap-1 lg:flex">
             {primary.map((t) => (
               <TopTab
                 key={t.id}
@@ -170,9 +167,7 @@ export function PortalShell({
               onClick={() => setMoreOpen(true)}
               aria-label="Mais opções"
               className={`flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10.5px] font-bold ${
-                more.some((t) => t.id === activeTab)
-                  ? "text-primary"
-                  : "text-muted-foreground"
+                more.some((t) => t.id === activeTab) ? "text-primary" : "text-muted-foreground"
               }`}
             >
               <MoreHorizontal className="h-[22px] w-[22px]" />
@@ -261,22 +256,16 @@ function BrandMark({
   );
 }
 
-function TopTab({
-  item,
-  active,
-  badge,
-}: {
-  item: PortalNavItem;
-  active: boolean;
-  badge: number;
-}) {
+function TopTab({ item, active, badge }: { item: PortalNavItem; active: boolean; badge: number }) {
   const Icon = item.icon;
   return (
     <PortalLink
       tab={item.id}
       current={active}
       className={`inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-full px-3.5 text-sm font-semibold transition-colors ${
-        active ? "bg-accent text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        active
+          ? "bg-accent text-primary"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
       }`}
     >
       <Icon className="h-4 w-4" /> {item.label}

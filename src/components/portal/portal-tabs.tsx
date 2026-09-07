@@ -22,12 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import {
-  PortalLink,
-  usePortalApi,
-  usePortalCanInteract,
-  usePortalCanView,
-} from "./portal-context";
+import { PortalLink, usePortalApi, usePortalCanInteract, usePortalCanView } from "./portal-context";
 import {
   ChannelDot,
   PortalRow,
@@ -624,13 +619,7 @@ export function ApprovalsTab() {
 }
 
 /** Linha compacta de aprovação (nada de card com arte gigante). */
-function ApprovalListItem({
-  post,
-  onOpen,
-}: {
-  post: Record<string, unknown>;
-  onOpen: () => void;
-}) {
+function ApprovalListItem({ post, onOpen }: { post: Record<string, unknown>; onOpen: () => void }) {
   const status = ((post.approval as { status: string } | undefined)?.status ?? "pending") as string;
   const channels = Array.isArray(post.channels) ? (post.channels as string[]) : [];
   const format = typeof post.format === "string" ? post.format : null;

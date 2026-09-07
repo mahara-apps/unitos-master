@@ -138,9 +138,10 @@ export type PortalNavItem = {
 };
 
 /** Divide as abas visíveis em principais (na barra) e excedente (em "Mais"). */
-export function splitPortalTabs(
-  tabs: PortalNavItem[],
-): { primary: PortalNavItem[]; more: PortalNavItem[] } {
+export function splitPortalTabs(tabs: PortalNavItem[]): {
+  primary: PortalNavItem[];
+  more: PortalNavItem[];
+} {
   const primary = PORTAL_PRIMARY_TABS.map((id) => tabs.find((t) => t.id === id)).filter(
     (t): t is PortalNavItem => Boolean(t),
   );
