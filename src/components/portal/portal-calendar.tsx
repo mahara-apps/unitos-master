@@ -50,18 +50,18 @@ type CalItem = {
 const KIND_META: Record<Kind, { label: string; dot: string; chip: string }> = {
   scheduled: {
     label: "Agendado",
-    dot: "bg-sky-500",
-    chip: "bg-sky-500/15 text-sky-600 dark:text-sky-400",
+    dot: "bg-portal-scheduled",
+    chip: "bg-portal-scheduled-soft text-portal-scheduled",
   },
   published: {
     label: "Publicado",
-    dot: "bg-emerald-500",
-    chip: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+    dot: "bg-portal-published",
+    chip: "bg-portal-published-soft text-portal-published",
   },
   appointment: {
     label: "Compromisso",
-    dot: "bg-violet-500",
-    chip: "bg-violet-500/15 text-violet-600 dark:text-violet-400",
+    dot: "bg-portal-waiting",
+    chip: "bg-portal-waiting-soft text-portal-waiting",
   },
 };
 
