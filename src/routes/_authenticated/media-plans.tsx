@@ -94,7 +94,7 @@ const STATUS_LABEL: Record<string, string> = {
   archived: "Arquivado",
 };
 
-function MediaPlansIndex() {
+function PlansPanel() {
   const { brandId, clientId } = useActiveContext();
   const listFn = useServerFn(listBrandMediaPlans);
   const q = useQuery({
@@ -176,7 +176,7 @@ function MediaPlansIndex() {
   );
 
   return (
-    <DashboardPageShell>
+    <div className="space-y-4">
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <KpiCard label="Planos" value={String(kpis.total)} icon={<Target className="h-4 w-4" />} />
