@@ -68,8 +68,11 @@ export function CreateMediaPlanDialog({
   const [monthlyBudget, setMonthlyBudget] = useState<string>("");
   const [periodStart, setPeriodStart] = useState<string>("");
   const [periodEnd, setPeriodEnd] = useState<string>("");
-  /** Modo IA: passo 1 = dados básicos, passo 2 = entrevista guiada. */
-  const [stage, setStage] = useState<"basics" | "interview">("basics");
+  /** Modo IA: básicos → entrevista → geração (com progresso). */
+  const [stage, setStage] = useState<"basics" | "interview" | "generating">("basics");
+  /** Última entrevista enviada: permite tentar de novo sem refazer nada. */
+  const [lastInterview, setLastInterview] = useState<InterviewResult | null>(null);
+  const [genError, setGenError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -79,6 +82,8 @@ export function CreateMediaPlanDialog({
     setPeriodStart("");
     setPeriodEnd("");
     setStage("basics");
+    setLastInterview(null);
+    setGenError(null);
   }, [open, mode, defaultClientId]);
 
   const budgetNum = Number(monthlyBudget.replace(/[^\d.,-]/g, "").replace(",", "."));
