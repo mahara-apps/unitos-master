@@ -39,6 +39,7 @@ import { usePageHeader } from "@/hooks/use-page-header";
 import {
   CUSTOMER_TABS,
   resolveCustomerTab,
+  shouldNormalizeCustomerTab,
   type CustomerTab,
 } from "@/lib/customer-tabs";
 
