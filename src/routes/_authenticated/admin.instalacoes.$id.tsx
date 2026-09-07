@@ -495,10 +495,20 @@ function InstallationDetailPage() {
     automated ? autoProvision.mutate() : start.mutate({ kind: "provision" });
   const validateAction = () =>
     automated ? autoValidate.mutate() : start.mutate({ kind: "validate" });
-  const updateAction = () =>
-    deployAutomated
-      ? autoUpdate.mutate({ commitSha: masterVersion.data?.commitSha ?? null })
-      : setUpdateOpen(true);
+  const updateAction = () => {
+    if (masterVersion.data?.masterPublished === false) {
+      toast.error(
+        `Publique o MASTER primeiro: o pacote de código está na versão ${masterVersion.data.repoRelease ?? "—"} e o sistema já está em ${masterVersion.data.release}.`,
+      );
+      return;
+    }
+    if (deployAutomated) {
+      autoUpdate.mutate({ commitSha: masterVersion.data?.commitSha ?? null });
+      return;
+    }
+    setUpdateOpen(true);
+  };
+
 
   /** Uma única ação primária, escolhida pelo estado real da instalação. */
   const primary: {
