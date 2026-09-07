@@ -80,9 +80,7 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
     // A normalização da aba só vale para o painel do cliente. Sub-rotas
     // (ex.: /media-plan) não têm aba e NÃO podem ser redirecionadas — isso
     // descartaria o endereço da sub-página (e o plano aberto na URL).
-    const onPanelItself =
-      location.pathname.replace(/\/+$/, "") === `/customers/${params.customerId}`;
-    if (!onPanelItself) return;
+    if (!shouldNormalizeCustomerTab(location.pathname, params.customerId)) return;
     const resolved = resolveCustomerTab(search.tab);
     if (search.tab !== resolved) {
       throw redirect({
