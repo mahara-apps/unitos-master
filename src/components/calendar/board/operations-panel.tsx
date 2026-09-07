@@ -206,9 +206,11 @@ export function OperationsPanel({
       </Block>
 
       <Block
-        tone="border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300"
+        tone="border-pub-awaiting/30 bg-pub-awaiting/10 text-pub-awaiting"
         icon={<AlertTriangle className="h-4 w-4" />}
         title="Precisam de atenção"
+        big={big(attention.length)}
+
         count={
           attention.length === 0
             ? "Nada pendente"
