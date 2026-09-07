@@ -755,11 +755,8 @@ function ProviderCard({
                     : "text-severity-warning",
               )}
             >
-              {config?.verified === "valid"
-                ? "Chave válida"
-                : config?.verified === "invalid"
-                  ? "Chave inválida"
-                  : "Chave não verificada"}
+              {keyStateLabel(config)}
+
             </div>
           </>
         ) : (
