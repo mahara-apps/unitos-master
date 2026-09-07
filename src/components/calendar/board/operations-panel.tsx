@@ -328,6 +328,8 @@ export function OperationsPanel({
         tone="border-border/60 bg-muted/50 text-muted-foreground"
         icon={<FileText className="h-4 w-4" />}
         title="Rascunhos"
+        big={big(drafts.length)}
+
         count={
           draftsLoading
             ? "Carregando…"
