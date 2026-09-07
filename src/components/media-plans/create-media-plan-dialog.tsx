@@ -32,6 +32,7 @@ import {
   MediaPlanInterview,
   type InterviewResult,
 } from "@/components/media-plans/media-plan-interview";
+import { PlanGenerationProgress } from "@/components/media-plans/plan-generation-progress";
 
 type Mode = "manual" | "ai";
 
