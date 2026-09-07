@@ -73,7 +73,16 @@
   --color-stage-published: var(--stage-published);
   --color-brand-lime: var(--brand-lime);
   --color-brand-lime-foreground: var(--brand-lime-foreground);
+  /* Status de publicação (calendário) — COR = STATUS */
+  --color-pub-draft: var(--pub-draft);
+  --color-pub-reserved: var(--pub-reserved);
+  --color-pub-awaiting: var(--pub-awaiting);
+  --color-pub-scheduled: var(--pub-scheduled);
+  --color-pub-published: var(--pub-published);
+  --color-pub-ai: var(--pub-ai);
+  --color-pub-failed: var(--pub-failed);
 }
+
 
 :root {
   /* Geek Sleek — Light (Stripe/Vercel) */
