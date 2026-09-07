@@ -139,9 +139,19 @@ export function CreateMediaPlanDialog({
     },
     onSuccess: (plan) => void goToPlan(plan, "Plano de mídia gerado com sucesso"),
     onError: (err) => {
-      toast.error(aiErrorMessage(err, "Não foi possível gerar o plano"));
+      const message = aiErrorMessage(err, "Não foi possível gerar o plano");
+      setGenError(message);
+      toast.error(message);
     },
   });
+
+  /** Envia a entrevista e mostra o painel de progresso. */
+  const startGeneration = (result: InterviewResult) => {
+    setLastInterview(result);
+    setGenError(null);
+    setStage("generating");
+    interviewMutation.mutate(result);
+  };
 
   const clients = useMemo(
     () => (clientsQ.data ?? []).map((c) => ({ id: c.id, name: c.name })),
@@ -154,14 +164,21 @@ export function CreateMediaPlanDialog({
     clients.find((c) => c.id === defaultClientId)?.name ?? "Cliente da operação";
 
   const isAi = mode === "ai";
-  const busy = manualMutation.isPending || interviewMutation.isPending;
+  const generating = interviewMutation.isPending;
+  const busy = manualMutation.isPending || generating;
   const inInterview = isAi && stage === "interview";
-
+  const inGeneration = isAi && stage === "generating";
 
   return (
     <Dialog open={open} onOpenChange={(o) => (!busy ? onOpenChange(o) : null)}>
       <DialogContent
-        className={cn(inInterview ? "sm:max-w-[720px]" : "sm:max-w-[560px]")}
+        className={cn(inInterview || inGeneration ? "sm:max-w-[720px]" : "sm:max-w-[560px]")}
+        {...(busy
+          ? {
+              onEscapeKeyDown: (e: Event) => e.preventDefault(),
+              onInteractOutside: (e: Event) => e.preventDefault(),
+            }
+          : {})}
       >
         <DialogHeader>
           <div className="flex items-center gap-2">
@@ -184,12 +201,23 @@ export function CreateMediaPlanDialog({
           </div>
         </DialogHeader>
 
-        {inInterview ? (
+        {inGeneration ? (
+          <PlanGenerationProgress
+            error={genError}
+            onRetry={() => {
+              if (lastInterview) startGeneration(lastInterview);
+            }}
+            onBack={() => {
+              setGenError(null);
+              setStage("interview");
+            }}
+          />
+        ) : inInterview ? (
           <div className="max-h-[70vh] min-h-[420px]">
             <MediaPlanInterview
               submitting={busy}
               onCancel={() => setStage("basics")}
-              onSubmit={(result) => interviewMutation.mutate(result)}
+              onSubmit={startGeneration}
             />
           </div>
         ) : (
