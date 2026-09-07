@@ -303,3 +303,73 @@
   0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
   50% { transform: translate(-50%, -50%) scale(1.25); opacity: 1; }
 }
+
+/* ============================================================
+   PORTAL DO CLIENTE (/area/*, /portal/$token/*)
+   Paleta e superfícies exclusivas da área do cliente. Escopadas
+   em `.portal-root` para não afetar o app da agência.
+   ============================================================ */
+:root {
+  --portal-bg: #f5f7fa;
+  --portal-panel: #ffffff;
+  --portal-border: #e9edf3;
+  --portal-text: #1a1e27;
+  --portal-text-soft: #5a6373;
+  --portal-text-muted: #98a1b0;
+  --portal-primary: #2563eb;
+  --portal-primary-strong: #1d4ed8;
+  --portal-waiting: #e0a011;
+  --portal-waiting-soft: #fbf2da;
+  --portal-waiting-ink: #8a6608;
+  --portal-scheduled: #0ea5e9;
+  --portal-scheduled-soft: #e2f4fd;
+  --portal-published: #16a34a;
+  --portal-published-soft: #e4f5ea;
+  --portal-adjust: #ec4899;
+  --portal-adjust-soft: #fdeaf4;
+}
+
+@theme inline {
+  --color-portal-bg: var(--portal-bg);
+  --color-portal-panel: var(--portal-panel);
+  --color-portal-border: var(--portal-border);
+  --color-portal-text: var(--portal-text);
+  --color-portal-soft: var(--portal-text-soft);
+  --color-portal-muted: var(--portal-text-muted);
+  --color-portal-primary: var(--portal-primary);
+  --color-portal-primary-strong: var(--portal-primary-strong);
+  --color-portal-waiting: var(--portal-waiting);
+  --color-portal-waiting-soft: var(--portal-waiting-soft);
+  --color-portal-waiting-ink: var(--portal-waiting-ink);
+  --color-portal-scheduled: var(--portal-scheduled);
+  --color-portal-scheduled-soft: var(--portal-scheduled-soft);
+  --color-portal-published: var(--portal-published);
+  --color-portal-published-soft: var(--portal-published-soft);
+  --color-portal-adjust: var(--portal-adjust);
+  --color-portal-adjust-soft: var(--portal-adjust-soft);
+}
+
+/* A área do cliente é sempre clara e usa a paleta do portal, mesmo que o
+   app da agência esteja em tema escuro. */
+.portal-root {
+  color-scheme: light;
+  --background: var(--portal-bg);
+  --foreground: var(--portal-text);
+  --card: var(--portal-panel);
+  --card-foreground: var(--portal-text);
+  --popover: var(--portal-panel);
+  --popover-foreground: var(--portal-text);
+  --primary: var(--portal-primary);
+  --primary-foreground: #ffffff;
+  --secondary: #f1f4f9;
+  --secondary-foreground: var(--portal-text);
+  --muted: #f1f4f9;
+  --muted-foreground: var(--portal-text-soft);
+  --accent: #eef3ff;
+  --accent-foreground: var(--portal-primary-strong);
+  --border: var(--portal-border);
+  --input: var(--portal-border);
+  --ring: var(--portal-primary);
+  background-color: var(--portal-bg);
+  color: var(--portal-text);
+}

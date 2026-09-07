@@ -516,59 +516,86 @@ export function ApprovalsTab() {
     staleTime: 30_000,
   });
   const pendingCount = metricsQ.data?.pending ?? 0;
+  const list = q.data ?? [];
+  const ids = list.map((p) => p.id);
+  const openIndex = openId ? ids.indexOf(openId) : -1;
+  // "X de N": quantos já foram respondidos entre os que chegaram para você.
+  const total = filter === "pending" ? pendingCount : list.length;
+  const done = filter === "pending" ? 0 : list.length;
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-1 rounded-lg border border-border/60 bg-card p-1">
-        {APPROVAL_FILTERS.map((f) => {
-          const active = filter === f.id;
-          return (
-            <button
-              key={f.id}
-              onClick={() => setFilter(f.id)}
-              aria-pressed={active}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs transition-colors ${
-                active
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {f.label}
-              {f.id === "pending" && pendingCount > 0 && (
-                <span className="rounded-full bg-severity-warning/15 px-1.5 text-[10px] font-medium text-severity-warning">
-                  {pendingCount}
-                </span>
-              )}
-            </button>
-          );
-        })}
+      <div>
+        <div className="flex items-center gap-3">
+          <h1 className="text-[21px] font-extrabold tracking-tight">Aprovações</h1>
+          {filter === "pending" && pendingCount > 0 ? (
+            <span className="ml-auto text-xs font-extrabold text-muted-foreground">
+              {Math.max(0, total - list.length)} de {total}
+            </span>
+          ) : null}
+        </div>
+        {filter === "pending" && total > 0 ? (
+          <div className="mt-3 h-[5px] overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-portal-published transition-[width]"
+              style={{
+                width: `${Math.min(100, Math.round((Math.max(0, total - list.length) / total) * 100))}%`,
+              }}
+            />
+          </div>
+        ) : null}
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {APPROVAL_FILTERS.map((f) => {
+            const active = filter === f.id;
+            return (
+              <button
+                key={f.id}
+                onClick={() => setFilter(f.id)}
+                aria-pressed={active}
+                className={`inline-flex min-h-9 items-center gap-1.5 rounded-full px-3.5 text-[12.5px] font-bold transition-colors ${
+                  active ? "bg-accent text-primary" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {f.label}
+                {f.id === "pending" && pendingCount > 0 && (
+                  <span
+                    className={`rounded-full px-1.5 text-[10.5px] font-extrabold text-white ${
+                      active ? "bg-primary" : "bg-portal-waiting"
+                    }`}
+                  >
+                    {pendingCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {filter === "pending" && pendingCount > 0 && (
         <p className="text-xs text-muted-foreground">
-          Abra cada conteúdo para ver a imagem e o texto antes de aprovar. Para pedir alterações ou
-          recusar, é necessário escrever um comentário.
+          Toque num conteúdo para ver a arte e a legenda. Aprove ou peça ajustes.
         </p>
       )}
 
       {q.isLoading ? (
-        <GridSkeleton />
+        <ListSkeleton />
       ) : q.isError ? (
         <ErrorState
           description="Não conseguimos carregar seus conteúdos agora."
           message={(q.error as Error)?.message}
           onRetry={() => q.refetch()}
         />
-      ) : !q.data?.length ? (
+      ) : !list.length ? (
         <EmptyState
           icon={filter === "pending" ? CheckCircle2 : CheckSquare}
           title={EMPTY_BY_FILTER[filter].title}
           description={EMPTY_BY_FILTER[filter].description}
         />
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {q.data.map((p) => (
-            <ApprovalCard
+        <div className="space-y-2.5">
+          {list.map((p) => (
+            <ApprovalListItem
               key={p.id}
               post={p as unknown as Record<string, unknown>}
               onOpen={() => setOpenId(p.id)}
@@ -577,75 +604,81 @@ export function ApprovalsTab() {
         </div>
       )}
 
-      {openId && <ApprovalDialog postId={openId} onClose={() => setOpenId(null)} />}
+      {openId && (
+        <ApprovalDialog
+          postId={openId}
+          index={openIndex}
+          total={list.length}
+          onNavigate={(dir) => {
+            const next = ids[openIndex + dir];
+            if (next) setOpenId(next);
+          }}
+          onClose={() => setOpenId(null)}
+        />
+      )}
+      {done > 0 ? null : null}
     </div>
   );
 }
 
-function ApprovalCard({ post, onOpen }: { post: Record<string, unknown>; onOpen: () => void }) {
+/** Linha compacta de aprovação (nada de card com arte gigante). */
+function ApprovalListItem({
+  post,
+  onOpen,
+}: {
+  post: Record<string, unknown>;
+  onOpen: () => void;
+}) {
   const status = ((post.approval as { status: string } | undefined)?.status ?? "pending") as string;
-  const tone = decisionTone(status);
   const channels = Array.isArray(post.channels) ? (post.channels as string[]) : [];
-  const sla = post.sla as
-    | { status?: string; hoursRemaining?: number; hoursOverdue?: number }
-    | undefined;
+  const format = typeof post.format === "string" ? post.format : null;
+  const channel = channels[0] ? channelName(channels[0]) : "Publicação";
+  const pillStatus: PortalStatus =
+    status === "approved"
+      ? "published"
+      : status === "adjust" || status === "changes_requested"
+        ? "adjust"
+        : status === "rejected"
+          ? "adjust"
+          : "waiting";
+
   return (
     <button
+      type="button"
       onClick={onOpen}
-      className="group relative flex flex-col overflow-hidden rounded-xl border border-border/60 bg-card text-left transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-md"
+      className="flex min-h-[84px] w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:bg-accent/40"
     >
-      <span className={`absolute inset-x-0 top-0 z-10 h-0.5 ${tone.bar}`} />
-      <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
-        {post.cover_url ? (
-          <img
-            src={post.cover_url as string}
-            alt={(post.title as string) || "Prévia do conteúdo"}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-          />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 text-muted-foreground">
-            <ImageIcon className="h-6 w-6 opacity-40" />
-            <span className="text-[11px]">Sem imagem</span>
-          </div>
-        )}
-        <Badge
-          variant="outline"
-          className={`absolute left-2 top-2.5 border bg-background/85 backdrop-blur ${tone.badge}`}
-        >
-          {DECISION_LABEL[status] ?? DECISION_LABEL.pending}
-        </Badge>
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/70 via-black/10 to-transparent p-2.5 opacity-0 transition-opacity group-hover:opacity-100">
-          <span className="inline-flex items-center gap-1 rounded-md bg-white/95 px-2 py-1 text-[11px] font-medium text-black">
-            {status === "pending" ? "Revisar" : "Ver detalhes"}
-            <ArrowRight className="h-3 w-3" />
-          </span>
-        </div>
-      </div>
-      <div className="flex flex-1 flex-col gap-2 p-3">
-        <div className="line-clamp-2 text-sm font-medium leading-snug">
+      <PortalThumb url={(post.cover_url as string) ?? null} size="md" />
+      <div className="min-w-0 flex-1">
+        <div className="line-clamp-2 text-sm font-bold leading-snug">
           {(post.title as string) || "Conteúdo"}
         </div>
-        <div className="mt-auto flex flex-wrap items-center gap-1.5">
-          {channels.slice(0, 3).map((c) => (
-            <Badge
-              key={c}
-              variant="secondary"
-              className="rounded-md px-1.5 py-0 text-[10px] capitalize"
-            >
-              {c}
-            </Badge>
-          ))}
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground">
+            <ChannelDot />
+            {channel}
+            {format ? ` · ${format}` : ""}
+          </span>
+          <PortalStatusPill status={pillStatus}>
+            {DECISION_LABEL[status] ?? DECISION_LABEL.pending}
+          </PortalStatusPill>
         </div>
-        {post.scheduled_at ? (
-          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-            <CalendarClock className="h-3 w-3" />
-            {formatDate(post.scheduled_at as string)}
-          </div>
-        ) : null}
-        {sla?.status && sla.status !== "none" ? <SlaBadge sla={sla} /> : null}
       </div>
+      <ChevronRight className="h-4.5 w-4.5 shrink-0 text-muted-foreground/60" />
     </button>
   );
+}
+
+const CHANNEL_NAME: Record<string, string> = {
+  instagram: "Instagram",
+  facebook: "Facebook",
+  tiktok: "TikTok",
+  linkedin: "LinkedIn",
+  youtube: "YouTube",
+  blog: "Blog",
+};
+function channelName(c: string) {
+  return CHANNEL_NAME[c.toLowerCase()] ?? c;
 }
 
 function ApprovalDialog({ postId, onClose }: { postId: string; onClose: () => void }) {
