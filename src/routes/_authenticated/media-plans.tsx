@@ -34,10 +34,52 @@ import { listBrandMediaPlans, type BrandMediaPlanRow } from "@/lib/media-plans-i
 import { CreateMediaPlanDialog } from "@/components/media-plans/create-media-plan-dialog";
 import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 
+type MediaPlansTab = "planos" | "relatorio";
+
 export const Route = createFileRoute("/_authenticated/media-plans")({
   beforeLoad: () => ensureFeatureEnabled("midia_paga"),
+  validateSearch: (search: Record<string, unknown>): { tab: MediaPlansTab } => ({
+    tab: search.tab === "relatorio" ? "relatorio" : "planos",
+  }),
   component: MediaPlansIndex,
 });
+
+function MediaPlansIndex() {
+  const { tab } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+
+  return (
+    <DashboardPageShell>
+      <div className="inline-flex items-center gap-1 rounded-lg border border-border/60 bg-muted/40 p-1">
+        {(
+          [
+            { key: "planos", label: "Plano de mídia", icon: Target },
+            { key: "relatorio", label: "Relatório de anúncios", icon: BarChart3 },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() =>
+              navigate({ search: { tab: t.key }, replace: true, resetScroll: false })
+            }
+            className={cn(
+              "flex h-8 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition",
+              tab === t.key
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <t.icon className="h-3.5 w-3.5" />
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "relatorio" ? <AdsReportPanel /> : <PlansPanel />}
+    </DashboardPageShell>
+  );
+}
 
 const currency = (n: number) =>
   new Intl.NumberFormat("pt-BR", {
