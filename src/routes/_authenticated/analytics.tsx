@@ -205,24 +205,8 @@ function AnalyticsPage() {
       subtitle: clientId
         ? "Visão do cliente ativo — canais e métricas do escopo"
         : "Visão executiva da agência — produção, social, equipe e clientes",
-      actions: (
-        <div className="flex items-center gap-2">
-          <DateRangePicker
-            value={range}
-            onChange={(r: DateRange | undefined) => r && setRange(r)}
-            maxDate={new Date()}
-          />
-          <FiltersSheet
-            filters={filters}
-            setFilters={setFilters}
-            clients={clientId ? [] : (clientsQuery.data ?? [])}
-            team={teamQuery.data?.members ?? []}
-            projects={projectsQuery.data?.projects ?? []}
-          />
-        </div>
-      ),
     },
-    [range, filters, clientId, clientsQuery.data, teamQuery.data, projectsQuery.data],
+    [clientId],
   );
 
   const social = useSocialDashboard({
