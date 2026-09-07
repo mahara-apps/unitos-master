@@ -620,6 +620,23 @@ function HealthPanel({
               </div>
             );
           })}
+
+          {missingKeyProviders.map((p) => (
+            <div
+              key={p.id}
+              className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-border/60 px-3 py-2"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+                  {p.name}
+                </div>
+                <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                  Sem chave configurada · não é verificado
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -628,17 +645,17 @@ function HealthPanel({
           {replaced.map((m) => (
             <div
               key={`${m.provider}-${m.role}`}
-              className="flex items-start gap-1.5 text-[11px] text-severity-warning"
+              className="flex items-start gap-1.5 text-[11px] text-muted-foreground"
             >
               <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
               <span>
                 {providerLabel(m.provider)}: o modelo{" "}
                 {modelLabel(m.provider, m.replacedModelId!)} saiu do ar e foi substituído
-                automaticamente por {modelLabel(m.provider, m.modelId)}.
+                automaticamente por {modelLabel(m.provider, m.modelId)}
+                {m.updatedAt ? ` em ${new Date(m.updatedAt).toLocaleString("pt-BR")}` : ""}.
               </span>
             </div>
           ))}
-
         </div>
       )}
     </DashboardPanelSurface>
