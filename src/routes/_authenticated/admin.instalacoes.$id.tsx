@@ -179,7 +179,6 @@ function checkHint(id: string, state: string): string | null {
   return null;
 }
 
-
 function InstallationDetailPage() {
   const { id } = Route.useParams();
   const { novo } = Route.useSearch();
@@ -217,9 +216,7 @@ function InstallationDetailPage() {
     retry: false,
     // Progresso REAL: só faz polling enquanto existe operação viva.
     refetchInterval: (query) =>
-      query.state.data?.operations.some(
-        (op) => op.status === "pending" || op.status === "running",
-      )
+      query.state.data?.operations.some((op) => op.status === "pending" || op.status === "running")
         ? 2500
         : false,
   });
@@ -451,10 +448,10 @@ function InstallationDetailPage() {
   const activeOp = operations.find((op) => op.status === "pending" || op.status === "running");
   const lastProvision = operations.find((op) => op.kind === "provision" || op.kind === "update");
   const lastValidate = operations.find((op) => op.kind === "validate");
-  const shownProvision = activeOp?.kind === "validate" ? lastProvision : (activeOp ?? lastProvision);
+  const shownProvision =
+    activeOp?.kind === "validate" ? lastProvision : (activeOp ?? lastProvision);
   const staleActive = !!activeOp && isOperationStale(activeOp);
-  const failedProvision =
-    lastProvision && lastProvision.status === "failed" ? lastProvision : null;
+  const failedProvision = lastProvision && lastProvision.status === "failed" ? lastProvision : null;
 
   // Estado definitivo: o núcleo decide READY; integrações opcionais nunca
   // bloqueiam. O MASTER só afirma "configurado" no que a instalação reportou.
@@ -508,7 +505,6 @@ function InstallationDetailPage() {
     }
     setUpdateOpen(true);
   };
-
 
   /** Uma única ação primária, escolhida pelo estado real da instalação. */
   const primary: {
@@ -572,7 +568,11 @@ function InstallationDetailPage() {
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5">
-            <Button size="sm" disabled={primary.disabled || primary.pending || !!activeOp} onClick={primary.run}>
+            <Button
+              size="sm"
+              disabled={primary.disabled || primary.pending || !!activeOp}
+              onClick={primary.run}
+            >
               {primary.pending || activeOp ? (
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
               ) : (
@@ -592,7 +592,9 @@ function InstallationDetailPage() {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   disabled={
-                    !!activeOp || autoProvision.isPending || !canStartOperation("provision", inst.status)
+                    !!activeOp ||
+                    autoProvision.isPending ||
+                    !canStartOperation("provision", inst.status)
                   }
                   onClick={provisionAction}
                 >
@@ -600,7 +602,9 @@ function InstallationDetailPage() {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   disabled={
-                    !!activeOp || autoValidate.isPending || !canStartOperation("validate", inst.status)
+                    !!activeOp ||
+                    autoValidate.isPending ||
+                    !canStartOperation("validate", inst.status)
                   }
                   onClick={validateAction}
                 >
@@ -710,8 +714,8 @@ function InstallationDetailPage() {
               </CheckList>
               {inst.domain && isTemporaryDeployUrl(inst.domain) && (
                 <p className="text-xs text-muted-foreground">
-                  Domínio atual é o temporário do deploy. Quando o cliente informar o definitivo, use
-                  “Editar dados”.
+                  Domínio atual é o temporário do deploy. Quando o cliente informar o definitivo,
+                  use “Editar dados”.
                 </p>
               )}
             </CardContent>
@@ -743,7 +747,8 @@ function InstallationDetailPage() {
             <div className="min-w-0">
               <p className="text-sm font-medium">Instalação criada.</p>
               <p className="text-xs text-muted-foreground">
-                Provisione para aplicar baseline, Storage, seeds, secrets, cron e identidade própria.
+                Provisione para aplicar baseline, Storage, seeds, secrets, cron e identidade
+                própria.
               </p>
             </div>
             <Button
@@ -780,10 +785,7 @@ function InstallationDetailPage() {
                 <DataCell label="Project ref" value={inst.supabaseProjectRef} mono />
                 <DataCell label="Repositório" value={inst.gitRepoUrl} />
                 <DataCell label="Deploy" value={inst.deployProject} />
-                <DataCell
-                  label="Última validação"
-                  value={formatDateTimeBr(inst.lastValidatedAt)}
-                />
+                <DataCell label="Última validação" value={formatDateTimeBr(inst.lastValidatedAt)} />
               </DataGrid>
             </CardContent>
           </Card>
@@ -816,7 +818,6 @@ function InstallationDetailPage() {
                     </DataCell>
                   );
                 })}
-
               </DataGrid>
             </CardContent>
           </Card>
@@ -893,7 +894,6 @@ function InstallationDetailPage() {
               )}
             </CardContent>
           </Card>
-
         </TabsContent>
 
         {/* ACESSOS */}
@@ -901,13 +901,16 @@ function InstallationDetailPage() {
           <InstallationCredentialsCard installationId={id} />
         </TabsContent>
 
-
         {/* VERSÕES */}
         <TabsContent value="versoes" className="space-y-4">
           <Card>
             <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-3">
               <CardTitle className="truncate text-sm">Versão publicada</CardTitle>
-              <VersionPair installed={inst.currentVersion} available={inst.availableVersion} compact />
+              <VersionPair
+                installed={inst.currentVersion}
+                available={inst.availableVersion}
+                compact
+              />
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-xs text-muted-foreground">
@@ -943,10 +946,7 @@ function InstallationDetailPage() {
                         : (masterVersion.data?.error ?? "indisponível")
                   }
                 />
-                <DataCell
-                  label="Autorizado em"
-                  value={formatDateTimeBr(inst.pinnedAt)}
-                />
+                <DataCell label="Autorizado em" value={formatDateTimeBr(inst.pinnedAt)} />
               </DataGrid>
               <div className="flex flex-wrap items-center gap-2 border-t border-border/50 pt-3">
                 <Button
@@ -977,7 +977,6 @@ function InstallationDetailPage() {
                       : "Instalação já está na versão do MASTER."}
                 </span>
               </div>
-
             </CardContent>
           </Card>
         </TabsContent>
@@ -1114,8 +1113,6 @@ function InstallationDetailPage() {
             </CardContent>
           </Card>
 
-
-
           {lastValidate && (
             <Card>
               <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-3">
@@ -1184,9 +1181,7 @@ function InstallationDetailPage() {
                     )}
                     <span className="ml-auto text-[11px] text-muted-foreground">
                       {formatDateTimeBr(op.startedAt)}
-                      {op.finishedAt
-                        ? ` → ${formatDateTimeBr(op.finishedAt)}`
-                        : ""}
+                      {op.finishedAt ? ` → ${formatDateTimeBr(op.finishedAt)}` : ""}
                     </span>
                   </div>
                   {op.summary && <p className="mt-1 text-xs text-muted-foreground">{op.summary}</p>}
