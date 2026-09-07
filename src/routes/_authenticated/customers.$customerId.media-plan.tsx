@@ -407,6 +407,30 @@ function MediaPlanPage() {
   );
 }
 
+function PlanLoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 bg-card/40 px-6 py-16 text-center">
+      <AlertTriangle className="mb-4 h-10 w-10 text-amber-500" />
+      <div className="mb-1 text-lg font-medium">Não foi possível carregar</div>
+      <div className="mb-6 max-w-md text-sm text-muted-foreground">{message}</div>
+      <Button onClick={onRetry}>Tentar novamente</Button>
+    </div>
+  );
+}
+
+function PlanMissing({ onOpenLatest }: { onOpenLatest: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 bg-card/40 px-6 py-16 text-center">
+      <AlertTriangle className="mb-4 h-10 w-10 text-amber-500" />
+      <div className="mb-1 text-lg font-medium">Este plano não está mais disponível</div>
+      <div className="mb-6 max-w-md text-sm text-muted-foreground">
+        Ele pode ter sido excluído. Abra o plano mais recente deste cliente.
+      </div>
+      <Button onClick={onOpenLatest}>Abrir plano mais recente</Button>
+    </div>
+  );
+}
+
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 bg-card/40 px-6 py-16 text-center">
