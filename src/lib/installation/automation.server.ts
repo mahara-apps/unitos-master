@@ -1883,6 +1883,7 @@ export async function runAutomatedProvision(input: {
     teamId,
     masterRepo,
     repo: repo.slug,
+    githubToken,
     fetchImpl: input.fetchImpl,
   });
 
@@ -2861,6 +2862,7 @@ export async function runAutomatedUpdate(input: {
     teamId: (env["UNITOS_VERCEL_TEAM_ID"] ?? "").trim() || null,
     masterRepo,
     repo: repo.slug,
+    githubToken,
     fetchImpl: input.fetchImpl,
   });
   const code = createCodeClient({
