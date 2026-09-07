@@ -165,6 +165,45 @@ export function isUpdateAvailable(
   return current !== availableVersion.trim();
 }
 
+/**
+ * Compara versões de release (`1.3.10` > `1.3.9`). Devolve -1, 0 ou 1.
+ * Versões não numéricas caem para comparação textual, sem lançar.
+ */
+export function compareReleaseVersions(a: string, b: string): number {
+  const parse = (v: string) =>
+    (v ?? "")
+      .trim()
+      .split(".")
+      .map((part) => Number.parseInt(part, 10));
+  const left = parse(a);
+  const right = parse(b);
+  if (left.some(Number.isNaN) || right.some(Number.isNaN)) {
+    return a.trim() === b.trim() ? 0 : a.trim() < b.trim() ? -1 : 1;
+  }
+  const size = Math.max(left.length, right.length);
+  for (let i = 0; i < size; i += 1) {
+    const l = left[i] ?? 0;
+    const r = right[i] ?? 0;
+    if (l !== r) return l < r ? -1 : 1;
+  }
+  return 0;
+}
+
+/**
+ * Mensagem única do caso "MASTER não publicado": o repositório de código do
+ * MASTER só avança quando o MASTER é publicado, então a atualização não tem
+ * código novo para enviar mesmo que o número da versão já tenha subido aqui.
+ */
+export function masterNotPublishedMessage(repoVersion: string, currentVersion: string): string {
+  return (
+    `O MASTER ainda não foi publicado: o pacote de código está na versão ${repoVersion} e ` +
+    `o sistema já está em ${currentVersion}. Publique o MASTER e repita a atualização — ` +
+    `enviar agora repetiria o mesmo código.`
+  );
+}
+
+
+
 /* -------------------------------------------------------------- validação */
 
 export type InstallationInput = {
