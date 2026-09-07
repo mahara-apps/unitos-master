@@ -142,15 +142,21 @@ export function OperationsPanel({
   onOpen: (item: PublicationItem) => void;
   onOpenDraft: (draft: PendingSchedulePost, index: number) => void;
   onSeeAllDrafts?: () => void;
+  /** "column" = coluna lateral; "grid" = visão Painel com números grandes. */
+  layout?: "column" | "grid";
 }) {
+  const grid = layout === "grid";
+  const big = (n: number) => (grid ? n : undefined);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className={cn(grid ? "grid gap-3 md:grid-cols-2" : "flex flex-col gap-3")}>
       <Block
-        tone="border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300"
+        tone="border-pub-scheduled/30 bg-pub-scheduled/10 text-pub-scheduled"
         icon={<CalendarClock className="h-4 w-4" />}
         title="Próximas publicações"
+        big={big(upcoming.length)}
         count={`${upcoming.length} na fila`}
+
       >
         {upcoming.length === 0 ? (
           <Empty title="Nada agendado à frente" hint="Agende uma peça aprovada para vê-la aqui." />
