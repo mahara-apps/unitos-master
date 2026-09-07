@@ -187,6 +187,15 @@ function AdminInstallationsPage() {
         </Button>
       </header>
 
+      {masterVersion.data?.masterPublished === false && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
+          <strong>MASTER não publicado.</strong> O pacote de código disponível para as instalações
+          está na versão {masterVersion.data.repoRelease ?? "—"} e o sistema já está em{" "}
+          {masterVersion.data.release}. Publique o MASTER antes de autorizar atualizações — sem isso
+          as instalações recebem o mesmo código de novo.
+        </div>
+      )}
+
       <PageKpiGrid>
         <PageKpi icon={<Server />} label="Total" value={kpis.total} />
         <PageKpi icon={<Loader2 />} label="Em execução" value={kpis.running} status="info" />
@@ -198,6 +207,7 @@ function AdminInstallationsPage() {
         />
         <PageKpi icon={<AlertTriangle />} label="Atenção" value={kpis.problems} status="danger" />
       </PageKpiGrid>
+
 
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <div className="relative min-w-0">
