@@ -102,8 +102,9 @@ export function QuickPostDialog({
     mutationFn: () => {
       if (!result) throw new Error("Nada para salvar.");
       return updatePost({
-        data: { id: result.postId, title: draftTitle.trim(), copy: draftCopy },
+        data: { postId: result.postId, patch: { title: draftTitle.trim(), copy: draftCopy } },
       });
+
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["content-board"] });
