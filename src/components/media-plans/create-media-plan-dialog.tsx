@@ -142,9 +142,15 @@ export function CreateMediaPlanDialog({
     [clientsQ.data],
   );
 
+  /** Cliente vindo do contexto de operação: fixo, sem seletor. */
+  const lockedClient = !!defaultClientId;
+  const lockedClientName =
+    clients.find((c) => c.id === defaultClientId)?.name ?? "Cliente da operação";
+
   const isAi = mode === "ai";
   const busy = manualMutation.isPending || interviewMutation.isPending;
   const inInterview = isAi && stage === "interview";
+
 
   return (
     <Dialog open={open} onOpenChange={(o) => (!busy ? onOpenChange(o) : null)}>
