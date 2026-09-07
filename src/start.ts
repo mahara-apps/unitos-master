@@ -67,14 +67,13 @@ const attachSupabaseAuth = createMiddleware({ type: "function" }).client(async (
   const nearExpiry = expiresAt ? expiresAt * 1000 - Date.now() < 60_000 : false;
   const expired = expiresAt ? expiresAt * 1000 <= Date.now() : false;
   if (!token || nearExpiry) {
-    const refreshed = await supabase.auth.refreshSession().catch(() => null);
-    const refreshedToken = refreshed?.data.session?.access_token ?? null;
+    const refreshed = await refreshWithBackoff();
+    const refreshedToken = refreshed?.access_token ?? null;
     // Se o refresh falhou e o token atual já expirou, não envie um bearer
     // inválido — o servidor responderia "Unauthorized: Invalid token".
     token = refreshedToken ?? (expired ? undefined : token);
-    if (!refreshedToken && expired) {
-      await clearInvalidSession();
-    }
+    // Importante: NÃO limpar a sessão aqui. Um refresh que falha por rede ou
+    // por timeout do broker do preview não significa sessão inválida.
   }
 
   // Global middleware must be best-effort: public server functions should
@@ -83,34 +82,44 @@ const attachSupabaseAuth = createMiddleware({ type: "function" }).client(async (
   const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
   try {
-    return await next({ headers });
+    const result = await next({ headers });
+    consecutiveAuthFailures = 0;
+    return result;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (!AUTH_ERROR_RE.test(msg)) throw err;
 
     // Antes de derrubar a sessão: o servidor pode ter recusado um token que
     // acabou de expirar (ou uma corrida com o refresh em outra aba). Tenta
-    // UMA vez com um token novo — só então força re-login.
-    const refreshed = await supabase.auth.refreshSession().catch(() => null);
-    const freshToken = refreshed?.data.session?.access_token ?? null;
+    // novamente com um token novo (com backoff) — só então considera falha.
+    const refreshed = await refreshWithBackoff();
+    const freshToken = refreshed?.access_token ?? null;
     if (freshToken && freshToken !== token) {
       try {
-        return await next({ headers: { Authorization: `Bearer ${freshToken}` } });
+        const retry = await next({ headers: { Authorization: `Bearer ${freshToken}` } });
+        consecutiveAuthFailures = 0;
+        return retry;
       } catch (retryErr) {
         const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
         if (!AUTH_ERROR_RE.test(retryMsg)) throw retryErr;
       }
     }
 
-    // Token rejeitado de fato (ex.: sessão de outro projeto no localStorage,
-    // token revogado). Limpa e força re-login.
-    await clearInvalidSession();
-    redirectToLoginWithoutThrowing();
-    if (typeof window !== "undefined") {
-      return await new Promise<never>(() => undefined);
+    const failures = noteAuthFailure();
+    if (failures < MAX_CONSECUTIVE_AUTH_FAILURES) {
+      // Falha isolada: propaga o erro para a chamada (a tela mostra o retry),
+      // mas mantém a página e o que estiver em edição.
+      throw err;
     }
+
+    // Token rejeitado de fato e de forma repetida (ex.: sessão revogada).
+    // Limpa e AVISA a UI — sem trocar a página no meio do trabalho.
+    await clearInvalidSession();
+    announceSessionExpired();
     throw err;
   }
+});
+
 });
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
