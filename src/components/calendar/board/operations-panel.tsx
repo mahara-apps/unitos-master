@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DashboardPanelSurface, DashboardIconFrame } from "@/components/ui/dashboard-primitives";
 
 import {
-  PUBLICATION_STATUS,
+  statusDisplay,
   dayLabel,
   formatLabel,
   relativeLabel,
@@ -165,7 +165,7 @@ export function OperationsPanel({
         ) : (
           <ul className="divide-y divide-border/60">
             {upcoming.slice(0, 5).map((it) => {
-              const token = PUBLICATION_STATUS[it.overall];
+              const token = statusDisplay(it.overall);
               return (
                 <li key={it.postId}>
                   <button
@@ -243,7 +243,7 @@ export function OperationsPanel({
                     <span
                       className={cn(
                         "mt-1.5 h-2 w-2 shrink-0 rounded-full",
-                        PUBLICATION_STATUS[it.overall].dot,
+                        statusDisplay(it.overall).dot,
                       )}
                       aria-hidden
                     />
