@@ -414,6 +414,7 @@ export const listPipelinesFn = createServerFn({ method: "POST" })
     const { data: counts } = await context.supabase
       .from("posts")
       .select("pipeline_id")
+      .is("deleted_at", null)
       .in(
         "pipeline_id",
         pipes.map((p) => p.id),
@@ -1019,14 +1020,16 @@ export const listContentTrashFn = createServerFn({ method: "POST" })
         daysRemaining: remaining(row.deleted_at as string),
         postCount: (posts ?? []).filter((post) => post.deleted_pipeline_id === row.id).length,
       })),
-      ...(posts ?? []).map((row) => ({
+      ...(posts ?? [])
+        .filter((row) => !row.deleted_pipeline_id)
+        .map((row) => ({
         id: row.id as string,
         kind: "post" as const,
         title: (row.title as string | null) || "Sem título",
         deletedAt: row.deleted_at as string,
         deletedByName: row.deleted_by ? (names.get(row.deleted_by as string) ?? null) : null,
         daysRemaining: remaining(row.deleted_at as string),
-      })),
+        })),
     ];
     return items.sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
   });
@@ -1484,9 +1487,18 @@ export const deletePostFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ postId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
+    const { data: post, error: readError } = await context.supabase
+      .from("posts")
+      .select("id,brand_id")
+      .eq("id", data.postId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (readError) throw readError;
+    if (!post) throw new Error("Conteúdo não encontrado.");
+    await assertContentAdmin(context.supabase, context.userId, post.brand_id as string);
     const { error } = await context.supabase
       .from("posts")
-      .update({ deleted_at: new Date().toISOString() } as never)
+      .update({ deleted_at: new Date().toISOString(), deleted_by: context.userId } as never)
       .eq("id", data.postId);
     if (error) throw error;
     return { ok: true };
