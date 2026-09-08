@@ -4,6 +4,7 @@ import {
   CalendarClock,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ImageIcon,
@@ -126,6 +127,94 @@ function normalize(rows: unknown[]): CalItem[] {
   });
 }
 
+/* --------------------------- agrupamento semanal --------------------------- */
+
+type DayGroup = { key: string; items: CalItem[] };
+type WeekGroup = {
+  key: string;
+  label: string;
+  items: CalItem[];
+  days: DayGroup[];
+  isCurrent: boolean;
+};
+
+function parseDayKey(k: string) {
+  const [y, m, d] = k.split("-").map(Number);
+  return new Date(y as number, (m as number) - 1, d as number);
+}
+
+/** Início da semana (segunda-feira) do dia informado. */
+function weekStart(d: Date) {
+  const c = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  c.setDate(c.getDate() - ((c.getDay() + 6) % 7));
+  return c;
+}
+
+function weekLabel(start: Date) {
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  const sameMonth = start.getMonth() === end.getMonth();
+  const fmt = (d: Date, withMonth: boolean) =>
+    d.toLocaleDateString(
+      "pt-BR",
+      withMonth ? { day: "2-digit", month: "long" } : { day: "2-digit" },
+    );
+  return `Semana de ${fmt(start, !sameMonth)} a ${fmt(end, true)}`;
+}
+
+/** Lista dobrada em semanas (segunda a domingo); sem data vai para o fim. */
+function buildWeekGroups(items: CalItem[]): WeekGroup[] {
+  const byDay = new Map<string, CalItem[]>();
+  for (const it of items) {
+    const k = it.at ? it.at.slice(0, 10) : "sem-data";
+    byDay.set(k, [...(byDay.get(k) ?? []), it]);
+  }
+  const dayKeys = [...byDay.keys()].filter((k) => k !== "sem-data").sort();
+  const currentWeek = dayKey(weekStart(new Date()));
+  const weeks = new Map<string, WeekGroup>();
+  for (const k of dayKeys) {
+    const wk = dayKey(weekStart(parseDayKey(k)));
+    const day: DayGroup = { key: k, items: byDay.get(k) ?? [] };
+    const group = weeks.get(wk);
+    if (group) {
+      group.days.push(day);
+      group.items.push(...day.items);
+    } else {
+      weeks.set(wk, {
+        key: wk,
+        label: weekLabel(parseDayKey(wk)),
+        items: [...day.items],
+        days: [day],
+        isCurrent: wk === currentWeek,
+      });
+    }
+  }
+  const list = [...weeks.values()];
+  const undated = byDay.get("sem-data");
+  if (undated?.length) {
+    list.push({
+      key: "sem-data",
+      label: "Sem data definida",
+      items: undated,
+      days: [{ key: "sem-data", items: undated }],
+      isCurrent: false,
+    });
+  }
+  return list;
+}
+
+/** Semana atual e a seguinte abertas; sem semana atual, as duas primeiras. */
+function defaultOpenWeeks(weeks: WeekGroup[]): Set<string> {
+  const idx = weeks.findIndex((w) => w.isCurrent);
+  const from = idx >= 0 ? idx : 0;
+  return new Set(
+    weeks
+      .slice(from, from + 2)
+      .map((w) => w.key)
+      .filter(Boolean),
+  );
+}
+
 export function PortalCalendar() {
   const api = usePortalApi();
   const [ym, setYm] = useState(() => {
@@ -165,14 +254,22 @@ export function PortalCalendar() {
   const todayKey = dayKey(new Date());
   const openItem = items.find((i) => i.id === openId) ?? null;
 
-  const agenda = useMemo(() => {
-    const groups = new Map<string, CalItem[]>();
-    for (const it of items) {
-      const k = it.at ? it.at.slice(0, 10) : "sem-data";
-      groups.set(k, [...(groups.get(k) ?? []), it]);
-    }
-    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
-  }, [items]);
+  // A lista deixa de ser um rolo infinito de datas: vira semanas dobráveis.
+  const weeks = useMemo(() => buildWeekGroups(items), [items]);
+  const [openWeeks, setOpenWeeks] = useState<Set<string>>(new Set());
+  const defaultOpen = useMemo(() => defaultOpenWeeks(weeks), [weeks]);
+  const isWeekOpen = (key: string) =>
+    openWeeks.size > 0 ? openWeeks.has(key) : defaultOpen.has(key);
+  const toggleWeek = (key: string) => {
+    setOpenWeeks((prev) => {
+      const base = prev.size > 0 ? new Set(prev) : new Set(defaultOpen);
+      if (base.has(key)) base.delete(key);
+      else base.add(key);
+      // Set vazio volta ao padrão; mantém uma marca invisível para evitar isso.
+      if (base.size === 0) base.add("__none__");
+      return base;
+    });
+  };
 
   const dayItems = selectedDay ? (byDay.get(selectedDay) ?? []) : [];
 
@@ -322,42 +419,80 @@ export function PortalCalendar() {
             </div>
           )}
 
-          {/* AGENDA — sempre no mobile, opcional no desktop */}
-          <div className={view === "agenda" ? "space-y-4" : "space-y-4 sm:hidden"}>
-            {agenda.map(([key, group]) => (
-              <div key={key} className="space-y-2">
-                <div className="text-xs font-medium capitalize text-muted-foreground">
-                  {key === "sem-data" ? "Sem data definida" : fullDateLabel(group[0].at)}
-                </div>
-                <div className="space-y-2.5">
-                  {group.map((it) => (
-                    <button
-                      key={it.id}
-                      onClick={() => setOpenId(it.id)}
-                      className="flex min-h-[68px] w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:bg-accent/40"
-                    >
-                      <PortalThumb url={it.coverUrl} alt={it.title} />
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-[13.5px] font-bold">{it.title}</div>
-                        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[11.5px] font-semibold text-muted-foreground">
-                          <span>{timeLabel(it.at)}</span>
-                          {it.channels.length > 0 && (
-                            <span className="inline-flex items-center gap-1.5">
-                              <ChannelDot /> {channelLabel(it.channels[0])}
-                            </span>
-                          )}
+          {/* AGENDA POR SEMANA — sempre no mobile, opcional no desktop */}
+          <div className={view === "agenda" ? "space-y-3" : "space-y-3 sm:hidden"}>
+            {weeks.map((week) => {
+              const open = isWeekOpen(week.key);
+              return (
+                <section
+                  key={week.key}
+                  className="overflow-hidden rounded-2xl border border-border bg-card"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleWeek(week.key)}
+                    aria-expanded={open}
+                    className="flex min-h-[52px] w-full items-center gap-3 px-3.5 text-left transition-colors hover:bg-accent/30"
+                  >
+                    <ChevronDown
+                      className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+                        open ? "" : "-rotate-90"
+                      }`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-bold">{week.label}</div>
+                      {week.isCurrent ? (
+                        <div className="text-[11px] font-bold text-primary">Semana atual</div>
+                      ) : null}
+                    </div>
+                    <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[11px] font-extrabold text-muted-foreground">
+                      {week.items.length}
+                    </span>
+                  </button>
+
+                  {open ? (
+                    <div className="space-y-3 border-t border-border px-3 py-3">
+                      {week.days.map((day) => (
+                        <div key={day.key} className="space-y-2">
+                          <div className="text-xs font-medium capitalize text-muted-foreground">
+                            {day.key === "sem-data"
+                              ? "Sem data definida"
+                              : fullDateLabel(day.items[0].at)}
+                          </div>
+                          <div className="space-y-2.5">
+                            {day.items.map((it) => (
+                              <button
+                                key={it.id}
+                                onClick={() => setOpenId(it.id)}
+                                className="flex min-h-[68px] w-full items-center gap-3 rounded-2xl border border-border bg-background p-3 text-left transition-colors hover:bg-accent/40"
+                              >
+                                <PortalThumb url={it.coverUrl} alt={it.title} />
+                                <div className="min-w-0 flex-1">
+                                  <div className="truncate text-[13.5px] font-bold">{it.title}</div>
+                                  <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[11.5px] font-semibold text-muted-foreground">
+                                    <span>{timeLabel(it.at)}</span>
+                                    {it.channels.length > 0 && (
+                                      <span className="inline-flex items-center gap-1.5">
+                                        <ChannelDot /> {channelLabel(it.channels[0])}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <span
+                                  className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-extrabold ${KIND_META[it.kind].chip}`}
+                                >
+                                  {KIND_META[it.kind].label}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                      <span
-                        className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-extrabold ${KIND_META[it.kind].chip}`}
-                      >
-                        {KIND_META[it.kind].label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
+                      ))}
+                    </div>
+                  ) : null}
+                </section>
+              );
+            })}
           </div>
         </>
       )}
