@@ -14,6 +14,7 @@ import {
 } from "@/lib/placements.server";
 import { resolveLegacyStage } from "@/lib/post-stage.server";
 import { assertScheduleLead } from "@/lib/schedule-rules";
+import { callRpc } from "@/lib/supabase-rpc";
 
 const DestinationSchema = z.object({
   connectionId: z.string().uuid(),
@@ -31,6 +32,20 @@ function ingestBrainQuiet(
   payload: Record<string, unknown>,
 ) {
   brain.ingestQuiet(supabase, brandId, eventType, sourceModule, payload);
+}
+
+async function assertContentAdmin(
+  supabase: import("@supabase/supabase-js").SupabaseClient,
+  userId: string,
+  brandId: string,
+) {
+  const { data, error } = await callRpc<string | null>(supabase, "app_access_role", {
+    _user_id: userId,
+    _brand_id: brandId,
+  });
+  if (error || (data !== "super_admin" && data !== "admin")) {
+    throw new Error("Somente Owner ou Admin pode excluir e restaurar conteúdos.");
+  }
 }
 
 export const STAGE_COLORS = [
@@ -388,6 +403,7 @@ export const listPipelinesFn = createServerFn({ method: "POST" })
       .select("id,brand_id,client_id,name,slug,is_default,position")
       .eq("brand_id", data.brandId)
       .eq("client_id", data.clientId)
+      .is("deleted_at", null)
       .order("position", { ascending: true })
       .order("created_at", { ascending: true });
     if (error) throw error;
@@ -418,6 +434,7 @@ export const ensureDefaultPipelineFn = createServerFn({ method: "POST" })
       .select("id,brand_id,client_id,name,slug,is_default,position")
       .eq("brand_id", data.brandId)
       .eq("client_id", data.clientId)
+      .is("deleted_at", null)
       .order("position", { ascending: true })
       .order("created_at", { ascending: true })
       .limit(1);
@@ -546,6 +563,7 @@ export const loadBoardFn = createServerFn({ method: "POST" })
         .from("content_pipelines")
         .select("id,brand_id,client_id,name,slug,is_default,position")
         .eq("id", data.pipelineId)
+        .is("deleted_at", null)
         .single(),
       context.supabase
         .from("content_pipeline_stages")
