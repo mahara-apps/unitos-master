@@ -168,7 +168,7 @@ export function PortalShell({
           {/* Cabeçalho enxuto: identidade no celular + ações */}
           <header className="sticky top-0 z-30 border-b border-border bg-card">
             <div className="mx-auto flex min-h-16 max-w-5xl items-center gap-3 px-4 py-3 sm:px-6">
-              <div className="min-w-0 lg:hidden">
+              <div className="min-w-0 min-[900px]:hidden">
                 <BrandMark
                   clientName={clientName}
                   logoUrl={logoUrl}
@@ -177,7 +177,7 @@ export function PortalShell({
                   footerLabel={footerLabel}
                 />
               </div>
-              <div className="hidden min-w-0 lg:block">
+              <div className="hidden min-w-0 min-[900px]:block">
                 <div className="truncate text-[15px] font-extrabold leading-tight">
                   {PORTAL_TAB_LABEL[activeTab]}
                 </div>
@@ -192,12 +192,12 @@ export function PortalShell({
                   <PortalLink
                     tab="notifications"
                     aria-label="Avisos"
-                    className="grid h-11 w-11 place-items-center rounded-xl bg-muted text-muted-foreground lg:hidden"
+                    className="grid h-11 w-11 place-items-center rounded-xl bg-muted text-muted-foreground min-[900px]:hidden"
                   >
                     <Bell className="h-5 w-5" />
                   </PortalLink>
                 )}
-                <div className="hidden items-center gap-2 lg:flex">{headerActions}</div>
+                <div className="hidden items-center gap-2 min-[900px]:flex">{headerActions}</div>
               </div>
             </div>
           </header>
@@ -221,11 +221,11 @@ export function PortalShell({
             </div>
           ) : null}
 
-          <main className="mx-auto w-full max-w-5xl px-4 pb-28 pt-4 sm:px-6 lg:pb-12 lg:pt-6">
+          <main className="mx-auto w-full max-w-5xl px-4 pb-28 pt-4 sm:px-6 min-[900px]:pb-12 min-[900px]:pt-6">
             {children}
           </main>
 
-          <footer className="mt-auto hidden border-t border-border px-4 py-6 text-center text-xs text-muted-foreground lg:block">
+          <footer className="mt-auto hidden border-t border-border px-4 py-6 text-center text-xs text-muted-foreground min-[900px]:block">
             {footerLabel}
           </footer>
         </div>
@@ -234,7 +234,7 @@ export function PortalShell({
       {/* Barra inferior fixa (celular) — 5 alvos de 44px+ */}
       <nav
         aria-label="Navegação do portal"
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] min-[900px]:hidden"
       >
         <div className="mx-auto flex max-w-md items-stretch px-1.5 py-1.5">
           {primary.map((t) => (
