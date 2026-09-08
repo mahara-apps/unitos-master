@@ -86,11 +86,11 @@ export function PortalShell({
       style={{ ["--portal-accent" as string]: accent }}
     >
       <div className="flex min-h-dvh">
-        {/* NAVEGAÇÃO DESKTOP — coluna lateral retrátil */}
+        {/* NAVEGAÇÃO DESKTOP (>=900px) — coluna lateral retrátil */}
         <aside
           aria-label="Navegação do portal"
-          className={`sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-border bg-card lg:flex ${
-            collapsed ? "w-[76px]" : "w-[252px]"
+          className={`sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-border bg-card min-[900px]:flex ${
+            collapsed ? "w-[76px]" : "w-[244px]"
           }`}
         >
           <div
@@ -108,7 +108,7 @@ export function PortalShell({
 
           <nav className="flex-1 overflow-y-auto px-2 pb-2">
             <ul className="space-y-1">
-              {tabs.map((t) => (
+              {primary.map((t) => (
                 <li key={t.id}>
                   <SideTab
                     item={t}
@@ -118,10 +118,32 @@ export function PortalShell({
                   />
                 </li>
               ))}
+              {more.length > 0 ? (
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setMoreOpen(true)}
+                    aria-label="Mais áreas"
+                    className={`flex min-h-11 w-full items-center gap-2.5 rounded-xl px-2.5 text-[13px] font-bold transition-colors ${
+                      more.some((t) => t.id === activeTab)
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    } ${collapsed ? "justify-center" : ""}`}
+                  >
+                    <MoreHorizontal className="h-[18px] w-[18px] shrink-0" />
+                    {collapsed ? null : <span className="truncate">Mais</span>}
+                  </button>
+                </li>
+              ) : null}
             </ul>
           </nav>
 
-          <div className="border-t border-border p-2">
+          <div className="space-y-2 border-t border-border p-2">
+            {headerActions && !collapsed ? (
+              <div className="flex flex-col gap-2 [&_button]:w-full [&>*]:w-full">
+                {headerActions}
+              </div>
+            ) : null}
             <button
               type="button"
               onClick={toggleCollapsed}
@@ -145,7 +167,7 @@ export function PortalShell({
           {/* Cabeçalho enxuto: identidade no celular + ações */}
           <header className="sticky top-0 z-30 border-b border-border bg-card">
             <div className="mx-auto flex min-h-16 max-w-5xl items-center gap-3 px-4 py-3 sm:px-6">
-              <div className="min-w-0 lg:hidden">
+              <div className="min-w-0 min-[900px]:hidden">
                 <BrandMark
                   clientName={clientName}
                   logoUrl={logoUrl}
@@ -154,7 +176,7 @@ export function PortalShell({
                   footerLabel={footerLabel}
                 />
               </div>
-              <div className="hidden min-w-0 lg:block">
+              <div className="hidden min-w-0 min-[900px]:block">
                 <div className="truncate text-[15px] font-extrabold leading-tight">
                   {PORTAL_TAB_LABEL[activeTab]}
                 </div>
@@ -169,12 +191,15 @@ export function PortalShell({
                   <PortalLink
                     tab="notifications"
                     aria-label="Avisos"
-                    className="grid h-11 w-11 place-items-center rounded-xl bg-muted text-muted-foreground lg:hidden"
+                    className="grid h-11 w-11 place-items-center rounded-xl bg-muted text-muted-foreground min-[900px]:hidden"
                   >
                     <Bell className="h-5 w-5" />
                   </PortalLink>
                 )}
-                <div className="hidden items-center gap-2 lg:flex">{headerActions}</div>
+                {/* Expandido: ações ficam na base da lateral. Recolhido: no topo. */}
+                {collapsed ? (
+                  <div className="hidden items-center gap-2 min-[900px]:flex">{headerActions}</div>
+                ) : null}
               </div>
             </div>
           </header>
@@ -198,11 +223,11 @@ export function PortalShell({
             </div>
           ) : null}
 
-          <main className="mx-auto w-full max-w-5xl px-4 pb-28 pt-4 sm:px-6 lg:pb-12 lg:pt-6">
+          <main className="mx-auto w-full max-w-5xl px-4 pb-28 pt-4 sm:px-6 min-[900px]:pb-12 min-[900px]:pt-6">
             {children}
           </main>
 
-          <footer className="mt-auto hidden border-t border-border px-4 py-6 text-center text-xs text-muted-foreground lg:block">
+          <footer className="mt-auto hidden border-t border-border px-4 py-6 text-center text-xs text-muted-foreground min-[900px]:block">
             {footerLabel}
           </footer>
         </div>
@@ -211,7 +236,7 @@ export function PortalShell({
       {/* Barra inferior fixa (celular) — 5 alvos de 44px+ */}
       <nav
         aria-label="Navegação do portal"
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] min-[900px]:hidden"
       >
         <div className="mx-auto flex max-w-md items-stretch px-1.5 py-1.5">
           {primary.map((t) => (
