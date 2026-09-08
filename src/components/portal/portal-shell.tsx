@@ -2,7 +2,12 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MoreHorizontal, Bell, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { PortalLink, usePortalApi, usePortalCaps, usePortalMode } from "./portal-context";
 import {
   visiblePortalTabs,
@@ -355,10 +360,12 @@ function SideTab({
   );
   if (!collapsed) return link;
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>{link}</TooltipTrigger>
-      <TooltipContent side="right">{item.label}</TooltipContent>
-    </Tooltip>
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>{link}</TooltipTrigger>
+        <TooltipContent side="right">{item.label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
