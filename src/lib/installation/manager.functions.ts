@@ -1148,6 +1148,31 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
       .maybeSingle();
     if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
 
+    // A autorização precisa apontar para o ponto ATUAL do código do MASTER.
+    // Aceitar um ponto antigo (por exemplo o commit já fixado na instalação)
+    // faz a operação ser barrada como "MASTER não publicado" e nada sobe.
+    const { createCodeClient, DEFAULT_MASTER_REPO } = await import("./automation.server");
+    const masterRepoSlug = (env["UNITOS_MASTER_REPO"] ?? "").trim() || DEFAULT_MASTER_REPO;
+    const [masterOwner, masterName] = masterRepoSlug.split("/");
+    const masterCode = createCodeClient({
+      token: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
+      owner: masterOwner ?? "",
+      repo: masterName ?? "",
+      masterRepo: masterRepoSlug,
+    });
+    const head = await masterCode.masterHeadSha();
+    if (!head.ok || !head.sha) {
+      return {
+        result: "BLOCKED" as const,
+        operationId: null,
+        reasons: [
+          head.error ??
+            "não foi possível ler o ponto atual do código do MASTER — configure o acesso de leitura ao repositório e publique o MASTER novamente",
+        ],
+      };
+    }
+    const targetSha = head.sha;
+
     const nowIso = new Date().toISOString();
     const { data: op, error: opError } = await supabase
       .from("installation_operations")
@@ -1161,14 +1186,13 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
           releaseVersion: MASTER_RELEASE_VERSION,
           executed: true,
           automated: true,
-          targetCommitSha: data.commitSha ?? undefined,
+          targetCommitSha: targetSha,
           fromVersion: record.pinnedCommitSha
             ? `${record.pinnedRelease ?? record.currentVersion ?? "?"} · ${record.pinnedCommitSha.slice(0, 7)}`
             : (record.currentVersion ?? null),
-          toVersion: data.commitSha
-            ? `${MASTER_RELEASE_VERSION} · ${data.commitSha.slice(0, 7)}`
-            : MASTER_RELEASE_VERSION,
+          toVersion: `${MASTER_RELEASE_VERSION} · ${targetSha.slice(0, 7)}`,
         },
+
         actor_id: context.userId,
         started_at: nowIso,
         last_report_at: nowIso,
