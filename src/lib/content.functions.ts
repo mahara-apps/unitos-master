@@ -39,11 +39,15 @@ async function assertContentAdmin(
   userId: string,
   brandId: string,
 ) {
-  const { data, error } = await callRpc<string | null>(supabase, "app_access_role", {
-    _user_id: userId,
+  const { data, error } = await callRpc<Record<string, unknown> | null>(supabase, "my_access", {
     _brand_id: brandId,
   });
-  if (error || (data !== "super_admin" && data !== "admin")) {
+  const role = data?.["role"];
+  const brandRole = data?.["brand_role"];
+  if (
+    error ||
+    (role !== "super_admin" && brandRole !== "owner" && brandRole !== "admin")
+  ) {
     throw new Error("Somente Owner ou Admin pode excluir e restaurar conteúdos.");
   }
 }
@@ -973,7 +977,7 @@ export const listContentTrashFn = createServerFn({ method: "POST" })
       await Promise.all([
         context.supabase
           .from("posts")
-          .select("id,title,deleted_at,deleted_by")
+          .select("id,title,deleted_at,deleted_by,deleted_pipeline_id")
           .eq("brand_id", data.brandId)
           .eq("client_id", data.clientId)
           .not("deleted_at", "is", null)
@@ -1011,8 +1015,7 @@ export const listContentTrashFn = createServerFn({ method: "POST" })
         deletedAt: row.deleted_at as string,
         deletedByName: row.deleted_by ? (names.get(row.deleted_by as string) ?? null) : null,
         daysRemaining: remaining(row.deleted_at as string),
-        postCount: (posts ?? []).filter((post) => post.deleted_by && post.deleted_at === row.deleted_at)
-          .length,
+        postCount: (posts ?? []).filter((post) => post.deleted_pipeline_id === row.id).length,
       })),
       ...(posts ?? []).map((row) => ({
         id: row.id as string,
