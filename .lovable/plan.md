@@ -1,49 +1,33 @@
-# Auditoria: nenhuma IA do Lovable + Supabase externo
+# Ajustes finos na área do cliente (/area/*)
 
-## Resultado da auditoria (verificado agora no código e no ambiente)
+Escopo: só as telas do cliente. Nada muda no app da agência, nas rotas, nas permissões ou nas regras de aprovação. Boa parte já existe do redesenho anterior; aqui ficam apenas os ajustes que faltam.
 
-### IA — 100% com chaves próprias, zero Lovable
-- Nenhuma chamada a `ai.gateway.lovable.dev` em todo o `src/`.
-- `src/lib/ai-provider.server.ts` cria os provedores direto: OpenAI, Anthropic, Google (Gemini) e Groq, sempre com a chave da marca (`createOpenAI/createAnthropic/createGoogleGenerativeAI/createGroq`).
-- Embeddings vão direto para `api.openai.com/v1/embeddings` ou `generativelanguage.googleapis.com`.
-- Imagens vão direto para `api.openai.com/v1/images/generations` ou Google (Imagen/Gemini).
-- Nenhum modelo do catálogo Lovable é usado; nenhum arquivo de IA lê `LOVABLE_API_KEY`.
+## 1. Navegação
 
-### Banco de dados — Supabase externo
-- URL em uso: `https://tkjbhttylouamqxnbfgv.supabase.co`, resolvida por variáveis de ambiente (`SUPABASE_URL` / `VITE_SUPABASE_URL`).
-- Ambiente reporta o Supabase como **externo, não gerenciado** pelo Lovable Cloud.
-- Cliente do navegador, cliente de serviço e middleware de autenticação leem tudo de variáveis de ambiente — nada fixo em código além do fallback público desta instalação.
-- Nenhuma Edge Function do Supabase: toda a lógica de servidor está em server functions do próprio app.
+- O menu lateral do computador passa a aparecer a partir de 900px (hoje só a partir de 1024px) e a coluna fica com 244px.
+- No topo da coluna: marca do cliente. Depois os itens Início, Aprovações (com o número de pendências ao lado), Calendário, Arquivos e "Mais" — as demais áreas ficam dentro de "Mais", como no celular.
+- Na base da coluna: "Sair", junto do botão de recolher (que continua guardando a escolha).
+- No celular nada muda: a barra inferior fica exatamente como está.
 
-### Único ponto ainda ligado ao Lovable (não é IA)
-`src/lib/email/resend.server.ts` tem uma rota alternativa de envio de e-mail:
-quando existe `LOVABLE_API_KEY` e a chave cadastrada **não** começa com `re_`,
-o envio passa por `connector-gateway.lovable.dev/resend/emails` em vez de
-`api.resend.com`. Em produção, com chave `re_` própria, essa rota nunca é usada
-— mas o caminho existe no código e é a última dependência do Lovable no runtime.
+## 2. Aprovações
 
-## Plano de correção (1 ajuste cirúrgico)
+- O botão passa a se chamar "Selecionar" (hoje "Selecionar vários").
+- A contagem vira "N de 32 selecionados" (32 = total de itens que podem ser decididos) e ao lado fica "Selecionar todos".
+- A barra de ações fica fixa acima da barra inferior, com "Aprovar selecionados" (verde) e "Reprovar" (contorno vermelho).
+- Quando tudo está marcado, o botão vira "Aprovar todos".
+- Aprovação/reprovação parcial ou total continua igual: reprovar pede motivo obrigatório, há confirmação, progresso e resumo no fim.
 
-1. Remover a rota de gateway do Lovable em `src/lib/email/resend.server.ts`:
-   envio sempre direto para `api.resend.com` com a chave da instalação
-   (`Authorization: Bearer <RESEND_API_KEY / chave do workspace>`).
-2. Se a chave configurada não for uma chave própria válida do Resend, falhar com
-   mensagem clara em pt-BR ("chave de e-mail não configurada"), sem fallback
-   silencioso — mesmo padrão já usado na IA.
-3. Ajustar os testes que hoje exercitam o caminho de gateway
-   (`tests/email-resend.unit.test.ts`, `tests/email-resend-resilience.unit.test.ts`)
-   para cobrir apenas a rota direta e a nova falha explícita.
-4. Adicionar um teste-guardião que reprova qualquer uso de `LOVABLE_API_KEY`
-   ou de domínios `*.lovable.dev` no runtime do app (`src/`), impedindo
-   reintrodução futura.
-5. Ciclo MASTER-first: regenerar o pacote delta, atualizar `delta_version.txt`
-   e `MASTER_RELEASE_VERSION` com a mesma versão, rodar `bun run master:check`,
-   typecheck e build.
+## 3. Calendário
 
-Sem mudança de banco, RLS, rotas, permissões ou interface.
+- Faixa da semana no topo: os sete dias com um pontinho por status, indicando o dia em foco.
+- Filtros rápidos: "Tudo / Confirmar / Agendados".
+- A lista deixa de ser dobrada por semana e passa a ser um acordeão por dia: título do dia, quantidade e bolinhas de status; abre automaticamente só o próximo dia que precisa de atenção, o resto começa fechado.
+- O detalhe segue sem qualquer conteúdo interno da agência.
 
 ## Detalhes técnicos
-- Guardião: teste unitário varrendo `src/**` por `LOVABLE_API_KEY` e `lovable.dev`
-  (exceção permitida apenas para `previewAuthStorage.ts`, que trata origem do
-  preview, e listas de domínio de readiness).
-- Nenhuma variável nova de ambiente; `RESEND_API_KEY` permanece opcional.
+
+- `portal-nav.ts`: nada muda nos destinos; o desktop volta a usar `splitPortalTabs` para exibir os 4 principais + "Mais".
+- `portal-shell.tsx`: breakpoint da coluna passa de `lg:` para uma media query de 900px (utilitário próprio ou variante `min-[900px]:`), largura `w-[244px]`, botão "Sair" no rodapé da coluna reaproveitando a ação de logout já existente, e o mesmo `Sheet` "Mais" do celular reutilizado no desktop.
+- `portal-tabs.tsx` (`ApprovalsTab`): apenas rótulos/contagem e a barra fixa (`fixed bottom-[calc(...)]` acima da tab bar); as mutações `api.decidePost`, permissões e invalidações permanecem intactas.
+- `portal-calendar.tsx`: `buildWeekGroups`/`openWeeks` substituídos por grupos diários com estado controlado e regra de "próximo dia com pendência aberto"; nova faixa semanal e filtro local (`all | confirm | scheduled`) sobre os itens já carregados por `api.calendar` — sem nova consulta, server function ou migration.
+- MASTER-first: sem mudança de banco; o pacote é regenerado, `delta_version.txt` e `MASTER_RELEASE_VERSION` sobem juntos e `bun run master:check`, typecheck e build rodam no fim.
