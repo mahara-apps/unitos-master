@@ -103,18 +103,26 @@ async function listContacts(clientId: string): Promise<PortalContact[]> {
       members.map((m) => m.user_id),
     );
   const byId = new Map(
-    ((profiles ?? []) as Array<{
-      id: string;
-      full_name: string | null;
-      requires_password_change: boolean | null;
-    }>).map((p) => [p.id, p]),
+    (
+      (profiles ?? []) as Array<{
+        id: string;
+        full_name: string | null;
+        requires_password_change: boolean | null;
+      }>
+    ).map((p) => [p.id, p]),
   );
 
   const out: PortalContact[] = [];
   for (const member of members) {
     const { data: authUser } = await (
       supabaseAdmin as unknown as {
-        auth: { admin: { getUserById: (id: string) => Promise<{ data: { user?: { email?: string | null } | null } }> } };
+        auth: {
+          admin: {
+            getUserById: (
+              id: string,
+            ) => Promise<{ data: { user?: { email?: string | null } | null } }>;
+          };
+        };
       }
     ).auth.admin.getUserById(member.user_id);
     const profile = byId.get(member.user_id);
@@ -137,7 +145,11 @@ export const listPortalContactsFn = createServerFn({ method: "POST" })
     async ({
       data,
       context,
-    }): Promise<{ contacts: PortalContact[]; suggestedEmail: string | null; suggestedName: string | null }> => {
+    }): Promise<{
+      contacts: PortalContact[];
+      suggestedEmail: string | null;
+      suggestedName: string | null;
+    }> => {
       const client = await loadClient(context.supabase, data.clientId);
       await assertCanManage(context.supabase, client.brand_id, context.userId, client.id);
       return {
@@ -276,7 +288,9 @@ export const createPortalContactFn = createServerFn({ method: "POST" })
 
 export const resetPortalContactPasswordFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => ContactInput.extend({ sendEmail: z.boolean().optional().default(false) }).parse(i))
+  .inputValidator((i: unknown) =>
+    ContactInput.extend({ sendEmail: z.boolean().optional().default(false) }).parse(i),
+  )
   .handler(
     async ({
       data,
@@ -303,7 +317,10 @@ export const resetPortalContactPasswordFn = createServerFn({ method: "POST" })
       });
       if (error) throw new Error(`reset_failed: ${error.message}`);
 
-      await admin.from("user_profiles").update({ requires_password_change: true }).eq("id", data.userId);
+      await admin
+        .from("user_profiles")
+        .update({ requires_password_change: true })
+        .eq("id", data.userId);
 
       const email = updated?.user?.email ?? "";
 
