@@ -165,14 +165,23 @@ export function PortalCalendar() {
   const todayKey = dayKey(new Date());
   const openItem = items.find((i) => i.id === openId) ?? null;
 
-  const agenda = useMemo(() => {
-    const groups = new Map<string, CalItem[]>();
-    for (const it of items) {
-      const k = it.at ? it.at.slice(0, 10) : "sem-data";
-      groups.set(k, [...(groups.get(k) ?? []), it]);
-    }
-    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
-  }, [items]);
+  // A lista deixa de ser um rolo infinito de datas: vira semanas dobráveis.
+  const weeks = useMemo(() => buildWeekGroups(items), [items]);
+  const [openWeeks, setOpenWeeks] = useState<Set<string>>(new Set());
+  const defaultOpen = useMemo(() => defaultOpenWeeks(weeks), [weeks]);
+  const isWeekOpen = (key: string) =>
+    openWeeks.size > 0 ? openWeeks.has(key) : defaultOpen.has(key);
+  const toggleWeek = (key: string) => {
+    setOpenWeeks((prev) => {
+      const base = prev.size > 0 ? new Set(prev) : new Set(defaultOpen);
+      if (base.has(key)) base.delete(key);
+      else base.add(key);
+      // Set vazio volta ao padrão; mantém uma marca invisível para evitar isso.
+      if (base.size === 0) base.add("__none__");
+      return base;
+    });
+  };
+
 
   const dayItems = selectedDay ? (byDay.get(selectedDay) ?? []) : [];
 
