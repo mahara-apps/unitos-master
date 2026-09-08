@@ -1292,8 +1292,7 @@ export const syncInstallationVersionFn = createServerFn({ method: "POST" })
       return {
         ok: false as const,
         reason:
-          installed.error ??
-          "não foi possível ler a versão publicada no repositório da instalação",
+          installed.error ?? "não foi possível ler a versão publicada no repositório da instalação",
       };
     }
 
@@ -1317,7 +1316,6 @@ export const syncInstallationVersionFn = createServerFn({ method: "POST" })
       commitSha: installed.sha,
     };
   });
-
 
 /* ------------------------------------------- credenciais próprias por instalação */
 

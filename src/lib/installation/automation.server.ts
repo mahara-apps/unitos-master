@@ -622,7 +622,6 @@ export type CodeClient = {
     error?: string;
   }>;
 
-
   /**
    * Commit vazio na branch de produção do repositório DA INSTALAÇÃO para que a
    * integração Git da Vercel publique — usado quando a cota de deployments por
@@ -880,15 +879,16 @@ export function createCodeClient(input: {
             : (body.content ?? "");
         const match = /^\s*version\s*=\s*(\S+)\s*$/m.exec(raw);
         if (!match?.[1]) {
-          return { ok: false, error: "versão do pacote não encontrada no repositório da instalação" };
+          return {
+            ok: false,
+            error: "versão do pacote não encontrada no repositório da instalação",
+          };
         }
         return { ok: true, version: match[1], sha: headBody.sha };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
       }
     },
-
-
 
     async nudgeDeploy(message) {
       // Commit vazio na branch de produção do repositório DA INSTALAÇÃO: a
@@ -1798,7 +1798,6 @@ export type StageProgress = {
   /** Versão do pacote do MASTER já publicada nesta operação (registro da versão). */
   updateRelease?: string;
 };
-
 
 export async function readStageProgress(
   client: Client,
@@ -3036,10 +3035,7 @@ export async function runAutomatedUpdate(input: {
       );
     }
     publishedRelease = repoRelease.version;
-    if (
-      !alreadyPublished &&
-      compareReleaseVersions(publishedRelease, MASTER_RELEASE_VERSION) < 0
-    ) {
+    if (!alreadyPublished && compareReleaseVersions(publishedRelease, MASTER_RELEASE_VERSION) < 0) {
       return fail(
         "BLOCKED",
         masterNotPublishedMessage(publishedRelease, MASTER_RELEASE_VERSION),
@@ -3048,7 +3044,6 @@ export async function runAutomatedUpdate(input: {
     }
     await saveStageProgress(client, operation, { updateRelease: publishedRelease });
   }
-
 
   // A instalação constrói o SEU repositório: a versão autorizada do MASTER é
   // publicada nele antes do build. Sem isso o deployment repetiria o código
