@@ -29,6 +29,8 @@ import {
   runAutomatedValidateFn,
   runAutomatedUpdateFn,
   getMasterVersionFn,
+  syncInstallationVersionFn,
+
   inspectInstallationIntegrationsFn,
   startInstallationOperationFn,
   updateInstallationFn,
@@ -313,7 +315,20 @@ function InstallationDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Reconcilia o registro com a versão que está DE FATO publicada na instalação
+  // (quando uma operação subiu o código mas terminou sem gravar a versão).
+  const syncVersion = useMutation({
+    mutationFn: () => syncVersionFn({ data: { id } }),
+    onSuccess: (result) => {
+      if (result.ok) toast.success(`Versão sincronizada: ${result.version}`);
+      else toast.error(result.reason);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const restartProvision = useMutation({
+
     mutationFn: (input: { force: boolean }) => restartFn({ data: { id, force: input.force } }),
     onSuccess: (result) => {
       if (result.result === "STARTED") toast.success("Provisionamento reiniciado.");
