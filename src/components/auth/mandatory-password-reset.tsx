@@ -2,11 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  getMyPasswordFlag,
-  clearMyPasswordFlag,
-  setMyFullName,
-} from "@/lib/password.functions";
+import { getMyPasswordFlag, clearMyPasswordFlag, setMyFullName } from "@/lib/password.functions";
 import {
   Dialog,
   DialogContent,
@@ -150,33 +146,33 @@ export function MandatoryPasswordReset() {
             </div>
           ) : null}
           {needsPassword ? (
-          <>
-          <div className="space-y-1.5">
-            <Label className="text-xs" htmlFor="new-pw">
-              Nova senha
-            </Label>
-            <PasswordInput
-              id="new-pw"
-              autoFocus={!needsName}
-              value={pw}
-              onChange={(e) => setPw(e.target.value)}
-              minLength={8}
-              required
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs" htmlFor="confirm-pw">
-              Confirmar senha
-            </Label>
-            <PasswordInput
-              id="confirm-pw"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              minLength={8}
-              required
-            />
-          </div>
-          </>
+            <>
+              <div className="space-y-1.5">
+                <Label className="text-xs" htmlFor="new-pw">
+                  Nova senha
+                </Label>
+                <PasswordInput
+                  id="new-pw"
+                  autoFocus={!needsName}
+                  value={pw}
+                  onChange={(e) => setPw(e.target.value)}
+                  minLength={8}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs" htmlFor="confirm-pw">
+                  Confirmar senha
+                </Label>
+                <PasswordInput
+                  id="confirm-pw"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  minLength={8}
+                  required
+                />
+              </div>
+            </>
           ) : null}
           {submitError ? (
             <p role="alert" className="text-sm text-destructive">
