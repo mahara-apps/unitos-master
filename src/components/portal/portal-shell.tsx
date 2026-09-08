@@ -86,11 +86,11 @@ export function PortalShell({
       style={{ ["--portal-accent" as string]: accent }}
     >
       <div className="flex min-h-dvh">
-        {/* NAVEGAÇÃO DESKTOP — coluna lateral retrátil */}
+        {/* NAVEGAÇÃO DESKTOP (>=900px) — coluna lateral retrátil */}
         <aside
           aria-label="Navegação do portal"
-          className={`sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-border bg-card lg:flex ${
-            collapsed ? "w-[76px]" : "w-[252px]"
+          className={`sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-border bg-card min-[900px]:flex ${
+            collapsed ? "w-[76px]" : "w-[244px]"
           }`}
         >
           <div
@@ -108,7 +108,7 @@ export function PortalShell({
 
           <nav className="flex-1 overflow-y-auto px-2 pb-2">
             <ul className="space-y-1">
-              {tabs.map((t) => (
+              {primary.map((t) => (
                 <li key={t.id}>
                   <SideTab
                     item={t}
@@ -118,10 +118,32 @@ export function PortalShell({
                   />
                 </li>
               ))}
+              {more.length > 0 ? (
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setMoreOpen(true)}
+                    aria-label="Mais áreas"
+                    className={`flex min-h-11 w-full items-center gap-2.5 rounded-xl px-2.5 text-[13px] font-bold transition-colors ${
+                      more.some((t) => t.id === activeTab)
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    } ${collapsed ? "justify-center" : ""}`}
+                  >
+                    <MoreHorizontal className="h-[18px] w-[18px] shrink-0" />
+                    {collapsed ? null : <span className="truncate">Mais</span>}
+                  </button>
+                </li>
+              ) : null}
             </ul>
           </nav>
 
-          <div className="border-t border-border p-2">
+          <div className="space-y-2 border-t border-border p-2">
+            {headerActions && !collapsed ? (
+              <div className="flex flex-col gap-2 [&_button]:w-full [&>*]:w-full">
+                {headerActions}
+              </div>
+            ) : null}
             <button
               type="button"
               onClick={toggleCollapsed}
@@ -140,6 +162,7 @@ export function PortalShell({
             </button>
           </div>
         </aside>
+
 
         <div className="flex min-w-0 flex-1 flex-col">
           {/* Cabeçalho enxuto: identidade no celular + ações */}
