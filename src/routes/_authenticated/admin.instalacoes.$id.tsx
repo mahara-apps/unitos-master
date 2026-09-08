@@ -29,6 +29,8 @@ import {
   runAutomatedValidateFn,
   runAutomatedUpdateFn,
   getMasterVersionFn,
+  syncInstallationVersionFn,
+
   inspectInstallationIntegrationsFn,
   startInstallationOperationFn,
   updateInstallationFn,
@@ -196,6 +198,8 @@ function InstallationDetailPage() {
   const autoValidateFn = useServerFn(runAutomatedValidateFn);
   const autoUpdateFn = useServerFn(runAutomatedUpdateFn);
   const masterVersionFn = useServerFn(getMasterVersionFn);
+  const syncVersionFn = useServerFn(syncInstallationVersionFn);
+
   const restartFn = useServerFn(restartAutomatedProvisionFn);
   const resumeFn = useServerFn(resumeAutomatedProvisionFn);
   const editFn = useServerFn(updateInstallationFn);
@@ -313,7 +317,20 @@ function InstallationDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Reconcilia o registro com a versão que está DE FATO publicada na instalação
+  // (quando uma operação subiu o código mas terminou sem gravar a versão).
+  const syncVersion = useMutation({
+    mutationFn: () => syncVersionFn({ data: { id } }),
+    onSuccess: (result) => {
+      if (result.ok) toast.success(`Versão sincronizada: ${result.version}`);
+      else toast.error(result.reason);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const restartProvision = useMutation({
+
     mutationFn: (input: { force: boolean }) => restartFn({ data: { id, force: input.force } }),
     onSuccess: (result) => {
       if (result.result === "STARTED") toast.success("Provisionamento reiniciado.");
@@ -984,15 +1001,37 @@ function InstallationDetailPage() {
                   )}
                   Autorizar atualização
                 </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!!activeOp || syncVersion.isPending}
+                  onClick={() => syncVersion.mutate()}
+                >
+                  {syncVersion.isPending ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  Sincronizar versão
+                </Button>
                 <span className="text-xs text-muted-foreground">
                   {masterVersion.data?.masterPublished === false
                     ? "Publique o MASTER primeiro — não há código novo no pacote."
                     : !masterVersion.isPending && !masterVersion.data?.repoRelease
-                      ? `Não foi possível ler a versão publicada no MASTER (${masterVersion.data?.repoReleaseError ?? masterVersion.data?.error ?? "leitura do repositório indisponível"}). Configure o acesso ao repositório do MASTER para liberar a atualização.`
+                      ? `Não foi possível ler o repositório do MASTER${
+                          /403|404/.test(
+                            masterVersion.data?.repoReleaseError ??
+                              masterVersion.data?.error ??
+                              "",
+                          )
+                            ? ": a credencial de leitura ainda não chegou ao site publicado do MASTER. Publique o MASTER uma vez para liberar esta consulta."
+                            : ` (${masterVersion.data?.repoReleaseError ?? masterVersion.data?.error ?? "leitura indisponível"}).`
+                        } Use “Sincronizar versão” para conferir o que está no ar agora.`
                       : updatePending
                         ? "Publica exatamente a versão listada como disponível."
                         : "Instalação já está na versão do MASTER."}
                 </span>
+
               </div>
             </CardContent>
           </Card>
