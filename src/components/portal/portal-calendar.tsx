@@ -338,6 +338,65 @@ export function PortalCalendar() {
         </div>
       </div>
 
+      {/* FAIXA DA SEMANA — visão rápida dos dias e status */}
+      <div className="grid grid-cols-7 gap-1.5 rounded-2xl border border-border bg-card p-2">
+        {strip.map((d) => {
+          const isToday = d.key === todayKey;
+          return (
+            <button
+              key={d.key}
+              type="button"
+              disabled={d.count === 0}
+              onClick={() => {
+                setOpenDays(new Set([d.key]));
+                if (view === "month") setView("agenda");
+              }}
+              className={`flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 transition-colors ${
+                isToday ? "bg-primary/10" : d.count > 0 ? "hover:bg-accent/50" : "opacity-50"
+              }`}
+            >
+              <span className="text-[10px] font-bold uppercase text-muted-foreground">
+                {d.date.toLocaleDateString("pt-BR", { weekday: "short" }).slice(0, 3)}
+              </span>
+              <span
+                className={`text-[13px] font-extrabold ${isToday ? "text-primary" : "text-foreground"}`}
+              >
+                {d.date.getDate()}
+              </span>
+              <span className="flex h-1.5 items-center gap-0.5">
+                {d.kinds.map((k) => (
+                  <span key={k} className={`h-1.5 w-1.5 rounded-full ${KIND_META[k].dot}`} />
+                ))}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* FILTROS RÁPIDOS */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {(
+          [
+            { id: "all" as QuickFilter, label: `Tudo (${items.length})` },
+            { id: "confirm" as QuickFilter, label: `Confirmar (${counts.appointment})` },
+            { id: "scheduled" as QuickFilter, label: `Agendados (${counts.scheduled})` },
+          ] satisfies Array<{ id: QuickFilter; label: string }>
+        ).map((f) => (
+          <Button
+            key={f.id}
+            size="sm"
+            variant={quick === f.id ? "default" : "outline"}
+            className="h-8 rounded-full text-xs font-bold"
+            onClick={() => {
+              setQuick(f.id);
+              setOpenDays(null);
+            }}
+          >
+            {f.label}
+          </Button>
+        ))}
+      </div>
+
       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
         {(["scheduled", "published", "appointment"] as Kind[]).map((k) => (
           <span key={k} className="inline-flex items-center gap-1.5">
@@ -346,6 +405,7 @@ export function PortalCalendar() {
           </span>
         ))}
       </div>
+
 
       {q.isLoading ? (
         <ListSkeleton />
