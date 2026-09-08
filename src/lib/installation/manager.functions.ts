@@ -1271,8 +1271,9 @@ export const syncInstallationVersionFn = createServerFn({ method: "POST" })
 
     const { resolveInstallationEnv } = await import("./credentials.server");
     const env = await resolveInstallationEnv(supabase as never, data.id);
-    const { createCodeClient, resolveInstallationRepo, DEFAULT_MASTER_REPO } =
-      await import("./automation.server");
+    const { createCodeClient, DEFAULT_MASTER_REPO } = await import("./automation.server");
+    const { resolveInstallationRepo } = await import("./automation-contract");
+
     const masterRepo = (env["UNITOS_MASTER_REPO"] ?? "").trim() || DEFAULT_MASTER_REPO;
     const repo = resolveInstallationRepo({
       gitRepoUrl: record.gitRepoUrl ?? null,
