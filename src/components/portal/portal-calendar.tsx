@@ -493,18 +493,25 @@ export function PortalCalendar() {
             </div>
           )}
 
-          {/* AGENDA POR SEMANA — sempre no mobile, opcional no desktop */}
-          <div className={view === "agenda" ? "space-y-3" : "space-y-3 sm:hidden"}>
-            {weeks.map((week) => {
-              const open = isWeekOpen(week.key);
+          {/* AGENDA POR DIA (acordeão) — sempre no mobile, opcional no desktop */}
+          <div className={view === "agenda" ? "space-y-2.5" : "space-y-2.5 sm:hidden"}>
+            {dayGroups.length === 0 ? (
+              <EmptyState
+                icon={CalendarDays}
+                title="Nada neste filtro"
+                description="Troque o filtro acima para ver as outras publicações do mês."
+              />
+            ) : null}
+            {dayGroups.map((day) => {
+              const open = isDayOpen(day.key);
               return (
                 <section
-                  key={week.key}
+                  key={day.key}
                   className="overflow-hidden rounded-2xl border border-border bg-card"
                 >
                   <button
                     type="button"
-                    onClick={() => toggleWeek(week.key)}
+                    onClick={() => toggleDay(day.key)}
                     aria-expanded={open}
                     className="flex min-h-[52px] w-full items-center gap-3 px-3.5 text-left transition-colors hover:bg-accent/30"
                   >
@@ -514,53 +521,49 @@ export function PortalCalendar() {
                       }`}
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[13px] font-bold">{week.label}</div>
-                      {week.isCurrent ? (
-                        <div className="text-[11px] font-bold text-primary">Semana atual</div>
+                      <div className="truncate text-[13px] font-bold capitalize">{day.label}</div>
+                      {day.needsAttention ? (
+                        <div className="text-[11px] font-bold text-portal-waiting">
+                          Precisa da sua confirmação
+                        </div>
                       ) : null}
                     </div>
+                    <span className="flex shrink-0 items-center gap-0.5">
+                      {day.kinds.map((k) => (
+                        <span key={k} className={`h-1.5 w-1.5 rounded-full ${KIND_META[k].dot}`} />
+                      ))}
+                    </span>
                     <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[11px] font-extrabold text-muted-foreground">
-                      {week.items.length}
+                      {day.items.length}
                     </span>
                   </button>
 
                   {open ? (
-                    <div className="space-y-3 border-t border-border px-3 py-3">
-                      {week.days.map((day) => (
-                        <div key={day.key} className="space-y-2">
-                          <div className="text-xs font-medium capitalize text-muted-foreground">
-                            {day.key === "sem-data"
-                              ? "Sem data definida"
-                              : fullDateLabel(day.items[0].at)}
-                          </div>
-                          <div className="space-y-2.5">
-                            {day.items.map((it) => (
-                              <button
-                                key={it.id}
-                                onClick={() => setOpenId(it.id)}
-                                className="flex min-h-[68px] w-full items-center gap-3 rounded-2xl border border-border bg-background p-3 text-left transition-colors hover:bg-accent/40"
-                              >
-                                <PortalThumb url={it.coverUrl} alt={it.title} />
-                                <div className="min-w-0 flex-1">
-                                  <div className="truncate text-[13.5px] font-bold">{it.title}</div>
-                                  <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[11.5px] font-semibold text-muted-foreground">
-                                    <span>{timeLabel(it.at)}</span>
-                                    {it.channels.length > 0 && (
-                                      <span className="inline-flex items-center gap-1.5">
-                                        <ChannelDot /> {channelLabel(it.channels[0])}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                <span
-                                  className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-extrabold ${KIND_META[it.kind].chip}`}
-                                >
-                                  {KIND_META[it.kind].label}
+                    <div className="space-y-2.5 border-t border-border px-3 py-3">
+                      {day.items.map((it) => (
+                        <button
+                          key={it.id}
+                          onClick={() => setOpenId(it.id)}
+                          className="flex min-h-[68px] w-full items-center gap-3 rounded-2xl border border-border bg-background p-3 text-left transition-colors hover:bg-accent/40"
+                        >
+                          <PortalThumb url={it.coverUrl} alt={it.title} />
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[13.5px] font-bold">{it.title}</div>
+                            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[11.5px] font-semibold text-muted-foreground">
+                              <span>{timeLabel(it.at)}</span>
+                              {it.channels.length > 0 && (
+                                <span className="inline-flex items-center gap-1.5">
+                                  <ChannelDot /> {channelLabel(it.channels[0])}
                                 </span>
-                              </button>
-                            ))}
+                              )}
+                            </div>
                           </div>
-                        </div>
+                          <span
+                            className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-extrabold ${KIND_META[it.kind].chip}`}
+                          >
+                            {KIND_META[it.kind].label}
+                          </span>
+                        </button>
                       ))}
                     </div>
                   ) : null}
@@ -568,6 +571,7 @@ export function PortalCalendar() {
               );
             })}
           </div>
+
         </>
       )}
 
