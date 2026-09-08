@@ -645,7 +645,7 @@ export function ApprovalsTab() {
               className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border px-3.5 text-[12.5px] font-bold text-muted-foreground transition-colors hover:bg-muted"
             >
               <CheckSquare className="h-3.5 w-3.5" />
-              {selectMode ? "Cancelar seleção" : "Selecionar vários"}
+              {selectMode ? "Cancelar seleção" : "Selecionar"}
             </button>
           ) : null}
         </div>
@@ -658,10 +658,10 @@ export function ApprovalsTab() {
             onClick={toggleAll}
             className="text-[12.5px] font-bold text-primary underline-offset-2 hover:underline"
           >
-            {allSelected ? "Limpar seleção" : `Selecionar todos (${decidableIds.length})`}
+            {allSelected ? "Limpar seleção" : "Selecionar todos"}
           </button>
           <span className="text-[12px] font-semibold text-muted-foreground">
-            {selectedIds.length} selecionado{selectedIds.length === 1 ? "" : "s"}
+            {selectedIds.length} de {decidableIds.length} selecionados
           </span>
         </div>
       ) : filter === "pending" && pendingCount > 0 ? (
@@ -685,7 +685,7 @@ export function ApprovalsTab() {
           description={EMPTY_BY_FILTER[filter].description}
         />
       ) : (
-        <div className={`space-y-2.5 ${selectMode ? "pb-24" : ""}`}>
+        <div className={`space-y-2.5 ${selectMode ? "pb-28" : ""}`}>
           {list.map((p) => (
             <ApprovalListItem
               key={p.id}
@@ -699,18 +699,18 @@ export function ApprovalsTab() {
         </div>
       )}
 
-      {/* Barra de ação em lote */}
+      {/* Barra de ação em lote — acima da barra inferior no celular */}
       {selectMode && selectedIds.length > 0 ? (
-        <div className="fixed inset-x-0 bottom-[72px] z-40 px-3 lg:bottom-4">
+        <div className="fixed inset-x-0 bottom-[76px] z-40 px-3 min-[900px]:bottom-4">
           <div className="mx-auto flex max-w-xl flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-2.5 shadow-lg">
             <span className="px-1 text-[12.5px] font-extrabold">
-              {selectedIds.length} selecionado{selectedIds.length === 1 ? "" : "s"}
+              {selectedIds.length} de {decidableIds.length} selecionados
             </span>
             <div className="ml-auto flex items-center gap-2">
               <Button
                 size="sm"
                 variant="outline"
-                className="h-9 gap-1.5"
+                className="h-9 gap-1.5 border-destructive/60 text-destructive hover:bg-destructive/10 hover:text-destructive"
                 disabled={busy}
                 onClick={() => setBulk("reject")}
               >
@@ -718,7 +718,7 @@ export function ApprovalsTab() {
               </Button>
               <Button
                 size="sm"
-                className="h-9 gap-1.5"
+                className="h-9 gap-1.5 bg-portal-published text-white hover:bg-portal-published/90"
                 disabled={busy}
                 onClick={() => setBulk("approve")}
               >
@@ -727,12 +727,13 @@ export function ApprovalsTab() {
                 ) : (
                   <Check className="h-3.5 w-3.5" />
                 )}
-                Aprovar
+                {allSelected ? "Aprovar todos" : "Aprovar selecionados"}
               </Button>
             </div>
           </div>
         </div>
       ) : null}
+
 
       {/* Confirmação da decisão em lote */}
       <Dialog
