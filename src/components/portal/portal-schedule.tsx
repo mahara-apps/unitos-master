@@ -54,7 +54,11 @@ export function PortalSchedule({ month }: { month: string }) {
 
   const canAct = usePortalCanInteract("calendar");
   const decide = useMutation({
-    mutationFn: (input: { postIds: string[]; decision: "approve" | "changes"; comment?: string }) =>
+    mutationFn: (input: {
+      postIds: string[];
+      decision: "approve" | "changes";
+      comment?: string;
+    }) =>
       canAct
         ? api.decideSchedule(input)
         : Promise.reject(new Error("Este acesso é somente de acompanhamento.")),

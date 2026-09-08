@@ -155,7 +155,10 @@ function weekLabel(start: Date) {
   end.setDate(end.getDate() + 6);
   const sameMonth = start.getMonth() === end.getMonth();
   const fmt = (d: Date, withMonth: boolean) =>
-    d.toLocaleDateString("pt-BR", withMonth ? { day: "2-digit", month: "long" } : { day: "2-digit" });
+    d.toLocaleDateString(
+      "pt-BR",
+      withMonth ? { day: "2-digit", month: "long" } : { day: "2-digit" },
+    );
   return `Semana de ${fmt(start, !sameMonth)} a ${fmt(end, true)}`;
 }
 
@@ -267,7 +270,6 @@ export function PortalCalendar() {
       return base;
     });
   };
-
 
   const dayItems = selectedDay ? (byDay.get(selectedDay) ?? []) : [];
 
@@ -492,7 +494,6 @@ export function PortalCalendar() {
               );
             })}
           </div>
-
         </>
       )}
 

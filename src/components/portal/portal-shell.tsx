@@ -2,12 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MoreHorizontal, Bell, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { PortalLink, usePortalApi, usePortalCaps, usePortalMode } from "./portal-context";
 import {
   visiblePortalTabs,
@@ -98,7 +93,9 @@ export function PortalShell({
             collapsed ? "w-[76px]" : "w-[252px]"
           }`}
         >
-          <div className={`flex min-h-16 items-center px-3 py-3 ${collapsed ? "justify-center" : ""}`}>
+          <div
+            className={`flex min-h-16 items-center px-3 py-3 ${collapsed ? "justify-center" : ""}`}
+          >
             <BrandMark
               clientName={clientName}
               logoUrl={logoUrl}
