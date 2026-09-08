@@ -331,43 +331,82 @@ export function PortalCalendar() {
             </div>
           )}
 
-          {/* AGENDA — sempre no mobile, opcional no desktop */}
-          <div className={view === "agenda" ? "space-y-4" : "space-y-4 sm:hidden"}>
-            {agenda.map(([key, group]) => (
-              <div key={key} className="space-y-2">
-                <div className="text-xs font-medium capitalize text-muted-foreground">
-                  {key === "sem-data" ? "Sem data definida" : fullDateLabel(group[0].at)}
-                </div>
-                <div className="space-y-2.5">
-                  {group.map((it) => (
-                    <button
-                      key={it.id}
-                      onClick={() => setOpenId(it.id)}
-                      className="flex min-h-[68px] w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:bg-accent/40"
-                    >
-                      <PortalThumb url={it.coverUrl} alt={it.title} />
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-[13.5px] font-bold">{it.title}</div>
-                        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[11.5px] font-semibold text-muted-foreground">
-                          <span>{timeLabel(it.at)}</span>
-                          {it.channels.length > 0 && (
-                            <span className="inline-flex items-center gap-1.5">
-                              <ChannelDot /> {channelLabel(it.channels[0])}
-                            </span>
-                          )}
+          {/* AGENDA POR SEMANA — sempre no mobile, opcional no desktop */}
+          <div className={view === "agenda" ? "space-y-3" : "space-y-3 sm:hidden"}>
+            {weeks.map((week) => {
+              const open = isWeekOpen(week.key);
+              return (
+                <section
+                  key={week.key}
+                  className="overflow-hidden rounded-2xl border border-border bg-card"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleWeek(week.key)}
+                    aria-expanded={open}
+                    className="flex min-h-[52px] w-full items-center gap-3 px-3.5 text-left transition-colors hover:bg-accent/30"
+                  >
+                    <ChevronDown
+                      className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+                        open ? "" : "-rotate-90"
+                      }`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-bold">{week.label}</div>
+                      {week.isCurrent ? (
+                        <div className="text-[11px] font-bold text-primary">Semana atual</div>
+                      ) : null}
+                    </div>
+                    <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[11px] font-extrabold text-muted-foreground">
+                      {week.items.length}
+                    </span>
+                  </button>
+
+                  {open ? (
+                    <div className="space-y-3 border-t border-border px-3 py-3">
+                      {week.days.map((day) => (
+                        <div key={day.key} className="space-y-2">
+                          <div className="text-xs font-medium capitalize text-muted-foreground">
+                            {day.key === "sem-data"
+                              ? "Sem data definida"
+                              : fullDateLabel(day.items[0].at)}
+                          </div>
+                          <div className="space-y-2.5">
+                            {day.items.map((it) => (
+                              <button
+                                key={it.id}
+                                onClick={() => setOpenId(it.id)}
+                                className="flex min-h-[68px] w-full items-center gap-3 rounded-2xl border border-border bg-background p-3 text-left transition-colors hover:bg-accent/40"
+                              >
+                                <PortalThumb url={it.coverUrl} alt={it.title} />
+                                <div className="min-w-0 flex-1">
+                                  <div className="truncate text-[13.5px] font-bold">{it.title}</div>
+                                  <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[11.5px] font-semibold text-muted-foreground">
+                                    <span>{timeLabel(it.at)}</span>
+                                    {it.channels.length > 0 && (
+                                      <span className="inline-flex items-center gap-1.5">
+                                        <ChannelDot /> {channelLabel(it.channels[0])}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <span
+                                  className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-extrabold ${KIND_META[it.kind].chip}`}
+                                >
+                                  {KIND_META[it.kind].label}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                      <span
-                        className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-extrabold ${KIND_META[it.kind].chip}`}
-                      >
-                        {KIND_META[it.kind].label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
+                      ))}
+                    </div>
+                  ) : null}
+                </section>
+              );
+            })}
           </div>
+
         </>
       )}
 
