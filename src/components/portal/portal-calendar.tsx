@@ -127,16 +127,19 @@ function normalize(rows: unknown[]): CalItem[] {
   });
 }
 
-/* --------------------------- agrupamento semanal --------------------------- */
+/* ---------------------- agrupamento por dia (acordeão) ---------------------- */
 
-type DayGroup = { key: string; items: CalItem[] };
-type WeekGroup = {
+type DayGroup = {
   key: string;
   label: string;
   items: CalItem[];
-  days: DayGroup[];
-  isCurrent: boolean;
+  kinds: Kind[];
+  /** Precisa de atenção do cliente (compromisso/confirmação). */
+  needsAttention: boolean;
+  isPast: boolean;
 };
+
+export type QuickFilter = "all" | "confirm" | "scheduled";
 
 function parseDayKey(k: string) {
   const [y, m, d] = k.split("-").map(Number);
@@ -150,70 +153,61 @@ function weekStart(d: Date) {
   return c;
 }
 
-function weekLabel(start: Date) {
-  const end = new Date(start);
-  end.setDate(end.getDate() + 6);
-  const sameMonth = start.getMonth() === end.getMonth();
-  const fmt = (d: Date, withMonth: boolean) =>
-    d.toLocaleDateString(
-      "pt-BR",
-      withMonth ? { day: "2-digit", month: "long" } : { day: "2-digit" },
-    );
-  return `Semana de ${fmt(start, !sameMonth)} a ${fmt(end, true)}`;
+function dayHeading(key: string) {
+  if (key === "sem-data") return "Sem data definida";
+  const d = parseDayKey(key);
+  const today = dayKey(new Date());
+  if (key === today) return "Hoje";
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (key === dayKey(tomorrow)) return "Amanhã";
+  return d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
 }
 
-/** Lista dobrada em semanas (segunda a domingo); sem data vai para o fim. */
-function buildWeekGroups(items: CalItem[]): WeekGroup[] {
+/** Uma linha por dia; itens sem data vão para o fim. */
+function buildDayGroups(items: CalItem[]): DayGroup[] {
   const byDay = new Map<string, CalItem[]>();
   for (const it of items) {
     const k = it.at ? it.at.slice(0, 10) : "sem-data";
     byDay.set(k, [...(byDay.get(k) ?? []), it]);
   }
-  const dayKeys = [...byDay.keys()].filter((k) => k !== "sem-data").sort();
-  const currentWeek = dayKey(weekStart(new Date()));
-  const weeks = new Map<string, WeekGroup>();
-  for (const k of dayKeys) {
-    const wk = dayKey(weekStart(parseDayKey(k)));
-    const day: DayGroup = { key: k, items: byDay.get(k) ?? [] };
-    const group = weeks.get(wk);
-    if (group) {
-      group.days.push(day);
-      group.items.push(...day.items);
-    } else {
-      weeks.set(wk, {
-        key: wk,
-        label: weekLabel(parseDayKey(wk)),
-        items: [...day.items],
-        days: [day],
-        isCurrent: wk === currentWeek,
-      });
-    }
-  }
-  const list = [...weeks.values()];
+  const todayKeyStr = dayKey(new Date());
+  const groups = [...byDay.keys()]
+    .filter((k) => k !== "sem-data")
+    .sort()
+    .map((k) => {
+      const list = byDay.get(k) ?? [];
+      return {
+        key: k,
+        label: dayHeading(k),
+        items: list,
+        kinds: [...new Set(list.map((i) => i.kind))],
+        needsAttention: list.some((i) => i.kind === "appointment"),
+        isPast: k < todayKeyStr,
+      } satisfies DayGroup;
+    });
   const undated = byDay.get("sem-data");
   if (undated?.length) {
-    list.push({
+    groups.push({
       key: "sem-data",
       label: "Sem data definida",
       items: undated,
-      days: [{ key: "sem-data", items: undated }],
-      isCurrent: false,
+      kinds: [...new Set(undated.map((i) => i.kind))],
+      needsAttention: false,
+      isPast: false,
     });
   }
-  return list;
+  return groups;
 }
 
-/** Semana atual e a seguinte abertas; sem semana atual, as duas primeiras. */
-function defaultOpenWeeks(weeks: WeekGroup[]): Set<string> {
-  const idx = weeks.findIndex((w) => w.isCurrent);
-  const from = idx >= 0 ? idx : 0;
-  return new Set(
-    weeks
-      .slice(from, from + 2)
-      .map((w) => w.key)
-      .filter(Boolean),
+/** Abre só o próximo dia que precisa de atenção (ou o próximo dia com itens). */
+function defaultOpenDay(groups: DayGroup[]): string | null {
+  const upcoming = groups.filter((g) => !g.isPast && g.key !== "sem-data");
+  return (
+    upcoming.find((g) => g.needsAttention)?.key ?? upcoming[0]?.key ?? groups[0]?.key ?? null
   );
 }
+
 
 export function PortalCalendar() {
   const api = usePortalApi();
