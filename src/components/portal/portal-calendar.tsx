@@ -4,6 +4,7 @@ import {
   CalendarClock,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ImageIcon,
@@ -124,6 +125,91 @@ function normalize(rows: unknown[]): CalItem[] {
       isPost: !eventType,
     };
   });
+}
+
+/* --------------------------- agrupamento semanal --------------------------- */
+
+type DayGroup = { key: string; items: CalItem[] };
+type WeekGroup = {
+  key: string;
+  label: string;
+  items: CalItem[];
+  days: DayGroup[];
+  isCurrent: boolean;
+};
+
+function parseDayKey(k: string) {
+  const [y, m, d] = k.split("-").map(Number);
+  return new Date(y as number, (m as number) - 1, d as number);
+}
+
+/** Início da semana (segunda-feira) do dia informado. */
+function weekStart(d: Date) {
+  const c = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  c.setDate(c.getDate() - ((c.getDay() + 6) % 7));
+  return c;
+}
+
+function weekLabel(start: Date) {
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  const sameMonth = start.getMonth() === end.getMonth();
+  const fmt = (d: Date, withMonth: boolean) =>
+    d.toLocaleDateString("pt-BR", withMonth ? { day: "2-digit", month: "long" } : { day: "2-digit" });
+  return `Semana de ${fmt(start, !sameMonth)} a ${fmt(end, true)}`;
+}
+
+/** Lista dobrada em semanas (segunda a domingo); sem data vai para o fim. */
+function buildWeekGroups(items: CalItem[]): WeekGroup[] {
+  const byDay = new Map<string, CalItem[]>();
+  for (const it of items) {
+    const k = it.at ? it.at.slice(0, 10) : "sem-data";
+    byDay.set(k, [...(byDay.get(k) ?? []), it]);
+  }
+  const dayKeys = [...byDay.keys()].filter((k) => k !== "sem-data").sort();
+  const currentWeek = dayKey(weekStart(new Date()));
+  const weeks = new Map<string, WeekGroup>();
+  for (const k of dayKeys) {
+    const wk = dayKey(weekStart(parseDayKey(k)));
+    const day: DayGroup = { key: k, items: byDay.get(k) ?? [] };
+    const group = weeks.get(wk);
+    if (group) {
+      group.days.push(day);
+      group.items.push(...day.items);
+    } else {
+      weeks.set(wk, {
+        key: wk,
+        label: weekLabel(parseDayKey(wk)),
+        items: [...day.items],
+        days: [day],
+        isCurrent: wk === currentWeek,
+      });
+    }
+  }
+  const list = [...weeks.values()];
+  const undated = byDay.get("sem-data");
+  if (undated?.length) {
+    list.push({
+      key: "sem-data",
+      label: "Sem data definida",
+      items: undated,
+      days: [{ key: "sem-data", items: undated }],
+      isCurrent: false,
+    });
+  }
+  return list;
+}
+
+/** Semana atual e a seguinte abertas; sem semana atual, as duas primeiras. */
+function defaultOpenWeeks(weeks: WeekGroup[]): Set<string> {
+  const idx = weeks.findIndex((w) => w.isCurrent);
+  const from = idx >= 0 ? idx : 0;
+  return new Set(
+    weeks
+      .slice(from, from + 2)
+      .map((w) => w.key)
+      .filter(Boolean),
+  );
 }
 
 export function PortalCalendar() {
