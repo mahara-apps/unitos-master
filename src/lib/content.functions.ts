@@ -1023,12 +1023,12 @@ export const listContentTrashFn = createServerFn({ method: "POST" })
       ...(posts ?? [])
         .filter((row) => !row.deleted_pipeline_id)
         .map((row) => ({
-        id: row.id as string,
-        kind: "post" as const,
-        title: (row.title as string | null) || "Sem título",
-        deletedAt: row.deleted_at as string,
-        deletedByName: row.deleted_by ? (names.get(row.deleted_by as string) ?? null) : null,
-        daysRemaining: remaining(row.deleted_at as string),
+          id: row.id as string,
+          kind: "post" as const,
+          title: (row.title as string | null) || "Sem título",
+          deletedAt: row.deleted_at as string,
+          deletedByName: row.deleted_by ? (names.get(row.deleted_by as string) ?? null) : null,
+          daysRemaining: remaining(row.deleted_at as string),
         })),
     ];
     return items.sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
