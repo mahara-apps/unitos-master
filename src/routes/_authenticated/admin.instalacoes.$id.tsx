@@ -30,7 +30,6 @@ import {
   runAutomatedUpdateFn,
   getMasterVersionFn,
   syncInstallationVersionFn,
-
   inspectInstallationIntegrationsFn,
   startInstallationOperationFn,
   updateInstallationFn,
@@ -330,7 +329,6 @@ function InstallationDetailPage() {
   });
 
   const restartProvision = useMutation({
-
     mutationFn: (input: { force: boolean }) => restartFn({ data: { id, force: input.force } }),
     onSuccess: (result) => {
       if (result.result === "STARTED") toast.success("Provisionamento reiniciado.");
@@ -1020,9 +1018,7 @@ function InstallationDetailPage() {
                     : !masterVersion.isPending && !masterVersion.data?.repoRelease
                       ? `Não foi possível ler o repositório do MASTER${
                           /403|404/.test(
-                            masterVersion.data?.repoReleaseError ??
-                              masterVersion.data?.error ??
-                              "",
+                            masterVersion.data?.repoReleaseError ?? masterVersion.data?.error ?? "",
                           )
                             ? ": a credencial de leitura ainda não chegou ao site publicado do MASTER. Publique o MASTER uma vez para liberar esta consulta."
                             : ` (${masterVersion.data?.repoReleaseError ?? masterVersion.data?.error ?? "leitura indisponível"}).`
@@ -1031,7 +1027,6 @@ function InstallationDetailPage() {
                         ? "Publica exatamente a versão listada como disponível."
                         : "Instalação já está na versão do MASTER."}
                 </span>
-
               </div>
             </CardContent>
           </Card>
