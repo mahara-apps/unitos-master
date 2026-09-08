@@ -198,6 +198,8 @@ function InstallationDetailPage() {
   const autoValidateFn = useServerFn(runAutomatedValidateFn);
   const autoUpdateFn = useServerFn(runAutomatedUpdateFn);
   const masterVersionFn = useServerFn(getMasterVersionFn);
+  const syncVersionFn = useServerFn(syncInstallationVersionFn);
+
   const restartFn = useServerFn(restartAutomatedProvisionFn);
   const resumeFn = useServerFn(resumeAutomatedProvisionFn);
   const editFn = useServerFn(updateInstallationFn);
