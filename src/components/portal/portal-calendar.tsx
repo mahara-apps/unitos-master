@@ -203,11 +203,8 @@ function buildDayGroups(items: CalItem[]): DayGroup[] {
 /** Abre só o próximo dia que precisa de atenção (ou o próximo dia com itens). */
 function defaultOpenDay(groups: DayGroup[]): string | null {
   const upcoming = groups.filter((g) => !g.isPast && g.key !== "sem-data");
-  return (
-    upcoming.find((g) => g.needsAttention)?.key ?? upcoming[0]?.key ?? groups[0]?.key ?? null
-  );
+  return upcoming.find((g) => g.needsAttention)?.key ?? upcoming[0]?.key ?? groups[0]?.key ?? null;
 }
-
 
 export function PortalCalendar() {
   const api = usePortalApi();
@@ -255,7 +252,9 @@ export function PortalCalendar() {
     () =>
       quick === "all"
         ? items
-        : items.filter((i) => (quick === "confirm" ? i.kind === "appointment" : i.kind === "scheduled")),
+        : items.filter((i) =>
+            quick === "confirm" ? i.kind === "appointment" : i.kind === "scheduled",
+          ),
     [items, quick],
   );
   const dayGroups = useMemo(() => buildDayGroups(visibleItems), [visibleItems]);
@@ -285,7 +284,6 @@ export function PortalCalendar() {
   }, [items, byDay, todayKey]);
 
   const dayItems = selectedDay ? (byDay.get(selectedDay) ?? []) : [];
-
 
   return (
     <div className="space-y-4">
@@ -405,7 +403,6 @@ export function PortalCalendar() {
           </span>
         ))}
       </div>
-
 
       {q.isLoading ? (
         <ListSkeleton />
@@ -571,7 +568,6 @@ export function PortalCalendar() {
               );
             })}
           </div>
-
         </>
       )}
 

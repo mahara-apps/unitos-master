@@ -734,7 +734,6 @@ export function ApprovalsTab() {
         </div>
       ) : null}
 
-
       {/* Confirmação da decisão em lote */}
       <Dialog
         open={bulk !== null}

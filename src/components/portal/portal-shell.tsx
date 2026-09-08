@@ -163,7 +163,6 @@ export function PortalShell({
           </div>
         </aside>
 
-
         <div className="flex min-w-0 flex-1 flex-col">
           {/* Cabeçalho enxuto: identidade no celular + ações */}
           <header className="sticky top-0 z-30 border-b border-border bg-card">
@@ -201,7 +200,6 @@ export function PortalShell({
                 {collapsed ? (
                   <div className="hidden items-center gap-2 min-[900px]:flex">{headerActions}</div>
                 ) : null}
-
               </div>
             </div>
           </header>
