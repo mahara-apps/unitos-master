@@ -619,7 +619,9 @@ function DeletePipelineDialog({
           <Button
             variant="destructive"
             onClick={() => onSubmit(confirmation)}
-            disabled={pending || confirmation.trim().toLowerCase() !== pipelineName.trim().toLowerCase()}
+            disabled={
+              pending || confirmation.trim().toLowerCase() !== pipelineName.trim().toLowerCase()
+            }
           >
             {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Excluir pipeline

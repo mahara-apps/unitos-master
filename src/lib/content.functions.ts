@@ -44,10 +44,7 @@ async function assertContentAdmin(
   });
   const role = data?.["role"];
   const brandRole = data?.["brand_role"];
-  if (
-    error ||
-    (role !== "super_admin" && brandRole !== "owner" && brandRole !== "admin")
-  ) {
+  if (error || (role !== "super_admin" && brandRole !== "owner" && brandRole !== "admin")) {
     throw new Error("Somente Owner ou Admin pode excluir e restaurar conteúdos.");
   }
 }
@@ -993,7 +990,9 @@ export const listContentTrashFn = createServerFn({ method: "POST" })
     if (postError) throw postError;
     if (pipelineError) throw pipelineError;
     const deletedByIds = Array.from(
-      new Set([...(posts ?? []), ...(pipelines ?? [])].map((row) => row.deleted_by).filter(Boolean)),
+      new Set(
+        [...(posts ?? []), ...(pipelines ?? [])].map((row) => row.deleted_by).filter(Boolean),
+      ),
     ) as string[];
     const names = new Map<string, string>();
     if (deletedByIds.length > 0) {
@@ -1006,7 +1005,10 @@ export const listContentTrashFn = createServerFn({ method: "POST" })
       }
     }
     const remaining = (date: string) =>
-      Math.max(0, Math.ceil((new Date(date).getTime() + 30 * 86_400_000 - Date.now()) / 86_400_000));
+      Math.max(
+        0,
+        Math.ceil((new Date(date).getTime() + 30 * 86_400_000 - Date.now()) / 86_400_000),
+      );
     const items: ContentTrashItem[] = [
       ...(pipelines ?? []).map((row) => ({
         id: row.id as string,
@@ -1036,13 +1038,17 @@ export const restoreTrashItemsFn = createServerFn({ method: "POST" })
       .object({
         brandId: z.string().uuid(),
         clientId: z.string().uuid(),
-        items: z.array(z.object({ id: z.string().uuid(), kind: z.enum(["post", "pipeline"]) })).min(1),
+        items: z
+          .array(z.object({ id: z.string().uuid(), kind: z.enum(["post", "pipeline"]) }))
+          .min(1),
       })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
     await assertContentAdmin(context.supabase, context.userId, data.brandId);
-    const pipelineIds = data.items.filter((item) => item.kind === "pipeline").map((item) => item.id);
+    const pipelineIds = data.items
+      .filter((item) => item.kind === "pipeline")
+      .map((item) => item.id);
     const postIds = data.items.filter((item) => item.kind === "post").map((item) => item.id);
     if (pipelineIds.length > 0) {
       const { error } = await context.supabase
@@ -1081,7 +1087,6 @@ export const restoreTrashItemsFn = createServerFn({ method: "POST" })
     }
     return { ok: true as const };
   });
-
 
 // ---------- Stages CRUD ----------
 
