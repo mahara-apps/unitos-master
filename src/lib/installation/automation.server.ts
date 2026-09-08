@@ -1746,7 +1746,10 @@ export type StageProgress = {
   updateDeploymentId?: string;
   updateDeploymentSource?: "git" | "rebuild";
   updateDeploymentRef?: string;
+  /** Versão do pacote do MASTER já publicada nesta operação (registro da versão). */
+  updateRelease?: string;
 };
+
 
 export async function readStageProgress(
   client: Client,
@@ -2950,9 +2953,16 @@ export async function runAutomatedUpdate(input: {
   let deploymentSource = checkpoint.updateDeploymentSource;
   let deploymentRef = checkpoint.updateDeploymentRef;
 
+  // Retomada: se o código desta MESMA operação já foi publicado, o alvo é o
+  // commit do checkpoint. Nunca revalidar "MASTER publicado" aqui — o pacote já
+  // está no repositório da instalação e barrar agora perderia o registro da
+  // versão (foi exatamente o que deixou o painel parado numa versão antiga).
+  const alreadyPublished = checkpoint.codeDone === true && Boolean(checkpoint.codeSha);
   // Commit autorizado pelo Super Admin (gravado na operação). Sem ele, fixa o
   // commit atual da branch do MASTER no momento da autorização.
-  let targetSha = (input.commitSha ?? "").trim() || null;
+  let targetSha = alreadyPublished
+    ? (checkpoint.codeSha ?? null)
+    : (input.commitSha ?? "").trim() || null;
   if (!targetSha) {
     const head = await code.masterHeadSha();
     if (!head.ok || !head.sha) {
@@ -2966,22 +2976,30 @@ export async function runAutomatedUpdate(input: {
   // avança quando o MASTER é publicado; sem esta checagem a operação enviaria o
   // mesmo pacote de novo e ainda gravaria o número de versão novo na instalação.
   const { compareReleaseVersions, masterNotPublishedMessage } = await import("./manager-contract");
-  const repoRelease = await code.releaseAtCommit(targetSha);
-  if (!repoRelease.ok || !repoRelease.version) {
-    return fail(
-      "BLOCKED",
-      repoRelease.error ?? "versão do pacote do MASTER não pôde ser lida no commit autorizado",
-      "code",
-    );
+  let publishedRelease = alreadyPublished ? (checkpoint.updateRelease ?? null) : null;
+  if (!publishedRelease) {
+    const repoRelease = await code.releaseAtCommit(targetSha);
+    if (!repoRelease.ok || !repoRelease.version) {
+      return fail(
+        "BLOCKED",
+        repoRelease.error ?? "versão do pacote do MASTER não pôde ser lida no commit autorizado",
+        "code",
+      );
+    }
+    publishedRelease = repoRelease.version;
+    if (
+      !alreadyPublished &&
+      compareReleaseVersions(publishedRelease, MASTER_RELEASE_VERSION) < 0
+    ) {
+      return fail(
+        "BLOCKED",
+        masterNotPublishedMessage(publishedRelease, MASTER_RELEASE_VERSION),
+        "code",
+      );
+    }
+    await saveStageProgress(client, operation, { updateRelease: publishedRelease });
   }
-  const publishedRelease = repoRelease.version;
-  if (compareReleaseVersions(publishedRelease, MASTER_RELEASE_VERSION) < 0) {
-    return fail(
-      "BLOCKED",
-      masterNotPublishedMessage(publishedRelease, MASTER_RELEASE_VERSION),
-      "code",
-    );
-  }
+
 
   // A instalação constrói o SEU repositório: a versão autorizada do MASTER é
   // publicada nele antes do build. Sem isso o deployment repetiria o código
