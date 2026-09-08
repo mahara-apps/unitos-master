@@ -218,6 +218,8 @@ export function PortalCalendar() {
   const [view, setView] = useState<"month" | "agenda">("month");
   const [openId, setOpenId] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [quick, setQuick] = useState<QuickFilter>("all");
+  const [openDays, setOpenDays] = useState<Set<string> | null>(null);
 
   const q = useQuery({
     queryKey: ["portal", "calendar", api.scopeKey, ym],
@@ -248,24 +250,42 @@ export function PortalCalendar() {
   const todayKey = dayKey(new Date());
   const openItem = items.find((i) => i.id === openId) ?? null;
 
-  // A lista deixa de ser um rolo infinito de datas: vira semanas dobráveis.
-  const weeks = useMemo(() => buildWeekGroups(items), [items]);
-  const [openWeeks, setOpenWeeks] = useState<Set<string>>(new Set());
-  const defaultOpen = useMemo(() => defaultOpenWeeks(weeks), [weeks]);
-  const isWeekOpen = (key: string) =>
-    openWeeks.size > 0 ? openWeeks.has(key) : defaultOpen.has(key);
-  const toggleWeek = (key: string) => {
-    setOpenWeeks((prev) => {
-      const base = prev.size > 0 ? new Set(prev) : new Set(defaultOpen);
+  // Filtros rápidos + acordeão por dia: acaba o rolo infinito de datas.
+  const visibleItems = useMemo(
+    () =>
+      quick === "all"
+        ? items
+        : items.filter((i) => (quick === "confirm" ? i.kind === "appointment" : i.kind === "scheduled")),
+    [items, quick],
+  );
+  const dayGroups = useMemo(() => buildDayGroups(visibleItems), [visibleItems]);
+  const autoOpen = useMemo(() => defaultOpenDay(dayGroups), [dayGroups]);
+  const isDayOpen = (key: string) => (openDays ? openDays.has(key) : key === autoOpen);
+  const toggleDay = (key: string) => {
+    setOpenDays((prev) => {
+      const base = new Set(prev ?? (autoOpen ? [autoOpen] : []));
       if (base.has(key)) base.delete(key);
       else base.add(key);
-      // Set vazio volta ao padrão; mantém uma marca invisível para evitar isso.
-      if (base.size === 0) base.add("__none__");
       return base;
     });
   };
 
+  // Faixa da semana: semana (segunda a domingo) do dia de hoje ou do 1º item.
+  const strip = useMemo(() => {
+    const first = items.find((i) => i.at)?.at?.slice(0, 10);
+    const base =
+      first && !byDay.has(todayKey) ? weekStart(parseDayKey(first)) : weekStart(new Date());
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(base);
+      d.setDate(d.getDate() + i);
+      const key = dayKey(d);
+      const list = byDay.get(key) ?? [];
+      return { key, date: d, kinds: [...new Set(list.map((it) => it.kind))], count: list.length };
+    });
+  }, [items, byDay, todayKey]);
+
   const dayItems = selectedDay ? (byDay.get(selectedDay) ?? []) : [];
+
 
   return (
     <div className="space-y-4">
