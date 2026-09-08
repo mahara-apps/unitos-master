@@ -853,6 +853,43 @@ export function createCodeClient(input: {
       }
     },
 
+    async installedRelease() {
+      try {
+        const headRes = await api(`/repos/${target}/commits/${branch}`);
+        if (!headRes.ok) {
+          return { ok: false, error: await fail(headRes, "ler o commit da instalação") };
+        }
+        const headBody = (await headRes.json().catch(() => ({}))) as { sha?: string };
+        if (!headBody.sha) return { ok: false, error: "commit da instalação não retornado" };
+        const path = "supabase/baseline-snapshot/tools/delta_version.txt";
+        const res = await api(
+          `/repos/${target}/contents/${path}?ref=${encodeURIComponent(headBody.sha)}`,
+        );
+        if (!res.ok) {
+          return { ok: false, error: await fail(res, "ler a versão publicada na instalação") };
+        }
+        const body = (await res.json().catch(() => ({}))) as {
+          content?: string;
+          encoding?: string;
+        };
+        const raw =
+          body.encoding === "base64" && body.content
+            ? new TextDecoder().decode(
+                Uint8Array.from(atob(body.content.replace(/\s+/g, "")), (c) => c.charCodeAt(0)),
+              )
+            : (body.content ?? "");
+        const match = /^\s*version\s*=\s*(\S+)\s*$/m.exec(raw);
+        if (!match?.[1]) {
+          return { ok: false, error: "versão do pacote não encontrada no repositório da instalação" };
+        }
+        return { ok: true, version: match[1], sha: headBody.sha };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+
+
+
     async nudgeDeploy(message) {
       // Commit vazio na branch de produção do repositório DA INSTALAÇÃO: a
       // integração Git da Vercel publica sem consumir a cota de deployments
