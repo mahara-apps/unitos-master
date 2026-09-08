@@ -44,10 +44,7 @@ async function assertContentAdmin(
   });
   const role = data?.["role"];
   const brandRole = data?.["brand_role"];
-  if (
-    error ||
-    (role !== "super_admin" && brandRole !== "owner" && brandRole !== "admin")
-  ) {
+  if (error || (role !== "super_admin" && brandRole !== "owner" && brandRole !== "admin")) {
     throw new Error("Somente Owner ou Admin pode excluir e restaurar conteúdos.");
   }
 }
@@ -417,6 +414,7 @@ export const listPipelinesFn = createServerFn({ method: "POST" })
     const { data: counts } = await context.supabase
       .from("posts")
       .select("pipeline_id")
+      .is("deleted_at", null)
       .in(
         "pipeline_id",
         pipes.map((p) => p.id),
@@ -993,7 +991,9 @@ export const listContentTrashFn = createServerFn({ method: "POST" })
     if (postError) throw postError;
     if (pipelineError) throw pipelineError;
     const deletedByIds = Array.from(
-      new Set([...(posts ?? []), ...(pipelines ?? [])].map((row) => row.deleted_by).filter(Boolean)),
+      new Set(
+        [...(posts ?? []), ...(pipelines ?? [])].map((row) => row.deleted_by).filter(Boolean),
+      ),
     ) as string[];
     const names = new Map<string, string>();
     if (deletedByIds.length > 0) {
@@ -1006,7 +1006,10 @@ export const listContentTrashFn = createServerFn({ method: "POST" })
       }
     }
     const remaining = (date: string) =>
-      Math.max(0, Math.ceil((new Date(date).getTime() + 30 * 86_400_000 - Date.now()) / 86_400_000));
+      Math.max(
+        0,
+        Math.ceil((new Date(date).getTime() + 30 * 86_400_000 - Date.now()) / 86_400_000),
+      );
     const items: ContentTrashItem[] = [
       ...(pipelines ?? []).map((row) => ({
         id: row.id as string,
@@ -1017,14 +1020,16 @@ export const listContentTrashFn = createServerFn({ method: "POST" })
         daysRemaining: remaining(row.deleted_at as string),
         postCount: (posts ?? []).filter((post) => post.deleted_pipeline_id === row.id).length,
       })),
-      ...(posts ?? []).map((row) => ({
-        id: row.id as string,
-        kind: "post" as const,
-        title: (row.title as string | null) || "Sem título",
-        deletedAt: row.deleted_at as string,
-        deletedByName: row.deleted_by ? (names.get(row.deleted_by as string) ?? null) : null,
-        daysRemaining: remaining(row.deleted_at as string),
-      })),
+      ...(posts ?? [])
+        .filter((row) => !row.deleted_pipeline_id)
+        .map((row) => ({
+          id: row.id as string,
+          kind: "post" as const,
+          title: (row.title as string | null) || "Sem título",
+          deletedAt: row.deleted_at as string,
+          deletedByName: row.deleted_by ? (names.get(row.deleted_by as string) ?? null) : null,
+          daysRemaining: remaining(row.deleted_at as string),
+        })),
     ];
     return items.sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
   });
@@ -1036,13 +1041,17 @@ export const restoreTrashItemsFn = createServerFn({ method: "POST" })
       .object({
         brandId: z.string().uuid(),
         clientId: z.string().uuid(),
-        items: z.array(z.object({ id: z.string().uuid(), kind: z.enum(["post", "pipeline"]) })).min(1),
+        items: z
+          .array(z.object({ id: z.string().uuid(), kind: z.enum(["post", "pipeline"]) }))
+          .min(1),
       })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
     await assertContentAdmin(context.supabase, context.userId, data.brandId);
-    const pipelineIds = data.items.filter((item) => item.kind === "pipeline").map((item) => item.id);
+    const pipelineIds = data.items
+      .filter((item) => item.kind === "pipeline")
+      .map((item) => item.id);
     const postIds = data.items.filter((item) => item.kind === "post").map((item) => item.id);
     if (pipelineIds.length > 0) {
       const { error } = await context.supabase
@@ -1081,7 +1090,6 @@ export const restoreTrashItemsFn = createServerFn({ method: "POST" })
     }
     return { ok: true as const };
   });
-
 
 // ---------- Stages CRUD ----------
 
@@ -1479,9 +1487,18 @@ export const deletePostFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ postId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
+    const { data: post, error: readError } = await context.supabase
+      .from("posts")
+      .select("id,brand_id")
+      .eq("id", data.postId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (readError) throw readError;
+    if (!post) throw new Error("Conteúdo não encontrado.");
+    await assertContentAdmin(context.supabase, context.userId, post.brand_id as string);
     const { error } = await context.supabase
       .from("posts")
-      .update({ deleted_at: new Date().toISOString() } as never)
+      .update({ deleted_at: new Date().toISOString(), deleted_by: context.userId } as never)
       .eq("id", data.postId);
     if (error) throw error;
     return { ok: true };

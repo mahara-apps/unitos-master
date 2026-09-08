@@ -347,6 +347,21 @@ function ContentReady({
     onError: (e: Error) => toast.error(describeError(e)),
   });
 
+  const deletePipelineMutation = useMutation({
+    mutationFn: ({ pipelineId, confirmation }: { pipelineId: string; confirmation: string }) =>
+      deletePipeline({ data: { brandId, clientId, pipelineId, confirmation } }),
+    onSuccess: async () => {
+      setOpenDeletePipeline(false);
+      setActivePipelineId(null);
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["content-pipelines", brandId, clientId] }),
+        qc.invalidateQueries({ queryKey: ["content-trash", brandId, clientId] }),
+      ]);
+      toast.success("Pipeline enviado para a Lixeira.");
+    },
+    onError: (error) => toast.error(describeError(error)),
+  });
+
   return (
     <DashboardPageShell className="flex h-[calc(100vh-3.5rem)] min-h-0 flex-col space-y-0">
       {effectivePipelineId ? (
@@ -387,20 +402,10 @@ function ContentReady({
         open={openDeletePipeline}
         onOpenChange={setOpenDeletePipeline}
         pipelineName={pipelines.find((pipeline) => pipeline.id === effectivePipelineId)?.name ?? ""}
-        pending={false}
-        onSubmit={async (confirmation) => {
+        pending={deletePipelineMutation.isPending}
+        onSubmit={(confirmation) => {
           if (!effectivePipelineId) return;
-          try {
-            await deletePipeline({
-              data: { brandId, clientId, pipelineId: effectivePipelineId, confirmation },
-            });
-            setOpenDeletePipeline(false);
-            setActivePipelineId(null);
-            await qc.invalidateQueries({ queryKey: ["content-pipelines", brandId, clientId] });
-            toast.success("Pipeline enviado para a Lixeira.");
-          } catch (error) {
-            toast.error(describeError(error));
-          }
+          deletePipelineMutation.mutate({ pipelineId: effectivePipelineId, confirmation });
         }}
       />
 
@@ -619,7 +624,9 @@ function DeletePipelineDialog({
           <Button
             variant="destructive"
             onClick={() => onSubmit(confirmation)}
-            disabled={pending || confirmation.trim().toLowerCase() !== pipelineName.trim().toLowerCase()}
+            disabled={
+              pending || confirmation.trim().toLowerCase() !== pipelineName.trim().toLowerCase()
+            }
           >
             {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Excluir pipeline
