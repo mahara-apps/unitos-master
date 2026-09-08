@@ -3106,7 +3106,7 @@ export async function runAutomatedUpdate(input: {
   const shortSha = targetSha ? targetSha.slice(0, 7) : null;
   // A versão fixada é a do pacote realmente publicado, nunca o número atual do
   // MASTER: se o repositório estiver atrás, o painel precisa mostrar a verdade.
-  const appliedRelease = publishedRelease;
+  const appliedRelease = publishedRelease ?? MASTER_RELEASE_VERSION;
   const nothingNew = changedFiles === 0;
   await report(
     client,
