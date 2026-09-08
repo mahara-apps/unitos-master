@@ -610,6 +610,18 @@ export type CodeClient = {
    * MASTER é publicado.
    */
   releaseAtCommit: (sha: string) => Promise<{ ok: boolean; version?: string; error?: string }>;
+  /**
+   * Versão que está de fato publicada no repositório DA INSTALAÇÃO (branch de
+   * produção). É a verdade sobre o que está no ar: o painel usa isto para
+   * reconciliar o registro quando uma operação terminou sem gravar a versão.
+   */
+  installedRelease: () => Promise<{
+    ok: boolean;
+    version?: string;
+    sha?: string;
+    error?: string;
+  }>;
+
 
   /**
    * Commit vazio na branch de produção do repositório DA INSTALAÇÃO para que a
