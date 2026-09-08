@@ -197,7 +197,11 @@ export function PortalShell({
                     <Bell className="h-5 w-5" />
                   </PortalLink>
                 )}
-                {/* No desktop as ações (incluindo Sair) ficam na base da lateral. */}
+                {/* Expandido: ações ficam na base da lateral. Recolhido: no topo. */}
+                {collapsed ? (
+                  <div className="hidden items-center gap-2 min-[900px]:flex">{headerActions}</div>
+                ) : null}
+
               </div>
             </div>
           </header>
