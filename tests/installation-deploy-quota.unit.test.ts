@@ -20,7 +20,9 @@ describe("parseDeployQuotaError", () => {
   });
 
   it("não confunde outros erros com cota", () => {
-    expect(parseDeployQuotaError(400, '{"error":{"code":"invalid_request"}}').quotaExceeded).toBe(false);
+    expect(parseDeployQuotaError(400, '{"error":{"code":"invalid_request"}}').quotaExceeded).toBe(
+      false,
+    );
   });
 });
 

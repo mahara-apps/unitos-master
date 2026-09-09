@@ -543,7 +543,6 @@ export type DeployClient = {
     refused?: boolean;
   }>;
 
-
   /** Garante que o domínio definitivo esteja atribuído ao projeto de deploy. */
   ensureDomain: (
     domain: string,
@@ -608,8 +607,6 @@ export function isGitOnlyOrMissingRepo(text: string): boolean {
     text ?? "",
   );
 }
-
-
 
 /* ------------------------------------------------------------- GitHub API */
 
@@ -1510,9 +1507,9 @@ export function createDeployClient(input: {
               org?: string;
               productionBranch?: string;
               /**
-                * `true` = vínculo "sem fonte": o repositório aparece ligado, mas
-                * os pushes NÃO disparam publicação. Precisa religar.
-                */
+               * `true` = vínculo "sem fonte": o repositório aparece ligado, mas
+               * os pushes NÃO disparam publicação. Precisa religar.
+               */
               sourceless?: boolean;
             };
           };
@@ -1584,7 +1581,6 @@ export function createDeployClient(input: {
           variants.push({ type, repo: `${org}/${repoName}`, ref });
         }
 
-
         const attempts: string[] = [];
         let gitSourceUnavailable = false;
         for (const gitSource of variants) {
@@ -1601,7 +1597,6 @@ export function createDeployClient(input: {
                 target: "production",
                 gitSource,
               }),
-
             },
           );
           if (created.ok) {
@@ -3297,7 +3292,6 @@ export async function runAutomatedUpdate(input: {
     });
   }
 
-
   if (deploymentSource === "rebuild") {
     await report(
       client,
@@ -3392,7 +3386,6 @@ export async function runAutomatedUpdate(input: {
     await saveStageProgress(client, operation, { updateDeploymentId: deploymentId });
     return { result: "PENDING", reasons: [`build em ${state}`] };
   }
-
 
   await report(client, operation, "build", "done", url ? `publicado em ${url}` : "publicado");
   const shortSha = targetSha ? targetSha.slice(0, 7) : null;
