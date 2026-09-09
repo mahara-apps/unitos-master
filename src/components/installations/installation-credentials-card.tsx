@@ -63,7 +63,7 @@ const FIELDS: {
   {
     key: "supabaseManagementToken",
     label: "Token de gestão do banco",
-    hint: "Precisa pertencer à organização do banco desta instalação.",
+    hint: "A conta que gerou o token precisa ser Owner ou Administrator do projeto e poder visualizar suas chaves de API.",
     secret: true,
     placeholder: "sbp_...",
     link: {

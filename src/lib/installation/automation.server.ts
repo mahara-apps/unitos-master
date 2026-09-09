@@ -412,6 +412,27 @@ export type ManagementClient = {
   }>;
 };
 
+function managementApiError(status: number, body: string, operation: "database" | "keys"): string {
+  if (status === 401) {
+    return "Supabase Access Token inválido ou revogado. Gere um novo token na conta correta do Supabase.";
+  }
+  if (status === 403) {
+    const permission =
+      operation === "keys"
+        ? "executar consultas e visualizar as chaves de API"
+        : "executar consultas no banco";
+    return (
+      `O token foi reconhecido, mas sua conta não tem permissão para ${permission} neste projeto. ` +
+      "Confirme se o Project ref pertence à mesma organização da conta que gerou o token e se essa conta é Owner ou Administrator do projeto."
+    );
+  }
+  if (status === 404) {
+    return "Projeto Supabase não encontrado para este token. Confira a URL e o Project ref da instalação.";
+  }
+  const detail = body.trim().slice(0, 300);
+  return `HTTP ${status}${detail ? ` ${detail}` : ""}`;
+}
+
 export function createManagementClient(input: {
   token: string;
   projectRef: string;
@@ -439,7 +460,7 @@ export function createManagementClient(input: {
         });
         if (!res.ok) {
           const text = await res.text().catch(() => "");
-          return { ok: false, rows: [], error: `HTTP ${res.status} ${text.slice(0, 300)}` };
+          return { ok: false, rows: [], error: managementApiError(res.status, text, "database") };
         }
         const body = (await res.json().catch(() => [])) as unknown;
         return { ok: true, rows: Array.isArray(body) ? body : [] };
@@ -458,7 +479,8 @@ export function createManagementClient(input: {
       try {
         const res = await doFetch(`${base}/api-keys?reveal=true`, { headers });
         if (!res.ok) {
-          return { ok: false, error: `HTTP ${res.status} ao ler as chaves do Supabase destino` };
+          const text = await res.text().catch(() => "");
+          return { ok: false, error: managementApiError(res.status, text, "keys") };
         }
         const body = (await res.json().catch(() => [])) as Array<{
           name?: string;
