@@ -453,7 +453,6 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-
 export function createManagementClient(input: {
   token: string;
   projectRef: string;
@@ -508,10 +507,11 @@ export function createManagementClient(input: {
       return last;
     },
     async keys() {
-      let last: { ok: boolean; publishableKey?: string; serviceRoleKey?: string; error?: string } = {
-        ok: false,
-        error: "sem resposta da Management API",
-      };
+      let last: { ok: boolean; publishableKey?: string; serviceRoleKey?: string; error?: string } =
+        {
+          ok: false,
+          error: "sem resposta da Management API",
+        };
       for (let attempt = 0; attempt < attempts; attempt++) {
         try {
           const res = await doFetch(`${base}/api-keys?reveal=true`, { headers });
@@ -540,7 +540,6 @@ export function createManagementClient(input: {
       }
       return last;
     },
-
   };
 }
 
@@ -810,9 +809,7 @@ export function createCodeClient(input: {
         8_000,
         Math.max(
           1_000,
-          retryAfter > 0
-            ? retryAfter * 1_000
-            : (GITHUB_TRANSIENT_RETRY_MS[attempt] ?? 3_000),
+          retryAfter > 0 ? retryAfter * 1_000 : (GITHUB_TRANSIENT_RETRY_MS[attempt] ?? 3_000),
         ),
       );
       attempt += 1;
@@ -1205,7 +1202,7 @@ export function createCodeClient(input: {
                 cursor += 1;
                 const file = batch[index];
                 if (!file || batchError) return;
-                 const blob = await api(`/repos/${master}/git/blobs/${file.sha}`, undefined, true);
+                const blob = await api(`/repos/${master}/git/blobs/${file.sha}`, undefined, true);
                 if (!blob.ok) {
                   batchError = await fail(blob, `ler ${file.path} do MASTER`);
                   return;
@@ -1214,17 +1211,17 @@ export function createCodeClient(input: {
                   content?: string;
                   encoding?: string;
                 };
-                 const created = await api(
-                   `/repos/${target}/git/blobs`,
-                   {
-                     method: "POST",
-                     body: JSON.stringify({
-                       content: body.content ?? "",
-                       encoding: body.encoding ?? "base64",
-                     }),
-                   },
-                   true,
-                 );
+                const created = await api(
+                  `/repos/${target}/git/blobs`,
+                  {
+                    method: "POST",
+                    body: JSON.stringify({
+                      content: body.content ?? "",
+                      encoding: body.encoding ?? "base64",
+                    }),
+                  },
+                  true,
+                );
                 if (!created.ok) {
                   batchError = await fail(created, `publicar ${file.path} em ${target}`);
                   return;
@@ -1272,11 +1269,7 @@ export function createCodeClient(input: {
         // preserva o snapshot exato, inclusive remoções.
         let sharedObjects = Boolean(source.rootSha);
         if (source.rootSha) {
-          const check = await api(
-            `/repos/${target}/git/trees/${source.rootSha}`,
-            undefined,
-            true,
-          );
+          const check = await api(`/repos/${target}/git/trees/${source.rootSha}`, undefined, true);
           sharedObjects = check.ok;
         }
 

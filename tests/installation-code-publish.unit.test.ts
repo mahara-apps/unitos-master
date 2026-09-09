@@ -26,9 +26,9 @@ describe("repositório da instalação", () => {
   });
 
   it("recusa o MASTER como destino (por domínio e por slug)", () => {
-    expect(resolveInstallationRepo({ gitRepoUrl: "https://unitos-master.lovable.app/x/y" }).ok).toBe(
-      false,
-    );
+    expect(
+      resolveInstallationRepo({ gitRepoUrl: "https://unitos-master.lovable.app/x/y" }).ok,
+    ).toBe(false);
     expect(
       resolveInstallationRepo({
         gitRepoUrl: `https://github.com/${DEFAULT_MASTER_REPO}`,
@@ -93,7 +93,8 @@ describe("createCodeClient", () => {
         });
       }
       if (url.includes("/git/ref/heads/main")) return Response.json({ object: { sha: "dest" } });
-      if (url.includes("/git/blobs/")) return Response.json({ content: "eA==", encoding: "base64" });
+      if (url.includes("/git/blobs/"))
+        return Response.json({ content: "eA==", encoding: "base64" });
       if (url.includes("/git/blobs")) return Response.json({ sha: "novo" });
       if (url.includes("/git/trees")) return Response.json({ sha: "tree_new" });
       if (url.includes("/git/commits")) return Response.json({ sha: "commit_new" });
@@ -112,7 +113,9 @@ describe("createCodeClient", () => {
   it("reaproveita a árvore raiz do MASTER sem remontar milhares de entradas", async () => {
     const posted: Array<{ url: string; body?: Record<string, unknown> }> = [];
     const c = client(async (url: string, init?: RequestInit) => {
-      const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : undefined;
+      const body = init?.body
+        ? (JSON.parse(String(init.body)) as Record<string, unknown>)
+        : undefined;
       if ((init?.method ?? "GET") !== "GET") posted.push({ url, body });
       if (url.includes("/repos/mahara-apps/unitos-master/git/trees/master_sha")) {
         return Response.json({
@@ -215,9 +218,9 @@ describe("publicação em repositório sem objetos compartilhados", () => {
     const again = await second.client.publishSnapshot("master_sha", { blobMap: saved });
     expect(again.ok).toBe(true);
     // Nada é recopiado: nenhum POST de blob na segunda rodada.
-    expect(second.posted.filter((p) => p.includes("POST") && p.endsWith("/git/blobs"))).toHaveLength(
-      0,
-    );
+    expect(
+      second.posted.filter((p) => p.includes("POST") && p.endsWith("/git/blobs")),
+    ).toHaveLength(0);
   });
 
   it("devolve `partial` ao esgotar o orçamento de tempo, sem commitar", async () => {
@@ -251,7 +254,8 @@ describe("resiliência ao montar a árvore", () => {
             tree: [{ path: "a.ts", type: "blob", mode: "100644", sha: "s1" }],
           });
         }
-        if (url.includes("/repos/acme/unitos-pitada/git/trees/")) return Response.json({ tree: [] });
+        if (url.includes("/repos/acme/unitos-pitada/git/trees/"))
+          return Response.json({ tree: [] });
         if (url.includes("/git/ref/heads/main")) return Response.json({ object: { sha: "dest" } });
         if (url.includes("/repos/acme/unitos-pitada/git/blobs/")) {
           return new Response("not found", { status: 404 });
