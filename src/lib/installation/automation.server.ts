@@ -690,6 +690,10 @@ export type PublishSnapshotResult = {
   ok: boolean;
   /** true quando o orçamento de tempo acabou: retomar continua de onde parou. */
   partial?: boolean;
+  /** ISO: quando a cota do GitHub volta. Só em pausa por limite de uso. */
+  waitUntil?: string | null;
+  /** Motivo legível da pausa (limite de uso), quando houver. */
+  note?: string;
   commitSha?: string;
   changed?: number;
   error?: string;
