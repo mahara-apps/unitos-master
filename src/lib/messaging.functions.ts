@@ -117,6 +117,7 @@ export const listThreads = createServerFn({ method: "GET" })
   )
   .handler(async ({ data, context }): Promise<ThreadSummary[]> => {
     const { supabase, userId } = context;
+    await assertFeatureEnabled(supabase, data.brandId, "messages");
     await assertModuleAccess(supabase, userId, data.brandId, "messages", "view");
 
     let query = supabase
@@ -297,6 +298,7 @@ export const createThread = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }): Promise<{ id: string }> => {
     const { supabase, userId } = context;
+    await assertFeatureEnabled(supabase, data.brandId, "messages");
     await assertModuleAccess(supabase, userId, data.brandId, "messages", "own");
 
     // Escopo: conversa de cliente/projeto exige cliente acessível ao autor.
@@ -398,6 +400,7 @@ export const addThreadParticipants = createServerFn({ method: "POST" })
       .eq("id", data.threadId)
       .single();
     if (error) throw error;
+    await assertFeatureEnabled(supabase, thread.brand_id as string, "messages");
     await assertModuleAccess(supabase, userId, thread.brand_id as string, "messages", "own");
 
     const added = await addParticipantsInternal(supabase, {
@@ -584,7 +587,8 @@ export const listThreadCandidates = createServerFn({ method: "GET" })
       }>;
     }> => {
       const { supabase, userId } = context;
-      await assertModuleAccess(supabase, userId, data.brandId, "messages", "view");
+      await assertFeatureEnabled(supabase, data.brandId, "messages");
+    await assertModuleAccess(supabase, userId, data.brandId, "messages", "view");
 
       const { data: members } = await supabase
         .from("brand_members")
