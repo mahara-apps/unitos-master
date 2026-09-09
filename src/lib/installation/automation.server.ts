@@ -2808,6 +2808,17 @@ function deltaFingerprint(sql: string): string {
 }
 
 /**
+ * Chave de checkpoint do delta no provisionamento. Inclui a impressão digital
+ * do conteúdo: quando o MASTER publica um pacote novo, o checkpoint antigo não
+ * vale mais e o delta é aplicado de novo (idempotente por statement) em vez de
+ * ser pulado como "já aplicado".
+ */
+export function deltaProgressKey(sql: string): string {
+  return `${UPDATE_DELTA_LABEL}:${deltaFingerprint(sql)}`;
+}
+
+
+/**
  * Aplica o delta de banco do MASTER no Supabase da instalação, item por item,
  * com checkpoint e ledger no banco de destino. Idempotente: repetir com o mesmo
  * delta já registrado é no-op.
