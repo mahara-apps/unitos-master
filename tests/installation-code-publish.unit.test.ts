@@ -108,6 +108,39 @@ describe("createCodeClient", () => {
     expect(posted.filter((p) => p.includes("/git/blobs")).length).toBe(0);
   });
 
+  it("reaproveita a árvore raiz do MASTER sem remontar milhares de entradas", async () => {
+    const posted: Array<{ url: string; body?: Record<string, unknown> }> = [];
+    const c = client(async (url: string, init?: RequestInit) => {
+      const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : undefined;
+      if ((init?.method ?? "GET") !== "GET") posted.push({ url, body });
+      if (url.includes("/repos/mahara-apps/unitos-master/git/trees/master_sha")) {
+        return Response.json({
+          sha: "master_tree",
+          tree: [
+            { path: "a.ts", type: "blob", mode: "100644", sha: "s1" },
+            { path: "b.ts", type: "blob", mode: "100644", sha: "s2" },
+          ],
+        });
+      }
+      if (url.includes("/repos/acme/unitos-pitada/git/trees/dest")) {
+        return Response.json({ tree: [{ path: "a.ts", type: "blob", mode: "100644", sha: "s1" }] });
+      }
+      if (url.includes("/repos/acme/unitos-pitada/git/trees/master_tree")) {
+        return Response.json({ sha: "master_tree" });
+      }
+      if (url.includes("/git/ref/heads/main")) return Response.json({ object: { sha: "dest" } });
+      if (url.includes("/git/commits")) return Response.json({ sha: "commit_new" });
+      return Response.json({ ok: true });
+    });
+
+    const res = await c.publishSnapshot("master_sha");
+    expect(res).toMatchObject({ ok: true, commitSha: "commit_new", changed: 1 });
+    expect(posted.some((call) => call.url.endsWith("/git/trees"))).toBe(false);
+    expect(posted.find((call) => call.url.endsWith("/git/commits"))?.body).toMatchObject({
+      tree: "master_tree",
+    });
+  });
+
   it("não gera commit quando o repositório já está na versão do MASTER", async () => {
     const posted: string[] = [];
     const c = client(async (url: string, init?: RequestInit) => {
@@ -203,9 +236,8 @@ describe("publicação em repositório sem objetos compartilhados", () => {
   });
 });
 
-describe("objetos do MASTER apenas parcialmente disponíveis", () => {
-  it("recua para cópia de blobs quando a árvore compartilhada é recusada (422)", async () => {
-    const posted: string[] = [];
+describe("resiliência ao montar a árvore", () => {
+  it("tenta novamente quando o GitHub devolve 502 temporário", async () => {
     let treeAttempts = 0;
     const c = createCodeClient({
       token: "gh",
@@ -214,7 +246,6 @@ describe("objetos do MASTER apenas parcialmente disponíveis", () => {
       masterRepo: "mahara-apps/unitos-master",
       fetchImpl: (async (url: string, init?: RequestInit) => {
         const method = init?.method ?? "GET";
-        if (method !== "GET") posted.push(`${method} ${url}`);
         if (url.includes("/repos/mahara-apps/unitos-master/git/trees")) {
           return Response.json({
             tree: [{ path: "a.ts", type: "blob", mode: "100644", sha: "s1" }],
@@ -222,8 +253,9 @@ describe("objetos do MASTER apenas parcialmente disponíveis", () => {
         }
         if (url.includes("/repos/acme/unitos-pitada/git/trees/")) return Response.json({ tree: [] });
         if (url.includes("/git/ref/heads/main")) return Response.json({ object: { sha: "dest" } });
-        // Probe passa (objeto existe), mas a árvore é recusada.
-        if (url.includes("/repos/acme/unitos-pitada/git/blobs/")) return Response.json({ sha: "s1" });
+        if (url.includes("/repos/acme/unitos-pitada/git/blobs/")) {
+          return new Response("not found", { status: 404 });
+        }
         if (url.includes("/repos/mahara-apps/unitos-master/git/blobs/")) {
           return Response.json({ content: "eA==", encoding: "base64" });
         }
@@ -231,8 +263,8 @@ describe("objetos do MASTER apenas parcialmente disponíveis", () => {
         if (url.endsWith("/git/trees")) {
           treeAttempts += 1;
           if (treeAttempts === 1) {
-            return new Response(JSON.stringify({ message: "tree.sha s1 is not a valid blob" }), {
-              status: 422,
+            return new Response(JSON.stringify({ message: "Bad Gateway" }), {
+              status: 502,
             });
           }
           return Response.json({ sha: "tree_new" });
@@ -245,6 +277,33 @@ describe("objetos do MASTER apenas parcialmente disponíveis", () => {
     expect(res.ok).toBe(true);
     expect(res.commitSha).toBe("commit_new");
     expect(treeAttempts).toBe(2);
-    expect(posted.some((p) => p.includes("POST") && p.endsWith("/git/blobs"))).toBe(true);
+  }, 10_000);
+
+  it("explica instabilidade persistente sem acusar credencial", async () => {
+    const c = client(async (url: string, init?: RequestInit) => {
+      if (url.includes("/repos/mahara-apps/unitos-master/git/trees")) {
+        return Response.json({
+          tree: [{ path: "a.ts", type: "blob", mode: "100644", sha: "s1" }],
+        });
+      }
+      if (url.includes("/repos/acme/unitos-pitada/git/trees/")) return Response.json({ tree: [] });
+      if (url.includes("/git/ref/heads/main")) return Response.json({ object: { sha: "dest" } });
+      if (url.includes("/repos/acme/unitos-pitada/git/blobs/")) {
+        return new Response("not found", { status: 404 });
+      }
+      if (url.includes("/repos/mahara-apps/unitos-master/git/blobs/")) {
+        return Response.json({ content: "eA==", encoding: "base64" });
+      }
+      if (url.endsWith("/git/blobs")) return Response.json({ sha: "copied" });
+      if (url.endsWith("/git/trees") && init?.method === "POST") {
+        return new Response("Bad Gateway", { status: 502 });
+      }
+      return Response.json({ ok: true });
+    });
+
+    const res = await c.publishSnapshot("master_sha");
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain("Instabilidade temporária do GitHub");
+    expect(res.error).not.toMatch(/token|credencial|permiss/i);
+  }, 10_000);
   });
-});

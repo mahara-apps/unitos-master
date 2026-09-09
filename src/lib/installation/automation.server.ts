@@ -1181,15 +1181,6 @@ export function createCodeClient(input: {
           sha: null,
         }));
 
-        /** Árvore apontando direto para os SHAs do MASTER (template/fork). */
-        const sharedEntries = () =>
-          changed.map((file) => ({
-            path: file.path,
-            mode: file.mode ?? "100644",
-            type: "blob",
-            sha: file.sha,
-          }));
-
         /**
          * Cópia dos blobs para o destino, em paralelo controlado, com
          * checkpoint por lote e orçamento de tempo.
