@@ -2470,9 +2470,9 @@ export async function runAutomatedProvision(input: {
       await mark("deploy", "error", plan.reason);
       return finish(url.origin, url.source);
     }
-    // Instalação externa não pode republicar sozinha a cada commit no MASTER:
-    // desliga o build automático da branch já no provisionamento.
-    await deploy.setAutoDeploy(false);
+    // O build automático por Git fica ligado: garante publicação mesmo quando a
+    // API da Vercel não consegue disparar o deployment.
+    await deploy.setAutoDeploy(true);
     const envResult = await deploy.setEnv(plan.entries);
 
     if (!envResult.ok) {
@@ -2498,26 +2498,30 @@ export async function runAutomatedProvision(input: {
     const redeployed = await deploy.deployLatestCode();
     let publishNote = redeployed.ok ? "novo deployment disparado" : "";
     if (!redeployed.ok) {
-      if (redeployed.quotaExceeded) {
-        // Plano gratuito: 100 deployments por API/dia. A publicação pelo Git NÃO
-        // consome essa cota, então religamos o build automático e empurramos um
-        // commit vazio. Cota esgotada não invalida o provisionamento.
+      if (redeployed.quotaExceeded || redeployed.gitSourceUnavailable) {
+        // Duas situações têm a MESMA saída: cota diária da API esgotada ou a
+        // Vercel não resolvendo o repositório. Em ambas a publicação sai por
+        // push no Git (auto-deploy ligado), sem invalidar o provisionamento.
         const auto = await deploy.setAutoDeploy(true);
         const nudge = await code.nudgeDeploy(
           "chore(unitos): republicar com as variaveis da instalacao",
         );
-        const resetAt = redeployed.resetAt
-          ? ` — cota volta em ${formatDateTimeBr(new Date(redeployed.resetAt * 1000))}`
-          : "";
+        const cause = redeployed.quotaExceeded
+          ? `cota de deployments por API esgotada${
+              redeployed.resetAt
+                ? ` — cota volta em ${formatDateTimeBr(new Date(redeployed.resetAt * 1000))}`
+                : ""
+            }`
+          : "a Vercel não resolveu o repositório pela API";
         if (nudge.ok) {
-          publishNote = `publicação pelo Git (cota de deployments por API esgotada${resetAt})`;
+          publishNote = `publicação pelo Git (${cause})`;
         } else {
           failures.push(
-            `Publicação pendente: cota diária de deployments da Vercel esgotada${resetAt}. Tentativa pelo Git também não funcionou: ${
+            `Publicação pendente: ${cause}. Tentativa pelo Git também não funcionou: ${
               nudge.error ?? ""
             }${auto.ok ? "" : ` · auto-deploy: ${auto.error ?? ""}`}`.trim(),
           );
-          publishNote = "publicação pendente (cota da Vercel)";
+          publishNote = "publicação pendente";
         }
       } else {
         blocked.push(
