@@ -168,3 +168,39 @@ describe("atualização de código da instalação", () => {
     expect(JSON.stringify(detail)).not.toMatch(/token|secret|password/i);
   });
 });
+
+describe("quando a Vercel não encontra o repositório", () => {
+  it("tenta owner/repo e sinaliza gitSourceUnavailable para publicar pelo Git", async () => {
+    const { impl, calls } = fakeFetch([
+      {
+        match: /v9\/projects\//,
+        body: {
+          name: "unitos-taveira",
+          link: {
+            type: "github",
+            org: "mahara-apps",
+            repo: "unitos-taveira",
+            repoId: 99,
+            productionBranch: "main",
+          },
+        },
+      },
+      {
+        match: /v13\/deployments\?/,
+        status: 400,
+        body: {
+          error: {
+            code: "incorrect_git_source_info",
+            message: "The provided GitHub repository can't be found.",
+          },
+        },
+      },
+    ]);
+    const client = createDeployClient({ token: "t", project: "unitos-taveira", fetchImpl: impl });
+    const res = await client.deployLatestCode({ sha: "abc1234" });
+    expect(res.ok).toBe(false);
+    expect(res.gitSourceUnavailable).toBe(true);
+    const deployPosts = calls.filter((c) => c.method === "POST" && /v13\/deployments/.test(c.url));
+    expect(deployPosts.length).toBeGreaterThan(1);
+  });
+});
