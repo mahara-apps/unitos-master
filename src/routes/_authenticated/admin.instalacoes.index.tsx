@@ -331,6 +331,28 @@ function AdminInstallationsPage() {
               onChange={(v) => setForm({ ...form, deployProject: v })}
             />
             <div className="space-y-1.5 sm:col-span-2">
+              <Label className="text-xs">Supabase Access Token do cliente</Label>
+              <PasswordInput
+                value={form.supabaseManagementToken}
+                placeholder="sbp_..."
+                autoComplete="off"
+                onChange={(e) => setForm({ ...form, supabaseManagementToken: e.target.value })}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Obrigatório. Guardado cifrado e nunca exibido outra vez — esta instalação usa o
+                acesso do próprio cliente, não o acesso central.{" "}
+                <a
+                  href="https://supabase.com/dashboard/account/tokens"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline"
+                >
+                  Gerar token no Supabase
+                </a>
+                .
+              </p>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
               <Label className="text-xs">Observações</Label>
               <Textarea
                 rows={3}
@@ -339,6 +361,7 @@ function AdminInstallationsPage() {
               />
             </div>
           </div>
+
 
           <DialogFooter>
             <Button variant="ghost" size="sm" onClick={() => setCreateOpen(false)}>

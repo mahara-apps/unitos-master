@@ -5070,6 +5070,7 @@ export type Database = {
           pinned_by: string | null
           pinned_commit_sha: string | null
           pinned_release: string | null
+          requires_own_supabase_token: boolean
           slug: string
           status: string
           supabase_project_ref: string | null
@@ -5098,6 +5099,7 @@ export type Database = {
           pinned_by?: string | null
           pinned_commit_sha?: string | null
           pinned_release?: string | null
+          requires_own_supabase_token?: boolean
           slug: string
           status?: string
           supabase_project_ref?: string | null
@@ -5126,6 +5128,7 @@ export type Database = {
           pinned_by?: string | null
           pinned_commit_sha?: string | null
           pinned_release?: string | null
+          requires_own_supabase_token?: boolean
           slug?: string
           status?: string
           supabase_project_ref?: string | null
