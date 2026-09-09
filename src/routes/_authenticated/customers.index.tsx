@@ -238,29 +238,43 @@ function CustomersIndexPage() {
         )
           return false;
       }
+      if (briefingOnly && !briefingPending(c)) return false;
       return true;
     });
-  }, [all, q, statusFilter, segmentFilter, ownerFilter, channelFilter, channelsByClient]);
+  }, [
+    all,
+    q,
+    statusFilter,
+    segmentFilter,
+    ownerFilter,
+    channelFilter,
+    briefingOnly,
+    channelsByClient,
+  ]);
 
   const activeCount = all.filter((c) => c.is_active !== false).length;
   const inactiveCount = all.length - activeCount;
   const operatingCount = all.filter(
     (c) => c.is_active !== false && (channelsByClient[c.id] ?? []).length > 0,
   ).length;
+  const pendingBriefing = useMemo(() => all.filter((c) => briefingPending(c)), [all]);
 
   const filtersOn =
     !!q ||
     statusFilter !== ANY ||
     segmentFilter !== ANY ||
     ownerFilter !== ANY ||
-    channelFilter !== ANY;
+    channelFilter !== ANY ||
+    briefingOnly;
   const clearFilters = () => {
     setQ("");
     setStatusFilter(ANY);
     setSegmentFilter(ANY);
     setOwnerFilter(ANY);
     setChannelFilter(ANY);
+    setBriefingOnly(false);
   };
+
 
   const updateMut = useMutation({
     mutationFn: (args: { clientId: string; patch: Record<string, unknown> }) =>
