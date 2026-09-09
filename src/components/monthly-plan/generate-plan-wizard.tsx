@@ -97,6 +97,9 @@ export function GeneratePlanWizard({
   const [step, setStep] = useState(0);
   const [theme, setTheme] = useState("");
   const [briefingId, setBriefingId] = useState("__none");
+  const [showBriefingPicker, setShowBriefingPicker] = useState(false);
+  const currentBriefing = briefings[0] ?? null;
+
   const [org, setOrg] = useState<OrganizationDraft>(requiredOrganization);
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
   /** Fonte de verdade da seleção: canal → formato → quantidade. */
