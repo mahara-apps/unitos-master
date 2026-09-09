@@ -744,6 +744,13 @@ export type CodeClient = {
     canCreate?: boolean;
   }>;
   /**
+   * Permissões efetivas do token da instalação: leitura/gravação no repositório
+   * de destino, criação de repositório e quanto resta da cota de uso.
+   */
+  permissions: () => Promise<
+    Array<{ label: string; ok: boolean; detail: string; area: "code" }>
+  >;
+  /**
    * Publica no repositório da instalação exatamente a árvore do MASTER no
    * commit informado. Quando os objetos são compartilhados (template/fork), a
    * árvore é montada direto com os SHAs do MASTER — 3 chamadas. Caso contrário
