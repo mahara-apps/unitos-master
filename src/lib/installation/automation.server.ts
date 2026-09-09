@@ -997,7 +997,10 @@ export function createCodeClient(input: {
         const masterRes = await api(`/repos/${master}`);
         let templateReady = false;
         if (masterRes.ok) {
-          const masterBody = (await masterRes.clone().json().catch(() => ({}))) as {
+          const masterBody = (await masterRes
+            .clone()
+            .json()
+            .catch(() => ({}))) as {
             is_template?: boolean;
           };
           templateReady = masterBody.is_template === true;
@@ -2522,22 +2525,22 @@ export async function runAutomatedProvision(input: {
     // Provisionamento inicial nunca copia arquivos nem monta árvore: tanto a
     // cópia recém-gerada quanto um repositório preexistente precisam já conter
     // a mesma versão do template.
-      await saveStageProgress(client, operation, {
-        codeDone: true,
-        codeSourceSha: masterHead.sha,
-        codeSha: masterHead.sha,
-        codeRepo: repo.slug,
-        codeBlobs: {},
-      });
-      checks.code = "ok";
-      await mark(
-        "code",
-        "done",
-        ensured.created
-          ? `cópia completa do template criada em ${repo.slug} (${(ensured.commitSha ?? masterHead.sha).slice(0, 7)})`
-          : `código completo do template confirmado em ${repo.slug} (${(installedRelease.sha ?? masterHead.sha).slice(0, 7)})`,
-        100,
-      );
+    await saveStageProgress(client, operation, {
+      codeDone: true,
+      codeSourceSha: masterHead.sha,
+      codeSha: masterHead.sha,
+      codeRepo: repo.slug,
+      codeBlobs: {},
+    });
+    checks.code = "ok";
+    await mark(
+      "code",
+      "done",
+      ensured.created
+        ? `cópia completa do template criada em ${repo.slug} (${(ensured.commitSha ?? masterHead.sha).slice(0, 7)})`
+        : `código completo do template confirmado em ${repo.slug} (${(installedRelease.sha ?? masterHead.sha).slice(0, 7)})`,
+      100,
+    );
   }
   checks.code = checks.code ?? "ok";
 

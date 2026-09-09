@@ -110,12 +110,15 @@ describe("createCodeClient", () => {
         return new Response(null, { status: 204 });
       }
       if (url.endsWith("/repos/acme/unitos-pitada")) {
-        return repoExists ? Response.json({ full_name: "acme/unitos-pitada" }) : new Response("no", { status: 404 });
+        return repoExists
+          ? Response.json({ full_name: "acme/unitos-pitada" })
+          : new Response("no", { status: 404 });
       }
       if (url.includes("/git/ref/heads/main")) return Response.json({ object: { sha: "seed" } });
       if (url.includes("/git/trees/seed"))
         return Response.json({ tree: [{ path: "README.md", type: "blob", sha: "readme" }] });
-      if (url.includes("/contents/README.md")) return Response.json({ encoding: "base64", content: seed });
+      if (url.includes("/contents/README.md"))
+        return Response.json({ encoding: "base64", content: seed });
       if (url.endsWith("/repos/mahara-apps/unitos-master"))
         return Response.json({ is_template: true });
       if (url.endsWith("/generate")) return Response.json({ full_name: "acme/unitos-pitada" });
