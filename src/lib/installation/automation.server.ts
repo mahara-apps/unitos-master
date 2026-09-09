@@ -523,7 +523,6 @@ export type DeployClient = {
     gitSourceUnavailable?: boolean;
     /** Epoch (s) em que a cota volta, quando a Vercel informa. */
     resetAt?: number;
-
   }>;
   deploymentState: (
     id: string,

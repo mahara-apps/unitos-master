@@ -42,7 +42,13 @@ describe("atualização de código da instalação", () => {
         match: /v9\/projects\//,
         body: {
           name: "unitos-teste",
-          link: { type: "github", org: "mahara-apps", repo: "unitos-master", repoId: 42, productionBranch: "main" },
+          link: {
+            type: "github",
+            org: "mahara-apps",
+            repo: "unitos-master",
+            repoId: 42,
+            productionBranch: "main",
+          },
         },
       },
       { match: /v13\/deployments\?/, body: { id: "dpl_1" } },
@@ -64,7 +70,13 @@ describe("atualização de código da instalação", () => {
         body: {
           id: "prj_1",
           name: "unitos-teste",
-          link: { type: "github", org: "mahara-apps", repo: "unitos-teste", repoId: 7, productionBranch: "main" },
+          link: {
+            type: "github",
+            org: "mahara-apps",
+            repo: "unitos-teste",
+            repoId: 7,
+            productionBranch: "main",
+          },
         },
       },
       { match: /\/link/, body: { ok: true } },
@@ -77,11 +89,13 @@ describe("atualização de código da instalação", () => {
     expect(link?.body).toMatchObject({ repo: "mahara-apps/unitos-master", gitBranch: "main" });
   });
 
-
   it("sem repositório ligado cai para rebuild e sinaliza que não traz código novo", async () => {
     const { impl } = fakeFetch([
       { match: /v9\/projects\//, body: { name: "unitos-teste" } },
-      { match: /v6\/deployments/, body: { deployments: [{ uid: "dpl_old", name: "unitos-teste" }] } },
+      {
+        match: /v6\/deployments/,
+        body: { deployments: [{ uid: "dpl_old", name: "unitos-teste" }] },
+      },
       { match: /v13\/deployments\?/, body: { id: "dpl_2" } },
     ]);
     const client = createDeployClient({ token: "t", project: "unitos-teste", fetchImpl: impl });
@@ -135,7 +149,12 @@ describe("atualização de código da instalação", () => {
     const { impl } = fakeFetch([
       { match: /api\.github\.com\/repos\/.+\/commits\/main/, body: { sha: "cafe1234567" } },
     ]);
-    const client = createDeployClient({ token: "t", project: "p", fetchImpl: impl, githubToken: "gh" });
+    const client = createDeployClient({
+      token: "t",
+      project: "p",
+      fetchImpl: impl,
+      githubToken: "gh",
+    });
     await expect(client.latestCommit()).resolves.toMatchObject({ ok: true, sha: "cafe1234567" });
   });
 
