@@ -97,6 +97,14 @@ function WorkspaceQueryReset() {
 
 function AppShell() {
   return (
+    <ServiceStateBoundary>
+      <AppShellContent />
+    </ServiceStateBoundary>
+  );
+}
+
+function AppShellContent() {
+  return (
     <ActiveContextProvider>
       <WorkspaceResolver />
       <WorkspaceQueryReset />
