@@ -99,9 +99,13 @@ type ClientRow = {
   socials?: unknown;
   is_active?: boolean;
   owner_user_id?: string | null;
+  briefing_status?: string | null;
+  has_briefing?: boolean;
+  briefing_completion?: number;
   created_at: string;
   updated_at: string;
 };
+
 
 const ANY = "__any";
 
