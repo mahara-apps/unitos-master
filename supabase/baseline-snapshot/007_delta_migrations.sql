@@ -4213,3 +4213,52 @@ BEGIN
       );$fmt$, v_url || '/api/public/hooks/resume-post-content')
   );
 END $$;
+
+-- ---------------------------------------------------------------------------
+-- 20260909121646_e8de3737-9d61-4fcc-bc7b-a24cf9593553.sql
+-- ---------------------------------------------------------------------------
+INSERT INTO public.feature_catalog (key, name, description, category, icon, default_enabled, is_available, is_core, sort_order)
+VALUES ('messages', 'Mensagens', 'Central de mensagens entre time, clientes e portal.', 'Gestão', 'MessagesSquare', true, true, false, 105)
+ON CONFLICT (key) DO UPDATE
+  SET name = EXCLUDED.name,
+      description = EXCLUDED.description,
+      category = EXCLUDED.category,
+      icon = EXCLUDED.icon,
+      default_enabled = true,
+      is_available = true,
+      sort_order = EXCLUDED.sort_order,
+      updated_at = now();
+
+INSERT INTO public.brand_features (brand_id, feature_key, enabled)
+SELECT b.id, 'messages', true FROM public.brands b
+ON CONFLICT (brand_id, feature_key) DO NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- 20260909123027_58784256-1ee8-4436-b799-f1b9ee10eea5.sql
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.access_profiles_system_defaults()
+ RETURNS jsonb
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO 'public'
+AS $function$
+  SELECT '[
+    {"key":"atendimento","name":"Atendimento","permissions":{"clients":"full","briefing":"full","projects":"full","tasks":"full","planning":"full","content":"full","calendar":"view","approvals":"full","media_plans":"view","connections":"none","reports":"view","users":"none","settings":"none","ai":"own","brain":"view","chat":"full","messages":"full","portal":"view"}},
+    {"key":"criativo","name":"Criativo","permissions":{"clients":"view","briefing":"view","projects":"view","tasks":"own","planning":"own","content":"full","calendar":"view","approvals":"own","media_plans":"none","connections":"none","reports":"none","users":"none","settings":"none","ai":"own","brain":"view","chat":"full","messages":"full","portal":"none"}},
+    {"key":"trafego","name":"Tráfego","permissions":{"clients":"view","briefing":"view","projects":"view","tasks":"own","planning":"view","content":"own","calendar":"view","approvals":"view","media_plans":"full","connections":"view","reports":"full","users":"none","settings":"none","ai":"own","brain":"view","chat":"full","messages":"full","portal":"none"}},
+    {"key":"midia","name":"Mídia","permissions":{"clients":"view","briefing":"view","projects":"view","tasks":"own","planning":"view","content":"view","calendar":"view","approvals":"view","media_plans":"full","connections":"view","reports":"full","users":"none","settings":"none","ai":"own","brain":"view","chat":"full","messages":"full","portal":"none"}},
+    {"key":"producao","name":"Produção","permissions":{"clients":"view","briefing":"view","projects":"own","tasks":"full","planning":"view","content":"own","calendar":"full","approvals":"own","media_plans":"none","connections":"none","reports":"view","users":"none","settings":"none","ai":"own","brain":"view","chat":"full","messages":"full","portal":"none"}},
+    {"key":"financeiro","name":"Financeiro","permissions":{"clients":"view","briefing":"none","projects":"view","tasks":"view","planning":"view","content":"none","calendar":"view","approvals":"none","media_plans":"view","connections":"none","reports":"full","users":"none","settings":"none","ai":"none","brain":"none","chat":"view","messages":"full","portal":"none"}},
+    {"key":"total","name":"Total","permissions":{"clients":"full","briefing":"full","projects":"full","tasks":"full","planning":"full","content":"full","calendar":"full","approvals":"full","media_plans":"full","connections":"full","reports":"full","users":"full","settings":"full","ai":"full","brain":"full","chat":"full","messages":"full","portal":"full"}}
+  ]'::jsonb;
+$function$;
+
+-- Perfis já existentes herdam o nível de Mensagens do Chat (padrão "full" quando ausente).
+UPDATE public.access_profiles
+   SET permissions = permissions || jsonb_build_object('messages', COALESCE(permissions ->> 'chat', 'full'))
+ WHERE NOT (permissions ? 'messages');
+
+-- Overrides individuais também herdam do Chat quando existirem.
+UPDATE public.brand_members
+   SET module_permissions = module_permissions || jsonb_build_object('messages', module_permissions ->> 'chat')
+ WHERE module_permissions ? 'chat' AND NOT (module_permissions ? 'messages');
