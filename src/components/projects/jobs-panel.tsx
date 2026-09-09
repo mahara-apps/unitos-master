@@ -281,11 +281,16 @@ export function JobsPanel({
   const currentJob = jobs.find((j) => j.id === openJobId) ?? null;
   const currentTitle = currentJob?.name ?? "Tarefas";
 
-  const currentJobTasks = useMemo(
-    () => (openJobId ? (tasksByJob.get(openJobId) ?? []) : []),
-    [tasksByJob, openJobId],
-  );
+  const currentJobTasks = useMemo(() => {
+    const base = openJobId ? (tasksByJob.get(openJobId) ?? []) : [];
+    return base.filter(
+      (t) =>
+        matchesVisibility(t, taskVisibility) &&
+        matchesDue(t.due_at, isItemDone(t), dueFilter),
+    );
+  }, [tasksByJob, openJobId, taskVisibility, dueFilter]);
   const openTasksCount = currentJobTasks.filter((t) => !t.done && t.status !== "done").length;
+
 
   /** Busca aplica-se à lista de jobs (nível 2). */
   const visibleJobs = useMemo(() => {
