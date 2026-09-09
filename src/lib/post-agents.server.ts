@@ -882,6 +882,8 @@ export async function resumePendingPostContent(args: {
   retryable: number;
   permanent: number;
   stopped: boolean;
+  /** true quando não sobrou nenhuma peça pendente em todo o banco. */
+  queueEmpty: boolean;
 }> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const admin = supabaseAdmin as unknown as import("@supabase/supabase-js").SupabaseClient;
