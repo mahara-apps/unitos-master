@@ -358,13 +358,39 @@ export const createInstallationFn = createServerFn({ method: "POST" })
     return mapInstallation(row);
   });
 
+/**
+ * Edição dos dados. O Supabase Access Token é opcional aqui: campo vazio
+ * MANTÉM o token já guardado (nunca apaga por descuido). Se a gravação cifrada
+ * falhar, nada é alterado — o cadastro não fica pela metade.
+ */
+const UpdateInput = UpsertInput.extend({
+  id: z.string().uuid(),
+  supabaseManagementToken: z.string().max(4096).optional(),
+});
+
 export const updateInstallationFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => UpsertInput.extend({ id: z.string().uuid() }).parse(input))
+  .inputValidator((input: unknown) => UpdateInput.parse(input))
   .handler(async ({ data, context }) => {
     await guard(context);
     const validation = validateInstallationInput(data);
     if (!validation.ok) throw new Error(validation.error);
+
+    const token = (data.supabaseManagementToken ?? "").trim();
+    if (token) {
+      const { saveInstallationCredentials } = await import("./credentials.server");
+      try {
+        await saveInstallationCredentials(context.supabase as never, data.id, context.userId, {
+          supabaseManagementToken: token,
+        } as never);
+      } catch (e) {
+        throw new Error(
+          `Não foi possível guardar o Supabase Access Token com segurança, então nada foi alterado. ${
+            e instanceof Error ? e.message : String(e)
+          }`,
+        );
+      }
+    }
 
     const { data: row, error } = await context.supabase
       .from("installations")
