@@ -497,7 +497,11 @@ export type DeployClient = {
    * Liga o projeto de deploy ao repositório `owner/repo` DA INSTALAÇÃO,
    * substituindo qualquer vínculo anterior. Idempotente.
    */
-  linkRepository: (repo: string) => Promise<{ ok: boolean; error?: string }>;
+  linkRepository: (
+    repo: string,
+    options?: { force?: boolean },
+  ) => Promise<{ ok: boolean; error?: string }>;
+
   /** Commit atual da branch de producao do repositorio do MASTER. */
   latestCommit: () => Promise<{ ok: boolean; sha?: string; error?: string }>;
 
@@ -524,9 +528,21 @@ export type DeployClient = {
     /** Epoch (s) em que a cota volta, quando a Vercel informa. */
     resetAt?: number;
   }>;
-  deploymentState: (
-    id: string,
-  ) => Promise<{ ok: boolean; state?: string; url?: string; error?: string }>;
+  deploymentState: (id: string) => Promise<{
+    ok: boolean;
+    state?: string;
+    url?: string;
+    error?: string;
+    /**
+     * Motivo textual quando a hospedagem RECUSA a publicação (ex.: política
+     * "apenas deployments por Git em produção"). Estado terminal: esperar mais
+     * nunca vira READY.
+     */
+    reason?: string;
+    /** `true` quando o deployment foi recusado e não vai buildar nunca. */
+    refused?: boolean;
+  }>;
+
 
   /** Garante que o domínio definitivo esteja atribuído ao projeto de deploy. */
   ensureDomain: (
@@ -573,6 +589,14 @@ export function parseDeployQuotaError(
  * commit inicial e "puxar atualização" nunca traz código novo.
  */
 export const DEFAULT_MASTER_REPO = "mahara-apps/unitos-master";
+
+/**
+ * Teto absoluto para a publicação de uma atualização. Passado esse tempo a
+ * operação encerra com motivo em vez de ser retomada para sempre pelo watchdog
+ * (foi o que deixou uma instalação presa em "build em andamento" por ~1h).
+ */
+export const BUILD_MAX_MINUTES = 20;
+
 
 /* ------------------------------------------------------------- GitHub API */
 
@@ -1369,7 +1393,7 @@ export function createDeployClient(input: {
       }
     },
 
-    async linkRepository(repo) {
+    async linkRepository(repo, options) {
       const slug = (repo ?? "").trim() || targetRepo;
       try {
         const res = await doFetch(
@@ -1381,11 +1405,14 @@ export function createDeployClient(input: {
         }
         const body = (await res.json().catch(() => ({}))) as {
           id?: string;
-          link?: { repo?: string; org?: string };
+          link?: { repo?: string; org?: string; sourceless?: boolean };
         };
         const id = encodeURIComponent(body.id ?? input.project);
         const current = `${body.link?.org ?? ""}/${body.link?.repo ?? ""}`.toLowerCase();
-        if (current === slug.toLowerCase()) return { ok: true };
+        // `force` religa mesmo quando o slug já é o correto: é o caso do vínculo
+        // "sourceless", em que o repositório aparece ligado sem disparar builds.
+        if (current === slug.toLowerCase() && !options?.force) return { ok: true };
+
         if (body.link?.repo) {
           await doFetch(
             `https://api.vercel.com/v9/projects/${id}/link?${qs()}`.replace(/\?$/, ""),
@@ -1469,6 +1496,11 @@ export function createDeployClient(input: {
               repo?: string;
               org?: string;
               productionBranch?: string;
+              /**
+                * `true` = vínculo "sem fonte": o repositório aparece ligado, mas
+                * os pushes NÃO disparam publicação. Precisa religar.
+                */
+              sourceless?: boolean;
             };
           };
         };
@@ -1481,9 +1513,11 @@ export function createDeployClient(input: {
         // O projeto precisa apontar para o repositório DA INSTALAÇÃO (o código
         // do MASTER é publicado nele). Se estiver ligado a outro repositório,
         // religa — é o que faz a atualização realmente trazer código novo.
+        // Vínculo "sourceless" também é religado: sem fonte, nenhum push publica
+        // e a política "apenas Git em produção" tranca a atualização.
         const current = `${body.link?.org ?? ""}/${body.link?.repo ?? ""}`.toLowerCase();
-        if (current !== targetRepo.toLowerCase()) {
-          const relinked = await client.linkRepository(targetRepo);
+        if (current !== targetRepo.toLowerCase() || body.link?.sourceless === true) {
+          const relinked = await client.linkRepository(targetRepo, { force: true });
           if (!relinked.ok) {
             return { ok: false, error: relinked.error };
           }
@@ -1493,6 +1527,7 @@ export function createDeployClient(input: {
         // O build automático da branch fica LIGADO: é a rede de segurança quando
         // a API da Vercel não consegue resolver o repositório (um push publica).
         await client.setAutoDeploy(true);
+
 
         const link = body.link;
         const repoId = link?.repoId;
@@ -1612,16 +1647,26 @@ export function createDeployClient(input: {
         if (!res.ok) {
           return { ok: false, error: `HTTP ${res.status} ao consultar o deployment` };
         }
-        const body = (await res.json().catch(() => ({}))) as { readyState?: string; url?: string };
+        const body = (await res.json().catch(() => ({}))) as {
+          readyState?: string;
+          url?: string;
+          readyStateReason?: string;
+          alwaysRefuseToBuild?: boolean;
+        };
+        const state = body.readyState ?? undefined;
+        const refused = state === "BLOCKED" || body.alwaysRefuseToBuild === true;
         return {
           ok: true,
-          state: body.readyState ?? undefined,
-          url: body.url ? `https://${body.url}` : undefined,
+          ...(state ? { state } : {}),
+          ...(body.url ? { url: `https://${body.url}` } : {}),
+          ...(body.readyStateReason ? { reason: body.readyStateReason } : {}),
+          ...(refused ? { refused: true } : {}),
         };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
       }
     },
+
     async setEnv(entries) {
       try {
         const res = await doFetch(
@@ -1827,8 +1872,12 @@ export type StageProgress = {
   /** Commit do MASTER que a publicação em andamento está copiando. */
   codeSourceSha?: string;
 
-  /** Deployment de atualização já criado; retomadas apenas consultam este ID. */
-  updateDeploymentId?: string;
+  /**
+   * Deployment de atualização já criado; retomadas apenas consultam este ID.
+   * `null` limpa o checkpoint (deployment recusado/abandonado).
+   */
+  updateDeploymentId?: string | null;
+
   updateDeploymentSource?: "git" | "rebuild";
   updateDeploymentRef?: string;
   /** Versão do pacote do MASTER já publicada nesta operação (registro da versão). */
@@ -3123,6 +3172,67 @@ export async function runAutomatedUpdate(input: {
     });
   }
 
+  /**
+   * Saída por PUSH quando a API não pode publicar: cota diária estourada, a
+   * Vercel não resolve o repositório, ou a conta só aceita publicação disparada
+   * pelo Git em produção. O código autorizado JÁ está no repositório da
+   * instalação, então basta ligar o build automático e forçar o gatilho.
+   */
+  const finishByGitPush = async (
+    cause: string,
+    options?: { forceNudge?: boolean },
+  ): Promise<{ result: "PASS" | "FAIL" | "BLOCKED"; reasons: string[] }> => {
+    await deploy.setAutoDeploy(true);
+    const needsNudge = options?.forceNudge === true || changedFiles === 0;
+    const nudge = needsNudge
+      ? await code.nudgeDeploy("chore(unitos): republicar versao autorizada")
+      : { ok: true as const, error: undefined as string | undefined };
+    const appliedByPush = publishedRelease ?? MASTER_RELEASE_VERSION;
+    const shortPush = targetSha ? targetSha.slice(0, 7) : null;
+    if (!nudge.ok) {
+      return fail(
+        "FAIL",
+        `${cause} · publicação pelo Git também falhou: ${nudge.error ?? ""}`.trim(),
+        "build",
+      );
+    }
+    if (targetSha) {
+      await (
+        client.from("installations") as unknown as {
+          update: (v: Record<string, unknown>) => {
+            eq: (c: string, v: string) => Promise<unknown>;
+          };
+        }
+      )
+        .update({
+          pinned_commit_sha: targetSha,
+          pinned_release: appliedByPush,
+          pinned_at: new Date().toISOString(),
+        })
+        .eq("id", installation.id)
+        .then(
+          () => undefined,
+          () => undefined,
+        );
+    }
+    await report(client, operation, "code", "done", "código publicado no repositório");
+    await report(client, operation, "build", "done", `build disparado pelo Git (${cause})`);
+    await report(
+      client,
+      operation,
+      "version",
+      "done",
+      shortPush ? `${appliedByPush} (${shortPush})` : appliedByPush,
+    );
+    await finalizeOperation(client as never, operation as never, {
+      ok: true,
+      warnings: true,
+      version: appliedByPush,
+      summary: `Código do MASTER (${appliedByPush}${shortPush ? ` · ${shortPush}` : ""}) publicado no repositório da instalação; o build saiu pelo Git porque ${cause}. Confira a publicação na hospedagem em alguns minutos.`,
+    }).catch(() => undefined);
+    return { result: "PASS", reasons: [] };
+  };
+
   if (!deploymentId) {
     await report(client, operation, "code", "running");
     // O build usa o commit do repositório DA INSTALAÇÃO (o snapshot recém
@@ -3130,60 +3240,10 @@ export async function runAutomatedUpdate(input: {
     const created = await deploy.deployLatestCode({ sha: buildRef });
     if (!created.ok || !created.deploymentId) {
       if (created.quotaExceeded || created.gitSourceUnavailable) {
-        // O código autorizado JÁ está no repositório da instalação. Com o build
-        // automático por Git ligado, o push publica sem depender da API: aqui
-        // garantimos o gatilho e fixamos a versão realmente publicada.
-        await deploy.setAutoDeploy(true);
-        const nudge =
-          changedFiles === 0
-            ? await code.nudgeDeploy("chore(unitos): republicar versao autorizada")
-            : { ok: true as const };
-        const appliedByPush = publishedRelease ?? MASTER_RELEASE_VERSION;
-        const shortPush = targetSha ? targetSha.slice(0, 7) : null;
         const cause = created.quotaExceeded
           ? "cota diária de deployments por API da Vercel esgotada"
           : "a Vercel não resolveu o repositório pela API";
-        if (!nudge.ok) {
-          return fail(
-            "FAIL",
-            `${created.error ?? cause} · publicação pelo Git também falhou: ${nudge.error ?? ""}`.trim(),
-          );
-        }
-        if (targetSha) {
-          await (
-            client.from("installations") as unknown as {
-              update: (v: Record<string, unknown>) => {
-                eq: (c: string, v: string) => Promise<unknown>;
-              };
-            }
-          )
-            .update({
-              pinned_commit_sha: targetSha,
-              pinned_release: appliedByPush,
-              pinned_at: new Date().toISOString(),
-            })
-            .eq("id", installation.id)
-            .then(
-              () => undefined,
-              () => undefined,
-            );
-        }
-        await report(client, operation, "code", "done", "código publicado no repositório");
-        await report(client, operation, "build", "done", `build disparado pelo Git (${cause})`);
-        await report(
-          client,
-          operation,
-          "version",
-          "done",
-          shortPush ? `${appliedByPush} (${shortPush})` : appliedByPush,
-        );
-        await finalizeOperation(client as never, operation as never, {
-          ok: true,
-          warnings: true,
-          version: appliedByPush,
-          summary: `Código do MASTER (${appliedByPush}${shortPush ? ` · ${shortPush}` : ""}) publicado no repositório da instalação; o build saiu pelo Git porque ${cause}. Confira a publicação na Vercel em alguns minutos.`,
-        }).catch(() => undefined);
-        return { result: "PASS", reasons: [] };
+        return finishByGitPush(cause);
       }
       return fail("FAIL", created.error ?? "não foi possível disparar o deployment");
     }
@@ -3196,6 +3256,7 @@ export async function runAutomatedUpdate(input: {
       updateDeploymentRef: deploymentRef,
     });
   }
+
 
   if (deploymentSource === "rebuild") {
     await report(
@@ -3230,11 +3291,16 @@ export async function runAutomatedUpdate(input: {
   const deadline = Date.now() + (input.waitMs ?? 45_000);
   let state = "QUEUED";
   let url: string | null = null;
+  let refusedReason: string | null = null;
   while (Date.now() < deadline) {
     const status = await deploy.deploymentState(deploymentId);
     if (status.ok) {
       state = status.state ?? state;
       url = status.url ?? url;
+      if (status.refused) {
+        refusedReason = status.reason ?? `a hospedagem recusou a publicação (${state})`;
+        break;
+      }
       if (state === "READY") break;
       if (state === "ERROR" || state === "CANCELED") break;
     }
@@ -3244,17 +3310,49 @@ export async function runAutomatedUpdate(input: {
     await sleep(3_000);
   }
 
+  if (refusedReason) {
+    // Estado TERMINAL: esperar mais nunca vira READY (ex.: a conta só aceita
+    // publicação disparada pelo Git em produção). Antes disso a operação ficava
+    // presa em "build em andamento (BLOCKED)" e o watchdog a retomava sem fim.
+    const onlyGit = /not allowed in production|only git deployments/i.test(refusedReason);
+    const cause = onlyGit
+      ? "a hospedagem só aceita publicação disparada pelo Git em produção"
+      : `a hospedagem recusou a publicação (${refusedReason})`;
+    // Limpa o deployment recusado do checkpoint: a retomada não deve voltar a
+    // consultá-lo.
+    await saveStageProgress(client, operation, { updateDeploymentId: null });
+    return finishByGitPush(cause, { forceNudge: true });
+  }
+
   if (state === "ERROR" || state === "CANCELED") {
     return fail("FAIL", `o build terminou em ${state}`, "build");
   }
 
   if (state !== "READY") {
+    // Teto absoluto: sem conclusão em BUILD_MAX_MINUTES a operação encerra com
+    // motivo claro, em vez de ser retomada indefinidamente pelo watchdog.
+    const startedAt = Date.parse(
+      ((operation as unknown as { started_at?: string | null; created_at?: string | null })
+        .started_at ??
+        (operation as unknown as { created_at?: string | null }).created_at ??
+        "") as string,
+    );
+    const elapsedMin = Number.isFinite(startedAt) ? (Date.now() - startedAt) / 60_000 : 0;
+    if (elapsedMin >= BUILD_MAX_MINUTES) {
+      await saveStageProgress(client, operation, { updateDeploymentId: null });
+      return fail(
+        "FAIL",
+        `a publicação não concluiu em ${BUILD_MAX_MINUTES} minutos (último estado: ${state}). Confira a hospedagem e autorize a atualização novamente.`,
+        "build",
+      );
+    }
     // Não encerra prematuramente. O cron/watchdog retomará a MESMA operação e
     // consultará o MESMO deployment persistido até READY ou erro terminal.
     await report(client, operation, "build", "running", `build em andamento (${state})`);
     await saveStageProgress(client, operation, { updateDeploymentId: deploymentId });
     return { result: "PENDING", reasons: [`build em ${state}`] };
   }
+
 
   await report(client, operation, "build", "done", url ? `publicado em ${url}` : "publicado");
   const shortSha = targetSha ? targetSha.slice(0, 7) : null;
