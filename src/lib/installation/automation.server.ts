@@ -1293,6 +1293,19 @@ export function createCodeClient(input: {
             );
             if (batchError) {
               await checkpoint();
+              // Limite de uso do GitHub não é falha: devolve retomável com o
+              // horário de liberação; o progresso já copiado é preservado.
+              if (rateLimit) {
+                return {
+                  ok: true,
+                  partial: true,
+                  changed: copied,
+                  waitUntil: rateLimit.resetAt
+                    ? new Date(rateLimit.resetAt * 1000).toISOString()
+                    : null,
+                  note: batchError,
+                };
+              }
               return { ok: false, error: batchError };
             }
             await checkpoint();
