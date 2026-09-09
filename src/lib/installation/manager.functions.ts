@@ -358,7 +358,6 @@ export const createInstallationFn = createServerFn({ method: "POST" })
     return mapInstallation(row);
   });
 
-
 export const updateInstallationFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => UpsertInput.extend({ id: z.string().uuid() }).parse(input))

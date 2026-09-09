@@ -40,7 +40,6 @@ export const BYOK_SUPABASE_MARKER = "UNITOS_INSTALLATION_BYOK_SUPABASE";
 
 export type AutomationEnv = Record<string, string | undefined | null>;
 
-
 function pick(env: AutomationEnv, names: readonly string[]): string | null {
   for (const name of names) {
     const value = (env[name] ?? "").trim();
@@ -107,7 +106,6 @@ export function resolveAutomationCapability(env: AutomationEnv): AutomationCapab
         resolvedFrom: null,
         acceptedNames: AUTOMATION_CREDENTIAL_VARS.supabaseManagement,
       };
-
 
   const vercelState: CapabilityState = vercel
     ? {

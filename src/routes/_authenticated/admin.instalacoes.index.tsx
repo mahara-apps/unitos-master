@@ -303,8 +303,8 @@ function AdminInstallationsPage() {
           <DialogHeader>
             <DialogTitle>Nova instalação</DialogTitle>
             <DialogDescription>
-              Cada instalação usa o acesso do próprio cliente. Informe o Supabase Access Token
-              dele: ele é guardado cifrado e nunca aparece de novo na tela.
+              Cada instalação usa o acesso do próprio cliente. Informe o Supabase Access Token dele:
+              ele é guardado cifrado e nunca aparece de novo na tela.
             </DialogDescription>
           </DialogHeader>
 
@@ -369,7 +369,6 @@ function AdminInstallationsPage() {
               />
             </div>
           </div>
-
 
           <DialogFooter>
             <Button variant="ghost" size="sm" onClick={() => setCreateOpen(false)}>

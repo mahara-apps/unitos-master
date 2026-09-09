@@ -307,8 +307,10 @@ export async function requiresOwnSupabaseToken(
       .eq("id", installationId)
       .maybeSingle();
     if (error) return false;
-    return (data as { requires_own_supabase_token?: boolean } | null)
-      ?.requires_own_supabase_token === true;
+    return (
+      (data as { requires_own_supabase_token?: boolean } | null)?.requires_own_supabase_token ===
+      true
+    );
   } catch {
     return false;
   }
@@ -330,7 +332,6 @@ export async function resolveInstallationEnv(
     for (const name of AUTOMATION_CREDENTIAL_VARS.supabaseManagement) delete env[name];
     env[BYOK_SUPABASE_MARKER] = "1";
   }
-
 
   let row: Row | null = null;
   try {
