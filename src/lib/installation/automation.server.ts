@@ -2205,13 +2205,19 @@ export async function runAutomatedProvision(input: {
     "select count(*)::int as schemas from information_schema.schemata where schema_name in ('auth','storage','vault')",
   );
   if (!ping.ok) {
+    const detail = (ping.error ?? "").trim();
+    // Instabilidade do Supabase não deve ser reportada como falha de credencial.
+    const transient = /Instabilidade tempor|limitando as chamadas|timeout/i.test(detail);
     blocked.push(
-      `Supabase destino inacessível com a credencial de gestão: ${ping.error ?? ""}`.trim(),
+      transient
+        ? detail
+        : `Supabase destino inacessível com a credencial de gestão: ${detail}`.trim(),
     );
     await mark("supabase", "error", ping.error);
-    checks.supabase = "error";
+    checks.supabase = transient ? "attention" : "error";
     return finish(null, null);
   }
+
   const schemas = Number((ping.rows[0] as { schemas?: number } | undefined)?.schemas ?? 0);
   if (schemas < 3) {
     blocked.push("O alvo não é um projeto Supabase completo (auth/storage/vault ausentes).");
