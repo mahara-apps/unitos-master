@@ -1582,9 +1582,13 @@ export function createDeployClient(input: {
               headers,
               body: JSON.stringify({
                 name: body.name ?? input.project,
+                // Amarrar ao projeto por id evita publicar em um projeto novo
+                // quando o vínculo do repositório está ausente.
+                ...(body.id ? { project: body.id } : {}),
                 target: "production",
                 gitSource,
               }),
+
             },
           );
           if (created.ok) {
