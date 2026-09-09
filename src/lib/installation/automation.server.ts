@@ -429,9 +429,30 @@ function managementApiError(status: number, body: string, operation: "database" 
   if (status === 404) {
     return "Projeto Supabase não encontrado para este token. Confira a URL e o Project ref da instalação.";
   }
+  if (status === 429) {
+    return "A Management API do Supabase está limitando as chamadas (HTTP 429). Aguarde alguns minutos e tente novamente — a credencial está correta.";
+  }
+  if (status >= 500) {
+    return (
+      `Instabilidade temporária do Supabase (HTTP ${status}). ` +
+      "Isso não é problema da credencial nem do token: tentamos novamente automaticamente e ainda assim não houve resposta. Repita a operação em alguns minutos."
+    );
+  }
   const detail = body.trim().slice(0, 300);
   return `HTTP ${status}${detail ? ` ${detail}` : ""}`;
 }
+
+/** Status que valem nova tentativa: instabilidade/limite do lado do Supabase. */
+export function isRetryableManagementStatus(status: number): boolean {
+  return status === 429 || status === 408 || status >= 500;
+}
+
+const RETRY_DELAYS_MS = [1_000, 3_000, 7_000];
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 
 export function createManagementClient(input: {
   token: string;
@@ -445,59 +466,81 @@ export function createManagementClient(input: {
     "content-type": "application/json",
   };
 
+  // Instabilidade do Supabase (502/503/504/429) não é falha de credencial:
+  // repetimos algumas vezes antes de declarar o destino inacessível.
+  const attempts = RETRY_DELAYS_MS.length;
+
   return {
     async query(sql) {
-      const controller = new AbortController();
-      // Precisa expirar ANTES do limite do runtime. Um timeout de 60s não
-      // ajudava: o isolate podia morrer primeiro e a operação ficava running.
-      const timer = setTimeout(() => controller.abort(), 15_000);
-      try {
-        const res = await doFetch(`${base}/database/query`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ query: sql }),
-          signal: controller.signal,
-        });
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          return { ok: false, rows: [], error: managementApiError(res.status, text, "database") };
+      let last = { ok: false, rows: [] as unknown[], error: "sem resposta da Management API" };
+      for (let attempt = 0; attempt < attempts; attempt++) {
+        const controller = new AbortController();
+        // Precisa expirar ANTES do limite do runtime. Um timeout de 60s não
+        // ajudava: o isolate podia morrer primeiro e a operação ficava running.
+        const timer = setTimeout(() => controller.abort(), 12_000);
+        try {
+          const res = await doFetch(`${base}/database/query`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ query: sql }),
+            signal: controller.signal,
+          });
+          if (!res.ok) {
+            const text = await res.text().catch(() => "");
+            last = { ok: false, rows: [], error: managementApiError(res.status, text, "database") };
+            if (!isRetryableManagementStatus(res.status)) return last;
+          } else {
+            const body = (await res.json().catch(() => [])) as unknown;
+            return { ok: true, rows: Array.isArray(body) ? body : [] };
+          }
+        } catch (e) {
+          const aborted = e instanceof Error && e.name === "AbortError";
+          last = {
+            ok: false,
+            rows: [],
+            error: aborted ? "timeout de 12s na Management API" : (e as Error).message,
+          };
+        } finally {
+          clearTimeout(timer);
         }
-        const body = (await res.json().catch(() => [])) as unknown;
-        return { ok: true, rows: Array.isArray(body) ? body : [] };
-      } catch (e) {
-        const aborted = e instanceof Error && e.name === "AbortError";
-        return {
-          ok: false,
-          rows: [],
-          error: aborted ? "timeout de 15s na Management API" : (e as Error).message,
-        };
-      } finally {
-        clearTimeout(timer);
+        if (attempt < attempts - 1) await sleep(RETRY_DELAYS_MS[attempt]);
       }
+      return last;
     },
     async keys() {
-      try {
-        const res = await doFetch(`${base}/api-keys?reveal=true`, { headers });
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          return { ok: false, error: managementApiError(res.status, text, "keys") };
+      let last: { ok: boolean; publishableKey?: string; serviceRoleKey?: string; error?: string } = {
+        ok: false,
+        error: "sem resposta da Management API",
+      };
+      for (let attempt = 0; attempt < attempts; attempt++) {
+        try {
+          const res = await doFetch(`${base}/api-keys?reveal=true`, { headers });
+          if (!res.ok) {
+            const text = await res.text().catch(() => "");
+            last = { ok: false, error: managementApiError(res.status, text, "keys") };
+            if (!isRetryableManagementStatus(res.status)) return last;
+          } else {
+            const body = (await res.json().catch(() => [])) as Array<{
+              name?: string;
+              type?: string;
+              api_key?: string;
+            }>;
+            const find = (name: string) =>
+              body.find((k) => k.name === name || k.type === name)?.api_key ?? undefined;
+            return {
+              ok: true,
+              publishableKey: find("anon") ?? find("publishable"),
+              serviceRoleKey: find("service_role") ?? find("secret"),
+            };
+          }
+        } catch (e) {
+          last = { ok: false, error: (e as Error).message };
         }
-        const body = (await res.json().catch(() => [])) as Array<{
-          name?: string;
-          type?: string;
-          api_key?: string;
-        }>;
-        const find = (name: string) =>
-          body.find((k) => k.name === name || k.type === name)?.api_key ?? undefined;
-        return {
-          ok: true,
-          publishableKey: find("anon") ?? find("publishable"),
-          serviceRoleKey: find("service_role") ?? find("secret"),
-        };
-      } catch (e) {
-        return { ok: false, error: (e as Error).message };
+        if (attempt < attempts - 1) await sleep(RETRY_DELAYS_MS[attempt]);
       }
+      return last;
     },
+
   };
 }
 
@@ -2162,13 +2205,19 @@ export async function runAutomatedProvision(input: {
     "select count(*)::int as schemas from information_schema.schemata where schema_name in ('auth','storage','vault')",
   );
   if (!ping.ok) {
+    const detail = (ping.error ?? "").trim();
+    // Instabilidade do Supabase não deve ser reportada como falha de credencial.
+    const transient = /Instabilidade tempor|limitando as chamadas|timeout/i.test(detail);
     blocked.push(
-      `Supabase destino inacessível com a credencial de gestão: ${ping.error ?? ""}`.trim(),
+      transient
+        ? detail
+        : `Supabase destino inacessível com a credencial de gestão: ${detail}`.trim(),
     );
     await mark("supabase", "error", ping.error);
-    checks.supabase = "error";
+    checks.supabase = transient ? "attention" : "error";
     return finish(null, null);
   }
+
   const schemas = Number((ping.rows[0] as { schemas?: number } | undefined)?.schemas ?? 0);
   if (schemas < 3) {
     blocked.push("O alvo não é um projeto Supabase completo (auth/storage/vault ausentes).");

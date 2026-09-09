@@ -482,6 +482,11 @@ describe("runAutomatedProvision", () => {
       }
       if (url.includes("/env")) return Response.json({ created: [] });
       if (url.includes("v6/deployments")) return Response.json({ deployments: [] });
+      // sem deployment anterior E sem criar novo: nada para publicar
+      if (url.includes("v13/deployments")) {
+        return new Response(JSON.stringify({ error: { message: "no source" } }), { status: 400 });
+      }
+
       return new Response("{}", { status: 200 });
     });
     const result = await runProvision({
@@ -723,6 +728,35 @@ describe("clientes de gestão", () => {
     expect(result.ok).toBe(false);
     expect(JSON.stringify(result)).not.toContain("super-secreto");
   });
+
+  it("repete em instabilidade 502 e explica que não é problema de credencial", async () => {
+    let calls = 0;
+    const client = createManagementClient({
+      token: "t",
+      projectRef: "abcdefghijklmnop",
+      fetchImpl: (async () => {
+        calls += 1;
+        if (calls < 3) return new Response("error code: 502", { status: 502 });
+        return Response.json([{ ok: 1 }]);
+      }) as never,
+    });
+    const result = await client.query("select 1");
+    expect(calls).toBe(3);
+    expect(result.ok).toBe(true);
+  });
+
+  it("502 persistente vira mensagem de instabilidade, não de permissão", async () => {
+    const client = createManagementClient({
+      token: "t",
+      projectRef: "abcdefghijklmnop",
+      fetchImpl: (async () => new Response("error code: 502", { status: 502 })) as never,
+    });
+    const result = await client.query("select 1");
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("Instabilidade tempor");
+    expect(result.error).not.toContain("permissão");
+  });
+
 
   it("deploy client grava variáveis com upsert", async () => {
     const seen: string[] = [];
