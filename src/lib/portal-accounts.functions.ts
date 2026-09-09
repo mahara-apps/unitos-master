@@ -39,6 +39,9 @@ type ClientRow = {
 };
 
 type AnyClient = {
+  // O cliente admin é convertido nesta borda porque as consultas abaixo
+  // operam sobre tabelas conhecidas, mas compartilham um formato mínimo.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   from: (table: string) => any;
   rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
 };
