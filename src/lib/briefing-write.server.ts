@@ -94,7 +94,8 @@ export async function upsertBriefingVersion(
   const label = args.label ?? suggestedVersionLabel(args.origin);
   const since = new Date(Date.now() - BRIEFING_VERSION_GROUP_WINDOW_MS).toISOString();
 
-  let recent: { id: string; changed_fields: string[] | null; label: string | null } | null = null;
+  type RecentVersion = { id: string; changed_fields: string[] | null; label: string | null };
+  let recent: RecentVersion | null = null;
   try {
     let q = supabase
       .from("brand_briefing_versions")
@@ -107,10 +108,11 @@ export async function upsertBriefingVersion(
       .limit(1);
     q = args.authorId ? q.eq("changed_by", args.authorId) : q.is("changed_by", null);
     const { data } = await q.maybeSingle();
-    recent = (data as typeof recent) ?? null;
+    recent = (data as RecentVersion | null) ?? null;
   } catch {
     recent = null;
   }
+
 
   if (recent) {
     const merged = Array.from(new Set([...(recent.changed_fields ?? []), ...args.changedFields]));
