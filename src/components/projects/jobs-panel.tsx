@@ -897,7 +897,14 @@ export function JobsPanel({
                 >
                   <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir job
                 </DropdownMenuItem>
+                <VisibilityMenuBlock
+                  value={taskVisibility}
+                  onChange={setTaskVisibility}
+                  label="Exibir tarefas"
+                />
+                <DueMenuBlock value={dueFilter} onChange={setDueFilter} label="Prazo" />
               </DropdownMenuContent>
+
             </DropdownMenu>
           ) : null
         }
