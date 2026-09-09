@@ -78,6 +78,8 @@ import { listClients, updateClient, deleteClient } from "@/lib/workspace.functio
 import { listBrandClientChannelsFn } from "@/lib/customers-list.functions";
 import { listBrandTeam } from "@/lib/team.functions";
 import { cn } from "@/lib/utils";
+import { isBriefingConcluded } from "@/lib/briefing-alert";
+
 
 export const Route = createFileRoute("/_authenticated/customers/")({
   component: CustomersIndexPage,
