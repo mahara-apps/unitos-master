@@ -13,6 +13,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callRpc } from "@/lib/supabase-rpc";
 import { assertClientScope, assertModuleAccess, resolveAuthorityRole } from "@/lib/access-guard";
+import { assertFeatureEnabled } from "@/lib/feature-gate.server";
 import { detectLinkSource, linkFallbackLabel, normalizeLinkUrl } from "@/lib/link-source";
 import { displayName } from "@/lib/identity";
 import { notifyMentionsSafe } from "@/lib/mention-notify.server";
@@ -588,7 +589,7 @@ export const listThreadCandidates = createServerFn({ method: "GET" })
     }> => {
       const { supabase, userId } = context;
       await assertFeatureEnabled(supabase, data.brandId, "messages");
-    await assertModuleAccess(supabase, userId, data.brandId, "messages", "view");
+      await assertModuleAccess(supabase, userId, data.brandId, "messages", "view");
 
       const { data: members } = await supabase
         .from("brand_members")
