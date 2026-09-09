@@ -1614,6 +1614,55 @@ function InstallationDetailPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Suspensão: motivo obrigatório — é o texto que a pessoa vê na tela de bloqueio. */}
+      <Dialog open={suspendOpen} onOpenChange={setSuspendOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Suspender ambiente</DialogTitle>
+            <DialogDescription>
+              Bloqueia a entrada de todas as pessoas desse ambiente, menos o Super Admin. Nenhuma
+              informação é apagada e você pode reativar quando quiser.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="suspend-reason" className="text-xs">
+              Motivo (aparece para quem tentar entrar)
+            </Label>
+            <Textarea
+              id="suspend-reason"
+              rows={3}
+              value={suspendReason}
+              placeholder="Ex.: acesso suspenso por pendência de pagamento."
+              onChange={(e) => setSuspendReason(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSuspendOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={serviceState.isPending || !suspendReason.trim()}
+              onClick={() =>
+                setCritical({
+                  action: "installation.suspend",
+                  details: [{ label: "Motivo", value: suspendReason.trim() }],
+                  run: (confirmLabel) =>
+                    serviceState.mutate({
+                      state: "suspended",
+                      reason: suspendReason.trim(),
+                      confirmLabel,
+                    }),
+                })
+              }
+            >
+              {serviceState.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Continuar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {critical && (
         <CriticalConfirmDialog
           open
