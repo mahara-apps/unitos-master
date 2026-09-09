@@ -21,8 +21,7 @@ const MASTER_REF = "tkjbhttylouamqxnbfgv";
 /** Respostas mínimas do GitHub usadas pelo provisionamento (código publicado). */
 const githubResponse = (url: string): Response | null => {
   if (!url.includes("api.github.com")) return null;
-  if (url.endsWith("/repos/mahara-apps/unitos-master"))
-    return Response.json({ is_template: true });
+  if (url.endsWith("/repos/mahara-apps/unitos-master")) return Response.json({ is_template: true });
   if (url.includes("/contents/supabase/baseline-snapshot/tools/delta_version.txt"))
     return Response.json({
       encoding: "base64",
@@ -763,7 +762,6 @@ describe("clientes de gestão", () => {
     expect(result.error).toContain("Instabilidade tempor");
     expect(result.error).not.toContain("permissão");
   });
-
 
   it("deploy client grava variáveis com upsert", async () => {
     const seen: string[] = [];
