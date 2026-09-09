@@ -1585,6 +1585,22 @@ function InstallationDetailPage() {
                 />
               </div>
             ))}
+            <div className="space-y-1.5 rounded-lg border border-border bg-muted/30 p-3">
+              <Label htmlFor="edit-token" className="text-xs">
+                Supabase Access Token do cliente
+              </Label>
+              <PasswordInput
+                id="edit-token"
+                value={editToken}
+                autoComplete="off"
+                placeholder="Deixe em branco para manter o token atual"
+                onChange={(e) => setEditToken(e.target.value)}
+              />
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                Guardado de forma cifrada. Em branco, o token que já está salvo continua valendo —
+                preencha só para trocar.
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setEditOpen(false)}>
