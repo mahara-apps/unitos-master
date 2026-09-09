@@ -282,13 +282,12 @@ export function JobsPanel({
   const currentTitle = currentJob?.name ?? "Tarefas";
 
   const currentJobTasks = useMemo(() => {
-    const base = openJobId ? (tasksByJob.get(openJobId) ?? []) : [];
+    const base = openJobId ? allTasks.filter((t) => (t.job_id ?? null) === openJobId) : [];
     return base.filter(
-      (t) =>
-        matchesVisibility(t, taskVisibility) &&
-        matchesDue(t.due_at, isItemDone(t), dueFilter),
+      (t) => matchesVisibility(t, taskVisibility) && matchesDue(t.due_at, isItemDone(t), dueFilter),
     );
-  }, [tasksByJob, openJobId, taskVisibility, dueFilter]);
+  }, [allTasks, openJobId, taskVisibility, dueFilter]);
+
   const openTasksCount = currentJobTasks.filter((t) => !t.done && t.status !== "done").length;
 
 
