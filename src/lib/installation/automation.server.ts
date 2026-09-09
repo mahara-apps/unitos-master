@@ -794,11 +794,17 @@ export function createCodeClient(input: {
     ...baseHeaders,
     authorization: `Bearer ${(input.masterToken ?? "").trim() || input.token}`,
   };
-  const readsMaster = (path: string) => path.startsWith(`/repos/${master}`);
+  /**
+   * Só LEITURA (GET) do repositório do MASTER usa o token do MASTER. Escritas
+   * em `/repos/{master}/generate` e `/forks` criam no destino e continuam com o
+   * token da instalação.
+   */
+  const readsMaster = (path: string, init?: RequestInit) =>
+    (init?.method ?? "GET").toUpperCase() === "GET" && path.startsWith(`/repos/${master}`);
   const rawApi = (path: string, init?: RequestInit) =>
     doFetch(`https://api.github.com${path}`, {
       ...init,
-      headers: readsMaster(path) ? masterHeaders : headers,
+      headers: readsMaster(path, init) ? masterHeaders : headers,
     });
 
   /**
