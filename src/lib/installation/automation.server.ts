@@ -2473,7 +2473,9 @@ export async function runAutomatedProvision(input: {
       await mark(
         "code",
         "running",
-        `publicando código em ${repo.slug} — ${published.changed ?? 0} arquivos nesta rodada (continua)`,
+        published.note
+          ? published.note
+          : `publicando código em ${repo.slug} — ${published.changed ?? 0} arquivos nesta rodada (continua)`,
       );
       return { result: "RUNNING", reasons: [], appUrl: null, urlSource: null, steps };
     }
@@ -3463,7 +3465,9 @@ export async function runAutomatedUpdate(input: {
       return fail("FAIL", published.error ?? `não foi possível publicar em ${repo.slug}`);
     }
     if (published.partial) {
-      const detail = `publicando código em ${repo.slug} — ${published.changed ?? 0} arquivos nesta rodada (continua)`;
+      const detail =
+        published.note ??
+        `publicando código em ${repo.slug} — ${published.changed ?? 0} arquivos nesta rodada (continua)`;
       await report(client, operation, "code", "running", detail);
       return { result: "PENDING", reasons: [detail] };
     }

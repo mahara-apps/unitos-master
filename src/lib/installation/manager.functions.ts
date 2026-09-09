@@ -1866,6 +1866,7 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
         database: { ok: false, detail: target.reason },
         deploy: { ok: false, detail: "dados da instalação incompletos" },
         code: { ok: false, detail: "dados da instalação incompletos" },
+        checks: [],
       };
     }
     if (!capability.available) {
@@ -1873,6 +1874,7 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
         database: { ok: false, detail: capability.blockedReasons.join(" | ") },
         deploy: { ok: false, detail: capability.blockedReasons.join(" | ") },
         code: { ok: false, detail: capability.blockedReasons.join(" | ") },
+        checks: [],
       };
     }
 
