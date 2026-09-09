@@ -453,7 +453,6 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-
 export function createManagementClient(input: {
   token: string;
   projectRef: string;
@@ -508,10 +507,11 @@ export function createManagementClient(input: {
       return last;
     },
     async keys() {
-      let last: { ok: boolean; publishableKey?: string; serviceRoleKey?: string; error?: string } = {
-        ok: false,
-        error: "sem resposta da Management API",
-      };
+      let last: { ok: boolean; publishableKey?: string; serviceRoleKey?: string; error?: string } =
+        {
+          ok: false,
+          error: "sem resposta da Management API",
+        };
       for (let attempt = 0; attempt < attempts; attempt++) {
         try {
           const res = await doFetch(`${base}/api-keys?reveal=true`, { headers });
@@ -540,7 +540,6 @@ export function createManagementClient(input: {
       }
       return last;
     },
-
   };
 }
 
@@ -756,6 +755,12 @@ export type CodeClient = {
 
 type TreeEntry = { path?: string; mode?: string; type?: string; sha?: string };
 
+const GITHUB_TRANSIENT_RETRY_MS = [1_000, 3_000] as const;
+
+function isRetryableGithubStatus(status: number): boolean {
+  return status === 429 || status === 502 || status === 503 || status === 504;
+}
+
 /**
  * Cliente GitHub do provisionamento. Publica o código do MASTER no repositório
  * DA INSTALAÇÃO — o MASTER é sempre a origem (template), nunca o destino.
@@ -785,7 +790,11 @@ export function createCodeClient(input: {
    * Recuo automático em limite de uso do GitHub (403/429 com Retry-After ou
    * cabeçalho de rate limit esgotado). Nunca espera mais que ~8s por tentativa.
    */
-  const api = async (path: string, init?: RequestInit): Promise<Response> => {
+  const api = async (
+    path: string,
+    init?: RequestInit,
+    retryTransient = false,
+  ): Promise<Response> => {
     let attempt = 0;
     for (;;) {
       const res = await rawApi(path, init);
@@ -793,9 +802,16 @@ export function createCodeClient(input: {
         (res.status === 403 || res.status === 429) &&
         (res.headers.get("retry-after") !== null ||
           res.headers.get("x-ratelimit-remaining") === "0");
-      if (!limited || attempt >= 2) return res;
+      const transient = retryTransient && isRetryableGithubStatus(res.status);
+      if ((!limited && !transient) || attempt >= GITHUB_TRANSIENT_RETRY_MS.length) return res;
       const retryAfter = Number(res.headers.get("retry-after") ?? "0");
-      const waitMs = Math.min(8000, Math.max(1000, (retryAfter || 2) * 1000));
+      const waitMs = Math.min(
+        8_000,
+        Math.max(
+          1_000,
+          retryAfter > 0 ? retryAfter * 1_000 : (GITHUB_TRANSIENT_RETRY_MS[attempt] ?? 3_000),
+        ),
+      );
       attempt += 1;
       await new Promise((r) => setTimeout(r, waitMs));
     }
@@ -803,6 +819,9 @@ export function createCodeClient(input: {
 
   const fail = async (res: Response, what: string) => {
     const text = await res.text().catch(() => "");
+    if (isRetryableGithubStatus(res.status)) {
+      return `Instabilidade temporária do GitHub (HTTP ${res.status}) ao ${what}. O progresso salvo será reaproveitado; tente novamente em alguns minutos.`;
+    }
     return `HTTP ${res.status} ao ${what} (${text.slice(0, 200)})`;
   };
 
@@ -1073,11 +1092,18 @@ export function createCodeClient(input: {
       try {
         await notify(2, "lendo a árvore do MASTER");
         const tree = async (repo: string, ref: string) => {
-          const res = await api(`/repos/${repo}/git/trees/${ref}?recursive=1`);
+          const res = await api(`/repos/${repo}/git/trees/${ref}?recursive=1`, undefined, true);
           if (!res.ok)
             return { ok: false as const, error: await fail(res, `ler a árvore de ${repo}`) };
-          const body = (await res.json().catch(() => ({}))) as { tree?: TreeEntry[] };
-          return { ok: true as const, entries: (body.tree ?? []).filter((e) => e.type === "blob") };
+          const body = (await res.json().catch(() => ({}))) as {
+            sha?: string;
+            tree?: TreeEntry[];
+          };
+          return {
+            ok: true as const,
+            rootSha: body.sha ?? null,
+            entries: (body.tree ?? []).filter((e) => e.type === "blob"),
+          };
         };
 
         const source = await tree(master, sha);
@@ -1152,15 +1178,6 @@ export function createCodeClient(input: {
           sha: null,
         }));
 
-        /** Árvore apontando direto para os SHAs do MASTER (template/fork). */
-        const sharedEntries = () =>
-          changed.map((file) => ({
-            path: file.path,
-            mode: file.mode ?? "100644",
-            type: "blob",
-            sha: file.sha,
-          }));
-
         /**
          * Cópia dos blobs para o destino, em paralelo controlado, com
          * checkpoint por lote e orçamento de tempo.
@@ -1185,7 +1202,7 @@ export function createCodeClient(input: {
                 cursor += 1;
                 const file = batch[index];
                 if (!file || batchError) return;
-                const blob = await api(`/repos/${master}/git/blobs/${file.sha}`);
+                const blob = await api(`/repos/${master}/git/blobs/${file.sha}`, undefined, true);
                 if (!blob.ok) {
                   batchError = await fail(blob, `ler ${file.path} do MASTER`);
                   return;
@@ -1194,13 +1211,17 @@ export function createCodeClient(input: {
                   content?: string;
                   encoding?: string;
                 };
-                const created = await api(`/repos/${target}/git/blobs`, {
-                  method: "POST",
-                  body: JSON.stringify({
-                    content: body.content ?? "",
-                    encoding: body.encoding ?? "base64",
-                  }),
-                });
+                const created = await api(
+                  `/repos/${target}/git/blobs`,
+                  {
+                    method: "POST",
+                    body: JSON.stringify({
+                      content: body.content ?? "",
+                      encoding: body.encoding ?? "base64",
+                    }),
+                  },
+                  true,
+                );
                 if (!created.ok) {
                   batchError = await fail(created, `publicar ${file.path} em ${target}`);
                   return;
@@ -1243,27 +1264,20 @@ export function createCodeClient(input: {
           return { ok: true, entries };
         };
 
-        // Caminho rápido: repositório gerado do template ou fork do MASTER já
-        // contém os objetos, então a árvore aponta direto para os SHAs do
-        // MASTER — 3 chamadas em vez de 2 por arquivo. A checagem usa uma
-        // amostra e só vale se TODOS os objetos amostrados existirem.
-        const samples = [0, 1, Math.floor(changed.length / 2), changed.length - 1]
-          .filter((i, at, all) => i >= 0 && all.indexOf(i) === at)
-          .map((i) => changed[i]?.sha)
-          .filter((s): s is string => Boolean(s));
-        let sharedObjects = samples.length > 0;
-        for (const candidate of samples) {
-          const check = await api(`/repos/${target}/git/blobs/${candidate}`);
-          if (!check.ok) {
-            sharedObjects = false;
-            break;
-          }
+        // Caminho rápido: template/fork compartilha a árvore raiz completa do
+        // MASTER. Reutilizá-la elimina o POST gigante de milhares de entradas e
+        // preserva o snapshot exato, inclusive remoções.
+        let sharedObjects = Boolean(source.rootSha);
+        if (source.rootSha) {
+          const check = await api(`/repos/${target}/git/trees/${source.rootSha}`, undefined, true);
+          sharedObjects = check.ok;
         }
 
         let entries: Array<Record<string, unknown>>;
+        let treeSha: string | null = sharedObjects ? source.rootSha : null;
         if (sharedObjects) {
           await notify(80, `${changed.length} arquivos reaproveitados do MASTER`);
-          entries = sharedEntries();
+          entries = [];
         } else {
           const copied = await copiedEntries();
           if (!copied.ok) return { ok: false, error: copied.error };
@@ -1273,37 +1287,34 @@ export function createCodeClient(input: {
 
         await notify(92, "montando a árvore do repositório");
         const buildTree = async (list: Array<Record<string, unknown>>) =>
-          api(`/repos/${target}/git/trees`, {
-            method: "POST",
-            body: JSON.stringify(
-              parent
-                ? { base_tree: parent, tree: [...list, ...removalEntries] }
-                : { tree: [...list, ...removalEntries] },
-            ),
-          });
+          api(
+            `/repos/${target}/git/trees`,
+            {
+              method: "POST",
+              body: JSON.stringify(
+                parent
+                  ? { base_tree: parent, tree: [...list, ...removalEntries] }
+                  : { tree: [...list, ...removalEntries] },
+              ),
+            },
+            true,
+          );
 
-        let newTree = await buildTree(entries);
-        if (!newTree.ok && sharedObjects && (newTree.status === 422 || newTree.status === 404)) {
-          // O repositório não compartilha os objetos do MASTER (fork ainda
-          // sincronizando ou repositório criado vazio): copia os blobs.
-          await notify(6, "objetos do MASTER indisponíveis; copiando arquivos");
-          const copied = await copiedEntries();
-          if (!copied.ok) return { ok: false, error: copied.error };
-          if ("partial" in copied) return copied;
-          entries = copied.entries;
-          newTree = await buildTree(entries);
+        if (!treeSha) {
+          const newTree = await buildTree(entries);
+          if (!newTree.ok)
+            return { ok: false, error: await fail(newTree, `montar a árvore de ${target}`) };
+          const treeJson = (await newTree.json().catch(() => ({}))) as { sha?: string };
+          treeSha = treeJson.sha ?? null;
         }
-        if (!newTree.ok)
-          return { ok: false, error: await fail(newTree, `montar a árvore de ${target}`) };
-
-        const treeJson = (await newTree.json().catch(() => ({}))) as { sha?: string };
+        if (!treeSha) return { ok: false, error: `árvore de ${target} não retornada` };
 
         await notify(96, "criando o commit da versão");
         const commit = await api(`/repos/${target}/git/commits`, {
           method: "POST",
           body: JSON.stringify({
             message: `Unitos: publicar versão do MASTER (${sha.slice(0, 7)})`,
-            tree: treeJson.sha,
+            tree: treeSha,
             parents: parent ? [parent] : [],
           }),
         });
@@ -3265,9 +3276,32 @@ export async function runAutomatedUpdate(input: {
     if (!ensured.ok) {
       return fail("BLOCKED", ensured.error ?? `repositório ${repo.slug} indisponível`);
     }
-    const published = await code.publishSnapshot(targetSha);
+    const reusableBlobs =
+      checkpoint.codeSourceSha === targetSha ? (checkpoint.codeBlobs ?? {}) : {};
+    await saveStageProgress(client, operation, {
+      codeSourceSha: targetSha,
+      codeBlobs: reusableBlobs,
+    });
+    const published = await code.publishSnapshot(targetSha, {
+      blobMap: reusableBlobs,
+      timeBudgetMs: 20_000,
+      onProgress: async (progress) => {
+        await report(client, operation, "code", "running", progress.detail, progress.percent);
+      },
+      onCheckpoint: async (blobMap) => {
+        await saveStageProgress(client, operation, {
+          codeSourceSha: targetSha,
+          codeBlobs: blobMap,
+        });
+      },
+    });
     if (!published.ok) {
       return fail("FAIL", published.error ?? `não foi possível publicar em ${repo.slug}`);
+    }
+    if (published.partial) {
+      const detail = `publicando código em ${repo.slug} — ${published.changed ?? 0} arquivos nesta rodada (continua)`;
+      await report(client, operation, "code", "running", detail);
+      return { result: "PENDING", reasons: [detail] };
     }
     buildRef = published.commitSha ?? null;
     changedFiles = typeof published.changed === "number" ? published.changed : null;
@@ -3275,6 +3309,7 @@ export async function runAutomatedUpdate(input: {
       codeDone: true,
       codeSha: targetSha,
       codeRepo: repo.slug,
+      codeBlobs: {},
     });
   }
 
