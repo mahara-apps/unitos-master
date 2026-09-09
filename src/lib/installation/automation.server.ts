@@ -543,7 +543,6 @@ export type DeployClient = {
     refused?: boolean;
   }>;
 
-
   /** Garante que o domínio definitivo esteja atribuído ao projeto de deploy. */
   ensureDomain: (
     domain: string,
@@ -597,6 +596,17 @@ export const DEFAULT_MASTER_REPO = "mahara-apps/unitos-master";
  */
 export const BUILD_MAX_MINUTES = 20;
 
+/**
+ * Reconhece as duas recusas da hospedagem que NÃO se resolvem esperando nem
+ * repetindo a chamada: repositório não resolvido pela API e política "somente
+ * publicação disparada pelo Git em produção". Em ambos a saída é publicar pelo
+ * push no repositório da instalação.
+ */
+export function isGitOnlyOrMissingRepo(text: string): boolean {
+  return /incorrect_git_source_info|repository can't be found|not allowed in production|only git deployments/i.test(
+    text ?? "",
+  );
+}
 
 /* ------------------------------------------------------------- GitHub API */
 
@@ -1497,9 +1507,9 @@ export function createDeployClient(input: {
               org?: string;
               productionBranch?: string;
               /**
-                * `true` = vínculo "sem fonte": o repositório aparece ligado, mas
-                * os pushes NÃO disparam publicação. Precisa religar.
-                */
+               * `true` = vínculo "sem fonte": o repositório aparece ligado, mas
+               * os pushes NÃO disparam publicação. Precisa religar.
+               */
               sourceless?: boolean;
             };
           };
@@ -1517,10 +1527,10 @@ export function createDeployClient(input: {
         // e a política "apenas Git em produção" tranca a atualização.
         const current = `${body.link?.org ?? ""}/${body.link?.repo ?? ""}`.toLowerCase();
         if (current !== targetRepo.toLowerCase() || body.link?.sourceless === true) {
-          const relinked = await client.linkRepository(targetRepo, { force: true });
-          if (!relinked.ok) {
-            return { ok: false, error: relinked.error };
-          }
+          // Religar pode falhar sem culpa da atualização (integração do GitHub
+          // não instalada na conta). Não abortamos: a publicação ainda funciona
+          // apontando a origem Git direto na chamada.
+          await client.linkRepository(targetRepo, { force: true });
           body = (await readProject()) ?? body;
         }
 
@@ -1528,18 +1538,36 @@ export function createDeployClient(input: {
         // a API da Vercel não consegue resolver o repositório (um push publica).
         await client.setAutoDeploy(true);
 
-
         const link = body.link;
-        const repoId = link?.repoId;
-        const org = (link?.org ?? "").trim();
-        const repoName = (link?.repo ?? "").trim();
-        if (!link?.type || (!repoId && !(org && repoName))) {
+        const [targetOrg = "", targetName = ""] = targetRepo.split("/");
+        const org = (link?.org ?? "").trim() || targetOrg.trim();
+        const repoName = (link?.repo ?? "").trim() || targetName.trim();
+        const type = link?.type || "github";
+        let repoId = link?.repoId;
+
+        // Sem vínculo utilizável, buscamos o id do repositório no GitHub. Isso
+        // mantém a atualização funcionando mesmo quando a hospedagem perdeu o
+        // vínculo (antes caía em "rebuild", que republica código ANTIGO).
+        if (!repoId && org && repoName && (input.githubToken ?? "").trim()) {
+          const gh = await doFetch(`https://api.github.com/repos/${org}/${repoName}`, {
+            headers: {
+              Authorization: `Bearer ${(input.githubToken ?? "").trim()}`,
+              Accept: "application/vnd.github+json",
+              "User-Agent": "unitos-installer",
+            },
+          }).catch(() => null);
+          if (gh?.ok) {
+            const ghBody = (await gh.json().catch(() => ({}))) as { id?: number };
+            if (ghBody.id) repoId = ghBody.id;
+          }
+        }
+
+        if (!org || !repoName) {
           const fallback = await client.redeploy();
           return { ...fallback, source: "rebuild" as const };
         }
-        const branch = (link.productionBranch ?? "main").trim() || "main";
+        const branch = (link?.productionBranch ?? "main").trim() || "main";
         const ref = (options?.sha ?? "").trim() || branch;
-        const type = link.type;
 
         // A Vercel aceita mais de uma forma de identificar a origem Git e nem
         // todas funcionam em todo projeto (repositório recriado, id antigo em
@@ -1563,6 +1591,9 @@ export function createDeployClient(input: {
               headers,
               body: JSON.stringify({
                 name: body.name ?? input.project,
+                // Amarrar ao projeto por id evita publicar em um projeto novo
+                // quando o vínculo do repositório está ausente.
+                ...(body.id ? { project: body.id } : {}),
                 target: "production",
                 gitSource,
               }),
@@ -1582,9 +1613,13 @@ export function createDeployClient(input: {
               error: "cota diária de deployments da Vercel esgotada (plano gratuito: 100/dia)",
             };
           }
-          if (/incorrect_git_source_info|repository can't be found/i.test(text)) {
+          // Repositório não resolvido OU política da conta que só aceita
+          // publicação disparada pelo Git: nos dois casos a saída é a mesma —
+          // publicar pelo push no repositório da instalação.
+          if (isGitOnlyOrMissingRepo(text)) {
             gitSourceUnavailable = true;
           }
+
           attempts.push(`HTTP ${created.status} (${text.slice(0, 160)})`);
         }
 
@@ -3257,7 +3292,6 @@ export async function runAutomatedUpdate(input: {
     });
   }
 
-
   if (deploymentSource === "rebuild") {
     await report(
       client,
@@ -3352,7 +3386,6 @@ export async function runAutomatedUpdate(input: {
     await saveStageProgress(client, operation, { updateDeploymentId: deploymentId });
     return { result: "PENDING", reasons: [`build em ${state}`] };
   }
-
 
   await report(client, operation, "build", "done", url ? `publicado em ${url}` : "publicado");
   const shortSha = targetSha ? targetSha.slice(0, 7) : null;
