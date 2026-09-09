@@ -455,11 +455,43 @@ function InstallationDetailPage() {
           gitRepoUrl: form.gitRepoUrl,
           deployProject: form.deployProject,
           notes: form.notes,
+          ...(editToken.trim() ? { supabaseManagementToken: editToken.trim() } : {}),
         },
       }),
     onSuccess: () => {
-      toast.success("Dados da instalação atualizados.");
+      toast.success(
+        editToken.trim()
+          ? "Dados e acesso do Supabase atualizados."
+          : "Dados da instalação atualizados.",
+      );
+      setEditToken("");
       setEditOpen(false);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: (confirmLabel: string) => removeFn({ data: { id, confirmLabel } }),
+    onSuccess: () => {
+      toast.success("Instalação removida do painel.");
+      void qc.invalidateQueries({ queryKey: ["installations"] });
+      void navigate({ to: "/admin/instalacoes" });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const serviceState = useMutation({
+    mutationFn: (input: { state: "active" | "suspended"; reason?: string; confirmLabel: string }) =>
+      serviceStateFn({ data: { id, ...input } }),
+    onSuccess: (_res, input) => {
+      toast.success(
+        input.state === "suspended"
+          ? "Ambiente suspenso. Só o Super Admin consegue entrar."
+          : "Ambiente reativado.",
+      );
+      setSuspendOpen(false);
+      setSuspendReason("");
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
