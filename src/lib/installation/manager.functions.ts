@@ -182,6 +182,15 @@ function mapOperation(row: any): InstallationOperationRecord {
   };
 }
 
+/**
+ * Credencial do MASTER para LER o código-fonte. O token da instalação fica só
+ * para gravar no repositório dela: separar as duas contas divide a cota de uso
+ * do GitHub e evita o 403 "API rate limit exceeded" durante a publicação.
+ */
+function masterGithubToken(): string {
+  return (process.env["UNITOS_GITHUB_TOKEN"] ?? "").trim();
+}
+
 async function guard(context: { supabase: unknown; userId: string }) {
   const { assertMasterInstallation } = await import("./manager.server");
   assertMasterInstallation();
@@ -1352,6 +1361,7 @@ export const getMasterVersionFn = createServerFn({ method: "GET" })
       const [owner, repo] = masterRepo.split("/");
       const code = createCodeClient({
         token: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
+        masterToken: masterGithubToken(),
         owner: owner ?? "",
         repo: repo ?? "",
         masterRepo,
@@ -1637,6 +1647,7 @@ export const syncInstallationVersionFn = createServerFn({ method: "POST" })
 
     const code = createCodeClient({
       token: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
+      masterToken: masterGithubToken(),
       owner: repo.owner,
       repo: repo.repo,
       masterRepo,
@@ -1855,6 +1866,7 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
         database: { ok: false, detail: target.reason },
         deploy: { ok: false, detail: "dados da instalação incompletos" },
         code: { ok: false, detail: "dados da instalação incompletos" },
+        checks: [],
       };
     }
     if (!capability.available) {
@@ -1862,6 +1874,7 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
         database: { ok: false, detail: capability.blockedReasons.join(" | ") },
         deploy: { ok: false, detail: capability.blockedReasons.join(" | ") },
         code: { ok: false, detail: capability.blockedReasons.join(" | ") },
+        checks: [],
       };
     }
 
@@ -1928,6 +1941,12 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
       gitRepoUrl: record.gitRepoUrl ?? null,
       masterRepo,
     });
+    const permissionChecks: Array<{
+      area: "database" | "deploy" | "code";
+      label: string;
+      ok: boolean;
+      detail: string;
+    }> = [];
     let code: { ok: boolean; detail: string } = {
       ok: false,
       detail: repo.ok ? "token do repositório não configurado" : repo.reason,
@@ -1936,18 +1955,32 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
     if (repo.ok && githubToken) {
       const client = createCodeClient({
         token: githubToken,
+        masterToken: masterGithubToken(),
         owner: repo.owner,
         repo: repo.repo,
         masterRepo,
       });
       const diagnosis = await client.diagnose();
       code = { ok: diagnosis.ok, detail: diagnosis.detail };
+      permissionChecks.push(...(await client.permissions()));
     }
 
     return {
       database,
       deploy: { ok: project.ok, detail: deployDetail },
       code,
+      // Lista permissão por permissão: o painel mostra exatamente o que falta.
+      checks: [
+        { area: "database" as const, label: "Banco e chaves do projeto", ...database },
+        {
+          area: "deploy" as const,
+          label: "Projeto de publicação",
+          ok: project.ok,
+          detail: deployDetail,
+        },
+        { area: "code" as const, label: "Repositório da instalação", ...code },
+        ...permissionChecks,
+      ],
     };
   });
 
@@ -2000,6 +2033,7 @@ export const adoptInstallationRepositoryFn = createServerFn({ method: "POST" })
 
     const code = createCodeClient({
       token: githubToken,
+      masterToken: masterGithubToken(),
       owner,
       repo: repoName,
       masterRepo,

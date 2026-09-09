@@ -311,3 +311,63 @@ describe("resiliência ao montar a árvore", () => {
     expect(res.error).not.toMatch(/token|credencial|permiss/i);
   }, 10_000);
 });
+
+describe("cota do GitHub e credencial do MASTER", () => {
+  const withMaster = (fetchImpl: unknown) =>
+    createCodeClient({
+      token: "gh-instalacao",
+      masterToken: "gh-master",
+      owner: "acme",
+      repo: "unitos-pitada",
+      masterRepo: "mahara-apps/unitos-master",
+      fetchImpl: fetchImpl as never,
+    });
+
+  it("lê o código do MASTER com a credencial do MASTER e grava no destino com a da instalação", async () => {
+    const seen: Array<{ url: string; auth: string | null; method: string }> = [];
+    const c = withMaster(async (url: string, init?: RequestInit) => {
+      const headers = new Headers(init?.headers as HeadersInit);
+      seen.push({
+        url,
+        auth: headers.get("authorization"),
+        method: (init?.method ?? "GET").toUpperCase(),
+      });
+      if (url.includes("/repos/acme/unitos-pitada")) return new Response("no", { status: 404 });
+      return Response.json({ full_name: "acme/unitos-pitada" });
+    });
+    await c.ensureRepo();
+    await c.permissions();
+    const masterRead = seen.find((s) => s.method === "GET" && s.url.includes("unitos-master"));
+    const generate = seen.find((s) => s.url.includes("/generate"));
+    expect(masterRead?.auth).toBe("Bearer gh-master");
+    expect(generate?.auth).toBe("Bearer gh-instalacao");
+  });
+
+  it("limite de uso do GitHub é explicado como cota, não como falta de permissão", async () => {
+    const reset = Math.floor(Date.now() / 1000) + 900;
+    const c = withMaster(
+      async () =>
+        new Response(JSON.stringify({ message: "API rate limit exceeded for user ID 1" }), {
+          status: 403,
+          headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": String(reset) },
+        }),
+    );
+    const checks = await c.permissions();
+    const detail = checks.map((check) => check.detail).join(" | ");
+    expect(detail).toContain("Limite de uso da API do GitHub");
+    expect(detail).not.toContain("HTTP 403 ao");
+  });
+
+  it("checagem de permissões cobre cota, acesso ao destino e leitura do MASTER", async () => {
+    const c = withMaster(async (url: string) => {
+      if (url.endsWith("/rate_limit"))
+        return Response.json({ resources: { core: { remaining: 4800, limit: 5000, reset: 0 } } });
+      if (url.endsWith("/user")) return Response.json({ login: "acme" });
+      return Response.json({ full_name: "x", permissions: { push: true, admin: true } });
+    });
+    const checks = await c.permissions();
+    expect(checks.length).toBeGreaterThanOrEqual(3);
+    expect(checks.every((check) => check.area === "code")).toBe(true);
+    expect(checks.every((check) => check.ok)).toBe(true);
+  });
+});

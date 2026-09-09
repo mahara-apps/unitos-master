@@ -690,6 +690,10 @@ export type PublishSnapshotResult = {
   ok: boolean;
   /** true quando o orçamento de tempo acabou: retomar continua de onde parou. */
   partial?: boolean;
+  /** ISO: quando a cota do GitHub volta. Só em pausa por limite de uso. */
+  waitUntil?: string | null;
+  /** Motivo legível da pausa (limite de uso), quando houver. */
+  note?: string;
   commitSha?: string;
   changed?: number;
   error?: string;
@@ -740,6 +744,11 @@ export type CodeClient = {
     canCreate?: boolean;
   }>;
   /**
+   * Permissões efetivas do token da instalação: leitura/gravação no repositório
+   * de destino, criação de repositório e quanto resta da cota de uso.
+   */
+  permissions: () => Promise<Array<{ label: string; ok: boolean; detail: string; area: "code" }>>;
+  /**
    * Publica no repositório da instalação exatamente a árvore do MASTER no
    * commit informado. Quando os objetos são compartilhados (template/fork), a
    * árvore é montada direto com os SHAs do MASTER — 3 chamadas. Caso contrário
@@ -771,24 +780,63 @@ export function createCodeClient(input: {
   repo: string;
   masterRepo?: string | null;
   branch?: string | null;
+  /**
+   * Token do MASTER. Toda LEITURA do repositório do MASTER usa esta credencial;
+   * o token da instalação fica só para gravar no repositório de destino. Sem
+   * essa separação, um único token acumula milhares de leituras por publicação
+   * e estoura o limite de uso por conta do GitHub (HTTP 403 "API rate limit").
+   */
+  masterToken?: string | null;
   fetchImpl?: Fetcher;
 }): CodeClient {
   const doFetch = input.fetchImpl ?? fetch;
   const master = (input.masterRepo ?? "").trim() || DEFAULT_MASTER_REPO;
   const branch = (input.branch ?? "").trim() || "main";
   const target = `${input.owner}/${input.repo}`;
-  const headers = {
-    authorization: `Bearer ${input.token}`,
+  const baseHeaders = {
     accept: "application/vnd.github+json",
     "content-type": "application/json",
     "user-agent": "unitos-installation-manager",
   };
+  const headers = { ...baseHeaders, authorization: `Bearer ${input.token}` };
+  const masterHeaders = {
+    ...baseHeaders,
+    authorization: `Bearer ${(input.masterToken ?? "").trim() || input.token}`,
+  };
+  /**
+   * Só LEITURA (GET) do repositório do MASTER usa o token do MASTER. Escritas
+   * em `/repos/{master}/generate` e `/forks` criam no destino e continuam com o
+   * token da instalação.
+   */
+  const readsMaster = (path: string, init?: RequestInit) =>
+    (init?.method ?? "GET").toUpperCase() === "GET" && path.startsWith(`/repos/${master}`);
   const rawApi = (path: string, init?: RequestInit) =>
-    doFetch(`https://api.github.com${path}`, { ...init, headers });
+    doFetch(`https://api.github.com${path}`, {
+      ...init,
+      headers: readsMaster(path, init) ? masterHeaders : headers,
+    });
 
   /**
-   * Recuo automático em limite de uso do GitHub (403/429 com Retry-After ou
-   * cabeçalho de rate limit esgotado). Nunca espera mais que ~8s por tentativa.
+   * Limite de uso do GitHub atingido. `resetAt` (epoch em segundos) diz quando
+   * a cota volta — pode ser até uma hora, então esperar dentro da requisição é
+   * inviável: a operação é devolvida como retomável.
+   */
+  let rateLimit: { resetAt: number | null } | null = null;
+
+  const rateLimitedResponse = (res: Response) => {
+    if (res.status !== 403 && res.status !== 429) return null;
+    const remaining = res.headers.get("x-ratelimit-remaining");
+    const retryAfter = Number(res.headers.get("retry-after") ?? "0");
+    if (remaining !== "0" && !(retryAfter > 0)) return null;
+    const reset = Number(res.headers.get("x-ratelimit-reset") ?? "0");
+    const resetAt =
+      reset > 0 ? reset : retryAfter > 0 ? Math.floor(Date.now() / 1000) + retryAfter : null;
+    return { resetAt };
+  };
+
+  /**
+   * Recuo automático em instabilidade e em limites curtos (Retry-After de
+   * poucos segundos). Nunca espera mais que ~8s por tentativa.
    */
   const api = async (
     path: string,
@@ -798,13 +846,15 @@ export function createCodeClient(input: {
     let attempt = 0;
     for (;;) {
       const res = await rawApi(path, init);
-      const limited =
-        (res.status === 403 || res.status === 429) &&
-        (res.headers.get("retry-after") !== null ||
-          res.headers.get("x-ratelimit-remaining") === "0");
-      const transient = retryTransient && isRetryableGithubStatus(res.status);
-      if ((!limited && !transient) || attempt >= GITHUB_TRANSIENT_RETRY_MS.length) return res;
+      const limited = rateLimitedResponse(res);
+      if (limited) rateLimit = limited;
       const retryAfter = Number(res.headers.get("retry-after") ?? "0");
+      // Cota principal esgotada (reset distante): não insiste — devolve para
+      // que a operação seja retomada quando a cota voltar.
+      const shortWait = retryAfter > 0 && retryAfter <= 8;
+      const transient = retryTransient && isRetryableGithubStatus(res.status);
+      const retryable = transient || (limited !== null && shortWait);
+      if (!retryable || attempt >= GITHUB_TRANSIENT_RETRY_MS.length) return res;
       const waitMs = Math.min(
         8_000,
         Math.max(
@@ -818,7 +868,18 @@ export function createCodeClient(input: {
   };
 
   const fail = async (res: Response, what: string) => {
+    const limited = rateLimitedResponse(res);
     const text = await res.text().catch(() => "");
+    if (limited || /api rate limit exceeded|secondary rate limit/i.test(text)) {
+      const resetAt = limited?.resetAt ?? null;
+      const when = resetAt ? ` A cota volta em ${formatDateTimeBr(new Date(resetAt * 1000))}.` : "";
+      return (
+        `Limite de uso da API do GitHub atingido ao ${what}.${when} ` +
+        `Não é problema de permissão: o progresso salvo é reaproveitado e a ` +
+        `operação é retomada automaticamente. Use um token do GitHub exclusivo ` +
+        `desta instalação para evitar disputa de cota.`
+      );
+    }
     if (isRetryableGithubStatus(res.status)) {
       return `Instabilidade temporária do GitHub (HTTP ${res.status}) ao ${what}. O progresso salvo será reaproveitado; tente novamente em alguns minutos.`;
     }
@@ -865,6 +926,81 @@ export function createCodeClient(input: {
         };
       } catch (e) {
         return { ok: false, detail: (e as Error).message };
+      }
+    },
+    async permissions() {
+      const checks: Array<{ label: string; ok: boolean; detail: string; area: "code" }> = [];
+      const push = (label: string, ok: boolean, detail: string) =>
+        checks.push({ label, ok, detail, area: "code" as const });
+      try {
+        const quota = await rawApi("/rate_limit");
+        if (quota.ok) {
+          const body = (await quota.json().catch(() => ({}))) as {
+            resources?: { core?: { remaining?: number; limit?: number; reset?: number } };
+          };
+          const core = body.resources?.core ?? {};
+          const remaining = core.remaining ?? 0;
+          push(
+            "Cota de uso do GitHub",
+            remaining > 500,
+            `${remaining}/${core.limit ?? "?"} chamadas restantes${
+              core.reset ? ` — renova em ${formatDateTimeBr(new Date(core.reset * 1000))}` : ""
+            }`,
+          );
+        } else {
+          push("Cota de uso do GitHub", false, await fail(quota, "consultar a cota do token"));
+        }
+
+        const login = await viewerLogin();
+        push(
+          "Token válido (leitura de metadados)",
+          Boolean(login),
+          login ? `token da conta ${login}` : "o token não foi aceito pelo GitHub",
+        );
+
+        const repoRes = await api(`/repos/${target}`);
+        if (repoRes.ok) {
+          const body = (await repoRes.json().catch(() => ({}))) as {
+            permissions?: { push?: boolean; admin?: boolean };
+          };
+          push(
+            "Gravação no repositório da instalação",
+            Boolean(body.permissions?.push),
+            body.permissions?.push
+              ? `${target} com permissão de gravação`
+              : `${target} acessível apenas para leitura — habilite Conteúdo: leitura e gravação`,
+          );
+        } else if (repoRes.status === 404) {
+          const isPersonal = login.toLowerCase() === input.owner.trim().toLowerCase();
+          const ownerRes = isPersonal ? null : await api(`/orgs/${input.owner}`);
+          const reaches = isPersonal || Boolean(ownerRes?.ok);
+          push(
+            "Criação do repositório da instalação",
+            reaches,
+            reaches
+              ? `${target} ainda não existe e será criado em ${input.owner}`
+              : `o token não alcança ${input.owner} — habilite Administração: leitura e gravação`,
+          );
+        } else {
+          push(
+            "Acesso ao repositório da instalação",
+            false,
+            await fail(repoRes, `consultar ${target}`),
+          );
+        }
+
+        const masterRes = await api(`/repos/${master}`);
+        push(
+          "Leitura do código do MASTER",
+          masterRes.ok,
+          masterRes.ok
+            ? `${master} acessível com a credencial do MASTER`
+            : await fail(masterRes, `ler ${master}`),
+        );
+        return checks;
+      } catch (e) {
+        push("Repositório", false, (e as Error).message);
+        return checks;
       }
     },
     async ensureRepo() {
@@ -1183,7 +1319,13 @@ export function createCodeClient(input: {
          * checkpoint por lote e orçamento de tempo.
          */
         const copiedEntries = async (): Promise<
-          | { ok: true; partial: true; changed: number }
+          | {
+              ok: true;
+              partial: true;
+              changed: number;
+              waitUntil?: string | null;
+              note?: string;
+            }
           | { ok: true; entries: Array<Record<string, unknown>> }
           | { ok: false; error: string }
         > => {
@@ -1241,6 +1383,19 @@ export function createCodeClient(input: {
             );
             if (batchError) {
               await checkpoint();
+              // Limite de uso do GitHub não é falha: devolve retomável com o
+              // horário de liberação; o progresso já copiado é preservado.
+              if (rateLimit) {
+                return {
+                  ok: true,
+                  partial: true,
+                  changed: copied,
+                  waitUntil: rateLimit.resetAt
+                    ? new Date(rateLimit.resetAt * 1000).toISOString()
+                    : null,
+                  note: batchError,
+                };
+              }
               return { ok: false, error: batchError };
             }
             await checkpoint();
@@ -2186,6 +2341,9 @@ export async function runAutomatedProvision(input: {
   const managementToken = (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim();
   const deployToken = (env["UNITOS_VERCEL_TOKEN"] ?? "").trim();
   const githubToken = (env["UNITOS_GITHUB_TOKEN"] ?? "").trim();
+  // Leitura do MASTER usa sempre a credencial do MASTER: divide a cota de uso
+  // do GitHub e evita o 403 "API rate limit" no token da instalação.
+  const masterGithubToken = (process.env["UNITOS_GITHUB_TOKEN"] ?? "").trim() || githubToken;
   const teamId = (env["UNITOS_VERCEL_TEAM_ID"] ?? "").trim() || null;
 
   const management = createManagementClient({
@@ -2195,6 +2353,7 @@ export async function runAutomatedProvision(input: {
   });
   const code = createCodeClient({
     token: githubToken,
+    masterToken: masterGithubToken,
     owner: repo.owner,
     repo: repo.repo,
     masterRepo,
@@ -2312,7 +2471,9 @@ export async function runAutomatedProvision(input: {
       await mark(
         "code",
         "running",
-        `publicando código em ${repo.slug} — ${published.changed ?? 0} arquivos nesta rodada (continua)`,
+        published.note
+          ? published.note
+          : `publicando código em ${repo.slug} — ${published.changed ?? 0} arquivos nesta rodada (continua)`,
       );
       return { result: "RUNNING", reasons: [], appUrl: null, urlSource: null, steps };
     }
@@ -3210,6 +3371,9 @@ export async function runAutomatedUpdate(input: {
   });
   const code = createCodeClient({
     token: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
+    masterToken:
+      (process.env["UNITOS_GITHUB_TOKEN"] ?? "").trim() ||
+      (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
     owner: repo.owner,
     repo: repo.repo,
     masterRepo,
@@ -3299,7 +3463,9 @@ export async function runAutomatedUpdate(input: {
       return fail("FAIL", published.error ?? `não foi possível publicar em ${repo.slug}`);
     }
     if (published.partial) {
-      const detail = `publicando código em ${repo.slug} — ${published.changed ?? 0} arquivos nesta rodada (continua)`;
+      const detail =
+        published.note ??
+        `publicando código em ${repo.slug} — ${published.changed ?? 0} arquivos nesta rodada (continua)`;
       await report(client, operation, "code", "running", detail);
       return { result: "PENDING", reasons: [detail] };
     }
