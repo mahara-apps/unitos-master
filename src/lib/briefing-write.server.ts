@@ -131,13 +131,13 @@ export async function writeCanonicalBriefing(
     label: args.label ?? null,
   });
 
-
   return {
     hub: next as BrandHubData,
     completion,
     changedFields,
-    versionId: (version as { id?: string } | null)?.id ?? null,
+    versionId,
   };
+
 }
 
 /** Transição de status do briefing, registrando snapshot para auditoria. */
