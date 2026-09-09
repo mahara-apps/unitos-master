@@ -2217,7 +2217,7 @@ export async function runAutomatedProvision(input: {
         currentGroup = file.id;
         await mark(file.id, "running", null, groupPercent(file.id, 0));
       }
-      if (progress[file.label] === DONE) {
+      if (progress[file.key] === DONE) {
         groupDone[file.id] = (groupDone[file.id] ?? 0) + 1;
         await mark(
           file.id,
@@ -2231,7 +2231,7 @@ export async function runAutomatedProvision(input: {
       // A Management API executa como `postgres` (não superusuário): comandos
       // exclusivos de superusuário do dump são removidos antes de enviar.
       const prepared = sanitizeBaselineSqlForManagementApi(file.sql);
-      const alreadyApplied = progress[file.label] ?? 0;
+      const alreadyApplied = progress[file.key] ?? 0;
       // Nunca envie o arquivo inteiro em uma única chamada. Além de não gerar
       // heartbeat durante sua execução, 001 (530 KB) e 007 podiam exceder a vida
       // do runtime. O mesmo caminho curto/idempotente vale para primeira execução
@@ -2244,7 +2244,7 @@ export async function runAutomatedProvision(input: {
           ? { maxStatements: input.maxStatementsPerInvocation }
           : {}),
         onProgress: async (processed, total) => {
-          progress[file.label] = processed;
+          progress[file.key] = processed;
           await saveBaselineProgress(client, operation, progress);
           const percent = Math.min(99, Math.round((processed / Math.max(total, 1)) * 100));
           const action = alreadyApplied > 0 ? "retomando aplicação" : "aplicando";
@@ -2258,7 +2258,7 @@ export async function runAutomatedProvision(input: {
       });
       if (!perStatement.ok) {
         if (typeof perStatement.processed === "number" && perStatement.processed > 0) {
-          progress[file.label] = perStatement.processed;
+          progress[file.key] = perStatement.processed;
           await saveBaselineProgress(client, operation, progress);
         }
         failures.push(`${file.label}: ${perStatement.error ?? "falha ao aplicar"}`);
@@ -2279,7 +2279,7 @@ export async function runAutomatedProvision(input: {
           steps,
         };
       }
-      progress[file.label] = DONE;
+      progress[file.key] = DONE;
       groupDone[file.id] = (groupDone[file.id] ?? 0) + 1;
       await saveBaselineProgress(client, operation, progress);
     }
