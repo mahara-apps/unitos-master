@@ -930,6 +930,81 @@ export function createCodeClient(input: {
         return { ok: false, detail: (e as Error).message };
       }
     },
+    async permissions() {
+      const checks: Array<{ label: string; ok: boolean; detail: string; area: "code" }> = [];
+      const push = (label: string, ok: boolean, detail: string) =>
+        checks.push({ label, ok, detail, area: "code" as const });
+      try {
+        const quota = await rawApi("/rate_limit");
+        if (quota.ok) {
+          const body = (await quota.json().catch(() => ({}))) as {
+            resources?: { core?: { remaining?: number; limit?: number; reset?: number } };
+          };
+          const core = body.resources?.core ?? {};
+          const remaining = core.remaining ?? 0;
+          push(
+            "Cota de uso do GitHub",
+            remaining > 500,
+            `${remaining}/${core.limit ?? "?"} chamadas restantes${
+              core.reset ? ` — renova em ${formatDateTimeBr(new Date(core.reset * 1000))}` : ""
+            }`,
+          );
+        } else {
+          push("Cota de uso do GitHub", false, await fail(quota, "consultar a cota do token"));
+        }
+
+        const login = await viewerLogin();
+        push(
+          "Token válido (leitura de metadados)",
+          Boolean(login),
+          login ? `token da conta ${login}` : "o token não foi aceito pelo GitHub",
+        );
+
+        const repoRes = await api(`/repos/${target}`);
+        if (repoRes.ok) {
+          const body = (await repoRes.json().catch(() => ({}))) as {
+            permissions?: { push?: boolean; admin?: boolean };
+          };
+          push(
+            "Gravação no repositório da instalação",
+            Boolean(body.permissions?.push),
+            body.permissions?.push
+              ? `${target} com permissão de gravação`
+              : `${target} acessível apenas para leitura — habilite Conteúdo: leitura e gravação`,
+          );
+        } else if (repoRes.status === 404) {
+          const isPersonal = login.toLowerCase() === input.owner.trim().toLowerCase();
+          const ownerRes = isPersonal ? null : await api(`/orgs/${input.owner}`);
+          const reaches = isPersonal || Boolean(ownerRes?.ok);
+          push(
+            "Criação do repositório da instalação",
+            reaches,
+            reaches
+              ? `${target} ainda não existe e será criado em ${input.owner}`
+              : `o token não alcança ${input.owner} — habilite Administração: leitura e gravação`,
+          );
+        } else {
+          push(
+            "Acesso ao repositório da instalação",
+            false,
+            await fail(repoRes, `consultar ${target}`),
+          );
+        }
+
+        const masterRes = await api(`/repos/${master}`);
+        push(
+          "Leitura do código do MASTER",
+          masterRes.ok,
+          masterRes.ok
+            ? `${master} acessível com a credencial do MASTER`
+            : await fail(masterRes, `ler ${master}`),
+        );
+        return checks;
+      } catch (e) {
+        push("Repositório", false, (e as Error).message);
+        return checks;
+      }
+    },
     async ensureRepo() {
       try {
         const existing = await api(`/repos/${target}`);
