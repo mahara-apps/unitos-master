@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { AlertTriangle, Loader2, Plus, RefreshCw, Search, Server } from "lucide-react";
+import { AlertTriangle, KeyRound, Loader2, Plus, RefreshCw, Search, Server } from "lucide-react";
 
 import {
   createInstallationFn,
@@ -110,6 +110,7 @@ function AdminInstallationsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const goToCredentialsRef = useRef(false);
 
   const create = useMutation({
     mutationFn: () => {
@@ -134,10 +135,12 @@ function AdminInstallationsPage() {
       setForm(EMPTY_FORM);
       setCreateOpen(false);
       void qc.invalidateQueries({ queryKey: ["installations"] });
+      const goCreds = goToCredentialsRef.current;
+      goToCredentialsRef.current = false;
       void navigate({
         to: "/admin/instalacoes/$id",
         params: { id: record.id },
-        search: { novo: true },
+        search: goCreds ? { novo: true, tab: "acessos" } : { novo: true },
       });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -374,9 +377,32 @@ function AdminInstallationsPage() {
             <Button variant="ghost" size="sm" onClick={() => setCreateOpen(false)}>
               Cancelar
             </Button>
-            <Button size="sm" onClick={() => create.mutate()} disabled={create.isPending}>
+            <Button
+              size="sm"
+              onClick={() => {
+                goToCredentialsRef.current = false;
+                create.mutate();
+              }}
+              disabled={create.isPending}
+            >
               {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Cadastrar
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                goToCredentialsRef.current = true;
+                create.mutate();
+              }}
+              disabled={create.isPending}
+            >
+              {create.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <KeyRound className="mr-2 h-4 w-4" />
+              )}
+              Cadastrar e configurar acessos
             </Button>
           </DialogFooter>
         </DialogContent>
