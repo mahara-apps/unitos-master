@@ -1939,6 +1939,12 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
       gitRepoUrl: record.gitRepoUrl ?? null,
       masterRepo,
     });
+    const permissionChecks: Array<{
+      area: "database" | "deploy" | "code";
+      label: string;
+      ok: boolean;
+      detail: string;
+    }> = [];
     let code: { ok: boolean; detail: string } = {
       ok: false,
       detail: repo.ok ? "token do repositório não configurado" : repo.reason,
@@ -1954,12 +1960,25 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
       });
       const diagnosis = await client.diagnose();
       code = { ok: diagnosis.ok, detail: diagnosis.detail };
+      permissionChecks.push(...(await client.permissions()));
     }
 
     return {
       database,
       deploy: { ok: project.ok, detail: deployDetail },
       code,
+      // Lista permissão por permissão: o painel mostra exatamente o que falta.
+      checks: [
+        { area: "database" as const, label: "Banco e chaves do projeto", ...database },
+        {
+          area: "deploy" as const,
+          label: "Projeto de publicação",
+          ok: project.ok,
+          detail: deployDetail,
+        },
+        { area: "code" as const, label: "Repositório da instalação", ...code },
+        ...permissionChecks,
+      ],
     };
   });
 
