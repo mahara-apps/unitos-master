@@ -771,20 +771,35 @@ export function createCodeClient(input: {
   repo: string;
   masterRepo?: string | null;
   branch?: string | null;
+  /**
+   * Token do MASTER. Toda LEITURA do repositório do MASTER usa esta credencial;
+   * o token da instalação fica só para gravar no repositório de destino. Sem
+   * essa separação, um único token acumula milhares de leituras por publicação
+   * e estoura o limite de uso por conta do GitHub (HTTP 403 "API rate limit").
+   */
+  masterToken?: string | null;
   fetchImpl?: Fetcher;
 }): CodeClient {
   const doFetch = input.fetchImpl ?? fetch;
   const master = (input.masterRepo ?? "").trim() || DEFAULT_MASTER_REPO;
   const branch = (input.branch ?? "").trim() || "main";
   const target = `${input.owner}/${input.repo}`;
-  const headers = {
-    authorization: `Bearer ${input.token}`,
+  const baseHeaders = {
     accept: "application/vnd.github+json",
     "content-type": "application/json",
     "user-agent": "unitos-installation-manager",
   };
+  const headers = { ...baseHeaders, authorization: `Bearer ${input.token}` };
+  const masterHeaders = {
+    ...baseHeaders,
+    authorization: `Bearer ${(input.masterToken ?? "").trim() || input.token}`,
+  };
+  const readsMaster = (path: string) => path.startsWith(`/repos/${master}`);
   const rawApi = (path: string, init?: RequestInit) =>
-    doFetch(`https://api.github.com${path}`, { ...init, headers });
+    doFetch(`https://api.github.com${path}`, {
+      ...init,
+      headers: readsMaster(path) ? masterHeaders : headers,
+    });
 
   /**
    * Recuo automático em limite de uso do GitHub (403/429 com Retry-After ou
