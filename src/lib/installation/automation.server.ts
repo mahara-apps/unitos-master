@@ -2355,6 +2355,7 @@ export async function runAutomatedProvision(input: {
   });
   const code = createCodeClient({
     token: githubToken,
+    masterToken: masterGithubToken,
     owner: repo.owner,
     repo: repo.repo,
     masterRepo,
@@ -3370,6 +3371,9 @@ export async function runAutomatedUpdate(input: {
   });
   const code = createCodeClient({
     token: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
+    masterToken:
+      (process.env["UNITOS_GITHUB_TOKEN"] ?? "").trim() ||
+      (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
     owner: repo.owner,
     repo: repo.repo,
     masterRepo,

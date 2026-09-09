@@ -1352,6 +1352,7 @@ export const getMasterVersionFn = createServerFn({ method: "GET" })
       const [owner, repo] = masterRepo.split("/");
       const code = createCodeClient({
         token: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
+        masterToken: masterGithubToken(),
         owner: owner ?? "",
         repo: repo ?? "",
         masterRepo,
@@ -1637,6 +1638,7 @@ export const syncInstallationVersionFn = createServerFn({ method: "POST" })
 
     const code = createCodeClient({
       token: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
+      masterToken: masterGithubToken(),
       owner: repo.owner,
       repo: repo.repo,
       masterRepo,
@@ -1936,6 +1938,7 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
     if (repo.ok && githubToken) {
       const client = createCodeClient({
         token: githubToken,
+        masterToken: masterGithubToken(),
         owner: repo.owner,
         repo: repo.repo,
         masterRepo,
@@ -2000,6 +2003,7 @@ export const adoptInstallationRepositoryFn = createServerFn({ method: "POST" })
 
     const code = createCodeClient({
       token: githubToken,
+      masterToken: masterGithubToken(),
       owner,
       repo: repoName,
       masterRepo,
