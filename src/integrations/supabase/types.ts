@@ -4880,6 +4880,11 @@ export type Database = {
           login_logo_url: string | null
           logo_dark_url: string | null
           logo_url: string | null
+          service_changed_at: string | null
+          service_changed_by: string | null
+          service_message: string | null
+          service_state: string
+          service_until: string | null
           updated_at: string
         }
         Insert: {
@@ -4892,6 +4897,11 @@ export type Database = {
           login_logo_url?: string | null
           logo_dark_url?: string | null
           logo_url?: string | null
+          service_changed_at?: string | null
+          service_changed_by?: string | null
+          service_message?: string | null
+          service_state?: string
+          service_until?: string | null
           updated_at?: string
         }
         Update: {
@@ -4904,6 +4914,11 @@ export type Database = {
           login_logo_url?: string | null
           logo_dark_url?: string | null
           logo_url?: string | null
+          service_changed_at?: string | null
+          service_changed_by?: string | null
+          service_message?: string | null
+          service_state?: string
+          service_until?: string | null
           updated_at?: string
         }
         Relationships: []

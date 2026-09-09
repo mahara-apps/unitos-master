@@ -242,6 +242,20 @@ WITH checks AS (
   UNION ALL
 
   -- BYOK: instalações novas guardam o Supabase Access Token do próprio cliente.
+  -- Estado operacional: aviso de atualização e suspensão do ambiente.
+  SELECT 53, 'Ambiente: estado operacional (atualização/suspensão) registrado',
+         CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public'
+                              AND table_name = 'installation'
+                              AND column_name = 'service_state')
+              THEN 'coluna presente' ELSE 'coluna ausente' END,
+         CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public'
+                              AND table_name = 'installation'
+                              AND column_name = 'service_state')
+              THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
+
   SELECT 52, 'Instalações: acesso próprio do Supabase (BYOK) registrado',
          CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns
                             WHERE table_schema = 'public'

@@ -358,13 +358,39 @@ export const createInstallationFn = createServerFn({ method: "POST" })
     return mapInstallation(row);
   });
 
+/**
+ * Edição dos dados. O Supabase Access Token é opcional aqui: campo vazio
+ * MANTÉM o token já guardado (nunca apaga por descuido). Se a gravação cifrada
+ * falhar, nada é alterado — o cadastro não fica pela metade.
+ */
+const UpdateInput = UpsertInput.extend({
+  id: z.string().uuid(),
+  supabaseManagementToken: z.string().max(4096).optional(),
+});
+
 export const updateInstallationFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => UpsertInput.extend({ id: z.string().uuid() }).parse(input))
+  .inputValidator((input: unknown) => UpdateInput.parse(input))
   .handler(async ({ data, context }) => {
     await guard(context);
     const validation = validateInstallationInput(data);
     if (!validation.ok) throw new Error(validation.error);
+
+    const token = (data.supabaseManagementToken ?? "").trim();
+    if (token) {
+      const { saveInstallationCredentials } = await import("./credentials.server");
+      try {
+        await saveInstallationCredentials(context.supabase as never, data.id, context.userId, {
+          supabaseManagementToken: token,
+        } as never);
+      } catch (e) {
+        throw new Error(
+          `Não foi possível guardar o Supabase Access Token com segurança, então nada foi alterado. ${
+            e instanceof Error ? e.message : String(e)
+          }`,
+        );
+      }
+    }
 
     const { data: row, error } = await context.supabase
       .from("installations")
@@ -426,6 +452,90 @@ export const deleteInstallationFn = createServerFn({ method: "POST" })
     const { error } = await context.supabase.from("installations").delete().eq("id", data.id);
     if (error) throw error;
     return { ok: true as const };
+  });
+
+/**
+ * Suspende / reativa o ambiente do cliente.
+ *
+ * Escreve o estado no banco do PRÓPRIO ambiente (singleton `installation`):
+ * é lá que a tela do cliente lê. Suspenso = ninguém entra, exceto o Super
+ * Admin daquele ambiente. Nenhum dado é apagado.
+ */
+export const setInstallationServiceStateFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        state: z.enum(["active", "suspended"]),
+        reason: z.string().max(500).optional(),
+        confirmLabel: z.string().min(1),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await guard(context);
+    const suspend = data.state === "suspended";
+    const reason = (data.reason ?? "").trim();
+    if (suspend && !reason) throw new Error("Informe o motivo da suspensão.");
+
+    await assertCriticalInstallationConfirm(
+      context,
+      data.id,
+      data.confirmLabel,
+      suspend ? "installation.suspend" : "installation.resume",
+      { state: data.state, reason: reason || null },
+    );
+
+    const { data: current, error: readError } = await context.supabase
+      .from("installations")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (readError) throw readError;
+    if (!current) throw new Error("Instalação não encontrada.");
+    const record = mapInstallation(current);
+    if (!record.supabaseProjectRef) {
+      throw new Error("A instalação não tem o projeto do Supabase configurado.");
+    }
+
+    const { resolveInstallationEnv } = await import("./credentials.server");
+    const env = await resolveInstallationEnv(context.supabase as never, data.id);
+    const token = (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim();
+    if (!token) {
+      throw new Error(
+        "Nenhum Supabase Access Token disponível para esta instalação. Cadastre o token do cliente em “Editar dados” e tente de novo.",
+      );
+    }
+
+    const { createManagementClient } = await import("./automation.server");
+    const { buildServiceStateSql } = await import("./service-state.server");
+    const management = createManagementClient({ token, projectRef: record.supabaseProjectRef });
+    const res = await management.query(
+      buildServiceStateSql({
+        state: data.state,
+        message: suspend ? reason : null,
+        untilIso: null,
+        actor: context.userId,
+      }),
+    );
+    if (!res.ok) {
+      throw new Error(
+        `Não foi possível ${suspend ? "suspender" : "reativar"} o ambiente: ${res.error ?? "falha ao falar com o banco da instalação"}`,
+      );
+    }
+
+    await context.supabase.from("installation_operations").insert({
+      installation_id: data.id,
+      kind: "register",
+      status: "success",
+      summary: suspend ? `Ambiente suspenso: ${reason}` : "Ambiente reativado.",
+      detail: { serviceState: data.state },
+      actor_id: context.userId,
+      finished_at: new Date().toISOString(),
+    });
+
+    return { ok: true as const, state: data.state };
   });
 
 const StartInput = z.object({
@@ -1374,6 +1484,40 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
 
     const { runAutomatedUpdate } = await import("./automation.server");
     const { waitUntil } = await import("@/lib/wait-until.server");
+    const { createManagementClient } = await import("./automation.server");
+    const { buildServiceStateSql } = await import("./service-state.server");
+
+    /**
+     * Aviso no ambiente do cliente: durante a atualização o banco muda e o
+     * site é republicado. A faixa fica no topo e a gravação é bloqueada. O
+     * `service_until` é rede de segurança: se a operação for interrompida, o
+     * aviso expira sozinho e o ambiente nunca fica travado.
+     */
+    const setServiceState = async (state: "maintenance" | "active") => {
+      const token = (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim();
+      if (!token || !record.supabaseProjectRef) return;
+      try {
+        const management = createManagementClient({
+          token,
+          projectRef: record.supabaseProjectRef,
+        });
+        await management.query(
+          buildServiceStateSql({
+            state,
+            message:
+              state === "maintenance" ? "Atualização em andamento — evite salvar agora." : null,
+            untilIso:
+              state === "maintenance" ? new Date(Date.now() + 30 * 60_000).toISOString() : null,
+            actor: context.userId,
+          }),
+        );
+      } catch {
+        // Aviso é best-effort: nunca impede a atualização.
+      }
+    };
+
+    await setServiceState("maintenance");
+
     waitUntil(
       runAutomatedUpdate({
         client: supabase as never,
@@ -1388,15 +1532,23 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
           deployProject: record.deployProject,
           gitRepoUrl: record.gitRepoUrl,
         },
-      }).catch(async (error: unknown) => {
-        const { finalizeOperation } = await import("./runner.server");
-        const message = error instanceof Error ? error.message : "falha inesperada na atualização";
-        await finalizeOperation(supabase as never, op as never, {
-          ok: false,
-          summary: `FAIL: ${message}`,
-          errorKind: "unexpected_error",
-        });
-      }),
+      })
+        .then(async (outcome: { result: string }) => {
+          // PENDING = o watchdog retoma a MESMA operação: manter o aviso.
+          if (outcome?.result !== "PENDING") await setServiceState("active");
+          return outcome;
+        })
+        .catch(async (error: unknown) => {
+          const { finalizeOperation } = await import("./runner.server");
+          const message =
+            error instanceof Error ? error.message : "falha inesperada na atualização";
+          await finalizeOperation(supabase as never, op as never, {
+            ok: false,
+            summary: `FAIL: ${message}`,
+            errorKind: "unexpected_error",
+          });
+          await setServiceState("active");
+        }),
     );
 
     return { result: "STARTED" as const, operationId: op.id as string, reasons: [] as string[] };
