@@ -39,6 +39,9 @@ type ClientRow = {
 };
 
 type AnyClient = {
+  // O cliente admin é convertido nesta borda porque as consultas abaixo
+  // operam sobre tabelas conhecidas, mas compartilham um formato mínimo.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   from: (table: string) => any;
   rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
 };
@@ -240,10 +243,18 @@ export const createPortalContactFn = createServerFn({ method: "POST" })
       }
       const newUserId = created.user.id;
 
-      await admin
-        .from("user_profiles")
-        .update({ requires_password_change: true, full_name: fullName })
-        .eq("id", newUserId);
+      try {
+        const { ensureUserProfile } = await import("@/lib/user-profile.server");
+        await ensureUserProfile(supabaseAdmin, {
+          userId: newUserId,
+          email,
+          fullName,
+          requiresPasswordChange: true,
+        });
+      } catch (error) {
+        await supabaseAdmin.auth.admin.deleteUser(newUserId);
+        throw error;
+      }
 
       const { error: cmErr } = await admin.from("client_members").insert({
         brand_id: client.brand_id,
