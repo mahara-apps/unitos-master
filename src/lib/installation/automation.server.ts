@@ -429,9 +429,30 @@ function managementApiError(status: number, body: string, operation: "database" 
   if (status === 404) {
     return "Projeto Supabase não encontrado para este token. Confira a URL e o Project ref da instalação.";
   }
+  if (status === 429) {
+    return "A Management API do Supabase está limitando as chamadas (HTTP 429). Aguarde alguns minutos e tente novamente — a credencial está correta.";
+  }
+  if (status >= 500) {
+    return (
+      `Instabilidade temporária do Supabase (HTTP ${status}). ` +
+      "Isso não é problema da credencial nem do token: tentamos novamente automaticamente e ainda assim não houve resposta. Repita a operação em alguns minutos."
+    );
+  }
   const detail = body.trim().slice(0, 300);
   return `HTTP ${status}${detail ? ` ${detail}` : ""}`;
 }
+
+/** Status que valem nova tentativa: instabilidade/limite do lado do Supabase. */
+export function isRetryableManagementStatus(status: number): boolean {
+  return status === 429 || status === 408 || status >= 500;
+}
+
+const RETRY_DELAYS_MS = [1_000, 3_000, 7_000];
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 
 export function createManagementClient(input: {
   token: string;
