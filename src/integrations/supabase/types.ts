@@ -2105,6 +2105,7 @@ export type Database = {
           completion: number
           created_at: string
           id: string
+          label: string | null
           origin: string
           snapshot: Json
           status: string
@@ -2117,6 +2118,7 @@ export type Database = {
           completion?: number
           created_at?: string
           id?: string
+          label?: string | null
           origin?: string
           snapshot?: Json
           status?: string
@@ -2129,6 +2131,7 @@ export type Database = {
           completion?: number
           created_at?: string
           id?: string
+          label?: string | null
           origin?: string
           snapshot?: Json
           status?: string

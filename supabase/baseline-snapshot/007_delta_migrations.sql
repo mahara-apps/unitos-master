@@ -4429,3 +4429,8 @@ BEGIN
   END IF;
 END;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- 20260909142218_c1bb2c1a-1a99-45fc-8e9a-99e38a5cca87.sql
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.brand_briefing_versions ADD COLUMN IF NOT EXISTS label text;
