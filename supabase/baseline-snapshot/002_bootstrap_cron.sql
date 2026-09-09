@@ -38,9 +38,9 @@ DECLARE
     jsonb_build_array('ai-models-health-daily',    '20 3 * * *',   '/api/public/hooks/ai-models-health'),
     -- Importacao de briefing: consumidor da fila + reaper de runs travadas
     jsonb_build_array('briefing-import-worker',    '* * * * *',    '/api/public/cron/import-worker'),
-    jsonb_build_array('briefing-import-reaper',    '*/2 * * * *',  '/api/public/cron/import-reaper'),
-    -- Retomada da escrita de legendas (peças sem copy / falhas retentáveis)
-    jsonb_build_array('post-content-resume',       '* * * * *',    '/api/public/hooks/resume-post-content')
+    jsonb_build_array('briefing-import-reaper',    '*/2 * * * *',  '/api/public/cron/import-reaper')
+    -- Legendas: sem job fixo. O trigger post_copy_queue_notify avisa na hora e,
+    -- se preciso, agenda 'post-content-drain' (*/5) só enquanto houver fila.
 
   );
   v_job jsonb;
