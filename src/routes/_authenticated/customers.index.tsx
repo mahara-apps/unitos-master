@@ -109,6 +109,12 @@ type ClientRow = {
 
 const ANY = "__any";
 
+/** Fonte única do estado de briefing (src/lib/briefing-alert.ts). */
+function briefingPending(c: ClientRow) {
+  return !isBriefingConcluded(c.briefing_status, c.briefing_completion ?? 0);
+}
+
+
 function timeAgo(iso?: string | null) {
   if (!iso) return "—";
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
