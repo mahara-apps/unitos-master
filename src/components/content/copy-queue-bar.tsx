@@ -11,6 +11,7 @@ import { Loader2, RefreshCw, Sparkles, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 import { resumePendingPostsFn } from "@/lib/content.functions";
 import { summarizeCopyQueue } from "@/lib/post-copy-status";
 
