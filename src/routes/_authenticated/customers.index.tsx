@@ -80,7 +80,6 @@ import { listBrandTeam } from "@/lib/team.functions";
 import { cn } from "@/lib/utils";
 import { isBriefingConcluded } from "@/lib/briefing-alert";
 
-
 export const Route = createFileRoute("/_authenticated/customers/")({
   component: CustomersIndexPage,
 });
@@ -108,14 +107,12 @@ type ClientRow = {
   updated_at: string;
 };
 
-
 const ANY = "__any";
 
 /** Fonte única do estado de briefing (src/lib/briefing-alert.ts). */
 function briefingPending(c: ClientRow) {
   return !isBriefingConcluded(c.briefing_status, c.briefing_completion ?? 0);
 }
-
 
 function timeAgo(iso?: string | null) {
   if (!iso) return "—";
@@ -275,7 +272,6 @@ function CustomersIndexPage() {
     setBriefingOnly(false);
   };
 
-
   const updateMut = useMutation({
     mutationFn: (args: { clientId: string; patch: Record<string, unknown> }) =>
       update({ data: { brandId: brandId!, clientId: args.clientId, patch: args.patch as never } }),
@@ -397,8 +393,6 @@ function CustomersIndexPage() {
           ) : null}
         </div>
       ) : null}
-
-
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-card p-2.5">

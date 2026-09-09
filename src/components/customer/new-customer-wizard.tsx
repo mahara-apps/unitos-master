@@ -658,7 +658,6 @@ export function NewCustomerWizard({ brandId, open, onOpenChange }: NewCustomerWi
                 Preencher briefing agora
               </Button>
             </div>
-
           </div>
         ) : null}
       </DialogContent>
