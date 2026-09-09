@@ -930,6 +930,14 @@ export function JobsPanel({
                 placeholder="Adicionar uma tarefa…"
                 className="h-9"
               />
+              <Input
+                type="date"
+                value={newTaskDue}
+                onChange={(e) => setNewTaskDue(e.target.value)}
+                className="h-9 w-[135px] text-xs"
+                aria-label="Prazo da tarefa (opcional)"
+                title="Prazo (opcional)"
+              />
               <Button
                 size="sm"
                 className="h-9"
@@ -939,6 +947,7 @@ export function JobsPanel({
                 <Plus className="mr-1 h-3.5 w-3.5" /> Add
               </Button>
             </div>
+
           </div>
         }
         aside={
