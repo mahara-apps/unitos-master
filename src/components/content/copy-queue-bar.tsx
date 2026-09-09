@@ -11,6 +11,7 @@ import { Loader2, RefreshCw, Sparkles, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 import { resumePendingPostsFn } from "@/lib/content.functions";
 import { summarizeCopyQueue } from "@/lib/post-copy-status";
 
@@ -29,14 +30,22 @@ export function CopyQueueBar({
   const resume = useServerFn(resumePendingPostsFn);
   const { running, pending, failed, total } = summarizeCopyQueue(posts);
 
-  // Enquanto a IA estiver escrevendo, o quadro se atualiza sozinho.
+  // A legenda chega por evento: o quadro acompanha as peças deste cliente em
+  // tempo real, sem ficar consultando o banco de tempos em tempos.
   useEffect(() => {
-    if (running === 0) return;
-    const id = window.setInterval(() => {
-      qc.invalidateQueries({ queryKey: invalidateKey });
-    }, 15_000);
-    return () => window.clearInterval(id);
-  }, [running, qc, invalidateKey]);
+    if (!clientId) return;
+    const channel = supabase
+      .channel(`copy-queue-${clientId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "posts", filter: `client_id=eq.${clientId}` },
+        () => qc.invalidateQueries({ queryKey: invalidateKey }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [clientId, qc, invalidateKey]);
 
   const retry = useMutation({
     mutationFn: () => resume({ data: { brandId, clientId, limit: 5 } }),
