@@ -24,7 +24,8 @@ const githubResponse = (url: string): Response | null => {
   if (url.includes("/git/trees")) return Response.json({ tree: [] });
   if (url.includes("/git/ref/heads/")) return Response.json({ object: { sha: "sha_dest" } });
   if (url.includes("/commits/main")) return Response.json({ sha: "sha_master" });
-  if (url.includes("/git/blobs")) return Response.json({ sha: "blob_1", content: "", encoding: "base64" });
+  if (url.includes("/git/blobs"))
+    return Response.json({ sha: "blob_1", content: "", encoding: "base64" });
   if (url.includes("/git/commits")) return Response.json({ sha: "commit_1" });
   if (url.includes("/git/refs")) return Response.json({ ok: true });
   return Response.json({ full_name: "acme/unitos-pitada" });
@@ -39,9 +40,14 @@ describe("credenciais de gestão do MASTER", () => {
   });
 
   it("disponível somente com Supabase management + deploy + GitHub", () => {
-    expect(resolveAutomationCapability({ UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t" }).available).toBe(false);
+    expect(resolveAutomationCapability({ UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t" }).available).toBe(
+      false,
+    );
     expect(
-      resolveAutomationCapability({ UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t", UNITOS_VERCEL_TOKEN: "v" }).available,
+      resolveAutomationCapability({
+        UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t",
+        UNITOS_VERCEL_TOKEN: "v",
+      }).available,
     ).toBe(false);
     expect(
       resolveAutomationCapability({
@@ -62,7 +68,11 @@ describe("alvo do provisionamento automático", () => {
       supabaseUrl: "https://abcdefghijklmnop.supabase.co",
       deployProject: "unitos-pitada",
     });
-    expect(target).toEqual({ ok: true, projectRef: "abcdefghijklmnop", deployProject: "unitos-pitada" });
+    expect(target).toEqual({
+      ok: true,
+      projectRef: "abcdefghijklmnop",
+      deployProject: "unitos-pitada",
+    });
   });
 
   it("recusa alvo que aponta para o MASTER", () => {
@@ -74,7 +84,9 @@ describe("alvo do provisionamento automático", () => {
   });
 
   it("não exige domínio definitivo, mas exige projeto de deploy", () => {
-    const noDeploy = resolveAutomationTarget({ supabaseUrl: "https://abcdefghijklmnop.supabase.co" });
+    const noDeploy = resolveAutomationTarget({
+      supabaseUrl: "https://abcdefghijklmnop.supabase.co",
+    });
     expect(noDeploy.ok).toBe(false);
     const withDeploy = resolveAutomationTarget({
       supabaseUrl: "https://abcdefghijklmnop.supabase.co",
@@ -263,7 +275,6 @@ function fakeClient(detail: Record<string, unknown> = {}) {
   return { api, updates };
 }
 
-
 const OP = {
   id: "00000000-0000-0000-0000-000000000001",
   installation_id: "00000000-0000-0000-0000-000000000002",
@@ -284,9 +295,8 @@ const INSTALLATION = {
   gitRepoUrl: "https://github.com/acme/unitos-pitada",
 };
 
-const runProvision = (
-  input: Parameters<typeof runAutomatedProvision>[0],
-) => runAutomatedProvision({ ...input, maxStatementsPerInvocation: Number.POSITIVE_INFINITY });
+const runProvision = (input: Parameters<typeof runAutomatedProvision>[0]) =>
+  runAutomatedProvision({ ...input, maxStatementsPerInvocation: Number.POSITIVE_INFINITY });
 
 describe("runAutomatedProvision", () => {
   it("BLOCKED sem credenciais de gestão — sem nenhuma chamada externa", async () => {
@@ -310,7 +320,11 @@ describe("runAutomatedProvision", () => {
       client: api,
       operation: OP,
       installation: INSTALLATION,
-      env: { UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t", UNITOS_VERCEL_TOKEN: "v", UNITOS_GITHUB_TOKEN: "g" },
+      env: {
+        UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t",
+        UNITOS_VERCEL_TOKEN: "v",
+        UNITOS_GITHUB_TOKEN: "g",
+      },
       fetchImpl: fetchImpl as never,
     });
     expect(result.result).toBe("BLOCKED");
@@ -321,10 +335,11 @@ describe("runAutomatedProvision", () => {
     const management = createManagementClient({
       token: "token-limitado",
       projectRef: "abcdefghijklmnop",
-      fetchImpl: vi.fn(async () =>
-        new Response('{"message":"Your account does not have the necessary privileges"}', {
-          status: 403,
-        }),
+      fetchImpl: vi.fn(
+        async () =>
+          new Response('{"message":"Your account does not have the necessary privileges"}', {
+            status: 403,
+          }),
       ) as never,
     });
 
@@ -355,7 +370,10 @@ describe("runAutomatedProvision", () => {
         return Response.json([{ schemas: 3, item: "ok" }]);
       }
       if (url.includes("api.vercel.com/v9/projects")) {
-        return Response.json({ name: "unitos-pitada", targets: { production: { url: "unitos-pitada-abc.vercel.app" } } });
+        return Response.json({
+          name: "unitos-pitada",
+          targets: { production: { url: "unitos-pitada-abc.vercel.app" } },
+        });
       }
       if (url.includes("/env")) return Response.json({ created: [] });
       if (url.includes("api.vercel.com/v6/deployments")) {
@@ -371,7 +389,11 @@ describe("runAutomatedProvision", () => {
       client: api,
       operation: OP,
       installation: INSTALLATION,
-      env: { UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t", UNITOS_VERCEL_TOKEN: "v", UNITOS_GITHUB_TOKEN: "g" },
+      env: {
+        UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t",
+        UNITOS_VERCEL_TOKEN: "v",
+        UNITOS_GITHUB_TOKEN: "g",
+      },
       fetchImpl: fetchImpl as never,
     });
 
@@ -403,8 +425,7 @@ describe("runAutomatedProvision", () => {
           order.push("cron_secret");
           expect(body).toContain("create or replace function public.set_cron_secret(_value text)");
           expect(body).toMatch(/select public\.set_cron_secret\('[^']+'::text\)/);
-        }
-        else if (body.includes("create table") || body.includes("CREATE TABLE")) {
+        } else if (body.includes("create table") || body.includes("CREATE TABLE")) {
           if (!order.includes("baseline")) order.push("baseline");
         }
         return Response.json([{ schemas: 3, item: "ok" }]);
@@ -444,8 +465,6 @@ describe("runAutomatedProvision", () => {
     expect(order.indexOf("env")).toBeGreaterThan(order.indexOf("cron_secret"));
   });
 
-
-
   it("avisa (sem quebrar) quando o redeploy não pode ser disparado", async () => {
     const { api } = fakeClient();
     const fetchImpl = vi.fn(async (url: string) => {
@@ -469,7 +488,11 @@ describe("runAutomatedProvision", () => {
       client: api,
       operation: OP,
       installation: INSTALLATION,
-      env: { UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t", UNITOS_VERCEL_TOKEN: "v", UNITOS_GITHUB_TOKEN: "g" },
+      env: {
+        UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t",
+        UNITOS_VERCEL_TOKEN: "v",
+        UNITOS_GITHUB_TOKEN: "g",
+      },
       fetchImpl: fetchImpl as never,
     });
     expect(result.result).toBe("BLOCKED");
@@ -503,7 +526,11 @@ describe("runAutomatedProvision", () => {
       client: api,
       operation: OP,
       installation: INSTALLATION,
-      env: { UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t", UNITOS_VERCEL_TOKEN: "v", UNITOS_GITHUB_TOKEN: "g" },
+      env: {
+        UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t",
+        UNITOS_VERCEL_TOKEN: "v",
+        UNITOS_GITHUB_TOKEN: "g",
+      },
       fetchImpl: fetchImpl as never,
     });
     expect(result.result).toBe("BLOCKED");
@@ -529,7 +556,11 @@ describe("runAutomatedProvision", () => {
       client: api,
       operation: OP,
       installation: INSTALLATION,
-      env: { UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t", UNITOS_VERCEL_TOKEN: "v", UNITOS_GITHUB_TOKEN: "g" },
+      env: {
+        UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t",
+        UNITOS_VERCEL_TOKEN: "v",
+        UNITOS_GITHUB_TOKEN: "g",
+      },
       fetchImpl: fetchImpl as never,
     });
     expect(result.result).toBe("BLOCKED");
@@ -559,7 +590,11 @@ describe("runAutomatedProvision", () => {
       client: api,
       operation: OP,
       installation: INSTALLATION,
-      env: { UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t", UNITOS_VERCEL_TOKEN: "v", UNITOS_GITHUB_TOKEN: "g" },
+      env: {
+        UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t",
+        UNITOS_VERCEL_TOKEN: "v",
+        UNITOS_GITHUB_TOKEN: "g",
+      },
       fetchImpl: fetchImpl as never,
     });
     expect(result.result).toBe("FAIL");
@@ -640,7 +675,11 @@ describe("runAutomatedProvision", () => {
       client: api,
       operation: OP,
       installation: INSTALLATION,
-      env: { UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t", UNITOS_VERCEL_TOKEN: "v", UNITOS_GITHUB_TOKEN: "g" },
+      env: {
+        UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t",
+        UNITOS_VERCEL_TOKEN: "v",
+        UNITOS_GITHUB_TOKEN: "g",
+      },
       fetchImpl: fetchImpl as never,
     });
 
@@ -657,8 +696,16 @@ describe("runAutomatedProvision", () => {
     const result = await runProvision({
       client: api,
       operation: OP,
-      installation: { ...INSTALLATION, supabaseUrl: `https://${MASTER_REF}.supabase.co`, supabaseProjectRef: MASTER_REF },
-      env: { UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t", UNITOS_VERCEL_TOKEN: "v", UNITOS_GITHUB_TOKEN: "g" },
+      installation: {
+        ...INSTALLATION,
+        supabaseUrl: `https://${MASTER_REF}.supabase.co`,
+        supabaseProjectRef: MASTER_REF,
+      },
+      env: {
+        UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t",
+        UNITOS_VERCEL_TOKEN: "v",
+        UNITOS_GITHUB_TOKEN: "g",
+      },
       fetchImpl: (async () => new Response("{}")) as never,
     });
     expect(result.result).toBe("BLOCKED");
@@ -687,7 +734,9 @@ describe("clientes de gestão", () => {
         return Response.json({});
       }) as never,
     });
-    const result = await client.setEnv([{ key: "PUBLIC_APP_URL", value: "https://x.vercel.app", sensitive: false }]);
+    const result = await client.setEnv([
+      { key: "PUBLIC_APP_URL", value: "https://x.vercel.app", sensitive: false },
+    ]);
     expect(result.ok).toBe(true);
     expect(seen[0]).toContain("upsert=true");
   });
