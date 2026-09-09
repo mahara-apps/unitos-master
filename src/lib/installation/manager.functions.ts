@@ -454,6 +454,90 @@ export const deleteInstallationFn = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+/**
+ * Suspende / reativa o ambiente do cliente.
+ *
+ * Escreve o estado no banco do PRÓPRIO ambiente (singleton `installation`):
+ * é lá que a tela do cliente lê. Suspenso = ninguém entra, exceto o Super
+ * Admin daquele ambiente. Nenhum dado é apagado.
+ */
+export const setInstallationServiceStateFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        state: z.enum(["active", "suspended"]),
+        reason: z.string().max(500).optional(),
+        confirmLabel: z.string().min(1),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await guard(context);
+    const suspend = data.state === "suspended";
+    const reason = (data.reason ?? "").trim();
+    if (suspend && !reason) throw new Error("Informe o motivo da suspensão.");
+
+    await assertCriticalInstallationConfirm(
+      context,
+      data.id,
+      data.confirmLabel,
+      suspend ? "installation.suspend" : "installation.resume",
+      { state: data.state, reason: reason || null },
+    );
+
+    const { data: current, error: readError } = await context.supabase
+      .from("installations")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (readError) throw readError;
+    if (!current) throw new Error("Instalação não encontrada.");
+    const record = mapInstallation(current);
+    if (!record.supabaseProjectRef) {
+      throw new Error("A instalação não tem o projeto do Supabase configurado.");
+    }
+
+    const { resolveInstallationEnv } = await import("./credentials.server");
+    const env = await resolveInstallationEnv(context.supabase as never, data.id);
+    const token = (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim();
+    if (!token) {
+      throw new Error(
+        "Nenhum Supabase Access Token disponível para esta instalação. Cadastre o token do cliente em “Editar dados” e tente de novo.",
+      );
+    }
+
+    const { createManagementClient } = await import("./automation.server");
+    const { buildServiceStateSql } = await import("./service-state.server");
+    const management = createManagementClient({ token, projectRef: record.supabaseProjectRef });
+    const res = await management.query(
+      buildServiceStateSql({
+        state: data.state,
+        message: suspend ? reason : null,
+        untilIso: null,
+        actor: context.userId,
+      }),
+    );
+    if (!res.ok) {
+      throw new Error(
+        `Não foi possível ${suspend ? "suspender" : "reativar"} o ambiente: ${res.error ?? "falha ao falar com o banco da instalação"}`,
+      );
+    }
+
+    await context.supabase.from("installation_operations").insert({
+      installation_id: data.id,
+      kind: "register",
+      status: "success",
+      summary: suspend ? `Ambiente suspenso: ${reason}` : "Ambiente reativado.",
+      detail: { serviceState: data.state },
+      actor_id: context.userId,
+      finished_at: new Date().toISOString(),
+    });
+
+    return { ok: true as const, state: data.state };
+  });
+
 const StartInput = z.object({
   id: z.string().uuid(),
   kind: z.enum(["provision", "validate", "update"]),
