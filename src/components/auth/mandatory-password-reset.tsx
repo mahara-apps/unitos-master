@@ -89,10 +89,9 @@ export function MandatoryPasswordReset() {
       await qc.invalidateQueries({ queryKey: ["me", "password-flag"] });
     } catch (e) {
       const rawMessage = (e as Error).message || "";
-      const message =
-        rawMessage.startsWith("Unauthorized")
-          ? "Sua sessão expirou. Entre novamente para continuar."
-          : rawMessage || "Não foi possível concluir seu primeiro acesso.";
+      const message = rawMessage.startsWith("Unauthorized")
+        ? "Sua sessão expirou. Entre novamente para continuar."
+        : rawMessage || "Não foi possível concluir seu primeiro acesso.";
       setSubmitError(message);
       toast.error(message);
     } finally {

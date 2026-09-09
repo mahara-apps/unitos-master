@@ -50,6 +50,7 @@ export async function ensureUserProfile(
     .select("id, full_name, email, requires_password_change")
     .eq("id", input.userId)
     .single();
-  if (error || !data) throw new Error(`profile_verify_failed: ${error?.message ?? "perfil ausente"}`);
+  if (error || !data)
+    throw new Error(`profile_verify_failed: ${error?.message ?? "perfil ausente"}`);
   return data;
 }
