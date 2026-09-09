@@ -2170,14 +2170,29 @@ export async function runAutomatedProvision(input: {
     appUrl: string | null,
     urlSource: "custom_domain" | "deploy" | null,
   ): Promise<AutomationRunResult | null> => {
-    const baseline: { id: string; label: string; sql: string }[] = [
-      { id: "database", label: "000_extensions", sql: baseline000 },
-      { id: "database", label: "001_initial_schema", sql: baseline001 },
-      { id: "database", label: "005_auth_trigger", sql: baseline005 },
-      { id: "database", label: "007_delta_migrations", sql: baseline007 },
-      { id: "storage", label: "003_storage_buckets", sql: baseline003 },
-      { id: "storage", label: "006_storage_policies", sql: baseline006 },
-      { id: "seeds", label: "004_seeds", sql: baseline004 },
+    // `key` é o identificador do checkpoint. O delta MUDA a cada release do
+    // MASTER, então seu checkpoint carrega a impressão digital do conteúdo:
+    // sem isso, um provisionamento antigo que marcou "007_delta_migrations:
+    // aplicado" fazia a versão nova ser PULADA e a validação final acusava
+    // colunas/tabelas ausentes. Os arquivos de baseline fixo seguem por label.
+    const baseline: { id: string; label: string; key: string; sql: string }[] = [
+      { id: "database", label: "000_extensions", key: "000_extensions", sql: baseline000 },
+      { id: "database", label: "001_initial_schema", key: "001_initial_schema", sql: baseline001 },
+      { id: "database", label: "005_auth_trigger", key: "005_auth_trigger", sql: baseline005 },
+      {
+        id: "database",
+        label: UPDATE_DELTA_LABEL,
+        key: deltaProgressKey(baseline007),
+        sql: baseline007,
+      },
+      { id: "storage", label: "003_storage_buckets", key: "003_storage_buckets", sql: baseline003 },
+      {
+        id: "storage",
+        label: "006_storage_policies",
+        key: "006_storage_policies",
+        sql: baseline006,
+      },
+      { id: "seeds", label: "004_seeds", key: "004_seeds", sql: baseline004 },
     ];
 
     // Checkpoint: o Worker tem vida limitada. Cada arquivo (e cada lote dentro
@@ -2206,7 +2221,7 @@ export async function runAutomatedProvision(input: {
         currentGroup = file.id;
         await mark(file.id, "running", null, groupPercent(file.id, 0));
       }
-      if (progress[file.label] === DONE) {
+      if (progress[file.key] === DONE) {
         groupDone[file.id] = (groupDone[file.id] ?? 0) + 1;
         await mark(
           file.id,
@@ -2220,7 +2235,7 @@ export async function runAutomatedProvision(input: {
       // A Management API executa como `postgres` (não superusuário): comandos
       // exclusivos de superusuário do dump são removidos antes de enviar.
       const prepared = sanitizeBaselineSqlForManagementApi(file.sql);
-      const alreadyApplied = progress[file.label] ?? 0;
+      const alreadyApplied = progress[file.key] ?? 0;
       // Nunca envie o arquivo inteiro em uma única chamada. Além de não gerar
       // heartbeat durante sua execução, 001 (530 KB) e 007 podiam exceder a vida
       // do runtime. O mesmo caminho curto/idempotente vale para primeira execução
@@ -2233,7 +2248,7 @@ export async function runAutomatedProvision(input: {
           ? { maxStatements: input.maxStatementsPerInvocation }
           : {}),
         onProgress: async (processed, total) => {
-          progress[file.label] = processed;
+          progress[file.key] = processed;
           await saveBaselineProgress(client, operation, progress);
           const percent = Math.min(99, Math.round((processed / Math.max(total, 1)) * 100));
           const action = alreadyApplied > 0 ? "retomando aplicação" : "aplicando";
@@ -2247,7 +2262,7 @@ export async function runAutomatedProvision(input: {
       });
       if (!perStatement.ok) {
         if (typeof perStatement.processed === "number" && perStatement.processed > 0) {
-          progress[file.label] = perStatement.processed;
+          progress[file.key] = perStatement.processed;
           await saveBaselineProgress(client, operation, progress);
         }
         failures.push(`${file.label}: ${perStatement.error ?? "falha ao aplicar"}`);
@@ -2268,7 +2283,7 @@ export async function runAutomatedProvision(input: {
           steps,
         };
       }
-      progress[file.label] = DONE;
+      progress[file.key] = DONE;
       groupDone[file.id] = (groupDone[file.id] ?? 0) + 1;
       await saveBaselineProgress(client, operation, progress);
     }
@@ -2794,6 +2809,16 @@ function deltaFingerprint(sql: string): string {
     h2 = (h2 + c * 31) >>> 0;
   }
   return `${sql.length.toString(36)}-${h1.toString(36)}-${h2.toString(36)}`;
+}
+
+/**
+ * Chave de checkpoint do delta no provisionamento. Inclui a impressão digital
+ * do conteúdo: quando o MASTER publica um pacote novo, o checkpoint antigo não
+ * vale mais e o delta é aplicado de novo (idempotente por statement) em vez de
+ * ser pulado como "já aplicado".
+ */
+export function deltaProgressKey(sql: string): string {
+  return `${UPDATE_DELTA_LABEL}:${deltaFingerprint(sql)}`;
 }
 
 /**
