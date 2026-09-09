@@ -1491,46 +1491,76 @@ export function createDeployClient(input: {
           body = (await readProject()) ?? body;
         }
 
-        // Instalação externa NUNCA publica sozinha a cada commit no MASTER:
-        // o build automático da branch fica desligado e o deploy só acontece
-        // aqui, quando o Super Admin autoriza a atualização.
-        await client.setAutoDeploy(false);
+        // O build automático da branch fica LIGADO: é a rede de segurança quando
+        // a API da Vercel não consegue resolver o repositório (um push publica).
+        await client.setAutoDeploy(true);
 
         const link = body.link;
         const repoId = link?.repoId;
-        if (!link?.type || repoId === undefined || repoId === null) {
+        const org = (link?.org ?? "").trim();
+        const repoName = (link?.repo ?? "").trim();
+        if (!link?.type || (!repoId && !(org && repoName))) {
           const fallback = await client.redeploy();
           return { ...fallback, source: "rebuild" as const };
         }
         const branch = (link.productionBranch ?? "main").trim() || "main";
         const ref = (options?.sha ?? "").trim() || branch;
+        const type = link.type;
 
-        const created = await doFetch(
-          `https://api.vercel.com/v13/deployments?${qs("forceNew=1")}`,
-          {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              name: body.name ?? input.project,
-              target: "production",
-              gitSource: { type: link.type, repoId: String(repoId), ref },
-            }),
-          },
-        );
-        if (!created.ok) {
+        // A Vercel aceita mais de uma forma de identificar a origem Git e nem
+        // todas funcionam em todo projeto (repositório recriado, id antigo em
+        // cache, app do GitHub reinstalado). Tentamos todas antes de desistir.
+        const variants: Array<Record<string, unknown>> = [];
+        if (repoId !== undefined && repoId !== null && String(repoId).trim()) {
+          variants.push({ type, repoId: String(repoId), ref });
+        }
+        if (org && repoName) {
+          variants.push({ type, org, repo: repoName, ref });
+          variants.push({ type, repo: `${org}/${repoName}`, ref });
+        }
+
+        const attempts: string[] = [];
+        let gitSourceUnavailable = false;
+        for (const gitSource of variants) {
+          const created = await doFetch(
+            `https://api.vercel.com/v13/deployments?${qs("forceNew=1")}`,
+            {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                name: body.name ?? input.project,
+                target: "production",
+                gitSource,
+              }),
+            },
+          );
+          if (created.ok) {
+            const json = (await created.json().catch(() => ({}))) as { id?: string; uid?: string };
+            return { ok: true, deploymentId: json.id ?? json.uid, source: "git" as const, ref };
+          }
           const text = await created.text().catch(() => "");
           const quota = parseDeployQuotaError(created.status, text);
-          return {
-            ok: false,
-            quotaExceeded: quota.quotaExceeded || undefined,
-            resetAt: quota.resetAt,
-            error: quota.quotaExceeded
-              ? "cota diária de deployments da Vercel esgotada (plano gratuito: 100/dia)"
-              : `HTTP ${created.status} ao disparar deployment do código (${text.slice(0, 200)})`,
-          };
+          if (quota.quotaExceeded) {
+            return {
+              ok: false,
+              quotaExceeded: true,
+              resetAt: quota.resetAt,
+              error: "cota diária de deployments da Vercel esgotada (plano gratuito: 100/dia)",
+            };
+          }
+          if (/incorrect_git_source_info|repository can't be found/i.test(text)) {
+            gitSourceUnavailable = true;
+          }
+          attempts.push(`HTTP ${created.status} (${text.slice(0, 160)})`);
         }
-        const json = (await created.json().catch(() => ({}))) as { id?: string; uid?: string };
-        return { ok: true, deploymentId: json.id ?? json.uid, source: "git" as const, ref };
+
+        return {
+          ok: false,
+          gitSourceUnavailable: gitSourceUnavailable || undefined,
+          error: gitSourceUnavailable
+            ? `a Vercel não encontrou o repositório ${org}/${repoName} ao disparar o deployment — confira se o app da Vercel no GitHub tem acesso a esse repositório (${attempts.join(" · ")})`
+            : `não foi possível disparar o deployment do código (${attempts.join(" · ")})`,
+        };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
       }
