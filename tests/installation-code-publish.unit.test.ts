@@ -77,6 +77,7 @@ describe("createCodeClient", () => {
       if (method !== "GET") posted.push(`${method} ${url}`);
       if (url.includes("/repos/mahara-apps/unitos-master/git/trees")) {
         return Response.json({
+          sha: "master_tree",
           tree: [
             { path: "a.ts", type: "blob", mode: "100644", sha: "s1" },
             { path: "b.ts", type: "blob", mode: "100644", sha: "s2" },
