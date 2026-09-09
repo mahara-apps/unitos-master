@@ -751,6 +751,45 @@ function InstallationDetailPage() {
                 <DropdownMenuItem disabled={health.isPending} onClick={() => health.mutate()}>
                   <RefreshCw className="mr-2 h-3.5 w-3.5" /> Reavaliar saúde
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={serviceState.isPending}
+                  onClick={() => {
+                    setSuspendReason("");
+                    setSuspendOpen(true);
+                  }}
+                >
+                  <Pause className="mr-2 h-3.5 w-3.5" /> Suspender ambiente…
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={serviceState.isPending}
+                  onClick={() =>
+                    setCritical({
+                      action: "installation.resume",
+                      run: (confirmLabel) =>
+                        serviceState.mutate({ state: "active", confirmLabel }),
+                    })
+                  }
+                >
+                  <Play className="mr-2 h-3.5 w-3.5" /> Reativar ambiente…
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  disabled={remove.isPending}
+                  onClick={() =>
+                    setCritical({
+                      action: "installation.delete",
+                      details: [
+                        { label: "Ambiente do cliente", value: "continua no ar, nada é apagado" },
+                        { label: "Painel do MASTER", value: "cadastro e histórico são removidos" },
+                      ],
+                      run: (confirmLabel) => remove.mutate(confirmLabel),
+                    })
+                  }
+                >
+                  <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir do painel…
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
