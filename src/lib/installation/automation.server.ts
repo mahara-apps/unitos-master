@@ -1239,7 +1239,13 @@ export function createCodeClient(input: {
          * checkpoint por lote e orçamento de tempo.
          */
         const copiedEntries = async (): Promise<
-          | { ok: true; partial: true; changed: number }
+          | {
+              ok: true;
+              partial: true;
+              changed: number;
+              waitUntil?: string | null;
+              note?: string;
+            }
           | { ok: true; entries: Array<Record<string, unknown>> }
           | { ok: false; error: string }
         > => {
