@@ -354,7 +354,7 @@ export function InstallationCredentialsCard({ installationId }: { installationId
                   {check.ok ? (
                     <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-severity-success" />
                   ) : (
-                    <MinusCircle className="mt-0.5 h-3 w-3 shrink-0 text-severity-danger" />
+                    <MinusCircle className="mt-0.5 h-3 w-3 shrink-0 text-destructive" />
                   )}
                   <span className="min-w-0">
                     <span className="font-medium">{check.label}:</span>{" "}
