@@ -2179,26 +2179,15 @@ export async function runAutomatedProvision(input: {
     checks.configuration = "attention";
     return finish(null, null);
   }
-  // Instalação externa nunca publica sozinha a cada commit: o build automático
-  // fica desligado quando o plano da Vercel permite. Em plano Hobby a política
-  // não existe: seguimos com aviso, sem bloquear o provisionamento.
-  const autoDeployOff = await deploy.setAutoDeploy(false);
-  if (!autoDeployOff.ok) {
-    blocked.push(
-      `Auto-deploy por Git não pôde ser desligado em ${target.deployProject}: ${
-        autoDeployOff.error ?? ""
-      }`.trim(),
-    );
-    await mark("deploy_link", "error", autoDeployOff.error ?? "auto-deploy segue ligado");
-    checks.configuration = "attention";
-    return finish(null, null);
-  }
+  // O build automático por Git fica LIGADO: é a rede de segurança quando a API
+  // da Vercel não consegue disparar o deployment. Não bloqueia o provisionamento.
+  const autoDeployOn = await deploy.setAutoDeploy(true);
   await mark(
     "deploy_link",
     "done",
-    autoDeployOff.unsupported
-      ? `projeto ligado a ${repo.slug} · auto-deploy por Git segue ligado (${autoDeployOff.error ?? "plano da Vercel sem política de deployment"})`
-      : `projeto ligado a ${repo.slug} · auto-deploy por Git desligado`,
+    autoDeployOn.ok
+      ? `projeto ligado a ${repo.slug} · auto-deploy por Git ligado`
+      : `projeto ligado a ${repo.slug} · auto-deploy por Git não confirmado (${autoDeployOn.error ?? "sem detalhe"})`,
   );
 
   /* 5. baseline do banco — roda DEPOIS de código, deploy conectado e variáveis:
