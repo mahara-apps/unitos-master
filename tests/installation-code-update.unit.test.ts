@@ -89,7 +89,7 @@ describe("atualização de código da instalação", () => {
     expect(res).toMatchObject({ ok: true, source: "rebuild" });
   });
 
-  it("desliga o build automático da branch e publica o commit autorizado", async () => {
+  it("mantém o build automático ligado e publica o commit autorizado", async () => {
     const { impl, calls } = fakeFetch([
       {
         match: /v9\/projects\//,
@@ -109,13 +109,13 @@ describe("atualização de código da instalação", () => {
     const client = createDeployClient({ token: "t", project: "unitos-teste", fetchImpl: impl });
     const res = await client.deployLatestCode({ sha: "abcdef1234567890" });
     expect(res).toMatchObject({ ok: true, deploymentId: "dpl_9", ref: "abcdef1234567890" });
-    // auto-deploy desligado: a instalação externa não publica sozinha
+    // auto-deploy LIGADO: rede de segurança quando a API da Vercel falha
     const patch = calls.find((c) => c.method === "PATCH");
     expect(patch?.body).toEqual({
       deploymentPolicy: {
         deploymentSources: [
           {
-            enabled: false,
+            enabled: true,
             environments: [
               { type: "system", target: "production" },
               { type: "system", target: "preview" },
@@ -135,7 +135,7 @@ describe("atualização de código da instalação", () => {
     const { impl } = fakeFetch([
       { match: /api\.github\.com\/repos\/.+\/commits\/main/, body: { sha: "cafe1234567" } },
     ]);
-    const client = createDeployClient({ token: "t", project: "p", fetchImpl: impl });
+    const client = createDeployClient({ token: "t", project: "p", fetchImpl: impl, githubToken: "gh" });
     await expect(client.latestCommit()).resolves.toMatchObject({ ok: true, sha: "cafe1234567" });
   });
 
