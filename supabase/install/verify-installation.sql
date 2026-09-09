@@ -193,6 +193,21 @@ WITH checks AS (
                          WHERE schemaname = 'public' AND tablename = 'critical_action_events') >= 1
               THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
+  SELECT 48, 'Legendas: motivo de falha e retomada automática',
+         CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = 'posts'
+                              AND column_name = 'ai_phase_error')
+              THEN 'coluna presente' ELSE 'coluna ausente' END
+         || ' / cron=' ||
+         CASE WHEN EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'post-content-resume')
+              THEN 'agendado' ELSE 'ausente' END,
+         CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = 'posts'
+                              AND column_name = 'ai_phase_error')
+                   AND EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'post-content-resume')
+              THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
+
   SELECT 48, 'identidade: nenhuma conta sem perfil',
          (SELECT count(*)::text
             FROM auth.users u
