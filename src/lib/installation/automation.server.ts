@@ -2343,6 +2343,9 @@ export async function runAutomatedProvision(input: {
   const managementToken = (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim();
   const deployToken = (env["UNITOS_VERCEL_TOKEN"] ?? "").trim();
   const githubToken = (env["UNITOS_GITHUB_TOKEN"] ?? "").trim();
+  // Leitura do MASTER usa sempre a credencial do MASTER: divide a cota de uso
+  // do GitHub e evita o 403 "API rate limit" no token da instalação.
+  const masterGithubToken = (process.env["UNITOS_GITHUB_TOKEN"] ?? "").trim() || githubToken;
   const teamId = (env["UNITOS_VERCEL_TEAM_ID"] ?? "").trim() || null;
 
   const management = createManagementClient({
