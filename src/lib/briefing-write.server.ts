@@ -116,22 +116,21 @@ export async function writeCanonicalBriefing(
     .eq("brand_id", args.brandId);
   if (writeErr) throw writeErr;
 
-  const { data: version, error: verErr } = await supabase
-    .from("brand_briefing_versions")
-    .insert({
-      brand_id: args.brandId,
-      client_id: args.clientId,
-      snapshot: next as never,
-      completion,
-      status,
-      origin: args.origin,
-      changed_fields: changedFields,
-      changed_by: args.authorId ?? null,
-    } as never)
-    .select("id")
-    .maybeSingle();
-  // Falha de auditoria não deve derrubar a escrita canônica, mas é registrada.
-  if (verErr) console.error("[briefing-write] version insert failed:", verErr);
+  // Salvamentos em sequência (assistente de 3 passos, edição por seção) não
+  // devem virar uma versão nova por clique: dentro da janela, do mesmo autor e
+  // da mesma origem, a versão existente é atualizada.
+  const versionId = await upsertBriefingVersion(supabase, {
+    brandId: args.brandId,
+    clientId: args.clientId,
+    snapshot: next,
+    completion,
+    status,
+    origin: args.origin,
+    changedFields,
+    authorId: args.authorId ?? null,
+    label: args.label ?? null,
+  });
+
 
   return {
     hub: next as BrandHubData,
