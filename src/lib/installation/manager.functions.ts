@@ -1507,9 +1507,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
             message:
               state === "maintenance" ? "Atualização em andamento — evite salvar agora." : null,
             untilIso:
-              state === "maintenance"
-                ? new Date(Date.now() + 30 * 60_000).toISOString()
-                : null,
+              state === "maintenance" ? new Date(Date.now() + 30 * 60_000).toISOString() : null,
             actor: context.userId,
           }),
         );

@@ -767,8 +767,7 @@ function InstallationDetailPage() {
                   onClick={() =>
                     setCritical({
                       action: "installation.resume",
-                      run: (confirmLabel) =>
-                        serviceState.mutate({ state: "active", confirmLabel }),
+                      run: (confirmLabel) => serviceState.mutate({ state: "active", confirmLabel }),
                     })
                   }
                 >
