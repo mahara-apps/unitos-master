@@ -1517,10 +1517,10 @@ export function createDeployClient(input: {
         // e a política "apenas Git em produção" tranca a atualização.
         const current = `${body.link?.org ?? ""}/${body.link?.repo ?? ""}`.toLowerCase();
         if (current !== targetRepo.toLowerCase() || body.link?.sourceless === true) {
-          const relinked = await client.linkRepository(targetRepo, { force: true });
-          if (!relinked.ok) {
-            return { ok: false, error: relinked.error };
-          }
+          // Religar pode falhar sem culpa da atualização (integração do GitHub
+          // não instalada na conta). Não abortamos: a publicação ainda funciona
+          // apontando a origem Git direto na chamada.
+          await client.linkRepository(targetRepo, { force: true });
           body = (await readProject()) ?? body;
         }
 
@@ -1528,18 +1528,36 @@ export function createDeployClient(input: {
         // a API da Vercel não consegue resolver o repositório (um push publica).
         await client.setAutoDeploy(true);
 
-
         const link = body.link;
-        const repoId = link?.repoId;
-        const org = (link?.org ?? "").trim();
-        const repoName = (link?.repo ?? "").trim();
-        if (!link?.type || (!repoId && !(org && repoName))) {
+        const [targetOrg = "", targetName = ""] = targetRepo.split("/");
+        const org = (link?.org ?? "").trim() || targetOrg.trim();
+        const repoName = (link?.repo ?? "").trim() || targetName.trim();
+        const type = link?.type || "github";
+        let repoId = link?.repoId;
+
+        // Sem vínculo utilizável, buscamos o id do repositório no GitHub. Isso
+        // mantém a atualização funcionando mesmo quando a hospedagem perdeu o
+        // vínculo (antes caía em "rebuild", que republica código ANTIGO).
+        if (!repoId && org && repoName && (input.githubToken ?? "").trim()) {
+          const gh = await doFetch(`https://api.github.com/repos/${org}/${repoName}`, {
+            headers: {
+              Authorization: `Bearer ${(input.githubToken ?? "").trim()}`,
+              Accept: "application/vnd.github+json",
+              "User-Agent": "unitos-installer",
+            },
+          }).catch(() => null);
+          if (gh?.ok) {
+            const ghBody = (await gh.json().catch(() => ({}))) as { id?: number };
+            if (ghBody.id) repoId = ghBody.id;
+          }
+        }
+
+        if (!org || !repoName) {
           const fallback = await client.redeploy();
           return { ...fallback, source: "rebuild" as const };
         }
-        const branch = (link.productionBranch ?? "main").trim() || "main";
+        const branch = (link?.productionBranch ?? "main").trim() || "main";
         const ref = (options?.sha ?? "").trim() || branch;
-        const type = link.type;
 
         // A Vercel aceita mais de uma forma de identificar a origem Git e nem
         // todas funcionam em todo projeto (repositório recriado, id antigo em
@@ -1552,6 +1570,7 @@ export function createDeployClient(input: {
           variants.push({ type, org, repo: repoName, ref });
           variants.push({ type, repo: `${org}/${repoName}`, ref });
         }
+
 
         const attempts: string[] = [];
         let gitSourceUnavailable = false;
