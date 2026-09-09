@@ -2170,15 +2170,26 @@ export async function runAutomatedProvision(input: {
     appUrl: string | null,
     urlSource: "custom_domain" | "deploy" | null,
   ): Promise<AutomationRunResult | null> => {
-    const baseline: { id: string; label: string; sql: string }[] = [
-      { id: "database", label: "000_extensions", sql: baseline000 },
-      { id: "database", label: "001_initial_schema", sql: baseline001 },
-      { id: "database", label: "005_auth_trigger", sql: baseline005 },
-      { id: "database", label: "007_delta_migrations", sql: baseline007 },
-      { id: "storage", label: "003_storage_buckets", sql: baseline003 },
-      { id: "storage", label: "006_storage_policies", sql: baseline006 },
-      { id: "seeds", label: "004_seeds", sql: baseline004 },
+    // `key` é o identificador do checkpoint. O delta MUDA a cada release do
+    // MASTER, então seu checkpoint carrega a impressão digital do conteúdo:
+    // sem isso, um provisionamento antigo que marcou "007_delta_migrations:
+    // aplicado" fazia a versão nova ser PULADA e a validação final acusava
+    // colunas/tabelas ausentes. Os arquivos de baseline fixo seguem por label.
+    const baseline: { id: string; label: string; key: string; sql: string }[] = [
+      { id: "database", label: "000_extensions", key: "000_extensions", sql: baseline000 },
+      { id: "database", label: "001_initial_schema", key: "001_initial_schema", sql: baseline001 },
+      { id: "database", label: "005_auth_trigger", key: "005_auth_trigger", sql: baseline005 },
+      {
+        id: "database",
+        label: UPDATE_DELTA_LABEL,
+        key: deltaProgressKey(baseline007),
+        sql: baseline007,
+      },
+      { id: "storage", label: "003_storage_buckets", key: "003_storage_buckets", sql: baseline003 },
+      { id: "storage", label: "006_storage_policies", key: "006_storage_policies", sql: baseline006 },
+      { id: "seeds", label: "004_seeds", key: "004_seeds", sql: baseline004 },
     ];
+
 
     // Checkpoint: o Worker tem vida limitada. Cada arquivo (e cada lote dentro
     // do arquivo) é registrado, então uma retomada continua de onde parou em vez
