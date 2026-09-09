@@ -3130,6 +3130,62 @@ export async function runAutomatedUpdate(input: {
     // publicado), nunca o SHA do MASTER — ele não existe no outro repositório.
     const created = await deploy.deployLatestCode({ sha: buildRef });
     if (!created.ok || !created.deploymentId) {
+      if (created.quotaExceeded || created.gitSourceUnavailable) {
+        // O código autorizado JÁ está no repositório da instalação. Com o build
+        // automático por Git ligado, o push publica sem depender da API: aqui
+        // garantimos o gatilho e fixamos a versão realmente publicada.
+        await deploy.setAutoDeploy(true);
+        const nudge =
+          changedFiles === 0
+            ? await code.nudgeDeploy("chore(unitos): republicar versao autorizada")
+            : { ok: true as const };
+        const appliedByPush = publishedRelease ?? MASTER_RELEASE_VERSION;
+        const shortPush = targetSha ? targetSha.slice(0, 7) : null;
+        const cause = created.quotaExceeded
+          ? "cota diária de deployments por API da Vercel esgotada"
+          : "a Vercel não resolveu o repositório pela API";
+        if (!nudge.ok) {
+          return fail(
+            "FAIL",
+            `${created.error ?? cause} · publicação pelo Git também falhou: ${nudge.error ?? ""}`.trim(),
+          );
+        }
+        if (targetSha) {
+          await (
+            client.from("installations") as unknown as {
+              update: (v: Record<string, unknown>) => {
+                eq: (c: string, v: string) => Promise<unknown>;
+              };
+            }
+          )
+            .update({
+              pinned_commit_sha: targetSha,
+              pinned_release: appliedByPush,
+              pinned_at: new Date().toISOString(),
+            })
+            .eq("id", installation.id)
+            .then(
+              () => undefined,
+              () => undefined,
+            );
+        }
+        await report(client, operation, "code", "done", "código publicado no repositório");
+        await report(client, operation, "build", "done", `build disparado pelo Git (${cause})`);
+        await report(
+          client,
+          operation,
+          "version",
+          "done",
+          shortPush ? `${appliedByPush} (${shortPush})` : appliedByPush,
+        );
+        await finalizeOperation(client as never, operation as never, {
+          ok: true,
+          warnings: true,
+          version: appliedByPush,
+          summary: `Código do MASTER (${appliedByPush}${shortPush ? ` · ${shortPush}` : ""}) publicado no repositório da instalação; o build saiu pelo Git porque ${cause}. Confira a publicação na Vercel em alguns minutos.`,
+        }).catch(() => undefined);
+        return { result: "PASS", reasons: [] };
+      }
       return fail("FAIL", created.error ?? "não foi possível disparar o deployment");
     }
     deploymentId = created.deploymentId;
