@@ -55,6 +55,12 @@ export type InstallationRecord = {
   gitRepoUrl: string | null;
   deployProject: string | null;
   notes: string | null;
+  /**
+   * BYOK: instalação cadastrada com o Supabase Access Token do próprio cliente.
+   * Nestas o token global do MASTER não é usado como reserva.
+   */
+  requiresOwnSupabaseToken: boolean;
+
   status: InstallationStatus;
   health: InstallationHealth;
   currentVersion: string | null;
@@ -121,6 +127,8 @@ function mapInstallation(row: any): InstallationRecord {
     gitRepoUrl: row.git_repo_url ?? null,
     deployProject: row.deploy_project ?? null,
     notes: row.notes ?? null,
+    requiresOwnSupabaseToken: row.requires_own_supabase_token === true,
+
     status,
     health: (row.health ?? "unknown") as InstallationHealth,
     currentVersion: row.current_version ?? null,
@@ -270,9 +278,24 @@ function clean(value: string | null | undefined): string | null {
   return v ? v : null;
 }
 
+/**
+ * Cadastro de instalação no modelo BYOK: o Supabase Access Token do cliente é
+ * obrigatório e gravado cifrado no mesmo passo. Se a gravação falhar, o
+ * cadastro é desfeito — instalação sem acesso próprio não deve existir.
+ */
+const CreateInput = UpsertInput.extend({
+  supabaseManagementToken: z
+    .string()
+    .max(4096)
+    .transform((v) => v.trim())
+    .refine((v) => v.length > 0, {
+      message: "Informe o Supabase Access Token da instalação.",
+    }),
+});
+
 export const createInstallationFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => UpsertInput.parse(input))
+  .inputValidator((input: unknown) => CreateInput.parse(input))
   .handler(async ({ data, context }) => {
     await guard(context);
 
@@ -291,6 +314,7 @@ export const createInstallationFn = createServerFn({ method: "POST" })
       status: "preparing" as const,
       health: "unknown" as const,
       available_version: MASTER_RELEASE_VERSION,
+      requires_own_supabase_token: true,
       created_by: context.userId,
     };
 
@@ -305,12 +329,28 @@ export const createInstallationFn = createServerFn({ method: "POST" })
       throw error;
     }
 
+    try {
+      const { saveInstallationCredentials } = await import("./credentials.server");
+      await saveInstallationCredentials(context.supabase, row.id, context.userId, {
+        supabaseManagementToken: data.supabaseManagementToken,
+      });
+    } catch (e) {
+      // Rollback: sem token próprio a instalação não pode ser provisionada.
+      await context.supabase.from("installations").delete().eq("id", row.id);
+      throw new Error(
+        `Não foi possível guardar o Supabase Access Token com segurança, então a instalação não foi cadastrada. ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
+
     await context.supabase.from("installation_operations").insert({
       installation_id: row.id,
       kind: "register",
       status: "success",
-      summary: "Instalação cadastrada — apenas metadados, nenhum segredo armazenado.",
-      detail: { releaseVersion: MASTER_RELEASE_VERSION },
+      summary:
+        "Instalação cadastrada com acesso próprio do Supabase (token guardado cifrado, nunca exibido).",
+      detail: { releaseVersion: MASTER_RELEASE_VERSION, byok: true },
       actor_id: context.userId,
       finished_at: new Date().toISOString(),
     });

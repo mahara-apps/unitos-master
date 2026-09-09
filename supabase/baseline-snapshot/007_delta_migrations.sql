@@ -4434,3 +4434,12 @@ $$;
 -- 20260909142218_c1bb2c1a-1a99-45fc-8e9a-99e38a5cca87.sql
 -- ---------------------------------------------------------------------------
 ALTER TABLE public.brand_briefing_versions ADD COLUMN IF NOT EXISTS label text;
+
+-- ---------------------------------------------------------------------------
+-- 20260909151429_cdf78357-7633-4826-8d7b-1d8ba30323c6.sql
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.installations
+  ADD COLUMN IF NOT EXISTS requires_own_supabase_token boolean NOT NULL DEFAULT false;
+
+COMMENT ON COLUMN public.installations.requires_own_supabase_token IS
+  'BYOK: quando true, o provisionamento exige o Supabase Access Token proprio da instalacao e nao usa o token global do MASTER.';

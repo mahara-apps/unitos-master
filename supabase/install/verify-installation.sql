@@ -241,6 +241,21 @@ WITH checks AS (
               THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
 
+  -- BYOK: instalações novas guardam o Supabase Access Token do próprio cliente.
+  SELECT 52, 'Instalações: acesso próprio do Supabase (BYOK) registrado',
+         CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public'
+                              AND table_name = 'installations'
+                              AND column_name = 'requires_own_supabase_token')
+              THEN 'coluna presente' ELSE 'coluna ausente' END,
+         CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public'
+                              AND table_name = 'installations'
+                              AND column_name = 'requires_own_supabase_token')
+              THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
+
+
 
 
 
