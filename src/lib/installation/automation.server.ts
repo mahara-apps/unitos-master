@@ -2495,26 +2495,33 @@ export async function runAutomatedProvision(input: {
       checks.code = "error";
       return finish(null, null);
     }
-    if (ensured.created && ensured.commitSha) {
-      const [sourceRelease, installedRelease] = await Promise.all([
-        code.releaseAtCommit(masterHead.sha),
-        code.installedRelease(),
-      ]);
-      if (
-        !sourceRelease.ok ||
-        !installedRelease.ok ||
-        !sourceRelease.version ||
-        sourceRelease.version !== installedRelease.version
-      ) {
-        const reason =
-          installedRelease.error ??
-          sourceRelease.error ??
-          `a cópia gerada não corresponde à versão ${sourceRelease.version ?? "esperada"}`;
-        blocked.push(`Cópia do template não validada: ${reason}`);
-        await mark("code", "error", reason);
-        checks.code = "error";
-        return finish(null, null);
-      }
+    const [sourceRelease, installedRelease] = await Promise.all([
+      code.releaseAtCommit(masterHead.sha),
+      code.installedRelease(),
+    ]);
+    if (
+      !sourceRelease.ok ||
+      !installedRelease.ok ||
+      !sourceRelease.version ||
+      sourceRelease.version !== installedRelease.version
+    ) {
+      const reason =
+        installedRelease.error ??
+        sourceRelease.error ??
+        `o repositório existente não corresponde à versão ${sourceRelease.version ?? "esperada"}`;
+      blocked.push(
+        ensured.created
+          ? `Cópia do template não validada: ${reason}`
+          : `Repositório existente incompatível com o provisionamento rápido: ${reason}. Gere-o novamente a partir do template do MASTER.`,
+      );
+      await mark("code", "error", reason);
+      checks.code = "error";
+      return finish(null, null);
+    }
+
+    // Provisionamento inicial nunca copia arquivos nem monta árvore: tanto a
+    // cópia recém-gerada quanto um repositório preexistente precisam já conter
+    // a mesma versão do template.
       await saveStageProgress(client, operation, {
         codeDone: true,
         codeSourceSha: masterHead.sha,
@@ -2526,66 +2533,11 @@ export async function runAutomatedProvision(input: {
       await mark(
         "code",
         "done",
-        `cópia completa do template criada em ${repo.slug} (${ensured.commitSha.slice(0, 7)})`,
+        ensured.created
+          ? `cópia completa do template criada em ${repo.slug} (${(ensured.commitSha ?? masterHead.sha).slice(0, 7)})`
+          : `código completo do template confirmado em ${repo.slug} (${(installedRelease.sha ?? masterHead.sha).slice(0, 7)})`,
         100,
       );
-    } else {
-    // Retomada continua do checkpoint: blobs já copiados não são copiados de
-    // novo. Se o commit do MASTER mudou, o mapa antigo é descartado.
-    const reusableBlobs =
-      codeStage.codeSourceSha === masterHead.sha ? (codeStage.codeBlobs ?? {}) : {};
-    await saveStageProgress(client, operation, {
-      codeSourceSha: masterHead.sha,
-      codeBlobs: reusableBlobs,
-    });
-    const published = await code.publishSnapshot(masterHead.sha, {
-      blobMap: reusableBlobs,
-      // Janela curta do Worker: ao esgotar, devolve `partial` e o watchdog
-      // retoma a MESMA operação exatamente daqui.
-      timeBudgetMs: 20_000,
-      onProgress: async (p) => {
-        await mark("code", "running", p.detail, p.percent);
-      },
-      onCheckpoint: async (blobMap) => {
-        await saveStageProgress(client, operation, {
-          codeSourceSha: masterHead.sha,
-          codeBlobs: blobMap,
-        });
-      },
-    });
-    if (!published.ok) {
-      failures.push(`Código não publicado em ${repo.slug}: ${published.error ?? ""}`.trim());
-      await mark("code", "error", published.error ?? "publicação falhou");
-      checks.code = "error";
-      return finish(null, null);
-    }
-    if (published.partial) {
-      await mark(
-        "code",
-        "running",
-        published.note
-          ? published.note
-          : `publicando código em ${repo.slug} — ${published.changed ?? 0} arquivos nesta rodada (continua)`,
-      );
-      return { result: "RUNNING", reasons: [], appUrl: null, urlSource: null, steps };
-    }
-    await saveStageProgress(client, operation, {
-      codeDone: true,
-      codeSha: masterHead.sha,
-      codeRepo: repo.slug,
-      codeBlobs: {},
-    });
-    checks.code = "ok";
-    await mark(
-      "code",
-      "done",
-      `${
-        ensured.created ? `repositório criado (${ensured.via ?? "novo"}) e ` : ""
-      }código do MASTER publicado em ${repo.slug} (${masterHead.sha.slice(0, 7)}${
-        published.changed !== undefined ? `, ${published.changed} arquivos` : ""
-      })`,
-    );
-    }
   }
   checks.code = checks.code ?? "ok";
 
