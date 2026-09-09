@@ -515,8 +515,15 @@ export type DeployClient = {
     error?: string;
     /** Cota diária de deployments da API esgotada (402 / free-per-day). */
     quotaExceeded?: boolean;
+    /**
+     * A Vercel não consegue resolver o repositório informado
+     * (`incorrect_git_source_info`): o vínculo existe, mas o app da Vercel no
+     * GitHub não alcança o repositório. Nesse caso a publicação sai por push.
+     */
+    gitSourceUnavailable?: boolean;
     /** Epoch (s) em que a cota volta, quando a Vercel informa. */
     resetAt?: number;
+
   }>;
   deploymentState: (
     id: string,
