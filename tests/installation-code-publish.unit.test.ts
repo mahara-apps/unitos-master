@@ -336,6 +336,7 @@ describe("cota do GitHub e credencial do MASTER", () => {
       return Response.json({ full_name: "acme/unitos-pitada" });
     });
     await c.ensureRepo();
+    await c.permissions();
     const masterRead = seen.find((s) => s.method === "GET" && s.url.includes("unitos-master"));
     const generate = seen.find((s) => s.url.includes("/generate"));
     expect(masterRead?.auth).toBe("Bearer gh-master");
@@ -361,6 +362,7 @@ describe("cota do GitHub e credencial do MASTER", () => {
     const c = withMaster(async (url: string) => {
       if (url.endsWith("/rate_limit"))
         return Response.json({ resources: { core: { remaining: 4800, limit: 5000, reset: 0 } } });
+      if (url.endsWith("/user")) return Response.json({ login: "acme" });
       return Response.json({ full_name: "x", permissions: { push: true, admin: true } });
     });
     const checks = await c.permissions();
