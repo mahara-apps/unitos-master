@@ -182,6 +182,15 @@ function mapOperation(row: any): InstallationOperationRecord {
   };
 }
 
+/**
+ * Credencial do MASTER para LER o código-fonte. O token da instalação fica só
+ * para gravar no repositório dela: separar as duas contas divide a cota de uso
+ * do GitHub e evita o 403 "API rate limit exceeded" durante a publicação.
+ */
+function masterGithubToken(): string {
+  return (process.env["UNITOS_GITHUB_TOKEN"] ?? "").trim();
+}
+
 async function guard(context: { supabase: unknown; userId: string }) {
   const { assertMasterInstallation } = await import("./manager.server");
   assertMasterInstallation();
