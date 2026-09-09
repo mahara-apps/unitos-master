@@ -19,6 +19,7 @@ import { getCachedUser } from "@/lib/auth-cache";
 import { getCachedPortalAccess } from "@/lib/access-cache";
 import { isWorkspaceScopedQueryKey, queryKeyCarriesScopeId } from "@/lib/session-reset";
 import { WorkspaceResolver } from "@/components/workspace-resolver";
+import { AppLoading } from "@/components/app-loading";
 
 const fallbackTitles: Record<string, string> = {
   "/dashboard": "Painel",
