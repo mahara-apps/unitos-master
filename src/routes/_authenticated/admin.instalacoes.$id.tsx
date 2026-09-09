@@ -36,6 +36,8 @@ import {
   inspectInstallationIntegrationsFn,
   startInstallationOperationFn,
   updateInstallationFn,
+  deleteInstallationFn,
+  setInstallationServiceStateFn,
   type IntegrationsInspection,
 } from "@/lib/installation/manager.functions";
 
