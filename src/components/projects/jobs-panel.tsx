@@ -60,7 +60,6 @@ import {
   type VisibilityFilter,
 } from "@/lib/work-visibility";
 
-
 type Props = {
   brandId: string;
   projectId: string;
@@ -143,7 +142,6 @@ export function JobsPanel({
       visibility === "active" ? allTasks.filter((t) => !t.archived_at && !isItemDone(t)) : allTasks,
     [allTasks, visibility],
   );
-
 
   const hasPautas = !!pautasContent || !!onOpenPautas;
   const openPautas = onOpenPautas ?? (() => setPautasOpen(true));
@@ -294,7 +292,6 @@ export function JobsPanel({
   }, [allTasks, openJobId, taskVisibility, dueFilter]);
 
   const openTasksCount = currentJobTasks.filter((t) => !t.done && t.status !== "done").length;
-
 
   /** Busca aplica-se à lista de jobs (nível 2). */
   const visibleJobs = useMemo(() => {
@@ -904,7 +901,6 @@ export function JobsPanel({
                 />
                 <DueMenuBlock value={dueFilter} onChange={setDueFilter} label="Prazo" />
               </DropdownMenuContent>
-
             </DropdownMenu>
           ) : null
         }
@@ -959,7 +955,6 @@ export function JobsPanel({
                 <Plus className="mr-1 h-3.5 w-3.5" /> Add
               </Button>
             </div>
-
           </div>
         }
         aside={
