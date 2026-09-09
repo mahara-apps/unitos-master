@@ -345,6 +345,27 @@ export function InstallationCredentialsCard({ installationId }: { installationId
           )}
         </div>
 
+        {checks.length > 0 && (
+          <div className="space-y-1.5 rounded-md border p-3">
+            <p className="text-xs font-medium">Resultado do teste de acesso</p>
+            <ul className="space-y-1">
+              {checks.map((check) => (
+                <li key={`${check.area}-${check.label}`} className="flex gap-1.5 text-[11px]">
+                  {check.ok ? (
+                    <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-severity-success" />
+                  ) : (
+                    <MinusCircle className="mt-0.5 h-3 w-3 shrink-0 text-severity-danger" />
+                  )}
+                  <span className="min-w-0">
+                    <span className="font-medium">{check.label}:</span>{" "}
+                    <span className="text-muted-foreground">{check.detail}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <div className="space-y-1.5 rounded-md border border-dashed p-3">
           <Label htmlFor="cred-adopt-repo" className="text-xs">
             Já criou o repositório manualmente?
