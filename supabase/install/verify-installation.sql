@@ -317,7 +317,7 @@ WITH checks AS (
                'briefing_import_runs','briefing_import_steps','client_portal_access',
                'client_request_events','client_requests','installation',
                'installation_meta_app','message_thread_participants','message_threads',
-               'messages','portal_notification_prefs','post_client_comments',
+               'messages','portal_notification_prefs','post_client_comments','post_copy_queue_state',
                'client_ad_accounts','project_participants','user_login_events','work_comments',
                'work_links','work_statuses'
              ]) AS t
@@ -331,7 +331,7 @@ WITH checks AS (
              'briefing_import_runs','briefing_import_steps','client_portal_access',
              'client_request_events','client_requests','installation',
              'installation_meta_app','message_thread_participants','message_threads',
-             'messages','portal_notification_prefs','post_client_comments',
+             'messages','portal_notification_prefs','post_client_comments','post_copy_queue_state',
              'client_ad_accounts','project_participants','user_login_events','work_comments',
              'work_links','work_statuses'
            ]) AS t
