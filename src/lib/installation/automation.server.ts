@@ -812,7 +812,7 @@ export function createCodeClient(input: {
           1_000,
           retryAfter > 0
             ? retryAfter * 1_000
-            : (GITHUB_TRANSIENT_RETRY_MS[attempt] ?? GITHUB_TRANSIENT_RETRY_MS.at(-1)),
+            : (GITHUB_TRANSIENT_RETRY_MS[attempt] ?? 3_000),
         ),
       );
       attempt += 1;
@@ -1294,14 +1294,18 @@ export function createCodeClient(input: {
 
         await notify(92, "montando a árvore do repositório");
         const buildTree = async (list: Array<Record<string, unknown>>) =>
-          api(`/repos/${target}/git/trees`, {
-            method: "POST",
-            body: JSON.stringify(
-              parent
-                ? { base_tree: parent, tree: [...list, ...removalEntries] }
-                : { tree: [...list, ...removalEntries] },
-            ),
-          });
+          api(
+            `/repos/${target}/git/trees`,
+            {
+              method: "POST",
+              body: JSON.stringify(
+                parent
+                  ? { base_tree: parent, tree: [...list, ...removalEntries] }
+                  : { tree: [...list, ...removalEntries] },
+              ),
+            },
+            true,
+          );
 
         if (!treeSha) {
           const newTree = await buildTree(entries);

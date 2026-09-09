@@ -245,7 +245,6 @@ describe("resiliência ao montar a árvore", () => {
       repo: "unitos-pitada",
       masterRepo: "mahara-apps/unitos-master",
       fetchImpl: (async (url: string, init?: RequestInit) => {
-        const method = init?.method ?? "GET";
         if (url.includes("/repos/mahara-apps/unitos-master/git/trees")) {
           return Response.json({
             tree: [{ path: "a.ts", type: "blob", mode: "100644", sha: "s1" }],
@@ -306,4 +305,4 @@ describe("resiliência ao montar a árvore", () => {
     expect(res.error).toContain("Instabilidade temporária do GitHub");
     expect(res.error).not.toMatch(/token|credencial|permiss/i);
   }, 10_000);
-  });
+});
