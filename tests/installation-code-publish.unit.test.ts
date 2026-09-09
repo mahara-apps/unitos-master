@@ -53,10 +53,19 @@ describe("createCodeClient", () => {
     const c = client(async (url: string, init?: RequestInit) => {
       calls.push(`${init?.method ?? "GET"} ${url}`);
       if (url.endsWith("/repos/acme/unitos-pitada")) return new Response("no", { status: 404 });
+      if (url.endsWith("/repos/mahara-apps/unitos-master"))
+        return Response.json({ is_template: true });
+      if (url.endsWith("/repos/acme/unitos-pitada/commits/main"))
+        return Response.json({ sha: "generated_commit" });
       return Response.json({ full_name: "acme/unitos-pitada" });
     });
     const res = await c.ensureRepo();
-    expect(res).toEqual({ ok: true, created: true, via: "template" });
+    expect(res).toEqual({
+      ok: true,
+      created: true,
+      via: "template",
+      commitSha: "generated_commit",
+    });
     expect(calls.some((c2) => c2.includes("/generate"))).toBe(true);
   });
 
@@ -68,6 +77,71 @@ describe("createCodeClient", () => {
     });
     expect(await c.ensureRepo()).toEqual({ ok: true, created: false, via: "existing" });
     expect(calls.some((c2) => c2.includes("/generate"))).toBe(false);
+  });
+
+  it("não cria fork nem repositório vazio quando o template falha", async () => {
+    const calls: string[] = [];
+    const c = client(async (url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? "GET"} ${url}`);
+      if (url.endsWith("/repos/acme/unitos-pitada")) return new Response("no", { status: 404 });
+      if (url.endsWith("/repos/mahara-apps/unitos-master"))
+        return Response.json({ is_template: true });
+      if (url.endsWith("/generate")) return new Response("forbidden", { status: 403 });
+      return Response.json({});
+    });
+    const result = await c.ensureRepo({ initialProvision: true });
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("Nenhum repositório vazio foi criado");
+    expect(calls.some((call) => call.includes("/forks"))).toBe(false);
+    expect(calls.some((call) => call.includes("/orgs/acme/repos"))).toBe(false);
+  });
+
+  it("recupera somente o repositório com o README técnico conhecido", async () => {
+    const calls: string[] = [];
+    let repoExists = true;
+    const seed = Buffer.from(
+      "# unitos-pitada\n\nInstalação Unitos. Código publicado a partir do MASTER.\n",
+    ).toString("base64");
+    const c = client(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      calls.push(`${method} ${url}`);
+      if (url.endsWith("/repos/acme/unitos-pitada") && method === "DELETE") {
+        repoExists = false;
+        return new Response(null, { status: 204 });
+      }
+      if (url.endsWith("/repos/acme/unitos-pitada")) {
+        return repoExists ? Response.json({ full_name: "acme/unitos-pitada" }) : new Response("no", { status: 404 });
+      }
+      if (url.includes("/git/ref/heads/main")) return Response.json({ object: { sha: "seed" } });
+      if (url.includes("/git/trees/seed"))
+        return Response.json({ tree: [{ path: "README.md", type: "blob", sha: "readme" }] });
+      if (url.includes("/contents/README.md")) return Response.json({ encoding: "base64", content: seed });
+      if (url.endsWith("/repos/mahara-apps/unitos-master"))
+        return Response.json({ is_template: true });
+      if (url.endsWith("/generate")) return Response.json({ full_name: "acme/unitos-pitada" });
+      if (url.endsWith("/commits/main")) return Response.json({ sha: "generated" });
+      return Response.json({});
+    });
+    const result = await c.ensureRepo({ initialProvision: true });
+    expect(result).toMatchObject({ ok: true, created: true, via: "template_recovered" });
+    expect(calls.some((call) => call.startsWith("DELETE "))).toBe(true);
+  });
+
+  it("preserva repositório existente com conteúdo real", async () => {
+    const calls: string[] = [];
+    const c = client(async (url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? "GET"} ${url}`);
+      if (url.includes("/git/ref/heads/main")) return Response.json({ object: { sha: "head" } });
+      if (url.includes("/git/trees/head"))
+        return Response.json({ tree: [{ path: "src/index.ts", type: "blob", sha: "code" }] });
+      return Response.json({ full_name: "acme/unitos-pitada" });
+    });
+    expect(await c.ensureRepo({ initialProvision: true })).toMatchObject({
+      ok: true,
+      created: false,
+      via: "existing",
+    });
+    expect(calls.some((call) => call.startsWith("DELETE "))).toBe(false);
   });
 
   it("publica só o que difere e cria um commit por cima da branch", async () => {

@@ -8,3 +8,4 @@
 - [x] Corrigir definitivamente contas sem perfil no primeiro acesso, com autorreparo, convites verificados e propagação MASTER 1.3.13.
 - [x] Validar o Supabase Access Token contra o projeto e as permissões necessárias antes de salvar/provisionar; propagar no MASTER 1.3.28.
 - [x] Acelerar a publicação no GitHub, reaproveitar a árvore do MASTER e tornar atualizações retomáveis; propagar no MASTER 1.3.30.
+- [ ] Tornar instalações novas template-only, recuperar com segurança repositórios técnicos incompletos e propagar no MASTER.

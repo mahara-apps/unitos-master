@@ -700,12 +700,17 @@ export type PublishSnapshotResult = {
 };
 
 export type CodeClient = {
-  /** Cria (template -> fork -> vazio) ou confirma o repositório da instalação. */
-  ensureRepo: () => Promise<{
+  /** Cria pelo template ou confirma o repositório da instalação. */
+  ensureRepo: (options?: {
+    /** Provisionamento inicial: exige template e pode recuperar o README técnico conhecido. */
+    initialProvision?: boolean;
+  }) => Promise<{
     ok: boolean;
     created?: boolean;
-    /** "template" | "fork" | "blank" | "existing" */
+    /** "template" | "template_recovered" | "existing" */
     via?: string;
+    /** Commit real da branch criada pelo GitHub a partir do template. */
+    commitSha?: string;
     error?: string;
   }>;
   /** Commit atual da branch de produção do MASTER — versão a publicar. */
@@ -913,7 +918,7 @@ export function createCodeClient(input: {
           `MASTER ${master} acessível`,
           masterJson.is_template
             ? "marcado como template (criação rápida disponível)"
-            : "NÃO está marcado como template (a criação usará fork ou repositório vazio)",
+            : "NÃO está marcado como template (a criação rápida está bloqueada)",
           reachesOwner
             ? `destino ${input.owner} alcançado`
             : `destino ${input.owner} inacessível com este token`,
@@ -990,6 +995,13 @@ export function createCodeClient(input: {
         }
 
         const masterRes = await api(`/repos/${master}`);
+        let templateReady = false;
+        if (masterRes.ok) {
+          const masterBody = (await masterRes.clone().json().catch(() => ({}))) as {
+            is_template?: boolean;
+          };
+          templateReady = masterBody.is_template === true;
+        }
         push(
           "Leitura do código do MASTER",
           masterRes.ok,
@@ -997,21 +1009,83 @@ export function createCodeClient(input: {
             ? `${master} acessível com a credencial do MASTER`
             : await fail(masterRes, `ler ${master}`),
         );
+        push(
+          "Criação rápida pelo template",
+          templateReady,
+          templateReady
+            ? `${master} está pronto para gerar uma cópia completa`
+            : `${master} precisa estar marcado como Template repository no GitHub`,
+        );
         return checks;
       } catch (e) {
         push("Repositório", false, (e as Error).message);
         return checks;
       }
     },
-    async ensureRepo() {
+    async ensureRepo(options) {
       try {
         const existing = await api(`/repos/${target}`);
-        if (existing.ok) return { ok: true, created: false, via: "existing" };
-        if (existing.status !== 404) {
+        if (existing.ok) {
+          if (!options?.initialProvision) return { ok: true, created: false, via: "existing" };
+
+          // Recuperação estritamente limitada ao commit técnico criado pelo fluxo
+          // legado. Qualquer outro conteúdo é preservado e bloqueia a exclusão.
+          const head = await api(`/repos/${target}/git/ref/heads/${branch}`);
+          const headBody = (await head.json().catch(() => ({}))) as { object?: { sha?: string } };
+          const headSha = headBody.object?.sha;
+          const tree = headSha
+            ? await api(`/repos/${target}/git/trees/${headSha}?recursive=1`)
+            : new Response("branch ausente", { status: 404 });
+          const treeBody = (await tree.json().catch(() => ({}))) as { tree?: TreeEntry[] };
+          const files = (treeBody.tree ?? []).filter((entry) => entry.type === "blob");
+          const onlyReadme = files.length === 1 && files[0]?.path === "README.md";
+          let knownSeed = false;
+          if (onlyReadme) {
+            const content = await api(`/repos/${target}/contents/README.md?ref=${branch}`);
+            const contentBody = (await content.json().catch(() => ({}))) as {
+              content?: string;
+              encoding?: string;
+            };
+            const decoded =
+              contentBody.encoding === "base64" && contentBody.content
+                ? new TextDecoder().decode(
+                    Uint8Array.from(atob(contentBody.content.replace(/\s+/g, "")), (c) =>
+                      c.charCodeAt(0),
+                    ),
+                  )
+                : "";
+            knownSeed =
+              decoded ===
+              `# ${input.repo}\n\nInstalação Unitos. Código publicado a partir do MASTER.\n`;
+          }
+          if (!knownSeed) return { ok: true, created: false, via: "existing", commitSha: headSha };
+
+          const removed = await api(`/repos/${target}`, { method: "DELETE" });
+          if (!removed.ok) {
+            return {
+              ok: false,
+              error: await fail(removed, `remover o repositório técnico incompleto ${target}`),
+            };
+          }
+        } else if (existing.status !== 404) {
           return { ok: false, error: await fail(existing, `consultar o repositório ${target}`) };
         }
-        // 1ª tentativa: gerar do template do MASTER. Objetos compartilhados =>
-        // a publicação da versão termina em segundos.
+
+        const masterInfo = await api(`/repos/${master}`);
+        if (!masterInfo.ok) {
+          return { ok: false, error: await fail(masterInfo, `ler o template ${master}`) };
+        }
+        const masterBody = (await masterInfo.json().catch(() => ({}))) as {
+          is_template?: boolean;
+        };
+        if (!masterBody.is_template) {
+          return {
+            ok: false,
+            error: `${master} não está marcado como Template repository no GitHub. Ative essa opção no MASTER antes de provisionar. Nenhum repositório vazio foi criado.`,
+          };
+        }
+
+        // Único caminho para instalação nova: o GitHub gera uma cópia integral.
         const created = await api(`/repos/${master}/generate`, {
           method: "POST",
           body: JSON.stringify({
@@ -1022,53 +1096,36 @@ export function createCodeClient(input: {
             description: "Instalação Unitos gerada a partir do MASTER",
           }),
         });
-        if (created.ok) return { ok: true, created: true, via: "template" };
-        const templateError = await fail(created, `criar ${target} a partir do template ${master}`);
-
-        // 2ª tentativa: fork do MASTER. Também compartilha objetos, então a
-        // publicação continua sendo rápida mesmo sem template.
-        const forked = await api(`/repos/${master}/forks`, {
-          method: "POST",
-          body: JSON.stringify({
-            organization: input.owner,
-            name: input.repo,
-            default_branch_only: true,
-          }),
-        });
-        let forkError = "";
-        if (forked.ok || forked.status === 202) {
-          // O fork é assíncrono: espera o repositório aparecer.
-          for (let i = 0; i < 10; i += 1) {
-            const check = await api(`/repos/${target}`);
-            if (check.ok) return { ok: true, created: true, via: "fork" };
-            await new Promise((r) => setTimeout(r, 1500));
-          }
-          forkError = `fork de ${master} solicitado, mas ${target} não ficou disponível`;
-        } else {
-          forkError = await fail(forked, `criar ${target} como fork de ${master}`);
+        if (!created.ok) {
+          return {
+            ok: false,
+            error:
+              `${await fail(created, `gerar a cópia completa ${target} a partir de ${master}`)}. ` +
+              `O token precisa de Administração: leitura e gravação na organização ${input.owner}. ` +
+              `Nenhum repositório vazio foi criado.`,
+          };
         }
 
-        // 3ª tentativa: repositório vazio; o código do MASTER é publicado
-        // arquivo por arquivo (mais lento, com checkpoint e retomada).
-        const body = JSON.stringify({
-          name: input.repo,
-          private: true,
-          auto_init: false,
-          description: "Instalação Unitos (código publicado a partir do MASTER)",
-        });
-        const login = await viewerLogin();
-        const isPersonal = login.toLowerCase() === input.owner.trim().toLowerCase();
-        const blank = isPersonal
-          ? await api(`/user/repos`, { method: "POST", body })
-          : await api(`/orgs/${input.owner}/repos`, { method: "POST", body });
-        if (blank.ok) return { ok: true, created: true, via: "blank" };
-        const blankError = await fail(blank, `criar o repositório vazio ${target}`);
+        // A geração pode responder antes da branch existir. Só libera a próxima
+        // etapa quando o código completo e a versão estiverem legíveis.
+        for (let attempt = 0; attempt < 12; attempt += 1) {
+          const head = await api(`/repos/${target}/commits/${branch}`, undefined, true);
+          if (head.ok) {
+            const body = (await head.json().catch(() => ({}))) as { sha?: string };
+            if (body.sha) {
+              return {
+                ok: true,
+                created: true,
+                via: existing.ok ? "template_recovered" : "template",
+                commitSha: body.sha,
+              };
+            }
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1_000));
+        }
         return {
           ok: false,
-          error:
-            `${templateError}; ${forkError}; ${blankError}. Verifique se o token tem permissão de ` +
-            `criação de repositórios (fine-grained: Administration = Read and write ` +
-            `na organização ${input.owner}) e se o MASTER está marcado como template.`,
+          error: `A cópia completa de ${master} foi solicitada, mas a branch ${branch} de ${target} ainda não ficou disponível. Tente retomar em alguns instantes.`,
         };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
@@ -2420,7 +2477,7 @@ export async function runAutomatedProvision(input: {
       `código já publicado em ${repo.slug} (${codeStage.codeSha.slice(0, 7)}) — checkpoint`,
     );
   } else {
-    const ensured = await code.ensureRepo();
+    const ensured = await code.ensureRepo({ initialProvision: true });
     if (!ensured.ok) {
       blocked.push(`Repositório da instalação indisponível: ${ensured.error ?? ""}`.trim());
       await mark("code", "error", ensured.error ?? "repositório indisponível");
@@ -2438,6 +2495,41 @@ export async function runAutomatedProvision(input: {
       checks.code = "error";
       return finish(null, null);
     }
+    if (ensured.created && ensured.commitSha) {
+      const [sourceRelease, installedRelease] = await Promise.all([
+        code.releaseAtCommit(masterHead.sha),
+        code.installedRelease(),
+      ]);
+      if (
+        !sourceRelease.ok ||
+        !installedRelease.ok ||
+        !sourceRelease.version ||
+        sourceRelease.version !== installedRelease.version
+      ) {
+        const reason =
+          installedRelease.error ??
+          sourceRelease.error ??
+          `a cópia gerada não corresponde à versão ${sourceRelease.version ?? "esperada"}`;
+        blocked.push(`Cópia do template não validada: ${reason}`);
+        await mark("code", "error", reason);
+        checks.code = "error";
+        return finish(null, null);
+      }
+      await saveStageProgress(client, operation, {
+        codeDone: true,
+        codeSourceSha: masterHead.sha,
+        codeSha: masterHead.sha,
+        codeRepo: repo.slug,
+        codeBlobs: {},
+      });
+      checks.code = "ok";
+      await mark(
+        "code",
+        "done",
+        `cópia completa do template criada em ${repo.slug} (${ensured.commitSha.slice(0, 7)})`,
+        100,
+      );
+    } else {
     // Retomada continua do checkpoint: blobs já copiados não são copiados de
     // novo. Se o commit do MASTER mudou, o mapa antigo é descartado.
     const reusableBlobs =
@@ -2493,6 +2585,7 @@ export async function runAutomatedProvision(input: {
         published.changed !== undefined ? `, ${published.changed} arquivos` : ""
       })`,
     );
+    }
   }
   checks.code = checks.code ?? "ok";
 
