@@ -755,7 +755,7 @@ export type CodeClient = {
   permissions: () => Promise<Array<{ label: string; ok: boolean; detail: string; area: "code" }>>;
   /**
    * Publica no repositório da instalação exatamente a árvore do MASTER no
-   * commit informado. Quando os objetos são compartilhados (template/fork), a
+   * commit informado. Quando os objetos são compartilhados, a
    * árvore é montada direto com os SHAs do MASTER — 3 chamadas. Caso contrário
    * copia só o que difere, em paralelo, com checkpoint e orçamento de tempo.
    */
@@ -810,8 +810,8 @@ export function createCodeClient(input: {
   };
   /**
    * Só LEITURA (GET) do repositório do MASTER usa o token do MASTER. Escritas
-   * em `/repos/{master}/generate` e `/forks` criam no destino e continuam com o
-   * token da instalação.
+   * em `/repos/{master}/generate` cria no destino e continua com o token da
+   * instalação.
    */
   const readsMaster = (path: string, init?: RequestInit) =>
     (init?.method ?? "GET").toUpperCase() === "GET" && path.startsWith(`/repos/${master}`);
@@ -1479,7 +1479,7 @@ export function createCodeClient(input: {
           return { ok: true, entries };
         };
 
-        // Caminho rápido: template/fork compartilha a árvore raiz completa do
+        // Caminho rápido: repositórios relacionados compartilham a árvore raiz do
         // MASTER. Reutilizá-la elimina o POST gigante de milhares de entradas e
         // preserva o snapshot exato, inclusive remoções.
         let sharedObjects = Boolean(source.rootSha);
