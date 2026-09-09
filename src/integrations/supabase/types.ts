@@ -6349,6 +6349,30 @@ export type Database = {
           },
         ]
       }
+      post_copy_queue_state: {
+        Row: {
+          created_at: string
+          drain_scheduled: boolean
+          id: boolean
+          last_notified_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          drain_scheduled?: boolean
+          id?: boolean
+          last_notified_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          drain_scheduled?: boolean
+          id?: boolean
+          last_notified_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       post_placements: {
         Row: {
           brand_id: string
@@ -8512,6 +8536,8 @@ export type Database = {
         Args: { _client_id?: string; _token?: string }
         Returns: Json
       }
+      post_copy_queue_drain_off: { Args: never; Returns: boolean }
+      post_copy_queue_drain_on: { Args: never; Returns: boolean }
       process_brain_learning_queue: { Args: { _limit?: number }; Returns: Json }
       public_surface_rate_hit: {
         Args: {
