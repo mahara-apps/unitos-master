@@ -1605,9 +1605,13 @@ export function createDeployClient(input: {
               error: "cota diária de deployments da Vercel esgotada (plano gratuito: 100/dia)",
             };
           }
-          if (/incorrect_git_source_info|repository can't be found/i.test(text)) {
+          // Repositório não resolvido OU política da conta que só aceita
+          // publicação disparada pelo Git: nos dois casos a saída é a mesma —
+          // publicar pelo push no repositório da instalação.
+          if (isGitOnlyOrMissingRepo(text)) {
             gitSourceUnavailable = true;
           }
+
           attempts.push(`HTTP ${created.status} (${text.slice(0, 160)})`);
         }
 
