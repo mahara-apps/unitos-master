@@ -2,7 +2,7 @@
 -- 002_bootstrap_cron.sql — BOOTSTRAP (fora do schema estrutural)
 -- Staging: NAO aplicar em producao. Ver supabase/baseline-snapshot/README.md.
 -- =============================================================================
--- Espelha os 14 cron jobs REAIS de producao (leitura de cron.job):
+-- Espelha os 15 cron jobs REAIS de producao (leitura de cron.job):
 --   7 jobs via net.http_post (dependem de pg_net + public.cron_secret()
 --     + endpoints /api/public/* da instalacao)
 --   7 jobs que chamam funcoes SQL diretamente
@@ -38,7 +38,9 @@ DECLARE
     jsonb_build_array('ai-models-health-daily',    '20 3 * * *',   '/api/public/hooks/ai-models-health'),
     -- Importacao de briefing: consumidor da fila + reaper de runs travadas
     jsonb_build_array('briefing-import-worker',    '* * * * *',    '/api/public/cron/import-worker'),
-    jsonb_build_array('briefing-import-reaper',    '*/2 * * * *',  '/api/public/cron/import-reaper')
+    jsonb_build_array('briefing-import-reaper',    '*/2 * * * *',  '/api/public/cron/import-reaper'),
+    -- Retomada da escrita de legendas (peças sem copy / falhas retentáveis)
+    jsonb_build_array('post-content-resume',       '* * * * *',    '/api/public/hooks/resume-post-content')
 
   );
   v_job jsonb;

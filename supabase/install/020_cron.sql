@@ -1,5 +1,5 @@
 -- =============================================================================
--- 020_cron.sql — agenda os 14 cron jobs apontando SOMENTE para a própria URL.
+-- 020_cron.sql — agenda os 15 cron jobs apontando SOMENTE para a própria URL.
 --
 -- Pré-requisitos (validados aqui, falha se ausentes):
 --   * pg_cron e pg_net instalados (000_extensions.sql)
@@ -27,7 +27,9 @@ DECLARE
     jsonb_build_array('brain-social-metrics-sync', '23 4 * * *',   '/api/public/hooks/social-metrics-sync'),
     jsonb_build_array('ai-models-health-daily',    '20 3 * * *',   '/api/public/hooks/ai-models-health'),
     jsonb_build_array('briefing-import-worker',    '* * * * *',    '/api/public/cron/import-worker'),
-    jsonb_build_array('briefing-import-reaper',    '*/2 * * * *',  '/api/public/cron/import-reaper')
+    jsonb_build_array('briefing-import-reaper',    '*/2 * * * *',  '/api/public/cron/import-reaper'),
+    -- Retomada da escrita de legendas (peças sem copy / falhas retentáveis)
+    jsonb_build_array('post-content-resume',       '* * * * *',    '/api/public/hooks/resume-post-content')
   );
 BEGIN
   IF v_app_url IS NULL OR v_app_url !~ '^https://[a-zA-Z0-9._-]+(:[0-9]+)?$' THEN
