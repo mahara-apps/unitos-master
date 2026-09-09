@@ -95,8 +95,11 @@ export function JobsPanel({
   const createTask = useServerFn(createJobTaskFn);
   const updateTask = useServerFn(updateJobTaskFn);
 
-  /** Concluídos ficam arquivados; este filtro permite revê-los. */
-  const [showDone, setShowDone] = useState(false);
+  /** Concluídos ficam arquivados; este filtro (menu ⋯) permite revê-los. */
+  const [visibility, setVisibility] = useState<VisibilityFilter>("active");
+  /** Filtros do nível 3 (tarefas do job aberto). */
+  const [taskVisibility, setTaskVisibility] = useState<VisibilityFilter>("active");
+  const [dueFilter, setDueFilter] = useState<DueFilter>("all");
   const [search, setSearch] = useState("");
   /** Nível 1 (visão geral) × nível 2 (lista de jobs). */
   const [mode, setMode] = useState<"overview" | "jobs">(initialMode);
@@ -104,21 +107,32 @@ export function JobsPanel({
   const [openJobId, setOpenJobId] = useState<string | null>(null);
   const [pautasOpen, setPautasOpen] = useState(false);
 
+  const jobsArchive = needsArchived(visibility) ? "all" : "active";
   const jobsQ = useQuery({
-    queryKey: ["project-jobs", brandId, projectId, showDone ? "all" : "active"],
-    queryFn: () => listJobs({ data: { brandId, projectId, archive: showDone ? "all" : "active" } }),
+    queryKey: ["project-jobs", brandId, projectId, jobsArchive],
+    queryFn: () => listJobs({ data: { brandId, projectId, archive: jobsArchive } }),
   });
   const tasksQ = useQuery({
     queryKey: ["job-tasks", brandId, projectId],
     queryFn: () => listTasks({ data: { brandId, projectId, archive: "all" } }),
   });
 
-  const jobs: ProjectJob[] = jobsQ.data ?? [];
-  const allTasks: JobTask[] = useMemo(() => tasksQ.data ?? [], [tasksQ.data]);
-  const tasks = useMemo(
-    () => (showDone ? allTasks : allTasks.filter((t) => !t.archived_at)),
-    [allTasks, showDone],
+  const allJobs: ProjectJob[] = jobsQ.data ?? [];
+  const jobs: ProjectJob[] = useMemo(
+    () =>
+      allJobs.filter((j) =>
+        matchesVisibility({ done: !!j.done_at, archived_at: j.archived_at }, visibility),
+      ),
+    [allJobs, visibility],
   );
+  const allTasks: JobTask[] = useMemo(() => tasksQ.data ?? [], [tasksQ.data]);
+  /** Lista do nível 2 (contadores por job) segue o filtro dos jobs. */
+  const tasks = useMemo(
+    () =>
+      visibility === "active" ? allTasks.filter((t) => !t.archived_at && !isItemDone(t)) : allTasks,
+    [allTasks, visibility],
+  );
+
 
   const hasPautas = !!pautasContent || !!onOpenPautas;
   const openPautas = onOpenPautas ?? (() => setPautasOpen(true));
