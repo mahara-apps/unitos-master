@@ -2186,10 +2186,14 @@ export async function runAutomatedProvision(input: {
         sql: baseline007,
       },
       { id: "storage", label: "003_storage_buckets", key: "003_storage_buckets", sql: baseline003 },
-      { id: "storage", label: "006_storage_policies", key: "006_storage_policies", sql: baseline006 },
+      {
+        id: "storage",
+        label: "006_storage_policies",
+        key: "006_storage_policies",
+        sql: baseline006,
+      },
       { id: "seeds", label: "004_seeds", key: "004_seeds", sql: baseline004 },
     ];
-
 
     // Checkpoint: o Worker tem vida limitada. Cada arquivo (e cada lote dentro
     // do arquivo) é registrado, então uma retomada continua de onde parou em vez
@@ -2816,7 +2820,6 @@ function deltaFingerprint(sql: string): string {
 export function deltaProgressKey(sql: string): string {
   return `${UPDATE_DELTA_LABEL}:${deltaFingerprint(sql)}`;
 }
-
 
 /**
  * Aplica o delta de banco do MASTER no Supabase da instalação, item por item,
