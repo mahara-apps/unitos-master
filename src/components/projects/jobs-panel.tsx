@@ -463,15 +463,27 @@ export function JobsPanel({
                 />
               </div>
             ) : null}
-            <Button
-              size="sm"
-              variant={showDone ? "secondary" : "ghost"}
-              className="h-8 gap-1.5 px-2 text-xs"
-              onClick={() => setShowDone((v) => !v)}
-            >
-              <Archive className="h-3 w-3" />
-              {showDone ? "Ocultar concluídos" : "Ver concluídos"}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant={visibility === "active" ? "ghost" : "secondary"}
+                  className="h-8 gap-1.5 px-2 text-xs"
+                >
+                  <Archive className="h-3 w-3" />
+                  {visibility === "active" ? "Exibir" : VISIBILITY_LABELS[visibility]}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <VisibilityMenuBlock
+                  value={visibility}
+                  onChange={setVisibility}
+                  label="Exibir jobs"
+                  withSeparator={false}
+                />
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button
               size="sm"
               className="h-8 gap-1.5 px-3 text-xs"
