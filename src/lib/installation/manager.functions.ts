@@ -1705,6 +1705,21 @@ export const saveInstallationCredentialsFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await guard(context);
+    const incomingSupabaseToken = data.supabaseManagementToken?.trim();
+    if (incomingSupabaseToken) {
+      const { data: installation, error: installationError } = await context.supabase
+        .from("installations")
+        .select("supabase_project_ref, supabase_url")
+        .eq("id", data.id)
+        .maybeSingle();
+      if (installationError) throw installationError;
+      if (!installation) throw new Error("Instalação não encontrada.");
+      await assertSupabaseManagementAccess({
+        token: incomingSupabaseToken,
+        supabaseProjectRef: installation.supabase_project_ref,
+        supabaseUrl: installation.supabase_url,
+      });
+    }
     const { saveInstallationCredentials, getInstallationCredentialsStatus } =
       await import("./credentials.server");
     const patch: Record<string, string> = {};
