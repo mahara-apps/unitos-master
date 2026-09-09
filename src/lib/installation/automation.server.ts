@@ -466,59 +466,81 @@ export function createManagementClient(input: {
     "content-type": "application/json",
   };
 
+  // Instabilidade do Supabase (502/503/504/429) não é falha de credencial:
+  // repetimos algumas vezes antes de declarar o destino inacessível.
+  const attempts = RETRY_DELAYS_MS.length;
+
   return {
     async query(sql) {
-      const controller = new AbortController();
-      // Precisa expirar ANTES do limite do runtime. Um timeout de 60s não
-      // ajudava: o isolate podia morrer primeiro e a operação ficava running.
-      const timer = setTimeout(() => controller.abort(), 15_000);
-      try {
-        const res = await doFetch(`${base}/database/query`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ query: sql }),
-          signal: controller.signal,
-        });
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          return { ok: false, rows: [], error: managementApiError(res.status, text, "database") };
+      let last = { ok: false, rows: [] as unknown[], error: "sem resposta da Management API" };
+      for (let attempt = 0; attempt < attempts; attempt++) {
+        const controller = new AbortController();
+        // Precisa expirar ANTES do limite do runtime. Um timeout de 60s não
+        // ajudava: o isolate podia morrer primeiro e a operação ficava running.
+        const timer = setTimeout(() => controller.abort(), 12_000);
+        try {
+          const res = await doFetch(`${base}/database/query`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ query: sql }),
+            signal: controller.signal,
+          });
+          if (!res.ok) {
+            const text = await res.text().catch(() => "");
+            last = { ok: false, rows: [], error: managementApiError(res.status, text, "database") };
+            if (!isRetryableManagementStatus(res.status)) return last;
+          } else {
+            const body = (await res.json().catch(() => [])) as unknown;
+            return { ok: true, rows: Array.isArray(body) ? body : [] };
+          }
+        } catch (e) {
+          const aborted = e instanceof Error && e.name === "AbortError";
+          last = {
+            ok: false,
+            rows: [],
+            error: aborted ? "timeout de 12s na Management API" : (e as Error).message,
+          };
+        } finally {
+          clearTimeout(timer);
         }
-        const body = (await res.json().catch(() => [])) as unknown;
-        return { ok: true, rows: Array.isArray(body) ? body : [] };
-      } catch (e) {
-        const aborted = e instanceof Error && e.name === "AbortError";
-        return {
-          ok: false,
-          rows: [],
-          error: aborted ? "timeout de 15s na Management API" : (e as Error).message,
-        };
-      } finally {
-        clearTimeout(timer);
+        if (attempt < attempts - 1) await sleep(RETRY_DELAYS_MS[attempt]);
       }
+      return last;
     },
     async keys() {
-      try {
-        const res = await doFetch(`${base}/api-keys?reveal=true`, { headers });
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          return { ok: false, error: managementApiError(res.status, text, "keys") };
+      let last: { ok: boolean; publishableKey?: string; serviceRoleKey?: string; error?: string } = {
+        ok: false,
+        error: "sem resposta da Management API",
+      };
+      for (let attempt = 0; attempt < attempts; attempt++) {
+        try {
+          const res = await doFetch(`${base}/api-keys?reveal=true`, { headers });
+          if (!res.ok) {
+            const text = await res.text().catch(() => "");
+            last = { ok: false, error: managementApiError(res.status, text, "keys") };
+            if (!isRetryableManagementStatus(res.status)) return last;
+          } else {
+            const body = (await res.json().catch(() => [])) as Array<{
+              name?: string;
+              type?: string;
+              api_key?: string;
+            }>;
+            const find = (name: string) =>
+              body.find((k) => k.name === name || k.type === name)?.api_key ?? undefined;
+            return {
+              ok: true,
+              publishableKey: find("anon") ?? find("publishable"),
+              serviceRoleKey: find("service_role") ?? find("secret"),
+            };
+          }
+        } catch (e) {
+          last = { ok: false, error: (e as Error).message };
         }
-        const body = (await res.json().catch(() => [])) as Array<{
-          name?: string;
-          type?: string;
-          api_key?: string;
-        }>;
-        const find = (name: string) =>
-          body.find((k) => k.name === name || k.type === name)?.api_key ?? undefined;
-        return {
-          ok: true,
-          publishableKey: find("anon") ?? find("publishable"),
-          serviceRoleKey: find("service_role") ?? find("secret"),
-        };
-      } catch (e) {
-        return { ok: false, error: (e as Error).message };
+        if (attempt < attempts - 1) await sleep(RETRY_DELAYS_MS[attempt]);
       }
+      return last;
     },
+
   };
 }
 
