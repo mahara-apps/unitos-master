@@ -278,6 +278,32 @@ function clean(value: string | null | undefined): string | null {
   return v ? v : null;
 }
 
+async function assertSupabaseManagementAccess(input: {
+  token: string;
+  supabaseProjectRef?: string | null;
+  supabaseUrl?: string | null;
+}): Promise<void> {
+  const { extractProjectRef } = await import("./automation-contract");
+  const projectRef = extractProjectRef(input);
+  if (!projectRef) {
+    throw new Error("Informe a URL ou o Project ref do Supabase antes de salvar o token.");
+  }
+  const { createManagementClient } = await import("./automation.server");
+  const management = createManagementClient({ token: input.token.trim(), projectRef });
+  const database = await management.query("select 1 as ok");
+  if (!database.ok) {
+    throw new Error(
+      `Este token não pode administrar o projeto informado. ${database.error ?? "Acesso recusado."}`,
+    );
+  }
+  const keys = await management.keys();
+  if (!keys.ok || !keys.publishableKey || !keys.serviceRoleKey) {
+    throw new Error(
+      `Este token não possui todos os acessos exigidos pelo provisionamento. ${keys.error ?? "Não foi possível ler as chaves de API do projeto."}`,
+    );
+  }
+}
+
 /**
  * Cadastro de instalação no modelo BYOK: o Supabase Access Token do cliente é
  * obrigatório e gravado cifrado no mesmo passo. Se a gravação falhar, o
@@ -301,6 +327,12 @@ export const createInstallationFn = createServerFn({ method: "POST" })
 
     const validation = validateInstallationInput(data);
     if (!validation.ok) throw new Error(validation.error);
+
+    await assertSupabaseManagementAccess({
+      token: data.supabaseManagementToken,
+      supabaseProjectRef: data.supabaseProjectRef,
+      supabaseUrl: data.supabaseUrl,
+    });
 
     const insert = {
       name: data.name.trim(),
@@ -378,6 +410,11 @@ export const updateInstallationFn = createServerFn({ method: "POST" })
 
     const token = (data.supabaseManagementToken ?? "").trim();
     if (token) {
+      await assertSupabaseManagementAccess({
+        token,
+        supabaseProjectRef: data.supabaseProjectRef,
+        supabaseUrl: data.supabaseUrl,
+      });
       const { saveInstallationCredentials } = await import("./credentials.server");
       try {
         await saveInstallationCredentials(context.supabase as never, data.id, context.userId, {
@@ -1819,6 +1856,16 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
       projectRef: target.projectRef,
     });
     const ping = await management.query("select 1 as ok");
+    const keys = ping.ok ? await management.keys() : null;
+    const database =
+      ping.ok && keys?.ok && keys.publishableKey && keys.serviceRoleKey
+        ? { ok: true, detail: `banco e chaves do projeto ${target.projectRef} acessíveis` }
+        : {
+            ok: false,
+            detail: ping.ok
+              ? (keys?.error ?? "o token não permite ler todas as chaves de API do projeto")
+              : (ping.error ?? "acesso ao banco recusado"),
+          };
 
     const deploy = createDeployClient({
       token: (env["UNITOS_VERCEL_TOKEN"] ?? "").trim(),
@@ -1883,10 +1930,7 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
     }
 
     return {
-      database: {
-        ok: ping.ok,
-        detail: ping.ok ? `banco ${target.projectRef} acessível` : (ping.error ?? "acesso negado"),
-      },
+      database,
       deploy: { ok: project.ok, detail: deployDetail },
       code,
     };
