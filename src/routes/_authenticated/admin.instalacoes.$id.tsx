@@ -223,6 +223,10 @@ function InstallationDetailPage() {
   const [integrations, setIntegrations] = useState<IntegrationsInspection | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState<EditForm>(EMPTY_FORM);
+  // Token do cliente: vazio MANTÉM o token guardado (nunca apaga sem querer).
+  const [editToken, setEditToken] = useState("");
+  const [suspendOpen, setSuspendOpen] = useState(false);
+  const [suspendReason, setSuspendReason] = useState("");
 
   const [updateOpen, setUpdateOpen] = useState(false);
   const [provisionOpen, setProvisionOpen] = useState(false);
