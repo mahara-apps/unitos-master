@@ -482,6 +482,11 @@ describe("runAutomatedProvision", () => {
       }
       if (url.includes("/env")) return Response.json({ created: [] });
       if (url.includes("v6/deployments")) return Response.json({ deployments: [] });
+      // sem deployment anterior E sem criar novo: nada para publicar
+      if (url.includes("v13/deployments")) {
+        return new Response(JSON.stringify({ error: { message: "no source" } }), { status: 400 });
+      }
+
       return new Response("{}", { status: 200 });
     });
     const result = await runProvision({
