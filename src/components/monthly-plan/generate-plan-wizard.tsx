@@ -74,7 +74,14 @@ export function GeneratePlanWizard({
   brandId: string;
   clientId: string;
   volumetry: PlanVolumetry | undefined;
-  briefings: Array<{ id: string; label: string }>;
+  briefings: Array<{
+    id: string;
+    label: string;
+    completion?: number | null;
+    createdAt?: string;
+    current?: boolean;
+  }>;
+
   pending: boolean;
   loadingMessage: string;
   generationError?: string | null;
