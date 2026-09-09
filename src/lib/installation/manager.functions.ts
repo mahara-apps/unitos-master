@@ -331,9 +331,9 @@ export const createInstallationFn = createServerFn({ method: "POST" })
 
     try {
       const { saveInstallationCredentials } = await import("./credentials.server");
-      await saveInstallationCredentials(context.supabase as never, row.id, context.userId, {
+      await saveInstallationCredentials(context.supabase, row.id, context.userId, {
         supabaseManagementToken: data.supabaseManagementToken,
-      } as never);
+      });
     } catch (e) {
       // Rollback: sem token próprio a instalação não pode ser provisionada.
       await context.supabase.from("installations").delete().eq("id", row.id);
