@@ -241,6 +241,8 @@ export function JobsPanel({
   });
 
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  /** Prazo é opcional na criação rápida. */
+  const [newTaskDue, setNewTaskDue] = useState("");
   const createTaskMut = useMutation({
     mutationFn: () =>
       createTask({
@@ -249,12 +251,15 @@ export function JobsPanel({
           projectId,
           jobId: effectiveJobId,
           title: newTaskTitle.trim(),
+          ...(newTaskDue ? { due_at: newTaskDue } : {}),
         },
       }),
     onSuccess: () => {
       setNewTaskTitle("");
+      setNewTaskDue("");
       qc.invalidateQueries({ queryKey: ["job-tasks", brandId, projectId] });
     },
+
     onError: (e: Error) => toast.error(e.message),
   });
 
