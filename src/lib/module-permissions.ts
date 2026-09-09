@@ -57,7 +57,8 @@ export const MODULE_KEYS = [
   "ai",
   "brain",
   "chat",
-  "portal",
+  "messages",
+
 ] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 
