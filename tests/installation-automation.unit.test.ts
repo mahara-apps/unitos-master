@@ -317,6 +317,27 @@ describe("runAutomatedProvision", () => {
     expect(result.reasons.join(" ")).toContain("Supabase destino");
   });
 
+  it("explica quando o token existe mas não tem permissão no projeto", async () => {
+    const management = createManagementClient({
+      token: "token-limitado",
+      projectRef: "abcdefghijklmnop",
+      fetchImpl: vi.fn(async () =>
+        new Response('{"message":"Your account does not have the necessary privileges"}', {
+          status: 403,
+        }),
+      ) as never,
+    });
+
+    const query = await management.query("select 1");
+    const keys = await management.keys();
+
+    expect(query.ok).toBe(false);
+    expect(query.error).toContain("mesma organização");
+    expect(query.error).toContain("Owner ou Administrator");
+    expect(keys.ok).toBe(false);
+    expect(keys.error).toContain("visualizar as chaves de API");
+  });
+
   it("PASS ponta a ponta usando a URL temporária do deploy", async () => {
     const { api } = fakeClient();
     const calls: string[] = [];
