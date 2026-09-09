@@ -589,7 +589,22 @@ function CustomersIndexPage() {
                           {setup.done}/{setup.total} preenchido
                         </span>
                       )}
+                      {briefingPending(c) ? (
+                        <Link
+                          to="/customers/$customerId"
+                          params={{ customerId: c.id }}
+                          search={{ onboarding: "1" } as never}
+                          title="Preencher briefing em poucos campos"
+                          className="mt-1 inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600 hover:bg-amber-500/20 dark:text-amber-400"
+                        >
+                          <AlertTriangle className="h-3 w-3" />
+                          {(c.briefing_completion ?? 0) > 0
+                            ? `Briefing ${c.briefing_completion}% · preencher`
+                            : "Sem briefing · preencher"}
+                        </Link>
+                      ) : null}
                     </TableCell>
+
                     <TableCell className="text-[11px] text-muted-foreground">
                       {timeAgo(c.updated_at)}
                     </TableCell>
