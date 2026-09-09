@@ -1484,6 +1484,42 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
 
     const { runAutomatedUpdate } = await import("./automation.server");
     const { waitUntil } = await import("@/lib/wait-until.server");
+    const { createManagementClient } = await import("./automation.server");
+    const { buildServiceStateSql } = await import("./service-state.server");
+
+    /**
+     * Aviso no ambiente do cliente: durante a atualização o banco muda e o
+     * site é republicado. A faixa fica no topo e a gravação é bloqueada. O
+     * `service_until` é rede de segurança: se a operação for interrompida, o
+     * aviso expira sozinho e o ambiente nunca fica travado.
+     */
+    const setServiceState = async (state: "maintenance" | "active") => {
+      const token = (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim();
+      if (!token || !record.supabaseProjectRef) return;
+      try {
+        const management = createManagementClient({
+          token,
+          projectRef: record.supabaseProjectRef,
+        });
+        await management.query(
+          buildServiceStateSql({
+            state,
+            message:
+              state === "maintenance" ? "Atualização em andamento — evite salvar agora." : null,
+            untilIso:
+              state === "maintenance"
+                ? new Date(Date.now() + 30 * 60_000).toISOString()
+                : null,
+            actor: context.userId,
+          }),
+        );
+      } catch {
+        // Aviso é best-effort: nunca impede a atualização.
+      }
+    };
+
+    await setServiceState("maintenance");
+
     waitUntil(
       runAutomatedUpdate({
         client: supabase as never,
@@ -1498,15 +1534,23 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
           deployProject: record.deployProject,
           gitRepoUrl: record.gitRepoUrl,
         },
-      }).catch(async (error: unknown) => {
-        const { finalizeOperation } = await import("./runner.server");
-        const message = error instanceof Error ? error.message : "falha inesperada na atualização";
-        await finalizeOperation(supabase as never, op as never, {
-          ok: false,
-          summary: `FAIL: ${message}`,
-          errorKind: "unexpected_error",
-        });
-      }),
+      })
+        .then(async (outcome: { result: string }) => {
+          // PENDING = o watchdog retoma a MESMA operação: manter o aviso.
+          if (outcome?.result !== "PENDING") await setServiceState("active");
+          return outcome;
+        })
+        .catch(async (error: unknown) => {
+          const { finalizeOperation } = await import("./runner.server");
+          const message =
+            error instanceof Error ? error.message : "falha inesperada na atualização";
+          await finalizeOperation(supabase as never, op as never, {
+            ok: false,
+            summary: `FAIL: ${message}`,
+            errorKind: "unexpected_error",
+          });
+          await setServiceState("active");
+        }),
     );
 
     return { result: "STARTED" as const, operationId: op.id as string, reasons: [] as string[] };
