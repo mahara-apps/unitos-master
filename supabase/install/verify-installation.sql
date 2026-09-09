@@ -192,6 +192,18 @@ WITH checks AS (
                    AND (SELECT count(*) FROM pg_policies
                          WHERE schemaname = 'public' AND tablename = 'critical_action_events') >= 1
               THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
+  SELECT 48, 'identidade: nenhuma conta sem perfil',
+         (SELECT count(*)::text
+            FROM auth.users u
+            LEFT JOIN public.user_profiles p ON p.id = u.id
+           WHERE p.id IS NULL),
+         CASE WHEN NOT EXISTS (
+           SELECT 1
+             FROM auth.users u
+             LEFT JOIN public.user_profiles p ON p.id = u.id
+            WHERE p.id IS NULL
+         ) THEN 'PASS' ELSE 'FAIL' END
 
   -- --------------------------------------------------- nenhum dado de negócio copiado
   UNION ALL

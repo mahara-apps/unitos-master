@@ -240,10 +240,13 @@ export const createPortalContactFn = createServerFn({ method: "POST" })
       }
       const newUserId = created.user.id;
 
-      await admin
-        .from("user_profiles")
-        .update({ requires_password_change: true, full_name: fullName })
-        .eq("id", newUserId);
+      const { ensureUserProfile } = await import("@/lib/user-profile.server");
+      await ensureUserProfile(supabaseAdmin, {
+        userId: newUserId,
+        email,
+        fullName,
+        requiresPasswordChange: true,
+      });
 
       const { error: cmErr } = await admin.from("client_members").insert({
         brand_id: client.brand_id,

@@ -291,11 +291,12 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
             continue;
           }
           if (created?.user?.id) {
-            // Force password change on first login
-            await supabaseAdmin
-              .from("user_profiles")
-              .update({ requires_password_change: true })
-              .eq("id", created.user.id);
+            const { ensureUserProfile } = await import("@/lib/user-profile.server");
+            await ensureUserProfile(supabaseAdmin, {
+              userId: created.user.id,
+              email,
+              requiresPasswordChange: true,
+            });
             provisioned = true;
           }
         }
@@ -686,11 +687,13 @@ export const provisionUser = createServerFn({ method: "POST" })
     }
     const newUserId = created.user.id;
 
-    // Marca reset obrigatório + garante nome no perfil
-    await supabaseAdmin
-      .from("user_profiles")
-      .update({ requires_password_change: true, full_name: data.fullName } as never)
-      .eq("id", newUserId);
+    const { ensureUserProfile } = await import("@/lib/user-profile.server");
+    await ensureUserProfile(supabaseAdmin, {
+      userId: newUserId,
+      email,
+      fullName: data.fullName,
+      requiresPasswordChange: true,
+    });
 
     // Atribui workspaces e projetos
     const workspaceInfo: Array<{ name: string; clients: string[] }> = [];
@@ -1005,10 +1008,13 @@ export const addPerson = createServerFn({ method: "POST" })
       }
       targetId = created.user.id;
       mode = "provisioned";
-      await supabaseAdmin
-        .from("user_profiles")
-        .update({ requires_password_change: true, full_name: data.fullName } as never)
-        .eq("id", targetId);
+      const { ensureUserProfile } = await import("@/lib/user-profile.server");
+      await ensureUserProfile(supabaseAdmin, {
+        userId: targetId,
+        email: data.email,
+        fullName: data.fullName,
+        requiresPasswordChange: true,
+      });
     }
 
     // Vincula ao workspace (upsert brand_members)
