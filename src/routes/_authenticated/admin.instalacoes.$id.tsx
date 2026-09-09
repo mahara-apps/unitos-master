@@ -10,10 +10,13 @@ import {
   Copy,
   Loader2,
   MoreHorizontal,
+  Pause,
   Pencil,
+  Play,
   RefreshCw,
   Rocket,
   ShieldCheck,
+  Trash2,
   XCircle,
 } from "lucide-react";
 
