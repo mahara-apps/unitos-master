@@ -211,6 +211,8 @@ function InstallationDetailPage() {
   const restartFn = useServerFn(restartAutomatedProvisionFn);
   const resumeFn = useServerFn(resumeAutomatedProvisionFn);
   const editFn = useServerFn(updateInstallationFn);
+  const removeFn = useServerFn(deleteInstallationFn);
+  const serviceStateFn = useServerFn(setInstallationServiceStateFn);
 
   const [runCommand, setRunCommand] = useState<string | null>(null);
   const [critical, setCritical] = useState<{
