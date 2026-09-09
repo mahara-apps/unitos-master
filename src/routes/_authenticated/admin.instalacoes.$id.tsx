@@ -570,6 +570,7 @@ function InstallationDetailPage() {
       deployProject: inst.deployProject ?? "",
       notes: inst.notes ?? "",
     });
+    setEditToken("");
     setEditOpen(true);
   };
 
