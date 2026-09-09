@@ -207,6 +207,20 @@ WITH checks AS (
                    AND EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'post-content-resume')
               THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
+  SELECT 49, 'Mensagens: recurso disponível e ligado por padrão',
+         CASE WHEN EXISTS (SELECT 1 FROM public.feature_catalog
+                            WHERE key = 'messages' AND default_enabled)
+              THEN 'recurso presente' ELSE 'recurso ausente' END
+         || ' / perfis=' ||
+         CASE WHEN (public.access_profiles_system_defaults() -> 6 -> 'permissions') ? 'messages'
+              THEN 'ok' ELSE 'sem nível' END,
+         CASE WHEN EXISTS (SELECT 1 FROM public.feature_catalog
+                            WHERE key = 'messages' AND default_enabled)
+                   AND (public.access_profiles_system_defaults() -> 6 -> 'permissions') ? 'messages'
+              THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
+
+
 
   SELECT 48, 'identidade: nenhuma conta sem perfil',
          (SELECT count(*)::text
