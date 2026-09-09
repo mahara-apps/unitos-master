@@ -357,6 +357,49 @@ function CustomersIndexPage() {
         />
       </div>
 
+      {pendingBriefing.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <span className="text-amber-700 dark:text-amber-300">
+            {pendingBriefing.length === 1
+              ? "1 cliente sem briefing preenchido."
+              : `${pendingBriefing.length} clientes sem briefing preenchido.`}
+          </span>
+          {pendingBriefing.length === 1 ? (
+            <Button asChild size="sm" variant="outline" className="h-7 gap-1 text-xs">
+              <Link
+                to="/customers/$customerId"
+                params={{ customerId: pendingBriefing[0]!.id }}
+                search={{ onboarding: "1" } as never}
+              >
+                Preencher agora
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1 text-xs"
+              onClick={() => setBriefingOnly(true)}
+            >
+              Ver clientes sem briefing
+            </Button>
+          )}
+          {briefingOnly ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 gap-1 text-xs"
+              onClick={() => setBriefingOnly(false)}
+            >
+              <X className="h-3.5 w-3.5" /> Mostrar todos
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
+
+
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-card p-2.5">
         <div className="relative min-w-[200px] flex-1">
