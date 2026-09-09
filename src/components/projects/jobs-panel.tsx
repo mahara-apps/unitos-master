@@ -49,6 +49,17 @@ import { JobDetailModal } from "./job-detail-modal";
 import { AssigneeAvatar, AssigneePicker, type TeamOption } from "./assignee-picker";
 import { StatusPicker } from "./status-picker";
 import { WorkItemRow, formatRange, formatShortDate, isOverdue } from "./work-item-row";
+import { DueMenuBlock, VisibilityMenuBlock } from "./work-filter-menu";
+import {
+  isItemDone,
+  matchesDue,
+  matchesVisibility,
+  needsArchived,
+  VISIBILITY_LABELS,
+  type DueFilter,
+  type VisibilityFilter,
+} from "@/lib/work-visibility";
+
 
 type Props = {
   brandId: string;
