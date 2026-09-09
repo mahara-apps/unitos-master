@@ -808,8 +808,26 @@ export function createCodeClient(input: {
     });
 
   /**
-   * Recuo automático em limite de uso do GitHub (403/429 com Retry-After ou
-   * cabeçalho de rate limit esgotado). Nunca espera mais que ~8s por tentativa.
+   * Limite de uso do GitHub atingido. `resetAt` (epoch em segundos) diz quando
+   * a cota volta — pode ser até uma hora, então esperar dentro da requisição é
+   * inviável: a operação é devolvida como retomável.
+   */
+  let rateLimit: { resetAt: number | null } | null = null;
+
+  const rateLimitedResponse = (res: Response) => {
+    if (res.status !== 403 && res.status !== 429) return null;
+    const remaining = res.headers.get("x-ratelimit-remaining");
+    const retryAfter = Number(res.headers.get("retry-after") ?? "0");
+    if (remaining !== "0" && !(retryAfter > 0)) return null;
+    const reset = Number(res.headers.get("x-ratelimit-reset") ?? "0");
+    const resetAt =
+      reset > 0 ? reset : retryAfter > 0 ? Math.floor(Date.now() / 1000) + retryAfter : null;
+    return { resetAt };
+  };
+
+  /**
+   * Recuo automático em instabilidade e em limites curtos (Retry-After de
+   * poucos segundos). Nunca espera mais que ~8s por tentativa.
    */
   const api = async (
     path: string,
@@ -819,13 +837,15 @@ export function createCodeClient(input: {
     let attempt = 0;
     for (;;) {
       const res = await rawApi(path, init);
-      const limited =
-        (res.status === 403 || res.status === 429) &&
-        (res.headers.get("retry-after") !== null ||
-          res.headers.get("x-ratelimit-remaining") === "0");
-      const transient = retryTransient && isRetryableGithubStatus(res.status);
-      if ((!limited && !transient) || attempt >= GITHUB_TRANSIENT_RETRY_MS.length) return res;
+      const limited = rateLimitedResponse(res);
+      if (limited) rateLimit = limited;
       const retryAfter = Number(res.headers.get("retry-after") ?? "0");
+      // Cota principal esgotada (reset distante): não insiste — devolve para
+      // que a operação seja retomada quando a cota voltar.
+      const shortWait = retryAfter > 0 && retryAfter <= 8;
+      const transient = retryTransient && isRetryableGithubStatus(res.status);
+      const retryable = transient || (limited !== null && shortWait);
+      if (!retryable || attempt >= GITHUB_TRANSIENT_RETRY_MS.length) return res;
       const waitMs = Math.min(
         8_000,
         Math.max(
@@ -839,7 +859,18 @@ export function createCodeClient(input: {
   };
 
   const fail = async (res: Response, what: string) => {
+    const limited = rateLimitedResponse(res);
     const text = await res.text().catch(() => "");
+    if (limited || /api rate limit exceeded|secondary rate limit/i.test(text)) {
+      const resetAt = limited?.resetAt ?? null;
+      const when = resetAt ? ` A cota volta em ${formatDateTimeBr(new Date(resetAt * 1000))}.` : "";
+      return (
+        `Limite de uso da API do GitHub atingido ao ${what}.${when} ` +
+        `Não é problema de permissão: o progresso salvo é reaproveitado e a ` +
+        `operação é retomada automaticamente. Use um token do GitHub exclusivo ` +
+        `desta instalação para evitar disputa de cota.`
+      );
+    }
     if (isRetryableGithubStatus(res.status)) {
       return `Instabilidade temporária do GitHub (HTTP ${res.status}) ao ${what}. O progresso salvo será reaproveitado; tente novamente em alguns minutos.`;
     }
