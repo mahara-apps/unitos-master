@@ -58,6 +58,8 @@ export const MODULE_KEYS = [
   "brain",
   "chat",
   "messages",
+  "portal",
+
 
 ] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
