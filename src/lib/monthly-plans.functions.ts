@@ -199,7 +199,6 @@ export const renameBriefingVersionFn = createServerFn({ method: "POST" })
     return { ok: true, name };
   });
 
-
 /* ---------- AI generation ---------- */
 
 const GenerateInput = z.object({

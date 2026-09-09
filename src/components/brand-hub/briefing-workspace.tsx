@@ -1754,7 +1754,6 @@ function StackedBrainLayout(props: StackedProps) {
             </div>
           </BrainSection>
 
-
           <BrainSection id="briefing-cliente" title="Briefing com o cliente">
             <BriefingRequestPanel brandId={brandId} clientId={clientId} />
           </BrainSection>

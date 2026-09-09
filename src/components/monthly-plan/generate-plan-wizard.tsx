@@ -295,7 +295,6 @@ export function GeneratePlanWizard({
                   ) : null}
                 </div>
 
-
                 <div className="h-px bg-border/60" />
 
                 <PautaOrganizationField

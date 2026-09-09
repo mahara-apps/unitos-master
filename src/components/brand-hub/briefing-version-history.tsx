@@ -121,9 +121,7 @@ export function BriefingVersionHistory({
                       </Button>
                     </div>
                   ) : (
-                    <p className="truncate text-sm font-medium">
-                      {v.name ?? `Versão de ${when}`}
-                    </p>
+                    <p className="truncate text-sm font-medium">{v.name ?? `Versão de ${when}`}</p>
                   )}
                   {!isEditing ? (
                     <p className="text-[11px] text-muted-foreground">

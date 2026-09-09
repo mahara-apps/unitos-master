@@ -113,9 +113,7 @@ export async function upsertBriefingVersion(
   }
 
   if (recent) {
-    const merged = Array.from(
-      new Set([...(recent.changed_fields ?? []), ...args.changedFields]),
-    );
+    const merged = Array.from(new Set([...(recent.changed_fields ?? []), ...args.changedFields]));
     const { error } = await supabase
       .from("brand_briefing_versions")
       .update({
@@ -166,7 +164,6 @@ export async function writeCanonicalBriefing(
     /** Nome da versão no histórico; sem valor, usa o sugerido pela origem. */
     label?: string | null;
   },
-
 ): Promise<BriefingWriteResult> {
   const { data: clientRow, error: readErr } = await supabase
     .from("clients")
@@ -243,7 +240,6 @@ export async function writeCanonicalBriefing(
     changedFields,
     versionId,
   };
-
 }
 
 /** Transição de status do briefing, registrando snapshot para auditoria. */
