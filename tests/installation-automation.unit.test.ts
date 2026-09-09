@@ -21,6 +21,13 @@ const MASTER_REF = "tkjbhttylouamqxnbfgv";
 /** Respostas mínimas do GitHub usadas pelo provisionamento (código publicado). */
 const githubResponse = (url: string): Response | null => {
   if (!url.includes("api.github.com")) return null;
+  if (url.endsWith("/repos/mahara-apps/unitos-master"))
+    return Response.json({ is_template: true });
+  if (url.includes("/contents/supabase/baseline-snapshot/tools/delta_version.txt"))
+    return Response.json({
+      encoding: "base64",
+      content: Buffer.from("version=1.3.32\n", "utf8").toString("base64"),
+    });
   if (url.includes("/git/trees")) return Response.json({ tree: [] });
   if (url.includes("/git/ref/heads/")) return Response.json({ object: { sha: "sha_dest" } });
   if (url.includes("/commits/main")) return Response.json({ sha: "sha_master" });

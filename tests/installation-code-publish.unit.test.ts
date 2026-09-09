@@ -410,9 +410,13 @@ describe("cota do GitHub e credencial do MASTER", () => {
         method: (init?.method ?? "GET").toUpperCase(),
       });
       if (url.includes("/repos/acme/unitos-pitada")) return new Response("no", { status: 404 });
-      return Response.json({ full_name: "acme/unitos-pitada" });
+      if (url.endsWith("/repos/mahara-apps/unitos-master"))
+        return Response.json({ is_template: true });
+      if (url.endsWith("/generate")) return Response.json({ full_name: "acme/unitos-pitada" });
+      if (url.endsWith("/commits/main")) return Response.json({ sha: "generated" });
+      return Response.json({ full_name: "acme/unitos-pitada", is_template: true });
     });
-    await c.ensureRepo();
+    await c.ensureRepo({ initialProvision: true });
     await c.permissions();
     const masterRead = seen.find((s) => s.method === "GET" && s.url.includes("unitos-master"));
     const generate = seen.find((s) => s.url.includes("/generate"));
@@ -440,7 +444,11 @@ describe("cota do GitHub e credencial do MASTER", () => {
       if (url.endsWith("/rate_limit"))
         return Response.json({ resources: { core: { remaining: 4800, limit: 5000, reset: 0 } } });
       if (url.endsWith("/user")) return Response.json({ login: "acme" });
-      return Response.json({ full_name: "x", permissions: { push: true, admin: true } });
+      return Response.json({
+        full_name: "x",
+        permissions: { push: true, admin: true },
+        is_template: true,
+      });
     });
     const checks = await c.permissions();
     expect(checks.length).toBeGreaterThanOrEqual(3);
