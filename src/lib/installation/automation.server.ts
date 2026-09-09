@@ -597,6 +597,19 @@ export const DEFAULT_MASTER_REPO = "mahara-apps/unitos-master";
  */
 export const BUILD_MAX_MINUTES = 20;
 
+/**
+ * Reconhece as duas recusas da hospedagem que NÃO se resolvem esperando nem
+ * repetindo a chamada: repositório não resolvido pela API e política "somente
+ * publicação disparada pelo Git em produção". Em ambos a saída é publicar pelo
+ * push no repositório da instalação.
+ */
+export function isGitOnlyOrMissingRepo(text: string): boolean {
+  return /incorrect_git_source_info|repository can't be found|not allowed in production|only git deployments/i.test(
+    text ?? "",
+  );
+}
+
+
 
 /* ------------------------------------------------------------- GitHub API */
 
