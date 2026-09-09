@@ -161,6 +161,8 @@ function CustomersIndexPage() {
   const [segmentFilter, setSegmentFilter] = useState<string>(ANY);
   const [ownerFilter, setOwnerFilter] = useState<string>(ANY);
   const [channelFilter, setChannelFilter] = useState<string>(ANY);
+  const [briefingOnly, setBriefingOnly] = useState(false);
+
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editing, setEditing] = useState<ClientRow | null>(null);
   const [toDelete, setToDelete] = useState<ClientRow | null>(null);
