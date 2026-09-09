@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,6 +45,7 @@ type FormState = {
   gitRepoUrl: string;
   deployProject: string;
   notes: string;
+  supabaseManagementToken: string;
 };
 
 const EMPTY_FORM: FormState = {
@@ -54,6 +56,7 @@ const EMPTY_FORM: FormState = {
   gitRepoUrl: "",
   deployProject: "",
   notes: "",
+  supabaseManagementToken: "",
 };
 
 type Filter = "all" | "running" | "outdated" | "problems";
@@ -109,8 +112,11 @@ function AdminInstallationsPage() {
   const [filter, setFilter] = useState<Filter>("all");
 
   const create = useMutation({
-    mutationFn: () =>
-      createFn({
+    mutationFn: () => {
+      if (!form.supabaseManagementToken.trim()) {
+        throw new Error("Informe o Supabase Access Token do cliente para cadastrar a instalação.");
+      }
+      return createFn({
         data: {
           name: form.name,
           domain: form.domain || null,
@@ -119,8 +125,10 @@ function AdminInstallationsPage() {
           gitRepoUrl: form.gitRepoUrl || null,
           deployProject: form.deployProject || null,
           notes: form.notes || null,
+          supabaseManagementToken: form.supabaseManagementToken.trim(),
         },
-      }),
+      });
+    },
     onSuccess: (record) => {
       toast.success("Instalação criada. Ela ainda não está pronta.");
       setForm(EMPTY_FORM);
@@ -295,8 +303,8 @@ function AdminInstallationsPage() {
           <DialogHeader>
             <DialogTitle>Nova instalação</DialogTitle>
             <DialogDescription>
-              Registre apenas metadados: Supabase, repositório e deploy próprios. Nenhum segredo do
-              destino pode ser informado aqui.
+              Cada instalação usa o acesso do próprio cliente. Informe o Supabase Access Token
+              dele: ele é guardado cifrado e nunca aparece de novo na tela.
             </DialogDescription>
           </DialogHeader>
 
