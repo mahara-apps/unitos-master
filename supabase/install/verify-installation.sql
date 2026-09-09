@@ -231,7 +231,7 @@ WITH checks AS (
 
 
 
-  SELECT 50, 'identidade: nenhuma conta sem perfil',
+  SELECT 51, 'identidade: nenhuma conta sem perfil',
          (SELECT count(*)::text
             FROM auth.users u
             LEFT JOIN public.user_profiles p ON p.id = u.id
