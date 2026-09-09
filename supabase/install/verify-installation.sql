@@ -228,6 +228,20 @@ WITH checks AS (
                    AND (public.access_profiles_system_defaults() -> 6 -> 'permissions') ? 'messages'
               THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
+  SELECT 50, 'Briefing: versões do histórico podem ser nomeadas',
+         CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public'
+                              AND table_name = 'brand_briefing_versions'
+                              AND column_name = 'label')
+              THEN 'coluna presente' ELSE 'coluna ausente' END,
+         CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public'
+                              AND table_name = 'brand_briefing_versions'
+                              AND column_name = 'label')
+              THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
+
+
 
 
 
