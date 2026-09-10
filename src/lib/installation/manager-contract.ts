@@ -401,6 +401,11 @@ export const UPDATE_STEPS = [
     script: "vercel: POST /v13/deployments",
   },
   { id: "build", label: "Build e publicação", script: "vercel: GET /v13/deployments/{id}" },
+  {
+    id: "validation",
+    label: "Validação final",
+    script: "supabase/install/verify-installation.sql",
+  },
   { id: "version", label: "Versão registrada", script: "installations.current_version" },
 ] as const;
 

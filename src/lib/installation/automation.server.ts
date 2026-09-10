@@ -2840,6 +2840,37 @@ export async function runAutomatedProvision(input: {
     masterRepo,
     fetchImpl: input.fetchImpl,
   });
+
+  // Atualização também começa com preflight completo. Nenhum delta é aplicado
+  // antes de comprovar banco, GitHub e Vercel.
+  const updatePreflight = await preflightAccess({
+    management: createManagementClient({
+      token: (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim(),
+      projectRef:
+        extractProjectRef({
+          supabaseProjectRef: installation.supabaseProjectRef,
+          supabaseUrl: installation.supabaseUrl,
+        }) ?? "",
+      fetchImpl: input.fetchImpl,
+    }),
+    suppliedKeys: {
+      publishableKey: (env["UNITOS_SUPABASE_PUBLISHABLE_KEY"] ?? "").trim(),
+      serviceRoleKey: (env["UNITOS_SUPABASE_SERVICE_ROLE_KEY"] ?? "").trim(),
+    },
+    deploy,
+    code,
+    deployProject: project,
+  });
+  if (updatePreflight.terminal || updatePreflight.transient) {
+    return fail(
+      "BLOCKED",
+      updatePreflight.terminal ??
+        `${updatePreflight.transient ?? "serviço temporariamente indisponível"}. Tente novamente em alguns minutos.`,
+      updatePreflight.checks.find((check) => !check.ok)?.area === "database"
+        ? "database"
+        : "code",
+    );
+  }
   const deploy = createDeployClient({
     token: deployToken,
     project: target.deployProject,
@@ -4226,6 +4257,41 @@ export async function runAutomatedUpdate(input: {
   }
 
   await report(client, operation, "build", "done", url ? `publicado em ${url}` : "publicado");
+
+  await report(client, operation, "validation", "running");
+  const management = createManagementClient({
+    token: (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim(),
+    projectRef:
+      extractProjectRef({
+        supabaseProjectRef: installation.supabaseProjectRef,
+        supabaseUrl: installation.supabaseUrl,
+      }) ?? "",
+    fetchImpl: input.fetchImpl,
+  });
+  await hardenHelperTables(management);
+  const finalVerification = await management.query(prepareVerificationSql(verifySql).sql);
+  if (!finalVerification.ok) {
+    return fail(
+      "FAIL",
+      `a validação final não pôde ser executada: ${finalVerification.error ?? "falha"}`,
+      "validation",
+    );
+  }
+  const verificationSummary = summarizeVerificationRows(finalVerification.rows);
+  if (!verificationSummary.ok) {
+    return fail(
+      "FAIL",
+      verificationSummary.reason ?? "a validação final encontrou inconsistências",
+      "validation",
+    );
+  }
+  await report(
+    client,
+    operation,
+    "validation",
+    "done",
+    `${verificationSummary.total} verificações PASS`,
+  );
   const shortSha = targetSha ? targetSha.slice(0, 7) : null;
   // A versão fixada é a do pacote realmente publicado, nunca o número atual do
   // MASTER: se o repositório estiver atrás, o painel precisa mostrar a verdade.

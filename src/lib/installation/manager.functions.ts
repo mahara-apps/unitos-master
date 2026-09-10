@@ -1991,7 +1991,15 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
       projectRef: target.projectRef,
     });
     const ping = await management.query("select 1 as ok");
-    const keys = ping.ok ? await management.keys() : null;
+    const remoteKeys = ping.ok ? await management.keys() : null;
+    const suppliedPublishable = (env["UNITOS_SUPABASE_PUBLISHABLE_KEY"] ?? "").trim();
+    const suppliedServiceRole = (env["UNITOS_SUPABASE_SERVICE_ROLE_KEY"] ?? "").trim();
+    const keys =
+      remoteKeys?.ok && remoteKeys.publishableKey && remoteKeys.serviceRoleKey
+        ? remoteKeys
+        : suppliedPublishable && suppliedServiceRole
+          ? { ok: true, publishableKey: suppliedPublishable, serviceRoleKey: suppliedServiceRole }
+          : remoteKeys;
     const database =
       ping.ok && keys?.ok && keys.publishableKey && keys.serviceRoleKey
         ? { ok: true, detail: `banco e chaves do projeto ${target.projectRef} acessíveis` }
