@@ -9,3 +9,4 @@
 - [x] Validar o Supabase Access Token contra o projeto e as permissões necessárias antes de salvar/provisionar; propagar no MASTER 1.3.28.
 - [x] Acelerar a publicação no GitHub, reaproveitar a árvore do MASTER e tornar atualizações retomáveis; propagar no MASTER 1.3.30.
 - [x] Tornar instalações novas template-only, recuperar com segurança repositórios técnicos incompletos e propagar no MASTER.
+- [x] Remover a exigência de exclusão na recuperação GitHub: preservar README legado em backup arquivado, com rollback seguro.
