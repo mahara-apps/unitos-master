@@ -3042,7 +3042,18 @@ export async function runAutomatedProvision(input: {
     return finish(null, null);
   }
   checks.supabase = "ok";
-  await mark("supabase", "done", `projeto ${target.projectRef} acessível`);
+  // Confirmação de e-mail desligada por padrão: o remetente padrão do Supabase
+  // não tem DNS apontado, então o link de confirmação do /setup não chegaria.
+  const authDefaults = await applyInstallationAuthDefaults(management);
+  if (!authDefaults.applied) {
+    pendingNotes.push(`Confirmação de e-mail não pôde ser desligada: ${authDefaults.detail}`);
+  }
+  await mark(
+    "supabase",
+    "done",
+    `projeto ${target.projectRef} acessível${authDefaults.applied ? " · confirmação de e-mail desligada" : ""}`,
+  );
+
 
   /* 3. preflight dos acessos de publicação e repositório, antes de qualquer
    * escrita: negativa de permissão encerra aqui, dizendo o acesso exato que
