@@ -9,7 +9,12 @@
  */
 import { describe, expect, it, vi } from "vitest";
 
-import { createManagementClient, runAutomatedProvision } from "@/lib/installation/automation.server";
+import {
+  createCodeClient,
+  createManagementClient,
+  runAutomatedProvision,
+  withRepoWriteHint,
+} from "@/lib/installation/automation.server";
 import { PROVISION_STEPS } from "@/lib/installation/manager-contract";
 
 type Call = { url: string; method: string; body: string };
@@ -272,5 +277,55 @@ describe("instalação de ambiente novo — ponta a ponta", () => {
       expect(finals.length).toBeGreaterThan(0);
       expect(finals.some((u) => u["finished_at"])).toBe(true);
     }
+  });
+});
+
+describe("permissão de gravação no repositório", () => {
+  it("traduz o 403 do GitHub na permissão exata que falta", () => {
+    const hint = withRepoWriteHint(
+      'HTTP 403 ao publicar arquivo ({"message":"Resource not accessible by personal access token"})',
+      "mahara-apps/unitos-casa8",
+    );
+    expect(hint).toContain("Contents: Read and write");
+    expect(hint).toContain("mahara-apps/unitos-casa8");
+  });
+
+  it("não altera mensagens que não são de permissão", () => {
+    expect(withRepoWriteHint("HTTP 502 instabilidade", "a/b")).toBe("HTTP 502 instabilidade");
+  });
+
+  it("o teste de acesso comprova a gravação escrevendo de verdade", async () => {
+    const calls: string[] = [];
+    const fetchImpl = vi.fn(async (url: string | URL, init?: RequestInit) => {
+      const u = String(url);
+      calls.push(`${init?.method ?? "GET"} ${u}`);
+      if (u.includes("/rate_limit")) {
+        return Response.json({ resources: { core: { remaining: 4999, limit: 5000 } } });
+      }
+      if (u.endsWith("/user")) return Response.json({ login: "mahara-apps" });
+      if (u.includes("/git/blobs")) {
+        return new Response(
+          JSON.stringify({ message: "Resource not accessible by personal access token" }),
+          { status: 403 },
+        );
+      }
+      // metadados do repositório mentem: dizem que há push
+      return Response.json({ permissions: { push: true }, is_template: true });
+    }) as unknown as typeof fetch;
+
+    const code = createCodeClient({
+      token: "gh_token",
+      masterToken: "gh_master",
+      owner: "mahara-apps",
+      repo: "unitos-casa8",
+      masterRepo: "mahara-apps/unitos-master",
+      fetchImpl: fetchImpl as never,
+    });
+    const checks = await code.permissions();
+    const write = checks.find((c) => /Gravação no repositório/i.test(c.label));
+
+    expect(calls.some((c) => c.startsWith("POST") && c.includes("/git/blobs"))).toBe(true);
+    expect(write?.ok).toBe(false);
+    expect(write?.detail).toContain("Contents: Read and write");
   });
 });
