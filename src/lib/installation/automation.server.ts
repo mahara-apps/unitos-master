@@ -2698,6 +2698,20 @@ export function classifyAccessFailure(detail: string): "permission" | "transient
 }
 
 /**
+ * O GitHub responde "Resource not accessible by personal access token" sem
+ * dizer qual permissão falta. Traduzimos para a ação concreta no token.
+ */
+export function withRepoWriteHint(detail: string, repoSlug: string): string {
+  const text = (detail ?? "").trim();
+  if (!/HTTP 403|not accessible by personal access token|Resource not accessible/i.test(text)) {
+    return text;
+  }
+  if (/Contents: Read and write/i.test(text)) return text;
+  return `${text} — o token do GitHub precisa de "Contents: Read and write" (e "Metadata: Read-only") com ${repoSlug} entre os repositórios autorizados. Gere/edite o token em github.com/settings/tokens e salve-o novamente nos acessos da instalação.`;
+}
+
+
+/**
  * Confere, na ordem em que serão usadas, se as três credenciais têm de fato as
  * permissões da operação. Falta de permissão devolve `terminal` (a operação é
  * recusada antes de começar); instabilidade devolve `transient`.
