@@ -3536,12 +3536,21 @@ export async function runAutomatedProvision(input: {
       // Sem publicação nova (cota) ou com DNS/domínio ainda propagando, o 404 é
       // esperado: é pendência de acompanhamento, não bloqueio do provisionamento.
       const pendingPublish = redeployed.quotaExceeded === true || domainNote !== "";
+      // Domínio definitivo depende do DNS do dono do domínio, fora do alcance da
+      // automação. O ambiente segue aplicado e utilizável pela URL de deploy.
+      const dnsPending = url.source === "custom_domain";
       const message = `Frontend ainda nao respondeu em ${url.origin}: ${probe.detail}${
-        pendingPublish ? " — aguardando a publicação/DNS concluir" : ""
+        dnsPending
+          ? " — publique o DNS do subdomínio apontando para cname.vercel-dns.com e o endereço definitivo passa a responder"
+          : pendingPublish
+            ? " — aguardando a publicação/DNS concluir"
+            : ""
       }`;
-      if (pendingPublish) failures.push(message);
+      if (dnsPending) pendingNotes.push(message);
+      else if (pendingPublish) failures.push(message);
       else blocked.push(message);
     }
+
 
     await saveStageProgress(client, operation, {
       deployDone: true,
