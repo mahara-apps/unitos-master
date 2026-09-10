@@ -257,10 +257,48 @@ export const getInstallationManagerAccessFn = createServerFn({ method: "POST" })
     };
   });
 
+/**
+ * Encerra operações que ficaram "em andamento" sem reportar progresso. Sem
+ * isto, uma queda no meio da execução deixa a instalação travada para sempre.
+ */
+async function reconcileStuckOperations(context: AuthContext): Promise<void> {
+  try {
+    const { data } = await context.supabase
+      .from("installation_operations")
+      .select("*")
+      .in("status", ["pending", "running"])
+      .order("created_at", { ascending: false })
+      .limit(20);
+    const rows = data ?? [];
+    if (!rows.length) return;
+    const [{ isOperationStale }, { finalizeOperation }] = await Promise.all([
+      import("./manager-contract"),
+      import("./runner.server"),
+    ]);
+    for (const op of rows) {
+      const stale = isOperationStale({
+        status: "running",
+        startedAt: op.started_at,
+        lastReportAt: op.last_report_at ?? null,
+      });
+      if (!stale) continue;
+      await finalizeOperation(context.supabase as never, op as never, {
+        ok: false,
+        summary:
+          "Operação encerrada por falta de resposta do processo. O progresso já concluído foi preservado — execute novamente para retomar.",
+        errorKind: "interrompida",
+      }).catch(() => undefined);
+    }
+  } catch {
+    // reconciliação é best-effort: nunca deve impedir a listagem do painel.
+  }
+}
+
 export const listInstallationsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await guard(context);
+    await reconcileStuckOperations(context);
     const { data, error } = await context.supabase
       .from("installations")
       .select("*")
