@@ -580,6 +580,43 @@ export function createManagementClient(input: {
   };
 }
 
+export async function validateSupabaseProjectKeys(input: {
+  supabaseUrl: string;
+  publishableKey: string;
+  serviceRoleKey: string;
+  fetchImpl?: Fetcher;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const origin = input.supabaseUrl.trim().replace(/\/+$/, "");
+  if (!/^https:\/\/[a-z0-9]{16,}\.supabase\.co$/i.test(origin)) {
+    return { ok: false, error: "URL do Supabase inválida para validar as chaves." };
+  }
+  const doFetch = input.fetchImpl ?? fetch;
+  const check = async (key: string, label: string) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12_000);
+    try {
+      const res = await doFetch(`${origin}/rest/v1/installation?select=id&limit=1`, {
+        headers: { apikey: key, authorization: `Bearer ${key}` },
+        signal: controller.signal,
+      });
+      if (res.status === 401 || res.status === 403) {
+        return `${label} recusada pelo projeto informado (HTTP ${res.status}).`;
+      }
+      if (res.status >= 500) return `${label}: Supabase temporariamente indisponível (HTTP ${res.status}).`;
+      return null;
+    } catch (cause) {
+      return `${label}: ${cause instanceof Error && cause.name === "AbortError" ? "timeout" : "sem resposta"}.`;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  const publishableError = await check(input.publishableKey, "Chave publicável");
+  if (publishableError) return { ok: false, error: publishableError };
+  const serviceError = await check(input.serviceRoleKey, "Chave de serviço");
+  if (serviceError) return { ok: false, error: serviceError };
+  return { ok: true };
+}
+
 /* ------------------------------------------------------------- Vercel API */
 
 export type DeployClient = {

@@ -352,6 +352,7 @@ async function assertSupabaseManagementAccess(input: {
   token: string;
   supabaseProjectRef?: string | null;
   supabaseUrl?: string | null;
+  requireKeys?: boolean;
 }): Promise<void> {
   const { extractProjectRef } = await import("./automation-contract");
   const projectRef = extractProjectRef(input);
@@ -366,6 +367,7 @@ async function assertSupabaseManagementAccess(input: {
       `Este token não pode administrar o projeto informado. ${database.error ?? "Acesso recusado."}`,
     );
   }
+  if (input.requireKeys === false) return;
   const keys = await management.keys();
   if (!keys.ok || !keys.publishableKey || !keys.serviceRoleKey) {
     throw new Error(
@@ -1771,6 +1773,8 @@ export const saveInstallationCredentialsFn = createServerFn({ method: "POST" })
       .object({
         id: z.string().uuid(),
         supabaseManagementToken: z.string().max(4096).optional(),
+        supabasePublishableKey: z.string().max(4096).optional(),
+        supabaseServiceRoleKey: z.string().max(4096).optional(),
         vercelToken: z.string().max(4096).optional(),
         vercelTeamId: z.string().max(200).optional(),
         githubToken: z.string().max(4096).optional(),
@@ -1780,7 +1784,13 @@ export const saveInstallationCredentialsFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await guard(context);
     const incomingSupabaseToken = data.supabaseManagementToken?.trim();
-    if (incomingSupabaseToken) {
+    const incomingPublishableKey = data.supabasePublishableKey?.trim();
+    const incomingServiceRoleKey = data.supabaseServiceRoleKey?.trim();
+    if (Boolean(incomingPublishableKey) !== Boolean(incomingServiceRoleKey)) {
+      throw new Error("Informe juntas a chave publicável e a chave de serviço do Supabase.");
+    }
+    let installationIdentity: { supabase_project_ref?: string | null; supabase_url?: string | null } | null = null;
+    if (incomingSupabaseToken || incomingPublishableKey) {
       const { data: installation, error: installationError } = await context.supabase
         .from("installations")
         .select("supabase_project_ref, supabase_url")
@@ -1788,17 +1798,34 @@ export const saveInstallationCredentialsFn = createServerFn({ method: "POST" })
         .maybeSingle();
       if (installationError) throw installationError;
       if (!installation) throw new Error("Instalação não encontrada.");
+      installationIdentity = installation;
+    }
+    if (incomingSupabaseToken && installationIdentity) {
       await assertSupabaseManagementAccess({
         token: incomingSupabaseToken,
-        supabaseProjectRef: installation.supabase_project_ref,
-        supabaseUrl: installation.supabase_url,
+        supabaseProjectRef: installationIdentity.supabase_project_ref,
+        supabaseUrl: installationIdentity.supabase_url,
+        requireKeys: !incomingPublishableKey,
       });
+    }
+    if (incomingPublishableKey && incomingServiceRoleKey && installationIdentity) {
+      const { validateSupabaseProjectKeys } = await import("./automation.server");
+      const checked = await validateSupabaseProjectKeys({
+        supabaseUrl:
+          installationIdentity.supabase_url ??
+          `https://${installationIdentity.supabase_project_ref ?? ""}.supabase.co`,
+        publishableKey: incomingPublishableKey,
+        serviceRoleKey: incomingServiceRoleKey,
+      });
+      if (!checked.ok) throw new Error(checked.error);
     }
     const { saveInstallationCredentials, getInstallationCredentialsStatus } =
       await import("./credentials.server");
     const patch: Record<string, string> = {};
     for (const field of [
       "supabaseManagementToken",
+      "supabasePublishableKey",
+      "supabaseServiceRoleKey",
       "vercelToken",
       "vercelTeamId",
       "githubToken",
