@@ -175,6 +175,7 @@ export function AppSidebar() {
   const isSuper = !!superQ.data?.isSuperAdmin;
   const { brandId } = useActiveContextOptional();
   const { clientId } = useActiveContextOptional();
+  const hasSession = useHasSession();
   const countPending = useServerFn(countMyPendingTasksFn);
   const pendingQ = useQuery({
     queryKey: ["tasks-pending-count", brandId, clientId ?? null],
@@ -183,16 +184,13 @@ export function AppSidebar() {
         return await countPending({
           data: { brandId: brandId!, clientId: clientId ?? null },
         });
-      } catch (err) {
-        // Session may have expired mid-refetch; swallow auth errors so the
-        // sidebar badge never blanks the app before the auth gate redirects.
-        if (err instanceof Error && /Unauthorized/i.test(err.message)) {
-          return { count: 0 };
-        }
-        throw err;
+      } catch {
+        // Sem sessão válida (logout/refresh) a chamada é rejeitada: não deve
+        // derrubar a tela, o gate de auth já redireciona.
+        return { count: 0 };
       }
     },
-    enabled: !!brandId && !!superQ.data,
+    enabled: !!brandId && !!superQ.data && hasSession,
     staleTime: 30_000,
     refetchInterval: 60_000,
     retry: false,
