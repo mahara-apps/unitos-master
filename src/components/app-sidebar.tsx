@@ -42,6 +42,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarSeparator,
   SidebarTrigger,
   useSidebar,
@@ -68,8 +71,8 @@ type NavItem = {
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   featureKey?: string;
   badge?: "tasks-pending" | "inbox-awaiting" | "messages-unread" | "beta";
-  /** Subitem aninhado (sem ícone, recuado, oculto no modo rail). */
-  sub?: boolean;
+  /** Subitens aninhados dentro do item (ex.: Diagnostics sob Brain). */
+  children?: Array<{ title: string; url: string }>;
 };
 
 /** Inbox fixo no topo: Mensagens (fora de qualquer grupo). */
@@ -110,13 +113,14 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
     label: "Inteligência",
     items: [
       { title: "Agentes IA", url: "/agents", icon: Bot, featureKey: "agents" },
-      { title: "Brain", url: "/brain", icon: Brain, featureKey: "brain", badge: "beta" },
       {
-        title: "Diagnostics",
-        url: "/brain/diagnostics",
+        title: "Brain",
+        url: "/brain",
         icon: Brain,
         featureKey: "brain",
-        sub: true,
+        badge: "beta",
+        // Diagnostics vive dentro do Brain, não como item solto do grupo.
+        children: [{ title: "Diagnostics", url: "/brain/diagnostics" }],
       },
       { title: "Chat", url: "/chat", icon: MessageSquare, featureKey: "chat" },
     ],
