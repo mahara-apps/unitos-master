@@ -69,7 +69,7 @@ function scenario(
   overrides: {
     keysStatus?: number;
     queryStatus?: (body: string) => number | null;
-    generateStatus?: number;
+    githubDestStatus?: number;
     verifyRows?: unknown[];
     suppliedKeys?: boolean;
   } = {},
@@ -90,15 +90,13 @@ function scenario(
           content: Buffer.from("version=9.9.9\n", "utf8").toString("base64"),
         });
       }
-      if (u.includes("/generate")) {
-        if (overrides.generateStatus && overrides.generateStatus >= 400) {
-          return new Response(
-            JSON.stringify({ message: "Resource not accessible by personal access token" }),
-            { status: overrides.generateStatus },
-          );
-        }
-        return Response.json({ full_name: "mahara-apps/unitos-novo" });
+      if (overrides.githubDestStatus && u.includes("unitos-novo")) {
+        return new Response(
+          JSON.stringify({ message: "Resource not accessible by personal access token" }),
+          { status: overrides.githubDestStatus },
+        );
       }
+      if (u.includes("/generate")) return Response.json({ full_name: "mahara-apps/unitos-novo" });
       if (u.includes("/git/trees")) return Response.json({ tree: [] });
       if (u.includes("/git/ref/heads/")) return Response.json({ object: { sha: "sha_dest" } });
       if (u.includes("/commits/main")) return Response.json({ sha: "sha_master" });
@@ -235,8 +233,8 @@ describe("instalação de ambiente novo — ponta a ponta", () => {
     expect(supplied.result).toBe("PASS");
   });
 
-  it("token sem permissão para criar o repositório pelo template dá motivo acionável", async () => {
-    const { run, calls } = scenario({ generateStatus: 403 });
+  it("token sem gravação no repositório da instalação dá motivo acionável e não publica", async () => {
+    const { run, calls } = scenario({ githubDestStatus: 403 });
     const result = await run();
 
     expect(result.result).not.toBe("PASS");
@@ -265,7 +263,7 @@ describe("instalação de ambiente novo — ponta a ponta", () => {
   });
 
   it("qualquer desfecho fecha a operação — nada permanece em andamento", async () => {
-    for (const s of [scenario(), scenario({ generateStatus: 403 })]) {
+    for (const s of [scenario(), scenario({ githubDestStatus: 403 })]) {
       const { run, updates } = s;
       await run();
       const finals = updates.filter(
