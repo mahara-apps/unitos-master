@@ -1145,23 +1145,23 @@ export function createCodeClient(input: {
             }),
           });
           if (!created.ok) {
-            const original = await api(`/repos/${target}`);
-            let rollback = "O backup técnico foi mantido arquivado.";
-            if (original.status === 404) {
-              const unarchived = await api(`/repos/${backupTarget}`, {
-                method: "PATCH",
-                body: JSON.stringify({ archived: false }),
-              });
-              const restored = unarchived.ok
-                ? await api(`/repos/${backupTarget}`, {
-                    method: "PATCH",
-                    body: JSON.stringify({ name: input.repo }),
-                  })
-                : unarchived;
-              rollback = restored.ok
-                ? "O nome original foi restaurado com segurança."
-                : `A restauração automática falhou: ${await fail(restored, `restaurar ${target}`)}`;
-            }
+            // Não consulta o slug antigo antes do rollback: o GitHub redireciona
+            // nomes renomeados e poderia produzir um falso positivo. Tenta a
+            // restauração diretamente; conflito significa que a geração criou o
+            // destino apesar da resposta de erro, então o backup fica preservado.
+            const unarchived = await api(`/repos/${backupTarget}`, {
+              method: "PATCH",
+              body: JSON.stringify({ archived: false }),
+            });
+            const restored = unarchived.ok
+              ? await api(`/repos/${backupTarget}`, {
+                  method: "PATCH",
+                  body: JSON.stringify({ name: input.repo }),
+                })
+              : unarchived;
+            const rollback = restored.ok
+              ? "O nome original foi restaurado com segurança."
+              : `O backup foi preservado, mas a restauração automática falhou: ${await fail(restored, `restaurar ${target}`)}`;
             return {
               ok: false,
               error:
