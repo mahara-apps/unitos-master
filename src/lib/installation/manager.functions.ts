@@ -975,6 +975,41 @@ export type AutomatedProvisionStart =
       urlSource: null;
     };
 
+async function startAtomicInstallationOperation(input: {
+  actorId: string;
+  installationId: string;
+  kind: "provision" | "validate" | "update";
+  summary: string;
+  steps: OperationStep[];
+  detail: Record<string, unknown>;
+}) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { callRpc } = await import("@/lib/supabase-rpc");
+  const { data, error } = await callRpc<Record<string, unknown>>(supabaseAdmin as never, "start_installation_operation", {
+    _actor_id: input.actorId,
+    _installation_id: input.installationId,
+    _kind: input.kind,
+    _summary: input.summary,
+    _steps: input.steps,
+    _run_token_hash: null,
+    _run_token_expires_at: null,
+  });
+  if (error || !data || typeof data["id"] !== "string") {
+    const message = error?.message ?? "não foi possível abrir a operação";
+    if (/andamento|55P03/i.test(message))
+      throw new Error("Já existe uma operação em andamento nesta instalação.");
+    throw new Error(message);
+  }
+  const { data: operation, error: detailError } = await supabaseAdmin
+    .from("installation_operations")
+    .update({ detail: input.detail, actor_id: input.actorId, status: "running" })
+    .eq("id", data["id"])
+    .select("*")
+    .single();
+  if (detailError) throw detailError;
+  return operation;
+}
+
 /**
  * Abre a operação de provisionamento automático e dispara a execução em
  * BACKGROUND (`waitUntil`), devolvendo imediatamente o id da operação. A UI
@@ -1037,36 +1072,14 @@ async function openAutomatedProvision(
     .maybeSingle();
   if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
 
-  const nowIso = new Date().toISOString();
-  const { data: op, error: opError } = await supabase
-    .from("installation_operations")
-    .insert({
-      installation_id: installationId,
-      kind: "provision",
-      status: "running",
-      summary: "Provisionamento automático em execução pelo MASTER.",
-      steps: initialSteps("provision"),
-      detail: { releaseVersion: MASTER_RELEASE_VERSION, executed: true, automated: true },
-      actor_id: context.userId,
-      started_at: nowIso,
-      last_report_at: nowIso,
-    })
-    .select("*")
-    .single();
-  if (opError) {
-    if ((opError as { code?: string }).code === "23505")
-      throw new Error("Já existe uma operação em andamento nesta instalação.");
-    throw opError;
-  }
-
-  await supabase
-    .from("installations")
-    .update({
-      status: runningStatusFor("provision"),
-      last_error: null,
-      active_operation_id: op.id,
-    })
-    .eq("id", installationId);
+  const op = await startAtomicInstallationOperation({
+    actorId: context.userId,
+    installationId,
+    kind: "provision",
+    summary: "Provisionamento automático em execução pelo MASTER.",
+    steps: initialSteps("provision"),
+    detail: { releaseVersion: MASTER_RELEASE_VERSION, executed: true, automated: true },
+  });
 
   const { runAutomatedProvision } = await import("./automation.server");
   const { waitUntil } = await import("@/lib/wait-until.server");
@@ -1184,36 +1197,14 @@ export const runAutomatedValidateFn = createServerFn({ method: "POST" })
       .maybeSingle();
     if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
 
-    const nowIso = new Date().toISOString();
-    const { data: op, error: opError } = await context.supabase
-      .from("installation_operations")
-      .insert({
-        installation_id: data.id,
-        kind: "validate",
-        status: "running",
-        summary: "Validação automática em execução pelo MASTER (somente leitura).",
-        steps: initialSteps("validate"),
-        detail: { releaseVersion: MASTER_RELEASE_VERSION, executed: true, automated: true },
-        actor_id: context.userId,
-        started_at: nowIso,
-        last_report_at: nowIso,
-      })
-      .select("*")
-      .single();
-    if (opError) {
-      if ((opError as { code?: string }).code === "23505")
-        throw new Error("Já existe uma operação em andamento nesta instalação.");
-      throw opError;
-    }
-
-    await context.supabase
-      .from("installations")
-      .update({
-        status: runningStatusFor("validate"),
-        last_error: null,
-        active_operation_id: op.id,
-      })
-      .eq("id", data.id);
+    const op = await startAtomicInstallationOperation({
+      actorId: context.userId,
+      installationId: data.id,
+      kind: "validate",
+      summary: "Validação automática em execução pelo MASTER (somente leitura).",
+      steps: initialSteps("validate"),
+      detail: { releaseVersion: MASTER_RELEASE_VERSION, executed: true, automated: true },
+    });
 
     const { runAutomatedValidate } = await import("./automation.server");
     const { waitUntil } = await import("@/lib/wait-until.server");
@@ -1552,16 +1543,13 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
     }
     const targetSha = head.sha;
 
-    const nowIso = new Date().toISOString();
-    const { data: op, error: opError } = await supabase
-      .from("installation_operations")
-      .insert({
-        installation_id: data.id,
-        kind: "update",
-        status: "running",
-        summary: "Atualização de código disparada pelo MASTER.",
-        steps: initialSteps("update"),
-        detail: {
+    const op = await startAtomicInstallationOperation({
+      actorId: context.userId,
+      installationId: data.id,
+      kind: "update",
+      summary: "Atualização de código disparada pelo MASTER.",
+      steps: initialSteps("update"),
+      detail: {
           releaseVersion: MASTER_RELEASE_VERSION,
           executed: true,
           automated: true,
@@ -1570,29 +1558,9 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
             ? `${record.pinnedRelease ?? record.currentVersion ?? "?"} · ${record.pinnedCommitSha.slice(0, 7)}`
             : (record.currentVersion ?? null),
           toVersion: `${MASTER_RELEASE_VERSION} · ${targetSha.slice(0, 7)}`,
-        },
-
-        actor_id: context.userId,
-        started_at: nowIso,
-        last_report_at: nowIso,
-      })
-      .select("*")
-      .single();
-    if (opError) {
-      if ((opError as { code?: string }).code === "23505")
-        throw new Error("Já existe uma operação em andamento nesta instalação.");
-      throw opError;
-    }
-
-    await supabase
-      .from("installations")
-      .update({
-        status: runningStatusFor("update"),
-        last_error: null,
-        active_operation_id: op.id,
-        pinned_by: context.userId,
-      })
-      .eq("id", data.id);
+      },
+    });
+    await supabase.from("installations").update({ pinned_by: context.userId }).eq("id", data.id);
 
     const { runAutomatedUpdate } = await import("./automation.server");
     const { waitUntil } = await import("@/lib/wait-until.server");
