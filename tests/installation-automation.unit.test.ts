@@ -880,3 +880,34 @@ describe("preflight de acessos antes de publicar", () => {
     expect(report.transient).toBeNull();
   });
 });
+
+describe("leitura das chaves do Supabase destino", () => {
+  it("cai para a rota legada quando reveal=true responde 403", async () => {
+    const calls: string[] = [];
+    const fetchImpl = vi.fn(async (url: string) => {
+      calls.push(url);
+      if (url.includes("reveal=true")) return new Response("forbidden", { status: 403 });
+      if (url.includes("/api-keys/legacy"))
+        return Response.json({ anon_key: "anon_jwt", service_role_key: "service_jwt" });
+      return new Response("not found", { status: 404 });
+    }) as unknown as typeof fetch;
+
+    const management = createManagementClient({ token: "sbp_x", projectRef: "abc", fetchImpl });
+    const keys = await management.keys();
+
+    expect(keys.ok).toBe(true);
+    expect(keys.publishableKey).toBe("anon_jwt");
+    expect(keys.serviceRoleKey).toBe("service_jwt");
+    expect(calls.some((u) => u.includes("reveal=true"))).toBe(true);
+  });
+
+  it("mantém o erro de permissão quando nenhuma rota entrega as chaves", async () => {
+    const fetchImpl = vi.fn(
+      async () => new Response("forbidden", { status: 403 }),
+    ) as unknown as typeof fetch;
+    const management = createManagementClient({ token: "sbp_x", projectRef: "abc", fetchImpl });
+    const keys = await management.keys();
+    expect(keys.ok).toBe(false);
+    expect(keys.error ?? "").toMatch(/permiss/i);
+  });
+});
