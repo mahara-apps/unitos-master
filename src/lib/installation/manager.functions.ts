@@ -261,8 +261,8 @@ export const getInstallationManagerAccessFn = createServerFn({ method: "POST" })
  * Encerra operações que ficaram "em andamento" sem reportar progresso. Sem
  * isto, uma queda no meio da execução deixa a instalação travada para sempre.
  */
-async function reconcileStuckOperations(context: {
-  supabase: {
+async function reconcileStuckOperations(context: { supabase: unknown }): Promise<void> {
+  const supabase = context.supabase as {
     from: (table: string) => {
       select: (columns: string) => {
         in: (
@@ -285,7 +285,6 @@ async function reconcileStuckOperations(context: {
       };
     };
   };
-}): Promise<void> {
   try {
     const { data } = await context.supabase
       .from("installation_operations")
