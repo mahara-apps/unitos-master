@@ -443,6 +443,85 @@ function AdminInstallationsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Propagação do token do GitHub do MASTER para todas as instalações */}
+      <Dialog open={propagateOpen} onOpenChange={setPropagateOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Aplicar token do GitHub nas instalações</DialogTitle>
+            <DialogDescription>
+              Copia o token do GitHub do MASTER (segredo do servidor) para o cofre cifrado de{" "}
+              <strong>todas as instalações</strong> cadastradas. Use quando o token da organização
+              é regenerado e as operações de código começam a falhar com acesso negado. O valor do
+              token nunca é exibido.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
+              <strong>Atenção.</strong> A substituição é imediata em todas as instalações. O token
+              precisa de <strong>Contents: Read and write</strong> nos repositórios de todas elas —
+              senão a próxima publicação de código falha com 403.
+            </div>
+
+            {propagateResults ? (
+              <ul className="max-h-56 space-y-1 overflow-y-auto text-xs">
+                {propagateResults.map((r) => (
+                  <li key={r.id} className="flex items-start gap-2">
+                    {r.ok ? (
+                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                    ) : (
+                      <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+                    )}
+                    <span className="min-w-0">
+                      <span className="font-medium">{r.name}</span>
+                      {!r.ok && r.error ? (
+                        <span className="block text-destructive">{r.error}</span>
+                      ) : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="space-y-1.5">
+                <Label className="text-xs">
+                  Para confirmar, digite{" "}
+                  <span className="font-mono font-semibold">
+                    {PROPAGATE_GITHUB_TOKEN_CONFIRM_LABEL}
+                  </span>
+                </Label>
+                <Input
+                  value={propagateConfirm}
+                  onChange={(e) => setPropagateConfirm(e.target.value)}
+                  autoComplete="off"
+                  placeholder={PROPAGATE_GITHUB_TOKEN_CONFIRM_LABEL}
+                />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setPropagateOpen(false)}>
+              {propagateResults ? "Fechar" : "Cancelar"}
+            </Button>
+            {!propagateResults && (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => propagate.mutate()}
+                disabled={
+                  propagate.isPending ||
+                  propagateConfirm.trim().toLowerCase() !==
+                    PROPAGATE_GITHUB_TOKEN_CONFIRM_LABEL.toLowerCase()
+                }
+              >
+                {propagate.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Aplicar em todas
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
