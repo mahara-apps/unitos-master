@@ -410,7 +410,36 @@ export type ManagementClient = {
     serviceRoleKey?: string;
     error?: string;
   }>;
+  /**
+   * PATCH em `/config/auth`. Opcional no tipo porque testes usam dublês
+   * simples — quem chama trata a ausência como "não aplicado".
+   */
+  configureAuth?: (
+    patch: Record<string, unknown>,
+  ) => Promise<{ ok: boolean; error?: string }>;
 };
+
+/**
+ * Padrão de autenticação de toda instalação nova: confirmação de e-mail
+ * DESLIGADA. O Supabase de cada instalação usa o remetente padrão dele, sem
+ * DNS apontado, então o e-mail de confirmação nunca chega e o primeiro acesso
+ * (/setup) ficaria preso. Convites e reset continuam disponíveis.
+ */
+export const INSTALLATION_AUTH_DEFAULTS = { mailer_autoconfirm: true } as const;
+
+/** Aplica os padrões de auth no destino. Nunca bloqueia a operação. */
+export async function applyInstallationAuthDefaults(
+  management: ManagementClient,
+): Promise<{ applied: boolean; detail: string }> {
+  if (!management.configureAuth) {
+    return { applied: false, detail: "cliente de gestão sem suporte a config/auth" };
+  }
+  const res = await management.configureAuth({ ...INSTALLATION_AUTH_DEFAULTS });
+  return res.ok
+    ? { applied: true, detail: "confirmação de e-mail desligada no destino" }
+    : { applied: false, detail: res.error ?? "não foi possível ajustar a autenticação" };
+}
+
 
 function managementApiError(status: number, body: string, operation: "database" | "keys"): string {
   if (status === 401) {
@@ -577,7 +606,37 @@ export function createManagementClient(input: {
       }
       return last;
     },
+    async configureAuth(patch) {
+      let last = { ok: false, error: "sem resposta da Management API" };
+      for (let attempt = 0; attempt < attempts; attempt++) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 12_000);
+        try {
+          const res = await doFetch(`${base}/config/auth`, {
+            method: "PATCH",
+            headers,
+            body: JSON.stringify(patch),
+            signal: controller.signal,
+          });
+          if (res.ok) return { ok: true };
+          const text = await res.text().catch(() => "");
+          last = { ok: false, error: managementApiError(res.status, text, "database") };
+          if (!isRetryableManagementStatus(res.status)) return last;
+        } catch (e) {
+          const aborted = e instanceof Error && e.name === "AbortError";
+          last = {
+            ok: false,
+            error: aborted ? "timeout de 12s na Management API" : (e as Error).message,
+          };
+        } finally {
+          clearTimeout(timer);
+        }
+        if (attempt < attempts - 1) await sleep(RETRY_DELAYS_MS[attempt]);
+      }
+      return last;
+    },
   };
+
 }
 
 export async function validateSupabaseProjectKeys(input: {
@@ -2983,7 +3042,18 @@ export async function runAutomatedProvision(input: {
     return finish(null, null);
   }
   checks.supabase = "ok";
-  await mark("supabase", "done", `projeto ${target.projectRef} acessível`);
+  // Confirmação de e-mail desligada por padrão: o remetente padrão do Supabase
+  // não tem DNS apontado, então o link de confirmação do /setup não chegaria.
+  const authDefaults = await applyInstallationAuthDefaults(management);
+  if (!authDefaults.applied) {
+    pendingNotes.push(`Confirmação de e-mail não pôde ser desligada: ${authDefaults.detail}`);
+  }
+  await mark(
+    "supabase",
+    "done",
+    `projeto ${target.projectRef} acessível${authDefaults.applied ? " · confirmação de e-mail desligada" : ""}`,
+  );
+
 
   /* 3. preflight dos acessos de publicação e repositório, antes de qualquer
    * escrita: negativa de permissão encerra aqui, dizendo o acesso exato que
@@ -4003,6 +4073,10 @@ export async function runAutomatedUpdate(input: {
     projectRef: target.projectRef,
     fetchImpl: input.fetchImpl,
   });
+  // Instalações antigas também passam a nascer/ficar sem confirmação de e-mail.
+  await applyInstallationAuthDefaults(management).catch(() => undefined);
+
+
 
   const masterRepo = (env["UNITOS_MASTER_REPO"] ?? "").trim() || null;
   const repo = resolveInstallationRepo({
