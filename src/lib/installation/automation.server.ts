@@ -1764,8 +1764,13 @@ export function createDeployClient(input: {
   fetchImpl?: Fetcher;
 }): DeployClient {
   const doFetch = input.fetchImpl ?? fetch;
-  const team = input.teamId ? `teamId=${encodeURIComponent(input.teamId)}` : "";
-  const qs = (extra?: string) => [team, extra].filter(Boolean).join("&");
+  let resolvedTeamId = (input.teamId ?? "").trim() || null;
+  const qs = (extra?: string) => [
+    resolvedTeamId ? `teamId=${encodeURIComponent(resolvedTeamId)}` : "",
+    extra,
+  ]
+    .filter(Boolean)
+    .join("&");
   const headers = {
     authorization: `Bearer ${input.token}`,
     "content-type": "application/json",
@@ -1774,15 +1779,56 @@ export function createDeployClient(input: {
   const masterRepo = (input.masterRepo ?? "").trim() || DEFAULT_MASTER_REPO;
   const targetRepo = (input.repo ?? "").trim() || masterRepo;
 
+  /**
+   * Tokens da Vercel podem enxergar projetos pessoais e de várias equipes. A
+   * API responde 403/404 quando o projeto pertence a uma equipe e a consulta
+   * omite (ou traz um Team ID antigo). Descobrimos esse escopo uma vez e o
+   * reutilizamos em vínculo, variáveis e deployment.
+   */
+  const fetchProject = async (): Promise<Response> => {
+    const request = (teamId: string | null) => {
+      const suffix = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
+      return doFetch(`https://api.vercel.com/v9/projects/${project}${suffix}`, { headers });
+    };
+    const initial = await request(resolvedTeamId);
+    if (initial.ok || (initial.status !== 403 && initial.status !== 404)) return initial;
+
+    const teams = await doFetch("https://api.vercel.com/v2/teams?limit=100", { headers }).catch(
+      () => null,
+    );
+    if (!teams?.ok) return initial;
+    const payload = (await teams.json().catch(() => ({}))) as {
+      teams?: Array<{ id?: string }>;
+    };
+    for (const candidate of payload.teams ?? []) {
+      const teamId = (candidate.id ?? "").trim();
+      if (!teamId || teamId === resolvedTeamId) continue;
+      const scoped = await request(teamId);
+      if (scoped.ok) {
+        resolvedTeamId = teamId;
+        return scoped;
+      }
+    }
+    return initial;
+  };
+
+  const projectAccessError = async (res: Response) => {
+    const detail = (await res.text().catch(() => "")).slice(0, 200);
+    const hint =
+      res.status === 401
+        ? "token inválido ou expirado"
+        : res.status === 403 || res.status === 404
+          ? "o token não acessa o projeto em nenhuma equipe visível; confirme a conta dona do projeto e a permissão do token"
+          : "consulta recusada pela Vercel";
+    return `HTTP ${res.status} ao consultar o projeto de deploy — ${hint}${detail ? ` (${detail})` : ""}`;
+  };
+
   const client: DeployClient = {
     async deploymentUrl() {
       try {
-        const res = await doFetch(
-          `https://api.vercel.com/v9/projects/${project}?${qs()}`.replace(/\?$/, ""),
-          { headers },
-        );
+        const res = await fetchProject();
         if (!res.ok) {
-          return { ok: false, error: `HTTP ${res.status} ao consultar o projeto de deploy` };
+          return { ok: false, error: await projectAccessError(res) };
         }
         const body = (await res.json().catch(() => ({}))) as {
           name?: string;
@@ -1887,12 +1933,9 @@ export function createDeployClient(input: {
     async linkRepository(repo, options) {
       const slug = (repo ?? "").trim() || targetRepo;
       try {
-        const res = await doFetch(
-          `https://api.vercel.com/v9/projects/${project}?${qs()}`.replace(/\?$/, ""),
-          { headers },
-        );
+        const res = await fetchProject();
         if (!res.ok) {
-          return { ok: false, error: `HTTP ${res.status} ao consultar o projeto de deploy` };
+          return { ok: false, error: await projectAccessError(res) };
         }
         const body = (await res.json().catch(() => ({}))) as {
           id?: string;
@@ -1973,10 +2016,7 @@ export function createDeployClient(input: {
     async deployLatestCode(options) {
       try {
         const readProject = async () => {
-          const res = await doFetch(
-            `https://api.vercel.com/v9/projects/${project}?${qs()}`.replace(/\?$/, ""),
-            { headers },
-          );
+          const res = await fetchProject();
           if (!res.ok) return null;
           return (await res.json().catch(() => ({}))) as {
             id?: string;

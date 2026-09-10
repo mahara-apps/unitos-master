@@ -25,7 +25,7 @@ const githubResponse = (url: string): Response | null => {
   if (url.includes("/contents/supabase/baseline-snapshot/tools/delta_version.txt"))
     return Response.json({
       encoding: "base64",
-      content: Buffer.from("version=1.3.35\n", "utf8").toString("base64"),
+      content: Buffer.from("version=1.3.36\n", "utf8").toString("base64"),
     });
   if (url.includes("/git/trees")) return Response.json({ tree: [] });
   if (url.includes("/git/ref/heads/")) return Response.json({ object: { sha: "sha_dest" } });
@@ -778,5 +778,51 @@ describe("clientes de gestão", () => {
     ]);
     expect(result.ok).toBe(true);
     expect(seen[0]).toContain("upsert=true");
+  });
+
+  it("descobre automaticamente a equipe dona do projeto de deploy", async () => {
+    const seen: string[] = [];
+    const client = createDeployClient({
+      token: "t",
+      project: "unitos-casa8",
+      fetchImpl: (async (url: string) => {
+        seen.push(url);
+        if (url.endsWith("/v9/projects/unitos-casa8")) {
+          return new Response('{"error":{"code":"forbidden"}}', { status: 403 });
+        }
+        if (url.includes("/v2/teams")) {
+          return Response.json({ teams: [{ id: "team_casa8" }] });
+        }
+        if (url.includes("teamId=team_casa8")) {
+          return Response.json({
+            id: "prj_casa8",
+            name: "unitos-casa8",
+            targets: { production: { url: "unitos-casa8.vercel.app" } },
+          });
+        }
+        return new Response("not found", { status: 404 });
+      }) as never,
+    });
+
+    const result = await client.deploymentUrl();
+    expect(result).toEqual({ ok: true, url: "https://unitos-casa8.vercel.app" });
+    expect(seen).toContain("https://api.vercel.com/v2/teams?limit=100");
+    expect(seen.some((url) => url.includes("teamId=team_casa8"))).toBe(true);
+  });
+
+  it("explica quando o token não acessa o projeto em nenhuma equipe", async () => {
+    const client = createDeployClient({
+      token: "t",
+      project: "unitos-casa8",
+      fetchImpl: (async (url: string) => {
+        if (url.includes("/v2/teams")) return Response.json({ teams: [] });
+        return new Response('{"error":{"code":"forbidden"}}', { status: 403 });
+      }) as never,
+    });
+
+    const result = await client.deploymentUrl();
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("nenhuma equipe visível");
+    expect(result.error).toContain("conta dona do projeto");
   });
 });
