@@ -2662,6 +2662,7 @@ export async function runAutomatedProvision(input: {
    * Sem código publicado o deploy não tem o que construir — por isso esta etapa
    * vem antes de conectar a Vercel, gravar variáveis e preparar o banco. */
   const codeStage = await readStageProgress(client, operation);
+  let provisionRepoSlug = codeStage.codeRepo ?? repo.slug;
   await mark("code", "running");
   if (codeStage.codeDone && codeStage.codeSha) {
     await mark(
@@ -2678,6 +2679,7 @@ export async function runAutomatedProvision(input: {
       return finish(null, null);
     }
     const effectiveRepoSlug = ensured.repoSlug ?? repo.slug;
+    provisionRepoSlug = effectiveRepoSlug;
     if (effectiveRepoSlug !== repo.slug) {
       const updated = await (client as never as {
         from: (table: string) => {
@@ -2755,7 +2757,6 @@ export async function runAutomatedProvision(input: {
 
   /* 4. deploy conectado ao repositório da instalação, sem auto-deploy por Git */
   await mark("deploy_link", "running");
-  const provisionRepoSlug = codeStage.codeRepo ?? repo.slug;
   const linked = await deploy.linkRepository(provisionRepoSlug);
   if (!linked.ok) {
     blocked.push(`Projeto de deploy não ligado a ${provisionRepoSlug}: ${linked.error ?? ""}`.trim());
