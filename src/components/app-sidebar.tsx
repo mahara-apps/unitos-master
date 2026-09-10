@@ -270,33 +270,15 @@ export function AppSidebar() {
     return 0;
   };
 
+  // Subitens aninhados herdam o módulo do item pai, mas respeitam os mesmos
+  // filtros de papel/perfil aplicados à URL do filho.
+  const childVisible = (url: string) =>
+    isSuper || (canAccessSidebarUrl(role, url) && moduleAllowsUrl(url));
+
   const renderItem = (item: NavItem, recessive = false) => {
     const active = isActive(item.url);
     const count = badgeCount(item.badge);
-    if (item.sub) {
-      // Subitem aninhado: recuado, sem ícone, oculto no modo rail.
-      return (
-        <SidebarMenuItem key={item.url}>
-          <SidebarMenuButton
-            asChild
-            isActive={active}
-            className="group-data-[collapsible=icon]:hidden"
-          >
-            <Link
-              to={item.url}
-              preload="intent"
-              className="flex items-center gap-3 pl-[42px] text-[12.5px]"
-            >
-              <span
-                className={cn("text-muted-foreground", active && "font-semibold text-foreground")}
-              >
-                {item.title}
-              </span>
-            </Link>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      );
-    }
+    const children = item.children?.filter((c) => childVisible(c.url)) ?? [];
     return (
       <SidebarMenuItem key={item.url}>
         <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
