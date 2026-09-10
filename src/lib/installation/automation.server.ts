@@ -2820,26 +2820,32 @@ export async function runAutomatedProvision(input: {
   const { client, operation, installation } = input;
   const failures: string[] = [];
   const blocked: string[] = [];
+  // Pendências externas ao provisionamento (ex.: DNS do domínio definitivo
+  // ainda não publicado pelo dono do domínio). O ambiente está aplicado e
+  // utilizável: registrar como aviso, nunca como bloqueio da instalação.
+  const pendingNotes: string[] = [];
   const checks: Partial<Record<HealthCheckId, CheckState>> = {};
   const steps: AutomationRunResult["steps"] = [];
 
   const finish = async (appUrl: string | null, source: "custom_domain" | "deploy" | null) => {
     const outcome = automationOutcome({ blocked, failures });
+    const notes = pendingNotes.length ? ` Pendências: ${pendingNotes.join(" | ")}` : "";
     await finalizeOperation(client as never, operation as never, {
       ok: outcome.result === "PASS",
-      warnings: outcome.result === "PASS" && blocked.length > 0,
+      warnings: outcome.result === "PASS" && (blocked.length > 0 || pendingNotes.length > 0),
       // PASS => a instalação passa a rodar a versão do MASTER, e o status
       // derivado vira "Atualizada" (operacional). Sem isso ficaria em "Atenção".
       version: outcome.result === "PASS" ? MASTER_RELEASE_VERSION : null,
       summary:
         outcome.result === "PASS"
-          ? `Provisionamento automático concluído${appUrl ? ` em ${appUrl}` : ""}.`
-          : `${outcome.result}: ${outcome.reasons.join(" | ")}`,
+          ? `Provisionamento automático concluído${appUrl ? ` em ${appUrl}` : ""}.${notes}`
+          : `${outcome.result}: ${outcome.reasons.join(" | ")}${notes}`,
       errorKind: outcome.result === "PASS" ? null : outcome.result.toLowerCase(),
       checks: checks as never,
     }).catch(() => undefined);
     return { ...outcome, appUrl, urlSource: source, steps };
   };
+
 
   const mark = async (
     id: string,
@@ -3530,12 +3536,21 @@ export async function runAutomatedProvision(input: {
       // Sem publicação nova (cota) ou com DNS/domínio ainda propagando, o 404 é
       // esperado: é pendência de acompanhamento, não bloqueio do provisionamento.
       const pendingPublish = redeployed.quotaExceeded === true || domainNote !== "";
+      // Domínio definitivo depende do DNS do dono do domínio, fora do alcance da
+      // automação. O ambiente segue aplicado e utilizável pela URL de deploy.
+      const dnsPending = url.source === "custom_domain";
       const message = `Frontend ainda nao respondeu em ${url.origin}: ${probe.detail}${
-        pendingPublish ? " — aguardando a publicação/DNS concluir" : ""
+        dnsPending
+          ? " — publique o DNS do subdomínio apontando para cname.vercel-dns.com e o endereço definitivo passa a responder"
+          : pendingPublish
+            ? " — aguardando a publicação/DNS concluir"
+            : ""
       }`;
-      if (pendingPublish) failures.push(message);
+      if (dnsPending) pendingNotes.push(message);
+      else if (pendingPublish) failures.push(message);
       else blocked.push(message);
     }
+
 
     await saveStageProgress(client, operation, {
       deployDone: true,
