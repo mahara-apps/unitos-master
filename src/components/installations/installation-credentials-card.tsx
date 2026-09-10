@@ -184,9 +184,9 @@ export function InstallationCredentialsCard({ installationId }: { installationId
     onSuccess: (result) => {
       const list = result.checks ?? [];
       setChecks(list);
-      const failing = list.filter((check) => !check.ok);
-      if (!failing.length) toast.success("Todos os acessos e permissões conferidos.");
-      else toast.error(`${failing.length} permissão(ões) pendente(s) — veja a lista abaixo.`);
+      setSummary(result.summary ?? "");
+      if (result.ok) toast.success("OK — todos os acessos necessários estão liberados.");
+      else toast.error(result.summary ?? "Há acessos faltando — veja a lista abaixo.");
     },
     onError: (error: unknown) =>
       toast.error(error instanceof Error ? error.message : "Não foi possível testar."),
