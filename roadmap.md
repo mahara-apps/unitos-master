@@ -10,3 +10,4 @@
 - [x] Acelerar a publicação no GitHub, reaproveitar a árvore do MASTER e tornar atualizações retomáveis; propagar no MASTER 1.3.30.
 - [x] Tornar instalações novas template-only, recuperar com segurança repositórios técnicos incompletos e propagar no MASTER.
 - [x] Remover a exigência de exclusão na recuperação GitHub: preservar README legado em backup arquivado, com rollback seguro.
+- [x] Eliminar também a exigência de renomear repositórios: preservar o legado intacto e criar/registrar automaticamente um destino operacional alternativo.

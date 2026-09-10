@@ -136,6 +136,59 @@ describe("createCodeClient", () => {
     expect(calls.some((call) => call.includes("/generate"))).toBe(true);
   });
 
+  it("preserva o README intacto e cria destino alternativo quando não pode renomear", async () => {
+    const calls: Array<{ url: string; method: string; body: string }> = [];
+    const seed = Buffer.from(
+      "# unitos-pitada\n\nInstalação Unitos. Código publicado a partir do MASTER.\n",
+    ).toString("base64");
+    const c = client(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      const body = String(init?.body ?? "");
+      calls.push({ url, method, body });
+      if (url.endsWith("/repos/acme/unitos-pitada") && method === "PATCH") {
+        return new Response("forbidden", { status: 403 });
+      }
+      if (url.endsWith("/repos/acme/unitos-pitada")) {
+        return Response.json({ full_name: "acme/unitos-pitada" });
+      }
+      if (url.endsWith("/repos/acme/unitos-pitada-legacy-readme")) {
+        return new Response("no", { status: 404 });
+      }
+      if (url.endsWith("/repos/acme/unitos-pitada-app")) {
+        return new Response("no", { status: 404 });
+      }
+      if (url.includes("/git/ref/heads/main")) return Response.json({ object: { sha: "seed" } });
+      if (url.includes("/git/trees/seed")) {
+        return Response.json({ tree: [{ path: "README.md", type: "blob" }] });
+      }
+      if (url.includes("/contents/README.md")) {
+        return Response.json({ encoding: "base64", content: seed });
+      }
+      if (url.endsWith("/repos/mahara-apps/unitos-master")) {
+        return Response.json({ is_template: true });
+      }
+      if (url.endsWith("/generate")) return Response.json({ full_name: "acme/unitos-pitada-app" });
+      if (url.endsWith("/repos/acme/unitos-pitada-app/commits/main")) {
+        return Response.json({ sha: "generated" });
+      }
+      return Response.json({});
+    });
+
+    const result = await c.ensureRepo({ initialProvision: true });
+    expect(result).toMatchObject({
+      ok: true,
+      created: true,
+      via: "template_alternate",
+      repoSlug: "acme/unitos-pitada-app",
+      commitSha: "generated",
+    });
+    expect(calls.some((call) => call.method === "DELETE")).toBe(false);
+    expect(calls.filter((call) => call.method === "PATCH")).toHaveLength(1);
+    expect(calls.find((call) => call.url.endsWith("/generate"))?.body).toContain(
+      '"name":"unitos-pitada-app"',
+    );
+  });
+
   it("restaura o nome original quando a geração pelo template falha", async () => {
     const calls: Array<{ url: string; method: string; body: string }> = [];
     let originalExists = true;

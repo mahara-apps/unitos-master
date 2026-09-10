@@ -25,7 +25,7 @@ const githubResponse = (url: string): Response | null => {
   if (url.includes("/contents/supabase/baseline-snapshot/tools/delta_version.txt"))
     return Response.json({
       encoding: "base64",
-      content: Buffer.from("version=1.3.34\n", "utf8").toString("base64"),
+      content: Buffer.from("version=1.3.35\n", "utf8").toString("base64"),
     });
   if (url.includes("/git/trees")) return Response.json({ tree: [] });
   if (url.includes("/git/ref/heads/")) return Response.json({ object: { sha: "sha_dest" } });
