@@ -8612,6 +8612,7 @@ export type Database = {
       }
       start_installation_operation: {
         Args: {
+          _actor_id: string
           _installation_id: string
           _kind: string
           _run_token_expires_at?: string
