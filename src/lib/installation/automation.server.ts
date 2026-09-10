@@ -620,7 +620,13 @@ export async function validateSupabaseProjectKeys(input: {
 /* ------------------------------------------------------------- Vercel API */
 
 export type DeployClient = {
-  deploymentUrl: () => Promise<{ ok: boolean; url?: string; error?: string }>;
+  deploymentUrl: () => Promise<{
+    ok: boolean;
+    url?: string;
+    error?: string;
+    /** Nome canônico devolvido pela Vercel, útil para corrigir cadastros antigos. */
+    projectName?: string;
+  }>;
   /** Redeploy da producao — necessario para que as variaveis gravadas valham. */
   redeploy: () => Promise<{ ok: boolean; deploymentId?: string; error?: string }>;
   /**
@@ -1847,7 +1853,8 @@ export function createDeployClient(input: {
     authorization: `Bearer ${input.token}`,
     "content-type": "application/json",
   };
-  const project = encodeURIComponent(input.project);
+  let resolvedProjectName = input.project;
+  const projectPath = () => encodeURIComponent(resolvedProjectName);
   const masterRepo = (input.masterRepo ?? "").trim() || DEFAULT_MASTER_REPO;
   const targetRepo = (input.repo ?? "").trim() || masterRepo;
 
@@ -1860,10 +1867,42 @@ export function createDeployClient(input: {
   const fetchProject = async (): Promise<Response> => {
     const request = (teamId: string | null) => {
       const suffix = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
-      return doFetch(`https://api.vercel.com/v9/projects/${project}${suffix}`, { headers });
+      return doFetch(`https://api.vercel.com/v9/projects/${projectPath()}${suffix}`, { headers });
     };
     const initial = await request(resolvedTeamId);
     if (initial.ok || (initial.status !== 403 && initial.status !== 404)) return initial;
+
+    // Cadastros antigos podem ter sido salvos sem um separador do slug
+    // (ex.: unitos-casa8), enquanto o projeto real é unitos-casa-8. Procuramos
+    // apenas uma equivalência canônica única entre os projetos visíveis; nunca
+    // escolhemos por similaridade aproximada.
+    const canonical = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const requestedCanonical = canonical(input.project);
+    const discoverEquivalent = async (teamId: string | null): Promise<Response | null> => {
+      const suffix = teamId ? `&teamId=${encodeURIComponent(teamId)}` : "";
+      const list = await doFetch(`https://api.vercel.com/v9/projects?limit=100${suffix}`, {
+        headers,
+      }).catch(() => null);
+      if (!list?.ok) return null;
+      const body = (await list.json().catch(() => ({}))) as {
+        projects?: Array<{ name?: string }>;
+      };
+      const matches = (body.projects ?? [])
+        .map((candidate) => (candidate.name ?? "").trim())
+        .filter((name) => name && canonical(name) === requestedCanonical);
+      if (matches.length !== 1 || matches[0] === input.project) return null;
+      resolvedProjectName = matches[0];
+      const matched = await request(teamId);
+      if (matched.ok) {
+        resolvedTeamId = teamId;
+        return matched;
+      }
+      resolvedProjectName = input.project;
+      return null;
+    };
+
+    const personalMatch = await discoverEquivalent(resolvedTeamId);
+    if (personalMatch) return personalMatch;
 
     const teams = await doFetch("https://api.vercel.com/v2/teams?limit=100", { headers }).catch(
       () => null,
@@ -1880,6 +1919,8 @@ export function createDeployClient(input: {
         resolvedTeamId = teamId;
         return scoped;
       }
+      const equivalent = await discoverEquivalent(teamId);
+      if (equivalent) return equivalent;
     }
     return initial;
   };
@@ -1920,7 +1961,11 @@ export function createDeployClient(input: {
         if (!candidate) {
           return { ok: false, error: "o deploy ainda não expôs uma URL pública" };
         }
-        return { ok: true, url: candidate.startsWith("http") ? candidate : `https://${candidate}` };
+        return {
+          ok: true,
+          url: candidate.startsWith("http") ? candidate : `https://${candidate}`,
+          projectName: (body.name ?? resolvedProjectName).trim(),
+        };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
       }
@@ -1928,7 +1973,7 @@ export function createDeployClient(input: {
     async redeploy() {
       try {
         const list = await doFetch(
-          `https://api.vercel.com/v6/deployments?${qs(`app=${project}&target=production&limit=1`)}`,
+          `https://api.vercel.com/v6/deployments?${qs(`app=${projectPath()}&target=production&limit=1`)}`,
           { headers },
         );
         if (!list.ok) {
@@ -1983,7 +2028,7 @@ export function createDeployClient(input: {
       };
       try {
         const res = await doFetch(
-          `https://api.vercel.com/v9/projects/${project}?${qs()}`.replace(/\?$/, ""),
+          `https://api.vercel.com/v9/projects/${projectPath()}?${qs()}`.replace(/\?$/, ""),
           { method: "PATCH", headers, body: JSON.stringify(body) },
         );
         if (res.ok) return { ok: true };
@@ -2240,7 +2285,7 @@ export function createDeployClient(input: {
       if (!host) return { ok: false, error: "domínio vazio" };
       try {
         const read = await doFetch(
-          `https://api.vercel.com/v9/projects/${project}/domains/${encodeURIComponent(host)}?${qs()}`.replace(
+          `https://api.vercel.com/v9/projects/${projectPath()}/domains/${encodeURIComponent(host)}?${qs()}`.replace(
             /\?$/,
             "",
           ),
@@ -2251,7 +2296,7 @@ export function createDeployClient(input: {
           return { ok: true, added: false, verified: body.verified === true };
         }
         const created = await doFetch(
-          `https://api.vercel.com/v10/projects/${project}/domains?${qs()}`.replace(/\?$/, ""),
+          `https://api.vercel.com/v10/projects/${projectPath()}/domains?${qs()}`.replace(/\?$/, ""),
           { method: "POST", headers, body: JSON.stringify({ name: host }) },
         );
         if (!created.ok) {
@@ -2302,7 +2347,7 @@ export function createDeployClient(input: {
     async setEnv(entries) {
       try {
         const res = await doFetch(
-          `https://api.vercel.com/v10/projects/${project}/env?${qs("upsert=true")}`,
+          `https://api.vercel.com/v10/projects/${projectPath()}/env?${qs("upsert=true")}`,
           {
             method: "POST",
             headers,
@@ -2332,7 +2377,7 @@ export function createDeployClient(input: {
     async listEnv(plainKeys = []) {
       try {
         const res = await doFetch(
-          `https://api.vercel.com/v9/projects/${project}/env?${qs("decrypt=false")}`,
+          `https://api.vercel.com/v9/projects/${projectPath()}/env?${qs("decrypt=false")}`,
           { headers },
         );
         if (!res.ok) {

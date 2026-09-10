@@ -807,7 +807,11 @@ describe("clientes de gestão", () => {
     });
 
     const result = await client.deploymentUrl();
-    expect(result).toEqual({ ok: true, url: "https://unitos-casa8.vercel.app" });
+    expect(result).toEqual({
+      ok: true,
+      url: "https://unitos-casa8.vercel.app",
+      projectName: "unitos-casa8",
+    });
     expect(seen).toContain("https://api.vercel.com/v2/teams?limit=100");
     expect(seen.some((url) => url.includes("teamId=team_casa8"))).toBe(true);
   });
@@ -826,6 +830,38 @@ describe("clientes de gestão", () => {
     expect(result.ok).toBe(false);
     expect(result.error).toContain("nenhuma equipe visível");
     expect(result.error).toContain("conta dona do projeto");
+  });
+
+  it("resolve de forma segura o nome canônico do projeto visível", async () => {
+    const seen: string[] = [];
+    const client = createDeployClient({
+      token: "t",
+      project: "unitos-casa8",
+      fetchImpl: (async (url: string) => {
+        seen.push(url);
+        if (url.endsWith("/v9/projects/unitos-casa8")) {
+          return new Response('{"error":{"code":"not_found"}}', { status: 404 });
+        }
+        if (url.includes("/v9/projects?limit=100")) {
+          return Response.json({ projects: [{ name: "unitos-casa-8" }, { name: "outro" }] });
+        }
+        if (url.endsWith("/v9/projects/unitos-casa-8")) {
+          return Response.json({
+            name: "unitos-casa-8",
+            targets: { production: { url: "unitos-casa-8.vercel.app" } },
+          });
+        }
+        return new Response("not found", { status: 404 });
+      }) as never,
+    });
+
+    const result = await client.deploymentUrl();
+    expect(result).toEqual({
+      ok: true,
+      url: "https://unitos-casa-8.vercel.app",
+      projectName: "unitos-casa-8",
+    });
+    expect(seen).toContain("https://api.vercel.com/v9/projects/unitos-casa-8");
   });
 
   it("403 com invalidToken vira orientação de gerar novo token", async () => {
