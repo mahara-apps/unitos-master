@@ -1818,6 +1818,79 @@ export const saveInstallationCredentialsFn = createServerFn({ method: "POST" })
     return getInstallationCredentialsStatus(context.supabase as never, data.id);
   });
 
+/** Texto que o Super Admin digita para confirmar a propagação em massa. */
+export const PROPAGATE_GITHUB_TOKEN_CONFIRM_LABEL = "APLICAR EM TODAS";
+
+export type GithubTokenPropagationItem = {
+  id: string;
+  name: string;
+  ok: boolean;
+  error?: string;
+};
+
+/**
+ * Ação CRÍTICA em massa: copia o token do GitHub do MASTER (segredo
+ * `UNITOS_GITHUB_TOKEN` do servidor) para TODAS as instalações cadastradas,
+ * gravando cifrado no cofre de cada uma. Usado quando o token da organização
+ * é regenerado e as cópias por instalação ficam inválidas.
+ *
+ * O valor do token nunca sai do servidor: o retorno é só o resumo por
+ * instalação, e a auditoria registra quantidades, não o segredo.
+ */
+export const propagateMasterGithubTokenFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ confirmLabel: z.string().max(200) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await guard(context);
+    assertConfirmLabel(data.confirmLabel, PROPAGATE_GITHUB_TOKEN_CONFIRM_LABEL);
+
+    const githubToken = (process.env["UNITOS_GITHUB_TOKEN"] ?? "").trim();
+    if (!githubToken) {
+      throw new Error(
+        "O token do GitHub do MASTER (UNITOS_GITHUB_TOKEN) não está configurado neste ambiente. Salve o novo token nos segredos do MASTER antes de propagar.",
+      );
+    }
+
+    const { data: rows, error } = await context.supabase
+      .from("installations")
+      .select("id,name")
+      .order("name", { ascending: true });
+    if (error) throw error;
+    const installations = (rows ?? []) as { id: string; name: string }[];
+    if (installations.length === 0) {
+      return { total: 0, updated: 0, failed: 0, results: [] as GithubTokenPropagationItem[] };
+    }
+
+    const { propagateGithubTokenToInstallations } = await import("./credentials.server");
+    const results = await propagateGithubTokenToInstallations({
+      client: context.supabase as never,
+      actorId: context.userId,
+      githubToken,
+      installations,
+    });
+
+    const updated = results.filter((r) => r.ok).length;
+    const failed = results.length - updated;
+
+    const { logCriticalAction } = await import("@/lib/critical-audit.server");
+    await logCriticalAction(context.supabase as never, {
+      action: "installation.propagate_github_token",
+      actorId: context.userId,
+      targetId: null,
+      targetLabel: `${updated}/${results.length} instalações`,
+      impact: {
+        total: results.length,
+        updated,
+        failed,
+        failedNames: results.filter((r) => !r.ok).map((r) => r.name),
+      },
+    });
+
+    return { total: results.length, updated, failed, results };
+  });
+
 /**
  * Estado dos segredos próprios da instalação (cron, criptografia, Meta).
  *
