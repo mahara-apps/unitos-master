@@ -57,7 +57,7 @@ import { countUnreadMessages } from "@/lib/messaging.functions";
 import { allowedSidebarUrls } from "@/lib/module-permissions";
 import { canAccessSidebarUrl } from "@/lib/permissions";
 import { useBrandFeatures } from "@/hooks/use-feature-access";
-import { useIsSuperAdmin } from "@/hooks/use-feature-access";
+import { useIsSuperAdmin, useHasSession } from "@/hooks/use-feature-access";
 import { ShieldAlert } from "lucide-react";
 import { resetIdentityState } from "@/lib/session-reset";
 import { cn } from "@/lib/utils";
