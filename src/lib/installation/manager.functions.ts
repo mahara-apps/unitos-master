@@ -315,7 +315,49 @@ async function reconcileStuckOperations(context: { supabase: unknown }): Promise
   } catch {
     // reconciliação é best-effort: nunca deve impedir a listagem do painel.
   }
+  // Segunda rede de proteção: a operação pode ter sido encerrada (success/failed)
+  // sem que o patch da instalação tenha sido gravado — `finish()` engole erros
+  // de rede. Nesse caso a instalação fica "em andamento" para sempre. Aqui a
+  // referência órfã é liberada usando o resultado real da operação.
+  try {
+    const db = context.supabase as never as {
+      from: (table: string) => any;
+    };
+    const { data: pending } = await db
+      .from("installations")
+      .select("id, active_operation_id, status")
+      .not("active_operation_id", "is", null)
+      .limit(50);
+    for (const row of (pending ?? []) as Array<{
+      id: string;
+      active_operation_id: string;
+    }>) {
+      const { data: op } = await db
+        .from("installation_operations")
+        .select("status, summary")
+        .eq("id", row.active_operation_id)
+        .maybeSingle();
+      const status = (op as { status?: string } | null)?.status ?? null;
+      if (!status || status === "pending" || status === "running") continue;
+      await db
+        .from("installations")
+        .update({
+          active_operation_id: null,
+          ...(status === "success"
+            ? {}
+            : {
+                status: "error",
+                last_error:
+                  (op as { summary?: string | null }).summary ?? "Falha registrada na operação.",
+              }),
+        })
+        .eq("id", row.id);
+    }
+  } catch {
+    // best-effort
+  }
 }
+
 
 export const listInstallationsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
