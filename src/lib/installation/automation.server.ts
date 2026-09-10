@@ -4210,6 +4210,33 @@ export async function runAutomatedUpdate(input: {
     }
     await report(client, operation, "code", "done", "código publicado no repositório");
     await report(client, operation, "build", "done", `build disparado pelo Git (${cause})`);
+    // A validação final também roda aqui: sem isto a etapa ficava "pendente" e a
+    // operação era encerrada como incomplete_steps mesmo com tudo aplicado.
+    await report(client, operation, "validation", "running");
+    await hardenHelperTables(management);
+    const pushVerification = await management.query(prepareVerificationSql(verifySql).sql);
+    if (!pushVerification.ok) {
+      return fail(
+        "FAIL",
+        `a validação final não pôde ser executada: ${pushVerification.error ?? "falha"}`,
+        "validation",
+      );
+    }
+    const pushSummary = summarizeVerificationRows(pushVerification.rows);
+    if (!pushSummary.ok) {
+      return fail(
+        "FAIL",
+        pushSummary.reason ?? "a validação final encontrou inconsistências",
+        "validation",
+      );
+    }
+    await report(
+      client,
+      operation,
+      "validation",
+      "done",
+      `${pushSummary.total} verificações PASS`,
+    );
     await report(
       client,
       operation,
@@ -4217,6 +4244,7 @@ export async function runAutomatedUpdate(input: {
       "done",
       shortPush ? `${appliedByPush} (${shortPush})` : appliedByPush,
     );
+
     await finalizeOperation(client as never, operation as never, {
       ok: true,
       warnings: true,
