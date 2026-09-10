@@ -2578,9 +2578,11 @@ export async function preflightAccess(input: {
   const note = (area: AccessCheck["area"], label: string, ok: boolean, detail: string) => {
     checks.push({ area, label, ok, detail });
     if (ok) return;
+    // Só bloqueia diante de negativa clara de permissão ou instabilidade do
+    // provedor; qualquer outro detalhe é reportado e resolvido na própria etapa.
     const kind = classifyAccessFailure(detail);
     if (kind === "transient") transient ??= `${label}: ${detail}`;
-    else terminal ??= `${label}: ${detail}`;
+    else if (kind === "permission") terminal ??= `${label}: ${detail}`;
   };
 
   if (input.management) {
