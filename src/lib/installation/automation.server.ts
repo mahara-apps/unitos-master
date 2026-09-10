@@ -1050,14 +1050,32 @@ export function createCodeClient(input: {
           const body = (await repoRes.json().catch(() => ({}))) as {
             permissions?: { push?: boolean; admin?: boolean };
           };
-          push(
-            "Gravação no repositório da instalação",
-            Boolean(body.permissions?.push),
-            body.permissions?.push
-              ? `${target} com permissão de gravação`
-              : `${target} acessível apenas para leitura — habilite Conteúdo: leitura e gravação`,
-          );
+          if (!body.permissions?.push) {
+            push(
+              "Gravação no repositório da instalação",
+              false,
+              `${target} acessível apenas para leitura — habilite Conteúdo: leitura e gravação`,
+            );
+          } else {
+            /* `permissions.push` do metadado mente para tokens finos sem
+             * "Contents: read and write". A única prova é escrever de fato:
+             * criamos um blob solto (não referenciado por nenhum commit, o
+             * GitHub o descarta sozinho) exatamente no endpoint que a
+             * publicação usa. */
+            const probe = await api(`/repos/${target}/git/blobs`, {
+              method: "POST",
+              body: JSON.stringify({ content: "unitos-preflight", encoding: "utf-8" }),
+            });
+            push(
+              "Gravação no repositório da instalação",
+              probe.ok,
+              probe.ok
+                ? `${target} com permissão de gravação confirmada`
+                : `${target} não aceita gravação com este token — no GitHub, em Repository permissions, habilite "Contents: Read and write" e inclua ${target} entre os repositórios do token (${await fail(probe, `gravar em ${target}`)})`,
+            );
+          }
         } else if (repoRes.status === 404) {
+
           const isPersonal = login.toLowerCase() === input.owner.trim().toLowerCase();
           const ownerRes = isPersonal ? null : await api(`/orgs/${input.owner}`);
           const reaches = isPersonal || Boolean(ownerRes?.ok);
@@ -2680,6 +2698,20 @@ export function classifyAccessFailure(detail: string): "permission" | "transient
 }
 
 /**
+ * O GitHub responde "Resource not accessible by personal access token" sem
+ * dizer qual permissão falta. Traduzimos para a ação concreta no token.
+ */
+export function withRepoWriteHint(detail: string, repoSlug: string): string {
+  const text = (detail ?? "").trim();
+  if (!/HTTP 403|not accessible by personal access token|Resource not accessible/i.test(text)) {
+    return text;
+  }
+  if (/Contents: Read and write/i.test(text)) return text;
+  return `${text} — o token do GitHub precisa de "Contents: Read and write" (e "Metadata: Read-only") com ${repoSlug} entre os repositórios autorizados. Gere/edite o token em github.com/settings/tokens e salve-o novamente nos acessos da instalação.`;
+}
+
+
+/**
  * Confere, na ordem em que serão usadas, se as três credenciais têm de fato as
  * permissões da operação. Falta de permissão devolve `terminal` (a operação é
  * recusada antes de começar); instabilidade devolve `transient`.
@@ -3071,10 +3103,14 @@ export async function runAutomatedProvision(input: {
         },
       });
       if (!published.ok) {
-        const detail = published.error ?? `não foi possível sincronizar ${effectiveRepoSlug}`;
+        const detail = withRepoWriteHint(
+          published.error ?? `não foi possível sincronizar ${effectiveRepoSlug}`,
+          effectiveRepoSlug,
+        );
         const kind = classifyAccessFailure(detail);
         if (kind === "permission") blocked.push(`Código não sincronizado: ${detail}`);
         else failures.push(`Código não sincronizado: ${detail}`);
+
         await mark("code", "error", detail);
         checks.code = "error";
         return finish(null, null);
@@ -4105,8 +4141,13 @@ export async function runAutomatedUpdate(input: {
       },
     });
     if (!published.ok) {
-      return fail("FAIL", published.error ?? `não foi possível publicar em ${repo.slug}`);
+      const detail = withRepoWriteHint(
+        published.error ?? `não foi possível publicar em ${repo.slug}`,
+        repo.slug,
+      );
+      return fail(classifyAccessFailure(detail) === "permission" ? "BLOCKED" : "FAIL", detail);
     }
+
     if (published.partial) {
       const detail =
         published.note ??
