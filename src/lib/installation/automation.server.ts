@@ -2640,6 +2640,7 @@ export function classifyAccessFailure(detail: string): "permission" | "transient
  */
 export async function preflightAccess(input: {
   management?: ManagementClient | null;
+  suppliedKeys?: { publishableKey?: string | null; serviceRoleKey?: string | null } | null;
   deploy?: DeployClient | null;
   code?: CodeClient | null;
   projectRef?: string | null;
@@ -2670,7 +2671,11 @@ export async function preflightAccess(input: {
         : (ping.error ?? "acesso recusado"),
     );
     if (ping.ok) {
-      const keys = await input.management.keys();
+      const supplied = input.suppliedKeys;
+      const keys =
+        supplied?.publishableKey && supplied.serviceRoleKey
+          ? { ok: true, publishableKey: supplied.publishableKey, serviceRoleKey: supplied.serviceRoleKey }
+          : await input.management.keys();
       const ok = keys.ok && Boolean(keys.publishableKey) && Boolean(keys.serviceRoleKey);
       note(
         "database",
@@ -2873,7 +2878,15 @@ export async function runAutomatedProvision(input: {
   }
 
   const keys = await management.keys();
-  if (!keys.ok || !keys.publishableKey || !keys.serviceRoleKey) {
+  const suppliedPublishable = (env["UNITOS_SUPABASE_PUBLISHABLE_KEY"] ?? "").trim();
+  const suppliedServiceRole = (env["UNITOS_SUPABASE_SERVICE_ROLE_KEY"] ?? "").trim();
+  const resolvedKeys =
+    keys.ok && keys.publishableKey && keys.serviceRoleKey
+      ? keys
+      : suppliedPublishable && suppliedServiceRole
+        ? { ok: true, publishableKey: suppliedPublishable, serviceRoleKey: suppliedServiceRole }
+        : keys;
+  if (!resolvedKeys.ok || !resolvedKeys.publishableKey || !resolvedKeys.serviceRoleKey) {
     blocked.push(
       `Não foi possível ler as chaves do Supabase destino: ${keys.error ?? "chaves não retornadas"}`,
     );
@@ -2888,6 +2901,8 @@ export async function runAutomatedProvision(input: {
    * escrita: negativa de permissão encerra aqui, dizendo o acesso exato que
    * falta; instabilidade do provedor pede nova tentativa em minutos. */
   const preflight = await preflightAccess({
+    management,
+    suppliedKeys: resolvedKeys,
     deploy,
     code,
     deployProject: target.deployProject,
@@ -3336,8 +3351,8 @@ export async function runAutomatedProvision(input: {
     const plan = buildDeployEnvPlan({
       appUrl: url.origin,
       supabaseUrl: installation.supabaseUrl ?? `https://${target.projectRef}.supabase.co`,
-      publishableKey: keys.publishableKey,
-      serviceRoleKey: keys.serviceRoleKey,
+      publishableKey: resolvedKeys.publishableKey,
+      serviceRoleKey: resolvedKeys.serviceRoleKey,
       projectRef: target.projectRef,
       secrets,
       officialMetaApp,
