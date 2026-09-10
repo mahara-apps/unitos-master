@@ -86,7 +86,8 @@ const FIELDS: {
     requirements: [
       "Gere na conta dona do projeto de publicação.",
       "Precisa permitir criar publicações e alterar variáveis do projeto.",
-      "Se o projeto pertence a uma equipe, informe também a equipe abaixo.",
+      "Se o projeto pertence a uma equipe, o sistema tenta localizar essa equipe automaticamente.",
+      "Se a equipe não estiver visível para o token, informe o Team ID abaixo.",
     ],
     secret: true,
     placeholder: "token de deploy",
@@ -95,8 +96,11 @@ const FIELDS: {
   {
     key: "vercelTeamId",
     label: "Equipe de deploy (opcional)",
-    hint: "Informe quando o projeto pertence a uma equipe.",
-    requirements: ["Projeto em conta pessoal: deixe vazio."],
+    hint: "Normalmente pode ficar vazio; use quando a localização automática não encontrar o projeto.",
+    requirements: [
+      "Projeto em conta pessoal: deixe vazio.",
+      "Projeto de equipe: use o ID iniciado por team_, não o nome exibido da equipe.",
+    ],
     secret: false,
     placeholder: "team_...",
   },
