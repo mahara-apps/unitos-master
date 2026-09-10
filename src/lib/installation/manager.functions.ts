@@ -1965,22 +1965,33 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
       permissionChecks.push(...(await client.permissions()));
     }
 
+    // Lista permissão por permissão: o painel mostra exatamente o que falta.
+    const allChecks = [
+      { area: "database" as const, label: "Banco e chaves do projeto", ...database },
+      {
+        area: "deploy" as const,
+        label: "Projeto de publicação",
+        ok: project.ok,
+        detail: deployDetail,
+      },
+      { area: "code" as const, label: "Repositório da instalação", ...code },
+      ...permissionChecks,
+    ];
+    // "Criação rápida pelo template" é conveniência, não requisito de acesso.
+    const required = allChecks.filter((c) => !/template/i.test(c.label));
+    const missing = required.filter((c) => !c.ok).map((c) => `${c.label}: ${c.detail}`);
+
     return {
       database,
       deploy: { ok: project.ok, detail: deployDetail },
       code,
-      // Lista permissão por permissão: o painel mostra exatamente o que falta.
-      checks: [
-        { area: "database" as const, label: "Banco e chaves do projeto", ...database },
-        {
-          area: "deploy" as const,
-          label: "Projeto de publicação",
-          ok: project.ok,
-          detail: deployDetail,
-        },
-        { area: "code" as const, label: "Repositório da instalação", ...code },
-        ...permissionChecks,
-      ],
+      ok: missing.length === 0,
+      missing,
+      summary:
+        missing.length === 0
+          ? "OK — banco, publicação e repositório com os acessos necessários."
+          : `Faltam ${missing.length} acesso(s): ${missing.join(" | ")}`,
+      checks: allChecks,
     };
   });
 
