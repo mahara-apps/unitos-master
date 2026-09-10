@@ -707,8 +707,10 @@ export type CodeClient = {
   }) => Promise<{
     ok: boolean;
     created?: boolean;
-    /** "template" | "template_recovered" | "existing" */
+    /** "template" | "template_recovered" | "template_alternate" | "existing" */
     via?: string;
+    /** Destino efetivo quando um repositório técnico antigo foi preservado intacto. */
+    repoSlug?: string;
     /** Commit real da branch criada pelo GitHub a partir do template. */
     commitSha?: string;
     error?: string;
@@ -797,7 +799,7 @@ export function createCodeClient(input: {
   const doFetch = input.fetchImpl ?? fetch;
   const master = (input.masterRepo ?? "").trim() || DEFAULT_MASTER_REPO;
   const branch = (input.branch ?? "").trim() || "main";
-  const target = `${input.owner}/${input.repo}`;
+  let target = `${input.owner}/${input.repo}`;
   const baseHeaders = {
     accept: "application/vnd.github+json",
     "content-type": "application/json",
@@ -1106,11 +1108,79 @@ export function createCodeClient(input: {
             body: JSON.stringify({ name: backupName }),
           });
           if (!renamed.ok) {
+            // Tokens fine-grained podem gerar repositórios pelo template, mas
+            // não renomear um repositório existente. Nesse caso, o README
+            // técnico fica intacto e a instalação passa a usar um novo slug.
+            if (renamed.status !== 403) {
+              return {
+                ok: false,
+                error: await fail(renamed, `preservar o repositório técnico ${target} como backup`),
+              };
+            }
+            let alternateName: string | null = null;
+            for (let suffix = 1; suffix <= 20; suffix += 1) {
+              const candidate = suffix === 1 ? `${input.repo}-app` : `${input.repo}-app-${suffix}`;
+              const candidateRes = await api(`/repos/${input.owner}/${candidate}`);
+              if (candidateRes.status === 404) {
+                alternateName = candidate;
+                break;
+              }
+              if (!candidateRes.ok) {
+                return {
+                  ok: false,
+                  error: await fail(candidateRes, `verificar o novo repositório ${candidate}`),
+                };
+              }
+            }
+            if (!alternateName) {
+              return {
+                ok: false,
+                error: `Não foi encontrado um nome livre para criar a cópia operacional de ${target}.`,
+              };
+            }
+            const alternateTarget = `${input.owner}/${alternateName}`;
+            const alternate = await api(`/repos/${master}/generate`, {
+              method: "POST",
+              body: JSON.stringify({
+                owner: input.owner,
+                name: alternateName,
+                private: true,
+                include_all_branches: false,
+                description: "Instalação Unitos gerada a partir do MASTER",
+              }),
+            });
+            if (!alternate.ok) {
+              return {
+                ok: false,
+                error:
+                  `${await fail(alternate, `gerar a cópia completa ${alternateTarget} a partir de ${master}`)}. ` +
+                  `O repositório técnico ${target} permaneceu intacto.`,
+              };
+            }
+            target = alternateTarget;
+            for (let attempt = 0; attempt < 12; attempt += 1) {
+              const generatedHead = await api(
+                `/repos/${target}/commits/${branch}`,
+                undefined,
+                true,
+              );
+              if (generatedHead.ok) {
+                const body = (await generatedHead.json().catch(() => ({}))) as { sha?: string };
+                if (body.sha) {
+                  return {
+                    ok: true,
+                    created: true,
+                    via: "template_alternate",
+                    repoSlug: target,
+                    commitSha: body.sha,
+                  };
+                }
+              }
+              await new Promise((resolve) => setTimeout(resolve, 1_000));
+            }
             return {
               ok: false,
-              error:
-                `${await fail(renamed, `preservar o repositório técnico ${target} como backup`)}. ` +
-                `O token precisa de Administração: leitura e gravação; não precisa de permissão para excluir repositórios.`,
+              error: `A cópia completa foi criada em ${target}, mas a branch ${branch} ainda não ficou disponível. Tente novamente em alguns instantes.`,
             };
           }
 
@@ -1179,6 +1249,7 @@ export function createCodeClient(input: {
                   ok: true,
                   created: true,
                   via: "template_recovered",
+                  repoSlug: target,
                   commitSha: body.sha,
                 };
               }
@@ -2606,6 +2677,25 @@ export async function runAutomatedProvision(input: {
       checks.code = "error";
       return finish(null, null);
     }
+    const effectiveRepoSlug = ensured.repoSlug ?? repo.slug;
+    if (effectiveRepoSlug !== repo.slug) {
+      const updated = await (client as never as {
+        from: (table: string) => {
+          update: (values: Record<string, unknown>) => {
+            eq: (column: string, value: string) => Promise<{ error?: { message?: string } | null }>;
+          };
+        };
+      })
+        .from("installations")
+        .update({ git_repo_url: `https://github.com/${effectiveRepoSlug}` })
+        .eq("id", installation.id);
+      if (updated.error) {
+        blocked.push(`A cópia foi criada em ${effectiveRepoSlug}, mas o cadastro não pôde ser atualizado.`);
+        await mark("code", "error", updated.error.message ?? "falha ao atualizar repositório");
+        checks.code = "error";
+        return finish(null, null);
+      }
+    }
     const masterHead = await code.masterHeadSha();
     if (!masterHead.ok || !masterHead.sha) {
       blocked.push(
@@ -2648,7 +2738,7 @@ export async function runAutomatedProvision(input: {
       codeDone: true,
       codeSourceSha: masterHead.sha,
       codeSha: masterHead.sha,
-      codeRepo: repo.slug,
+      codeRepo: effectiveRepoSlug,
       codeBlobs: {},
     });
     checks.code = "ok";
@@ -2656,8 +2746,8 @@ export async function runAutomatedProvision(input: {
       "code",
       "done",
       ensured.created
-        ? `cópia completa do template criada em ${repo.slug} (${(ensured.commitSha ?? masterHead.sha).slice(0, 7)})`
-        : `código completo do template confirmado em ${repo.slug} (${(installedRelease.sha ?? masterHead.sha).slice(0, 7)})`,
+        ? `cópia completa do template criada em ${effectiveRepoSlug} (${(ensured.commitSha ?? masterHead.sha).slice(0, 7)})`
+        : `código completo do template confirmado em ${effectiveRepoSlug} (${(installedRelease.sha ?? masterHead.sha).slice(0, 7)})`,
       100,
     );
   }
@@ -2665,9 +2755,10 @@ export async function runAutomatedProvision(input: {
 
   /* 4. deploy conectado ao repositório da instalação, sem auto-deploy por Git */
   await mark("deploy_link", "running");
-  const linked = await deploy.linkRepository(repo.slug);
+  const provisionRepoSlug = codeStage.codeRepo ?? repo.slug;
+  const linked = await deploy.linkRepository(provisionRepoSlug);
   if (!linked.ok) {
-    blocked.push(`Projeto de deploy não ligado a ${repo.slug}: ${linked.error ?? ""}`.trim());
+    blocked.push(`Projeto de deploy não ligado a ${provisionRepoSlug}: ${linked.error ?? ""}`.trim());
     await mark("deploy_link", "error", linked.error ?? "vínculo do repositório falhou");
     checks.configuration = "attention";
     return finish(null, null);
@@ -2679,8 +2770,8 @@ export async function runAutomatedProvision(input: {
     "deploy_link",
     "done",
     autoDeployOn.ok
-      ? `projeto ligado a ${repo.slug} · auto-deploy por Git ligado`
-      : `projeto ligado a ${repo.slug} · auto-deploy por Git não confirmado (${autoDeployOn.error ?? "sem detalhe"})`,
+      ? `projeto ligado a ${provisionRepoSlug} · auto-deploy por Git ligado`
+      : `projeto ligado a ${provisionRepoSlug} · auto-deploy por Git não confirmado (${autoDeployOn.error ?? "sem detalhe"})`,
   );
 
   /* 5. baseline do banco — roda DEPOIS de código, deploy conectado e variáveis:
