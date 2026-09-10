@@ -2771,26 +2771,6 @@ export async function runAutomatedProvision(input: {
     fetchImpl: input.fetchImpl,
   });
 
-  /* 2. preflight de acessos: publicação e repositório antes de qualquer escrita.
-   * O Supabase é conferido na etapa seguinte (com retomada própria). Falta de
-   * permissão encerra aqui, com o acesso exato que falta — nada fica preso. */
-  const preflight = await preflightAccess({
-    deploy,
-    code,
-    deployProject: target.deployProject,
-  });
-  if (preflight.terminal || preflight.transient) {
-    const failing = preflight.checks.find((c) => !c.ok && /deploy/.test(c.area));
-    const stepId = failing ? "deploy_link" : "code";
-    const reason = preflight.terminal
-      ? `Acesso insuficiente antes de publicar — ${preflight.terminal}`
-      : `Instabilidade momentânea ao conferir os acessos — ${preflight.transient}. Tente novamente em alguns minutos.`;
-    blocked.push(reason);
-    await mark(stepId, "error", reason);
-    checks.configuration = "attention";
-    return finish(null, null);
-  }
-
   /* 3. Supabase destino: conectividade, plataforma e chaves */
   await mark("supabase", "running");
   const ping = await management.query(
@@ -2828,6 +2808,26 @@ export async function runAutomatedProvision(input: {
     return finish(null, null);
   }
   checks.supabase = "ok";
+
+  /* 2. preflight de acessos: publicação e repositório antes de qualquer escrita.
+   * O Supabase é conferido na etapa seguinte (com retomada própria). Falta de
+   * permissão encerra aqui, com o acesso exato que falta — nada fica preso. */
+  const preflight = await preflightAccess({
+    deploy,
+    code,
+    deployProject: target.deployProject,
+  });
+  if (preflight.terminal || preflight.transient) {
+    const failing = preflight.checks.find((c) => !c.ok && /deploy/.test(c.area));
+    const stepId = failing ? "deploy_link" : "code";
+    const reason = preflight.terminal
+      ? `Acesso insuficiente antes de publicar — ${preflight.terminal}`
+      : `Instabilidade momentânea ao conferir os acessos — ${preflight.transient}. Tente novamente em alguns minutos.`;
+    blocked.push(reason);
+    await mark(stepId, "error", reason);
+    checks.configuration = "attention";
+    return finish(null, null);
+  }
   await mark("supabase", "done", `projeto ${target.projectRef} acessível`);
 
   /* 3. código no repositório DA INSTALAÇÃO (gerado do template do MASTER).
