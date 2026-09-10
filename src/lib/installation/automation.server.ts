@@ -1765,12 +1765,10 @@ export function createDeployClient(input: {
 }): DeployClient {
   const doFetch = input.fetchImpl ?? fetch;
   let resolvedTeamId = (input.teamId ?? "").trim() || null;
-  const qs = (extra?: string) => [
-    resolvedTeamId ? `teamId=${encodeURIComponent(resolvedTeamId)}` : "",
-    extra,
-  ]
-    .filter(Boolean)
-    .join("&");
+  const qs = (extra?: string) =>
+    [resolvedTeamId ? `teamId=${encodeURIComponent(resolvedTeamId)}` : "", extra]
+      .filter(Boolean)
+      .join("&");
   const headers = {
     authorization: `Bearer ${input.token}`,
     "content-type": "application/json",
@@ -2721,18 +2719,25 @@ export async function runAutomatedProvision(input: {
     const effectiveRepoSlug = ensured.repoSlug ?? repo.slug;
     provisionRepoSlug = effectiveRepoSlug;
     if (effectiveRepoSlug !== repo.slug) {
-      const updated = await (client as never as {
-        from: (table: string) => {
-          update: (values: Record<string, unknown>) => {
-            eq: (column: string, value: string) => Promise<{ error?: { message?: string } | null }>;
+      const updated = await (
+        client as never as {
+          from: (table: string) => {
+            update: (values: Record<string, unknown>) => {
+              eq: (
+                column: string,
+                value: string,
+              ) => Promise<{ error?: { message?: string } | null }>;
+            };
           };
-        };
-      })
+        }
+      )
         .from("installations")
         .update({ git_repo_url: `https://github.com/${effectiveRepoSlug}` })
         .eq("id", installation.id);
       if (updated.error) {
-        blocked.push(`A cópia foi criada em ${effectiveRepoSlug}, mas o cadastro não pôde ser atualizado.`);
+        blocked.push(
+          `A cópia foi criada em ${effectiveRepoSlug}, mas o cadastro não pôde ser atualizado.`,
+        );
         await mark("code", "error", updated.error.message ?? "falha ao atualizar repositório");
         checks.code = "error";
         return finish(null, null);
@@ -2799,7 +2804,9 @@ export async function runAutomatedProvision(input: {
   await mark("deploy_link", "running");
   const linked = await deploy.linkRepository(provisionRepoSlug);
   if (!linked.ok) {
-    blocked.push(`Projeto de deploy não ligado a ${provisionRepoSlug}: ${linked.error ?? ""}`.trim());
+    blocked.push(
+      `Projeto de deploy não ligado a ${provisionRepoSlug}: ${linked.error ?? ""}`.trim(),
+    );
     await mark("deploy_link", "error", linked.error ?? "vínculo do repositório falhou");
     checks.configuration = "attention";
     return finish(null, null);
