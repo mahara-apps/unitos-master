@@ -19,7 +19,6 @@ import {
   isInstallationStatus,
   isUpdateAvailable,
   normalizeHealthChecks,
-  runningStatusFor,
   statusAfterOperation,
   stepsProgress,
   updateSummary,
@@ -985,15 +984,19 @@ async function startAtomicInstallationOperation(input: {
 }) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { callRpc } = await import("@/lib/supabase-rpc");
-  const { data, error } = await callRpc<Record<string, unknown>>(supabaseAdmin as never, "start_installation_operation", {
-    _actor_id: input.actorId,
-    _installation_id: input.installationId,
-    _kind: input.kind,
-    _summary: input.summary,
-    _steps: input.steps,
-    _run_token_hash: null,
-    _run_token_expires_at: null,
-  });
+  const { data, error } = await callRpc<Record<string, unknown>>(
+    supabaseAdmin as never,
+    "start_installation_operation",
+    {
+      _actor_id: input.actorId,
+      _installation_id: input.installationId,
+      _kind: input.kind,
+      _summary: input.summary,
+      _steps: input.steps,
+      _run_token_hash: null,
+      _run_token_expires_at: null,
+    },
+  );
   if (error || !data || typeof data["id"] !== "string") {
     const message = error?.message ?? "não foi possível abrir a operação";
     if (/andamento|55P03/i.test(message))
