@@ -410,7 +410,36 @@ export type ManagementClient = {
     serviceRoleKey?: string;
     error?: string;
   }>;
+  /**
+   * PATCH em `/config/auth`. Opcional no tipo porque testes usam dublês
+   * simples — quem chama trata a ausência como "não aplicado".
+   */
+  configureAuth?: (
+    patch: Record<string, unknown>,
+  ) => Promise<{ ok: boolean; error?: string }>;
 };
+
+/**
+ * Padrão de autenticação de toda instalação nova: confirmação de e-mail
+ * DESLIGADA. O Supabase de cada instalação usa o remetente padrão dele, sem
+ * DNS apontado, então o e-mail de confirmação nunca chega e o primeiro acesso
+ * (/setup) ficaria preso. Convites e reset continuam disponíveis.
+ */
+export const INSTALLATION_AUTH_DEFAULTS = { mailer_autoconfirm: true } as const;
+
+/** Aplica os padrões de auth no destino. Nunca bloqueia a operação. */
+export async function applyInstallationAuthDefaults(
+  management: ManagementClient,
+): Promise<{ applied: boolean; detail: string }> {
+  if (!management.configureAuth) {
+    return { applied: false, detail: "cliente de gestão sem suporte a config/auth" };
+  }
+  const res = await management.configureAuth({ ...INSTALLATION_AUTH_DEFAULTS });
+  return res.ok
+    ? { applied: true, detail: "confirmação de e-mail desligada no destino" }
+    : { applied: false, detail: res.error ?? "não foi possível ajustar a autenticação" };
+}
+
 
 function managementApiError(status: number, body: string, operation: "database" | "keys"): string {
   if (status === 401) {
