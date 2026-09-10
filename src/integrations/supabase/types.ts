@@ -8332,6 +8332,18 @@ export type Database = {
         Args: { _brand_id?: string }
         Returns: number
       }
+      create_message_thread: {
+        Args: {
+          _brand_id: string
+          _client_id?: string
+          _participant_ids?: string[]
+          _project_id?: string
+          _scope: string
+          _subject: string
+          _visibility?: string
+        }
+        Returns: string
+      }
       cron_secret: { Args: never; Returns: string }
       derive_post_stage: {
         Args: {
