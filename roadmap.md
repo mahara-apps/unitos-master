@@ -26,3 +26,9 @@
 - [x] Exigir build concluído e relatório final aprovado antes de registrar a versão.
 - [x] Aumentar a lease e impedir sucesso com etapas pendentes.
 - [ ] Publicar o MASTER e executar novamente a Casa 8; bloqueado até autorização externa.
+
+## 1.3.42 — Nome canônico do projeto de publicação
+- [x] Reconhecer somente equivalência exata e única entre o nome cadastrado e projetos visíveis na Vercel.
+- [x] Corrigir automaticamente `unitos-casa8` para o nome real `unitos-casa-8` após validar o acesso.
+- [x] Reutilizar o nome confirmado em todas as etapas seguintes de publicação.
+- [ ] Publicar o MASTER e executar “Testar acesso” na Casa 8; depende da sessão do Super Admin.
