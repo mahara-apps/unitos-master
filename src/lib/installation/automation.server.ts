@@ -2890,29 +2890,66 @@ export async function runAutomatedProvision(input: {
       code.releaseAtCommit(masterHead.sha),
       code.installedRelease(),
     ]);
-    if (
-      !sourceRelease.ok ||
-      !installedRelease.ok ||
-      !sourceRelease.version ||
-      sourceRelease.version !== installedRelease.version
-    ) {
+    if (!sourceRelease.ok || !sourceRelease.version || !installedRelease.ok) {
       const reason =
         installedRelease.error ??
         sourceRelease.error ??
-        `o repositório existente não corresponde à versão ${sourceRelease.version ?? "esperada"}`;
+        "não foi possível ler a versão do código no repositório da instalação";
       blocked.push(
         ensured.created
           ? `Cópia do template não validada: ${reason}`
-          : `Repositório existente incompatível com o provisionamento rápido: ${reason}. Gere-o novamente a partir do template do MASTER.`,
+          : `O repositório ${effectiveRepoSlug} não parece ser uma cópia do template do MASTER: ${reason}. Gere-o novamente a partir do template.`,
       );
       await mark("code", "error", reason);
       checks.code = "error";
       return finish(null, null);
     }
 
-    // Provisionamento inicial nunca copia arquivos nem monta árvore: tanto a
-    // cópia recém-gerada quanto um repositório preexistente precisam já conter
-    // a mesma versão do template.
+    // Cópia do template apenas DESATUALIZADA não é bloqueio: sincronizamos a
+    // versão do MASTER no repositório da instalação, como na atualização.
+    let publishedSha = installedRelease.sha ?? masterHead.sha;
+    if (sourceRelease.version !== installedRelease.version) {
+      await mark(
+        "code",
+        "running",
+        `cópia em ${installedRelease.version ?? "versão desconhecida"}; sincronizando para ${sourceRelease.version}`,
+      );
+      const stage = await readStageProgress(client, operation);
+      const reusable = stage.codeSourceSha === masterHead.sha ? (stage.codeBlobs ?? {}) : {};
+      const published = await code.publishSnapshot(masterHead.sha, {
+        blobMap: reusable,
+        timeBudgetMs: 20_000,
+        onProgress: async (progress) => {
+          await report(client, operation, "code", "running", progress.detail, progress.percent);
+        },
+        onCheckpoint: async (blobMap) => {
+          await saveStageProgress(client, operation, {
+            codeSourceSha: masterHead.sha,
+            codeBlobs: blobMap,
+          });
+        },
+      });
+      if (!published.ok) {
+        const detail = published.error ?? `não foi possível sincronizar ${effectiveRepoSlug}`;
+        const kind = classifyAccessFailure(detail);
+        if (kind === "permission") blocked.push(`Código não sincronizado: ${detail}`);
+        else failures.push(`Código não sincronizado: ${detail}`);
+        await mark("code", "error", detail);
+        checks.code = "error";
+        return finish(null, null);
+      }
+      if (published.partial) {
+        const detail =
+          published.note ??
+          `sincronizando ${effectiveRepoSlug} — ${published.changed ?? 0} arquivos nesta rodada (continua)`;
+        failures.push(`${detail} Tente novamente para retomar de onde parou.`);
+        await mark("code", "error", detail);
+        checks.code = "attention";
+        return finish(null, null);
+      }
+      publishedSha = published.commitSha ?? masterHead.sha;
+    }
+
     await saveStageProgress(client, operation, {
       codeDone: true,
       codeSourceSha: masterHead.sha,
@@ -2926,7 +2963,7 @@ export async function runAutomatedProvision(input: {
       "done",
       ensured.created
         ? `cópia completa do template criada em ${effectiveRepoSlug} (${(ensured.commitSha ?? masterHead.sha).slice(0, 7)})`
-        : `código completo do template confirmado em ${effectiveRepoSlug} (${(installedRelease.sha ?? masterHead.sha).slice(0, 7)})`,
+        : `código do template em ${effectiveRepoSlug} na versão ${sourceRelease.version} (${publishedSha.slice(0, 7)})`,
       100,
     );
   }
