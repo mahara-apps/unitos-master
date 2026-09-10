@@ -96,24 +96,28 @@ describe("createCodeClient", () => {
     expect(calls.some((call) => call.includes("/orgs/acme/repos"))).toBe(false);
   });
 
-  it("recupera somente o repositório com o README técnico conhecido", async () => {
+  it("recupera o README técnico por backup arquivado, sem excluir o repositório", async () => {
     const calls: string[] = [];
-    let repoExists = true;
+    let originalExists = true;
     const seed = Buffer.from(
       "# unitos-pitada\n\nInstalação Unitos. Código publicado a partir do MASTER.\n",
     ).toString("base64");
     const c = client(async (url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
       calls.push(`${method} ${url}`);
-      if (url.endsWith("/repos/acme/unitos-pitada") && method === "DELETE") {
-        repoExists = false;
-        return new Response(null, { status: 204 });
+      if (url.endsWith("/repos/acme/unitos-pitada") && method === "PATCH") {
+        originalExists = false;
+        return Response.json({ name: "unitos-pitada-legacy-readme" });
       }
       if (url.endsWith("/repos/acme/unitos-pitada")) {
-        return repoExists
+        return originalExists
           ? Response.json({ full_name: "acme/unitos-pitada" })
           : new Response("no", { status: 404 });
       }
+      if (url.endsWith("/repos/acme/unitos-pitada-legacy-readme") && method === "GET")
+        return new Response("no", { status: 404 });
+      if (url.endsWith("/repos/acme/unitos-pitada-legacy-readme") && method === "PATCH")
+        return Response.json({ archived: true });
       if (url.includes("/git/ref/heads/main")) return Response.json({ object: { sha: "seed" } });
       if (url.includes("/git/trees/seed"))
         return Response.json({ tree: [{ path: "README.md", type: "blob", sha: "readme" }] });
@@ -127,7 +131,56 @@ describe("createCodeClient", () => {
     });
     const result = await c.ensureRepo({ initialProvision: true });
     expect(result).toMatchObject({ ok: true, created: true, via: "template_recovered" });
-    expect(calls.some((call) => call.startsWith("DELETE "))).toBe(true);
+    expect(calls.some((call) => call.startsWith("DELETE "))).toBe(false);
+    expect(calls.filter((call) => call.startsWith("PATCH "))).toHaveLength(2);
+    expect(calls.some((call) => call.includes("/generate"))).toBe(true);
+  });
+
+  it("restaura o nome original quando a geração pelo template falha", async () => {
+    const calls: Array<{ url: string; method: string; body: string }> = [];
+    let originalExists = true;
+    const seed = Buffer.from(
+      "# unitos-pitada\n\nInstalação Unitos. Código publicado a partir do MASTER.\n",
+    ).toString("base64");
+    const c = client(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      const body = String(init?.body ?? "");
+      calls.push({ url, method, body });
+      if (url.endsWith("/repos/acme/unitos-pitada") && method === "PATCH") {
+        originalExists = false;
+        return Response.json({ name: "unitos-pitada-legacy-readme" });
+      }
+      if (url.endsWith("/repos/acme/unitos-pitada"))
+        return originalExists
+          ? Response.json({ full_name: "acme/unitos-pitada" })
+          : new Response("no", { status: 404 });
+      if (url.includes("/git/ref/heads/main")) return Response.json({ object: { sha: "seed" } });
+      if (url.includes("/git/trees/seed"))
+        return Response.json({ tree: [{ path: "README.md", type: "blob" }] });
+      if (url.includes("/contents/README.md"))
+        return Response.json({ encoding: "base64", content: seed });
+      if (url.endsWith("/repos/mahara-apps/unitos-master"))
+        return Response.json({ is_template: true });
+      if (url.endsWith("/repos/acme/unitos-pitada-legacy-readme") && method === "GET")
+        return new Response("no", { status: 404 });
+      if (url.endsWith("/repos/acme/unitos-pitada-legacy-readme") && method === "PATCH") {
+        if (body.includes('"name":"unitos-pitada"')) originalExists = true;
+        return Response.json({ ok: true });
+      }
+      if (url.endsWith("/generate")) return new Response("forbidden", { status: 403 });
+      return Response.json({});
+    });
+
+    const result = await c.ensureRepo({ initialProvision: true });
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("nome original foi restaurado");
+    expect(originalExists).toBe(true);
+    expect(calls.some((call) => call.method === "DELETE")).toBe(false);
+    expect(
+      calls.some(
+        (call) => call.url.endsWith("unitos-pitada-legacy-readme") && call.body.includes("archived"),
+      ),
+    ).toBe(true);
   });
 
   it("preserva repositório existente com conteúdo real", async () => {

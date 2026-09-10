@@ -110,6 +110,7 @@ const FIELDS: {
       "Não precisa acessar o repositório do MASTER: a leitura do código usa a credencial do MASTER.",
       "Use um token exclusivo desta instalação — o limite de uso do GitHub é por conta e tokens compartilhados causam a falha “API rate limit exceeded”.",
       "O repositório MASTER precisa estar marcado como Template repository; instalações novas não usam mais repositório vazio nem cópia arquivo por arquivo.",
+      "Administração: leitura e gravação também permite preservar e renomear um repositório técnico antigo. Não habilite permissão para excluir repositórios.",
     ],
     secret: true,
     placeholder: "ghp_...",

@@ -1032,7 +1032,8 @@ export function createCodeClient(input: {
           if (!options?.initialProvision) return { ok: true, created: false, via: "existing" };
 
           // Recuperação estritamente limitada ao commit técnico criado pelo fluxo
-          // legado. Qualquer outro conteúdo é preservado e bloqueia a exclusão.
+          // legado. Qualquer outro conteúdo é preservado. O repositório técnico
+          // nunca é excluído: ele é renomeado e arquivado como backup.
           const head = await api(`/repos/${target}/git/ref/heads/${branch}`);
           const headBody = (await head.json().catch(() => ({}))) as { object?: { sha?: string } };
           const headSha = headBody.object?.sha;
@@ -1063,13 +1064,135 @@ export function createCodeClient(input: {
           }
           if (!knownSeed) return { ok: true, created: false, via: "existing", commitSha: headSha };
 
-          const removed = await api(`/repos/${target}`, { method: "DELETE" });
-          if (!removed.ok) {
+          const masterInfo = await api(`/repos/${master}`);
+          if (!masterInfo.ok) {
+            return { ok: false, error: await fail(masterInfo, `ler o template ${master}`) };
+          }
+          const masterBody = (await masterInfo.json().catch(() => ({}))) as {
+            is_template?: boolean;
+          };
+          if (!masterBody.is_template) {
             return {
               ok: false,
-              error: await fail(removed, `remover o repositório técnico incompleto ${target}`),
+              error: `${master} não está marcado como Template repository no GitHub. Ative essa opção no MASTER antes de provisionar. O repositório técnico foi preservado.`,
             };
           }
+
+          const backupBase = `${input.repo}-legacy-readme`;
+          let backupName = backupBase;
+          for (let suffix = 1; suffix <= 20; suffix += 1) {
+            const candidate = suffix === 1 ? backupBase : `${backupBase}-${suffix}`;
+            const candidateRes = await api(`/repos/${input.owner}/${candidate}`);
+            if (candidateRes.status === 404) {
+              backupName = candidate;
+              break;
+            }
+            if (!candidateRes.ok) {
+              return {
+                ok: false,
+                error: await fail(candidateRes, `verificar o nome de backup ${candidate}`),
+              };
+            }
+            if (suffix === 20) {
+              return {
+                ok: false,
+                error: `Não foi encontrado um nome livre para preservar o repositório técnico ${target}.`,
+              };
+            }
+          }
+
+          const renamed = await api(`/repos/${target}`, {
+            method: "PATCH",
+            body: JSON.stringify({ name: backupName }),
+          });
+          if (!renamed.ok) {
+            return {
+              ok: false,
+              error:
+                `${await fail(renamed, `preservar o repositório técnico ${target} como backup`)}. ` +
+                `O token precisa de Administração: leitura e gravação; não precisa de permissão para excluir repositórios.`,
+            };
+          }
+
+          const backupTarget = `${input.owner}/${backupName}`;
+          const archived = await api(`/repos/${backupTarget}`, {
+            method: "PATCH",
+            body: JSON.stringify({ archived: true }),
+          });
+          if (!archived.ok) {
+            const restored = await api(`/repos/${backupTarget}`, {
+              method: "PATCH",
+              body: JSON.stringify({ name: input.repo }),
+            });
+            return {
+              ok: false,
+              error:
+                `${await fail(archived, `arquivar o backup técnico ${backupTarget}`)}. ` +
+                (restored.ok
+                  ? "O nome original foi restaurado com segurança."
+                  : `A restauração também falhou: ${await fail(restored, `restaurar ${target}`)}`),
+            };
+          }
+
+          const created = await api(`/repos/${master}/generate`, {
+            method: "POST",
+            body: JSON.stringify({
+              owner: input.owner,
+              name: input.repo,
+              private: true,
+              include_all_branches: false,
+              description: "Instalação Unitos gerada a partir do MASTER",
+            }),
+          });
+          if (!created.ok) {
+            const original = await api(`/repos/${target}`);
+            let rollback = "O backup técnico foi mantido arquivado.";
+            if (original.status === 404) {
+              const unarchived = await api(`/repos/${backupTarget}`, {
+                method: "PATCH",
+                body: JSON.stringify({ archived: false }),
+              });
+              const restored = unarchived.ok
+                ? await api(`/repos/${backupTarget}`, {
+                    method: "PATCH",
+                    body: JSON.stringify({ name: input.repo }),
+                  })
+                : unarchived;
+              rollback = restored.ok
+                ? "O nome original foi restaurado com segurança."
+                : `A restauração automática falhou: ${await fail(restored, `restaurar ${target}`)}`;
+            }
+            return {
+              ok: false,
+              error:
+                `${await fail(created, `gerar a cópia completa ${target} a partir de ${master}`)}. ` +
+                `${rollback} Nenhum repositório foi excluído.`,
+            };
+          }
+
+          for (let attempt = 0; attempt < 12; attempt += 1) {
+            const generatedHead = await api(
+              `/repos/${target}/commits/${branch}`,
+              undefined,
+              true,
+            );
+            if (generatedHead.ok) {
+              const body = (await generatedHead.json().catch(() => ({}))) as { sha?: string };
+              if (body.sha) {
+                return {
+                  ok: true,
+                  created: true,
+                  via: "template_recovered",
+                  commitSha: body.sha,
+                };
+              }
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1_000));
+          }
+          return {
+            ok: false,
+            error: `A cópia completa de ${master} foi solicitada, mas a branch ${branch} de ${target} ainda não ficou disponível. O backup técnico ${backupTarget} permanece arquivado. Tente retomar em alguns instantes.`,
+          };
         } else if (existing.status !== 404) {
           return { ok: false, error: await fail(existing, `consultar o repositório ${target}`) };
         }
@@ -1119,7 +1242,7 @@ export function createCodeClient(input: {
               return {
                 ok: true,
                 created: true,
-                via: existing.ok ? "template_recovered" : "template",
+                via: "template",
                 commitSha: body.sha,
               };
             }
