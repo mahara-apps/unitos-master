@@ -1866,15 +1866,32 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
         database: { ok: false, detail: target.reason },
         deploy: { ok: false, detail: "dados da instalação incompletos" },
         code: { ok: false, detail: "dados da instalação incompletos" },
-        checks: [],
+        ok: false,
+        missing: [target.reason],
+        summary: `Faltam dados da instalação: ${target.reason}`,
+        checks: [] as Array<{
+          area: "database" | "deploy" | "code";
+          label: string;
+          ok: boolean;
+          detail: string;
+        }>,
       };
     }
     if (!capability.available) {
+      const reason = capability.blockedReasons.join(" | ");
       return {
-        database: { ok: false, detail: capability.blockedReasons.join(" | ") },
-        deploy: { ok: false, detail: capability.blockedReasons.join(" | ") },
-        code: { ok: false, detail: capability.blockedReasons.join(" | ") },
-        checks: [],
+        database: { ok: false, detail: reason },
+        deploy: { ok: false, detail: reason },
+        code: { ok: false, detail: reason },
+        ok: false,
+        missing: capability.blockedReasons,
+        summary: `Faltam credenciais: ${reason}`,
+        checks: [] as Array<{
+          area: "database" | "deploy" | "code";
+          label: string;
+          ok: boolean;
+          detail: string;
+        }>,
       };
     }
 
