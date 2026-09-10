@@ -12,7 +12,9 @@ import {
 import {
   createDeployClient,
   createManagementClient,
+  classifyAccessFailure,
   generateInstallationSecret,
+  preflightAccess,
   runAutomatedProvision,
 } from "@/lib/installation/automation.server";
 
@@ -824,5 +826,57 @@ describe("clientes de gestão", () => {
     expect(result.ok).toBe(false);
     expect(result.error).toContain("nenhuma equipe visível");
     expect(result.error).toContain("conta dona do projeto");
+  });
+});
+
+describe("preflight de acessos antes de publicar", () => {
+  it("401/403 e limite de uso são permissão (terminal); 502/503/504 são temporários", () => {
+    expect(classifyAccessFailure("HTTP 403 ao consultar o projeto")).toBe("permission");
+    expect(classifyAccessFailure("HTTP 401 token inválido")).toBe("permission");
+    expect(classifyAccessFailure("API rate limit exceeded")).toBe("permission");
+    expect(classifyAccessFailure("HTTP 502 error code: 502")).toBe("transient");
+    expect(classifyAccessFailure("HTTP 503")).toBe("transient");
+    expect(classifyAccessFailure("HTTP 504")).toBe("transient");
+    expect(classifyAccessFailure("resposta inesperada")).toBe("other");
+  });
+
+  it("interrompe com a permissão exata que falta", async () => {
+    const report = await preflightAccess({
+      deploy: {
+        deploymentUrl: async () => ({ ok: false, error: "HTTP 403 ao consultar o projeto" }),
+      } as never,
+      code: {
+        permissions: async () => [
+          { area: "code", label: "Gravação no repositório", ok: false, detail: "HTTP 403" },
+        ],
+      } as never,
+      deployProject: "unitos-casa8",
+    });
+    expect(report.terminal).toContain("HTTP 403");
+    expect(report.transient).toBeNull();
+    expect(report.checks.some((check) => !check.ok)).toBe(true);
+  });
+
+  it("instabilidade momentânea não vira falta de permissão", async () => {
+    const report = await preflightAccess({
+      deploy: { deploymentUrl: async () => ({ ok: true, url: "https://x.vercel.app" }) } as never,
+      code: {
+        permissions: async () => [
+          { area: "code", label: "Leitura do MASTER", ok: false, detail: "HTTP 502" },
+        ],
+      } as never,
+    });
+    expect(report.terminal).toBeNull();
+    expect(report.transient).toContain("HTTP 502");
+  });
+
+  it("projeto de deploy ainda inexistente não bloqueia a instalação nova", async () => {
+    const report = await preflightAccess({
+      deploy: {
+        deploymentUrl: async () => ({ ok: false, error: "HTTP 404 projeto não encontrado" }),
+      } as never,
+    });
+    expect(report.terminal).toBeNull();
+    expect(report.transient).toBeNull();
   });
 });
