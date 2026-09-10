@@ -550,6 +550,48 @@ describe("runAutomatedProvision", () => {
     expect(result.reasons.join(" ")).toContain("Frontend");
   });
 
+  it("domínio definitivo pendente gera aviso sem bloquear a instalação", async () => {
+    const { api, updates } = fakeClient();
+    const fetchImpl = vi.fn(async (url: string) => {
+      const gh = githubResponse(url);
+      if (gh) return gh;
+      if (url.includes("/api-keys")) {
+        return Response.json([
+          { name: "anon", api_key: "k" },
+          { name: "service_role", api_key: "s" },
+        ]);
+      }
+      if (url.includes("/database/query")) return Response.json([{ schemas: 3, status: "PASS" }]);
+      if (url.includes("api.vercel.com/v9/projects")) {
+        return Response.json({ name: "x", targets: { production: { url: "x-abc.vercel.app" } } });
+      }
+      if (url.includes("/env")) return Response.json({ created: [] });
+      if (url.includes("v6/deployments")) {
+        return Response.json({ deployments: [{ uid: "d", name: "x" }] });
+      }
+      if (url.includes("v13/deployments")) return Response.json({ id: "d2" });
+      if (url === "https://app.cliente.com.br") return new Response("dns pendente", { status: 530 });
+      return new Response("{}", { status: 200 });
+    });
+
+    const result = await runProvision({
+      client: api,
+      operation: OP,
+      installation: { ...INSTALLATION, domain: "app.cliente.com.br" },
+      env: {
+        UNITOS_SUPABASE_MANAGEMENT_TOKEN: "t",
+        UNITOS_VERCEL_TOKEN: "v",
+        UNITOS_GITHUB_TOKEN: "g",
+      },
+      fetchImpl: fetchImpl as never,
+    });
+
+    expect(result.result).toBe("PASS");
+    expect(result.appUrl).toBe("https://app.cliente.com.br");
+    expect(result.urlSource).toBe("custom_domain");
+    expect(updates.some((patch) => patch.status === "success" && patch.error_kind === null)).toBe(true);
+  });
+
   it("BLOCKED quando o deploy não expõe URL e não há domínio", async () => {
     const { api } = fakeClient();
     const fetchImpl = vi.fn(async (url: string) => {
