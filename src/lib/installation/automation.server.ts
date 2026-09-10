@@ -3089,10 +3089,14 @@ export async function runAutomatedProvision(input: {
         },
       });
       if (!published.ok) {
-        const detail = published.error ?? `não foi possível sincronizar ${effectiveRepoSlug}`;
+        const detail = withRepoWriteHint(
+          published.error ?? `não foi possível sincronizar ${effectiveRepoSlug}`,
+          effectiveRepoSlug,
+        );
         const kind = classifyAccessFailure(detail);
         if (kind === "permission") blocked.push(`Código não sincronizado: ${detail}`);
         else failures.push(`Código não sincronizado: ${detail}`);
+
         await mark("code", "error", detail);
         checks.code = "error";
         return finish(null, null);
