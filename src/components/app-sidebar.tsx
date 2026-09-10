@@ -227,7 +227,7 @@ export function AppSidebar() {
         return 0;
       }
     },
-    enabled: !!brandId,
+    enabled: !!brandId && hasSession,
     staleTime: 30_000,
     refetchInterval: 60_000,
     retry: false,
