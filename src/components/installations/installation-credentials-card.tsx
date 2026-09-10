@@ -354,6 +354,7 @@ export function InstallationCredentialsCard({ installationId }: { installationId
         {checks.length > 0 && (
           <div className="space-y-1.5 rounded-md border p-3">
             <p className="text-xs font-medium">Resultado do teste de acesso</p>
+            {summary && <p className="text-[11px] text-muted-foreground">{summary}</p>}
             <ul className="space-y-1">
               {checks.map((check) => (
                 <li key={`${check.area}-${check.label}`} className="flex gap-1.5 text-[11px]">
