@@ -13,6 +13,10 @@ A auditoria também confirmou problemas estruturais no fluxo atual:
 - existem caminhos que tratam falhas de publicação como aviso e continuam;
 - o estado de retomada fica em um JSON flexível, sem contrato único por etapa;
 - o worker de retomada e o endpoint de progresso não possuem cobertura completa;
+- a janela de retomada atual é de 5 segundos, menor que chamadas externas legítimas, permitindo execução concorrente;
+- a abertura da operação e a atualização do cadastro ocorrem em gravações separadas;
+- atualizações podem ser encerradas como sucesso antes de o build ficar pronto e antes da validação final;
+- o script manual ainda possui uma versão fixa diferente da versão canônica do MASTER;
 - os testes externos usam respostas simuladas e não formam uma esteira obrigatória por etapa.
 
 ## Resultado desejado
@@ -76,13 +80,15 @@ Uma etapa só passa para `done` depois da pós-condição. `401/403` encerram im
 - Fazer o mesmo preflight completo antes de colocar o ambiente em atualização.
 - Fixar release, commit e hash do delta no início; uma retomada nunca muda o alvo no meio do processo.
 - Aplicar o delta com checkpoint por lote e pós-validação estrutural.
-- Publicar exatamente o commit autorizado, aguardar `READY` e comprovar o commit servido.
-- Rodar a validação final completa antes de atualizar a versão instalada.
+- Publicar exatamente o commit autorizado, aguardar `READY` e comprovar o commit servido. Push aceito, auto-deploy acionado ou rebuild criado ainda serão estados pendentes, nunca sucesso.
+- Rodar a mesma validação final completa do provisionamento antes de atualizar a versão instalada.
 - Retirar o aviso de atualização somente após sucesso; em falha, manter o ambiente legível, encerrar a operação e indicar o ponto exato de retomada.
 
 ## 5. Retomada, concorrência e operações presas
 
-- Usar lease com identificador e validade; somente um executor pode assumir cada operação.
+- Criar uma abertura atômica da operação no banco: trava, operação, status e `active_operation_id` mudam juntos.
+- Centralizar provisionar, atualizar e validar na mesma máquina de estados, removendo os três fluxos duplicados de abertura.
+- Usar lease com identificador e validade compatível com chamadas externas longas; somente um executor pode assumir cada operação.
 - Renovar o heartbeat durante etapas longas.
 - Preservar checkpoints concluídos somente quando a evidência ainda for válida; caso contrário, revalidar a etapa.
 - Toda saída — sucesso, bloqueio, cancelamento, timeout ou exceção — fecha a operação e libera a instalação.
@@ -105,6 +111,8 @@ Uma etapa só passa para `done` depois da pós-condição. `401/403` encerram im
 - Testar retomada após cada checkpoint e duas retomadas concorrentes.
 - Cobrir o worker de retomada, o endpoint de progresso, autenticação do cron e fechamento obrigatório da operação.
 - Aplicar o pacote em um banco descartável vazio e em um banco parcialmente atualizado; ambos devem terminar com a mesma estrutura e todas as verificações aprovadas.
+- Fazer `finalizeOperation` rejeitar sucesso se existir etapa com erro, pendente ou sem evidência obrigatória.
+- Testar que o script manual, o provisionamento automático e a atualização registram a mesma versão canônica lida do pacote/commit, sem valor fixo paralelo.
 
 ## 8. Validação real da Casa 8
 
@@ -132,6 +140,7 @@ Não será criada uma nova tabela de negócio. Os checkpoints e evidências não
 ## MASTER-first
 
 - Aplicar a migration e o novo executor no MASTER.
+- Remover a versão fixa do script manual e usar `delta_version.txt`/commit publicado como única autoridade.
 - Atualizar a verificação da instalação para cobrir o novo contrato sem exigir que secrets sejam revelados.
 - Regenerar delta e manifesto, sincronizar `delta_version.txt` e `MASTER_RELEASE_VERSION`.
 - Ampliar os guardiões de completude e rodar `bun run master:check`.
