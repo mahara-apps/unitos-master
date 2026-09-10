@@ -210,7 +210,7 @@ export function AppSidebar() {
         return 0;
       }
     },
-    enabled: !!brandId,
+    enabled: !!brandId && hasSession,
     staleTime: 60_000,
     refetchInterval: 120_000,
     retry: false,
