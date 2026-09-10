@@ -589,7 +589,14 @@ describe("runAutomatedProvision", () => {
     expect(result.result).toBe("PASS");
     expect(result.appUrl).toBe("https://app.cliente.com.br");
     expect(result.urlSource).toBe("custom_domain");
-    expect(updates.some((patch) => patch.status === "success" && patch.error_kind === null)).toBe(true);
+    expect(
+      updates.some(
+        (patch) =>
+          patch.status === "success" &&
+          String(patch.summary ?? "").includes("Pendências") &&
+          String(patch.summary ?? "").includes("Frontend ainda nao respondeu"),
+      ),
+    ).toBe(true);
   });
 
   it("BLOCKED quando o deploy não expõe URL e não há domínio", async () => {
