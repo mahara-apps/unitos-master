@@ -42,6 +42,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarSeparator,
   SidebarTrigger,
   useSidebar,
@@ -68,8 +71,8 @@ type NavItem = {
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   featureKey?: string;
   badge?: "tasks-pending" | "inbox-awaiting" | "messages-unread" | "beta";
-  /** Subitem aninhado (sem ícone, recuado, oculto no modo rail). */
-  sub?: boolean;
+  /** Subitens aninhados dentro do item (ex.: Diagnostics sob Brain). */
+  children?: Array<{ title: string; url: string }>;
 };
 
 /** Inbox fixo no topo: Mensagens (fora de qualquer grupo). */
@@ -110,13 +113,14 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
     label: "Inteligência",
     items: [
       { title: "Agentes IA", url: "/agents", icon: Bot, featureKey: "agents" },
-      { title: "Brain", url: "/brain", icon: Brain, featureKey: "brain", badge: "beta" },
       {
-        title: "Diagnostics",
-        url: "/brain/diagnostics",
+        title: "Brain",
+        url: "/brain",
         icon: Brain,
         featureKey: "brain",
-        sub: true,
+        badge: "beta",
+        // Diagnostics vive dentro do Brain, não como item solto do grupo.
+        children: [{ title: "Diagnostics", url: "/brain/diagnostics" }],
       },
       { title: "Chat", url: "/chat", icon: MessageSquare, featureKey: "chat" },
     ],
@@ -266,33 +270,15 @@ export function AppSidebar() {
     return 0;
   };
 
+  // Subitens aninhados herdam o módulo do item pai, mas respeitam os mesmos
+  // filtros de papel/perfil aplicados à URL do filho.
+  const childVisible = (url: string) =>
+    isSuper || (canAccessSidebarUrl(role, url) && moduleAllowsUrl(url));
+
   const renderItem = (item: NavItem, recessive = false) => {
     const active = isActive(item.url);
     const count = badgeCount(item.badge);
-    if (item.sub) {
-      // Subitem aninhado: recuado, sem ícone, oculto no modo rail.
-      return (
-        <SidebarMenuItem key={item.url}>
-          <SidebarMenuButton
-            asChild
-            isActive={active}
-            className="group-data-[collapsible=icon]:hidden"
-          >
-            <Link
-              to={item.url}
-              preload="intent"
-              className="flex items-center gap-3 pl-[42px] text-[12.5px]"
-            >
-              <span
-                className={cn("text-muted-foreground", active && "font-semibold text-foreground")}
-              >
-                {item.title}
-              </span>
-            </Link>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      );
-    }
+    const children = item.children?.filter((c) => childVisible(c.url)) ?? [];
     return (
       <SidebarMenuItem key={item.url}>
         <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
@@ -328,6 +314,29 @@ export function AppSidebar() {
             ) : null}
           </Link>
         </SidebarMenuButton>
+        {children.length > 0 ? (
+          <SidebarMenuSub className="group-data-[collapsible=icon]:hidden">
+            {children.map((child) => {
+              const childActive = pathname === child.url;
+              return (
+                <SidebarMenuSubItem key={child.url}>
+                  <SidebarMenuSubButton asChild isActive={childActive}>
+                    <Link to={child.url} preload="intent">
+                      <span
+                        className={cn(
+                          "text-muted-foreground",
+                          childActive && "font-semibold text-foreground",
+                        )}
+                      >
+                        {child.title}
+                      </span>
+                    </Link>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              );
+            })}
+          </SidebarMenuSub>
+        ) : null}
       </SidebarMenuItem>
     );
   };
