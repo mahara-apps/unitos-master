@@ -314,6 +314,29 @@ export function AppSidebar() {
             ) : null}
           </Link>
         </SidebarMenuButton>
+        {children.length > 0 ? (
+          <SidebarMenuSub className="group-data-[collapsible=icon]:hidden">
+            {children.map((child) => {
+              const childActive = pathname === child.url;
+              return (
+                <SidebarMenuSubItem key={child.url}>
+                  <SidebarMenuSubButton asChild isActive={childActive}>
+                    <Link to={child.url} preload="intent">
+                      <span
+                        className={cn(
+                          "text-muted-foreground",
+                          childActive && "font-semibold text-foreground",
+                        )}
+                      >
+                        {child.title}
+                      </span>
+                    </Link>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              );
+            })}
+          </SidebarMenuSub>
+        ) : null}
       </SidebarMenuItem>
     );
   };
