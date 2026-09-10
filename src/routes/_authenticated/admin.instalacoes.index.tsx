@@ -3,13 +3,16 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { AlertTriangle, KeyRound, Loader2, Plus, RefreshCw, Search, Server } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Github, KeyRound, Loader2, Plus, RefreshCw, Search, Server, XCircle } from "lucide-react";
 
 import {
   createInstallationFn,
   getInstallationManagerAccessFn,
   getMasterVersionFn,
   listInstallationsFn,
+  propagateMasterGithubTokenFn,
+  PROPAGATE_GITHUB_TOKEN_CONFIRM_LABEL,
+  type GithubTokenPropagationItem,
   type InstallationRecord,
 } from "@/lib/installation/manager.functions";
 
@@ -110,7 +113,27 @@ function AdminInstallationsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [propagateOpen, setPropagateOpen] = useState(false);
+  const [propagateConfirm, setPropagateConfirm] = useState("");
+  const [propagateResults, setPropagateResults] = useState<GithubTokenPropagationItem[] | null>(
+    null,
+  );
   const goToCredentialsRef = useRef(false);
+
+  const propagateFn = useServerFn(propagateMasterGithubTokenFn);
+  const propagate = useMutation({
+    mutationFn: () => propagateFn({ data: { confirmLabel: propagateConfirm } }),
+    onSuccess: (out) => {
+      setPropagateResults(out.results);
+      if (out.failed === 0) {
+        toast.success(`Token do GitHub aplicado em ${out.updated} instalação(ões).`);
+      } else {
+        toast.warning(`Token aplicado em ${out.updated}; ${out.failed} falharam.`);
+      }
+      void qc.invalidateQueries({ queryKey: ["installations"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const create = useMutation({
     mutationFn: () => {
