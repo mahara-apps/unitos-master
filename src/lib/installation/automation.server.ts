@@ -449,6 +449,39 @@ export function isRetryableManagementStatus(status: number): boolean {
 
 const RETRY_DELAYS_MS = [1_000, 3_000, 7_000];
 
+/**
+ * Normaliza as respostas de chaves da Management API. Há duas formas em uso:
+ * lista (`[{ name|type, api_key }]`) e objeto legado
+ * (`{ anon_key, service_role_key }`).
+ */
+export function extractSupabaseApiKeys(body: unknown): {
+  publishableKey?: string;
+  serviceRoleKey?: string;
+} {
+  const clean = (value: unknown) =>
+    typeof value === "string" && value.trim() ? value.trim() : undefined;
+
+  if (Array.isArray(body)) {
+    const rows = body as Array<{ name?: string; type?: string; api_key?: string }>;
+    const find = (name: string) =>
+      clean(rows.find((k) => k?.name === name || k?.type === name)?.api_key);
+    return {
+      publishableKey: find("anon") ?? find("publishable"),
+      serviceRoleKey: find("service_role") ?? find("secret"),
+    };
+  }
+
+  if (body && typeof body === "object") {
+    const row = body as Record<string, unknown>;
+    return {
+      publishableKey: clean(row["anon_key"]) ?? clean(row["publishable_key"]),
+      serviceRoleKey: clean(row["service_role_key"]) ?? clean(row["secret_key"]),
+    };
+  }
+
+  return {};
+}
+
 async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -512,31 +545,35 @@ export function createManagementClient(input: {
           ok: false,
           error: "sem resposta da Management API",
         };
-      for (let attempt = 0; attempt < attempts; attempt++) {
-        try {
-          const res = await doFetch(`${base}/api-keys?reveal=true`, { headers });
-          if (!res.ok) {
-            const text = await res.text().catch(() => "");
-            last = { ok: false, error: managementApiError(res.status, text, "keys") };
-            if (!isRetryableManagementStatus(res.status)) return last;
-          } else {
-            const body = (await res.json().catch(() => [])) as Array<{
-              name?: string;
-              type?: string;
-              api_key?: string;
-            }>;
-            const find = (name: string) =>
-              body.find((k) => k.name === name || k.type === name)?.api_key ?? undefined;
-            return {
-              ok: true,
-              publishableKey: find("anon") ?? find("publishable"),
-              serviceRoleKey: find("service_role") ?? find("secret"),
-            };
+      // A revelação das chaves novas (`reveal=true`) exige privilégio maior do
+      // que a simples leitura. Um token que só enxerga as chaves legadas
+      // (anon/service_role) responde 403 ali e 200 nos outros caminhos — então
+      // tentamos os três antes de declarar o destino inacessível.
+      for (const path of ["/api-keys?reveal=true", "/api-keys/legacy", "/api-keys"]) {
+        for (let attempt = 0; attempt < attempts; attempt++) {
+          try {
+            const res = await doFetch(`${base}${path}`, { headers });
+            if (!res.ok) {
+              const text = await res.text().catch(() => "");
+              last = { ok: false, error: managementApiError(res.status, text, "keys") };
+              if (!isRetryableManagementStatus(res.status)) break;
+            } else {
+              const body = (await res.json().catch(() => null)) as unknown;
+              const found = extractSupabaseApiKeys(body);
+              if (found.publishableKey && found.serviceRoleKey) {
+                return { ok: true, ...found };
+              }
+              last = {
+                ok: false,
+                error: "o token leu o projeto, mas não retornou as chaves anon e service_role.",
+              };
+              break;
+            }
+          } catch (e) {
+            last = { ok: false, error: (e as Error).message };
           }
-        } catch (e) {
-          last = { ok: false, error: (e as Error).message };
+          if (attempt < attempts - 1) await sleep(RETRY_DELAYS_MS[attempt]);
         }
-        if (attempt < attempts - 1) await sleep(RETRY_DELAYS_MS[attempt]);
       }
       return last;
     },
