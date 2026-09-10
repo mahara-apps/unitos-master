@@ -2841,36 +2841,6 @@ export async function runAutomatedProvision(input: {
     fetchImpl: input.fetchImpl,
   });
 
-  // Atualização também começa com preflight completo. Nenhum delta é aplicado
-  // antes de comprovar banco, GitHub e Vercel.
-  const updatePreflight = await preflightAccess({
-    management: createManagementClient({
-      token: (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim(),
-      projectRef:
-        extractProjectRef({
-          supabaseProjectRef: installation.supabaseProjectRef,
-          supabaseUrl: installation.supabaseUrl,
-        }) ?? "",
-      fetchImpl: input.fetchImpl,
-    }),
-    suppliedKeys: {
-      publishableKey: (env["UNITOS_SUPABASE_PUBLISHABLE_KEY"] ?? "").trim(),
-      serviceRoleKey: (env["UNITOS_SUPABASE_SERVICE_ROLE_KEY"] ?? "").trim(),
-    },
-    deploy,
-    code,
-    deployProject: project,
-  });
-  if (updatePreflight.terminal || updatePreflight.transient) {
-    return fail(
-      "BLOCKED",
-      updatePreflight.terminal ??
-        `${updatePreflight.transient ?? "serviço temporariamente indisponível"}. Tente novamente em alguns minutos.`,
-      updatePreflight.checks.find((check) => !check.ok)?.area === "database"
-        ? "database"
-        : "code",
-    );
-  }
   const deploy = createDeployClient({
     token: deployToken,
     project: target.deployProject,
@@ -3926,6 +3896,14 @@ export async function runAutomatedUpdate(input: {
     return fail("BLOCKED", "a instalação não tem projeto de deploy configurado");
   }
 
+  const target = resolveAutomationTarget(installation);
+  if (!target.ok) return fail("BLOCKED", target.reason, "database");
+  const management = createManagementClient({
+    token: (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim(),
+    projectRef: target.projectRef,
+    fetchImpl: input.fetchImpl,
+  });
+
   /* 0. banco antes do código: o build novo depende do schema atualizado. */
   await report(client, operation, "database", "running");
   const delta = await applyDatabaseDelta({
@@ -3976,6 +3954,28 @@ export async function runAutomatedUpdate(input: {
     masterRepo,
     fetchImpl: input.fetchImpl,
   });
+
+  // Nenhum delta é aplicado antes de comprovar banco, GitHub e Vercel.
+  const updatePreflight = await preflightAccess({
+    management,
+    suppliedKeys: {
+      publishableKey: (env["UNITOS_SUPABASE_PUBLISHABLE_KEY"] ?? "").trim(),
+      serviceRoleKey: (env["UNITOS_SUPABASE_SERVICE_ROLE_KEY"] ?? "").trim(),
+    },
+    deploy,
+    code,
+    deployProject: project,
+  });
+  if (updatePreflight.terminal || updatePreflight.transient) {
+    return fail(
+      "BLOCKED",
+      updatePreflight.terminal ??
+        `${updatePreflight.transient ?? "serviço temporariamente indisponível"}. Tente novamente em alguns minutos.`,
+      updatePreflight.checks.find((check) => !check.ok)?.area === "database"
+        ? "database"
+        : "code",
+    );
+  }
 
   const checkpoint = await readStageProgress(client, operation);
   let deploymentId = checkpoint.updateDeploymentId ?? null;
@@ -4259,15 +4259,6 @@ export async function runAutomatedUpdate(input: {
   await report(client, operation, "build", "done", url ? `publicado em ${url}` : "publicado");
 
   await report(client, operation, "validation", "running");
-  const management = createManagementClient({
-    token: (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim(),
-    projectRef:
-      extractProjectRef({
-        supabaseProjectRef: installation.supabaseProjectRef,
-        supabaseUrl: installation.supabaseUrl,
-      }) ?? "",
-    fetchImpl: input.fetchImpl,
-  });
   await hardenHelperTables(management);
   const finalVerification = await management.query(prepareVerificationSql(verifySql).sql);
   if (!finalVerification.ok) {

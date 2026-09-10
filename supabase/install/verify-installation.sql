@@ -261,11 +261,27 @@ WITH checks AS (
                             WHERE table_schema = 'public'
                               AND table_name = 'installations'
                               AND column_name = 'requires_own_supabase_token')
-              THEN 'coluna presente' ELSE 'coluna ausente' END,
+                   AND EXISTS (SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public'
+                                  AND table_name = 'installation_credentials'
+                                  AND column_name = 'supabase_publishable_key_ciphertext')
+                   AND EXISTS (SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public'
+                                  AND table_name = 'installation_credentials'
+                                  AND column_name = 'supabase_service_role_key_ciphertext')
+              THEN 'token e chaves cifradas presentes' ELSE 'estrutura BYOK incompleta' END,
          CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns
                             WHERE table_schema = 'public'
                               AND table_name = 'installations'
                               AND column_name = 'requires_own_supabase_token')
+                   AND EXISTS (SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public'
+                                  AND table_name = 'installation_credentials'
+                                  AND column_name = 'supabase_publishable_key_ciphertext')
+                   AND EXISTS (SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public'
+                                  AND table_name = 'installation_credentials'
+                                  AND column_name = 'supabase_service_role_key_ciphertext')
               THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
 
