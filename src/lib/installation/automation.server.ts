@@ -2529,6 +2529,118 @@ async function report(
   }).catch(() => undefined);
 }
 
+/* ------------------------------------------------- preflight de credenciais */
+
+export type AccessCheck = {
+  area: "database" | "deploy" | "code";
+  label: string;
+  ok: boolean;
+  detail: string;
+};
+
+export type AccessPreflight = {
+  checks: AccessCheck[];
+  /** Permissão faltante: interrompe imediatamente, sem tentar publicar. */
+  terminal: string | null;
+  /** Instabilidade momentânea do provedor: vale tentar de novo em minutos. */
+  transient: string | null;
+};
+
+/** 401/403 = permissão; 502/503/504/429 = instabilidade momentânea. */
+export function classifyAccessFailure(detail: string): "permission" | "transient" | "other" {
+  const text = (detail ?? "").trim();
+  if (/HTTP 401|HTTP 403|rate limit|não acessa o projeto|privileges/i.test(text))
+    return "permission";
+  if (/HTTP 429|HTTP 50[234]|Instabilidade tempor|limitando as chamadas|timeout/i.test(text))
+    return "transient";
+  return "other";
+}
+
+/**
+ * Confere, na ordem em que serão usadas, se as três credenciais têm de fato as
+ * permissões da operação. Falta de permissão devolve `terminal` (a operação é
+ * recusada antes de começar); instabilidade devolve `transient`.
+ *
+ * O projeto de deploy ainda não existir NÃO é bloqueio: em instalação nova ele
+ * pode ser criado depois.
+ */
+export async function preflightAccess(input: {
+  management?: ManagementClient | null;
+  deploy?: DeployClient | null;
+  code?: CodeClient | null;
+  projectRef?: string | null;
+  deployProject?: string | null;
+}): Promise<AccessPreflight> {
+  const checks: AccessCheck[] = [];
+  let terminal: string | null = null;
+  let transient: string | null = null;
+
+  const note = (area: AccessCheck["area"], label: string, ok: boolean, detail: string) => {
+    checks.push({ area, label, ok, detail });
+    if (ok) return;
+    const kind = classifyAccessFailure(detail);
+    if (kind === "transient") transient ??= `${label}: ${detail}`;
+    else terminal ??= `${label}: ${detail}`;
+  };
+
+  if (input.management) {
+    const ping = await input.management.query("select 1 as ok");
+    note(
+      "database",
+      "Acesso ao banco da instalação",
+      ping.ok,
+      ping.ok
+        ? `projeto ${input.projectRef ?? "destino"} acessível`
+        : (ping.error ?? "acesso recusado"),
+    );
+    if (ping.ok) {
+      const keys = await input.management.keys();
+      const ok = keys.ok && Boolean(keys.publishableKey) && Boolean(keys.serviceRoleKey);
+      note(
+        "database",
+        "Leitura das chaves do projeto",
+        ok,
+        ok
+          ? "chaves publicável e de serviço legíveis"
+          : (keys.error ?? "o token não permite ler todas as chaves de API do projeto"),
+      );
+    }
+  }
+
+  if (input.deploy) {
+    const project = await input.deploy.deploymentUrl();
+    const detail = project.ok
+      ? `projeto ${input.deployProject ?? ""} acessível`.trim()
+      : (project.error ?? "acesso negado");
+    // 404 = projeto ainda não criado; não é falta de permissão.
+    const pending = !project.ok && /HTTP 404|não encontrado/i.test(detail);
+    if (pending) {
+      checks.push({
+        area: "deploy",
+        label: "Acesso ao projeto de publicação",
+        ok: false,
+        detail: `${detail} — será criado/ligado durante a operação`,
+      });
+    } else {
+      note("deploy", "Acesso ao projeto de publicação", project.ok, detail);
+    }
+  }
+
+  if (input.code) {
+    const permissions = await input.code.permissions();
+    for (const item of permissions) {
+      // "Criação rápida pelo template" é conveniência: não bloqueia a operação.
+      if (/template/i.test(item.label)) {
+        checks.push({ area: "code", label: item.label, ok: item.ok, detail: item.detail });
+        continue;
+      }
+      note("code", item.label, item.ok, item.detail);
+    }
+  }
+
+  return { checks, terminal, transient };
+}
+
 /**
  * Executa o provisionamento automático completo. Nunca simula sucesso:
  * qualquer dependência ausente encerra a operação como BLOCKED.
