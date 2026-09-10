@@ -1006,7 +1006,11 @@ async function startAtomicInstallationOperation(input: {
   }
   const { data: operation, error: detailError } = await supabaseAdmin
     .from("installation_operations")
-    .update({ detail: input.detail, actor_id: input.actorId, status: "running" })
+    .update({
+      detail: input.detail as never,
+      actor_id: input.actorId,
+      status: "running",
+    })
     .eq("id", data["id"])
     .select("*")
     .single();
