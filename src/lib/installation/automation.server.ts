@@ -1171,11 +1171,7 @@ export function createCodeClient(input: {
           }
 
           for (let attempt = 0; attempt < 12; attempt += 1) {
-            const generatedHead = await api(
-              `/repos/${target}/commits/${branch}`,
-              undefined,
-              true,
-            );
+            const generatedHead = await api(`/repos/${target}/commits/${branch}`, undefined, true);
             if (generatedHead.ok) {
               const body = (await generatedHead.json().catch(() => ({}))) as { sha?: string };
               if (body.sha) {

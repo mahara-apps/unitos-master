@@ -178,7 +178,8 @@ describe("createCodeClient", () => {
     expect(calls.some((call) => call.method === "DELETE")).toBe(false);
     expect(
       calls.some(
-        (call) => call.url.endsWith("unitos-pitada-legacy-readme") && call.body.includes("archived"),
+        (call) =>
+          call.url.endsWith("unitos-pitada-legacy-readme") && call.body.includes("archived"),
       ),
     ).toBe(true);
   });
