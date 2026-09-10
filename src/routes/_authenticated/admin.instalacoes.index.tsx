@@ -228,9 +228,22 @@ function AdminInstallationsPage() {
             credenciais do destino.
           </p>
         </div>
-        <Button size="sm" className="shrink-0" onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Nova instalação
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setPropagateOpen(true);
+              setPropagateConfirm("");
+              setPropagateResults(null);
+            }}
+          >
+            <Github className="mr-2 h-4 w-4" /> Aplicar token do GitHub
+          </Button>
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Nova instalação
+          </Button>
+        </div>
       </header>
 
       {masterVersion.data?.masterPublished === false && (
