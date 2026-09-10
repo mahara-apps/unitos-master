@@ -4073,6 +4073,10 @@ export async function runAutomatedUpdate(input: {
     projectRef: target.projectRef,
     fetchImpl: input.fetchImpl,
   });
+  // Instalações antigas também passam a nascer/ficar sem confirmação de e-mail.
+  await applyInstallationAuthDefaults(management).catch(() => undefined);
+
+
 
   const masterRepo = (env["UNITOS_MASTER_REPO"] ?? "").trim() || null;
   const repo = resolveInstallationRepo({
