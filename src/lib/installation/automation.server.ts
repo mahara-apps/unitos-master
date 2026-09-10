@@ -580,6 +580,43 @@ export function createManagementClient(input: {
   };
 }
 
+export async function validateSupabaseProjectKeys(input: {
+  supabaseUrl: string;
+  publishableKey: string;
+  serviceRoleKey: string;
+  fetchImpl?: Fetcher;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const origin = input.supabaseUrl.trim().replace(/\/+$/, "");
+  if (!/^https:\/\/[a-z0-9]{16,}\.supabase\.co$/i.test(origin)) {
+    return { ok: false, error: "URL do Supabase inválida para validar as chaves." };
+  }
+  const doFetch = input.fetchImpl ?? fetch;
+  const check = async (key: string, label: string) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12_000);
+    try {
+      const res = await doFetch(`${origin}/rest/v1/installation?select=id&limit=1`, {
+        headers: { apikey: key, authorization: `Bearer ${key}` },
+        signal: controller.signal,
+      });
+      if (res.status === 401 || res.status === 403) {
+        return `${label} recusada pelo projeto informado (HTTP ${res.status}).`;
+      }
+      if (res.status >= 500) return `${label}: Supabase temporariamente indisponível (HTTP ${res.status}).`;
+      return null;
+    } catch (cause) {
+      return `${label}: ${cause instanceof Error && cause.name === "AbortError" ? "timeout" : "sem resposta"}.`;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  const publishableError = await check(input.publishableKey, "Chave publicável");
+  if (publishableError) return { ok: false, error: publishableError };
+  const serviceError = await check(input.serviceRoleKey, "Chave de serviço");
+  if (serviceError) return { ok: false, error: serviceError };
+  return { ok: true };
+}
+
 /* ------------------------------------------------------------- Vercel API */
 
 export type DeployClient = {
@@ -2603,6 +2640,7 @@ export function classifyAccessFailure(detail: string): "permission" | "transient
  */
 export async function preflightAccess(input: {
   management?: ManagementClient | null;
+  suppliedKeys?: { publishableKey?: string | null; serviceRoleKey?: string | null } | null;
   deploy?: DeployClient | null;
   code?: CodeClient | null;
   projectRef?: string | null;
@@ -2633,7 +2671,11 @@ export async function preflightAccess(input: {
         : (ping.error ?? "acesso recusado"),
     );
     if (ping.ok) {
-      const keys = await input.management.keys();
+      const supplied = input.suppliedKeys;
+      const keys =
+        supplied?.publishableKey && supplied.serviceRoleKey
+          ? { ok: true, publishableKey: supplied.publishableKey, serviceRoleKey: supplied.serviceRoleKey }
+          : await input.management.keys();
       const ok = keys.ok && Boolean(keys.publishableKey) && Boolean(keys.serviceRoleKey);
       note(
         "database",
@@ -2798,6 +2840,7 @@ export async function runAutomatedProvision(input: {
     masterRepo,
     fetchImpl: input.fetchImpl,
   });
+
   const deploy = createDeployClient({
     token: deployToken,
     project: target.deployProject,
@@ -2836,7 +2879,15 @@ export async function runAutomatedProvision(input: {
   }
 
   const keys = await management.keys();
-  if (!keys.ok || !keys.publishableKey || !keys.serviceRoleKey) {
+  const suppliedPublishable = (env["UNITOS_SUPABASE_PUBLISHABLE_KEY"] ?? "").trim();
+  const suppliedServiceRole = (env["UNITOS_SUPABASE_SERVICE_ROLE_KEY"] ?? "").trim();
+  const resolvedKeys =
+    keys.ok && keys.publishableKey && keys.serviceRoleKey
+      ? keys
+      : suppliedPublishable && suppliedServiceRole
+        ? { ok: true, publishableKey: suppliedPublishable, serviceRoleKey: suppliedServiceRole }
+        : keys;
+  if (!resolvedKeys.ok || !resolvedKeys.publishableKey || !resolvedKeys.serviceRoleKey) {
     blocked.push(
       `Não foi possível ler as chaves do Supabase destino: ${keys.error ?? "chaves não retornadas"}`,
     );
@@ -2851,6 +2902,8 @@ export async function runAutomatedProvision(input: {
    * escrita: negativa de permissão encerra aqui, dizendo o acesso exato que
    * falta; instabilidade do provedor pede nova tentativa em minutos. */
   const preflight = await preflightAccess({
+    management,
+    suppliedKeys: resolvedKeys,
     deploy,
     code,
     deployProject: target.deployProject,
@@ -3299,8 +3352,8 @@ export async function runAutomatedProvision(input: {
     const plan = buildDeployEnvPlan({
       appUrl: url.origin,
       supabaseUrl: installation.supabaseUrl ?? `https://${target.projectRef}.supabase.co`,
-      publishableKey: keys.publishableKey,
-      serviceRoleKey: keys.serviceRoleKey,
+      publishableKey: resolvedKeys.publishableKey,
+      serviceRoleKey: resolvedKeys.serviceRoleKey,
       projectRef: target.projectRef,
       secrets,
       officialMetaApp,
@@ -3843,24 +3896,13 @@ export async function runAutomatedUpdate(input: {
     return fail("BLOCKED", "a instalação não tem projeto de deploy configurado");
   }
 
-  /* 0. banco antes do código: o build novo depende do schema atualizado. */
-  await report(client, operation, "database", "running");
-  const delta = await applyDatabaseDelta({
-    client,
-    operation,
-    installation,
-    env,
-    ...(input.fetchImpl ? { fetchImpl: input.fetchImpl } : {}),
+  const target = resolveAutomationTarget(installation);
+  if (!target.ok) return fail("BLOCKED", target.reason, "database");
+  const management = createManagementClient({
+    token: (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim(),
+    projectRef: target.projectRef,
+    fetchImpl: input.fetchImpl,
   });
-  if (delta.state === "blocked" || delta.state === "error") {
-    return fail(delta.state === "blocked" ? "BLOCKED" : "FAIL", delta.detail, "database");
-  }
-  if (delta.state === "pending") {
-    // O watchdog retoma a MESMA operação e continua do checkpoint.
-    await report(client, operation, "database", "running", delta.detail);
-    return { result: "PENDING", reasons: [delta.detail] };
-  }
-  await report(client, operation, "database", "done", delta.detail, 100);
 
   const masterRepo = (env["UNITOS_MASTER_REPO"] ?? "").trim() || null;
   const repo = resolveInstallationRepo({
@@ -3893,6 +3935,46 @@ export async function runAutomatedUpdate(input: {
     masterRepo,
     fetchImpl: input.fetchImpl,
   });
+
+  // Nenhum delta é aplicado antes de comprovar banco, GitHub e Vercel.
+  const updatePreflight = await preflightAccess({
+    management,
+    suppliedKeys: {
+      publishableKey: (env["UNITOS_SUPABASE_PUBLISHABLE_KEY"] ?? "").trim(),
+      serviceRoleKey: (env["UNITOS_SUPABASE_SERVICE_ROLE_KEY"] ?? "").trim(),
+    },
+    deploy,
+    code,
+    deployProject: project,
+  });
+  if (updatePreflight.terminal || updatePreflight.transient) {
+    return fail(
+      "BLOCKED",
+      updatePreflight.terminal ??
+        `${updatePreflight.transient ?? "serviço temporariamente indisponível"}. Tente novamente em alguns minutos.`,
+      updatePreflight.checks.find((check) => !check.ok)?.area === "database"
+        ? "database"
+        : "code",
+    );
+  }
+
+  /* Banco antes do código, mas somente depois do preflight completo. */
+  await report(client, operation, "database", "running");
+  const delta = await applyDatabaseDelta({
+    client,
+    operation,
+    installation,
+    env,
+    ...(input.fetchImpl ? { fetchImpl: input.fetchImpl } : {}),
+  });
+  if (delta.state === "blocked" || delta.state === "error") {
+    return fail(delta.state === "blocked" ? "BLOCKED" : "FAIL", delta.detail, "database");
+  }
+  if (delta.state === "pending") {
+    await report(client, operation, "database", "running", delta.detail);
+    return { result: "PENDING", reasons: [delta.detail] };
+  }
+  await report(client, operation, "database", "done", delta.detail, 100);
 
   const checkpoint = await readStageProgress(client, operation);
   let deploymentId = checkpoint.updateDeploymentId ?? null;
@@ -4174,6 +4256,32 @@ export async function runAutomatedUpdate(input: {
   }
 
   await report(client, operation, "build", "done", url ? `publicado em ${url}` : "publicado");
+
+  await report(client, operation, "validation", "running");
+  await hardenHelperTables(management);
+  const finalVerification = await management.query(prepareVerificationSql(verifySql).sql);
+  if (!finalVerification.ok) {
+    return fail(
+      "FAIL",
+      `a validação final não pôde ser executada: ${finalVerification.error ?? "falha"}`,
+      "validation",
+    );
+  }
+  const verificationSummary = summarizeVerificationRows(finalVerification.rows);
+  if (!verificationSummary.ok) {
+    return fail(
+      "FAIL",
+      verificationSummary.reason ?? "a validação final encontrou inconsistências",
+      "validation",
+    );
+  }
+  await report(
+    client,
+    operation,
+    "validation",
+    "done",
+    `${verificationSummary.total} verificações PASS`,
+  );
   const shortSha = targetSha ? targetSha.slice(0, 7) : null;
   // A versão fixada é a do pacote realmente publicado, nunca o número atual do
   // MASTER: se o repositório estiver atrás, o painel precisa mostrar a verdade.

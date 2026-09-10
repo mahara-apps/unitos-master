@@ -352,6 +352,7 @@ async function assertSupabaseManagementAccess(input: {
   token: string;
   supabaseProjectRef?: string | null;
   supabaseUrl?: string | null;
+  requireKeys?: boolean;
 }): Promise<void> {
   const { extractProjectRef } = await import("./automation-contract");
   const projectRef = extractProjectRef(input);
@@ -366,6 +367,7 @@ async function assertSupabaseManagementAccess(input: {
       `Este token não pode administrar o projeto informado. ${database.error ?? "Acesso recusado."}`,
     );
   }
+  if (input.requireKeys === false) return;
   const keys = await management.keys();
   if (!keys.ok || !keys.publishableKey || !keys.serviceRoleKey) {
     throw new Error(
@@ -973,6 +975,41 @@ export type AutomatedProvisionStart =
       urlSource: null;
     };
 
+async function startAtomicInstallationOperation(input: {
+  actorId: string;
+  installationId: string;
+  kind: "provision" | "validate" | "update";
+  summary: string;
+  steps: OperationStep[];
+  detail: Record<string, unknown>;
+}) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { callRpc } = await import("@/lib/supabase-rpc");
+  const { data, error } = await callRpc<Record<string, unknown>>(supabaseAdmin as never, "start_installation_operation", {
+    _actor_id: input.actorId,
+    _installation_id: input.installationId,
+    _kind: input.kind,
+    _summary: input.summary,
+    _steps: input.steps,
+    _run_token_hash: null,
+    _run_token_expires_at: null,
+  });
+  if (error || !data || typeof data["id"] !== "string") {
+    const message = error?.message ?? "não foi possível abrir a operação";
+    if (/andamento|55P03/i.test(message))
+      throw new Error("Já existe uma operação em andamento nesta instalação.");
+    throw new Error(message);
+  }
+  const { data: operation, error: detailError } = await supabaseAdmin
+    .from("installation_operations")
+    .update({ detail: input.detail, actor_id: input.actorId, status: "running" })
+    .eq("id", data["id"])
+    .select("*")
+    .single();
+  if (detailError) throw detailError;
+  return operation;
+}
+
 /**
  * Abre a operação de provisionamento automático e dispara a execução em
  * BACKGROUND (`waitUntil`), devolvendo imediatamente o id da operação. A UI
@@ -1035,36 +1072,14 @@ async function openAutomatedProvision(
     .maybeSingle();
   if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
 
-  const nowIso = new Date().toISOString();
-  const { data: op, error: opError } = await supabase
-    .from("installation_operations")
-    .insert({
-      installation_id: installationId,
-      kind: "provision",
-      status: "running",
-      summary: "Provisionamento automático em execução pelo MASTER.",
-      steps: initialSteps("provision"),
-      detail: { releaseVersion: MASTER_RELEASE_VERSION, executed: true, automated: true },
-      actor_id: context.userId,
-      started_at: nowIso,
-      last_report_at: nowIso,
-    })
-    .select("*")
-    .single();
-  if (opError) {
-    if ((opError as { code?: string }).code === "23505")
-      throw new Error("Já existe uma operação em andamento nesta instalação.");
-    throw opError;
-  }
-
-  await supabase
-    .from("installations")
-    .update({
-      status: runningStatusFor("provision"),
-      last_error: null,
-      active_operation_id: op.id,
-    })
-    .eq("id", installationId);
+  const op = await startAtomicInstallationOperation({
+    actorId: context.userId,
+    installationId,
+    kind: "provision",
+    summary: "Provisionamento automático em execução pelo MASTER.",
+    steps: initialSteps("provision"),
+    detail: { releaseVersion: MASTER_RELEASE_VERSION, executed: true, automated: true },
+  });
 
   const { runAutomatedProvision } = await import("./automation.server");
   const { waitUntil } = await import("@/lib/wait-until.server");
@@ -1182,36 +1197,14 @@ export const runAutomatedValidateFn = createServerFn({ method: "POST" })
       .maybeSingle();
     if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
 
-    const nowIso = new Date().toISOString();
-    const { data: op, error: opError } = await context.supabase
-      .from("installation_operations")
-      .insert({
-        installation_id: data.id,
-        kind: "validate",
-        status: "running",
-        summary: "Validação automática em execução pelo MASTER (somente leitura).",
-        steps: initialSteps("validate"),
-        detail: { releaseVersion: MASTER_RELEASE_VERSION, executed: true, automated: true },
-        actor_id: context.userId,
-        started_at: nowIso,
-        last_report_at: nowIso,
-      })
-      .select("*")
-      .single();
-    if (opError) {
-      if ((opError as { code?: string }).code === "23505")
-        throw new Error("Já existe uma operação em andamento nesta instalação.");
-      throw opError;
-    }
-
-    await context.supabase
-      .from("installations")
-      .update({
-        status: runningStatusFor("validate"),
-        last_error: null,
-        active_operation_id: op.id,
-      })
-      .eq("id", data.id);
+    const op = await startAtomicInstallationOperation({
+      actorId: context.userId,
+      installationId: data.id,
+      kind: "validate",
+      summary: "Validação automática em execução pelo MASTER (somente leitura).",
+      steps: initialSteps("validate"),
+      detail: { releaseVersion: MASTER_RELEASE_VERSION, executed: true, automated: true },
+    });
 
     const { runAutomatedValidate } = await import("./automation.server");
     const { waitUntil } = await import("@/lib/wait-until.server");
@@ -1255,7 +1248,9 @@ export const resumeAutomatedProvisionFn = createServerFn({ method: "POST" })
     // Cada invocação do executor aplica só um lote e encerra normalmente.
     // Uma nova invocação pode assumir logo depois do heartbeat; a atualização
     // condicional continua sendo a lease distribuída contra concorrência.
-    const cutoff = new Date(Date.now() - 5_000).toISOString();
+    // Chamadas externas legítimas podem levar dezenas de segundos. Uma lease
+    // curta permitia dois executores na mesma operação.
+    const cutoff = new Date(Date.now() - 90_000).toISOString();
     const { data: rows, error } = await context.supabase
       .from("installation_operations")
       .update({
@@ -1548,16 +1543,13 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
     }
     const targetSha = head.sha;
 
-    const nowIso = new Date().toISOString();
-    const { data: op, error: opError } = await supabase
-      .from("installation_operations")
-      .insert({
-        installation_id: data.id,
-        kind: "update",
-        status: "running",
-        summary: "Atualização de código disparada pelo MASTER.",
-        steps: initialSteps("update"),
-        detail: {
+    const op = await startAtomicInstallationOperation({
+      actorId: context.userId,
+      installationId: data.id,
+      kind: "update",
+      summary: "Atualização de código disparada pelo MASTER.",
+      steps: initialSteps("update"),
+      detail: {
           releaseVersion: MASTER_RELEASE_VERSION,
           executed: true,
           automated: true,
@@ -1566,29 +1558,9 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
             ? `${record.pinnedRelease ?? record.currentVersion ?? "?"} · ${record.pinnedCommitSha.slice(0, 7)}`
             : (record.currentVersion ?? null),
           toVersion: `${MASTER_RELEASE_VERSION} · ${targetSha.slice(0, 7)}`,
-        },
-
-        actor_id: context.userId,
-        started_at: nowIso,
-        last_report_at: nowIso,
-      })
-      .select("*")
-      .single();
-    if (opError) {
-      if ((opError as { code?: string }).code === "23505")
-        throw new Error("Já existe uma operação em andamento nesta instalação.");
-      throw opError;
-    }
-
-    await supabase
-      .from("installations")
-      .update({
-        status: runningStatusFor("update"),
-        last_error: null,
-        active_operation_id: op.id,
-        pinned_by: context.userId,
-      })
-      .eq("id", data.id);
+      },
+    });
+    await supabase.from("installations").update({ pinned_by: context.userId }).eq("id", data.id);
 
     const { runAutomatedUpdate } = await import("./automation.server");
     const { waitUntil } = await import("@/lib/wait-until.server");
@@ -1769,6 +1741,8 @@ export const saveInstallationCredentialsFn = createServerFn({ method: "POST" })
       .object({
         id: z.string().uuid(),
         supabaseManagementToken: z.string().max(4096).optional(),
+        supabasePublishableKey: z.string().max(4096).optional(),
+        supabaseServiceRoleKey: z.string().max(4096).optional(),
         vercelToken: z.string().max(4096).optional(),
         vercelTeamId: z.string().max(200).optional(),
         githubToken: z.string().max(4096).optional(),
@@ -1778,7 +1752,13 @@ export const saveInstallationCredentialsFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await guard(context);
     const incomingSupabaseToken = data.supabaseManagementToken?.trim();
-    if (incomingSupabaseToken) {
+    const incomingPublishableKey = data.supabasePublishableKey?.trim();
+    const incomingServiceRoleKey = data.supabaseServiceRoleKey?.trim();
+    if (Boolean(incomingPublishableKey) !== Boolean(incomingServiceRoleKey)) {
+      throw new Error("Informe juntas a chave publicável e a chave de serviço do Supabase.");
+    }
+    let installationIdentity: { supabase_project_ref?: string | null; supabase_url?: string | null } | null = null;
+    if (incomingSupabaseToken || incomingPublishableKey) {
       const { data: installation, error: installationError } = await context.supabase
         .from("installations")
         .select("supabase_project_ref, supabase_url")
@@ -1786,17 +1766,34 @@ export const saveInstallationCredentialsFn = createServerFn({ method: "POST" })
         .maybeSingle();
       if (installationError) throw installationError;
       if (!installation) throw new Error("Instalação não encontrada.");
+      installationIdentity = installation;
+    }
+    if (incomingSupabaseToken && installationIdentity) {
       await assertSupabaseManagementAccess({
         token: incomingSupabaseToken,
-        supabaseProjectRef: installation.supabase_project_ref,
-        supabaseUrl: installation.supabase_url,
+        supabaseProjectRef: installationIdentity.supabase_project_ref,
+        supabaseUrl: installationIdentity.supabase_url,
+        requireKeys: !incomingPublishableKey,
       });
+    }
+    if (incomingPublishableKey && incomingServiceRoleKey && installationIdentity) {
+      const { validateSupabaseProjectKeys } = await import("./automation.server");
+      const checked = await validateSupabaseProjectKeys({
+        supabaseUrl:
+          installationIdentity.supabase_url ??
+          `https://${installationIdentity.supabase_project_ref ?? ""}.supabase.co`,
+        publishableKey: incomingPublishableKey,
+        serviceRoleKey: incomingServiceRoleKey,
+      });
+      if (!checked.ok) throw new Error(checked.error);
     }
     const { saveInstallationCredentials, getInstallationCredentialsStatus } =
       await import("./credentials.server");
     const patch: Record<string, string> = {};
     for (const field of [
       "supabaseManagementToken",
+      "supabasePublishableKey",
+      "supabaseServiceRoleKey",
       "vercelToken",
       "vercelTeamId",
       "githubToken",
@@ -1962,7 +1959,15 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
       projectRef: target.projectRef,
     });
     const ping = await management.query("select 1 as ok");
-    const keys = ping.ok ? await management.keys() : null;
+    const remoteKeys = ping.ok ? await management.keys() : null;
+    const suppliedPublishable = (env["UNITOS_SUPABASE_PUBLISHABLE_KEY"] ?? "").trim();
+    const suppliedServiceRole = (env["UNITOS_SUPABASE_SERVICE_ROLE_KEY"] ?? "").trim();
+    const keys =
+      remoteKeys?.ok && remoteKeys.publishableKey && remoteKeys.serviceRoleKey
+        ? remoteKeys
+        : suppliedPublishable && suppliedServiceRole
+          ? { ok: true, publishableKey: suppliedPublishable, serviceRoleKey: suppliedServiceRole }
+          : remoteKeys;
     const database =
       ping.ok && keys?.ok && keys.publishableKey && keys.serviceRoleKey
         ? { ok: true, detail: `banco e chaves do projeto ${target.projectRef} acessíveis` }

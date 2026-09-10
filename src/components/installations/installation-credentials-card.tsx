@@ -41,6 +41,8 @@ import { formatDateTimeBr } from "@/lib/timezone";
 
 type Draft = {
   supabaseManagementToken: string;
+  supabasePublishableKey: string;
+  supabaseServiceRoleKey: string;
   vercelToken: string;
   vercelTeamId: string;
   githubToken: string;
@@ -48,6 +50,8 @@ type Draft = {
 
 const EMPTY: Draft = {
   supabaseManagementToken: "",
+  supabasePublishableKey: "",
+  supabaseServiceRoleKey: "",
   vercelToken: "",
   vercelTeamId: "",
   githubToken: "",
@@ -78,6 +82,28 @@ const FIELDS: {
       href: "https://supabase.com/dashboard/account/tokens",
       label: "Gerar token no Supabase",
     },
+  },
+  {
+    key: "supabasePublishableKey",
+    label: "Chave publicável do projeto",
+    hint: "Use quando o token de gestão acessa o banco, mas o Supabase não permite revelar as chaves pela API.",
+    requirements: [
+      "Copie a chave Publishable ou anon em Project Settings → API Keys.",
+      "Ela será testada contra a URL do Supabase desta instalação antes de ser salva.",
+    ],
+    secret: true,
+    placeholder: "sb_publishable_... ou JWT anon",
+  },
+  {
+    key: "supabaseServiceRoleKey",
+    label: "Chave de serviço do projeto",
+    hint: "Necessária para o servidor da instalação acessar tarefas administrativas.",
+    requirements: [
+      "Copie a chave Secret ou service_role em Project Settings → API Keys.",
+      "Nunca use uma chave do MASTER; ela precisa pertencer ao mesmo Project ref desta instalação.",
+    ],
+    secret: true,
+    placeholder: "sb_secret_... ou JWT service_role",
   },
   {
     key: "vercelToken",
@@ -207,6 +233,8 @@ export function InstallationCredentialsCard({ installationId }: { installationId
   const data = status.data;
   const anyConfigured =
     data?.supabaseManagementToken.configured ||
+    data?.supabasePublishableKey.configured ||
+    data?.supabaseServiceRoleKey.configured ||
     data?.vercelToken.configured ||
     data?.githubToken.configured;
 
