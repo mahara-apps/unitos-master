@@ -449,6 +449,39 @@ export function isRetryableManagementStatus(status: number): boolean {
 
 const RETRY_DELAYS_MS = [1_000, 3_000, 7_000];
 
+/**
+ * Normaliza as respostas de chaves da Management API. Há duas formas em uso:
+ * lista (`[{ name|type, api_key }]`) e objeto legado
+ * (`{ anon_key, service_role_key }`).
+ */
+export function extractSupabaseApiKeys(body: unknown): {
+  publishableKey?: string;
+  serviceRoleKey?: string;
+} {
+  const clean = (value: unknown) =>
+    typeof value === "string" && value.trim() ? value.trim() : undefined;
+
+  if (Array.isArray(body)) {
+    const rows = body as Array<{ name?: string; type?: string; api_key?: string }>;
+    const find = (name: string) =>
+      clean(rows.find((k) => k?.name === name || k?.type === name)?.api_key);
+    return {
+      publishableKey: find("anon") ?? find("publishable"),
+      serviceRoleKey: find("service_role") ?? find("secret"),
+    };
+  }
+
+  if (body && typeof body === "object") {
+    const row = body as Record<string, unknown>;
+    return {
+      publishableKey: clean(row["anon_key"]) ?? clean(row["publishable_key"]),
+      serviceRoleKey: clean(row["service_role_key"]) ?? clean(row["secret_key"]),
+    };
+  }
+
+  return {};
+}
+
 async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
