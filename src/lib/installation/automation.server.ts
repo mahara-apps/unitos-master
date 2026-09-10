@@ -4127,8 +4127,13 @@ export async function runAutomatedUpdate(input: {
       },
     });
     if (!published.ok) {
-      return fail("FAIL", published.error ?? `não foi possível publicar em ${repo.slug}`);
+      const detail = withRepoWriteHint(
+        published.error ?? `não foi possível publicar em ${repo.slug}`,
+        repo.slug,
+      );
+      return fail(classifyAccessFailure(detail) === "permission" ? "BLOCKED" : "FAIL", detail);
     }
+
     if (published.partial) {
       const detail =
         published.note ??
