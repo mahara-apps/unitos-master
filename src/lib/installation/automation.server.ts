@@ -606,7 +606,37 @@ export function createManagementClient(input: {
       }
       return last;
     },
+    async configureAuth(patch) {
+      let last = { ok: false, error: "sem resposta da Management API" };
+      for (let attempt = 0; attempt < attempts; attempt++) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 12_000);
+        try {
+          const res = await doFetch(`${base}/config/auth`, {
+            method: "PATCH",
+            headers,
+            body: JSON.stringify(patch),
+            signal: controller.signal,
+          });
+          if (res.ok) return { ok: true };
+          const text = await res.text().catch(() => "");
+          last = { ok: false, error: managementApiError(res.status, text, "database") };
+          if (!isRetryableManagementStatus(res.status)) return last;
+        } catch (e) {
+          const aborted = e instanceof Error && e.name === "AbortError";
+          last = {
+            ok: false,
+            error: aborted ? "timeout de 12s na Management API" : (e as Error).message,
+          };
+        } finally {
+          clearTimeout(timer);
+        }
+        if (attempt < attempts - 1) await sleep(RETRY_DELAYS_MS[attempt]);
+      }
+      return last;
+    },
   };
+
 }
 
 export async function validateSupabaseProjectKeys(input: {
