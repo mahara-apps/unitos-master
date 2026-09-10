@@ -25,6 +25,7 @@ export const CRITICAL_ACTION_KEYS = [
   "installation.resume",
   "installation.clear_credentials",
   "installation.rotate_secret",
+  "installation.propagate_github_token",
   // Exclusões com perda de dados
   "client.delete",
   "workspace.delete",
