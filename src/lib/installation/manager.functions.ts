@@ -1994,10 +1994,23 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
     });
     const project = await deploy.deploymentUrl();
 
+    // Corrige automaticamente cadastros antigos quando a Vercel confirmou uma
+    // equivalência canônica única (por exemplo, unitos-casa8 → unitos-casa-8).
+    const resolvedDeployProject = project.ok ? (project.projectName ?? "").trim() : "";
+    if (resolvedDeployProject && resolvedDeployProject !== target.deployProject) {
+      const { error: deployNameError } = await context.supabase
+        .from("installations")
+        .update({ deploy_project: resolvedDeployProject })
+        .eq("id", data.id);
+      if (deployNameError) throw deployNameError;
+    }
+
     // 404 na Vercel = o projeto não existe no escopo desse token (conta pessoal
     // vs equipe). Explicamos o que conferir e listamos os projetos visíveis.
     let deployDetail = project.ok
-      ? `projeto de deploy ${target.deployProject} acessível`
+      ? resolvedDeployProject && resolvedDeployProject !== target.deployProject
+        ? `projeto de deploy ${resolvedDeployProject} acessível · cadastro corrigido automaticamente (antes: ${target.deployProject})`
+        : `projeto de deploy ${target.deployProject} acessível`
       : (project.error ?? "acesso negado");
     if (!project.ok && /HTTP 404/.test(deployDetail)) {
       const teamId = (env["UNITOS_VERCEL_TEAM_ID"] ?? "").trim();
