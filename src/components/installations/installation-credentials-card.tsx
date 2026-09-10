@@ -136,7 +136,9 @@ const FIELDS: {
     hint: "Publica o código do MASTER no repositório desta instalação.",
     requirements: [
       "Token de acesso pessoal com acesso ao dono/organização do repositório desta instalação.",
-      "Permissões: Metadados (leitura), Conteúdo (leitura e gravação) e Fluxos de trabalho (gravação, se houver automações). A conta também precisa poder criar repositórios no destino.",
+      'Permissões: Metadados (leitura), Conteúdo (leitura e gravação — "Contents: Read and write") e Fluxos de trabalho (gravação, se houver automações). A conta também precisa poder criar repositórios no destino.',
+      "No token fino, marque o repositório desta instalação em “Repository access”: sem ele o GitHub aceita ler e recusa gravar (“Resource not accessible by personal access token”).",
+
       "Não precisa acessar o repositório do MASTER: a leitura do código usa a credencial do MASTER.",
       "Use um token exclusivo desta instalação — o limite de uso do GitHub é por conta e tokens compartilhados causam a falha “API rate limit exceeded”.",
       "O repositório MASTER precisa estar marcado como Template repository; instalações novas não usam mais repositório vazio nem cópia arquivo por arquivo.",
