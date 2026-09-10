@@ -147,6 +147,49 @@ export async function saveInstallationCredentials(
   if (error) throw error;
 }
 
+/* ------------------------------------------- propagação do token do MASTER */
+
+export type GithubTokenPropagationResult = {
+  id: string;
+  name: string;
+  ok: boolean;
+  error?: string;
+};
+
+/**
+ * Aplica o token do GitHub do MASTER em lote: grava o MESMO valor cifrado em
+ * cada instalação (o cofre é o mesmo `BRAND_CREDENTIALS_SECRET` do MASTER).
+ * Uma falha individual não derruba o lote — o resultado aponta cada caso.
+ * O valor do token nunca entra no retorno nem em logs.
+ */
+export async function propagateGithubTokenToInstallations(input: {
+  client: Client;
+  actorId: string;
+  githubToken: string;
+  installations: { id: string; name: string }[];
+}): Promise<GithubTokenPropagationResult[]> {
+  const token = input.githubToken.trim();
+  if (!token) throw new Error("Token do GitHub do MASTER não configurado neste ambiente.");
+  const results: GithubTokenPropagationResult[] = [];
+  for (const installation of input.installations) {
+    try {
+      await saveInstallationCredentials(input.client, installation.id, input.actorId, {
+        githubToken: token,
+      });
+      results.push({ id: installation.id, name: installation.name, ok: true });
+    } catch (err) {
+      results.push({
+        id: installation.id,
+        name: installation.name,
+        ok: false,
+        error: err instanceof Error ? err.message : String(err ?? "falha desconhecida"),
+      });
+    }
+  }
+  return results;
+}
+
+
 /* --------------------------------------------- secrets próprios persistidos */
 
 /**
