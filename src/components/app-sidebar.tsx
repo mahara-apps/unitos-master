@@ -113,14 +113,13 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
     label: "Inteligência",
     items: [
       { title: "Agentes IA", url: "/agents", icon: Bot, featureKey: "agents" },
+      // Diagnostics fica dentro da página Brain, não aparece no menu lateral.
       {
         title: "Brain",
         url: "/brain",
         icon: Brain,
         featureKey: "brain",
         badge: "beta",
-        // Diagnostics vive dentro do Brain, não como item solto do grupo.
-        children: [{ title: "Diagnostics", url: "/brain/diagnostics" }],
       },
       { title: "Chat", url: "/chat", icon: MessageSquare, featureKey: "chat" },
     ],
