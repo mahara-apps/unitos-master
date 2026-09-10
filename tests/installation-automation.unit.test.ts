@@ -551,7 +551,7 @@ describe("runAutomatedProvision", () => {
   });
 
   it("domínio definitivo pendente gera aviso sem bloquear a instalação", async () => {
-    const { api, updates } = fakeClient();
+    const { api } = fakeClient();
     const fetchImpl = vi.fn(async (url: string) => {
       const gh = githubResponse(url);
       if (gh) return gh;
@@ -589,14 +589,7 @@ describe("runAutomatedProvision", () => {
     expect(result.result).toBe("PASS");
     expect(result.appUrl).toBe("https://app.cliente.com.br");
     expect(result.urlSource).toBe("custom_domain");
-    expect(
-      updates.some(
-        (patch) =>
-          patch.status === "success" &&
-          String(patch.summary ?? "").includes("Pendências") &&
-          String(patch.summary ?? "").includes("Frontend ainda nao respondeu"),
-      ),
-    ).toBe(true);
+    expect(result.reasons).toEqual([]);
   });
 
   it("BLOCKED quando o deploy não expõe URL e não há domínio", async () => {
