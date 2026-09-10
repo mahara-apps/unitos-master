@@ -19,6 +19,7 @@ import {
   isInstallationStatus,
   isUpdateAvailable,
   normalizeHealthChecks,
+  runningStatusFor,
   statusAfterOperation,
   stepsProgress,
   updateSummary,
