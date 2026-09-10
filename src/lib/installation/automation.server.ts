@@ -2808,17 +2808,18 @@ export async function runAutomatedProvision(input: {
     return finish(null, null);
   }
   checks.supabase = "ok";
+  await mark("supabase", "done", `projeto ${target.projectRef} acessível`);
 
-  /* 2. preflight de acessos: publicação e repositório antes de qualquer escrita.
-   * O Supabase é conferido na etapa seguinte (com retomada própria). Falta de
-   * permissão encerra aqui, com o acesso exato que falta — nada fica preso. */
+  /* 3. preflight dos acessos de publicação e repositório, antes de qualquer
+   * escrita: negativa de permissão encerra aqui, dizendo o acesso exato que
+   * falta; instabilidade do provedor pede nova tentativa em minutos. */
   const preflight = await preflightAccess({
     deploy,
     code,
     deployProject: target.deployProject,
   });
   if (preflight.terminal || preflight.transient) {
-    const failing = preflight.checks.find((c) => !c.ok && /deploy/.test(c.area));
+    const failing = preflight.checks.find((c) => !c.ok && c.area === "deploy");
     const stepId = failing ? "deploy_link" : "code";
     const reason = preflight.terminal
       ? `Acesso insuficiente antes de publicar — ${preflight.terminal}`
@@ -2828,7 +2829,6 @@ export async function runAutomatedProvision(input: {
     checks.configuration = "attention";
     return finish(null, null);
   }
-  await mark("supabase", "done", `projeto ${target.projectRef} acessível`);
 
   /* 3. código no repositório DA INSTALAÇÃO (gerado do template do MASTER).
    * Sem código publicado o deploy não tem o que construir — por isso esta etapa
