@@ -2529,6 +2529,120 @@ async function report(
   }).catch(() => undefined);
 }
 
+/* ------------------------------------------------- preflight de credenciais */
+
+export type AccessCheck = {
+  area: "database" | "deploy" | "code";
+  label: string;
+  ok: boolean;
+  detail: string;
+};
+
+export type AccessPreflight = {
+  checks: AccessCheck[];
+  /** Permissão faltante: interrompe imediatamente, sem tentar publicar. */
+  terminal: string | null;
+  /** Instabilidade momentânea do provedor: vale tentar de novo em minutos. */
+  transient: string | null;
+};
+
+/** 401/403 = permissão; 502/503/504/429 = instabilidade momentânea. */
+export function classifyAccessFailure(detail: string): "permission" | "transient" | "other" {
+  const text = (detail ?? "").trim();
+  if (/HTTP 401|HTTP 403|rate limit|não acessa o projeto|privileges/i.test(text))
+    return "permission";
+  if (/HTTP 429|HTTP 50[234]|Instabilidade tempor|limitando as chamadas|timeout/i.test(text))
+    return "transient";
+  return "other";
+}
+
+/**
+ * Confere, na ordem em que serão usadas, se as três credenciais têm de fato as
+ * permissões da operação. Falta de permissão devolve `terminal` (a operação é
+ * recusada antes de começar); instabilidade devolve `transient`.
+ *
+ * O projeto de deploy ainda não existir NÃO é bloqueio: em instalação nova ele
+ * pode ser criado depois.
+ */
+export async function preflightAccess(input: {
+  management?: ManagementClient | null;
+  deploy?: DeployClient | null;
+  code?: CodeClient | null;
+  projectRef?: string | null;
+  deployProject?: string | null;
+}): Promise<AccessPreflight> {
+  const checks: AccessCheck[] = [];
+  let terminal: string | null = null;
+  let transient: string | null = null;
+
+  const note = (area: AccessCheck["area"], label: string, ok: boolean, detail: string) => {
+    checks.push({ area, label, ok, detail });
+    if (ok) return;
+    // Só bloqueia diante de negativa clara de permissão ou instabilidade do
+    // provedor; qualquer outro detalhe é reportado e resolvido na própria etapa.
+    const kind = classifyAccessFailure(detail);
+    if (kind === "transient") transient ??= `${label}: ${detail}`;
+    else if (kind === "permission") terminal ??= `${label}: ${detail}`;
+  };
+
+  if (input.management) {
+    const ping = await input.management.query("select 1 as ok");
+    note(
+      "database",
+      "Acesso ao banco da instalação",
+      ping.ok,
+      ping.ok
+        ? `projeto ${input.projectRef ?? "destino"} acessível`
+        : (ping.error ?? "acesso recusado"),
+    );
+    if (ping.ok) {
+      const keys = await input.management.keys();
+      const ok = keys.ok && Boolean(keys.publishableKey) && Boolean(keys.serviceRoleKey);
+      note(
+        "database",
+        "Leitura das chaves do projeto",
+        ok,
+        ok
+          ? "chaves publicável e de serviço legíveis"
+          : (keys.error ?? "o token não permite ler todas as chaves de API do projeto"),
+      );
+    }
+  }
+
+  if (input.deploy) {
+    const project = await input.deploy.deploymentUrl();
+    const detail = project.ok
+      ? `projeto ${input.deployProject ?? ""} acessível`.trim()
+      : (project.error ?? "acesso negado");
+    // 404 = projeto ainda não criado; não é falta de permissão.
+    const pending = !project.ok && /HTTP 404|não encontrado/i.test(detail);
+    if (pending) {
+      checks.push({
+        area: "deploy",
+        label: "Acesso ao projeto de publicação",
+        ok: false,
+        detail: `${detail} — será criado/ligado durante a operação`,
+      });
+    } else {
+      note("deploy", "Acesso ao projeto de publicação", project.ok, detail);
+    }
+  }
+
+  if (input.code) {
+    const permissions = await input.code.permissions();
+    for (const item of permissions) {
+      // "Criação rápida pelo template" é conveniência: não bloqueia a operação.
+      if (/template/i.test(item.label)) {
+        checks.push({ area: "code", label: item.label, ok: item.ok, detail: item.detail });
+        continue;
+      }
+      note("code", item.label, item.ok, item.detail);
+    }
+  }
+
+  return { checks, terminal, transient };
+}
+
 /**
  * Executa o provisionamento automático completo. Nunca simula sucesso:
  * qualquer dependência ausente encerra a operação como BLOCKED.
@@ -2657,7 +2771,7 @@ export async function runAutomatedProvision(input: {
     fetchImpl: input.fetchImpl,
   });
 
-  /* 2. Supabase destino: conectividade, plataforma e chaves */
+  /* 3. Supabase destino: conectividade, plataforma e chaves */
   await mark("supabase", "running");
   const ping = await management.query(
     "select count(*)::int as schemas from information_schema.schemata where schema_name in ('auth','storage','vault')",
@@ -2695,6 +2809,26 @@ export async function runAutomatedProvision(input: {
   }
   checks.supabase = "ok";
   await mark("supabase", "done", `projeto ${target.projectRef} acessível`);
+
+  /* 3. preflight dos acessos de publicação e repositório, antes de qualquer
+   * escrita: negativa de permissão encerra aqui, dizendo o acesso exato que
+   * falta; instabilidade do provedor pede nova tentativa em minutos. */
+  const preflight = await preflightAccess({
+    deploy,
+    code,
+    deployProject: target.deployProject,
+  });
+  if (preflight.terminal || preflight.transient) {
+    const failing = preflight.checks.find((c) => !c.ok && c.area === "deploy");
+    const stepId = failing ? "deploy_link" : "code";
+    const reason = preflight.terminal
+      ? `Acesso insuficiente antes de publicar — ${preflight.terminal}`
+      : `Instabilidade momentânea ao conferir os acessos — ${preflight.transient}. Tente novamente em alguns minutos.`;
+    blocked.push(reason);
+    await mark(stepId, "error", reason);
+    checks.configuration = "attention";
+    return finish(null, null);
+  }
 
   /* 3. código no repositório DA INSTALAÇÃO (gerado do template do MASTER).
    * Sem código publicado o deploy não tem o que construir — por isso esta etapa
@@ -2758,29 +2892,66 @@ export async function runAutomatedProvision(input: {
       code.releaseAtCommit(masterHead.sha),
       code.installedRelease(),
     ]);
-    if (
-      !sourceRelease.ok ||
-      !installedRelease.ok ||
-      !sourceRelease.version ||
-      sourceRelease.version !== installedRelease.version
-    ) {
+    if (!sourceRelease.ok || !sourceRelease.version || !installedRelease.ok) {
       const reason =
         installedRelease.error ??
         sourceRelease.error ??
-        `o repositório existente não corresponde à versão ${sourceRelease.version ?? "esperada"}`;
+        "não foi possível ler a versão do código no repositório da instalação";
       blocked.push(
         ensured.created
           ? `Cópia do template não validada: ${reason}`
-          : `Repositório existente incompatível com o provisionamento rápido: ${reason}. Gere-o novamente a partir do template do MASTER.`,
+          : `O repositório ${effectiveRepoSlug} não parece ser uma cópia do template do MASTER: ${reason}. Gere-o novamente a partir do template.`,
       );
       await mark("code", "error", reason);
       checks.code = "error";
       return finish(null, null);
     }
 
-    // Provisionamento inicial nunca copia arquivos nem monta árvore: tanto a
-    // cópia recém-gerada quanto um repositório preexistente precisam já conter
-    // a mesma versão do template.
+    // Cópia do template apenas DESATUALIZADA não é bloqueio: sincronizamos a
+    // versão do MASTER no repositório da instalação, como na atualização.
+    let publishedSha = installedRelease.sha ?? masterHead.sha;
+    if (sourceRelease.version !== installedRelease.version) {
+      await mark(
+        "code",
+        "running",
+        `cópia em ${installedRelease.version ?? "versão desconhecida"}; sincronizando para ${sourceRelease.version}`,
+      );
+      const stage = await readStageProgress(client, operation);
+      const reusable = stage.codeSourceSha === masterHead.sha ? (stage.codeBlobs ?? {}) : {};
+      const published = await code.publishSnapshot(masterHead.sha, {
+        blobMap: reusable,
+        timeBudgetMs: 20_000,
+        onProgress: async (progress) => {
+          await report(client, operation, "code", "running", progress.detail, progress.percent);
+        },
+        onCheckpoint: async (blobMap) => {
+          await saveStageProgress(client, operation, {
+            codeSourceSha: masterHead.sha,
+            codeBlobs: blobMap,
+          });
+        },
+      });
+      if (!published.ok) {
+        const detail = published.error ?? `não foi possível sincronizar ${effectiveRepoSlug}`;
+        const kind = classifyAccessFailure(detail);
+        if (kind === "permission") blocked.push(`Código não sincronizado: ${detail}`);
+        else failures.push(`Código não sincronizado: ${detail}`);
+        await mark("code", "error", detail);
+        checks.code = "error";
+        return finish(null, null);
+      }
+      if (published.partial) {
+        const detail =
+          published.note ??
+          `sincronizando ${effectiveRepoSlug} — ${published.changed ?? 0} arquivos nesta rodada (continua)`;
+        failures.push(`${detail} Tente novamente para retomar de onde parou.`);
+        await mark("code", "error", detail);
+        checks.code = "attention";
+        return finish(null, null);
+      }
+      publishedSha = published.commitSha ?? masterHead.sha;
+    }
+
     await saveStageProgress(client, operation, {
       codeDone: true,
       codeSourceSha: masterHead.sha,
@@ -2794,7 +2965,7 @@ export async function runAutomatedProvision(input: {
       "done",
       ensured.created
         ? `cópia completa do template criada em ${effectiveRepoSlug} (${(ensured.commitSha ?? masterHead.sha).slice(0, 7)})`
-        : `código completo do template confirmado em ${effectiveRepoSlug} (${(installedRelease.sha ?? masterHead.sha).slice(0, 7)})`,
+        : `código do template em ${effectiveRepoSlug} na versão ${sourceRelease.version} (${publishedSha.slice(0, 7)})`,
       100,
     );
   }

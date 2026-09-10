@@ -12,3 +12,9 @@
 - [x] Remover a exigência de exclusão na recuperação GitHub: preservar README legado em backup arquivado, com rollback seguro.
 - [x] Eliminar também a exigência de renomear repositórios: preservar o legado intacto e criar/registrar automaticamente um destino operacional alternativo.
 - [x] Corrigir o vínculo com a Vercel após adoção do template: descobrir automaticamente a equipe dona do projeto e explicar acessos insuficientes.
+
+## 1.3.37 — Casa 8: acessos conferidos antes de publicar
+- Cópia do template apenas desatualizada passa a ser sincronizada (antes bloqueava).
+- Preflight de publicação/repositório: 401/403/limite = interrompe com a permissão exata; 502/503/504 = temporário.
+- Operações sem resposta são encerradas automaticamente (nada fica "em andamento").
+- "Testar acesso" informa OK ou a lista exata do que falta.

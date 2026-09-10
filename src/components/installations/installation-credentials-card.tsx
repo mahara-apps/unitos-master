@@ -137,6 +137,7 @@ export function InstallationCredentialsCard({ installationId }: { installationId
   const [checks, setChecks] = useState<
     Array<{ area: string; label: string; ok: boolean; detail: string }>
   >([]);
+  const [summary, setSummary] = useState("");
   const [repoDraft, setRepoDraft] = useState("");
 
   const status = useQuery({
@@ -184,9 +185,9 @@ export function InstallationCredentialsCard({ installationId }: { installationId
     onSuccess: (result) => {
       const list = result.checks ?? [];
       setChecks(list);
-      const failing = list.filter((check) => !check.ok);
-      if (!failing.length) toast.success("Todos os acessos e permissões conferidos.");
-      else toast.error(`${failing.length} permissão(ões) pendente(s) — veja a lista abaixo.`);
+      setSummary(result.summary ?? "");
+      if (result.ok) toast.success("OK — todos os acessos necessários estão liberados.");
+      else toast.error(result.summary ?? "Há acessos faltando — veja a lista abaixo.");
     },
     onError: (error: unknown) =>
       toast.error(error instanceof Error ? error.message : "Não foi possível testar."),
@@ -354,6 +355,7 @@ export function InstallationCredentialsCard({ installationId }: { installationId
         {checks.length > 0 && (
           <div className="space-y-1.5 rounded-md border p-3">
             <p className="text-xs font-medium">Resultado do teste de acesso</p>
+            {summary && <p className="text-[11px] text-muted-foreground">{summary}</p>}
             <ul className="space-y-1">
               {checks.map((check) => (
                 <li key={`${check.area}-${check.label}`} className="flex gap-1.5 text-[11px]">

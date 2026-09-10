@@ -257,10 +257,71 @@ export const getInstallationManagerAccessFn = createServerFn({ method: "POST" })
     };
   });
 
+/**
+ * Encerra operações que ficaram "em andamento" sem reportar progresso. Sem
+ * isto, uma queda no meio da execução deixa a instalação travada para sempre.
+ */
+async function reconcileStuckOperations(context: { supabase: unknown }): Promise<void> {
+  const supabase = context.supabase as {
+    from: (table: string) => {
+      select: (columns: string) => {
+        in: (
+          column: string,
+          values: string[],
+        ) => {
+          order: (
+            column: string,
+            options: { ascending: boolean },
+          ) => {
+            limit: (n: number) => Promise<{
+              data?: Array<{
+                id: string;
+                started_at: string;
+                last_report_at?: string | null;
+              }> | null;
+            }>;
+          };
+        };
+      };
+    };
+  };
+  try {
+    const { data } = await supabase
+      .from("installation_operations")
+      .select("*")
+      .in("status", ["pending", "running"])
+      .order("created_at", { ascending: false })
+      .limit(20);
+    const rows = data ?? [];
+    if (!rows.length) return;
+    const [{ isOperationStale }, { finalizeOperation }] = await Promise.all([
+      import("./manager-contract"),
+      import("./runner.server"),
+    ]);
+    for (const op of rows) {
+      const stale = isOperationStale({
+        status: "running",
+        startedAt: op.started_at,
+        lastReportAt: op.last_report_at ?? null,
+      });
+      if (!stale) continue;
+      await finalizeOperation(supabase as never, op as never, {
+        ok: false,
+        summary:
+          "Operação encerrada por falta de resposta do processo. O progresso já concluído foi preservado — execute novamente para retomar.",
+        errorKind: "interrompida",
+      }).catch(() => undefined);
+    }
+  } catch {
+    // reconciliação é best-effort: nunca deve impedir a listagem do painel.
+  }
+}
+
 export const listInstallationsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await guard(context);
+    await reconcileStuckOperations(context);
     const { data, error } = await context.supabase
       .from("installations")
       .select("*")
@@ -1866,15 +1927,32 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
         database: { ok: false, detail: target.reason },
         deploy: { ok: false, detail: "dados da instalação incompletos" },
         code: { ok: false, detail: "dados da instalação incompletos" },
-        checks: [],
+        ok: false,
+        missing: [target.reason],
+        summary: `Faltam dados da instalação: ${target.reason}`,
+        checks: [] as Array<{
+          area: "database" | "deploy" | "code";
+          label: string;
+          ok: boolean;
+          detail: string;
+        }>,
       };
     }
     if (!capability.available) {
+      const reason = capability.blockedReasons.join(" | ");
       return {
-        database: { ok: false, detail: capability.blockedReasons.join(" | ") },
-        deploy: { ok: false, detail: capability.blockedReasons.join(" | ") },
-        code: { ok: false, detail: capability.blockedReasons.join(" | ") },
-        checks: [],
+        database: { ok: false, detail: reason },
+        deploy: { ok: false, detail: reason },
+        code: { ok: false, detail: reason },
+        ok: false,
+        missing: capability.blockedReasons,
+        summary: `Faltam credenciais: ${reason}`,
+        checks: [] as Array<{
+          area: "database" | "deploy" | "code";
+          label: string;
+          ok: boolean;
+          detail: string;
+        }>,
       };
     }
 
@@ -1965,22 +2043,33 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
       permissionChecks.push(...(await client.permissions()));
     }
 
+    // Lista permissão por permissão: o painel mostra exatamente o que falta.
+    const allChecks = [
+      { area: "database" as const, label: "Banco e chaves do projeto", ...database },
+      {
+        area: "deploy" as const,
+        label: "Projeto de publicação",
+        ok: project.ok,
+        detail: deployDetail,
+      },
+      { area: "code" as const, label: "Repositório da instalação", ...code },
+      ...permissionChecks,
+    ];
+    // "Criação rápida pelo template" é conveniência, não requisito de acesso.
+    const required = allChecks.filter((c) => !/template/i.test(c.label));
+    const missing = required.filter((c) => !c.ok).map((c) => `${c.label}: ${c.detail}`);
+
     return {
       database,
       deploy: { ok: project.ok, detail: deployDetail },
       code,
-      // Lista permissão por permissão: o painel mostra exatamente o que falta.
-      checks: [
-        { area: "database" as const, label: "Banco e chaves do projeto", ...database },
-        {
-          area: "deploy" as const,
-          label: "Projeto de publicação",
-          ok: project.ok,
-          detail: deployDetail,
-        },
-        { area: "code" as const, label: "Repositório da instalação", ...code },
-        ...permissionChecks,
-      ],
+      ok: missing.length === 0,
+      missing,
+      summary:
+        missing.length === 0
+          ? "OK — banco, publicação e repositório com os acessos necessários."
+          : `Faltam ${missing.length} acesso(s): ${missing.join(" | ")}`,
+      checks: allChecks,
     };
   });
 
