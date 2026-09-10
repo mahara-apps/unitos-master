@@ -827,6 +827,25 @@ describe("clientes de gestão", () => {
     expect(result.error).toContain("nenhuma equipe visível");
     expect(result.error).toContain("conta dona do projeto");
   });
+
+  it("403 com invalidToken vira orientação de gerar novo token", async () => {
+    const client = createDeployClient({
+      token: "t",
+      project: "unitos-casa8",
+      fetchImpl: (async (url: string) => {
+        if (url.includes("/v2/teams")) return Response.json({ teams: [] });
+        return new Response(
+          '{"error":{"code":"forbidden","message":"Not authorized","invalidToken":true}}',
+          { status: 403 },
+        );
+      }) as never,
+    });
+
+    const result = await client.deploymentUrl();
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("inválido, expirado ou foi revogado");
+    expect(result.error).not.toContain("nenhuma equipe visível");
+  });
 });
 
 describe("preflight de acessos antes de publicar", () => {

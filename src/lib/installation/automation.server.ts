@@ -1886,9 +1886,13 @@ export function createDeployClient(input: {
 
   const projectAccessError = async (res: Response) => {
     const detail = (await res.text().catch(() => "")).slice(0, 200);
+    // A Vercel devolve `invalidToken: true` quando o próprio token não vale
+    // mais (revogado/expirado/copiado incompleto) — mesmo com status 403. Nesse
+    // caso não é questão de equipe nem de permissão no projeto.
+    const invalidToken = /"invalidToken"\s*:\s*true/.test(detail);
     const hint =
-      res.status === 401
-        ? "token inválido ou expirado"
+      res.status === 401 || invalidToken
+        ? "o token de publicação é inválido, expirado ou foi revogado — gere um novo token na Vercel (Account Settings → Tokens, com escopo da equipe dona do projeto) e salve-o novamente em Acessos"
         : res.status === 403 || res.status === 404
           ? "o token não acessa o projeto em nenhuma equipe visível; confirme a conta dona do projeto e a permissão do token"
           : "consulta recusada pela Vercel";
