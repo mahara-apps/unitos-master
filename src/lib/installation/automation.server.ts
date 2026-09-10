@@ -1050,14 +1050,32 @@ export function createCodeClient(input: {
           const body = (await repoRes.json().catch(() => ({}))) as {
             permissions?: { push?: boolean; admin?: boolean };
           };
-          push(
-            "Gravação no repositório da instalação",
-            Boolean(body.permissions?.push),
-            body.permissions?.push
-              ? `${target} com permissão de gravação`
-              : `${target} acessível apenas para leitura — habilite Conteúdo: leitura e gravação`,
-          );
+          if (!body.permissions?.push) {
+            push(
+              "Gravação no repositório da instalação",
+              false,
+              `${target} acessível apenas para leitura — habilite Conteúdo: leitura e gravação`,
+            );
+          } else {
+            /* `permissions.push` do metadado mente para tokens finos sem
+             * "Contents: read and write". A única prova é escrever de fato:
+             * criamos um blob solto (não referenciado por nenhum commit, o
+             * GitHub o descarta sozinho) exatamente no endpoint que a
+             * publicação usa. */
+            const probe = await api(`/repos/${target}/git/blobs`, {
+              method: "POST",
+              body: JSON.stringify({ content: "unitos-preflight", encoding: "utf-8" }),
+            });
+            push(
+              "Gravação no repositório da instalação",
+              probe.ok,
+              probe.ok
+                ? `${target} com permissão de gravação confirmada`
+                : `${target} não aceita gravação com este token — no GitHub, em Repository permissions, habilite "Contents: Read and write" e inclua ${target} entre os repositórios do token (${await fail(probe, `gravar em ${target}`)})`,
+            );
+          }
         } else if (repoRes.status === 404) {
+
           const isPersonal = login.toLowerCase() === input.owner.trim().toLowerCase();
           const ownerRes = isPersonal ? null : await api(`/orgs/${input.owner}`);
           const reaches = isPersonal || Boolean(ownerRes?.ok);
