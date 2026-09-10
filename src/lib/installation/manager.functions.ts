@@ -286,7 +286,7 @@ async function reconcileStuckOperations(context: { supabase: unknown }): Promise
     };
   };
   try {
-    const { data } = await context.supabase
+    const { data } = await supabase
       .from("installation_operations")
       .select("*")
       .in("status", ["pending", "running"])
@@ -305,7 +305,7 @@ async function reconcileStuckOperations(context: { supabase: unknown }): Promise
         lastReportAt: op.last_report_at ?? null,
       });
       if (!stale) continue;
-      await finalizeOperation(context.supabase as never, op as never, {
+      await finalizeOperation(supabase as never, op as never, {
         ok: false,
         summary:
           "Operação encerrada por falta de resposta do processo. O progresso já concluído foi preservado — execute novamente para retomar.",
