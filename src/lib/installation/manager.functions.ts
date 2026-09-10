@@ -1255,7 +1255,9 @@ export const resumeAutomatedProvisionFn = createServerFn({ method: "POST" })
     // Cada invocação do executor aplica só um lote e encerra normalmente.
     // Uma nova invocação pode assumir logo depois do heartbeat; a atualização
     // condicional continua sendo a lease distribuída contra concorrência.
-    const cutoff = new Date(Date.now() - 5_000).toISOString();
+    // Chamadas externas legítimas podem levar dezenas de segundos. Uma lease
+    // curta permitia dois executores na mesma operação.
+    const cutoff = new Date(Date.now() - 90_000).toISOString();
     const { data: rows, error } = await context.supabase
       .from("installation_operations")
       .update({
