@@ -137,6 +137,7 @@ export function InstallationCredentialsCard({ installationId }: { installationId
   const [checks, setChecks] = useState<
     Array<{ area: string; label: string; ok: boolean; detail: string }>
   >([]);
+  const [summary, setSummary] = useState("");
   const [repoDraft, setRepoDraft] = useState("");
 
   const status = useQuery({
