@@ -661,16 +661,14 @@ export const setInstallationServiceStateFn = createServerFn({ method: "POST" })
     }
 
     const { setRemoteInstallationServiceState } = await import("./service-state.server");
-    const management = createManagementClient({ token, projectRef: record.supabaseProjectRef });
-    const res = await management.query(
-      buildServiceStateSql({
-        state: data.state,
-        message: suspend ? reason : null,
-        untilIso: null,
-        actor: context.userId,
-      }),
-    );
-    if (!res.ok) {
+    const changed = await setRemoteInstallationServiceState({
+      env,
+      projectRef: record.supabaseProjectRef,
+      state: data.state,
+      actor: context.userId,
+      preserveSuspended: false,
+    });
+    if (!changed) {
       throw new Error(
         `Não foi possível ${suspend ? "suspender" : "reativar"} o ambiente: ${res.error ?? "falha ao falar com o banco da instalação"}`,
       );
@@ -1614,8 +1612,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
 
     const { runAutomatedUpdate } = await import("./automation.server");
     const { waitUntil } = await import("@/lib/wait-until.server");
-    const { createManagementClient } = await import("./automation.server");
-    const { buildServiceStateSql } = await import("./service-state.server");
+    const { setRemoteInstallationServiceState } = await import("./service-state.server");
 
     /**
      * Aviso no ambiente do cliente: durante a atualização o banco muda e o

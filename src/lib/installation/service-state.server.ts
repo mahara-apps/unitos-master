@@ -17,6 +17,7 @@ export function buildServiceStateSql(input: {
   message: string | null;
   untilIso: string | null;
   actor: string | null;
+  onlyIfMaintenance?: boolean;
 }): string {
   return `
 alter table if exists public.installation
@@ -32,7 +33,7 @@ update public.installation set
   service_until = ${input.untilIso ? `${quote(input.untilIso)}::timestamptz` : "null"},
   service_changed_at = now(),
   service_changed_by = ${quote(input.actor)}
-${input.state === "active" ? "where service_state = 'maintenance'" : ""};
+${input.onlyIfMaintenance ? "where service_state = 'maintenance'" : ""};
 `.trim();
 }
 
@@ -46,6 +47,7 @@ export async function setRemoteInstallationServiceState(input: {
   projectRef: string | null;
   state: "maintenance" | "active";
   actor: string | null;
+  preserveSuspended?: boolean;
 }): Promise<boolean> {
   const token = (input.env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim();
   if (!token || !input.projectRef) return false;
@@ -63,6 +65,7 @@ export async function setRemoteInstallationServiceState(input: {
             ? new Date(Date.now() + 30 * 60_000).toISOString()
             : null,
         actor: input.actor,
+        onlyIfMaintenance: input.state === "active" && input.preserveSuspended !== false,
       }),
     );
     return result.ok;

@@ -54,6 +54,7 @@ describe("estado operacional do ambiente", () => {
       message: null,
       untilIso: null,
       actor: null,
+      onlyIfMaintenance: true,
     });
     expect(sql).toContain("service_state = 'active'");
     expect(sql).toContain("where service_state = 'maintenance'");
