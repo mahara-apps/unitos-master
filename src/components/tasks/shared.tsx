@@ -88,7 +88,6 @@ import {
   listProjectsFn,
   listSubtasksFn,
   listTaskCommentsFn,
-  listTasksFn,
   updateSubtaskFn,
   updateTaskFn,
   TASK_PRIORITIES,
@@ -671,11 +670,15 @@ export function TaskDrawer({
   }, [task?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [comment, setComment] = useState("");
+  const refreshTask = () => {
+    qc.invalidateQueries({ queryKey: ["task-detail", brandId, taskId] });
+    onChanged();
+  };
 
   const patchMutation = useMutation({
     mutationFn: (payload: { taskId: string; patch: Record<string, unknown> }) =>
       update({ data: payload as never }),
-    onSuccess: () => onChanged(),
+    onSuccess: refreshTask,
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -687,7 +690,7 @@ export function TaskDrawer({
     onSuccess: () => {
       setComment("");
       qc.invalidateQueries({ queryKey: ["task-comments", taskId] });
-      onChanged();
+      refreshTask();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -701,7 +704,7 @@ export function TaskDrawer({
     mutationFn: (archived: boolean) => setArchived({ data: { taskId, archived } }),
     onSuccess: (_r, archived) => {
       toast.success(archived ? "Tarefa arquivada" : "Tarefa restaurada");
-      onChanged();
+      refreshTask();
       if (archived) onClose();
     },
     onError: (e: Error) => toast.error(e.message),
