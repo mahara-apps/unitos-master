@@ -31,6 +31,42 @@ update public.installation set
   service_message = ${quote(input.message)},
   service_until = ${input.untilIso ? `${quote(input.untilIso)}::timestamptz` : "null"},
   service_changed_at = now(),
-  service_changed_by = ${quote(input.actor)};
+  service_changed_by = ${quote(input.actor)}
+${input.state === "active" ? "where service_state = 'maintenance'" : ""};
 `.trim();
+}
+
+/**
+ * Altera o estado operacional no banco da instalação cliente.
+ * Retorna false quando a credencial não existe ou a escrita remota falha: o
+ * aviso é uma proteção auxiliar e nunca deve impedir a operação principal.
+ */
+export async function setRemoteInstallationServiceState(input: {
+  env: Record<string, string | undefined>;
+  projectRef: string | null;
+  state: "maintenance" | "active";
+  actor: string | null;
+}): Promise<boolean> {
+  const token = (input.env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim();
+  if (!token || !input.projectRef) return false;
+
+  try {
+    const { createManagementClient } = await import("./automation.server");
+    const management = createManagementClient({ token, projectRef: input.projectRef });
+    const result = await management.query(
+      buildServiceStateSql({
+        state: input.state,
+        message:
+          input.state === "maintenance" ? "Atualização em andamento — evite salvar agora." : null,
+        untilIso:
+          input.state === "maintenance"
+            ? new Date(Date.now() + 30 * 60_000).toISOString()
+            : null,
+        actor: input.actor,
+      }),
+    );
+    return result.ok;
+  } catch {
+    return false;
+  }
 }

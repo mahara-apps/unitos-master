@@ -660,8 +660,7 @@ export const setInstallationServiceStateFn = createServerFn({ method: "POST" })
       );
     }
 
-    const { createManagementClient } = await import("./automation.server");
-    const { buildServiceStateSql } = await import("./service-state.server");
+    const { setRemoteInstallationServiceState } = await import("./service-state.server");
     const management = createManagementClient({ token, projectRef: record.supabaseProjectRef });
     const res = await management.query(
       buildServiceStateSql({
@@ -1625,26 +1624,12 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
      * aviso expira sozinho e o ambiente nunca fica travado.
      */
     const setServiceState = async (state: "maintenance" | "active") => {
-      const token = (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim();
-      if (!token || !record.supabaseProjectRef) return;
-      try {
-        const management = createManagementClient({
-          token,
-          projectRef: record.supabaseProjectRef,
-        });
-        await management.query(
-          buildServiceStateSql({
-            state,
-            message:
-              state === "maintenance" ? "Atualização em andamento — evite salvar agora." : null,
-            untilIso:
-              state === "maintenance" ? new Date(Date.now() + 30 * 60_000).toISOString() : null,
-            actor: context.userId,
-          }),
-        );
-      } catch {
-        // Aviso é best-effort: nunca impede a atualização.
-      }
+      await setRemoteInstallationServiceState({
+        env,
+        projectRef: record.supabaseProjectRef,
+        state,
+        actor: context.userId,
+      });
     };
 
     await setServiceState("maintenance");
