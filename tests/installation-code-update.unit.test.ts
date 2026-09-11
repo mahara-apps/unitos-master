@@ -176,9 +176,10 @@ describe("atualização de código da instalação", () => {
         match: /v6\/deployments/,
         body: {
           deployments: [
-            { uid: "dpl_old", readyState: "READY", meta: { githubCommitSha: "old" } },
+            { uid: "dpl_old", source: "git", readyState: "READY", meta: { githubCommitSha: "old" } },
             {
               uid: "dpl_git",
+              source: "git",
               readyState: "BUILDING",
               url: "unitos-casa-8.vercel.app",
               meta: { githubCommitSha: "abc123" },
@@ -202,7 +203,7 @@ describe("atualização de código da instalação", () => {
         match: /v6\/deployments/,
         body: {
           deployments: [
-            { uid: "dpl_old", readyState: "READY", meta: { githubCommitSha: "old" } },
+            { uid: "dpl_old", source: "git", readyState: "READY", meta: { githubCommitSha: "old" } },
           ],
         },
       },
@@ -213,12 +214,12 @@ describe("atualização de código da instalação", () => {
 
   it.each([
     [
-      { uid: "dpl_api", readyState: "BLOCKED", createdAt: 20, meta: { githubCommitSha: "same" } },
-      { uid: "dpl_git", readyState: "READY", createdAt: 10, meta: { githubCommitSha: "same" } },
+      { uid: "dpl_api", source: "api", readyState: "BLOCKED", createdAt: 20, meta: { githubCommitSha: "same" } },
+      { uid: "dpl_git", source: "git", readyState: "READY", createdAt: 10, meta: { githubCommitSha: "same" } },
     ],
     [
-      { uid: "dpl_git", readyState: "READY", createdAt: 10, meta: { githubCommitSha: "same" } },
-      { uid: "dpl_api", readyState: "BLOCKED", createdAt: 20, meta: { githubCommitSha: "same" } },
+      { uid: "dpl_git", source: "git", readyState: "READY", createdAt: 10, meta: { githubCommitSha: "same" } },
+      { uid: "dpl_api", source: "api", readyState: "BLOCKED", createdAt: 20, meta: { githubCommitSha: "same" } },
     ],
   ])("prioriza o deployment READY quando o mesmo commit também tem um BLOCKED", async (...deployments) => {
     const { impl } = fakeFetch([{ match: /v6\/deployments/, body: { deployments } }]);

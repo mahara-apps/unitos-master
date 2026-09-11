@@ -398,7 +398,7 @@ export const UPDATE_STEPS = [
   {
     id: "code",
     label: "Novo deployment do código do MASTER",
-    script: "vercel: POST /v13/deployments",
+    script: "github: push na branch de produção",
   },
   { id: "build", label: "Build e publicação", script: "vercel: GET /v13/deployments/{id}" },
   {
