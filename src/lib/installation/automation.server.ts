@@ -4315,7 +4315,6 @@ export async function runAutomatedUpdate(input: {
    */
   const finishByGitPush = async (
     cause: string,
-    options?: { forceNudge?: boolean },
   ): Promise<{ result: "PASS" | "PENDING" | "FAIL" | "BLOCKED"; reasons: string[] }> => {
     await deploy.setAutoDeploy(true);
     // Um commit vazio produz um SHA inequívoco para localizar o build criado
@@ -4361,21 +4360,37 @@ export async function runAutomatedUpdate(input: {
     const deadline = Date.now() + (input.waitMs ?? 45_000);
     let pushState = "QUEUED";
     let pushUrl: string | null = null;
+    let pushRefused = false;
     while (Date.now() < deadline) {
       const status = await deploy.deploymentState(deploymentId);
       if (status.ok) {
         pushState = status.state ?? pushState;
         pushUrl = status.url ?? pushUrl;
-        if (status.refused || pushState === "ERROR" || pushState === "CANCELED") break;
+        pushRefused = status.refused === true;
+        if (pushRefused || pushState === "ERROR" || pushState === "CANCELED") break;
         if (pushState === "READY") break;
       }
       await saveStageProgress(client, operation, { updateDeploymentId: deploymentId });
       await sleep(3_000);
     }
-    if (pushState === "ERROR" || pushState === "CANCELED") {
+    if (pushRefused || pushState === "ERROR" || pushState === "CANCELED") {
       return fail("FAIL", `o build disparado pelo Git terminou em ${pushState}`, "build");
     }
     if (pushState !== "READY") {
+      const startedAt = Date.parse(
+        ((operation as unknown as { started_at?: string | null; created_at?: string | null })
+          .started_at ??
+          (operation as unknown as { created_at?: string | null }).created_at ??
+          "") as string,
+      );
+      const elapsedMin = Number.isFinite(startedAt) ? (Date.now() - startedAt) / 60_000 : 0;
+      if (elapsedMin >= BUILD_MAX_MINUTES) {
+        return fail(
+          "FAIL",
+          `a publicação pelo Git não concluiu em ${BUILD_MAX_MINUTES} minutos (último estado: ${pushState}). Confira a hospedagem e autorize a atualização novamente.`,
+          "build",
+        );
+      }
       await report(client, operation, "build", "running", `build disparado pelo Git em andamento (${pushState})`);
       return { result: "PENDING", reasons: [`build disparado pelo Git em ${pushState}`] };
     }
@@ -4527,7 +4542,7 @@ export async function runAutomatedUpdate(input: {
     // Limpa o deployment recusado do checkpoint: a retomada não deve voltar a
     // consultá-lo.
     await saveStageProgress(client, operation, { updateDeploymentId: null });
-    return finishByGitPush(cause, { forceNudge: true });
+    return finishByGitPush(cause);
   }
 
   if (state === "ERROR" || state === "CANCELED") {
