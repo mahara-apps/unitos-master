@@ -268,6 +268,20 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
     for (const email of data.emails) {
       const token = randomToken();
 
+      // Autoridade canônica do papel concedido (espelha can_invite_brand_role).
+      // Falha aqui é erro de autoridade, não silencioso rebaixamento para USER.
+      try {
+        await assertCanGrantBrandRole(supabase, userId, data.brandId, data.role, email);
+      } catch (e) {
+        results.push({
+          email,
+          status: "error",
+          error: e instanceof Error ? e.message : "role_authority_invalid",
+        });
+        continue;
+      }
+
+
       // 1. Check if an auth user already exists for this email; if not, provision one
       //    with a random temporary password and force a password change on first login.
       let provisioned = false;
@@ -330,6 +344,24 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
         results.push({ email, status: "error", error: inviteErr.message });
         continue;
       }
+
+      // Conta recém-provisionada: o trigger `handle_new_user` cria a membership
+      // padrão como USER no primeiro workspace. Como a pessoa entra direto com a
+      // senha provisória (sem abrir o link do convite), o papel escolhido tem de
+      // ser aplicado agora — a autoridade já foi validada acima.
+      if (provisioned && createdUserId) {
+        const { error: bmErr } = await supabaseAdmin.from("brand_members").upsert(
+          {
+            brand_id: data.brandId,
+            user_id: createdUserId,
+            role: data.role,
+            permissions: data.permissions,
+          },
+          { onConflict: "brand_id,user_id" },
+        );
+        if (bmErr) console.error("[invite] falha ao aplicar papel na membership", bmErr);
+      }
+
       // URL canônica da instalação ATUAL (host da requisição) — nunca link relativo
       // nem domínio herdado de env de outra instalação.
       const { tryInstallationAbsoluteUrl } = await import("@/lib/installation-url.server");
