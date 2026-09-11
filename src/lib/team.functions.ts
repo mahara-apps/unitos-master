@@ -629,6 +629,18 @@ export const resendBrandInvite = createServerFn({ method: "POST" })
       ...(tempPassword ? { tempPassword } : {}),
     });
     if (!sent.sent) throw new Error(sent.error || "Não foi possível enviar o convite.");
+    const { logCriticalAction } = await import("@/lib/critical-audit.server");
+    await logCriticalAction(supabase as never, {
+      action: nextEmail === previousEmail ? "invite.resend" : "invite.email_update",
+      actorId: userId,
+      targetId: data.inviteId,
+      targetLabel: nextEmail,
+      brandId: data.brandId,
+      impact: {
+        emailChanged: nextEmail !== previousEmail,
+        expiresAt,
+      },
+    });
     return { ok: true, email: nextEmail, expiresAt, token };
   });
 
