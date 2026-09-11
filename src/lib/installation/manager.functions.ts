@@ -670,7 +670,7 @@ export const setInstallationServiceStateFn = createServerFn({ method: "POST" })
     });
     if (!changed) {
       throw new Error(
-        `Não foi possível ${suspend ? "suspender" : "reativar"} o ambiente: ${res.error ?? "falha ao falar com o banco da instalação"}`,
+        `Não foi possível ${suspend ? "suspender" : "reativar"} o ambiente: falha ao falar com o banco da instalação`,
       );
     }
 

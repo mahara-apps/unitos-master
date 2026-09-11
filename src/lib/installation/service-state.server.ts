@@ -45,7 +45,7 @@ ${input.onlyIfMaintenance ? "where service_state = 'maintenance'" : ""};
 export async function setRemoteInstallationServiceState(input: {
   env: Record<string, string | undefined>;
   projectRef: string | null;
-  state: "maintenance" | "active";
+  state: ServiceState;
   actor: string | null;
   preserveSuspended?: boolean;
 }): Promise<boolean> {
