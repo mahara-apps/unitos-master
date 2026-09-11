@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 
 import { createDeployClient } from "@/lib/installation/automation.server";
 import { UPDATE_STEPS, stepsFor, statusAfterOperation } from "@/lib/installation/manager-contract";
@@ -28,6 +29,15 @@ describe("atualização de código da instalação", () => {
   it("a operação update tem etapas próprias", () => {
     expect(stepsFor("update")).toBe(UPDATE_STEPS);
     expect(UPDATE_STEPS.map((s) => s.id)).toEqual(["database", "code", "build", "validation", "version"]);
+    expect(UPDATE_STEPS.find((step) => step.id === "code")?.script).toContain("github: push");
+    expect(UPDATE_STEPS.find((step) => step.id === "code")?.script).not.toContain("v13/deployments");
+  });
+
+  it("a atualização automatizada não cria deployment pela API", () => {
+    const source = readFileSync("src/lib/installation/automation.server.ts", "utf8");
+    const updateBody = source.slice(source.indexOf("export async function runAutomatedUpdate"));
+    expect(updateBody).not.toContain("deploy.deployLatestCode(");
+    expect(updateBody).toContain('return finishByGitPush("atualização enviada ao repositório")');
   });
 
   it("update bem-sucedido com a versão do MASTER deixa a instalação atualizada", () => {
@@ -230,6 +240,26 @@ describe("atualização de código da instalação", () => {
       deploymentId: "dpl_git",
       state: "READY",
     });
+  });
+
+  it("ignora tentativa REST bloqueada mesmo quando não existe build Git ainda", async () => {
+    const { impl } = fakeFetch([
+      {
+        match: /v6\/deployments/,
+        body: {
+          deployments: [
+            {
+              uid: "dpl_api",
+              source: "api",
+              readyState: "BLOCKED",
+              meta: { githubCommitSha: "same" },
+            },
+          ],
+        },
+      },
+    ]);
+    const client = createDeployClient({ token: "t", project: "unitos-taveira", fetchImpl: impl });
+    await expect(client.findProductionDeployment("same")).resolves.toEqual({ ok: true });
   });
 
   it("o checkpoint de atualização usa campos não sensíveis e reutilizáveis", () => {
