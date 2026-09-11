@@ -12,7 +12,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { normalizeLovableError, reportLovableError } from "../lib/lovable-error-reporting";
@@ -43,7 +43,7 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: unknown; reset: () => void }) {
-  const normalizedError = normalizeLovableError(error);
+  const normalizedError = useMemo(() => normalizeLovableError(error), [error]);
   console.error(normalizedError);
   const router = useRouter();
   useEffect(() => {
