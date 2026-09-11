@@ -53,12 +53,34 @@ export async function notifyMentions(
   const allowed = (members ?? []).map((m: { user_id: string }) => m.user_id);
   if (allowed.length === 0) return 0;
 
+  // Defesa explícita: o Super Admin global nunca é um destinatário mencionável,
+  // mesmo se um ID forjado chegar ao servidor ou a consulta usar service role.
+  const profileQuery = supabase.from("user_profiles") as {
+    select: (cols: string) => {
+      in: (
+        c: string,
+        v: string[],
+      ) => Promise<{
+        data: Array<{ id: string; is_super_admin: boolean | null }> | null;
+        error: unknown;
+      }>;
+    };
+  };
+  const { data: profiles, error: profileError } = await profileQuery
+    .select("id,is_super_admin")
+    .in("id", allowed);
+  if (profileError) throw profileError;
+  const mentionable = (profiles ?? [])
+    .filter((profile) => profile.is_super_admin !== true)
+    .map((profile) => profile.id);
+  if (mentionable.length === 0) return 0;
+
   const snippet =
     input.body.length > MAX_BODY ? `${input.body.slice(0, MAX_BODY - 1)}…` : input.body;
 
   return insertNotificationsDeduped(
     supabase as never,
-    allowed.map((userId: string) => ({
+    mentionable.map((userId: string) => ({
       user_id: userId,
       brand_id: input.brandId,
       kind: "mention",
