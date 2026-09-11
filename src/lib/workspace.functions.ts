@@ -47,7 +47,12 @@ export const listMyBrands = createServerFn({ method: "GET" })
     let query = supabase.from("brands").select("id, name, slug, color, is_active").order("name");
     if (!isSuperAdmin) query = query.in("id", ids);
     const { data: brands, error } = await query;
-    if (error) throw error;
+    if (error) {
+      if (error.message.includes("cannot_delete_last_pipeline")) {
+        throw new Error("Não foi possível excluir o cliente e seus conteúdos. Tente novamente.");
+      }
+      throw error;
+    }
 
     // Registra a URL desta instalação para cada workspace acessível, para que
     // disparos assíncronos (cron/jobs/workers) montem links no domínio correto
