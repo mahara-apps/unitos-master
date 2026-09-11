@@ -485,6 +485,7 @@ export const revokeBrandInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => RevokeInviteInput.parse(input))
   .handler(async ({ data, context }) => {
+    await assertBrandAdmin(context.supabase, context.userId, data.brandId);
     const { data: invite, error: inviteError } = await context.supabase
       .from("brand_invites")
       .select("id,email")
@@ -578,6 +579,11 @@ export const resendBrandInvite = createServerFn({ method: "POST" })
     let tempPassword: string | undefined;
 
     if (nextEmail !== previousEmail && invite.temp_password_sent) {
+      throw new Error(
+        "Este convite já criou uma conta. Revogue-o e crie um novo convite para trocar o e-mail.",
+      );
+    }
+    if (invite.temp_password_sent) {
       const { data: users, error: usersError } = await supabaseAdmin.auth.admin.listUsers({
         page: 1,
         perPage: 1000,
@@ -586,23 +592,15 @@ export const resendBrandInvite = createServerFn({ method: "POST" })
       const oldUser = users.users.find(
         (candidate) => (candidate.email ?? "").toLowerCase() === previousEmail,
       );
-      const conflict = users.users.find(
-        (candidate) => (candidate.email ?? "").toLowerCase() === nextEmail,
-      );
       if (!oldUser) throw new Error("A conta provisória deste convite não foi encontrada.");
-      if (conflict && conflict.id !== oldUser.id) {
-        throw new Error("Este e-mail já pertence a outra conta.");
-      }
       tempPassword = randomPassword(16);
       const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(oldUser.id, {
-        email: nextEmail,
         password: tempPassword,
-        email_confirm: true,
       });
       if (authError) throw authError;
       const { error: profileError } = await supabaseAdmin
         .from("user_profiles")
-        .update({ email: nextEmail, requires_password_change: true })
+        .update({ requires_password_change: true })
         .eq("id", oldUser.id);
       if (profileError) throw profileError;
     }
