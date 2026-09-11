@@ -2687,6 +2687,8 @@ export type StageProgress = {
 
   updateDeploymentSource?: "git" | "rebuild";
   updateDeploymentRef?: string;
+  /** Commit vazio criado para acionar e identificar o fallback por push Git. */
+  updateGitPushCommit?: string;
   /** Versão do pacote do MASTER já publicada nesta operação (registro da versão). */
   updateRelease?: string;
 };
@@ -4319,7 +4321,7 @@ export async function runAutomatedUpdate(input: {
     await deploy.setAutoDeploy(true);
     // Um commit vazio produz um SHA inequívoco para localizar o build criado
     // pelo webhook Git. O checkpoint evita novos nudges em cada retomada.
-    let pushedCommit = deploymentSource === "git" ? (deploymentRef ?? null) : null;
+    let pushedCommit = checkpoint.updateGitPushCommit ?? null;
     if (!pushedCommit) {
       const nudge = await code.nudgeDeploy("chore(unitos): republicar versao autorizada");
       if (!nudge.ok || !nudge.commitSha) {
@@ -4333,8 +4335,7 @@ export async function runAutomatedUpdate(input: {
       deploymentSource = "git";
       deploymentRef = pushedCommit;
       await saveStageProgress(client, operation, {
-        updateDeploymentSource: "git",
-        updateDeploymentRef: pushedCommit,
+        updateGitPushCommit: pushedCommit,
       });
     }
     const appliedByPush = publishedRelease ?? MASTER_RELEASE_VERSION;

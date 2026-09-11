@@ -218,12 +218,14 @@ describe("atualização de código da instalação", () => {
         updateDeploymentId: "dpl_1",
         updateDeploymentSource: "git" as const,
         updateDeploymentRef: "main",
+        updateGitPushCommit: "push123",
       },
     };
     expect(detail.stageProgress).toEqual({
       updateDeploymentId: "dpl_1",
       updateDeploymentSource: "git",
       updateDeploymentRef: "main",
+      updateGitPushCommit: "push123",
     });
     expect(JSON.stringify(detail)).not.toMatch(/token|secret|password/i);
   });
