@@ -211,6 +211,26 @@ describe("atualização de código da instalação", () => {
     await expect(client.findProductionDeployment("new")).resolves.toEqual({ ok: true });
   });
 
+  it.each([
+    [
+      { uid: "dpl_api", readyState: "BLOCKED", createdAt: 20, meta: { githubCommitSha: "same" } },
+      { uid: "dpl_git", readyState: "READY", createdAt: 10, meta: { githubCommitSha: "same" } },
+    ],
+    [
+      { uid: "dpl_git", readyState: "READY", createdAt: 10, meta: { githubCommitSha: "same" } },
+      { uid: "dpl_api", readyState: "BLOCKED", createdAt: 20, meta: { githubCommitSha: "same" } },
+    ],
+  ])("prioriza o deployment READY quando o mesmo commit também tem um BLOCKED", async (...deployments) => {
+    const { impl } = fakeFetch([{ match: /v6\/deployments/, body: { deployments } }]);
+    const client = createDeployClient({ token: "t", project: "unitos-casa-8", fetchImpl: impl });
+
+    await expect(client.findProductionDeployment("same")).resolves.toMatchObject({
+      ok: true,
+      deploymentId: "dpl_git",
+      state: "READY",
+    });
+  });
+
   it("o checkpoint de atualização usa campos não sensíveis e reutilizáveis", () => {
     const detail = {
       automated: true,
