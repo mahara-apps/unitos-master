@@ -19,8 +19,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, X, Mail, Link2, UserPlus } from "lucide-react";
+import { EmailTagsInput } from "@/components/ui/email-tags-input";
+import { Loader2, Mail, Link2, UserPlus } from "lucide-react";
+
 import { inviteBrandMembers, addExistingUserToBrand } from "@/lib/team.functions";
 import {
   ASSIGNABLE_ROLES,
@@ -142,41 +143,17 @@ function InvitePanel({
   // Espelha `public.can_invite_brand_role`: manager não concede owner/admin.
   const roleOptions = invitableRoles(authorityRole);
   const [emails, setEmails] = useState<string[]>([]);
-  const [draft, setDraft] = useState("");
   const [role, setRole] = useState<Role>(() => firstGrantable(roleOptions));
   const [busy, setBusy] = useState(false);
 
-  const commit = (raw: string) => {
-    const clean = raw.trim().toLowerCase();
-    if (!clean) return;
-    if (!EMAIL_RE.test(clean)) {
-      toast.error(`E-mail inválido: ${clean}`);
-      return;
-    }
-    if (emails.includes(clean)) return;
-    setEmails((prev) => [...prev, clean]);
-    setDraft("");
-  };
-
-  const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" || e.key === "," || e.key === " ") {
-      e.preventDefault();
-      commit(draft);
-    } else if (e.key === "Backspace" && !draft && emails.length > 0) {
-      setEmails((prev) => prev.slice(0, -1));
-    }
-  };
-
   const submit = async () => {
-    if (draft.trim()) commit(draft);
-    const list =
-      draft.trim() && EMAIL_RE.test(draft.trim().toLowerCase())
-        ? Array.from(new Set([...emails, draft.trim().toLowerCase()]))
-        : emails;
-    if (list.length === 0) {
+    if (emails.length === 0) {
       toast.error("Adicione ao menos um e-mail");
       return;
     }
+    const list = emails;
+
+
 
     setBusy(true);
     try {
@@ -207,35 +184,15 @@ function InvitePanel({
         <Label htmlFor="invite-emails" className="text-xs">
           E-mails
         </Label>
-        <div className="flex min-h-[42px] flex-wrap gap-1.5 rounded-md border border-input bg-transparent px-2 py-1.5">
-          {emails.map((e) => (
-            <Badge key={e} variant="secondary" className="gap-1 pr-1 font-normal">
-              {e}
-              <button
-                type="button"
-                aria-label={`Remover ${e}`}
-                onClick={() => setEmails((prev) => prev.filter((x) => x !== e))}
-                className="rounded-sm p-0.5 hover:bg-muted"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ))}
-          <Input
-            id="invite-emails"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={handleKey}
-            onBlur={() => draft && commit(draft)}
-            placeholder={emails.length === 0 ? "pessoa@empresa.com" : ""}
-            className="h-7 min-w-[160px] flex-1 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
-            autoComplete="off"
-          />
-        </div>
-        <p className="text-[11px] text-muted-foreground">
-          Enter, vírgula ou espaço para adicionar. O convite cria a conta se ela não existir.
-        </p>
+        <EmailTagsInput
+          id="invite-emails"
+          value={emails}
+          onChange={setEmails}
+          hint="Enter, vírgula ou espaço para adicionar. O convite cria a conta se ela não existir."
+          disabled={busy}
+        />
       </div>
+
 
       <RoleSelect value={role} onChange={setRole} options={roleOptions} />
 
