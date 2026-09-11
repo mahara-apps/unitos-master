@@ -2445,18 +2445,31 @@ export function createDeployClient(input: {
             id?: string;
             readyState?: string;
             state?: string;
+             createdAt?: number;
             url?: string;
             meta?: { githubCommitSha?: string };
             gitSource?: { sha?: string };
           }>;
         };
         const expected = commitSha.trim().toLowerCase();
-        const deployment = (body.deployments ?? []).find((candidate) => {
-          const actual = (candidate.meta?.githubCommitSha ?? candidate.gitSource?.sha ?? "")
-            .trim()
-            .toLowerCase();
-          return actual === expected;
-        });
+         const statePriority = (candidate: { readyState?: string; state?: string }) => {
+           const state = candidate.readyState ?? candidate.state ?? "";
+           if (state === "READY") return 0;
+           if (state === "BUILDING" || state === "QUEUED" || state === "INITIALIZING") return 1;
+           return 2;
+         };
+         const deployment = (body.deployments ?? [])
+           .filter((candidate) => {
+             const actual = (candidate.meta?.githubCommitSha ?? candidate.gitSource?.sha ?? "")
+               .trim()
+               .toLowerCase();
+             return actual === expected;
+           })
+           .sort((left, right) => {
+             const byState = statePriority(left) - statePriority(right);
+             if (byState !== 0) return byState;
+             return (right.createdAt ?? 0) - (left.createdAt ?? 0);
+           })[0];
         if (!deployment) return { ok: true };
         const deploymentId = deployment.uid ?? deployment.id;
         return {
@@ -4361,21 +4374,30 @@ export async function runAutomatedUpdate(input: {
     const deadline = Date.now() + (input.waitMs ?? 45_000);
     let pushState = "QUEUED";
     let pushUrl: string | null = null;
-    let pushRefused = false;
+     let pushRefusedReason: string | null = null;
     while (Date.now() < deadline) {
       const status = await deploy.deploymentState(deploymentId);
       if (status.ok) {
         pushState = status.state ?? pushState;
         pushUrl = status.url ?? pushUrl;
-        pushRefused = status.refused === true;
-        if (pushRefused || pushState === "ERROR" || pushState === "CANCELED") break;
+         if (status.refused) {
+           pushRefusedReason = status.reason ?? `a hospedagem recusou a publicação (${pushState})`;
+         }
+         if (pushRefusedReason || pushState === "ERROR" || pushState === "CANCELED") break;
         if (pushState === "READY") break;
       }
       await saveStageProgress(client, operation, { updateDeploymentId: deploymentId });
       await sleep(3_000);
     }
-    if (pushRefused || pushState === "ERROR" || pushState === "CANCELED") {
-      return fail("FAIL", `o build disparado pelo Git terminou em ${pushState}`, "build");
+     if (pushRefusedReason) {
+       return fail(
+         "FAIL",
+         `o build disparado pelo Git foi recusado pela hospedagem: ${pushRefusedReason}`,
+         "build",
+       );
+     }
+     if (pushState === "ERROR" || pushState === "CANCELED") {
+       return fail("FAIL", `o build disparado pelo Git terminou em ${pushState}`, "build");
     }
     if (pushState !== "READY") {
       const startedAt = Date.parse(
