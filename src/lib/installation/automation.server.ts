@@ -746,6 +746,15 @@ export type DeployClient = {
     refused?: boolean;
   }>;
 
+  /** Localiza o deployment de produção criado automaticamente por um push Git. */
+  findProductionDeployment: (commitSha: string) => Promise<{
+    ok: boolean;
+    deploymentId?: string;
+    state?: string;
+    url?: string;
+    error?: string;
+  }>;
+
   /** Garante que o domínio definitivo esteja atribuído ao projeto de deploy. */
   ensureDomain: (
     domain: string,
@@ -2415,6 +2424,50 @@ export function createDeployClient(input: {
           ...(body.url ? { url: `https://${body.url}` } : {}),
           ...(body.readyStateReason ? { reason: body.readyStateReason } : {}),
           ...(refused ? { refused: true } : {}),
+        };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
+    },
+
+    async findProductionDeployment(commitSha) {
+      try {
+        const res = await doFetch(
+          `https://api.vercel.com/v6/deployments?${qs(`app=${projectPath()}&target=production&limit=20`)}`,
+          { headers },
+        );
+        if (!res.ok) {
+          return { ok: false, error: `HTTP ${res.status} ao localizar o build disparado pelo Git` };
+        }
+        const body = (await res.json().catch(() => ({}))) as {
+          deployments?: Array<{
+            uid?: string;
+            id?: string;
+            readyState?: string;
+            state?: string;
+            url?: string;
+            meta?: { githubCommitSha?: string };
+            gitSource?: { sha?: string };
+          }>;
+        };
+        const expected = commitSha.trim().toLowerCase();
+        const deployment = (body.deployments ?? []).find((candidate) => {
+          const actual = (candidate.meta?.githubCommitSha ?? candidate.gitSource?.sha ?? "")
+            .trim()
+            .toLowerCase();
+          return actual === expected;
+        });
+        if (!deployment) return { ok: true };
+        const deploymentId = deployment.uid ?? deployment.id;
+        return {
+          ok: true,
+          ...(deploymentId ? { deploymentId } : {}),
+          ...((deployment.readyState ?? deployment.state)
+            ? { state: deployment.readyState ?? deployment.state }
+            : {}),
+          ...(deployment.url
+            ? { url: deployment.url.startsWith("http") ? deployment.url : `https://${deployment.url}` }
+            : {}),
         };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
@@ -4262,45 +4315,86 @@ export async function runAutomatedUpdate(input: {
    */
   const finishByGitPush = async (
     cause: string,
-    options?: { forceNudge?: boolean },
-  ): Promise<{ result: "PASS" | "FAIL" | "BLOCKED"; reasons: string[] }> => {
+  ): Promise<{ result: "PASS" | "PENDING" | "FAIL" | "BLOCKED"; reasons: string[] }> => {
     await deploy.setAutoDeploy(true);
-    const needsNudge = options?.forceNudge === true || changedFiles === 0;
-    const nudge = needsNudge
-      ? await code.nudgeDeploy("chore(unitos): republicar versao autorizada")
-      : { ok: true as const, error: undefined as string | undefined };
+    // Um commit vazio produz um SHA inequívoco para localizar o build criado
+    // pelo webhook Git. O checkpoint evita novos nudges em cada retomada.
+    let pushedCommit = deploymentSource === "git" ? (deploymentRef ?? null) : null;
+    if (!pushedCommit) {
+      const nudge = await code.nudgeDeploy("chore(unitos): republicar versao autorizada");
+      if (!nudge.ok || !nudge.commitSha) {
+        return fail(
+          "FAIL",
+          `${cause} · publicação pelo Git também falhou: ${nudge.error ?? "commit de publicação não retornado"}`.trim(),
+          "build",
+        );
+      }
+      pushedCommit = nudge.commitSha;
+      deploymentSource = "git";
+      deploymentRef = pushedCommit;
+      await saveStageProgress(client, operation, {
+        updateDeploymentSource: "git",
+        updateDeploymentRef: pushedCommit,
+      });
+    }
     const appliedByPush = publishedRelease ?? MASTER_RELEASE_VERSION;
     const shortPush = targetSha ? targetSha.slice(0, 7) : null;
-    if (!nudge.ok) {
-      return fail(
-        "FAIL",
-        `${cause} · publicação pelo Git também falhou: ${nudge.error ?? ""}`.trim(),
-        "build",
-      );
+
+    if (!deploymentId) {
+      const located = await deploy.findProductionDeployment(pushedCommit);
+      if (!located.ok) {
+        await report(client, operation, "build", "running", located.error ?? "aguardando a hospedagem");
+        return { result: "PENDING", reasons: [located.error ?? "aguardando a hospedagem"] };
+      }
+      deploymentId = located.deploymentId ?? null;
+      if (!deploymentId) {
+        await report(client, operation, "build", "running", "aguardando a hospedagem detectar o novo commit");
+        return { result: "PENDING", reasons: ["aguardando a hospedagem detectar o novo commit"] };
+      }
+      await saveStageProgress(client, operation, { updateDeploymentId: deploymentId });
     }
-    if (targetSha) {
-      await (
-        client.from("installations") as unknown as {
-          update: (v: Record<string, unknown>) => {
-            eq: (c: string, v: string) => Promise<unknown>;
-          };
-        }
-      )
-        .update({
-          pinned_commit_sha: targetSha,
-          pinned_release: appliedByPush,
-          pinned_at: new Date().toISOString(),
-        })
-        .eq("id", installation.id)
-        .then(
-          () => undefined,
-          () => undefined,
-        );
-    }
+
     await report(client, operation, "code", "done", "código publicado no repositório");
-    await report(client, operation, "build", "done", `build disparado pelo Git (${cause})`);
-    // A validação final também roda aqui: sem isto a etapa ficava "pendente" e a
-    // operação era encerrada como incomplete_steps mesmo com tudo aplicado.
+    await report(client, operation, "build", "running", `build disparado pelo Git (${cause})`);
+    const sleep = input.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+    const deadline = Date.now() + (input.waitMs ?? 45_000);
+    let pushState = "QUEUED";
+    let pushUrl: string | null = null;
+    let pushRefused = false;
+    while (Date.now() < deadline) {
+      const status = await deploy.deploymentState(deploymentId);
+      if (status.ok) {
+        pushState = status.state ?? pushState;
+        pushUrl = status.url ?? pushUrl;
+        pushRefused = status.refused === true;
+        if (pushRefused || pushState === "ERROR" || pushState === "CANCELED") break;
+        if (pushState === "READY") break;
+      }
+      await saveStageProgress(client, operation, { updateDeploymentId: deploymentId });
+      await sleep(3_000);
+    }
+    if (pushRefused || pushState === "ERROR" || pushState === "CANCELED") {
+      return fail("FAIL", `o build disparado pelo Git terminou em ${pushState}`, "build");
+    }
+    if (pushState !== "READY") {
+      const startedAt = Date.parse(
+        ((operation as unknown as { started_at?: string | null; created_at?: string | null })
+          .started_at ??
+          (operation as unknown as { created_at?: string | null }).created_at ??
+          "") as string,
+      );
+      const elapsedMin = Number.isFinite(startedAt) ? (Date.now() - startedAt) / 60_000 : 0;
+      if (elapsedMin >= BUILD_MAX_MINUTES) {
+        return fail(
+          "FAIL",
+          `a publicação pelo Git não concluiu em ${BUILD_MAX_MINUTES} minutos (último estado: ${pushState}). Confira a hospedagem e autorize a atualização novamente.`,
+          "build",
+        );
+      }
+      await report(client, operation, "build", "running", `build disparado pelo Git em andamento (${pushState})`);
+      return { result: "PENDING", reasons: [`build disparado pelo Git em ${pushState}`] };
+    }
+    await report(client, operation, "build", "done", pushUrl ? `publicado em ${pushUrl}` : "publicado");
     await report(client, operation, "validation", "running");
     await hardenHelperTables(management);
     const pushVerification = await management.query(prepareVerificationSql(verifySql).sql);
@@ -4334,11 +4428,29 @@ export async function runAutomatedUpdate(input: {
       shortPush ? `${appliedByPush} (${shortPush})` : appliedByPush,
     );
 
+    if (targetSha) {
+      const { error: pinError } = await (
+        client.from("installations") as unknown as {
+          update: (v: Record<string, unknown>) => {
+            eq: (c: string, v: string) => Promise<{ error?: { message?: string } | null }>;
+          };
+        }
+      )
+        .update({
+          pinned_commit_sha: targetSha,
+          pinned_release: appliedByPush,
+          pinned_at: new Date().toISOString(),
+        })
+        .eq("id", installation.id);
+      if (pinError) {
+        return fail("FAIL", `a publicação ficou pronta, mas a versão não pôde ser registrada: ${pinError.message ?? "falha no registro"}`, "version");
+      }
+    }
+
     await finalizeOperation(client as never, operation as never, {
       ok: true,
-      warnings: true,
       version: appliedByPush,
-      summary: `Código do MASTER (${appliedByPush}${shortPush ? ` · ${shortPush}` : ""}) publicado no repositório da instalação; o build saiu pelo Git porque ${cause}. Confira a publicação na hospedagem em alguns minutos.`,
+      summary: `Atualização aplicada: código do MASTER (${appliedByPush}${shortPush ? ` · ${shortPush}` : ""}) confirmado na hospedagem após publicação pelo Git.`,
     }).catch(() => undefined);
     return { result: "PASS", reasons: [] };
   };
@@ -4430,7 +4542,7 @@ export async function runAutomatedUpdate(input: {
     // Limpa o deployment recusado do checkpoint: a retomada não deve voltar a
     // consultá-lo.
     await saveStageProgress(client, operation, { updateDeploymentId: null });
-    return finishByGitPush(cause, { forceNudge: true });
+    return finishByGitPush(cause);
   }
 
   if (state === "ERROR" || state === "CANCELED") {
