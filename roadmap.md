@@ -11,6 +11,7 @@
 - [x] Tornar atualizações Git-first, ignorar deployments REST bloqueados e sincronizar o MASTER 1.3.58.
 - [x] Corrigir o modal de tarefa que fica carregando quando o item está fora do filtro atual; sincronizar e propagar o MASTER.
 - [ ] Corrigir o diagnóstico de validação para separar Banco, Schema, RLS e Seeds; código concluído no MASTER 1.3.60, aguardando publicação para atualizar e revalidar a Apex.
+- [x] Evitar tela branca quando a leitura de permissões sofre Gateway Timeout, consultando o Supabase diretamente com identidade protegida.
 - [x] Publicar o MASTER 1.3.7 e atualizar a Taveira, com validação final.
 - [x] Tornar a ação de atualização inequívoca e proteger o reprovisionamento na tela.
 - [x] Concluir Lixeira de conteúdos/pipelines com retenção de 30 dias e propagação MASTER.
