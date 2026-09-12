@@ -66,7 +66,7 @@ import { useActiveContext } from "@/hooks/use-active-context";
 import { listClients } from "@/lib/workspace.functions";
 import { listBrandTeam } from "@/lib/team.functions";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
-import { KpiCard } from "@/components/ui/kpi-card";
+import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { createProject, listProjects, type ProjectStats } from "@/lib/projects.functions";
 import { NewFromTemplateDialog } from "@/components/projects/new-from-template-dialog";
@@ -602,44 +602,44 @@ function ProjectsIndexPage() {
   return (
     <DashboardPageShell>
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <KpiCard
-          tone="neutral"
+      <PageKpiGrid columns={4}>
+        <PageKpi
+          status="info"
           icon={<Layers className="h-4 w-4" />}
           label="Projetos"
           value={kpiValue(kpis.count)}
-          sub={hasProjectData ? `${kpis.active} em andamento` : "Carregando..."}
+          description={hasProjectData ? `${kpis.active} em andamento` : "Carregando..."}
         />
-        <KpiCard
-          tone="sky"
+        <PageKpi
+          status="info"
           icon={<TrendingUp className="h-4 w-4" />}
           label="Publicações"
           value={kpiValue(kpis.total)}
-          sub="Total no escopo"
+          description="Total no escopo"
         />
-        <KpiCard
-          tone="emerald"
+        <PageKpi
+          status="warning"
           icon={<CheckCircle2 className="h-4 w-4" />}
           label="Aprovadas"
           value={kpiValue(kpis.approved)}
-          sub={
+          description={
             hasProjectData
               ? `${kpis.total > 0 ? Math.round((kpis.approved / kpis.total) * 100) : 0}% do total`
               : "—"
           }
         />
-        <KpiCard
-          tone="pink"
+        <PageKpi
+          status="success"
           icon={<Send className="h-4 w-4" />}
           label="Publicadas"
           value={kpiValue(kpis.published)}
-          sub={
+          description={
             hasProjectData
               ? `${kpis.total > 0 ? Math.round((kpis.published / kpis.total) * 100) : 0}% do total`
               : "—"
           }
         />
-      </div>
+      </PageKpiGrid>
 
       {/* Filtros */}
       <DashboardPanelSurface className="space-y-3 px-4 py-3">
@@ -966,7 +966,10 @@ function ProjectsIndexPage() {
                 }
                 periodLabel={period}
                 published={stats.published}
+                approved={stats.approved}
+                pending={stats.pending}
                 total={stats.total || 0}
+                ownerName={team.find((m) => m.user_id === p.owner_id)?.full_name ?? null}
                 onOpen={() => navigate({ to: "/projects/$projectId", params: { projectId: p.id } })}
               />
             );

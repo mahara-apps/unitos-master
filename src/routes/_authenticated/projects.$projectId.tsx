@@ -620,6 +620,14 @@ function ProjectDetailPage() {
         periodLabel={`${fmtDate(project.start_date)} — ${fmtDate(project.due_at)}`}
         done={doneItems}
         total={totalItems}
+        stages={
+          <StageFunnel
+            counts={funnelCounts}
+            onSelect={(stage) =>
+              setSearch({ tab: "jobs", board: "board", pauta: undefined, estagio: stage ?? undefined })
+            }
+          />
+        }
         planBadge={
           project.plan ? <PlanStatusBadge status={project.plan.status} prefix="Pauta:" /> : null
         }
@@ -692,14 +700,6 @@ function ProjectDetailPage() {
         }
       />
 
-      {/* Funil do ciclo de conteúdo — mesma paleta usada nas pautas e nos cards */}
-      <StageFunnel
-        counts={funnelCounts}
-        onSelect={(stage) =>
-          setSearch({ tab: "jobs", board: "board", pauta: undefined, estagio: stage ?? undefined })
-        }
-      />
-
       <Tabs
         value={tab}
         onValueChange={(v) => setSearch({ tab: v as ProjectTab, board: undefined })}
@@ -748,6 +748,7 @@ function ProjectDetailPage() {
             currentUserId={userId}
             initialMode={tab === "jobs" ? "jobs" : "overview"}
             onOpenPautas={() => setSearch({ tab: "jobs", board: "board" })}
+            onCreatePauta={() => navigate({ to: "/monthly-plan" })}
             pautasContent={
               <div className="overflow-hidden rounded-lg border border-border/60">
                 {pautasContent}
