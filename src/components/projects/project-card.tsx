@@ -81,13 +81,13 @@ export function ProjectCard(props: ProjectCardProps) {
           <span className="font-medium tabular-nums text-foreground">{pct}%</span>
         </div>
         <span className="flex h-1.5 overflow-hidden rounded-full bg-muted">
-          <span className="bg-health-good" style={{ width: width(props.published) }} />
-          <span className="bg-funnel-approved" style={{ width: width(props.approved) }} />
+          <span className="bg-content-published" style={{ width: width(props.published) }} />
+          <span className="bg-content-approved" style={{ width: width(props.approved) }} />
           <span className="bg-severity-info" style={{ width: width(props.pending) }} />
         </span>
         <span className="flex min-w-0 items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
-          {props.approved > 0 ? <span><i className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-funnel-approved" />{props.approved} aprovadas</span> : null}
-          {props.published > 0 ? <span><i className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-health-good" />{props.published} publicadas</span> : null}
+          {props.approved > 0 ? <span><i className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-content-approved" />{props.approved} aprovadas</span> : null}
+          {props.published > 0 ? <span><i className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-content-published" />{props.published} publicadas</span> : null}
           {props.pending > 0 ? <span><i className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-severity-info" />{props.pending} pendentes</span> : null}
           <span className="ml-auto grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary" title={props.ownerName ?? "Sem responsável"}>
             {initials || "—"}

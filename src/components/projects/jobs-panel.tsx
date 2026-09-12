@@ -802,30 +802,26 @@ export function JobsPanel({
                   patchJobMut.mutate({ jobId: currentJob.id, patch: { status_id: statusId } })
                 }
               />
-              <Input
-                type="date"
-                className="h-9 w-[135px] text-xs"
-                aria-label="Início do job"
-                defaultValue={currentJob.start_date ? currentJob.start_date.slice(0, 10) : ""}
-                onBlur={(e) =>
-                  patchJobMut.mutate({
-                    jobId: currentJob.id,
-                    patch: { start_date: e.target.value || null },
-                  })
-                }
-              />
-              <Input
-                type="date"
-                className="h-9 w-[135px] text-xs"
-                aria-label="Prazo do job"
-                defaultValue={currentJob.due_at ? currentJob.due_at.slice(0, 10) : ""}
-                onBlur={(e) =>
-                  patchJobMut.mutate({
-                    jobId: currentJob.id,
-                    patch: { due_at: e.target.value || null },
-                  })
-                }
-              />
+              <label className="grid gap-0.5 text-[9px] font-medium uppercase text-muted-foreground">
+                Início
+                <Input
+                  type="date"
+                  className="h-9 w-[135px] text-xs"
+                  aria-label="Início do job"
+                  defaultValue={currentJob.start_date ? currentJob.start_date.slice(0, 10) : ""}
+                  onBlur={(e) => patchJobMut.mutate({ jobId: currentJob.id, patch: { start_date: e.target.value || null } })}
+                />
+              </label>
+              <label className="grid gap-0.5 text-[9px] font-medium uppercase text-muted-foreground">
+                Entrega
+                <Input
+                  type="date"
+                  className="h-9 w-[135px] text-xs"
+                  aria-label="Prazo do job"
+                  defaultValue={currentJob.due_at ? currentJob.due_at.slice(0, 10) : ""}
+                  onBlur={(e) => patchJobMut.mutate({ jobId: currentJob.id, patch: { due_at: e.target.value || null } })}
+                />
+              </label>
             </>
           ) : null
         }

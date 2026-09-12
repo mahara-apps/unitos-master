@@ -98,6 +98,16 @@ const projectSearchSchema = z.object({
 
 export const Route = createFileRoute("/_authenticated/projects/$projectId")({
   validateSearch: projectSearchSchema,
+  head: () => ({
+    meta: [
+      { title: "Detalhe do projeto | Unitos" },
+      { name: "description", content: "Acompanhe jobs, pautas, tarefas e etapas do projeto." },
+      { property: "og:title", content: "Detalhe do projeto | Unitos" },
+      { property: "og:description", content: "Acompanhe jobs, pautas, tarefas e etapas do projeto." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: ProjectDetailPage,
 });
 
@@ -498,7 +508,7 @@ function ProjectDetailPage() {
 
   // Conteúdo do job virtual "Pautas" (nível 2 da hierarquia).
   const pautasContent = (
-    <DashboardPanelSurface>
+    <div>
       <div className="flex items-center justify-between border-b border-border/60 bg-background/40 px-4 py-2.5">
         <div className="flex items-center gap-2">
           <h3 className="font-mono text-[11px] uppercase tracking-widest text-foreground">
@@ -581,7 +591,7 @@ function ProjectDetailPage() {
           ))}
         </div>
       )}
-    </DashboardPanelSurface>
+    </div>
   );
 
   return (
@@ -750,9 +760,7 @@ function ProjectDetailPage() {
             onOpenPautas={() => setSearch({ tab: "jobs", board: "board" })}
             onCreatePauta={() => navigate({ to: "/monthly-plan" })}
             pautasContent={
-              <div className="overflow-hidden rounded-lg border border-border/60">
-                {pautasContent}
-              </div>
+              pautasContent
             }
             pautasCount={items.length + extraPosts.length}
             footer={

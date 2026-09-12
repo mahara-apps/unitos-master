@@ -103,6 +103,16 @@ const projectsSearchSchema = z.object({
 
 export const Route = createFileRoute("/_authenticated/projects/")({
   validateSearch: projectsSearchSchema,
+  head: () => ({
+    meta: [
+      { title: "Projetos | Unitos" },
+      { name: "description", content: "Gerencie projetos, pautas e o progresso das publicações." },
+      { property: "og:title", content: "Projetos | Unitos" },
+      { property: "og:description", content: "Gerencie projetos, pautas e o progresso das publicações." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: ProjectsIndexPage,
 });
 
@@ -900,7 +910,7 @@ function ProjectsIndexPage() {
             </div>
           ) : null}
           {view === "cards" ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {Array.from({ length: 8 }).map((_, i) => (
                 <div
                   key={i}
@@ -930,7 +940,7 @@ function ProjectsIndexPage() {
           />
         </DashboardPanelSurface>
       ) : view === "cards" ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {rows.map((p) => {
             const stats: ProjectStats = projectsQ.data?.stats?.[p.id] ?? {
               total: 0,
@@ -1036,7 +1046,8 @@ function ProjectsIndexPage() {
                 const client = clients.find((c) => c.id === p.client_id);
                 const meta = STATUS_META[p.status] ?? STATUS_META.active;
                 const total = stats.total || 0;
-                const pct = total > 0 ? Math.round((stats.published / total) * 100) : 0;
+                const completed = Math.min(total, stats.approved + stats.published);
+                const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
                 return (
                   <TableRow
                     key={p.id}
@@ -1099,7 +1110,7 @@ function ProjectsIndexPage() {
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                           <span>
-                            {stats.published}/{total} publicadas
+                            {completed}/{total} peças concluídas
                           </span>
                           <span className="font-medium text-foreground">{pct}%</span>
                         </div>
