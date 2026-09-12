@@ -280,7 +280,10 @@ export const listPlanAiModelsFn = createServerFn({ method: "POST" })
     );
     const { resolveModel } = await import("@/lib/ai-models-catalog.server");
     const options = await Promise.all(
-      available.map(async (provider) => ({ provider, modelId: await resolveModel(provider, "operational") })),
+      available.map(async (provider) => ({
+        provider,
+        modelId: await resolveModel(provider, "operational"),
+      })),
     );
     return options
       .filter((option): option is { provider: ProviderName; modelId: string } => !!option.modelId)

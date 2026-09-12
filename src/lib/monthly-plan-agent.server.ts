@@ -120,11 +120,17 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
   // Candidatos BYOK isolados por provedor: assim cada tentativa usa o contrato
   // nativo do provedor (Gemini via tool calling, Groq/OpenAI via structured
   // output estrito) em vez de um payload único que só serve ao primário.
-  const candidates = await getBrandAiCandidates(opts.supabase, opts.brandId, "operational", {
-    agent: opts.agent,
-    clientId: opts.clientId,
-    userId: opts.userId,
-  }, opts.selectedModel);
+  const candidates = await getBrandAiCandidates(
+    opts.supabase,
+    opts.brandId,
+    "operational",
+    {
+      agent: opts.agent,
+      clientId: opts.clientId,
+      userId: opts.userId,
+    },
+    opts.selectedModel,
+  );
 
   const providerAttempts: ProviderAttempt[] = [];
   let lastErr: unknown = new Error("ai_provider_not_configured");

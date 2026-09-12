@@ -193,7 +193,7 @@ export function PautaBoard({
 
       {/* Filtros essenciais */}
       <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-lg bg-muted p-0.5">
+        <div className="inline-flex rounded-lg bg-muted p-0.5">
           {ARCHIVE_TABS.map((t) => (
             <button
               key={t.key}
@@ -202,7 +202,7 @@ export function PautaBoard({
               className={cn(
                 "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                 archive === t.key
-                    ? "bg-background text-foreground shadow-sm"
+                  ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >

@@ -216,7 +216,10 @@ export function MonthlyPlanView({
       briefingId: string | null;
       selection: GenerateSelection[];
       organization: PlanOrganizationInput;
-      selectedModel: { provider: "openai" | "anthropic" | "gemini" | "groq"; modelId: string } | null;
+      selectedModel: {
+        provider: "openai" | "anthropic" | "gemini" | "groq";
+        modelId: string;
+      } | null;
     }) =>
       generate({
         data: {

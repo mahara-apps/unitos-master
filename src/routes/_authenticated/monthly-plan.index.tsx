@@ -11,9 +11,15 @@ export const Route = createFileRoute("/_authenticated/monthly-plan/")({
   head: () => ({
     meta: [
       { title: "Pautas mensais | Unitos" },
-      { name: "description", content: "Planeje, gere e acompanhe as pautas mensais dos clientes no Unitos." },
+      {
+        name: "description",
+        content: "Planeje, gere e acompanhe as pautas mensais dos clientes no Unitos.",
+      },
       { property: "og:title", content: "Pautas mensais | Unitos" },
-      { property: "og:description", content: "Planeje, gere e acompanhe as pautas mensais dos clientes no Unitos." },
+      {
+        property: "og:description",
+        content: "Planeje, gere e acompanhe as pautas mensais dos clientes no Unitos.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
