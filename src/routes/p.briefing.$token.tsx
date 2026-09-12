@@ -381,10 +381,10 @@ function ThankYou({ brandName }: { brandName: string }) {
           <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10">
             <CheckCircle2 className="h-6 w-6 text-emerald-300" />
           </div>
-          <h1 className="text-xl font-semibold tracking-tight">Thank you</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Obrigado</h1>
           <p className="mt-2 text-sm text-zinc-400">
-            Your briefing has been delivered to <span className="text-zinc-200">{brandName}</span>.
-            The team will be in touch shortly.
+            Seu briefing foi enviado para <span className="text-zinc-200">{brandName}</span>. A
+            equipe entrará em contato em breve.
           </p>
         </div>
       </div>
