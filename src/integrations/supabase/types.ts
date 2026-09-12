@@ -9011,6 +9011,10 @@ export type Database = {
       }
       safe_uuid: { Args: { _txt: string }; Returns: string }
       seed_access_profiles: { Args: { _brand_id: string }; Returns: number }
+      set_client_default_whatsapp_recipient: {
+        Args: { _brand_id: string; _client_id: string; _recipient_id: string }
+        Returns: undefined
+      }
       set_cron_secret: { Args: { _value: string }; Returns: undefined }
       set_member_hourly_cost: {
         Args: {
