@@ -27,6 +27,14 @@ import { CommentThread } from "@/components/projects/comment-thread";
 import { WorkLinks } from "@/components/ui/work-links";
 import { AssigneePicker, type TeamOption } from "@/components/projects/assignee-picker";
 import { StatusPicker } from "@/components/projects/status-picker";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  TASK_PRIORITIES,
+  TASK_STATUSES,
+  type TaskPriority,
+  type TaskStatus,
+} from "@/lib/tasks.functions";
+import { PRIORITY_META, STATUS_META } from "@/components/tasks/shared";
 
 type Props = {
   open: boolean;
@@ -41,6 +49,8 @@ type Props = {
     status_id?: string | null;
     start_date?: string | null;
     due_at?: string | null;
+    status?: TaskStatus;
+    priority?: TaskPriority;
   } | null;
   /** Caminho da hierarquia (Cliente › Projeto › Job) mostrado no topo. */
   breadcrumb?: string;
@@ -181,6 +191,38 @@ export function TaskTimesheetSheet({
               value={task.status_id ?? null}
               onChange={(statusId) => metaMut.mutate({ status_id: statusId })}
             />
+            <Select
+              value={task.status ?? "todo"}
+              onValueChange={(status) =>
+                metaMut.mutate({ status, done: status === "done" })
+              }
+            >
+              <SelectTrigger className="h-8 w-[145px]" aria-label="Estado da tarefa">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TASK_STATUSES.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {STATUS_META[status].label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={task.priority ?? "medium"}
+              onValueChange={(priority) => metaMut.mutate({ priority })}
+            >
+              <SelectTrigger className="h-8 w-[120px]" aria-label="Prioridade da tarefa">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TASK_PRIORITIES.map((priority) => (
+                  <SelectItem key={priority} value={priority}>
+                    {PRIORITY_META[priority].label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Input
               type="date"
               className="h-8 w-[140px] text-xs"

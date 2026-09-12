@@ -67,6 +67,16 @@ WITH checks AS (
                                WHERE n.nspname = 'public' AND p.proname = 'can_access_message_thread')
               THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
+  SELECT 17, 'tarefas: estado Bloqueada disponível',
+         CASE WHEN EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
+                           JOIN pg_namespace n ON n.oid = t.typnamespace
+                           WHERE n.nspname = 'public' AND t.typname = 'task_status'
+                             AND e.enumlabel = 'blocked') THEN 'presente' ELSE 'ausente' END,
+         CASE WHEN EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
+                           JOIN pg_namespace n ON n.oid = t.typnamespace
+                           WHERE n.nspname = 'public' AND t.typname = 'task_status'
+                             AND e.enumlabel = 'blocked') THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
   SELECT 134, 'módulo Mensagens: criação atômica de conversa (create_message_thread)',
          (SELECT count(*)::text FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
           WHERE n.nspname = 'public' AND p.proname = 'create_message_thread')

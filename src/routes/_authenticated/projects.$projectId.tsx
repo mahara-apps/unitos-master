@@ -90,6 +90,8 @@ const TAB_LABELS: Record<ProjectTab, string> = {
 
 const projectSearchSchema = z.object({
   tab: z.enum(PROJECT_TABS).optional(),
+  /** Job aberto no painel lateral. */
+  job: z.string().uuid().optional(),
   /** Item de pauta aberto no painel lateral. */
   pauta: z.string().optional(),
   board: z.enum(["board", "list", "matrix"]).optional(),
@@ -747,7 +749,7 @@ function ProjectDetailPage() {
           onStageChange={(s) => setSearch({ estagio: s ?? undefined })}
         />
       ) : (
-        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0 space-y-4">
           {/* Níveis 2 e 3 — JOBS › TAREFAS (a pauta é um job de conteúdo na mesma lista) */}
           <JobsPanel
             brandId={brandId!}
@@ -757,6 +759,8 @@ function ProjectDetailPage() {
             team={team}
             currentUserId={userId}
             initialMode={tab === "jobs" ? "jobs" : "overview"}
+            initialJobId={search.job ?? null}
+            onOpenJobChange={(jobId) => setSearch({ tab: "jobs", job: jobId ?? undefined })}
             onOpenPautas={() => setSearch({ tab: "jobs", board: "board" })}
             onCreatePauta={() => navigate({ to: "/monthly-plan" })}
             pautasContent={
@@ -777,7 +781,7 @@ function ProjectDetailPage() {
             }
           />
 
-          <aside className="min-w-0 space-y-4">
+          <aside className="grid min-w-0 gap-4 lg:grid-cols-2">
             <UnitNetworkMatrix items={boardItems} />
             <UpcomingDeadlines entries={deadlines} />
           </aside>
