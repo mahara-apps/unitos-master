@@ -21,17 +21,11 @@ import {
 } from "@/lib/work-comments.functions";
 import { addTaskCommentFn, deleteTaskCommentFn, listTaskCommentsFn } from "@/lib/tasks.functions";
 import { listBrandAssigneesFn } from "@/lib/content.functions";
-import { APP_TIMEZONE } from "@/lib/timezone";
+import { formatDateTimeBr } from "@/lib/timezone";
 import { displayName, initialsOf } from "@/lib/identity";
 
 function formatWhen(iso: string) {
-  return new Date(iso).toLocaleString("pt-BR", {
-    timeZone: APP_TIMEZONE,
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTimeBr(iso);
 }
 
 type Entry = {
