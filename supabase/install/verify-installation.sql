@@ -412,7 +412,8 @@ WITH checks AS (
                'installation_meta_app','message_thread_participants','message_threads',
                'messages','portal_notification_prefs','post_client_comments','post_copy_queue_state',
                'client_ad_accounts','project_participants','user_login_events','work_comments',
-               'work_links','work_statuses'
+                'work_links','work_statuses','client_automation_attempts',
+                'client_automation_dates','client_automation_dispatches','client_automation_rules'
              ]) AS t
              WHERE to_regclass('public.' || t) IS NULL
            ) faltando
@@ -426,7 +427,8 @@ WITH checks AS (
              'installation_meta_app','message_thread_participants','message_threads',
              'messages','portal_notification_prefs','post_client_comments','post_copy_queue_state',
              'client_ad_accounts','project_participants','user_login_events','work_comments',
-             'work_links','work_statuses'
+              'work_links','work_statuses','client_automation_attempts',
+              'client_automation_dates','client_automation_dispatches','client_automation_rules'
            ]) AS t
            WHERE to_regclass('public.' || t) IS NULL
          ) THEN 'PASS' ELSE 'FAIL' END
