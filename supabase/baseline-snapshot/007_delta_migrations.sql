@@ -5266,3 +5266,15 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- 20260912180706_b6413cc1-4d43-48e3-b12d-135a7b57ea17.sql
+-- ---------------------------------------------------------------------------
+REVOKE ALL ON FUNCTION public.clean_mention_tokens(text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.clean_mention_tokens(text) TO service_role;
+
+REVOKE ALL ON FUNCTION public.sanitize_mention_body() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.sanitize_mention_body() TO service_role;
+
+REVOKE ALL ON FUNCTION public.bump_message_thread() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.bump_message_thread() TO service_role;
