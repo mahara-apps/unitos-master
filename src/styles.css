@@ -216,9 +216,11 @@
   --funnel-middle: oklch(0.72 0.2 292.717);
   --funnel-bottom: oklch(0.72 0.15 163.225);
   --content-briefing: #94a3b8;
+  --content-idea: #94a3b8;
   --content-production: #38bdf8;
+  --content-design: #a78bfa;
   --content-review: #facc15;
-  --content-approved: #a78bfa;
+  --content-approved: #4ade80;
   --content-scheduled: #818cf8;
   --content-published: #4ade80;
   /* Status de publicação — mesmas matizes, luminosidade ajustada ao escuro */
