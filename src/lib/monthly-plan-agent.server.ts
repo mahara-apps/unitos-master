@@ -6,6 +6,7 @@ import {
   describeProviderAttempts,
   type ProviderAttempt,
 } from "@/lib/ai-provider.server";
+import type { ProviderName } from "@/lib/ai-capabilities";
 import { buildBrandContextBlueprint } from "@/lib/ai-agents.functions";
 import { salvageStructuredOutput } from "@/lib/ai-output-salvage";
 import { PLAN_MAX_OUTPUT_TOKENS, planProviderOptions } from "@/lib/monthly-plan-ai-options";
@@ -75,6 +76,8 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
   schema: T;
   /** Contexto extra já montado (estratégia IA, métricas, brain, briefing). */
   extraContext?: string;
+  /** Modelo operacional escolhido no assistente, sempre revalidado no servidor. */
+  selectedModel?: { provider: ProviderName; modelId: string } | null;
   /** Observabilidade por tentativa — mesmo contrato do pipeline de Copy. */
   onAttempt?: (info: PlanAgentAttemptInfo) => Promise<void> | void;
 }): Promise<PlanAgentResult<z.infer<T>>> {
@@ -121,7 +124,7 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
     agent: opts.agent,
     clientId: opts.clientId,
     userId: opts.userId,
-  });
+  }, opts.selectedModel);
 
   const providerAttempts: ProviderAttempt[] = [];
   let lastErr: unknown = new Error("ai_provider_not_configured");
