@@ -468,7 +468,7 @@ export function MediaPlanEditor({
                   }
                   onEdit={openEdit}
                   onDelete={deleteItem}
-                  onAdd={stage.id === "unassigned" ? undefined : () => openNew(stage.id)}
+                  onAdd={stage.id === "unassigned" ? undefined : () => openNew(stage.id as MediaPlanStage)}
                 />
               ))}
             </div>
