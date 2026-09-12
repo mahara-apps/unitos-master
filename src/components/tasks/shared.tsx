@@ -47,7 +47,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { MentionTextarea, resolveMentions } from "@/components/ui/mention-textarea";
+import { cleanMentionText, MentionTextarea } from "@/components/ui/mention-textarea";
 import { MentionText } from "@/components/ui/mention-text";
 import { displayName } from "@/lib/identity";
 import {
@@ -671,6 +671,7 @@ export function TaskDrawer({
   }, [task?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [comment, setComment] = useState("");
+  const [commentMentionIds, setCommentMentionIds] = useState<string[]>([]);
   const refreshTask = () => {
     qc.invalidateQueries({ queryKey: ["task-detail", brandId, taskId] });
     onChanged();
@@ -686,10 +687,15 @@ export function TaskDrawer({
   const send = useMutation({
     mutationFn: () =>
       addComment({
-        data: { taskId, body: comment.trim(), mentions: resolveMentions(comment, members) },
+        data: {
+          taskId,
+          body: cleanMentionText(comment).trim(),
+          mentions: commentMentionIds,
+        },
       }),
     onSuccess: () => {
       setComment("");
+      setCommentMentionIds([]);
       qc.invalidateQueries({ queryKey: ["task-comments", taskId] });
       refreshTask();
     },
@@ -828,7 +834,10 @@ export function TaskDrawer({
               <MentionTextarea
                 rows={2}
                 value={comment}
-                onChange={setComment}
+                onChange={(next, mentions) => {
+                  setComment(next);
+                  setCommentMentionIds(mentions);
+                }}
                 people={members}
                 onSubmit={() => {
                   if (comment.trim()) send.mutate();

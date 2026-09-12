@@ -8712,6 +8712,7 @@ export type Database = {
           publish_attempts: number
         }[]
       }
+      clean_mention_tokens: { Args: { _body: string }; Returns: string }
       client_in_scope: {
         Args: { _brand_id: string; _client_id: string }
         Returns: boolean
