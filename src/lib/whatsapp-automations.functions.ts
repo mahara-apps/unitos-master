@@ -9,6 +9,7 @@ import {
   nextRecurringRun,
   previewAutomationMessage,
 } from "@/lib/whatsapp/automation";
+import { callRpc } from "@/lib/supabase-rpc";
 
 const Scope = z.object({ brandId: z.string().uuid(), clientId: z.string().uuid() });
 const Rule = Scope.extend({
@@ -105,6 +106,12 @@ export const saveClientAutomation = createServerFn({ method: "POST" })
     if (data.triggerType === "system_event" && !AUTOMATION_EVENTS.some((event) => event.key === data.eventKey)) {
       throw new Error("Evento do sistema inválido.");
     }
+    const [{ data: recipient }, { data: instance }] = await Promise.all([
+      context.supabase.from("whatsapp_recipients").select("id").eq("id", data.recipientId).eq("brand_id", data.brandId).eq("client_id", data.clientId).eq("is_active", true).maybeSingle(),
+      context.supabase.from("evolution_instances").select("id").eq("id", data.instanceId).eq("brand_id", data.brandId).eq("status", "connected").maybeSingle(),
+    ]);
+    if (!recipient) throw new Error("Destino inválido para este cliente.");
+    if (!instance) throw new Error("Conexão de WhatsApp inválida.");
     const scheduleConfig: Record<string, unknown> = {};
     let nextRunAt: string | null = null;
     if (data.triggerType === "fixed") {
@@ -144,11 +151,11 @@ export const saveClientAutomation = createServerFn({ method: "POST" })
       instance_id: data.instanceId, custom_date_id: data.customDateId ?? null, name: data.name,
       trigger_type: data.triggerType, event_key: data.eventKey ?? null, schedule_config: scheduleConfig,
       message_template: data.messageTemplate, timezone: AUTOMATION_TIMEZONE, is_active: data.isActive,
-      next_run_at: data.isActive ? nextRunAt : null, created_by: context.userId,
+      next_run_at: data.isActive ? nextRunAt : null,
     };
     const query = data.id
       ? context.supabase.from("client_automation_rules").update(payload as never).eq("id", data.id).eq("brand_id", data.brandId).eq("client_id", data.clientId)
-      : context.supabase.from("client_automation_rules").insert(payload as never);
+      : context.supabase.from("client_automation_rules").insert({ ...payload, created_by: context.userId } as never);
     const { error } = await query;
     if (error) throw error;
     return { ok: true };
@@ -167,12 +174,13 @@ export const setClientDefaultWhatsappRecipient = createServerFn({ method: "POST"
   .middleware([requireSupabaseAuth]).inputValidator((input: unknown) => DefaultRecipient.parse(input))
   .handler(async ({ data, context }) => {
     await assertManager(context, data.brandId, data.clientId);
-    const { data: target } = await context.supabase.from("whatsapp_recipients").select("id").eq("id", data.recipientId).eq("brand_id", data.brandId).eq("client_id", data.clientId).eq("is_active", true).maybeSingle();
-    if (!target) throw new Error("Destino inválido para este cliente.");
-    const clear = await context.supabase.from("whatsapp_recipients").update({ is_default: false } as never).eq("brand_id", data.brandId).eq("client_id", data.clientId).eq("is_default", true);
-    if (clear.error) throw clear.error;
-    const set = await context.supabase.from("whatsapp_recipients").update({ is_default: true } as never).eq("id", data.recipientId);
-    if (set.error) throw set.error;
+    await assertFeature(context, data.brandId);
+    const { error } = await callRpc(context.supabase, "set_client_default_whatsapp_recipient", {
+      _brand_id: data.brandId,
+      _client_id: data.clientId,
+      _recipient_id: data.recipientId,
+    });
+    if (error) throw error;
     return { ok: true };
   });
 

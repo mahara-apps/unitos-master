@@ -10,6 +10,25 @@ const RETRY_SECONDS = [60, 300, 1_800, 7_200];
 
 export async function enqueueDueClientAutomations(admin: AdminClient): Promise<number> {
   const now = new Date();
+  const dueWindow = new Date(now.getTime() - 60_000).toISOString();
+  const { data: dueTasks, error: dueTasksError } = await admin
+    .from("tasks")
+    .select("id,brand_id,client_id,title,due_at")
+    .eq("done", false)
+    .not("client_id", "is", null)
+    .lte("due_at", now.toISOString())
+    .gt("due_at", dueWindow)
+    .limit(100);
+  if (dueTasksError) throw dueTasksError;
+  for (const task of dueTasks ?? []) {
+    await callRpc(admin, "enqueue_client_automation_event", {
+      _brand_id: task.brand_id,
+      _client_id: task.client_id,
+      _event_key: "task.due",
+      _entity_key: String(task.id),
+      _context: { task: { id: task.id, title: task.title, due_at: task.due_at } },
+    });
+  }
   const { data: due, error } = await admin
     .from("client_automation_rules")
     .select("*, client_automation_dates(date_value,repeats_annually,name)")
@@ -51,7 +70,8 @@ export async function enqueueDueClientAutomations(admin: AdminClient): Promise<n
     if (rule.trigger_type === "recurring") {
       next = nextRecurringRun(rule.schedule_config ?? {}, new Date(rule.next_run_at))?.toISOString() ?? null;
     } else if (rule.trigger_type === "client_date" && dateRow?.repeats_annually) {
-      const [year, month, day] = String(dateRow.date_value).split("-").map(Number);
+      const [, month, day] = String(dateRow.date_value).split("-").map(Number);
+      const year = new Date(rule.next_run_at).getUTCFullYear();
       const nextDate = localDateTimeToUtc(
         `${year + 1}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(rule.schedule_config?.hour ?? 9).padStart(2, "0")}:${String(rule.schedule_config?.minute ?? 0).padStart(2, "0")}`,
       );

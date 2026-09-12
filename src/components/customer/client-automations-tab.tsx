@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { CalendarDays, Clock3, History, MessageCircle, Pencil, Plus, Trash2, Zap } from "lucide-react";
+import { CalendarDays, Copy, History, MessageCircle, Pencil, Plus, Trash2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -74,6 +74,11 @@ export function ClientAutomationsTab({ brandId, clientId, canManage }: { brandId
     setTime(`${String(rule.schedule_config?.hour ?? 9).padStart(2, "0")}:${String(rule.schedule_config?.minute ?? 0).padStart(2, "0")}`);
     setRecipientId(rule.recipient_id); setInstanceId(rule.instance_id); setMessage(rule.message_template); setActive(rule.is_active); setOpen(true);
   };
+  const duplicate = (rule: Rule) => {
+    edit(rule);
+    setEditing(null);
+    setName(`${rule.name} — cópia`);
+  };
   const refresh = () => qc.invalidateQueries({ queryKey: key });
   const save = useMutation({
     mutationFn: () => {
@@ -104,7 +109,7 @@ export function ClientAutomationsTab({ brandId, clientId, canManage }: { brandId
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3"><div><h2 className="text-base font-semibold">Regras de automação</h2><p className="text-sm text-muted-foreground">Disparos únicos, recorrentes, por evento ou data do cliente.</p></div>{canManage && <Button onClick={() => { reset(); setOpen(true); }} disabled={!data?.recipients.length || !data?.instances.length}><Plus className="mr-2 h-4 w-4" />Nova automação</Button>}</div>
       {!data?.instances.length && <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-700 dark:text-amber-300">Conecte uma instância de WhatsApp antes de ativar automações.</div>}
-      {!data?.rules.length ? <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground"><Zap className="mx-auto mb-2 h-5 w-5" />Nenhuma automação configurada.</div> : <div className="divide-y rounded-lg border">{data.rules.map((rule: any) => <div key={rule.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="truncate font-medium">{rule.name}</p><Badge tone={rule.is_active ? "emerald" : "slate"}>{rule.is_active ? "Ativa" : "Pausada"}</Badge></div><p className="mt-1 text-xs text-muted-foreground">{TRIGGER_LABEL[rule.trigger_type]}{rule.next_run_at ? ` · Próximo: ${formatDateTimeBr(rule.next_run_at)}` : ""}</p></div>{canManage && <div className="flex gap-1"><Button variant="ghost" size="icon" aria-label="Editar automação" onClick={() => edit(rule)}><Pencil className="h-4 w-4" /></Button><Button variant="ghost" size="icon" aria-label="Excluir automação" onClick={() => remove.mutate(rule.id)}><Trash2 className="h-4 w-4" /></Button></div>}</div>)}</div>}
+      {!data?.rules.length ? <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground"><Zap className="mx-auto mb-2 h-5 w-5" />Nenhuma automação configurada.</div> : <div className="divide-y rounded-lg border">{data.rules.map((rule: any) => <div key={rule.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="truncate font-medium">{rule.name}</p><Badge tone={rule.is_active ? "emerald" : "slate"}>{rule.is_active ? "Ativa" : "Pausada"}</Badge></div><p className="mt-1 text-xs text-muted-foreground">{TRIGGER_LABEL[rule.trigger_type]}{rule.next_run_at ? ` · Próximo: ${formatDateTimeBr(rule.next_run_at)}` : ""}</p></div>{canManage && <div className="flex gap-1"><Button variant="ghost" size="icon" aria-label="Duplicar automação" onClick={() => duplicate(rule)}><Copy className="h-4 w-4" /></Button><Button variant="ghost" size="icon" aria-label="Editar automação" onClick={() => edit(rule)}><Pencil className="h-4 w-4" /></Button><Button variant="ghost" size="icon" aria-label="Excluir automação" onClick={() => remove.mutate(rule.id)}><Trash2 className="h-4 w-4" /></Button></div>}</div>)}</div>}
     </section>
 
     <ProfileSection title="Histórico" subtitle="Últimas ocorrências e tentativas" icon={<History className="h-4 w-4" />}>
