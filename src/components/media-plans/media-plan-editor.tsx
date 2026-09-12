@@ -57,6 +57,15 @@ import { cn } from "@/lib/utils";
 
 export type MediaPlanStage = "topo" | "meio" | "fundo";
 type ViewMode = "cards" | "sheet";
+type StageVisual = {
+  id: MediaPlanStage | "unassigned";
+  label: string;
+  shortLabel: string;
+  bar: string;
+  soft: string;
+  text: string;
+  dot: string;
+};
 
 type ItemDraft = {
   id?: string;
@@ -89,19 +98,20 @@ type UpsertItem = {
   other_refs?: string | null;
 };
 
-const STAGES: Array<{
-  id: MediaPlanStage;
-  label: string;
-  shortLabel: string;
-  bar: string;
-  soft: string;
-  text: string;
-  dot: string;
-}> = [
+const STAGES: StageVisual[] = [
   { id: "topo", label: "Topo do funil", shortLabel: "Topo", bar: "bg-funnel-top", soft: "bg-funnel-top/10", text: "text-funnel-top", dot: "bg-funnel-top" },
   { id: "meio", label: "Meio do funil", shortLabel: "Meio", bar: "bg-funnel-middle", soft: "bg-funnel-middle/10", text: "text-funnel-middle", dot: "bg-funnel-middle" },
   { id: "fundo", label: "Fundo do funil", shortLabel: "Fundo", bar: "bg-funnel-bottom", soft: "bg-funnel-bottom/10", text: "text-funnel-bottom", dot: "bg-funnel-bottom" },
 ];
+const UNASSIGNED_STAGE: StageVisual = {
+  id: "unassigned",
+  label: "Sem etapa",
+  shortLabel: "Sem etapa",
+  bar: "bg-muted-foreground/40",
+  soft: "bg-muted",
+  text: "text-muted-foreground",
+  dot: "bg-muted-foreground/40",
+};
 
 const CAMPAIGN_TYPES = [
   "Awareness",
@@ -242,11 +252,16 @@ export function MediaPlanEditor({
     [localItems, searchChannel, searchStage],
   );
   const grouped = useMemo(
-    () =>
-      STAGES.map((stage) => ({
+    () => {
+      const stageGroups = STAGES.map((stage) => ({
         stage,
         items: filtered.filter((item) => item.funnel_stage === stage.id),
-      })),
+      }));
+      const unassigned = filtered.filter((item) => !item.funnel_stage);
+      return unassigned.length
+        ? [...stageGroups, { stage: UNASSIGNED_STAGE, items: unassigned }]
+        : stageGroups;
+    },
     [filtered],
   );
 
@@ -443,10 +458,17 @@ export function MediaPlanEditor({
                   key={stage.id}
                   stage={stage}
                   items={stageItems}
-                  subtotal={summary.byStage[stage.id]}
+                  subtotal={
+                    stage.id === "unassigned"
+                      ? {
+                          pct: stageItems.reduce((total, item) => total + Number(item.budget_pct || 0), 0),
+                          amount: stageItems.reduce((total, item) => total + Number(item.budget_amount || 0), 0),
+                        }
+                      : summary.byStage[stage.id]
+                  }
                   onEdit={openEdit}
                   onDelete={deleteItem}
-                  onAdd={() => openNew(stage.id)}
+                  onAdd={stage.id === "unassigned" ? undefined : () => openNew(stage.id)}
                 />
               ))}
             </div>
@@ -498,12 +520,12 @@ function StageCards({
   onDelete,
   onAdd,
 }: {
-  stage: (typeof STAGES)[number];
+  stage: StageVisual;
   items: MediaPlanItem[];
   subtotal: { pct: number; amount: number };
   onEdit: (item: MediaPlanItem) => void;
   onDelete: (item: MediaPlanItem) => void;
-  onAdd: () => void;
+  onAdd?: () => void;
 }) {
   return (
     <section aria-labelledby={`stage-${stage.id}`}>
@@ -517,15 +539,17 @@ function StageCards({
         {items.map((item) => (
           <InvestmentCard key={item.id} item={item} stage={stage} onEdit={onEdit} onDelete={onDelete} />
         ))}
-        <Button variant="outline" className="min-h-24 border-dashed text-muted-foreground" onClick={onAdd}>
-          <Plus className="h-4 w-4" /> Adicionar investimento
-        </Button>
+        {onAdd ? (
+          <Button variant="outline" className="min-h-24 border-dashed text-muted-foreground" onClick={onAdd}>
+            <Plus className="h-4 w-4" /> Adicionar investimento
+          </Button>
+        ) : null}
       </div>
     </section>
   );
 }
 
-function InvestmentCard({ item, stage, onEdit, onDelete }: { item: MediaPlanItem; stage: (typeof STAGES)[number]; onEdit: (item: MediaPlanItem) => void; onDelete: (item: MediaPlanItem) => void }) {
+function InvestmentCard({ item, stage, onEdit, onDelete }: { item: MediaPlanItem; stage: StageVisual; onEdit: (item: MediaPlanItem) => void; onDelete: (item: MediaPlanItem) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1 };
   return (
@@ -565,7 +589,7 @@ function CardMeta({ label, value }: { label: string; value: string | null }) {
   return <div className="min-w-0"><div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</div><div className="truncate text-xs font-medium" title={value ?? undefined}>{value || "—"}</div></div>;
 }
 
-function MediaPlanSheet({ groups, summary, onEdit, onDelete }: { groups: Array<{ stage: (typeof STAGES)[number]; items: MediaPlanItem[] }>; summary: ReturnType<typeof mediaPlanBudgetSummary>; onEdit: (item: MediaPlanItem) => void; onDelete: (item: MediaPlanItem) => void }) {
+function MediaPlanSheet({ groups, summary, onEdit, onDelete }: { groups: Array<{ stage: StageVisual; items: MediaPlanItem[] }>; summary: ReturnType<typeof mediaPlanBudgetSummary>; onEdit: (item: MediaPlanItem) => void; onDelete: (item: MediaPlanItem) => void }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border/60 bg-card">
       <div className="min-w-[980px]">
@@ -576,8 +600,8 @@ function MediaPlanSheet({ groups, summary, onEdit, onDelete }: { groups: Array<{
           <div key={stage.id}>
             <div className="grid grid-cols-[minmax(210px,1.5fr)_120px_130px_150px_130px_minmax(170px,1fr)_80px_110px_92px] border-b border-border/60 bg-muted/25 text-xs font-semibold">
               <div className="sticky left-0 z-10 col-span-6 flex items-center gap-2 bg-muted px-3 py-2"><span className={cn("h-2 w-2 rounded-sm", stage.dot)} /><span className={stage.text}>{stage.label}</span><span className="font-normal text-muted-foreground">{items.length}</span></div>
-              <div className="px-3 py-2 text-right tabular-nums">{summary.byStage[stage.id].pct.toFixed(1)}%</div>
-              <div className="px-3 py-2 text-right tabular-nums">{currency(summary.byStage[stage.id].amount)}</div><div />
+              <div className="px-3 py-2 text-right tabular-nums">{(stage.id === "unassigned" ? items.reduce((total, item) => total + Number(item.budget_pct || 0), 0) : summary.byStage[stage.id].pct).toFixed(1)}%</div>
+              <div className="px-3 py-2 text-right tabular-nums">{currency(stage.id === "unassigned" ? items.reduce((total, item) => total + Number(item.budget_amount || 0), 0) : summary.byStage[stage.id].amount)}</div><div />
             </div>
             {items.map((item) => <SheetRow key={item.id} item={item} onEdit={onEdit} onDelete={onDelete} />)}
           </div>

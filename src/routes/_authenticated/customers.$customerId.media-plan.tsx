@@ -64,6 +64,22 @@ const searchSchema = z
   .catch({});
 
 export const Route = createFileRoute("/_authenticated/customers/$customerId/media-plan")({
+  head: () => ({
+    meta: [
+      { title: "Plano de mídia | Unitos" },
+      {
+        name: "description",
+        content: "Planeje investimentos, canais, públicos e metas de mídia paga por etapa do funil.",
+      },
+      { property: "og:title", content: "Plano de mídia | Unitos" },
+      {
+        property: "og:description",
+        content: "Planeje investimentos, canais, públicos e metas de mídia paga por etapa do funil.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   beforeLoad: () => ensureFeatureEnabled("midia_paga"),
   validateSearch: (raw: Record<string, unknown>): MediaPlanSearch => searchSchema.parse(raw),
   component: MediaPlanPage,
