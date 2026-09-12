@@ -419,6 +419,26 @@ async function assertSupabaseManagementAccess(input: {
   }
 }
 
+async function prevalidateSupabaseOperation(input: {
+  env: Record<string, string | undefined>;
+  supabaseProjectRef?: string | null;
+  supabaseUrl?: string | null;
+  requireKeys?: boolean;
+}): Promise<void> {
+  const token = (input.env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim();
+  if (!token) {
+    throw new Error(
+      "Supabase Access Token ausente. Configure o acesso antes de iniciar a operação.",
+    );
+  }
+  await assertSupabaseManagementAccess({
+    token,
+    supabaseProjectRef: input.supabaseProjectRef,
+    supabaseUrl: input.supabaseUrl,
+    requireKeys: input.requireKeys,
+  });
+}
+
 /**
  * Cadastro de instalação no modelo BYOK: o Supabase Access Token do cliente é
  * obrigatório e gravado cifrado no mesmo passo. Se a gravação falhar, o
@@ -1112,6 +1132,14 @@ async function openAutomatedProvision(
     );
   }
 
+  // Teste efetivo antes de criar a operação: token revogado, projeto incorreto
+  // ou indisponibilidade são informados sem deixar uma operação BLOCKED órfã.
+  await prevalidateSupabaseOperation({
+    env,
+    supabaseProjectRef: record.supabaseProjectRef,
+    supabaseUrl: record.supabaseUrl,
+  });
+
   const { data: active } = await supabase
     .from("installation_operations")
     .select("id")
@@ -1236,6 +1264,13 @@ export const runAutomatedValidateFn = createServerFn({ method: "POST" })
         `A instalação está em “${INSTALLATION_STATUS_LABEL[record.status]}” e não aceita esta operação agora.`,
       );
     }
+
+    await prevalidateSupabaseOperation({
+      env,
+      supabaseProjectRef: record.supabaseProjectRef,
+      supabaseUrl: record.supabaseUrl,
+      requireKeys: false,
+    });
 
     const { data: active } = await context.supabase
       .from("installation_operations")

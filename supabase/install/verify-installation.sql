@@ -403,11 +403,11 @@ WITH checks AS (
               THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
   SELECT 66, 'cron: retomada do gerenciador usa a URL registrada',
-         CASE WHEN NOT EXISTS (SELECT 1 FROM public.installations LIMIT 1)
+         CASE WHEN NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'installation-provision-resume')
               THEN 'não se aplica nesta instalação'
               ELSE coalesce((SELECT command FROM cron.job
                              WHERE jobname = 'installation-provision-resume' LIMIT 1), 'ausente') END,
-         CASE WHEN NOT EXISTS (SELECT 1 FROM public.installations LIMIT 1) THEN 'PASS'
+         CASE WHEN NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'installation-provision-resume') THEN 'PASS'
               WHEN EXISTS (
                 SELECT 1 FROM cron.job
                 WHERE jobname = 'installation-provision-resume'

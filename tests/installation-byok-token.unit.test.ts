@@ -34,6 +34,7 @@ describe("BYOK: cada instalação usa o Supabase Access Token do próprio client
     const capability = resolveAutomationCapability({ [BYOK_SUPABASE_MARKER]: "1" });
     expect(capability.supabase.available).toBe(false);
     expect(capability.supabase.reason).toContain("Acessos da instalação");
+    expect(capability.supabase.reason).not.toContain("ilegível");
   });
 
   it("com o token próprio resolvido a automação segue disponível", () => {
@@ -66,6 +67,14 @@ describe("BYOK: cada instalação usa o Supabase Access Token do próprio client
     expect(credentials).toContain("readRowReliable");
     expect(credentials).toContain("InstallationCredentialStoreError");
     expect(credentials).toContain("throw new CredentialDecryptError");
+    expect(credentials).toContain("if (error) throw new InstallationCredentialStoreError()");
+  });
+
+  it("testa o token efetivamente antes de criar uma operação", () => {
+    const prevalidation = manager.indexOf("await prevalidateSupabaseOperation");
+    const operation = manager.indexOf("const op = await startAtomicInstallationOperation", prevalidation);
+    expect(prevalidation).toBeGreaterThan(0);
+    expect(operation).toBeGreaterThan(prevalidation);
   });
 
   it("distingue credencial gravada e ilegível na tela", () => {
