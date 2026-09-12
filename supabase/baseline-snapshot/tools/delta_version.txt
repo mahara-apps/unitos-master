@@ -4,4 +4,4 @@
 # src/lib/installation/manager-contract.ts). O teste
 # tests/installation-master-sync.unit.test.ts reprova se algo ficar fora de sincronia.
 version=1.3.62
-sha256=65a52a655da754bff51a70d858837011b2d3328ca27d09065be1794d50f0658a
+sha256=e33c36ad80d462e6985285be1562bedfe7d85cdf5f1a99ccb2b1d7998aecb209
