@@ -266,10 +266,15 @@ export function InstallationCredentialsCard({ installationId }: { installationId
             {FIELDS.map((field) => {
               const state =
                 field.key === "vercelTeamId"
-                  ? { configured: Boolean(data?.vercelTeamId), masked: data?.vercelTeamId ?? null }
+                  ? {
+                      configured: Boolean(data?.vercelTeamId),
+                      masked: data?.vercelTeamId ?? null,
+                      unreadable: false,
+                    }
                   : (data?.[field.key as "supabaseManagementToken"] ?? {
                       configured: false,
                       masked: null,
+                      unreadable: false,
                     });
               return (
                 <div key={field.key} className="space-y-1.5">
@@ -278,7 +283,12 @@ export function InstallationCredentialsCard({ installationId }: { installationId
                       {field.label}
                     </Label>
                     <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                      {state.configured ? (
+                      {state.unreadable ? (
+                        <>
+                          <MinusCircle className="h-3 w-3 text-severity-warning" />
+                          gravado, mas ilegível — salve novamente
+                        </>
+                      ) : state.configured ? (
                         <>
                           <CheckCircle2 className="h-3 w-3 text-severity-success" />
                           {state.masked ?? "configurado"}

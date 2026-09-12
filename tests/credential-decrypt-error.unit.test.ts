@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeAll } from "vitest";
 import { aiErrorMessage } from "@/lib/ai-error-display";
+import { captureRuntimeEnv } from "@/lib/runtime-env.server";
 
 describe("credenciais ilegíveis", () => {
   beforeAll(() => {
@@ -30,5 +31,15 @@ describe("credenciais ilegíveis", () => {
     expect(aiErrorMessage(new Error("ai_provider_key_unreadable:gemini: chave ilegível"), "x")).toBe(
       "chave ilegível",
     );
+  });
+
+  it("usa o binding do runtime quando process.env não contém a chave", async () => {
+    const previous = process.env.BRAND_CREDENTIALS_SECRET;
+    delete process.env.BRAND_CREDENTIALS_SECRET;
+    captureRuntimeEnv({ BRAND_CREDENTIALS_SECRET: "segredo-do-binding" });
+    const mod = await import("@/lib/credentials-crypto.server");
+    const stored = await mod.encryptCredential("token-da-instalacao");
+    await expect(mod.decryptCredential(stored)).resolves.toBe("token-da-instalacao");
+    if (previous) process.env.BRAND_CREDENTIALS_SECRET = previous;
   });
 });
