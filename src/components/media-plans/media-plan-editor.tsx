@@ -98,11 +98,11 @@ type UpsertItem = {
   other_refs?: string | null;
 };
 
-const STAGES: StageVisual[] = [
+const STAGES = [
   { id: "topo", label: "Topo do funil", shortLabel: "Topo", bar: "bg-funnel-top", soft: "bg-funnel-top/10", text: "text-funnel-top", dot: "bg-funnel-top" },
   { id: "meio", label: "Meio do funil", shortLabel: "Meio", bar: "bg-funnel-middle", soft: "bg-funnel-middle/10", text: "text-funnel-middle", dot: "bg-funnel-middle" },
   { id: "fundo", label: "Fundo do funil", shortLabel: "Fundo", bar: "bg-funnel-bottom", soft: "bg-funnel-bottom/10", text: "text-funnel-bottom", dot: "bg-funnel-bottom" },
-];
+] satisfies StageVisual[];
 const UNASSIGNED_STAGE: StageVisual = {
   id: "unassigned",
   label: "Sem etapa",
