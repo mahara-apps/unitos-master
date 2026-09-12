@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -120,6 +120,10 @@ export function JobsPanel({
   /** Job aberto em modal amplo. */
   const [openJobId, setOpenJobId] = useState<string | null>(null);
   const [pautasOpen, setPautasOpen] = useState(false);
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
 
   const jobsArchive = needsArchived(visibility) ? "all" : "active";
   const jobsQ = useQuery({

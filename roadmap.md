@@ -1,5 +1,6 @@
 # Roadmap
 
+- [x] Reformular visualmente lista, detalhe e painel de job da área Projetos; preservar ações e sincronizar MASTER 1.3.66.
 - [x] Adicionar reenvio/edição de convites e ocultar o Super Admin global de listas e menções; sincronizar MASTER.
 - [x] Corrigir conclusão prematura do deploy por Git e reconciliar a versão registrada da Casa 8.
 - [ ] Publicar o MASTER 1.3.53 com o diagnóstico correto de domínio/modo de teste/permissão no Resend.
