@@ -10,6 +10,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { displayName, initialsOf } from "@/lib/identity";
+import { cleanMentionText, MENTION_TOKEN_RE } from "@/lib/mentions";
+
+export { cleanMentionText, MENTION_TOKEN_RE } from "@/lib/mentions";
 
 export type MentionPerson = {
   id: string;
@@ -18,19 +21,7 @@ export type MentionPerson = {
   avatar_url?: string | null;
 };
 
-/** `@[Nome](uuid)` */
-export const MENTION_TOKEN_RE =
-  /@\[[^\]\n]+\]\([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\)/i;
-
 const TOKEN_GLOBAL = new RegExp(MENTION_TOKEN_RE.source, "gi");
-
-/** Remove a parte técnica de tokens antigos, preservando somente `@Nome`. */
-export function cleanMentionText(text: string): string {
-  return text.replace(TOKEN_GLOBAL, (token) => {
-    const named = /^@\[([^\]]+)\]\([^)]+\)$/i.exec(token);
-    return named ? `@${named[1]}` : token;
-  });
-}
 
 /** Rótulo exibido na lista: nome + e-mail para desambiguar homônimos. */
 export function personLabel(p: MentionPerson): string {

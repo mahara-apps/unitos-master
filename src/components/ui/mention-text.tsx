@@ -2,12 +2,11 @@
  * Renderiza o corpo de um comentário destacando as menções e transformando
  * URLs colados (Drive, Figma…) em links clicáveis.
  *
- * Menções novas vêm no token estável `@[Nome](uuid)`; comentários antigos
- * gravados como `@Nome` continuam sendo destacados por compatibilidade.
+ * Menções são exibidas como `@Nome`; tokens técnicos antigos são saneados.
  */
 import type { ReactNode } from "react";
 import type { MentionPerson } from "@/components/ui/mention-textarea";
-import { cleanMentionText, MENTION_TOKEN_RE } from "@/components/ui/mention-textarea";
+import { cleanMentionText, MENTION_TOKEN_RE } from "@/lib/mentions";
 
 /** Quebra um trecho de texto puro em nós, linkificando http(s):// e www. */
 function linkify(text: string, keyPrefix: string): ReactNode[] {
