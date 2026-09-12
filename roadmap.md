@@ -51,4 +51,4 @@
 
 - [x] Reformular a apresentação do plano de mídia em cartões, planilha enxuta e painel lateral; manter os 12 campos e funções.
 
-- [ ] Reformular apresentação de Pautas (/monthly-plan e detalhe), preservar todas as funções e adicionar seleção segura de modelo no assistente.
+- [x] Reformular apresentação de Pautas (/monthly-plan e detalhe), preservar todas as funções e adicionar seleção segura de modelo no assistente.
