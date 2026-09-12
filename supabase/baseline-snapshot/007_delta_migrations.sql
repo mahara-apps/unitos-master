@@ -5278,3 +5278,8 @@ GRANT EXECUTE ON FUNCTION public.sanitize_mention_body() TO service_role;
 
 REVOKE ALL ON FUNCTION public.bump_message_thread() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.bump_message_thread() TO service_role;
+
+-- ---------------------------------------------------------------------------
+-- 20260912200907_7fdb54bd-f2e1-4557-9248-42755db8106c.sql
+-- ---------------------------------------------------------------------------
+ALTER TYPE public.task_status ADD VALUE IF NOT EXISTS 'blocked' BEFORE 'done';
