@@ -13,6 +13,7 @@
 - [ ] Corrigir o diagnóstico de validação para separar Banco, Schema, RLS e Seeds; código concluído no MASTER 1.3.60, aguardando publicação para atualizar e revalidar a Apex.
 - [x] Evitar tela branca quando a leitura de permissões sofre Gateway Timeout, consultando o Supabase diretamente com identidade protegida.
 - [x] Criar automações de WhatsApp por cliente com agenda, eventos, destino padrão, retries e ativação pelo Super Admin.
+- [x] Padronizar textos visíveis em PT-BR e datas/horários humanos com fuso de Brasília e segundos; sincronizar MASTER 1.3.63.
 - [x] Publicar o MASTER 1.3.7 e atualizar a Taveira, com validação final.
 - [x] Tornar a ação de atualização inequívoca e proteger o reprovisionamento na tela.
 - [x] Concluir Lixeira de conteúdos/pipelines com retenção de 30 dias e propagação MASTER.

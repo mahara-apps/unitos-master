@@ -82,6 +82,7 @@ import { listProjects } from "@/lib/projects.functions";
 import { FolderKanban } from "lucide-react";
 import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { describeError } from "@/lib/errors";
+import { formatDateTimeBr } from "@/lib/timezone";
 
 // Taxonomia de formatos: fonte única em `@/lib/content-formats`.
 // Internamente SEMPRE chave canônica ("feed" | "stories" | "reels" |
@@ -1315,13 +1316,7 @@ function TaskLayout({
           {mode === "edit" && createdAt ? (
             <p className="text-[11px] text-muted-foreground">
               Criado em{" "}
-              {new Date(createdAt).toLocaleString("pt-BR", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {formatDateTimeBr(createdAt)}
             </p>
           ) : null}
         </div>
@@ -1526,13 +1521,7 @@ function Timeline({ items }: { items: PostTimelineEvent[] }) {
       </p>
       <ul className="space-y-2 text-sm">
         {items.map((ev) => {
-          const when = new Date(ev.created_at).toLocaleString("pt-BR", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          });
+          const when = formatDateTimeBr(ev.created_at);
           return (
             <li
               key={ev.id}

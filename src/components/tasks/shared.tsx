@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { formatDateBr, formatDateTimeBr } from "@/lib/timezone";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -191,7 +192,7 @@ export function relativeDue(
   const d = new Date(iso);
   const diffMs = d.getTime() - now.getTime();
   const days = Math.round(diffMs / 86_400_000);
-  const label = format(d, "d 'de' MMM", { locale: ptBR });
+  const label = formatDateBr(d);
   if (days < 0) return { label, tone: "text-rose-600 dark:text-rose-400", overdue: true };
   if (days === 0)
     return { label: `${label} · hoje`, tone: "text-amber-600 dark:text-amber-400", overdue: false };
@@ -851,7 +852,7 @@ export function TaskDrawer({
             </div>
             <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
               <span>
-                Criada em {format(new Date(task.created_at), "d 'de' MMM yyyy", { locale: ptBR })}
+                Criada em {formatDateTimeBr(task.created_at)}
               </span>
               <span className="font-mono opacity-70">J/K para navegar · Esc para fechar</span>
             </div>
@@ -1065,7 +1066,7 @@ export function TaskDrawer({
                             )}
                           </span>
                           <span className="text-[10px] text-muted-foreground">
-                            {format(new Date(c.created_at), "d 'de' MMM · HH:mm", { locale: ptBR })}
+                            {formatDateTimeBr(c.created_at)}
                             {c.author_id === currentUserId ? (
                               <button
                                 className="ml-2 text-muted-foreground hover:text-destructive"
@@ -1111,7 +1112,7 @@ function DuePicker({
 }) {
   const [open, setOpen] = useState(false);
   const local = value ? new Date(value) : null;
-  const label = local ? format(local, "d 'de' MMM · HH:mm", { locale: ptBR }) : "Sem prazo";
+  const label = local ? formatDateTimeBr(local) : "Sem prazo";
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
