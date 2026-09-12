@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { cleanMentionText } from "@/lib/mentions";
 
-export const TASK_STATUSES = ["todo", "in_progress", "review", "done"] as const;
+export const TASK_STATUSES = ["todo", "in_progress", "review", "blocked", "done"] as const;
 export const TASK_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];

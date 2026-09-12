@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { TASK_PRIORITIES, TASK_STATUSES, type TaskPriority, type TaskStatus } from "@/lib/tasks.functions";
 
 export type ProjectJob = {
   id: string;
@@ -142,8 +143,8 @@ export type JobTask = {
   job_id: string | null;
   project_id: string | null;
   title: string;
-  status: string;
-  priority: string;
+  status: TaskStatus;
+  priority: TaskPriority;
   assignee_id: string | null;
   due_at: string | null;
   start_date: string | null;
@@ -242,8 +243,8 @@ export const updateJobTaskFn = createServerFn({ method: "POST" })
           .object({
             title: z.string().trim().min(1).max(200).optional(),
             job_id: z.string().uuid().nullable().optional(),
-            status: z.string().optional(),
-            priority: z.string().optional(),
+             status: z.enum(TASK_STATUSES).optional(),
+             priority: z.enum(TASK_PRIORITIES).optional(),
             assignee_id: z.string().uuid().nullable().optional(),
             estimated_minutes: z.number().int().min(0).nullable().optional(),
             due_at: z.string().nullable().optional(),

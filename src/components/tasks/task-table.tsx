@@ -96,7 +96,13 @@ export const DEFAULT_VISIBLE_COLUMNS: VisibleColumns = {
 };
 
 const PRIORITY_ORDER: Record<TaskPriority, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
-const STATUS_ORDER: Record<TaskStatus, number> = { todo: 0, in_progress: 1, review: 2, done: 3 };
+const STATUS_ORDER: Record<TaskStatus, number> = {
+  todo: 0,
+  in_progress: 1,
+  review: 2,
+  blocked: 3,
+  done: 4,
+};
 
 function compare(a: TaskRow, b: TaskRow, key: SortKey): number {
   switch (key) {

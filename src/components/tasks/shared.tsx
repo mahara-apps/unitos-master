@@ -129,6 +129,13 @@ export const STATUS_META: Record<
     dot: "bg-amber-500",
     hex: "text-amber-500",
   },
+  blocked: {
+    label: "Bloqueada",
+    icon: PauseCircle,
+    badge: "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+    dot: "bg-rose-500",
+    hex: "text-rose-500",
+  },
   done: {
     label: "Concluída",
     icon: CheckCircle2,
@@ -140,7 +147,7 @@ export const STATUS_META: Record<
 
 // UI-only "waiting" bucket for the Kanban board (persisted status stays `review`).
 // For Phase 3 we can add a real status.
-export const KANBAN_COLUMNS: TaskStatus[] = ["todo", "in_progress", "review", "done"];
+export const KANBAN_COLUMNS: TaskStatus[] = ["todo", "in_progress", "review", "blocked", "done"];
 
 export const PRIORITY_META: Record<
   TaskPriority,
