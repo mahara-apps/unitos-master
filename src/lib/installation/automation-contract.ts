@@ -102,7 +102,7 @@ export function resolveAutomationCapability(env: AutomationEnv): AutomationCapab
     : {
         available: false,
         reason: byok
-          ? "Supabase Access Token desta instalação ausente ou ilegível — provisionamento BLOCKED. Preencha o token em Acessos da instalação (esta instalação não usa o acesso central)."
+          ? "Supabase Access Token desta instalação ausente — provisionamento BLOCKED. Preencha o token em Acessos da instalação (esta instalação não usa o acesso central)."
           : "Credencial de gestão do Supabase ausente no runtime do MASTER — provisionamento automático BLOCKED. Nomes aceitos: " +
             AUTOMATION_CREDENTIAL_VARS.supabaseManagement.join(", "),
         resolvedFrom: null,

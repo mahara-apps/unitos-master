@@ -11,8 +11,8 @@
  * - os tokens são gravados cifrados (AES-256-GCM, `BRAND_CREDENTIALS_SECRET`)
  *   na tabela `public.installation_credentials`;
  * - nunca voltam em claro para a UI — só máscara e “configurado sim/não”;
- * - o env do MASTER continua sendo FALLBACK: instalação sem credencial própria
- *   segue usando o token global (útil para projetos da mesma organização);
+ * - o env do MASTER é fallback somente para instalações legadas; BYOK nunca
+ *   herda token central, mesmo diante de falha de leitura do cofre;
  * - a credencial da instalação tem PRECEDÊNCIA sobre o env global.
  */
 
@@ -104,8 +104,7 @@ async function readRow(client: Client, installationId: string): Promise<Row | nu
 
 /**
  * Estado das credenciais próprias — só máscaras, nunca valores em claro.
- * Uma máscara ilegível (segredo de criptografia trocado) devolve `null` sem
- * quebrar a tela: a UI mostra apenas “configurado”.
+ * Um valor ilegível é distinguido de ausente sem devolver nenhum secret.
  */
 export async function getInstallationCredentialsStatus(
   client: Client,
@@ -387,20 +386,15 @@ export async function requiresOwnSupabaseToken(
   client: Client,
   installationId: string,
 ): Promise<boolean> {
-  try {
-    const { data, error } = await client
-      .from("installations")
-      .select("requires_own_supabase_token")
-      .eq("id", installationId)
-      .maybeSingle();
-    if (error) return false;
-    return (
-      (data as { requires_own_supabase_token?: boolean } | null)?.requires_own_supabase_token ===
-      true
-    );
-  } catch {
-    return false;
-  }
+  const { data, error } = await client
+    .from("installations")
+    .select("requires_own_supabase_token")
+    .eq("id", installationId)
+    .maybeSingle();
+  if (error) throw new InstallationCredentialStoreError();
+  return (
+    (data as { requires_own_supabase_token?: boolean } | null)?.requires_own_supabase_token === true
+  );
 }
 
 export async function resolveInstallationEnv(
