@@ -9184,7 +9184,7 @@ export type Database = {
         | "done"
         | "archived"
       task_priority: "low" | "medium" | "high" | "urgent"
-      task_status: "todo" | "in_progress" | "review" | "done"
+      task_status: "todo" | "in_progress" | "review" | "blocked" | "done"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -9359,7 +9359,7 @@ export const Constants = {
         "archived",
       ],
       task_priority: ["low", "medium", "high", "urgent"],
-      task_status: ["todo", "in_progress", "review", "done"],
+      task_status: ["todo", "in_progress", "review", "blocked", "done"],
     },
   },
 } as const
