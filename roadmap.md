@@ -52,3 +52,4 @@
 - [x] Reformular a apresentação do plano de mídia em cartões, planilha enxuta e painel lateral; manter os 12 campos e funções.
 
 - [x] Reformular apresentação de Pautas (/monthly-plan e detalhe), preservar todas as funções e adicionar seleção segura de modelo no assistente.
+- [ ] Reformular apenas a apresentação de Conteúdo (/content), preservando Kanban, lista, seleção e editor completos.

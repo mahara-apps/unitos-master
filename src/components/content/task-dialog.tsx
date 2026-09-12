@@ -121,7 +121,7 @@ export function TaskDialog(props: TaskDialogProps) {
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-0 border-l border-border/60 bg-background p-0 sm:max-w-[640px]"
+        className="flex h-dvh w-full flex-col gap-0 overflow-hidden border-l border-border/60 bg-background p-0 sm:max-w-[620px]"
       >
         {props.mode === "edit" ? (
           <Suspense fallback={<LoadingBody />}>
@@ -376,7 +376,7 @@ function CreateBody({
 
   return (
     <>
-      <div className="sticky top-0 z-10 space-y-3 border-b border-border/60 bg-background/95 px-6 pb-3 pt-4 backdrop-blur">
+      <header className="sticky top-0 z-10 space-y-3 border-b border-border/60 bg-background/95 px-6 pb-4 pt-5 backdrop-blur">
         <div>
           <h2 className="text-base font-semibold tracking-tight">Nova tarefa</h2>
           <p className="text-xs text-muted-foreground">
@@ -411,7 +411,7 @@ function CreateBody({
             onChange={(id) => setState((p) => ({ ...p, projectId: id }))}
           />
         </div>
-      </div>
+      </header>
       <div className="flex-1 overflow-y-auto px-6 py-5">
         <TaskLayout
           state={state}
@@ -904,7 +904,7 @@ function EditBody({
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 bg-background/95 px-6 py-3 backdrop-blur">
+      <footer className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 bg-background/95 px-6 py-3 backdrop-blur">
         <Button
           variant="ghost"
           size="sm"
@@ -938,7 +938,7 @@ function EditBody({
             Salvar
           </Button>
         </div>
-      </div>
+      </footer>
     </>
   );
 }
@@ -1115,7 +1115,7 @@ function TaskLayout({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-5">
+      <section className="space-y-5" aria-label="Conteúdo e publicação">
         {mode === "create" ? (
           <div className="space-y-1.5">
             <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
@@ -1279,9 +1279,9 @@ function TaskLayout({
             />
           </TabsContent>
         </Tabs>
-      </div>
+      </section>
 
-      <div className="grid grid-cols-2 gap-3 border-t border-border/50 pt-5">
+      <section className="grid grid-cols-1 gap-3 border-t border-border/50 pt-5 sm:grid-cols-2" aria-label="Agenda e configurações">
         {mode === "create" ? (
           <div className="space-y-1.5">
             <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
@@ -1426,7 +1426,7 @@ function TaskLayout({
           </div>
           {mode === "edit" && postId ? <ApprovalLinkSection postId={postId} /> : null}
         </div>
-      </div>
+      </section>
     </div>
   );
 }
