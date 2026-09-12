@@ -57,14 +57,38 @@ const CIPHER_COLUMN: Record<Exclude<InstallationCredentialField, "vercelTeamId">
 };
 
 export type InstallationCredentialsStatus = {
-  supabaseManagementToken: { configured: boolean; masked: string | null };
-  supabasePublishableKey: { configured: boolean; masked: string | null };
-  supabaseServiceRoleKey: { configured: boolean; masked: string | null };
-  vercelToken: { configured: boolean; masked: string | null };
-  githubToken: { configured: boolean; masked: string | null };
+  supabaseManagementToken: CredentialStatus;
+  supabasePublishableKey: CredentialStatus;
+  supabaseServiceRoleKey: CredentialStatus;
+  vercelToken: CredentialStatus;
+  githubToken: CredentialStatus;
   vercelTeamId: string | null;
   updatedAt: string | null;
 };
+
+export type CredentialStatus = {
+  configured: boolean;
+  masked: string | null;
+  unreadable: boolean;
+};
+
+export class InstallationCredentialStoreError extends Error {
+  constructor() {
+    super("Não foi possível consultar o cofre de acessos desta instalação. Tente novamente.");
+    this.name = "InstallationCredentialStoreError";
+  }
+}
+
+async function readRowReliable(client: Client, installationId: string): Promise<Row | null> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await readRow(client, installationId);
+    } catch {
+      if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 150));
+    }
+  }
+  throw new InstallationCredentialStoreError();
+}
 
 async function readRow(client: Client, installationId: string): Promise<Row | null> {
   const { data, error } = await client
@@ -87,16 +111,20 @@ export async function getInstallationCredentialsStatus(
   client: Client,
   installationId: string,
 ): Promise<InstallationCredentialsStatus> {
-  const row = await readRow(client, installationId);
+  const row = await readRowReliable(client, installationId);
   const { decryptCredential, maskCredential } = await import("@/lib/credentials-crypto.server");
 
   const describe = async (stored: string | null | undefined) => {
     const value = (stored ?? "").trim();
-    if (!value) return { configured: false, masked: null };
+    if (!value) return { configured: false, masked: null, unreadable: false };
     try {
-      return { configured: true, masked: maskCredential(await decryptCredential(value)) };
+      return {
+        configured: true,
+        masked: maskCredential(await decryptCredential(value)),
+        unreadable: false,
+      };
     } catch {
-      return { configured: true, masked: null };
+      return { configured: true, masked: null, unreadable: true };
     }
   };
 
@@ -392,13 +420,7 @@ export async function resolveInstallationEnv(
     env[BYOK_SUPABASE_MARKER] = "1";
   }
 
-  let row: Row | null = null;
-  try {
-    row = await readRow(client, installationId);
-  } catch {
-    // Sem acesso à tabela (ambiente antigo) a automação segue com o env global.
-    return normalize(env);
-  }
+  const row = await readRowReliable(client, installationId);
   if (!row) return normalize(env);
 
   const { decryptCredential } = await import("@/lib/credentials-crypto.server");
@@ -409,8 +431,10 @@ export async function resolveInstallationEnv(
       const plain = (await decryptCredential(value)).trim();
       if (plain) for (const name of names) env[name] = plain;
     } catch {
-      // Valor ilegível não pode virar credencial inválida silenciosa: mantém
-      // o env global, e a UI já sinaliza a credencial como não legível.
+      const { CredentialDecryptError } = await import("@/lib/credentials-crypto.server");
+      throw new CredentialDecryptError(
+        "Um acesso salvo desta instalação está ilegível. Salve novamente o campo indicado em Acessos da instalação.",
+      );
     }
   };
 

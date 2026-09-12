@@ -2,6 +2,8 @@
 // Uses Web Crypto (available on Cloudflare Workers and Node ≥ 20).
 // Key material comes from BRAND_CREDENTIALS_SECRET (auto-provisioned).
 
+import { readRuntimeEnv } from "./runtime-env.server";
+
 function b64encode(bytes: Uint8Array): string {
   let bin = "";
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
@@ -16,7 +18,10 @@ function b64decode(s: string): Uint8Array {
 }
 
 async function importKey(): Promise<CryptoKey> {
-  const raw = process.env.BRAND_CREDENTIALS_SECRET;
+  // Workers recebem secrets no binding do request, enquanto Node/Vercel usa
+  // process.env. A fonte unificada evita cifrar em um runtime e falhar ao
+  // decifrar em outro isolate do mesmo deploy.
+  const raw = readRuntimeEnv("BRAND_CREDENTIALS_SECRET");
   if (!raw) throw new Error("BRAND_CREDENTIALS_SECRET is not set");
   // Derive a stable 32-byte AES key from the secret via SHA-256.
   const material = new TextEncoder().encode(raw);

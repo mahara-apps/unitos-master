@@ -9,6 +9,8 @@ import {
 
 const manager = readFileSync("src/lib/installation/manager.functions.ts", "utf8");
 const credentials = readFileSync("src/lib/installation/credentials.server.ts", "utf8");
+const crypto = readFileSync("src/lib/credentials-crypto.server.ts", "utf8");
+const card = readFileSync("src/components/installations/installation-credentials-card.tsx", "utf8");
 const form = readFileSync("src/routes/_authenticated/admin.instalacoes.index.tsx", "utf8");
 const verify = readFileSync("supabase/install/verify-installation.sql", "utf8");
 
@@ -53,5 +55,21 @@ describe("BYOK: cada instalação usa o Supabase Access Token do próprio client
     expect(manager).toContain("assertSupabaseManagementAccess");
     expect(manager).toContain("const keys = await management.keys()");
     expect(manager).toContain("incomingSupabaseToken");
+  });
+
+  it("lê a chave mestra pela fonte unificada do runtime", () => {
+    expect(crypto).toContain('readRuntimeEnv("BRAND_CREDENTIALS_SECRET")');
+    expect(crypto).not.toContain("process.env.BRAND_CREDENTIALS_SECRET");
+  });
+
+  it("não converte falha do cofre ou decriptação em token ausente", () => {
+    expect(credentials).toContain("readRowReliable");
+    expect(credentials).toContain("InstallationCredentialStoreError");
+    expect(credentials).toContain("throw new CredentialDecryptError");
+  });
+
+  it("distingue credencial gravada e ilegível na tela", () => {
+    expect(card).toContain("state.unreadable");
+    expect(card).toContain("gravado, mas ilegível — salve novamente");
   });
 });
