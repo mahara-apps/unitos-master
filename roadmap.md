@@ -47,3 +47,5 @@
 - [x] Corrigir automaticamente `unitos-casa8` para o nome real `unitos-casa-8` após validar o acesso.
 - [x] Reutilizar o nome confirmado em todas as etapas seguintes de publicação.
 - [ ] Publicar o MASTER e executar “Testar acesso” na Casa 8; depende da sessão do Super Admin.
+
+- [x] Reformular a apresentação do plano de mídia em cartões, planilha enxuta e painel lateral; manter os 12 campos e funções.
