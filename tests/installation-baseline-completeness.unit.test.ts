@@ -104,6 +104,14 @@ describe("delta do baseline", () => {
   }
 });
 
+describe("cron de retomada do gerenciador", () => {
+  it("é coberto pela validação read-only", () => {
+    expect(verifySql).toContain("cron: retomada do gerenciador usa a URL registrada");
+    expect(verifySql).toContain("installation-provision-resume");
+    expect(verifySql).toContain("/api/public/cron/installation-resume");
+  });
+});
+
 
 describe("stripPsqlMetaCommands", () => {
   it("remove \\set, \\pset e \\timing mantendo o SQL", () => {
