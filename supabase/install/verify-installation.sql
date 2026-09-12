@@ -401,6 +401,19 @@ WITH checks AS (
                            WHERE jobname = 'purge-deleted-content-30d'
                              AND command LIKE '%purge_deleted_content%')
               THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
+  SELECT 66, 'cron: retomada do gerenciador usa a URL registrada',
+         CASE WHEN NOT EXISTS (SELECT 1 FROM public.installations LIMIT 1)
+              THEN 'não se aplica nesta instalação'
+              ELSE coalesce((SELECT command FROM cron.job
+                             WHERE jobname = 'installation-provision-resume' LIMIT 1), 'ausente') END,
+         CASE WHEN NOT EXISTS (SELECT 1 FROM public.installations LIMIT 1) THEN 'PASS'
+              WHEN EXISTS (
+                SELECT 1 FROM cron.job
+                WHERE jobname = 'installation-provision-resume'
+                  AND command LIKE '%' || rtrim((SELECT app_url FROM public.installation LIMIT 1), '/') || '/api/public/cron/installation-resume%'
+                  AND command LIKE '%x-cron-secret%'
+              ) THEN 'PASS' ELSE 'FAIL' END
 
   -- ---------------------------------------------------------------- brain_stats_mv
   UNION ALL
