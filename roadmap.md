@@ -54,3 +54,4 @@
 - [x] Reformular apresentação de Pautas (/monthly-plan e detalhe), preservar todas as funções e adicionar seleção segura de modelo no assistente.
 - [x] Reformular apenas a apresentação de Conteúdo (/content), preservando Kanban, lista, seleção e editor completos.
 - [x] Reorganizar Jobs & Pautas, criar quadro de jobs e drawer com Lista/Quadro de tarefas; sincronizar no MASTER 1.3.69.
+- [x] Impedir tela de erro quando o contador de mensagens roda durante perda ou renovação da sessão; sincronizar no MASTER 1.3.70.

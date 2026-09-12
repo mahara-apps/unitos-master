@@ -56,7 +56,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { useModulePermissions } from "@/hooks/use-module-permissions";
 import { listClientInboxFn } from "@/lib/client-inbox.functions";
-import { countUnreadMessages } from "@/lib/messaging.functions";
+import { callRpc } from "@/lib/supabase-rpc";
 import { allowedSidebarUrls } from "@/lib/module-permissions";
 import { canAccessSidebarUrl } from "@/lib/permissions";
 import { useBrandFeatures } from "@/hooks/use-feature-access";
@@ -220,12 +220,20 @@ export function AppSidebar() {
   });
   const inboxAwaiting = inboxQ.data ?? 0;
   // Mensagens não lidas do comunicador interno (equipe + clientes).
-  const countUnread = useServerFn(countUnreadMessages);
   const unreadQ = useQuery({
     queryKey: ["messages-unread", brandId],
     queryFn: async () => {
       try {
-        return await countUnread({ data: { brandId: brandId! } });
+        // Este contador já é protegido por RLS no banco. Consultá-lo com a
+        // sessão do próprio navegador evita uma RPC de servidor sem bearer
+        // durante logout/renovação, que antes podia acionar a tela de erro.
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData.session) return 0;
+        const { data, error } = await callRpc<number>(supabase, "message_unread_total", {
+          _brand_id: brandId!,
+        });
+        if (error) return 0;
+        return Number(data) || 0;
       } catch {
         return 0;
       }
