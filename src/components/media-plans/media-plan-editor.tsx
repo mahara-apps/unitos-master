@@ -476,25 +476,18 @@ export function MediaPlanEditor({
   );
 }
 
-function SortableHandle({ id }: { id: string }) {
-  const { attributes, listeners } = useSortable({ id });
+function SortableHandle({
+  attributes,
+  listeners,
+}: {
+  attributes: ReturnType<typeof useSortable>["attributes"];
+  listeners: ReturnType<typeof useSortable>["listeners"];
+}) {
   return (
     <Button type="button" variant="ghost" size="icon" className="h-8 w-8 cursor-grab text-muted-foreground" title="Reordenar" {...attributes} {...listeners}>
       <GripVertical className="h-4 w-4" />
     </Button>
   );
-}
-
-function useSortableStyle(id: string) {
-  const { setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  return {
-    setNodeRef,
-    style: {
-      transform: CSS.Transform.toString(transform),
-      transition,
-      opacity: isDragging ? 0.6 : 1,
-    },
-  };
 }
 
 function StageCards({
@@ -533,7 +526,8 @@ function StageCards({
 }
 
 function InvestmentCard({ item, stage, onEdit, onDelete }: { item: MediaPlanItem; stage: (typeof STAGES)[number]; onEdit: (item: MediaPlanItem) => void; onDelete: (item: MediaPlanItem) => void }) {
-  const { setNodeRef, style } = useSortableStyle(item.id);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1 };
   return (
     <article ref={setNodeRef} style={style} className="relative overflow-hidden rounded-lg border border-border/60 bg-card p-4 pl-5 transition-colors hover:border-foreground/20">
       <span aria-hidden className={cn("absolute inset-y-0 left-0 w-1", stage.bar)} />
@@ -558,7 +552,7 @@ function InvestmentCard({ item, stage, onEdit, onDelete }: { item: MediaPlanItem
         <CardMeta label="KPI" value={item.main_kpi} />
         <CardMeta label="Público" value={item.audience} />
         <div className="flex items-center gap-0.5">
-          <SortableHandle id={item.id} />
+          <SortableHandle attributes={attributes} listeners={listeners} />
           <Button variant="ghost" size="icon" className="h-8 w-8" title="Editar investimento" onClick={() => onEdit(item)}><Pencil className="h-4 w-4" /></Button>
           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Excluir investimento" onClick={() => onDelete(item)}><Trash2 className="h-4 w-4" /></Button>
         </div>
@@ -600,7 +594,8 @@ function MediaPlanSheet({ groups, summary, onEdit, onDelete }: { groups: Array<{
 
 function SheetRow({ item, onEdit, onDelete }: { item: MediaPlanItem; onEdit: (item: MediaPlanItem) => void; onDelete: (item: MediaPlanItem) => void }) {
   const [open, setOpen] = useState(false);
-  const { setNodeRef, style } = useSortableStyle(item.id);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1 };
   return (
     <Collapsible open={open} onOpenChange={setOpen} ref={setNodeRef} style={style} className="border-b border-border/40 last:border-b-0">
       <div className="grid grid-cols-[minmax(210px,1.5fr)_120px_130px_150px_130px_minmax(170px,1fr)_80px_110px_92px] items-center text-xs hover:bg-muted/20">
@@ -610,7 +605,7 @@ function SheetRow({ item, onEdit, onDelete }: { item: MediaPlanItem; onEdit: (it
         </div>
         <Cell>{item.channel || "—"}</Cell><Cell>{item.campaign_type || "—"}</Cell><Cell>{item.objective || "—"}</Cell><Cell>{item.main_kpi || "—"}</Cell><Cell>{item.audience || "—"}</Cell>
         <Cell right>{Number(item.budget_pct).toFixed(1)}%</Cell><Cell right>{currency(item.budget_amount)}</Cell>
-        <div className="flex justify-end gap-0.5 px-2"><SortableHandle id={item.id} /><Button variant="ghost" size="icon" className="h-8 w-8" title="Editar investimento" onClick={() => onEdit(item)}><Pencil /></Button><Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Excluir investimento" onClick={() => onDelete(item)}><Trash2 /></Button></div>
+        <div className="flex justify-end gap-0.5 px-2"><SortableHandle attributes={attributes} listeners={listeners} /><Button variant="ghost" size="icon" className="h-8 w-8" title="Editar investimento" onClick={() => onEdit(item)}><Pencil /></Button><Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Excluir investimento" onClick={() => onDelete(item)}><Trash2 /></Button></div>
       </div>
       <CollapsibleContent className="bg-muted/15 px-4 py-3">
         <div className="grid gap-4 pl-7 sm:grid-cols-3"><Detail label="Palavras-chave" value={(item.keywords ?? []).join(", ")} /><Detail label="Benchmark" value={item.benchmark} /><Detail label="Outras referências" value={item.other_refs} /></div>
