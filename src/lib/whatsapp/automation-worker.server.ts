@@ -29,6 +29,43 @@ export async function enqueueDueClientAutomations(admin: AdminClient): Promise<n
       _context: { task: { id: task.id, title: task.title, due_at: task.due_at } },
     });
   }
+  const overdueStart = new Date(now.getTime() - 120_000).toISOString();
+  const overdueEnd = new Date(now.getTime() - 60_000).toISOString();
+  const { data: overdueTasks, error: overdueTasksError } = await admin
+    .from("tasks")
+    .select("id,brand_id,client_id,title,due_at")
+    .eq("done", false)
+    .not("client_id", "is", null)
+    .lte("due_at", overdueEnd)
+    .gt("due_at", overdueStart)
+    .limit(100);
+  if (overdueTasksError) throw overdueTasksError;
+  for (const task of overdueTasks ?? []) {
+    await callRpc(admin, "enqueue_client_automation_event", {
+      _brand_id: task.brand_id,
+      _client_id: task.client_id,
+      _event_key: "task.overdue",
+      _entity_key: String(task.id),
+      _context: { task: { id: task.id, title: task.title, due_at: task.due_at } },
+    });
+  }
+  const { data: pendingBriefings, error: pendingBriefingsError } = await admin
+    .from("brand_briefing_requests")
+    .select("id,brand_id,client_id,due_at")
+    .eq("status", "requested")
+    .lte("due_at", now.toISOString())
+    .gt("due_at", dueWindow)
+    .limit(100);
+  if (pendingBriefingsError) throw pendingBriefingsError;
+  for (const briefing of pendingBriefings ?? []) {
+    await callRpc(admin, "enqueue_client_automation_event", {
+      _brand_id: briefing.brand_id,
+      _client_id: briefing.client_id,
+      _event_key: "briefing.pending",
+      _entity_key: String(briefing.id),
+      _context: { briefing: { id: briefing.id, due_at: briefing.due_at } },
+    });
+  }
   const { data: due, error } = await admin
     .from("client_automation_rules")
     .select("*, client_automation_dates(date_value,repeats_annually,name)")

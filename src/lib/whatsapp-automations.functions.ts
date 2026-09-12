@@ -69,6 +69,24 @@ async function assertFeature(context: { supabase: any }, brandId: string) {
   }
 }
 
+async function auditAutomation(
+  context: { supabase: any; userId: string },
+  brandId: string,
+  clientId: string,
+  verb: string,
+  payload: Record<string, unknown>,
+) {
+  const { error } = await context.supabase.from("activity_events").insert({
+    brand_id: brandId,
+    client_id: clientId,
+    actor_id: context.userId,
+    entity_type: "client_automation",
+    verb,
+    payload,
+  } as never);
+  if (error) console.warn("[whatsapp-automations] audit failed", error.message);
+}
+
 export const listClientAutomations = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => Scope.parse(input))
@@ -158,6 +176,11 @@ export const saveClientAutomation = createServerFn({ method: "POST" })
       : context.supabase.from("client_automation_rules").insert({ ...payload, created_by: context.userId } as never);
     const { error } = await query;
     if (error) throw error;
+    await auditAutomation(context, data.brandId, data.clientId, data.id ? "automation.update" : "automation.create", {
+      rule_id: data.id ?? null,
+      trigger_type: data.triggerType,
+      active: data.isActive,
+    });
     return { ok: true };
   });
 
@@ -167,6 +190,7 @@ export const deleteClientAutomation = createServerFn({ method: "POST" })
     await assertManager(context, data.brandId, data.clientId);
     const { error } = await context.supabase.from("client_automation_rules").delete().eq("id", data.ruleId).eq("brand_id", data.brandId).eq("client_id", data.clientId);
     if (error) throw error;
+    await auditAutomation(context, data.brandId, data.clientId, "automation.delete", { rule_id: data.ruleId });
     return { ok: true };
   });
 
@@ -181,6 +205,7 @@ export const setClientDefaultWhatsappRecipient = createServerFn({ method: "POST"
       _recipient_id: data.recipientId,
     });
     if (error) throw error;
+    await auditAutomation(context, data.brandId, data.clientId, "automation.default_destination", { recipient_id: data.recipientId });
     return { ok: true };
   });
 
@@ -192,5 +217,9 @@ export const saveClientAutomationDate = createServerFn({ method: "POST" })
     const query = data.id ? context.supabase.from("client_automation_dates").update(payload as never).eq("id", data.id).eq("client_id", data.clientId) : context.supabase.from("client_automation_dates").insert(payload as never);
     const { error } = await query;
     if (error) throw error;
+    await auditAutomation(context, data.brandId, data.clientId, data.id ? "automation.date_update" : "automation.date_create", {
+      date_id: data.id ?? null,
+      repeats_annually: data.repeatsAnnually,
+    });
     return { ok: true };
   });
