@@ -1,24 +1,88 @@
-# Destravar e tornar autônoma a atualização da Taveira
+# Gestão de Jobs e Tarefas dentro do projeto
 
-## Diagnóstico confirmado
+## Objetivo
 
-- A atualização não perdeu progresso: avançou de **350/716 (49%)** para **375/716 (52%)** durante a investigação.
-- O banco é atualizado em lotes seguros de 25 comandos e grava um checkpoint após cada lote.
-- O intervalo longo observado é causado pela retomada depender da tela aberta: o painel chama o watchdog, mas ele só assume o próximo lote quando o último sinal tem mais de 90 segundos. Isso pode parecer travamento e deixa a execução sem avanço quando ninguém acompanha a tela.
-- O comando atual no ponto observado era apenas a transição entre policies de `client_requests`; não há erro de SQL registrado.
+Reorganizar somente a aba **Jobs & Pautas** e o job aberto para separar claramente as duas áreas e tornar a gestão diária mais visual, sem retirar ações, dados, filtros, comentários, links, timer, arquivamento ou exclusão já existentes.
 
-## Correção
+## Estado atual confirmado
 
-1. Criar um watchdog público autenticado por `CRON_SECRET`, sem depender do navegador, para retomar operações automáticas pendentes.
-2. Reutilizar a mesma lease distribuída e os checkpoints existentes, evitando executores concorrentes e repetição de comandos já aplicados.
-3. Agendar o watchdog no MASTER e incluí-lo no pacote das instalações, mantendo o processo MASTER-first.
-4. Manter o polling da tela apenas como acompanhamento e recuperação adicional, não como motor principal.
-5. Adicionar regressões para operação em lotes, retomada sem tela, autenticação do cron e ausência de duplicação.
-6. Regenerar o delta, sincronizar a nova versão do MASTER, atualizar a verificação da instalação quando aplicável e executar `master:check` e os testes direcionados.
-7. Acompanhar a operação atual da Taveira até sair da etapa de banco; não marcar a versão como concluída antes do deployment Git `READY` e da validação final.
+- Jobs e Pautas hoje aparecem juntos dentro do mesmo painel; a tela do projeto ainda mantém um painel lateral de matriz/prazos ao lado dessa área.
+- Cada job já possui responsável único, início, entrega, status personalizado, conclusão, arquivamento, exclusão, tarefas, comentários e links.
+- As tarefas já possuem responsável, prazo, timer, prioridade, conclusão, arquivamento e exclusão; os status atuais são A fazer, Em andamento, Revisão e Concluída.
+- O tempo do job já pode ser calculado pela soma do tempo registrado nas tarefas.
+- O projeto já usa status cadastráveis por workspace para jobs e tarefas. Eles serão preservados.
 
-## Limites
+## 1. Separar Jobs de Pautas
 
-- Não alterar dados operacionais, papéis, RLS ou credenciais da Taveira.
-- Não reiniciar a atualização do zero enquanto o checkpoint atual continuar válido.
-- Não publicar o MASTER nem iniciar outra atualização sem autorização explícita.
+- No topo da aba, criar dois acessos independentes:
+  - **Jobs**: quantidade de frentes e total de tarefas;
+  - **Pautas**: quantidade real de peças de conteúdo.
+- **Jobs** abre o quadro de trabalho; **Pautas** abre o board de pauta já existente.
+- Remover dessa aba o painel lateral vazio e qualquer cabeçalho que trate “Pauta de conteúdo” como se fosse um job.
+- Manter acesso a matriz, prazos, horas e envolvidos em posições coerentes na visão do projeto, sem apagar seus componentes ou dados.
+
+## 2. Quadro de Jobs
+
+- Substituir a lista atual por um quadro com três grupos visuais:
+  - **A fazer** — `#64748b`;
+  - **Em andamento** — `#0ea5e9`;
+  - **Concluído** — `#16a34a`.
+- Preservar os status personalizados: status concluidores entram em **Concluído**; status iniciais/padrão entram em **A fazer**; os demais entram em **Em andamento**. O seletor continua mostrando e gravando o status real do workspace.
+- Cada card mostrará título, progresso e percentual das tarefas, avatares do responsável do job e responsáveis das tarefas, período início–entrega, tempo total registrado e prazo.
+- Preservar busca, **Novo job**, abrir, renomear, concluir/reabrir, arquivar/restaurar, excluir e visualização de arquivados/concluídos.
+- A busca continuará filtrando os jobs sem alterar dados ou status.
+
+## 3. Job em painel lateral
+
+- Trocar o modal central por um drawer à direita, mantendo o projeto visível ao fundo.
+- Cabeçalho com **Concluir/Reabrir**, responsável, status personalizado em pill, menu de ações e fechar.
+- Exibir título, caminho cliente › projeto e linha do tempo início → entrega, com marcador de hoje, progresso temporal e dias restantes/atrasados.
+- Manter edição das datas, renomear, arquivar/restaurar, excluir e filtros de tarefas.
+- Exibir o total de tempo do job como soma dos apontamentos de suas tarefas.
+
+## 4. Estado e prioridade das tarefas
+
+- Adicionar o estado persistido **Bloqueada**, sem remover **Revisão**. O fluxo ficará: **A fazer, Fazendo, Revisão, Bloqueada e Concluída**.
+- Preservar dados existentes e a prioridade **Urgente**; apresentar também **Alta, Média e Baixa**, com rótulos em português.
+- Permitir alterar status e prioridade diretamente na tarefa, mantendo responsável, prazo, conclusão/reabertura, timer play/stop com tempo acumulado e menu Arquivar/Restaurar/Excluir.
+- Manter o detalhe completo da tarefa, incluindo comentários, timesheet, histórico, anexos e links.
+
+## 5. Lista e Quadro dentro do job
+
+- Adicionar alternador **Lista | Quadro** no drawer.
+- **Lista**: checklist compacto com status, prioridade, título, responsável, prazo, timer e menu.
+- **Quadro**: kanban por status da tarefa, reutilizando o padrão de arrastar já usado na área Tarefas.
+- Ao arrastar entre colunas, atualizar o status no servidor; mover para **Concluída** aplica a regra atual de conclusão/arquivamento e retirar de **Concluída** reabre a tarefa.
+- Preservar os filtros de tarefas ativas, concluídas, arquivadas e por prazo.
+- Manter **Adicionar uma tarefa** com prazo opcional nas duas visualizações.
+
+## 6. Comentários, anexos e links
+
+- Manter no job as abas **Comentários** e **Anexos e links**.
+- Não alterar as regras atuais de autoria, exclusão, menções, acesso ou escopo.
+- Preservar os comentários, apontamentos e referências existentes nas tarefas.
+
+## Detalhes técnicos
+
+- Reorganizar `projects.$projectId.tsx`, `jobs-panel.tsx` e `job-detail-modal.tsx`, extraindo componentes pequenos para quadro/card de job e lista/kanban de tarefas.
+- Reutilizar `Sheet`, componentes de botão/menu/seletor existentes, `AssigneePicker`, `StatusPicker`, `TaskTimerWidget`, `ContextTabs`, `CommentThread`, `WorkLinks` e o padrão DnD de `task-kanban.tsx`.
+- Usar tokens semânticos globais para as cores solicitadas; não criar KPI local.
+- Acrescentar `blocked` ao enum de status da tarefa no banco e aos validadores/tipos compartilhados. A migration será aditiva, com compatibilidade para os registros atuais e sem mudar RBAC/RLS.
+- Endurecer a validação de `updateJobTaskFn`: status e prioridade usarão enums Zod compartilhados, em vez de strings livres.
+- Consumir o parâmetro `?job=<id>` já emitido por menções para abrir diretamente o drawer correto.
+- Não criar múltiplos responsáveis no modelo: o job continua com um responsável oficial; os demais avatares do card representam responsáveis das tarefas daquele job.
+
+## Validação e MASTER-first
+
+- Cobrir agrupamento de status personalizados dos jobs, novo status Bloqueada, traduções de prioridade, soma de tempo, alternância Lista/Quadro, drag-and-drop, conclusão/reabertura e abertura por link direto.
+- Validar que criar, buscar, renomear, concluir, reabrir, arquivar, restaurar e excluir continuam funcionando para jobs e tarefas.
+- Conferir desktop e celular, garantindo que o drawer não substitua nem oculte incoerentemente o contexto do projeto.
+- Executar checagem de tipos, testes direcionados, build e verificação visual possível.
+- Aplicar a migration no MASTER, regenerar o delta, sincronizar `delta_version.txt` e `MASTER_RELEASE_VERSION`, incluir a presença de `blocked` na verificação da instalação e executar `bun run master:check` e os guardiões.
+- Não publicar o MASTER nem atualizar instalações sem autorização explícita.
+
+## Fora de escopo
+
+- Alterar a página geral `/tasks`, o modelo de Pautas, permissões, papéis ou regras de acesso.
+- Remover o status Revisão, a prioridade Urgente ou qualquer função já disponível.
+- Criar múltiplos responsáveis oficiais para um job.
