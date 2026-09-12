@@ -11,6 +11,7 @@ import {
   FolderKanban,
   ListChecks,
   MoreHorizontal,
+  Plus,
   Search,
   Sparkles,
   Trash2,
