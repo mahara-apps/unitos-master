@@ -105,7 +105,7 @@ describe("estados do provisionamento", () => {
 
   it("estado em execução por tipo de operação", () => {
     expect(runningStatusFor("provision")).toBe("provisioning");
-    expect(runningStatusFor("update")).toBe("provisioning");
+    expect(runningStatusFor("update")).toBe("updating");
     expect(runningStatusFor("validate")).toBe("validating");
   });
 

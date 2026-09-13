@@ -141,6 +141,7 @@ export async function probeInstallationHealth(input: {
 
 type AnyClient = {
   from: (table: string) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
 };
 
 export type OperationRow = {
@@ -152,7 +153,63 @@ export type OperationRow = {
   detail: unknown;
   summary: string | null;
   run_token_expires_at: string | null;
+  lease_owner?: string | null;
+  lease_expires_at?: string | null;
 };
+
+export const AUTOMATION_LEASE_SECONDS = 180;
+export const AUTOMATION_HEARTBEAT_MS = 45_000;
+
+export class InstallationLeaseLostError extends Error {
+  constructor() {
+    super("A execução perdeu a concessão da operação e foi interrompida com segurança.");
+    this.name = "InstallationLeaseLostError";
+  }
+}
+
+export async function heartbeatOperation(
+  client: AnyClient,
+  op: OperationRow,
+): Promise<boolean> {
+  const owner = op.lease_owner?.trim();
+  if (!owner) return true;
+  const { data, error } = await client.rpc("heartbeat_installation_operation", {
+    _operation_id: op.id,
+    _owner: owner,
+    _lease_seconds: AUTOMATION_LEASE_SECONDS,
+  });
+  if (error) throw error;
+  return data === true;
+}
+
+export async function assertOperationLease(client: AnyClient, op: OperationRow): Promise<void> {
+  if (!(await heartbeatOperation(client, op))) throw new InstallationLeaseLostError();
+}
+
+export async function withOperationHeartbeat<T>(
+  client: AnyClient,
+  op: OperationRow,
+  work: () => Promise<T>,
+): Promise<T> {
+  await assertOperationLease(client, op);
+  let lost = false;
+  const timer = setInterval(() => {
+    void heartbeatOperation(client, op)
+      .then((ok) => {
+        if (!ok) lost = true;
+      })
+      .catch(() => {
+        lost = true;
+      });
+  }, AUTOMATION_HEARTBEAT_MS);
+  try {
+    const result = await work();
+    if (lost) throw new InstallationLeaseLostError();
+    return result;
+  } finally {
+    clearInterval(timer);
+  }
+}
 
 function readSteps(raw: unknown): OperationStep[] {
   if (!Array.isArray(raw)) return [];
@@ -192,6 +249,7 @@ export async function applyProgressReport(
   op: OperationRow,
   report: StepReport,
 ): Promise<OperationStep[]> {
+  await assertOperationLease(client, op);
   const state = isStepState(report.state) ? report.state : "running";
   // `op` é lido uma única vez no início da operação. Aplicar o progresso sobre
   // essa cópia apagaria as etapas já concluídas (UI ficava em "0/9 etapas" e
@@ -209,15 +267,20 @@ export async function applyProgressReport(
     detail: sanitize(report.detail),
     percent: report.percent ?? null,
   });
-  const { error } = await client
+  const { data: saved, error } = await client
     .from("installation_operations")
     .update({
       steps,
       status: operationStatusFromSteps(steps) === "failed" ? "running" : "running",
       last_report_at: new Date().toISOString(),
     })
-    .eq("id", op.id);
+    .eq("id", op.id)
+    .eq("lease_owner", op.lease_owner)
+    .in("status", ["pending", "running"])
+    .select("id")
+    .maybeSingle();
   if (error) throw error;
+  if (!saved) throw new InstallationLeaseLostError();
   return steps;
 }
 
@@ -239,6 +302,7 @@ export async function finalizeOperation(
   op: OperationRow,
   report: FinalReport,
 ): Promise<void> {
+  await assertOperationLease(client, op);
   const kind = op.kind as InstallationOperationKind;
   const nowIso = new Date().toISOString();
 
@@ -257,7 +321,7 @@ export async function finalizeOperation(
   );
   const incomplete = steps.filter((step) => step.state !== "done");
   const acceptedSuccess = report.ok && steps.length > 0 && incomplete.length === 0;
-  const finalSteps = acceptedSuccess ? steps : steps;
+  const finalSteps = steps;
 
   const summary = sanitize(report.summary) ?? op.summary;
   const outcome = {
@@ -266,7 +330,7 @@ export async function finalizeOperation(
     version: (report.version ?? "").trim() || null,
   };
 
-  const { error: opError } = await client
+  const { data: closed, error: opError } = await client
     .from("installation_operations")
     .update({
       steps: finalSteps,
@@ -285,8 +349,13 @@ export async function finalizeOperation(
       finished_at: nowIso,
       last_report_at: nowIso,
     })
-    .eq("id", op.id);
+    .eq("id", op.id)
+    .eq("lease_owner", op.lease_owner)
+    .in("status", ["pending", "running"])
+    .select("id")
+    .maybeSingle();
   if (opError) throw opError;
+  if (!closed) throw new InstallationLeaseLostError();
 
   const { data: installation } = await client
     .from("installations")
@@ -326,6 +395,7 @@ export async function finalizeOperation(
   const { error: instError } = await client
     .from("installations")
     .update(patch)
-    .eq("id", op.installation_id);
+    .eq("id", op.installation_id)
+    .eq("active_operation_id", op.id);
   if (instError) throw instError;
 }

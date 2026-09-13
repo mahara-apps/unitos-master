@@ -15,27 +15,18 @@
  *   - nunca expõe secrets: mensagens persistidas passam por `sanitize()`.
  */
 
-/** Segundos sem heartbeat para considerar a operação retomável. */
-export const AUTOMATION_LEASE_SECONDS = 90;
+import { AUTOMATION_LEASE_SECONDS } from "./runner.server";
 
 export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
   claimed: number;
   operations: string[];
 }> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const cutoff = new Date(Date.now() - AUTOMATION_LEASE_SECONDS * 1000).toISOString();
-
-  const { data: rows, error } = await supabaseAdmin
-    .from("installation_operations")
-    .update({
-      last_report_at: new Date().toISOString(),
-      summary: "Operação automática retomada pelo cron do MASTER.",
-    })
-    .in("status", ["pending", "running"])
-    .eq("detail->>automated", "true")
-    .lt("last_report_at", cutoff)
-    .select("*")
-    .limit(limit);
+  const owner = `cron:${crypto.randomUUID()}`;
+  const { data: rows, error } = await supabaseAdmin.rpc(
+    "claim_stale_installation_operations",
+    { _owner: owner, _limit: limit, _lease_seconds: AUTOMATION_LEASE_SECONDS },
+  );
   if (error) throw error;
 
   const operations: string[] = [];
@@ -50,7 +41,7 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
     const row = installation as Record<string, unknown>;
     const { runAutomatedProvision, runAutomatedUpdate, runAutomatedValidate } =
       await import("./automation.server");
-    const { finalizeOperation } = await import("./runner.server");
+    const { finalizeOperation, withOperationHeartbeat } = await import("./runner.server");
     // Cada tipo de operação tem o próprio conjunto de etapas: retomar tudo como
     // provisionamento deixava UPDATE/VALIDATE presos reportando etapas inexistentes.
     const kind = (op as { kind?: string }).kind ?? "provision";
@@ -79,7 +70,9 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
     };
     try {
       if (kind === "update") {
-        const outcome = await runAutomatedUpdate(args);
+        const outcome = await withOperationHeartbeat(supabaseAdmin as never, op as never, () =>
+          runAutomatedUpdate(args),
+        );
         if (outcome.result !== "PENDING") {
           await setRemoteInstallationServiceState({
             env,
@@ -89,9 +82,13 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
           });
         }
       } else if (kind === "validate") {
-        await runAutomatedValidate(args);
+        await withOperationHeartbeat(supabaseAdmin as never, op as never, () =>
+          runAutomatedValidate(args),
+        );
       } else {
-        await runAutomatedProvision(args);
+        await withOperationHeartbeat(supabaseAdmin as never, op as never, () =>
+          runAutomatedProvision(args),
+        );
       }
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "falha inesperada na retomada";

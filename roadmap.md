@@ -56,3 +56,4 @@
 - [x] Reorganizar Jobs & Pautas, criar quadro de jobs e drawer com Lista/Quadro de tarefas; sincronizar no MASTER 1.3.69.
 - [x] Impedir tela de erro quando o contador de mensagens roda durante perda ou renovação da sessão; sincronizar no MASTER 1.3.70.
 - [x] Eliminar bloqueios falsos de token nas instalações, unificar a leitura do cofre no runtime e distinguir acesso ausente de ilegível; sincronizar no MASTER 1.3.71.
+- [ ] Tornar criação, atualização, retomada e validação de ambientes resistentes a concorrência e diagnóstico incorreto; MASTER 1.3.72 em validação, pendente ensaio descartável e recuperação da Apex, sem publicar sem autorização.

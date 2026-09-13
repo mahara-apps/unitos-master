@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 export const STATUS_TONE: Record<InstallationStatus, string> = {
   preparing: "border-border/60 text-muted-foreground",
   provisioning: "border-severity-info/40 text-severity-info",
+  updating: "border-severity-info/40 text-severity-info",
   validating: "border-severity-info/40 text-severity-info",
   update_available: "border-severity-warning/40 text-severity-warning",
   up_to_date: "border-health-good/40 text-health-good",
@@ -38,7 +39,7 @@ export function lifecycleIndex(i: {
   if (i.status === "up_to_date") return 4;
   if (i.lastValidatedAt) return 3;
   if (i.lastProvisionedAt) return 2;
-  if (i.status === "provisioning" || i.status === "validating") return 1;
+  if (i.status === "provisioning" || i.status === "updating" || i.status === "validating") return 1;
   return 0;
 }
 

@@ -5359,6 +5359,7 @@ export type Database = {
       installation_operations: {
         Row: {
           actor_id: string | null
+          attempt_count: number
           created_at: string
           detail: Json
           error_kind: string | null
@@ -5367,6 +5368,8 @@ export type Database = {
           installation_id: string
           kind: string
           last_report_at: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
           run_token_expires_at: string | null
           run_token_hash: string | null
           started_at: string
@@ -5376,6 +5379,7 @@ export type Database = {
         }
         Insert: {
           actor_id?: string | null
+          attempt_count?: number
           created_at?: string
           detail?: Json
           error_kind?: string | null
@@ -5384,6 +5388,8 @@ export type Database = {
           installation_id: string
           kind: string
           last_report_at?: string | null
+          lease_expires_at?: string | null
+          lease_owner?: string | null
           run_token_expires_at?: string | null
           run_token_hash?: string | null
           started_at?: string
@@ -5393,6 +5399,7 @@ export type Database = {
         }
         Update: {
           actor_id?: string | null
+          attempt_count?: number
           created_at?: string
           detail?: Json
           error_kind?: string | null
@@ -5401,6 +5408,8 @@ export type Database = {
           installation_id?: string
           kind?: string
           last_report_at?: string | null
+          lease_expires_at?: string | null
+          lease_owner?: string | null
           run_token_expires_at?: string | null
           run_token_hash?: string | null
           started_at?: string
@@ -8696,6 +8705,35 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_installation_operation: {
+        Args: { _lease_seconds?: number; _operation_id: string; _owner: string }
+        Returns: {
+          actor_id: string | null
+          attempt_count: number
+          created_at: string
+          detail: Json
+          error_kind: string | null
+          finished_at: string | null
+          id: string
+          installation_id: string
+          kind: string
+          last_report_at: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
+          run_token_expires_at: string | null
+          run_token_hash: string | null
+          started_at: string
+          status: string
+          steps: Json
+          summary: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "installation_operations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       claim_scheduled_social_posts: {
         Args: { p_limit?: number }
         Returns: {
@@ -8711,6 +8749,35 @@ export type Database = {
           provider: string
           publish_attempts: number
         }[]
+      }
+      claim_stale_installation_operations: {
+        Args: { _lease_seconds?: number; _limit?: number; _owner: string }
+        Returns: {
+          actor_id: string | null
+          attempt_count: number
+          created_at: string
+          detail: Json
+          error_kind: string | null
+          finished_at: string | null
+          id: string
+          installation_id: string
+          kind: string
+          last_report_at: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
+          run_token_expires_at: string | null
+          run_token_hash: string | null
+          started_at: string
+          status: string
+          steps: Json
+          summary: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "installation_operations"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       clean_mention_tokens: { Args: { _body: string }; Returns: string }
       client_in_scope: {
@@ -8806,6 +8873,10 @@ export type Database = {
           _module: string
           _user_id: string
         }
+        Returns: boolean
+      }
+      heartbeat_installation_operation: {
+        Args: { _lease_seconds?: number; _operation_id: string; _owner: string }
         Returns: boolean
       }
       installation_setup_state: { Args: never; Returns: Json }
@@ -9037,6 +9108,7 @@ export type Database = {
         }
         Returns: {
           actor_id: string | null
+          attempt_count: number
           created_at: string
           detail: Json
           error_kind: string | null
@@ -9045,6 +9117,8 @@ export type Database = {
           installation_id: string
           kind: string
           last_report_at: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
           run_token_expires_at: string | null
           run_token_hash: string | null
           started_at: string

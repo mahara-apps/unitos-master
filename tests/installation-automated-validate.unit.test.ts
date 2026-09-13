@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyVerificationCheck,
   classifyVerificationHealthCheck,
+  classifyVerificationTarget,
 } from "@/lib/installation/automation.server";
 import { VALIDATE_STEPS } from "@/lib/installation/manager-contract";
 
@@ -25,6 +26,9 @@ describe("validação automática — classificação das verificações", () =>
       "storage: 5 buckets privados esperados",
       "storage: policies em storage.objects (esperado >= 12)",
       "seeds: agent_prompts (esperado >= 9)",
+      "seeds: automations desligado por padrão",
+      "schema: colunas de estratégia do plano de mídia",
+      "tarefas: estado Bloqueada disponível",
       "sem dados de negócio herdados (marcas/clientes/posts/credenciais)",
       "vault: cron_secret presente e com tamanho mínimo",
       "cron: total de jobs (esperado 14+)",
@@ -54,5 +58,16 @@ describe("validação automática — classificação das verificações", () =>
     expect(classifyVerificationHealthCheck("Mensagens: recurso disponível e ligado por padrão")).toBe(
       "seeds",
     );
+  });
+
+  it("usa uma única classificação para a etapa e o cartão de saúde", () => {
+    expect(classifyVerificationTarget("schema: colunas de estratégia")).toEqual({
+      step: "schema",
+      health: "schema",
+    });
+    expect(classifyVerificationTarget("seeds: feature_catalog")).toEqual({
+      step: "seeds",
+      health: "seeds",
+    });
   });
 });

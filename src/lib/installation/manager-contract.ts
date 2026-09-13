@@ -21,7 +21,7 @@ import { MASTER_FORBIDDEN_TOKENS } from "./bootstrap-contract";
  * Subir a cada correção de banco/código propagável: é o que habilita o botão
  * "Atualizar" (que agora também aplica o delta de banco na instalação).
  */
-export const MASTER_RELEASE_VERSION = "1.3.71";
+export const MASTER_RELEASE_VERSION = "1.3.72";
 
 /* ------------------------------------------------------------------ MASTER */
 
@@ -55,6 +55,7 @@ export function isMasterInstallation(input: MasterDetectionInput): boolean {
 export const INSTALLATION_STATUSES = [
   "preparing",
   "provisioning",
+  "updating",
   "validating",
   "update_available",
   "up_to_date",
@@ -67,6 +68,7 @@ export type InstallationStatus = (typeof INSTALLATION_STATUSES)[number];
 export const INSTALLATION_STATUS_LABEL: Record<InstallationStatus, string> = {
   preparing: "Preparando",
   provisioning: "Provisionando",
+  updating: "Atualizando",
   validating: "Validando",
   update_available: "Atualização disponível",
   up_to_date: "Atualizada",
@@ -123,6 +125,7 @@ export function canStartOperation(
 /** Status enquanto a operação está em execução. */
 export function runningStatusFor(kind: InstallationOperationKind): InstallationStatus {
   if (kind === "validate") return "validating";
+  if (kind === "update") return "updating";
   return "provisioning";
 }
 
@@ -373,6 +376,11 @@ export const VALIDATE_STEPS = [
     script: "supabase/install/verify-installation.sql",
   },
   {
+    id: "schema",
+    label: "Estrutura funcional",
+    script: "supabase/install/verify-installation.sql",
+  },
+  {
     id: "rls",
     label: "RLS, funções e triggers",
     script: "supabase/install/verify-installation.sql",
@@ -382,6 +390,7 @@ export const VALIDATE_STEPS = [
     label: "Buckets e policies",
     script: "supabase/install/verify-installation.sql",
   },
+  { id: "seeds", label: "Catálogos e padrões", script: "supabase/install/verify-installation.sql" },
   { id: "cron", label: "Cron e URL própria", script: "supabase/install/verify-installation.sql" },
 ] as const;
 
