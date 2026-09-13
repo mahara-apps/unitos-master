@@ -30,7 +30,7 @@ export function JobTaskRow({
   menu,
 }: Props) {
   return (
-    <div className="grid grid-cols-[28px_minmax(0,1fr)_32px] items-start gap-x-2 gap-y-2.5 px-4 py-3.5 @[900px]:grid-cols-[28px_minmax(220px,1fr)_112px_88px_32px_76px_32px_32px] @[900px]:items-center @[900px]:gap-x-2">
+    <div className="grid grid-cols-[28px_minmax(0,1fr)_32px] items-start gap-x-2 gap-y-2.5 px-4 py-3.5 @[900px]:grid-cols-[28px_minmax(220px,1fr)_112px_88px_32px_76px_32px_32px_32px] @[900px]:items-center @[900px]:gap-x-2">
       <div className="shrink-0">{completion}</div>
 
       <Button
@@ -49,7 +49,7 @@ export function JobTaskRow({
         </span>
       </Button>
 
-      <div className="row-start-1 flex h-8 shrink-0 items-center justify-end @[900px]:col-start-8">
+      <div className="row-start-1 flex h-8 shrink-0 items-center justify-end @[900px]:col-start-9">
         {menu}
       </div>
 
