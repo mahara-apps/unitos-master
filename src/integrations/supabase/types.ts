@@ -9233,6 +9233,15 @@ export type Database = {
         Args: { _brand_id: string; _client_id: string }
         Returns: boolean
       }
+      compare_and_set_installation_generated_secrets: {
+        Args: {
+          _ciphertext: string
+          _expected_updated_at: string
+          _installation_id: string
+          _updated_by?: string
+        }
+        Returns: boolean
+      }
       consolidate_brain_memory: {
         Args: { _brand_id?: string }
         Returns: number
