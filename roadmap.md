@@ -1,15 +1,5 @@
 # Roadmap
 
-## MASTER 1.3.84–1.3.88 — Correção definitiva de provisionamento e atualização
-
-- [ ] 1.3.84: criar tentativas, etapas, efeitos, outbox e ledger de migrations; isolar checkpoints e eliminar falhas silenciosas.
-- [ ] 1.3.85: integrar QStash com callback assinado, despacho imediato, retries duráveis e reconciliação.
-- [ ] 1.3.86: validar hash, ordem e predecessoras das migrations e consolidar o baseline de instalações novas.
-- [ ] 1.3.87: concluir sagas de provisionamento/update, manutenção fail-closed, compensações, estados e observabilidade na interface.
-- [ ] 1.3.88: executar carga/caos/canary, drenar e remover o executor legado e concluir hardening.
-- [ ] Recuperar a Taveira somente após reconciliação de manifesto, ledger e checkpoints no fluxo novo.
-- [ ] Publicar ou propagar apenas após autorização explícita.
-
 ## MASTER 1.3.83 — Retomada segura da atualização da Taveira
 
 - [x] Reavaliar dependências SQL após cada lote e preservar a fila entre retomadas.
