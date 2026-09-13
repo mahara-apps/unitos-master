@@ -335,3 +335,44 @@ export const setJobArchivedFn = createServerFn({ method: "POST" })
     if (!rows || rows.length === 0) throw new Error("Forbidden: job fora do seu escopo");
     return { ok: true };
   });
+
+export type JobActivity = {
+  id: string;
+  actor_id: string | null;
+  actor_name: string | null;
+  entity_type: string;
+  verb: string;
+  payload: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export const listJobActivityFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid(), jobId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }): Promise<JobActivity[]> => {
+    const { data: taskRows, error: taskError } = await context.supabase
+      .from("tasks")
+      .select("id")
+      .eq("brand_id", data.brandId)
+      .eq("job_id", data.jobId);
+    if (taskError) throw taskError;
+    const taskIds = ((taskRows ?? []) as Array<{ id: string }>).map((task) => task.id);
+    let query = context.supabase
+      .from("activity_events")
+      .select("id, actor_id, entity_type, entity_id, verb, payload, created_at")
+      .eq("brand_id", data.brandId)
+      .order("created_at", { ascending: false })
+      .limit(200);
+    query = taskIds.length
+      ? query.or(`and(entity_type.eq.job,entity_id.eq.${data.jobId}),and(entity_type.eq.task,entity_id.in.(${taskIds.join(",")}))`)
+      : query.eq("entity_type", "job").eq("entity_id", data.jobId);
+    const { data: rows, error } = await query;
+    if (error) throw error;
+    const events = (rows ?? []) as Array<Omit<JobActivity, "actor_name"> & { entity_id: string | null }>;
+    const actorIds = Array.from(new Set(events.map((event) => event.actor_id).filter((id): id is string => id != null)));
+    const { data: profiles } = actorIds.length
+      ? await context.supabase.from("user_profiles").select("id, full_name").in("id", actorIds)
+      : { data: [] };
+    const names = new Map(((profiles ?? []) as Array<{ id: string; full_name: string | null }>).map((profile) => [profile.id, profile.full_name]));
+    return events.map((event) => ({ ...event, actor_name: event.actor_id ? names.get(event.actor_id) ?? null : null }));
+  });
