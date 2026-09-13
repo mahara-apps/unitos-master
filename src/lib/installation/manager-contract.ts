@@ -21,7 +21,7 @@ import { MASTER_FORBIDDEN_TOKENS } from "./bootstrap-contract";
  * Subir a cada correção de banco/código propagável: é o que habilita o botão
  * "Atualizar" (que agora também aplica o delta de banco na instalação).
  */
-export const MASTER_RELEASE_VERSION = "1.3.80";
+export const MASTER_RELEASE_VERSION = "1.3.81";
 
 /* ------------------------------------------------------------------ MASTER */
 
@@ -98,11 +98,21 @@ export const OPERATION_KIND_LABEL: Record<InstallationOperationKind, string> = {
   update: "Atualização",
 };
 
-export type InstallationOperationStatus = "pending" | "running" | "success" | "failed";
+export type InstallationOperationStatus =
+  | "pending"
+  | "running"
+  | "retryable"
+  | "blocked"
+  | "manual_review"
+  | "success"
+  | "failed";
 
 export const OPERATION_STATUS_LABEL: Record<InstallationOperationStatus, string> = {
   pending: "Na fila",
   running: "Em execução",
+  retryable: "Nova tentativa agendada",
+  blocked: "Bloqueada",
+  manual_review: "Revisão manual",
   success: "Concluída",
   failed: "Falhou",
 };

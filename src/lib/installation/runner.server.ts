@@ -155,6 +155,9 @@ export type OperationRow = {
   run_token_expires_at: string | null;
   lease_owner?: string | null;
   lease_expires_at?: string | null;
+  fencing_token?: number;
+  attempt_count?: number;
+  max_attempts?: number;
 };
 
 export const AUTOMATION_LEASE_SECONDS = 180;
@@ -172,10 +175,11 @@ export async function heartbeatOperation(
   op: OperationRow,
 ): Promise<boolean> {
   const owner = op.lease_owner?.trim();
-  if (!owner) return true;
+  if (!owner || typeof op.fencing_token !== "number") return false;
   const { data, error } = await client.rpc("heartbeat_installation_operation", {
     _operation_id: op.id,
     _owner: owner,
+    _fencing_token: op.fencing_token,
     _lease_seconds: AUTOMATION_LEASE_SECONDS,
   });
   if (error) throw error;
@@ -267,20 +271,19 @@ export async function applyProgressReport(
     detail: sanitize(report.detail),
     percent: report.percent ?? null,
   });
-  const { data: saved, error } = await client
-    .from("installation_operations")
-    .update({
-      steps,
-      status: operationStatusFromSteps(steps) === "failed" ? "running" : "running",
-      last_report_at: new Date().toISOString(),
-    })
-    .eq("id", op.id)
-    .eq("lease_owner", op.lease_owner)
-    .in("status", ["pending", "running"])
-    .select("id")
-    .maybeSingle();
+  const detail = (fresh?.detail ?? op.detail ?? {}) as Record<string, unknown>;
+  const { data: saved, error } = await client.rpc("checkpoint_installation_operation", {
+    _operation_id: op.id,
+    _owner: op.lease_owner ?? "",
+    _fencing_token: op.fencing_token ?? -1,
+    _steps: steps,
+    _detail: detail,
+    _current_step: report.step,
+    _summary: null,
+    _metrics: { lastProgressAt: new Date().toISOString() },
+  });
   if (error) throw error;
-  if (!saved) throw new InstallationLeaseLostError();
+  if (saved !== true) throw new InstallationLeaseLostError();
   return steps;
 }
 
@@ -330,33 +333,6 @@ export async function finalizeOperation(
     version: (report.version ?? "").trim() || null,
   };
 
-  const { data: closed, error: opError } = await client
-    .from("installation_operations")
-    .update({
-      steps: finalSteps,
-      status: acceptedSuccess ? "success" : "failed",
-      summary,
-      error_kind: acceptedSuccess
-        ? null
-        : (sanitize(report.errorKind) ?? (report.ok ? "incomplete_steps" : "operation_failed")),
-      detail: {
-        ...((fresh?.detail ?? op.detail ?? {}) as Record<string, unknown>),
-        executed: true,
-        warnings: outcome.warnings,
-        releaseVersion: MASTER_RELEASE_VERSION,
-      },
-      run_token_hash: null,
-      finished_at: nowIso,
-      last_report_at: nowIso,
-    })
-    .eq("id", op.id)
-    .eq("lease_owner", op.lease_owner)
-    .in("status", ["pending", "running"])
-    .select("id")
-    .maybeSingle();
-  if (opError) throw opError;
-  if (!closed) throw new InstallationLeaseLostError();
-
   const { data: installation } = await client
     .from("installations")
     .select("health_checks, pinned_release, current_version")
@@ -392,6 +368,56 @@ export async function finalizeOperation(
     ...(kind === "validate" ? { last_validated_at: nowIso } : {}),
   };
 
+  const owner = op.lease_owner?.trim();
+  if (owner && typeof op.fencing_token === "number") {
+    const { data: closed, error } = await client.rpc("finalize_installation_operation", {
+      _operation_id: op.id,
+      _owner: owner,
+      _fencing_token: op.fencing_token,
+      _operation_status: acceptedSuccess ? "success" : "failed",
+      _summary: summary,
+      _error_kind: acceptedSuccess
+        ? null
+        : (sanitize(report.errorKind) ?? (report.ok ? "incomplete_steps" : "operation_failed")),
+      _detail: {
+        ...((fresh?.detail ?? op.detail ?? {}) as Record<string, unknown>),
+        executed: true,
+        warnings: outcome.warnings,
+        releaseVersion: MASTER_RELEASE_VERSION,
+      },
+      _steps: finalSteps,
+      _installation_status: patch.status,
+      _health: patch.health,
+      _health_checks: checks,
+      _current_version: kind !== "validate" && outcome.version ? outcome.version : null,
+      _touch_provisioned: kind !== "validate" && acceptedSuccess,
+      _touch_validated: kind === "validate",
+    });
+    if (error) throw error;
+    if (closed !== true) throw new InstallationLeaseLostError();
+    return;
+  }
+
+  // Operações manuais legadas não possuem lease e continuam fechando pelo
+  // caminho restrito ao Super Admin.
+  const { data: closed, error: opError } = await client
+    .from("installation_operations")
+    .update({
+      steps: finalSteps,
+      status: acceptedSuccess ? "success" : "failed",
+      summary,
+      error_kind: acceptedSuccess ? null : (sanitize(report.errorKind) ?? "operation_failed"),
+      detail: { ...((fresh?.detail ?? op.detail ?? {}) as Record<string, unknown>), executed: true },
+      finished_at: nowIso,
+      last_report_at: nowIso,
+    })
+    .eq("id", op.id)
+    .is("lease_owner", null)
+    .in("status", ["pending", "running"])
+    .select("id")
+    .maybeSingle();
+  if (opError) throw opError;
+  if (!closed) throw new InstallationLeaseLostError();
   const { error: instError } = await client
     .from("installations")
     .update(patch)
