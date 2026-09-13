@@ -61,6 +61,17 @@ describe("gestão de jobs e tarefas no projeto", () => {
     expect(list).toContain("text-work-done");
     expect(list).toContain("border-dashed");
     expect(jobs).toContain("Jobs & Pautas");
+    expect(list).toContain("compactPill selectionOnly");
+    expect(list).toContain('aria-label="Buscar jobs"');
+    expect(list).toContain('useState(false)');
+  });
+
+  it("mantém todas as rotas e parâmetros do projeto durante a correção visual", () => {
+    expect(route).toContain('tab: z.enum(PROJECT_TABS).optional()');
+    expect(route).toContain('job: z.string().uuid().optional()');
+    expect(route).toContain('pauta: z.string().optional()');
+    expect(route).toContain('board: z.enum(["board", "calendar"]).optional()');
+    expect(route).toContain('estagio: z.enum(CONTENT_STAGE_KEYS).optional()');
   });
 
   it("distribui os cinco status oficiais de job sem os legados", () => {

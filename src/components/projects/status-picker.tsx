@@ -68,6 +68,8 @@ export function StatusPicker({
   disabled,
   placeholder = "Sem status",
   className = "h-8 w-[170px]",
+  compactPill = false,
+  selectionOnly = false,
 }: {
   brandId: string;
   scope: WorkStatusScope;
@@ -76,6 +78,8 @@ export function StatusPicker({
   disabled?: boolean;
   className?: string;
   placeholder?: string;
+  compactPill?: boolean;
+  selectionOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -97,7 +101,15 @@ export function StatusPicker({
           variant="outline"
           role="combobox"
           aria-label="Status"
-          className={cn("justify-between gap-2 px-2.5 font-normal", className)}
+          className={cn(
+            "justify-between gap-2 px-2.5 font-normal",
+            compactPill && "border-transparent shadow-none hover:border-transparent",
+            className,
+          )}
+          style={compactPill && current?.color ? {
+            color: current.color,
+            backgroundColor: `color-mix(in oklab, ${current.color} 12%, transparent)`,
+          } : undefined}
         >
           <span className="flex min-w-0 items-center gap-2">
             {current ? <StatusDot color={current.color} /> : null}
@@ -112,7 +124,7 @@ export function StatusPicker({
           <CommandList className="max-h-[260px]">
             <CommandEmpty>Nenhum status encontrado.</CommandEmpty>
              <CommandGroup>
-              <CommandItem
+              {!selectionOnly ? <CommandItem
                 value="Sem status"
                 onSelect={() => {
                   onChange(null);
@@ -123,7 +135,7 @@ export function StatusPicker({
                   Sem status
                 </span>
                 {!value ? <Check className="h-3.5 w-3.5" /> : null}
-              </CommandItem>
+              </CommandItem> : null}
               {statuses.map((s) => (
                 <CommandItem
                   key={s.id}
@@ -145,9 +157,9 @@ export function StatusPicker({
             </CommandGroup>
           </CommandList>
         </Command>
-        <div className="border-t border-border/60 px-3 py-2">
+        {!selectionOnly ? <div className="border-t border-border/60 px-3 py-2">
           {creating ? <div className="flex gap-2"><input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) createMut.mutate(); }} className="h-8 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-xs" placeholder="Nome do status" /><Button size="sm" className="h-8" disabled={!name.trim()} onClick={() => createMut.mutate()}>Criar</Button></div> : <div className="flex items-center justify-between"><Button size="sm" variant="ghost" className="h-7 gap-1 px-1 text-xs" onClick={() => setCreating(true)}><Plus className="h-3 w-3" />Novo status</Button><ManageLink /></div>}
-        </div>
+        </div> : null}
       </PopoverContent>
     </Popover>
   );
