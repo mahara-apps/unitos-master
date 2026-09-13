@@ -304,7 +304,8 @@ export function JobsPanel({ brandId, projectId, projectName = "Projeto", clientN
             <div className="flex min-w-0 items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground"><span className="truncate">{projectName}</span><ChevronRight className="h-3 w-3" /><span className="text-foreground">{mode === "jobs" ? "Jobs" : "Visão geral"}</span></div>
           </div>
           <div className="flex items-center gap-1.5">
-            <DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant={visibility === "active" ? "ghost" : "secondary"} className="h-8 gap-1.5 px-2 text-xs"><Archive className="h-3 w-3" />{visibility === "active" ? "Exibir" : VISIBILITY_LABELS[visibility]}</Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><VisibilityMenuBlock value={visibility} onChange={setVisibility} label="Exibir jobs" withSeparator={false} /></DropdownMenuContent></DropdownMenu>
+             {mode === "overview" ? <DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant={visibility === "active" ? "ghost" : "secondary"} className="h-8 gap-1.5 px-2 text-xs"><Archive className="h-3 w-3" />{visibility === "active" ? "Exibir" : VISIBILITY_LABELS[visibility]}</Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><VisibilityMenuBlock value={visibility} onChange={setVisibility} label="Exibir jobs" withSeparator={false} /></DropdownMenuContent></DropdownMenu> : null}
+             {mode === "jobs" && hasPautas ? <Button size="sm" variant="outline" className="h-8 gap-1.5 px-3 text-xs" onClick={openPautas}><Sparkles className="h-3.5 w-3.5" />Pautas</Button> : null}
             <Button size="sm" className="h-8 gap-1.5 px-3 text-xs" onClick={() => setMode("jobs")}><Plus className="h-3.5 w-3.5" />Jobs</Button>
           </div>
         </div>
