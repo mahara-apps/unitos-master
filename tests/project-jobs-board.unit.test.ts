@@ -12,6 +12,7 @@ const overview = fs.readFileSync("src/components/projects/project-overview.tsx",
 
 describe("gestão de jobs e tarefas no projeto", () => {
   it("separa Jobs e Pautas e agrupa jobs em três colunas", () => {
+    expect(list).toContain('value="none"');
     expect(list).toContain('value="status"');
     expect(list).toContain('value="assignee"');
     expect(list).toContain('value="due"');
@@ -56,7 +57,7 @@ describe("gestão de jobs e tarefas no projeto", () => {
     expect(list).toContain("DueDateChip");
     expect(list).toContain("StatusPicker");
     expect(list).toContain("job-status:");
-    expect(list).toContain("Agrupar por:");
+    expect(list).toContain("Agrupar:");
     expect(list).toContain("text-work-done");
     expect(list).toContain("border-dashed");
     expect(jobs).toContain("Jobs & Pautas");
