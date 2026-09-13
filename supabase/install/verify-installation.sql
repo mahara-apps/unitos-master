@@ -386,6 +386,31 @@ WITH checks AS (
                     )
               THEN 'PASS' ELSE 'FAIL' END
 
+  UNION ALL
+  SELECT 57, 'Jobs: numeração, status e timer direto instalados',
+         format('contador=%s colunas=%s xor=%s funções=%s triggers=%s',
+           to_regclass('public.project_job_counters') IS NOT NULL,
+           (SELECT count(*) FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND (table_name, column_name) IN (('project_jobs','job_number'),('project_jobs','estimated_minutes'),('work_statuses','task_state'),('task_time_entries','job_id'))),
+           EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'task_time_entries_one_target'),
+           (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+             WHERE n.nspname = 'public' AND p.proname IN ('start_job_timer','ensure_default_work_statuses')),
+           (SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal AND tgname IN ('project_jobs_assign_number','project_jobs_number_immutable'))),
+         CASE WHEN to_regclass('public.project_job_counters') IS NOT NULL
+                    AND (SELECT count(*) FROM information_schema.columns
+                          WHERE table_schema = 'public'
+                            AND (table_name, column_name) IN (('project_jobs','job_number'),('project_jobs','estimated_minutes'),('work_statuses','task_state'),('task_time_entries','job_id'))) = 4
+                    AND EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'project_jobs_brand_number_unique')
+                    AND EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'project_jobs_estimated_minutes_nonnegative')
+                    AND EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'task_time_entries_one_target')
+                    AND (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                          WHERE n.nspname = 'public' AND p.proname IN ('start_job_timer','ensure_default_work_statuses')) = 2
+                    AND (SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal AND tgname IN ('project_jobs_assign_number','project_jobs_number_immutable')) = 2
+                    AND NOT has_function_privilege('anon', 'public.start_job_timer(uuid,uuid)', 'EXECUTE')
+                    AND NOT has_function_privilege('anon', 'public.ensure_default_work_statuses(uuid)', 'EXECUTE')
+              THEN 'PASS' ELSE 'FAIL' END
+
   -- ----------------------------------------------------------------- vault / cron
   UNION ALL
   SELECT 60, 'vault: cron_secret presente e com tamanho mínimo',
@@ -465,7 +490,8 @@ WITH checks AS (
                'messages','portal_notification_prefs','post_client_comments','post_copy_queue_state',
                'client_ad_accounts','project_participants','user_login_events','work_comments',
                 'work_links','work_statuses','client_automation_attempts',
-                'client_automation_dates','client_automation_dispatches','client_automation_rules'
+                 'client_automation_dates','client_automation_dispatches','client_automation_rules',
+                 'project_job_counters'
              ]) AS t
              WHERE to_regclass('public.' || t) IS NULL
            ) faltando
@@ -480,7 +506,8 @@ WITH checks AS (
              'messages','portal_notification_prefs','post_client_comments','post_copy_queue_state',
              'client_ad_accounts','project_participants','user_login_events','work_comments',
               'work_links','work_statuses','client_automation_attempts',
-              'client_automation_dates','client_automation_dispatches','client_automation_rules'
+               'client_automation_dates','client_automation_dispatches','client_automation_rules',
+               'project_job_counters'
            ]) AS t
            WHERE to_regclass('public.' || t) IS NULL
          ) THEN 'PASS' ELSE 'FAIL' END
