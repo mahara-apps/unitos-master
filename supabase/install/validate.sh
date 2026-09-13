@@ -20,7 +20,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 . "$HERE/report.sh"
 
-RELEASE_VERSION="2026.09.0"
+RELEASE_VERSION="$(awk -F= '/^version=/{print $2; exit}' "$HERE/../baseline-snapshot/tools/delta_version.txt" | tr -d '[:space:]')"
+[ -n "$RELEASE_VERSION" ] || { echo "versão do MASTER ausente"; exit 1; }
 
 [ -n "${SUPABASE_DB_URL:-}" ] || { echo "SUPABASE_DB_URL ausente"; exit 1; }
 command -v psql >/dev/null 2>&1 || { echo "psql não encontrado"; exit 1; }
