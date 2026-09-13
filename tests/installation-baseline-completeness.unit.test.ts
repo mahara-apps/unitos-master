@@ -334,6 +334,15 @@ describe("reexecução idempotente do baseline", () => {
     expect(prerequisite).toBeGreaterThan(-1);
     expect(ledger).toBeGreaterThan(prerequisite);
   });
+
+  it("não envia consulta vazia ao preparar o ledger sem seeds", () => {
+    const source = readFileSync("src/lib/installation/automation.server.ts", "utf8");
+    const emptyGuard = source.indexOf("if (migrations.length === 0) return { ok: true }");
+    const ledgerInsert = source.indexOf("const written = await management.query(", emptyGuard);
+
+    expect(emptyGuard).toBeGreaterThan(-1);
+    expect(ledgerInsert).toBeGreaterThan(emptyGuard);
+  });
 });
 
 describe("tabelas auxiliares da automação e RLS", () => {
