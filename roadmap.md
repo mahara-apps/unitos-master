@@ -1,5 +1,13 @@
 # Roadmap
 
+## MASTER 1.3.84 — Compatibilidade antes do delta da Taveira
+
+- [x] Confirmar a falha atual e identificar que a migration corretiva era posterior ao bloqueio.
+- [x] Preparar colunas de lease idempotentes antes de ler e aplicar o ledger incremental.
+- [x] Cobrir a ordem obrigatória com teste de regressão.
+- [x] Regenerar o pacote, sincronizar versão/SHA e executar `master:check`.
+- [ ] Publicar o MASTER e iniciar nova tentativa na Taveira somente após autorização explícita.
+
 ## MASTER 1.3.83 — Retomada segura da atualização da Taveira
 
 - [x] Reavaliar dependências SQL após cada lote e preservar a fila entre retomadas.

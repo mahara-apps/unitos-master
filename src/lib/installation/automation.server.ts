@@ -4064,6 +4064,19 @@ export type DeltaMigration = { file: string; sql: string; fingerprint: string };
 export const INCREMENTAL_LEDGER_CUTOVER_FILE =
   "20260913124118_9f453a5e-8c5e-4504-9f99-3a8ecfd59eb2.sql";
 
+/**
+ * Ponte mínima para instalações que já tinham o marcador cumulativo legado.
+ * Algumas delas foram consideradas cobertas até o corte incremental mesmo sem
+ * terem recebido as colunas de lease da migration do corte. A preparação roda
+ * antes do ledger e permite que a primeira migration incremental crie seus
+ * índices e funções sem depender de uma migration corretiva posterior.
+ */
+export const INSTALLATION_OPERATIONS_INCREMENTAL_PREREQUISITES_SQL = [
+  "alter table public.installation_operations add column if not exists lease_owner text",
+  "alter table public.installation_operations add column if not exists lease_expires_at timestamptz",
+  "alter table public.installation_operations add column if not exists attempt_count integer not null default 0",
+].join(";\n");
+
 /** Divide o pacote pelos marcadores emitidos pelo gerador MASTER-first. */
 export function splitDeltaMigrations(sql: string): DeltaMigration[] {
   const marker = /^-- -+\n-- ([0-9]{14}_[A-Za-z0-9_-]+\.sql)\n-- -+\n/gm;
@@ -4127,6 +4140,14 @@ export async function applyDatabaseDelta(input: {
     projectRef: target.projectRef,
     fetchImpl: input.fetchImpl,
   });
+
+  const prerequisites = await management.query(INSTALLATION_OPERATIONS_INCREMENTAL_PREREQUISITES_SQL);
+  if (!prerequisites.ok) {
+    return {
+      state: "error",
+      detail: `preparação do banco para migrations incrementais falhou: ${prerequisites.error ?? "erro"}`,
+    };
+  }
 
   const migrations = splitDeltaMigrations(baseline007);
   if (migrations.length === 0) {
