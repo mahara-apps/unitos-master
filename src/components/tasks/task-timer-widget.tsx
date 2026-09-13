@@ -155,13 +155,33 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
 
   const busy = startMut.isPending || pauseMut.isPending || stopMut.isPending;
 
+  if (compact) {
+    const label = status === "running"
+      ? `Pausar timer · ${formatSeconds(displayedSeconds)}`
+      : status === "paused"
+        ? `Retomar timer · ${formatSeconds(displayedSeconds)}`
+        : active
+          ? "Iniciar nesta tarefa e trocar o timer ativo"
+          : "Iniciar timer";
+
+    return (
+      <Button
+        size="icon"
+        variant={status === "running" ? "secondary" : "ghost"}
+        className={status === "running" ? "h-8 w-8 rounded-full text-primary ring-1 ring-primary/30" : "h-8 w-8 rounded-full text-primary"}
+        onClick={() => status === "running" ? pauseMut.mutate() : startMut.mutate()}
+        disabled={busy}
+        aria-label={label}
+        title={label}
+      >
+        {status === "running" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+      </Button>
+    );
+  }
+
   return (
     <div
-      className={
-        compact
-          ? "flex items-center gap-2"
-          : "flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 p-3"
-      }
+      className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 p-3"
     >
       <div className="min-w-0">
         <div className="font-mono text-lg tabular-nums leading-none">
