@@ -1168,10 +1168,11 @@ async function openAutomatedProvision(
 
   const { runAutomatedProvision } = await import("./automation.server");
   const { withOperationHeartbeat } = await import("./runner.server");
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { waitUntil } = await import("@/lib/wait-until.server");
   waitUntil(
-    withOperationHeartbeat(supabase as never, op as never, () => runAutomatedProvision({
-      client: supabase as never,
+    withOperationHeartbeat(supabaseAdmin as never, op as never, () => runAutomatedProvision({
+      client: supabaseAdmin as never,
       operation: op as never,
       env,
       installation: {
@@ -1188,7 +1189,7 @@ async function openAutomatedProvision(
       const { finalizeOperation } = await import("./runner.server");
       const message =
         error instanceof Error ? error.message : "falha inesperada no provisionamento";
-      await finalizeOperation(supabase as never, op as never, {
+      await finalizeOperation(supabaseAdmin as never, op as never, {
         ok: false,
         summary: `FAIL: ${message}`,
         errorKind: "unexpected_error",
@@ -1300,10 +1301,12 @@ export const runAutomatedValidateFn = createServerFn({ method: "POST" })
     });
 
     const { runAutomatedValidate } = await import("./automation.server");
+    const { withOperationHeartbeat } = await import("./runner.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { waitUntil } = await import("@/lib/wait-until.server");
     waitUntil(
-      runAutomatedValidate({
-        client: context.supabase as never,
+      withOperationHeartbeat(supabaseAdmin as never, op as never, () => runAutomatedValidate({
+        client: supabaseAdmin as never,
         operation: op as never,
         env,
         installation: {
@@ -1314,10 +1317,10 @@ export const runAutomatedValidateFn = createServerFn({ method: "POST" })
           deployProject: record.deployProject,
           gitRepoUrl: record.gitRepoUrl,
         },
-      }).catch(async (caught: unknown) => {
+      })).catch(async (caught: unknown) => {
         const { finalizeOperation } = await import("./runner.server");
         const message = caught instanceof Error ? caught.message : "falha inesperada na validação";
-        await finalizeOperation(context.supabase as never, op as never, {
+        await finalizeOperation(supabaseAdmin as never, op as never, {
           ok: false,
           summary: `FAIL: ${message}`,
           errorKind: "unexpected_error",
@@ -1657,6 +1660,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
 
     const { runAutomatedUpdate } = await import("./automation.server");
     const { withOperationHeartbeat } = await import("./runner.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { waitUntil } = await import("@/lib/wait-until.server");
     const { setRemoteInstallationServiceState } = await import("./service-state.server");
 
@@ -1678,8 +1682,8 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
     await setServiceState("maintenance");
 
     waitUntil(
-      withOperationHeartbeat(supabase as never, op as never, () => runAutomatedUpdate({
-        client: supabase as never,
+      withOperationHeartbeat(supabaseAdmin as never, op as never, () => runAutomatedUpdate({
+        client: supabaseAdmin as never,
         operation: op as never,
         env,
         commitSha: targetSha,
@@ -1701,7 +1705,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
           const { finalizeOperation } = await import("./runner.server");
           const message =
             error instanceof Error ? error.message : "falha inesperada na atualização";
-          await finalizeOperation(supabase as never, op as never, {
+          await finalizeOperation(supabaseAdmin as never, op as never, {
             ok: false,
             summary: `FAIL: ${message}`,
             errorKind: "unexpected_error",

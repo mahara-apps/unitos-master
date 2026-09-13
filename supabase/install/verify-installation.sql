@@ -179,10 +179,13 @@ WITH checks AS (
          (SELECT count(*)::text FROM public.agent_prompts),
          CASE WHEN (SELECT count(*) FROM public.agent_prompts) >= 9 THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
-  SELECT 41, 'seeds: feature_catalog (esperado >= 15 e automations desligado)',
+  SELECT 41, 'seeds: feature_catalog (esperado >= 15)',
          (SELECT count(*)::text FROM public.feature_catalog),
-         CASE WHEN (SELECT count(*) FROM public.feature_catalog) >= 15
-                    AND EXISTS (SELECT 1 FROM public.feature_catalog WHERE key = 'automations' AND default_enabled = false)
+         CASE WHEN (SELECT count(*) FROM public.feature_catalog) >= 15 THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
+  SELECT 47, 'seeds: automations desligado por padrão',
+         coalesce((SELECT default_enabled::text FROM public.feature_catalog WHERE key = 'automations'), 'ausente'),
+         CASE WHEN EXISTS (SELECT 1 FROM public.feature_catalog WHERE key = 'automations' AND default_enabled = false)
               THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
   SELECT 42, 'seeds: brain_retention_config (esperado >= 7)',
@@ -350,7 +353,7 @@ WITH checks AS (
 
   -- --------------------------------------------------- nenhum dado de negócio copiado
   UNION ALL
-  SELECT 50, 'sem dados de negócio herdados (marcas/clientes/posts/credenciais)',
+  SELECT 51, 'sem dados de negócio herdados (marcas/clientes/posts/credenciais)',
          format('brands=%s clients=%s posts=%s credenciais=%s meta_app=%s',
                 (SELECT count(*) FROM public.brands),
                 (SELECT count(*) FROM public.clients),

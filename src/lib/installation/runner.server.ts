@@ -141,6 +141,7 @@ export async function probeInstallationHealth(input: {
 
 type AnyClient = {
   from: (table: string) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
 };
 
 export type OperationRow = {
