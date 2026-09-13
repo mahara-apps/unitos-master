@@ -21,6 +21,13 @@
 - [x] Manter `/projects/$projectId` e todos os parâmetros e abas existentes.
 - [ ] Publicar e propagar somente após autorização explícita.
 
+## MASTER 1.3.76 — Lista de Jobs fiel ao padrão de tarefas
+
+- [x] Linha densa com progresso, tempo ativo, equipe, prazo, status pesquisável e menu completo.
+- [x] Acessos separados para Jobs e Pautas, grupos de status e quadro alinhados à referência Operand.
+- [x] Migrar os status legados para os cinco estados oficiais sem remover status personalizados.
+- [ ] Publicar e propagar somente após autorização explícita.
+
 - [x] Reformular visualmente lista, detalhe e painel de job da área Projetos; preservar ações e sincronizar MASTER 1.3.66.
 - [x] Adicionar reenvio/edição de convites e ocultar o Super Admin global de listas e menções; sincronizar MASTER.
 - [x] Corrigir conclusão prematura do deploy por Git e reconciliar a versão registrada da Casa 8.
