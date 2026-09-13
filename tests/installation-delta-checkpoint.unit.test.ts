@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  databaseMigrationsPercent,
   deltaProgressKey,
   INCREMENTAL_LEDGER_CUTOVER_FILE,
   splitDeltaMigrations,
@@ -51,5 +52,13 @@ select 2;`;
 
   it("mantém um corte explícito para converter instalações com ledger legado", () => {
     expect(INCREMENTAL_LEDGER_CUTOVER_FILE).toMatch(/^\d{14}_.+\.sql$/);
+  });
+
+  it("calcula progresso acumulado sem voltar a zero entre migrations", () => {
+    expect(databaseMigrationsPercent({ total: 20, completed: 8 })).toBe(40);
+    expect(
+      databaseMigrationsPercent({ total: 20, completed: 8, currentProcessed: 5, currentTotal: 10 }),
+    ).toBe(43);
+    expect(databaseMigrationsPercent({ total: 20, completed: 9 })).toBeGreaterThan(40);
   });
 });

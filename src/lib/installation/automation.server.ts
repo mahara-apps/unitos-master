@@ -2588,6 +2588,13 @@ export type BaselineProgress = Record<string, number>;
 
 /** Janela pequena: cada invocação faz um lote e devolve o controle ao runtime. */
 export const BASELINE_STATEMENTS_PER_INVOCATION = 25;
+/** Evita ultrapassar a janela segura do Worker, mas aproveita a mesma chamada. */
+export const UPDATE_DATABASE_TIME_BUDGET_MS = 20_000;
+export const UPDATE_DATABASE_MIGRATIONS_PER_INVOCATION = 8;
+
+function operationUsesFencing(operation: OperationRow): boolean {
+  return !!operation.lease_owner && typeof operation.fencing_token === "number" && operation.fencing_token >= 0;
+}
 
 /**
  * Lê o checkpoint da instalação: a última operação (inclusive a atual) que
@@ -2677,8 +2684,8 @@ export async function saveBaselineProgress(
       _metrics: { lastCheckpointAt: new Date().toISOString() },
     });
     if (error || saved !== true) throw new Error(error?.message ?? "lease da operação perdida");
-  } catch {
-    // idem: perder o checkpoint não invalida a operação.
+  } catch (error) {
+    if (operationUsesFencing(operation)) throw error;
   }
 }
 
@@ -2780,8 +2787,8 @@ export async function saveStageProgress(
       _metrics: { lastCheckpointAt: new Date().toISOString() },
     });
     if (error || saved !== true) throw new Error(error?.message ?? "lease da operação perdida");
-  } catch {
-    // idem.
+  } catch (error) {
+    if (operationUsesFencing(operation)) throw error;
   }
 }
 
@@ -2793,12 +2800,16 @@ async function report(
   detail?: string | null,
   percent?: number | null,
 ) {
-  await applyProgressReport(client as never, op as never, {
-    step,
-    state,
-    detail: detail ?? null,
-    percent: percent ?? null,
-  }).catch(() => undefined);
+  try {
+    await applyProgressReport(client as never, op as never, {
+      step,
+      state,
+      detail: detail ?? null,
+      percent: percent ?? null,
+    });
+  } catch (error) {
+    if (operationUsesFencing(op)) throw error;
+  }
 }
 
 /* ------------------------------------------------- preflight de credenciais */
@@ -4033,6 +4044,21 @@ export function splitDeltaMigrations(sql: string): DeltaMigration[] {
   });
 }
 
+/** Progresso acumulado entre todas as migrations, sem regredir na troca de arquivo. */
+export function databaseMigrationsPercent(input: {
+  total: number;
+  completed: number;
+  currentProcessed?: number;
+  currentTotal?: number;
+}): number {
+  if (input.total <= 0) return 100;
+  const currentFraction =
+    input.currentTotal && input.currentTotal > 0
+      ? Math.min(1, Math.max(0, (input.currentProcessed ?? 0) / input.currentTotal))
+      : 0;
+  return Math.min(99, Math.max(0, Math.round(((input.completed + currentFraction) / input.total) * 100)));
+}
+
 /**
  * Aplica o delta de banco do MASTER no Supabase da instalação, item por item,
  * com checkpoint e ledger no banco de destino. Idempotente: repetir com o mesmo
@@ -4045,9 +4071,12 @@ export async function applyDatabaseDelta(input: {
   env?: Record<string, string | undefined>;
   fetchImpl?: Fetcher;
   maxStatementsPerInvocation?: number;
+  timeBudgetMs?: number;
+  maxMigrationsPerInvocation?: number;
+  now?: () => number;
 }): Promise<
-  | { state: "done"; detail: string }
-  | { state: "pending"; detail: string }
+  | { state: "done"; detail: string; percent: 100 }
+  | { state: "pending"; detail: string; percent: number }
   | { state: "blocked" | "error"; detail: string }
 > {
   const env = input.env ?? runtimeEnv();
@@ -4116,61 +4145,84 @@ export async function applyDatabaseDelta(input: {
     }
     for (const item of historical) appliedFiles.add(item.file);
   }
-  const migration = migrations.find((item) => !appliedFiles.has(item.file));
+  let migration = migrations.find((item) => !appliedFiles.has(item.file));
   if (!migration) {
-    return { state: "done", detail: "banco já está na versão do MASTER" };
+    return { state: "done", detail: "banco já está na versão do MASTER", percent: 100 };
   }
 
-  const progress = await readBaselineProgress(client, installation.id, operation);
-  const ledgerLabel = `${migration.file}:${migration.fingerprint}`;
-  const checkpointKey = `update:migration:${ledgerLabel}`;
-  const alreadyApplied = progress[checkpointKey] ?? 0;
+  let progress = await readBaselineProgress(client, installation.id, operation);
+  const now = input.now ?? Date.now;
+  const startedAt = now();
+  const budgetMs = input.timeBudgetMs ?? UPDATE_DATABASE_TIME_BUDGET_MS;
+  const migrationLimit = input.maxMigrationsPerInvocation ?? UPDATE_DATABASE_MIGRATIONS_PER_INVOCATION;
+  let processedMigrations = 0;
 
-  const prepared = sanitizeBaselineSqlForManagementApi(migration.sql);
-  const applied = await applyStatementByStatement(management, prepared.sql, {
-    startIndex: alreadyApplied === DONE ? 0 : alreadyApplied,
-    maxStatements: input.maxStatementsPerInvocation ?? BASELINE_STATEMENTS_PER_INVOCATION,
-  });
-
-  if (!applied.ok) {
-    await saveBaselineProgress(client, operation, {
-      ...progress,
-      [checkpointKey]: applied.processed ?? alreadyApplied,
+  while (migration) {
+    const ledgerLabel = `${migration.file}:${migration.fingerprint}`;
+    const checkpointKey = `update:migration:${ledgerLabel}`;
+    const alreadyApplied = progress[checkpointKey] ?? 0;
+    const prepared = sanitizeBaselineSqlForManagementApi(migration.sql);
+    const applied = await applyStatementByStatement(management, prepared.sql, {
+      startIndex: alreadyApplied === DONE ? 0 : alreadyApplied,
+      maxStatements: input.maxStatementsPerInvocation ?? BASELINE_STATEMENTS_PER_INVOCATION,
     });
-    return { state: "error", detail: `atualização do banco falhou: ${applied.error ?? "erro"}` };
-  }
 
-  if (!applied.complete) {
-    await saveBaselineProgress(client, operation, {
-      ...progress,
-      [checkpointKey]: applied.processed,
-    });
-    const percent = Math.min(
-      99,
-      Math.round((applied.processed / Math.max(applied.total, 1)) * 100),
+    if (!applied.ok) {
+      progress = { ...progress, [checkpointKey]: applied.processed ?? alreadyApplied };
+      await saveBaselineProgress(client, operation, progress);
+      return { state: "error", detail: `atualização do banco falhou: ${applied.error ?? "erro"}` };
+    }
+
+    const completedBefore = appliedFiles.size;
+    if (!applied.complete) {
+      progress = { ...progress, [checkpointKey]: applied.processed };
+      await saveBaselineProgress(client, operation, progress);
+      const percent = databaseMigrationsPercent({
+        total: migrations.length,
+        completed: completedBefore,
+        currentProcessed: applied.processed,
+        currentTotal: applied.total,
+      });
+      return {
+        state: "pending",
+        percent,
+        detail: `Banco ${completedBefore}/${migrations.length} migrations; atual ${applied.processed}/${applied.total} comandos · ${percent}%`,
+      };
+    }
+
+    const mark = await management.query(
+      `insert into public._unitos_applied_deltas (label, kind, file) values (${sqlLiteral(ledgerLabel)}, 'migration', ${sqlLiteral(migration.file)}) on conflict do nothing`,
     );
-    return {
-      state: "pending",
-      detail: `banco em atualização (${applied.processed}/${applied.total} · ${percent}%)`,
-    };
+    if (!mark.ok) {
+      return { state: "error", detail: `registro da versão do banco falhou: ${mark.error ?? "erro"}` };
+    }
+    progress = { ...progress, [checkpointKey]: DONE };
+    await saveBaselineProgress(client, operation, progress);
+    appliedFiles.add(migration.file);
+    processedMigrations += 1;
+
+    const remaining = migrations.length - appliedFiles.size;
+    if (remaining === 0) {
+      await management.query("NOTIFY pgrst, 'reload schema';").catch(() => undefined);
+      return { state: "done", detail: `banco atualizado (${migrations.length} migrations registradas)`, percent: 100 };
+    }
+
+    const percent = databaseMigrationsPercent({
+      total: migrations.length,
+      completed: appliedFiles.size,
+    });
+    if (processedMigrations >= migrationLimit || now() - startedAt >= budgetMs) {
+      await management.query("NOTIFY pgrst, 'reload schema';").catch(() => undefined);
+      return {
+        state: "pending",
+        percent,
+        detail: `Banco ${appliedFiles.size}/${migrations.length} migrations concluídas; ${remaining} pendentes · ${percent}%`,
+      };
+    }
+    migration = migrations.find((item) => !appliedFiles.has(item.file));
   }
 
-  const mark = await management.query(
-    `insert into public._unitos_applied_deltas (label, kind, file) values (${sqlLiteral(ledgerLabel)}, 'migration', ${sqlLiteral(migration.file)}) on conflict do nothing`,
-  );
-  if (!mark.ok) {
-    return {
-      state: "error",
-      detail: `registro da versão do banco falhou: ${mark.error ?? "erro"}`,
-    };
-  }
-  await management.query("NOTIFY pgrst, 'reload schema';").catch(() => undefined);
-  await saveBaselineProgress(client, operation, { ...progress, [checkpointKey]: DONE });
-
-  const remaining = migrations.length - appliedFiles.size - 1;
-  return remaining > 0
-    ? { state: "pending", detail: `${migration.file} aplicada; ${remaining} migration(ões) pendente(s)` }
-    : { state: "done", detail: `banco atualizado (${migrations.length} migrations registradas)` };
+  return { state: "done", detail: `banco atualizado (${migrations.length} migrations registradas)`, percent: 100 };
 }
 
 /* ----------------------------------------------------- atualização de código */
@@ -4298,7 +4350,7 @@ export async function runAutomatedUpdate(input: {
     return fail(delta.state === "blocked" ? "BLOCKED" : "FAIL", delta.detail, "database");
   }
   if (delta.state === "pending") {
-    await report(client, operation, "database", "running", delta.detail);
+    await report(client, operation, "database", "running", delta.detail, delta.percent);
     return { result: "PENDING", reasons: [delta.detail] };
   }
   await report(client, operation, "database", "done", delta.detail, 100);
