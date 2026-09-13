@@ -32,13 +32,13 @@ export function ContextTabs({
       defaultValue={defaultValue ?? visible[0]!.value}
       className={cn("flex min-h-0 flex-col", className)}
     >
-      <div className="border-b border-border/60 bg-background/40 px-4 pt-2.5">
-        <TabsList className="h-auto w-full justify-start gap-1 bg-transparent p-0">
+      <div className="overflow-x-auto border-b border-border/60 bg-background/40 px-3 pt-2.5">
+        <TabsList className="h-auto w-max min-w-full justify-start gap-0 bg-transparent p-0">
           {visible.map((t) => (
             <TabsTrigger
               key={t.value}
               value={t.value}
-              className="rounded-none border-b-2 border-transparent bg-transparent px-3 pb-2 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+              className="shrink-0 rounded-none border-b-2 border-transparent bg-transparent px-3 pb-2 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
             >
               {t.label}
             </TabsTrigger>

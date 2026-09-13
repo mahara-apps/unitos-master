@@ -1,5 +1,12 @@
 # Roadmap
 
+## MASTER 1.3.77 — Detalhe central do Job
+
+- [x] Substituir o painel lateral por modal central, preservando o parâmetro `job` e todas as ações.
+- [x] Reorganizar cabeçalho, período, tarefas, briefing e abas contextuais com proporções responsivas.
+- [x] Manter Lista/Quadro, timers, comentários, anexos, histórico e navegação existentes.
+- [ ] Publicar e propagar somente após autorização explícita.
+
 ## MASTER 1.3.73 — Drawer de Jobs
 
 - Drawer de job ampliado sem alterar `/projects/$projectId?tab=jobs&job=<uuid>`.

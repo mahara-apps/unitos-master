@@ -41,10 +41,10 @@ export function JobBriefingEditor({ value, onSave }: Props) {
   const addImage = () => { const src = window.prompt("URL segura da imagem (https://)"); if (src?.startsWith("https://")) editor.chain().focus().setImage({ src }).run(); };
   const addEmoji = () => { const emoji = window.prompt("Insira um emoji"); if (emoji?.trim()) editor.chain().focus().insertContent(emoji.trim()).run(); };
   return (
-    <section className="border-b border-border/60 px-5 py-5">
-      <div className="mb-2 flex items-center justify-between"><h3 className="text-sm font-semibold">Briefing</h3><span className={cn("text-[10px]", state === "error" ? "text-destructive" : "text-muted-foreground")}>{state === "saving" ? "Salvando…" : state === "error" ? "Não foi possível salvar" : "Salvo"}</span></div>
+    <section className="px-4 py-6 sm:px-5">
+      <div className="mb-3 flex items-center justify-between"><h3 className="font-mono text-[11px] font-medium uppercase text-muted-foreground">Briefing</h3><span className={cn("text-[10px]", state === "error" ? "text-destructive" : "text-muted-foreground")}>{state === "saving" ? "Salvando…" : state === "error" ? "Não foi possível salvar" : "Salvo"}</span></div>
       <div className="overflow-hidden rounded-md border border-border/60 bg-background">
-        <div className="flex flex-wrap items-center gap-0.5 border-b border-border/60 bg-muted/25 p-1.5">
+        <div className="flex items-center gap-0.5 overflow-x-auto border-b border-border/60 bg-muted/25 p-1.5">
           <Select value={editor.isActive("heading", { level: 2 }) ? "h2" : editor.isActive("heading", { level: 3 }) ? "h3" : "normal"} onValueChange={(v) => v === "normal" ? editor.chain().focus().setParagraph().run() : editor.chain().focus().toggleHeading({ level: v === "h2" ? 2 : 3 }).run()}><SelectTrigger className="h-8 w-28 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="normal">Normal</SelectItem><SelectItem value="h2">Título</SelectItem><SelectItem value="h3">Subtítulo</SelectItem></SelectContent></Select>
           {action("Negrito", editor.isActive("bold"), () => editor.chain().focus().toggleBold().run(), <Bold className="h-4 w-4" />)}
           {action("Itálico", editor.isActive("italic"), () => editor.chain().focus().toggleItalic().run(), <Italic className="h-4 w-4" />)}
