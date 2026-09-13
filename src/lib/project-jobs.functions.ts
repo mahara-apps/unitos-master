@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { TASK_PRIORITIES, TASK_STATUSES, type TaskPriority, type TaskStatus } from "@/lib/tasks.functions";
+import type { Json } from "@/integrations/supabase/types";
+import sanitizeHtml from "sanitize-html";
 
 export type ProjectJob = {
   id: string;
@@ -117,9 +119,19 @@ export const updateJobFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
+    const patch = { ...data.patch };
+    if (typeof patch.description === "string") {
+      patch.description = sanitizeHtml(patch.description, {
+        allowedTags: ["p", "br", "strong", "b", "em", "i", "u", "s", "a", "span", "mark", "ul", "ol", "li", "pre", "code", "h2", "h3", "blockquote", "img"],
+        allowedAttributes: { a: ["href", "target", "rel"], span: ["style"], mark: ["style"], img: ["src", "alt", "title"] },
+        allowedSchemes: ["https", "mailto"],
+        allowedStyles: { "*": { color: [/^#[0-9a-f]{3,8}$/i], "background-color": [/^#[0-9a-f]{3,8}$/i] } },
+        transformTags: { a: sanitizeHtml.simpleTransform("a", { rel: "noopener noreferrer", target: "_blank" }) },
+      });
+    }
     const { error } = await context.supabase
       .from("project_jobs")
-      .update(data.patch as never)
+      .update(patch as never)
       .eq("id", data.jobId)
       .eq("brand_id", data.brandId);
     if (error) throw error;
@@ -334,4 +346,45 @@ export const setJobArchivedFn = createServerFn({ method: "POST" })
     if (error) throw error;
     if (!rows || rows.length === 0) throw new Error("Forbidden: job fora do seu escopo");
     return { ok: true };
+  });
+
+export type JobActivity = {
+  id: string;
+  actor_id: string | null;
+  actor_name: string | null;
+  entity_type: string;
+  verb: string;
+  payload: Json | null;
+  created_at: string;
+};
+
+export const listJobActivityFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid(), jobId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }): Promise<JobActivity[]> => {
+    const { data: taskRows, error: taskError } = await context.supabase
+      .from("tasks")
+      .select("id")
+      .eq("brand_id", data.brandId)
+      .eq("job_id", data.jobId);
+    if (taskError) throw taskError;
+    const taskIds = ((taskRows ?? []) as Array<{ id: string }>).map((task) => task.id);
+    let query = context.supabase
+      .from("activity_events")
+      .select("id, actor_id, entity_type, entity_id, verb, payload, created_at")
+      .eq("brand_id", data.brandId)
+      .order("created_at", { ascending: false })
+      .limit(200);
+    query = taskIds.length
+      ? query.or(`and(entity_type.eq.job,entity_id.eq.${data.jobId}),and(entity_type.eq.task,entity_id.in.(${taskIds.join(",")}))`)
+      : query.eq("entity_type", "job").eq("entity_id", data.jobId);
+    const { data: rows, error } = await query;
+    if (error) throw error;
+    const events = (rows ?? []) as Array<Omit<JobActivity, "actor_name"> & { entity_id: string | null }>;
+    const actorIds = Array.from(new Set(events.map((event) => event.actor_id).filter((id): id is string => id != null)));
+    const { data: profiles } = actorIds.length
+      ? await context.supabase.from("user_profiles").select("id, full_name").in("id", actorIds)
+      : { data: [] };
+    const names = new Map(((profiles ?? []) as Array<{ id: string; full_name: string | null }>).map((profile) => [profile.id, profile.full_name]));
+    return events.map((event) => ({ ...event, actor_name: event.actor_id ? names.get(event.actor_id) ?? null : null }));
   });
