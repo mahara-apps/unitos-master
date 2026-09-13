@@ -72,7 +72,7 @@ describe("delta do baseline", () => {
     // O dump 001 foi tirado DEPOIS do desparticionamento de brain_events
     // (20260829121019 e 20260829122439): o estado final das duas já está
     // congelado nele, e reaplicá-las derrubava a tabela com CASCADE.
-    const start = "20260829124704_ed97a5cb-3e08-49ce-bc7a-88e12e0d9723.sql";
+    const start = "20260829192349_ff418028-7401-404c-92d9-be9b0e29e2bd.sql";
     const posteriores = all.filter((n) => n >= start);
     // Migrations exclusivas do MASTER (cron apontando para a URL do MASTER)
     // ficam de fora de propósito: a instalação recebe cron próprio em 020_cron.
@@ -83,6 +83,24 @@ describe("delta do baseline", () => {
     );
     const faltando = posteriores.filter((n) => !manifest.has(n) && !masterOnly.includes(n));
     expect(faltando).toEqual([]);
+  });
+
+  it("não repete tabelas já incorporadas ao snapshot", () => {
+    const snapshot = readFileSync("supabase/baseline-snapshot/001_initial_schema.sql", "utf8");
+    const tables = (sql: string, onlyUnguarded = false) =>
+      new Set(
+        [...sql.matchAll(new RegExp(`CREATE\\s+TABLE\\s+${onlyUnguarded ? "" : "(?:IF\\s+NOT\\s+EXISTS\\s+)?"}public\\.([a-z0-9_]+)`, "gi"))]
+          .map((match) => match[1]?.toLowerCase())
+          .filter((name): name is string => Boolean(name)),
+      );
+    const initial = tables(snapshot);
+    const overlap = [...tables(delta, true)].filter((table) => initial.has(table));
+    expect(overlap).toEqual([]);
+  });
+
+  it("snapshot não concede privilégios diretos de tabela para anon", () => {
+    const snapshot = readFileSync("supabase/baseline-snapshot/001_initial_schema.sql", "utf8");
+    expect(snapshot).not.toMatch(/^\s*GRANT\s+.+\s+ON\s+TABLE\s+.+\s+TO\s+anon/im);
   });
 
   for (const objeto of [
