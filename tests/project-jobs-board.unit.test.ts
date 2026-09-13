@@ -56,6 +56,18 @@ describe("gestão de jobs e tarefas no projeto", () => {
     expect(list).toContain("DueDateChip");
     expect(list).toContain("StatusPicker");
     expect(list).toContain("job-status:");
+    expect(list).toContain("Agrupar por:");
+    expect(list).toContain("text-work-done");
+    expect(list).toContain("border-dashed");
+    expect(jobs).toContain("Jobs & Pautas");
+  });
+
+  it("distribui os cinco status oficiais de job sem os legados", () => {
+    for (const status of ["não iniciado", "em andamento", "em revisão", "bloqueado", "concluído"]) {
+      expect(verify).toContain(status);
+    }
+    expect(verify).toContain("legados_job");
+    expect(verify).toContain("campanha pausada");
   });
 
   it("duplica job e tarefas por operação transacional protegida", () => {
