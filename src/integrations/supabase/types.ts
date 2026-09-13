@@ -9002,24 +9002,15 @@ export type Database = {
         }
         Returns: boolean
       }
-      heartbeat_installation_operation:
-        | {
-            Args: {
-              _fencing_token: number
-              _lease_seconds?: number
-              _operation_id: string
-              _owner: string
-            }
-            Returns: boolean
-          }
-        | {
-            Args: {
-              _lease_seconds?: number
-              _operation_id: string
-              _owner: string
-            }
-            Returns: boolean
-          }
+      heartbeat_installation_operation: {
+        Args: {
+          _fencing_token: number
+          _lease_seconds?: number
+          _operation_id: string
+          _owner: string
+        }
+        Returns: boolean
+      }
       installation_setup_state: { Args: never; Returns: Json }
       instantiate_project_template: {
         Args: {

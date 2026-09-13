@@ -1,0 +1,1 @@
+DROP FUNCTION public.heartbeat_installation_operation(uuid, text, integer);
