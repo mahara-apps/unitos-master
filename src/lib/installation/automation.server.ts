@@ -3006,7 +3006,7 @@ export async function runAutomatedProvision(input: {
       .select("status")
       .eq("id", operation.id)
       .maybeSingle();
-    return current.data?.status !== "running" && current.data?.status !== "pending";
+    return !["running", "pending", "retryable"].includes(current.data?.status ?? "");
   };
 
   /* 1. credenciais próprias do MASTER */
@@ -4018,10 +4018,12 @@ export function deltaProgressKey(sql: string): string {
 }
 
 export type DeltaMigration = { file: string; sql: string; fingerprint: string };
+export const INCREMENTAL_LEDGER_CUTOVER_FILE =
+  "20260913124118_9f453a5e-8c5e-4504-9f99-3a8ecfd59eb2.sql";
 
 /** Divide o pacote pelos marcadores emitidos pelo gerador MASTER-first. */
 export function splitDeltaMigrations(sql: string): DeltaMigration[] {
-  const marker = /^-- -+\n-- ([0-9]{14}_[A-Za-z0-9-]+\.sql)\n-- -+\n/gm;
+  const marker = /^-- -+\n-- ([0-9]{14}_[A-Za-z0-9_-]+\.sql)\n-- -+\n/gm;
   const matches = [...sql.matchAll(marker)];
   return matches.map((match, index) => {
     const start = (match.index ?? 0) + match[0].length;
@@ -4077,7 +4079,7 @@ export async function applyDatabaseDelta(input: {
       "alter table public._unitos_applied_deltas add column if not exists file text",
       "create unique index if not exists _unitos_applied_deltas_file_key on public._unitos_applied_deltas (file) where kind = 'migration'",
       HELPER_TABLE_HARDENING_SQL("public._unitos_applied_deltas"),
-      "select file from public._unitos_applied_deltas where kind = 'migration' order by file",
+      "select label, file from public._unitos_applied_deltas order by applied_at, label",
     ].join(";\n"),
   );
   if (!ledger.ok) {
@@ -4092,6 +4094,28 @@ export async function applyDatabaseDelta(input: {
       .map((row) => String(row["file"] ?? ""))
       .filter(Boolean),
   );
+  const hasLegacyBlob = ledger.rows.some(
+    (row) =>
+      !!row &&
+      typeof row === "object" &&
+      String((row as Record<string, unknown>)["label"] ?? "").startsWith(`${UPDATE_DELTA_LABEL}:`) &&
+      !(row as Record<string, unknown>)["file"],
+  );
+  if (hasLegacyBlob && appliedFiles.size === 0) {
+    const historical = migrations.filter((item) => item.file <= INCREMENTAL_LEDGER_CUTOVER_FILE);
+    const transition = await management.query(
+      historical
+        .map(
+          (item) =>
+            `insert into public._unitos_applied_deltas (label, kind, file) values (${sqlLiteral(`${item.file}:${item.fingerprint}`)}, 'migration', ${sqlLiteral(item.file)}) on conflict do nothing`,
+        )
+        .join(";\n"),
+    );
+    if (!transition.ok) {
+      return { state: "error", detail: `transição do ledger legado falhou: ${transition.error ?? "erro"}` };
+    }
+    for (const item of historical) appliedFiles.add(item.file);
+  }
   const migration = migrations.find((item) => !appliedFiles.has(item.file));
   if (!migration) {
     return { state: "done", detail: "banco já está na versão do MASTER" };

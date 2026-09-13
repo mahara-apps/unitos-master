@@ -8,7 +8,7 @@
  * qualquer operação automatizada sem heartbeat recente.
  *
  * Regras:
- *   - só assume operações `pending`/`running` marcadas como `automated`;
+ *   - só assume operações `pending`/`running`/`retryable` marcadas como `automated`;
  *   - o UPDATE condicional em `last_report_at` funciona como lease e impede
  *     duas retomadas concorrentes;
  *   - só roda na instalação MASTER (é lá que o módulo existe);

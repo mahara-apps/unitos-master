@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   deltaProgressKey,
+  INCREMENTAL_LEDGER_CUTOVER_FILE,
   splitDeltaMigrations,
   UPDATE_DELTA_LABEL,
 } from "@/lib/installation/automation.server";
@@ -46,5 +47,9 @@ select 2;`;
 
   it("não interpreta pacote sem marcador como migration válida", () => {
     expect(splitDeltaMigrations("select 1;")).toEqual([]);
+  });
+
+  it("mantém um corte explícito para converter instalações com ledger legado", () => {
+    expect(INCREMENTAL_LEDGER_CUTOVER_FILE).toMatch(/^\d{14}_.+\.sql$/);
   });
 });
