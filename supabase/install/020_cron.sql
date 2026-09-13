@@ -70,7 +70,8 @@ BEGIN
       format($fmt$select net.http_post(
           url := %L,
           headers := jsonb_build_object('Content-Type','application/json','x-cron-secret', public.cron_secret()),
-          body := '{}'::jsonb
+           body := '{}'::jsonb,
+           timeout_milliseconds := 60000
         );$fmt$, v_app_url || (v_job->>2))
     );
   END LOOP;

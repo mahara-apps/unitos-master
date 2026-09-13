@@ -1,11 +1,20 @@
 # Roadmap
 
+## MASTER 1.3.88 — Retomadas sem consumir tentativas
+
+- [x] Separar retomadas saudáveis de falhas consecutivas no executor.
+- [x] Fechar tentativas por fencing token em yield e retry.
+- [x] Ampliar o tempo do acionador automático para uma fatia completa.
+- [x] Cobrir contador, histórico e timeout com testes de regressão.
+- [ ] Regenerar o pacote, sincronizar SHA e executar os guardiões MASTER-first.
+- [ ] Publicar o MASTER e iniciar uma nova atualização da Taveira somente após autorização explícita.
+
 ## MASTER 1.3.87 — Consulta vazia no ledger incremental
 
 - [x] Impedir envio de SQL vazio ao preparar o ledger sem seeds.
 - [x] Cobrir a regressão que interrompeu a atualização da Taveira.
 - [x] Regenerar o pacote, sincronizar versão/SHA e executar os guardiões MASTER-first.
-- [ ] Publicar o MASTER e retomar a Taveira somente após autorização explícita.
+- [x] Publicar o MASTER e retomar a Taveira somente após autorização explícita.
 
 ## MASTER 1.3.86 — Desbloqueio da atualização após validação
 

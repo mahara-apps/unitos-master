@@ -9,6 +9,7 @@ import {
   initialSteps,
   stepsProgress,
 } from "@/lib/installation/manager-contract";
+import retryAccountingSql from "../supabase/migrations/20260913230055_f50b7d0b-e5e5-4cc8-9ad0-ddcfd8104005.sql?raw";
 
 const NOW = Date.parse("2026-01-10T12:00:00.000Z");
 
@@ -76,6 +77,40 @@ describe("reinício e nova tentativa", () => {
 
   it("instalação provisionando NÃO aceita novo disparo", () => {
     expect(canStartOperation("provision", "provisioning")).toBe(false);
+  });
+});
+
+describe("contagem de falhas consecutivas", () => {
+  it("claim não consome o limite reservado para falhas reais", () => {
+    const claimStart = retryAccountingSql.indexOf("CREATE OR REPLACE FUNCTION public.claim_stale_installation_operations");
+    const claimEnd = retryAccountingSql.indexOf("CREATE OR REPLACE FUNCTION public.yield_installation_operation");
+    const claimSql = retryAccountingSql.slice(claimStart, claimEnd);
+
+    expect(claimSql).not.toMatch(/attempt_count\s*=\s*op\.attempt_count\s*\+\s*1/i);
+    expect(claimSql).toContain("fencing_token=op.fencing_token+1");
+  });
+
+  it("yield fecha a fatia saudável e reinicia falhas consecutivas", () => {
+    const yieldStart = retryAccountingSql.indexOf("CREATE OR REPLACE FUNCTION public.yield_installation_operation");
+    const yieldEnd = retryAccountingSql.indexOf("CREATE OR REPLACE FUNCTION public.retry_installation_operation");
+    const yieldSql = retryAccountingSql.slice(yieldStart, yieldEnd);
+
+    expect(yieldSql).toContain("attempt_count=0");
+    expect(yieldSql).toContain("status='completed'");
+    expect(yieldSql).toContain("a.fencing_token=c.fencing_token");
+  });
+
+  it("retry contabiliza uma única falha e fecha a execução correspondente", () => {
+    const retryStart = retryAccountingSql.indexOf("CREATE OR REPLACE FUNCTION public.retry_installation_operation");
+    const retrySql = retryAccountingSql.slice(retryStart);
+
+    expect(retrySql.match(/attempt_count=attempt_count\+1/g)).toHaveLength(1);
+    expect(retrySql).toContain("a.fencing_token=c.fencing_token");
+    expect(retrySql).toContain("status=CASE WHEN c.status='manual_review' THEN 'exhausted' ELSE 'retryable' END");
+  });
+
+  it("cron permite que a fatia termine antes de considerar timeout", () => {
+    expect(retryAccountingSql).toContain("timeout_milliseconds := 60000");
   });
 });
 
