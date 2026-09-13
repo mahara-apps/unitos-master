@@ -247,7 +247,9 @@ function InstallationDetailPage() {
     retry: false,
     // Progresso REAL: só faz polling enquanto existe operação viva.
     refetchInterval: (query) =>
-      query.state.data?.operations.some((op) => op.status === "pending" || op.status === "running")
+      query.state.data?.operations.some(
+        (op) => op.status === "pending" || op.status === "running" || op.status === "retryable",
+      )
         ? 2500
         : false,
   });
@@ -508,7 +510,9 @@ function InstallationDetailPage() {
   const opsTotalPages = Math.max(1, Math.ceil(operations.length / opsPerPage));
   const opsPage = Math.min(Math.max(1, opsPageRaw), opsTotalPages);
   const pagedOperations = operations.slice((opsPage - 1) * opsPerPage, opsPage * opsPerPage);
-  const activeOp = operations.find((op) => op.status === "pending" || op.status === "running");
+  const activeOp = operations.find(
+    (op) => op.status === "pending" || op.status === "running" || op.status === "retryable",
+  );
   const lastProvision = operations.find((op) => op.kind === "provision" || op.kind === "update");
   const lastValidate = operations.find((op) => op.kind === "validate");
   const shownProvision =
@@ -1390,7 +1394,7 @@ function InstallationDetailPage() {
                   {op.errorKind && (
                     <p className="mt-1 text-xs text-destructive">Motivo: {op.errorKind}</p>
                   )}
-                  {(op.status === "pending" || op.status === "running") && (
+                  {(op.status === "pending" || op.status === "running" || op.status === "retryable") && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {/* Operação automatizada reporta o próprio resultado: nada de registro manual. */}
                       {!op.detail.automated && (

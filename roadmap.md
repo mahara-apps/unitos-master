@@ -2,10 +2,10 @@
 
 ## MASTER 1.3.81 — Orquestração durável das instalações
 
-- [ ] Unificar claim, lease, heartbeat e retomada em um único executor do servidor; a tela apenas observa.
-- [ ] Isolar falhas por instalação, aplicar limite de tentativas e encaminhar casos esgotados para revisão manual.
-- [ ] Tornar progresso, checkpoints e finalização transacionais e protegidos por fencing token.
-- [ ] Substituir o delta cumulativo por ledger de migrations individuais, com compatibilidade para instalações existentes.
+- [x] Unificar claim, lease, heartbeat e retomada em um único executor do servidor; a tela apenas observa.
+- [x] Isolar falhas por instalação, aplicar limite de tentativas e encaminhar casos esgotados para revisão manual.
+- [x] Tornar progresso, checkpoints e finalização transacionais e protegidos por fencing token.
+- [x] Substituir o delta cumulativo por ledger de migrations individuais, com compatibilidade para instalações existentes.
 - [ ] Preparar código, aplicar alterações compatíveis, ativar o deploy, validar e registrar a versão em ordem segura.
 - [ ] Reconciliar banco, commit, deployment, manutenção e versão desejada/publicada.
 - [ ] Registrar métricas por etapa, tentativa e provedor, com erros classificados e correlação da operação.

@@ -451,7 +451,7 @@ export async function finalizeOperation(
     })
     .eq("id", op.id)
     .is("lease_owner", null)
-    .in("status", ["pending", "running"])
+    .in("status", ["pending", "running", "retryable"])
     .select("id")
     .maybeSingle();
   if (opError) throw opError;
