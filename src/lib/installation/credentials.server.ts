@@ -44,7 +44,7 @@ type Row = {
 /** Cliente Supabase mínimo (o real é injetado pelas server functions). */
 type Client = {
   from: (table: string) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
-  rpc?: (...args: any[]) => Promise<{ data?: unknown; error?: { message?: string } | null }>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  rpc?: (...args: any[]) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
 };
 
 const TABLE = "installation_credentials";

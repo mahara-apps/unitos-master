@@ -4255,7 +4255,12 @@ export async function applyDatabaseDelta(input: {
     const applied = await applyStatementByStatement(management, prepared.sql, {
       runKey: `${operation.id}:${ledgerLabel}`,
       isCancelled: async () => {
-        const { data } = await client.from("installation_operations").select("status, fencing_token").eq("id", operation.id).maybeSingle();
+        const result = (await client
+          .from("installation_operations")
+          .select("status, fencing_token")
+          .eq("id", operation.id)
+          .maybeSingle()) as { data?: unknown };
+        const { data } = result;
         const current = data as { status?: string; fencing_token?: string | null } | null;
         return current?.status === "failed" || current?.fencing_token !== operation.fencing_token;
       },
