@@ -7,14 +7,15 @@ const tasks = fs.readFileSync("src/lib/tasks.functions.ts", "utf8");
 const jobFns = fs.readFileSync("src/lib/project-jobs.functions.ts", "utf8");
 const route = fs.readFileSync("src/routes/_authenticated/projects.$projectId.tsx", "utf8");
 const verify = fs.readFileSync("supabase/install/verify-installation.sql", "utf8");
+const list = fs.readFileSync("src/components/projects/job-list-view.tsx", "utf8");
 
 describe("gestão de jobs e tarefas no projeto", () => {
   it("separa Jobs e Pautas e agrupa jobs em três colunas", () => {
-    expect(jobs).toContain('label: "A fazer"');
-    expect(jobs).toContain('label: "Em andamento"');
-    expect(jobs).toContain('label: "Concluído"');
+    expect(list).toContain('value="status"');
+    expect(list).toContain('value="assignee"');
+    expect(list).toContain('value="due"');
     expect(jobs).toContain("pautasCount");
-    expect(jobs).toContain("groupFor(job)");
+    expect(jobs).toContain("JobListView");
   });
 
   it("abre o job em drawer e aceita link direto", () => {
@@ -46,6 +47,20 @@ describe("gestão de jobs e tarefas no projeto", () => {
     expect(jobs).toContain("<DndContext");
     expect(jobs).toContain("task-status:");
     expect(jobs).toContain("TaskTimerWidget");
+  });
+
+  it("oferece linhas densas, busca por número e criação contextual", () => {
+    expect(list).toContain("Buscar nome ou número");
+    expect(list).toContain("Adicionar um job");
+    expect(list).toContain("DueDateChip");
+    expect(list).toContain("StatusPicker");
+    expect(list).toContain("job-status:");
+  });
+
+  it("duplica job e tarefas por operação transacional protegida", () => {
+    expect(jobs).toContain("duplicateJobFn");
+    expect(jobFns).toContain('"duplicate_project_job"');
+    expect(verify).toContain("duplicate_project_job");
   });
 
   it("valida e distribui o estado Bloqueada", () => {
