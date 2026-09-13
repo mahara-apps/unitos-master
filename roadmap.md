@@ -35,6 +35,13 @@
 - [x] Preservar busca, filtros, agrupamentos, quadro, drawer e todas as rotas existentes.
 - [ ] Publicar e propagar somente após autorização explícita.
 
+## MASTER 1.3.76 — Separação visual de Projeto, Jobs e Pautas
+
+- [x] Remover métricas e etapas editoriais do cabeçalho global do Projeto.
+- [x] Manter o pipeline de conteúdo somente na Visão geral e no contexto aberto de Pautas.
+- [x] Preservar abas, parâmetros, drawer, filtros e ações existentes.
+- [ ] Publicar e propagar somente após autorização explícita.
+
 - [x] Reformular visualmente lista, detalhe e painel de job da área Projetos; preservar ações e sincronizar MASTER 1.3.66.
 - [x] Adicionar reenvio/edição de convites e ocultar o Super Admin global de listas e menções; sincronizar MASTER.
 - [x] Corrigir conclusão prematura do deploy por Git e reconciliar a versão registrada da Casa 8.
