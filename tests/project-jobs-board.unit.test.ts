@@ -10,6 +10,8 @@ const verify = fs.readFileSync("supabase/install/verify-installation.sql", "utf8
 const list = fs.readFileSync("src/components/projects/job-list-view.tsx", "utf8");
 const overview = fs.readFileSync("src/components/projects/project-overview.tsx", "utf8");
 const header = fs.readFileSync("src/components/projects/project-header.tsx", "utf8");
+const taskRow = fs.readFileSync("src/components/projects/job-task-row.tsx", "utf8");
+const taskTimer = fs.readFileSync("src/components/tasks/task-timer-widget.tsx", "utf8");
 
 describe("gestão de jobs e tarefas no projeto", () => {
   it("separa Jobs e Pautas e agrupa jobs em três colunas", () => {
@@ -44,6 +46,17 @@ describe("gestão de jobs e tarefas no projeto", () => {
     expect(jobs).toContain('placeholder="+ status"');
     expect(jobs).toContain("JobTimerWidget");
     expect(jobs).toContain("TaskSubtasksPopover");
+  });
+
+  it("prioriza o título e reduz o timer da lista a play ou pause", () => {
+    expect(jobs).toContain("<JobTaskRow");
+    expect(taskRow).toContain("line-clamp-2");
+    expect(taskRow).toContain("@[900px]:contents");
+    expect(taskTimer).toContain("if (compact)");
+    expect(taskTimer).toContain('status === "running" ? <Pause');
+    expect(taskTimer).toContain(": <Play");
+    expect(taskTimer).toContain("Pausar timer");
+    expect(taskTimer).toContain("Retomar timer");
   });
 
   it("mantém lista e quadro com arrastar por status", () => {
