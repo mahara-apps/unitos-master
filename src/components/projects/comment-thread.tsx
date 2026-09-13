@@ -47,6 +47,7 @@ type Props = {
   currentUserId?: string | null;
   className?: string;
   placeholder?: string;
+  showHeader?: boolean;
 };
 
 function initials(name: string | null) {
@@ -68,6 +69,7 @@ export function CommentThread({
   currentUserId,
   className,
   placeholder = "Escreva uma observação… use @ para mencionar",
+  showHeader = true,
 }: Props) {
   const qc = useQueryClient();
   const [body, setBody] = useState("");
@@ -137,8 +139,8 @@ export function CommentThread({
   const entries = listQ.data ?? [];
 
   return (
-    <div className={className}>
-      <div className="flex items-center gap-2 border-b border-border/60 bg-background/40 px-4 py-2.5">
+    <div className={cn("flex min-h-0 flex-col", className)}>
+      {showHeader ? <div className="flex items-center gap-2 border-b border-border/60 bg-background/40 px-4 py-2.5">
         <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
         <h3 className="font-mono text-[11px] uppercase tracking-widest text-foreground">
           Comentários
@@ -148,9 +150,9 @@ export function CommentThread({
             {entries.length}
           </span>
         ) : null}
-      </div>
+      </div> : null}
 
-      <div className="max-h-[360px] space-y-3 overflow-y-auto px-4 py-3">
+      <div className="min-h-[220px] flex-1 space-y-3 overflow-y-auto px-4 py-3">
         {listQ.isPending ? (
           <>
             <Skeleton className="h-12 w-full rounded-lg" />
