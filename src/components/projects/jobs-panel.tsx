@@ -14,16 +14,14 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   Archive,
   ArchiveRestore,
-  CalendarDays,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Clock3,
-  Kanban,
   List,
   MoreHorizontal,
   Plus,
   Search,
+  Copy,
   Share2,
   ArrowUpDown,
   Sparkles,
@@ -49,7 +47,9 @@ import {
   createJobFn,
   createJobTaskFn,
   deleteJobFn,
+  duplicateJobFn,
   listJobsFn,
+  listJobTimeRollupsFn,
   listProjectTasksFn,
   setJobArchivedFn,
   setJobDoneFn,
@@ -85,6 +85,7 @@ import { TaskTimesheetSheet } from "./task-timesheet-sheet";
 import { DueMenuBlock, VisibilityMenuBlock } from "./work-filter-menu";
 import { isOverdue } from "./work-item-row";
 import { ensureWorkStatusDefaultsFn } from "@/lib/work-statuses.functions";
+import { JobListView, type JobListStats } from "./job-list-view";
 
 type Props = {
   brandId: string;
@@ -103,14 +104,7 @@ type Props = {
   onOpenJobChange?: (jobId: string | null) => void;
 };
 
-type JobGroup = "todo" | "progress" | "done";
-const JOB_GROUPS: Array<{ key: JobGroup; label: string; band: string; dot: string }> = [
-  { key: "todo", label: "A fazer", band: "bg-work-todo", dot: "bg-work-todo" },
-  { key: "progress", label: "Em andamento", band: "bg-work-progress", dot: "bg-work-progress" },
-  { key: "done", label: "Concluído", band: "bg-work-done", dot: "bg-work-done" },
-];
-
-type JobStats = { total: number; done: number; minutes: number; assignees: string[] };
+type JobStats = JobListStats;
 
 function dateOnly(value: string | null) {
   return value ? value.slice(0, 10) : null;
@@ -133,34 +127,6 @@ function timelineState(start: string | null, due: string | null) {
     percent,
     label: days < 0 ? `${Math.abs(days)} dia${Math.abs(days) === 1 ? "" : "s"} em atraso` : days === 0 ? "Entrega hoje" : `${days} dia${days === 1 ? "" : "s"} restante${days === 1 ? "" : "s"}`,
   };
-}
-
-function JobCard({ job, stats, team, onOpen, actions }: { job: ProjectJob; stats: JobStats; team: TeamOption[]; onOpen: () => void; actions: ReactNode }) {
-  const pct = stats.total ? Math.round((stats.done / stats.total) * 100) : 0;
-  const avatarIds = Array.from(new Set([job.assignee_id, ...stats.assignees].filter((id): id is string => !!id))).slice(0, 4);
-  return (
-    <article className="overflow-hidden rounded-lg border border-border/60 bg-background shadow-sm">
-      <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-3 text-left" onClick={onOpen}>
-        <span className="min-w-0 flex-1">
-          <span className="line-clamp-2 text-sm font-semibold text-foreground">{job.name}</span>
-          <span className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>{stats.done}/{stats.total} tarefas</span><span className="tabular-nums">{pct}%</span>
-          </span>
-          <Progress value={pct} className="mt-1.5 h-1.5" />
-        </span>
-      </Button>
-      <div className="grid grid-cols-[1fr_auto] items-center gap-2 border-t border-border/60 px-3 py-2.5">
-        <div className="min-w-0 space-y-1.5 text-[11px] text-muted-foreground">
-          <div className="flex items-center gap-1.5"><CalendarDays className="h-3 w-3" /><span>{shortDate(job.start_date)} — {shortDate(job.due_at)}</span></div>
-          <div className="flex items-center gap-1.5"><Clock3 className="h-3 w-3" /><span>{formatMinutes(stats.minutes)}</span></div>
-        </div>
-        <div className="flex items-center">
-          {avatarIds.map((id, index) => <AssigneeAvatar key={id} userId={id} options={team} className={cn("h-6 w-6 border-2 border-background", index > 0 && "-ml-2")} />)}
-          {actions}
-        </div>
-      </div>
-    </article>
-  );
 }
 
 function TaskBoardCard({ task, team, onOpen }: { task: JobTask; team: TeamOption[]; onOpen: () => void }) {
@@ -197,6 +163,8 @@ export function JobsPanel({ brandId, projectId, projectName = "Projeto", clientN
   const listJobs = useServerFn(listJobsFn);
   const listTasks = useServerFn(listProjectTasksFn);
   const createJob = useServerFn(createJobFn);
+  const duplicateJob = useServerFn(duplicateJobFn);
+  const listJobTimeRollups = useServerFn(listJobTimeRollupsFn);
   const updateJob = useServerFn(updateJobFn);
   const deleteJob = useServerFn(deleteJobFn);
   const setJobDone = useServerFn(setJobDoneFn);
@@ -215,8 +183,6 @@ export function JobsPanel({ brandId, projectId, projectName = "Projeto", clientN
   const [pautasOpen, setPautasOpen] = useState(false);
   const [taskView, setTaskView] = useState<"list" | "board">("list");
   const [openTask, setOpenTask] = useState<JobTask | null>(null);
-  const [newJobName, setNewJobName] = useState("");
-  const [addingJob, setAddingJob] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDue, setNewTaskDue] = useState("");
   const [taskSearch, setTaskSearch] = useState("");
@@ -239,19 +205,13 @@ export function JobsPanel({ brandId, projectId, projectName = "Projeto", clientN
   const jobsArchive = needsArchived(visibility) ? "all" : "active";
   const jobsQ = useQuery({ queryKey: ["project-jobs", brandId, projectId, jobsArchive], queryFn: () => listJobs({ data: { brandId, projectId, archive: jobsArchive } }) });
   const tasksQ = useQuery({ queryKey: ["job-tasks", brandId, projectId], queryFn: () => listTasks({ data: { brandId, projectId, archive: "all" } }) });
+  const timeRollupsQ = useQuery({ queryKey: ["job-time-rollups", brandId, projectId], queryFn: () => listJobTimeRollups({ data: { brandId, projectId } }), refetchInterval: 60_000 });
   const allJobs = useMemo<ProjectJob[]>(() => jobsQ.data ?? [], [jobsQ.data]);
   const jobs = useMemo(() => allJobs.filter((job) => matchesVisibility({ done: !!job.done_at, archived_at: job.archived_at }, visibility)), [allJobs, visibility]);
   const allTasks = useMemo<JobTask[]>(() => tasksQ.data ?? [], [tasksQ.data]);
   const tasks = useMemo(() => visibility === "active" ? allTasks.filter((task) => !task.archived_at && !isItemDone(task)) : allTasks, [allTasks, visibility]);
   const statuses = workStatusesQ.data ?? [];
   const statusMap = useMemo(() => new Map(statuses.map((status) => [status.id, status])), [statuses]);
-
-  const groupFor = (job: ProjectJob): JobGroup => {
-    if (job.done_at || statusMap.get(job.status_id ?? "")?.is_done) return "done";
-    const status = statusMap.get(job.status_id ?? "");
-    if (!status || status.is_default || status.position === 0) return "todo";
-    return "progress";
-  };
 
   const jobStats = useMemo(() => {
     const map = new Map<string, JobStats>();
@@ -268,7 +228,8 @@ export function JobsPanel({ brandId, projectId, projectName = "Projeto", clientN
   }, [tasks]);
 
   const taskTotals = useMemo(() => ({ total: tasks.length, done: tasks.filter(isItemDone).length }), [tasks]);
-  const visibleJobs = useMemo(() => { const q = search.trim().toLowerCase(); return q ? jobs.filter((job) => job.name.toLowerCase().includes(q)) : jobs; }, [jobs, search]);
+  const visibleJobs = useMemo(() => { const q = search.trim().toLowerCase(); return q ? jobs.filter((job) => job.name.toLowerCase().includes(q) || `${job.job_number}.1`.includes(q.replace(/^#/, ""))) : jobs; }, [jobs, search]);
+  const timeRollups = useMemo(() => new Map((timeRollupsQ.data ?? []).map((row) => [row.jobId, row])), [timeRollupsQ.data]);
   const currentJob = allJobs.find((job) => job.id === openJobId) ?? null;
   const currentJobTasks = useMemo(() => {
     const query = taskSearch.trim().toLowerCase();
@@ -282,7 +243,8 @@ export function JobsPanel({ brandId, projectId, projectName = "Projeto", clientN
 
   const invalidateJobs = () => qc.invalidateQueries({ queryKey: ["project-jobs", brandId, projectId] });
   const invalidateTasks = () => qc.invalidateQueries({ queryKey: ["job-tasks", brandId, projectId] });
-  const createJobMut = useMutation({ mutationFn: () => createJob({ data: { brandId, projectId, name: newJobName.trim() } }), onSuccess: () => { setNewJobName(""); setAddingJob(false); invalidateJobs(); }, onError: (error: Error) => toast.error(error.message) });
+  const createJobMut = useMutation({ mutationFn: (value: { name: string; statusId?: string | null }) => createJob({ data: { brandId, projectId, name: value.name, statusId: value.statusId } }), onSuccess: invalidateJobs, onError: (error: Error) => toast.error(error.message) });
+  const duplicateJobMut = useMutation({ mutationFn: (jobId: string) => duplicateJob({ data: { brandId, jobId } }), onSuccess: (row) => { invalidateJobs(); invalidateTasks(); toast.success("Job duplicado"); setOpenJobId(row.id); }, onError: (error: Error) => toast.error(error.message) });
   const deleteJobMut = useMutation({ mutationFn: (jobId: string) => deleteJob({ data: { brandId, jobId } }), onSuccess: () => { setOpenJobId(null); invalidateJobs(); }, onError: (error: Error) => toast.error(error.message) });
   const patchJobMut = useMutation({ mutationFn: (value: { jobId: string; patch: Record<string, unknown> }) => updateJob({ data: { brandId, jobId: value.jobId, patch: value.patch as never } }), onSuccess: invalidateJobs, onError: (error: Error) => toast.error(error.message) });
   const jobDoneMut = useMutation({ mutationFn: (value: { jobId: string; done: boolean }) => setJobDone({ data: { brandId, jobId: value.jobId, done: value.done } }), onSuccess: invalidateJobs, onError: (error: Error) => toast.error(error.message) });
@@ -297,6 +259,7 @@ export function JobsPanel({ brandId, projectId, projectName = "Projeto", clientN
       <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Ações do job"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuItem onSelect={() => setOpenJobId(job.id)}>Abrir job</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => duplicateJobMut.mutate(job.id)}><Copy className="mr-2 h-3.5 w-3.5" />Duplicar</DropdownMenuItem>
         <DropdownMenuItem onSelect={() => { const name = window.prompt("Renomear job", job.name); if (name?.trim()) patchJobMut.mutate({ jobId: job.id, patch: { name: name.trim() } }); }}>Renomear job</DropdownMenuItem>
         <DropdownMenuItem onSelect={() => { const hours = window.prompt("Estimativa do job em horas", job.estimated_minutes ? String(job.estimated_minutes / 60) : ""); if (hours == null) return; const value = Number(hours.replace(",", ".")); if (Number.isFinite(value) && value >= 0) patchJobMut.mutate({ jobId: job.id, patch: { estimated_minutes: Math.round(value * 60) } }); else toast.error("Informe uma estimativa válida."); }}>Definir estimativa</DropdownMenuItem>
         <DropdownMenuItem onSelect={() => jobDoneMut.mutate({ jobId: job.id, done: !job.done_at })}>{job.done_at ? "Reabrir job" : "Concluir job"}</DropdownMenuItem>
@@ -340,9 +303,8 @@ export function JobsPanel({ brandId, projectId, projectName = "Projeto", clientN
             <div className="flex min-w-0 items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground"><span className="truncate">{projectName}</span><ChevronRight className="h-3 w-3" /><span className="text-foreground">{mode === "jobs" ? "Jobs" : "Visão geral"}</span></div>
           </div>
           <div className="flex items-center gap-1.5">
-            {mode === "jobs" ? <div className="relative hidden sm:block"><Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar jobs" className="h-8 w-[190px] pl-7 text-xs" /></div> : null}
             <DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant={visibility === "active" ? "ghost" : "secondary"} className="h-8 gap-1.5 px-2 text-xs"><Archive className="h-3 w-3" />{visibility === "active" ? "Exibir" : VISIBILITY_LABELS[visibility]}</Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><VisibilityMenuBlock value={visibility} onChange={setVisibility} label="Exibir jobs" withSeparator={false} /></DropdownMenuContent></DropdownMenu>
-            <Button size="sm" className="h-8 gap-1.5 px-3 text-xs" onClick={() => { setMode("jobs"); setAddingJob(true); }}><Plus className="h-3.5 w-3.5" />Novo job</Button>
+            <Button size="sm" className="h-8 gap-1.5 px-3 text-xs" onClick={() => setMode("jobs")}><Plus className="h-3.5 w-3.5" />Jobs</Button>
           </div>
         </div>
 
@@ -352,10 +314,7 @@ export function JobsPanel({ brandId, projectId, projectName = "Projeto", clientN
             {hasPautas ? <Button variant="outline" className="h-auto justify-between px-5 py-5 text-left" onClick={openPautas}><span className="flex items-center gap-3"><Sparkles className="h-4 w-4 text-primary" /><span><span className="block text-base font-semibold">Pautas</span><span className="mt-1 block text-xs font-normal text-muted-foreground">{pautasCount} {pautasCount === 1 ? "peça" : "peças"} de conteúdo</span></span></span><ChevronRight className="h-4 w-4" /></Button> : null}
           </div>
         ) : (
-          <div>
-            {addingJob ? <div className="flex flex-wrap gap-2 border-b border-border/60 p-3"><Input autoFocus value={newJobName} onChange={(event) => setNewJobName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && newJobName.trim()) createJobMut.mutate(); if (event.key === "Escape") setAddingJob(false); }} placeholder="Ex.: Fazer criativos" className="h-9 min-w-[220px] flex-1" /><Button size="sm" className="h-9" onClick={() => createJobMut.mutate()} disabled={!newJobName.trim() || createJobMut.isPending}>Criar</Button><Button size="sm" variant="ghost" className="h-9" onClick={() => setAddingJob(false)}>Cancelar</Button></div> : null}
-            {jobsQ.isLoading ? <div className="grid gap-3 p-5 md:grid-cols-3"><Skeleton className="h-52" /><Skeleton className="h-52" /><Skeleton className="h-52" /></div> : visibleJobs.length === 0 ? <div className="p-12 text-center text-sm text-muted-foreground">{jobs.length ? "Nenhum job encontrado para esta busca." : "Nenhum job ainda. Crie a primeira frente de trabalho."}</div> : <div className="grid min-w-0 gap-3 overflow-x-auto p-4 lg:grid-cols-3">{JOB_GROUPS.map((group) => { const grouped = visibleJobs.filter((job) => groupFor(job) === group.key); return <section key={group.key} className="min-w-[260px] overflow-hidden rounded-lg border border-border/60 bg-muted/25"><div className={cn("h-1", group.band)} /><header className="flex items-center gap-2 border-b border-border/60 px-3 py-3"><span className={cn("h-2.5 w-2.5 rounded-full", group.dot)} /><h2 className="text-sm font-semibold">{group.label}</h2><Badge variant="outline" className="ml-auto">{grouped.length}</Badge></header><div className="space-y-2.5 p-2.5">{grouped.map((job) => <JobCard key={job.id} job={job} stats={jobStats.get(job.id) ?? { total: 0, done: 0, minutes: 0, assignees: [] }} team={team} onOpen={() => setOpenJobId(job.id)} actions={jobMenu(job)} />)}{grouped.length === 0 ? <div className="rounded-md border border-dashed border-border/60 p-8 text-center text-xs text-muted-foreground">Nenhum job</div> : null}</div></section>; })}</div>}
-          </div>
+           <JobListView brandId={brandId} jobs={visibleJobs} statuses={statuses} stats={jobStats} rollups={timeRollups} team={team} taskTotals={taskTotals} visibility={visibility} search={search} loading={jobsQ.isLoading} menuFor={jobMenu} onSearchChange={setSearch} onVisibilityChange={setVisibility} onOpen={setOpenJobId} onCreate={(name, statusId) => createJobMut.mutateAsync({ name, statusId })} onStatusChange={(job, statusId) => patchJobMut.mutate({ jobId: job.id, patch: { status_id: statusId } })} onAssigneeChange={(job, assigneeId) => patchJobMut.mutate({ jobId: job.id, patch: { assignee_id: assigneeId } })} onDueChange={(job, dueAt) => patchJobMut.mutate({ jobId: job.id, patch: { due_at: dueAt } })} />
         )}
         {footer ? <div className="border-t border-border/60 bg-background/40 px-5 py-3">{footer}</div> : null}
       </DashboardPanelSurface>

@@ -67,6 +67,7 @@ export const createJobFn = createServerFn({ method: "POST" })
         color: z.string().max(20).nullable().optional(),
         assigneeId: z.string().uuid().nullable().optional(),
         dueAt: z.string().nullable().optional(),
+        statusId: z.string().uuid().nullable().optional(),
       })
       .parse(i),
   )
@@ -88,6 +89,7 @@ export const createJobFn = createServerFn({ method: "POST" })
         color: data.color ?? "#8b5cf6",
         assignee_id: data.assigneeId ?? null,
         due_at: data.dueAt ?? null,
+        status_id: data.statusId ?? null,
         position: nextPos,
       } as never)
       .select("id")
