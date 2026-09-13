@@ -296,6 +296,23 @@ describe("reexecução idempotente do baseline", () => {
     expect(batches.some((batch) => batch.includes("GET STACKED DIAGNOSTICS"))).toBe(true);
     expect(batches.some((batch) => batch.includes("coalesce(sqlstate, 'unknown')"))).toBe(true);
   });
+
+  it("prepara as colunas de lease antes de aplicar migrations incrementais", async () => {
+    const source = readFileSync("src/lib/installation/automation.server.ts", "utf8");
+    const prerequisite = source.indexOf(
+      "management.query(INSTALLATION_OPERATIONS_INCREMENTAL_PREREQUISITES_SQL)",
+    );
+    const ledger = source.indexOf("const ledger = await management.query(");
+
+    expect(source).toContain(
+      '"alter table public.installation_operations add column if not exists lease_expires_at timestamptz"',
+    );
+    expect(source).toContain(
+      '"alter table public.installation_operations add column if not exists lease_owner text"',
+    );
+    expect(prerequisite).toBeGreaterThan(-1);
+    expect(ledger).toBeGreaterThan(prerequisite);
+  });
 });
 
 describe("tabelas auxiliares da automação e RLS", () => {
