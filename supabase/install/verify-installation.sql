@@ -409,7 +409,7 @@ WITH checks AS (
                            WHERE n.nspname = 'public' AND p.proname IN ('start_job_timer','ensure_default_work_statuses','log_work_timer_start','seed_default_work_statuses_for_brand','duplicate_project_job')) = 5
                     AND (SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal AND tgname IN ('project_jobs_assign_number','project_jobs_number_immutable','task_time_entries_activity_start','brands_seed_default_work_statuses')) = 4
                     AND NOT has_function_privilege('anon', 'public.start_job_timer(uuid,uuid)', 'EXECUTE')
-                    AND NOT has_function_privilege('anon', 'public.ensure_default_work_statuses(uuid)', 'EXECUTE')
+                     AND NOT has_function_privilege('anon', 'public.ensure_default_work_statuses(uuid)', 'EXECUTE')
                      AND NOT has_function_privilege('anon', 'public.duplicate_project_job(uuid,uuid)', 'EXECUTE')
                      AND NOT EXISTS (
                        SELECT 1 FROM public.brands b
