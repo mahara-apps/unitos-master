@@ -67,8 +67,7 @@ export function DueDateChip({
           mode="single"
           selected={toDate(value)}
           onSelect={(date) => {
-            if (!date) return;
-            onChange(toIso(date));
+            onChange(date ? toIso(date) : null);
             setOpen(false);
           }}
           initialFocus

@@ -22,7 +22,7 @@ describe("prazo da tarefa criada no job", () => {
 
   it("fecha o calendário depois de selecionar ou remover o prazo", () => {
     expect(picker).toContain("<Popover open={open} onOpenChange={setOpen}>");
-    expect(picker).toMatch(/onSelect=\{\(date\) => \{[\s\S]*onChange\(toIso\(date\)\);[\s\S]*setOpen\(false\);/);
+    expect(picker).toMatch(/onSelect=\{\(date\) => \{[\s\S]*onChange\(date \? toIso\(date\) : null\);[\s\S]*setOpen\(false\);/);
     expect(picker).toMatch(/onChange\(null\);[\s\S]*setOpen\(false\);/);
     expect(picker).toContain('className={cn("pointer-events-auto p-3")}');
   });
