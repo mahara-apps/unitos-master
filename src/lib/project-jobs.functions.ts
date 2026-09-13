@@ -15,6 +15,8 @@ export type ProjectJob = {
   start_date: string | null;
   due_at: string | null;
   status_id: string | null;
+  job_number: number;
+  estimated_minutes: number | null;
   done_at: string | null;
   archived_at: string | null;
   created_at: string;
@@ -22,7 +24,7 @@ export type ProjectJob = {
 };
 
 const JOB_SELECT =
-  "id, project_id, brand_id, name, description, color, position, assignee_id, start_date, due_at, status_id, done_at, archived_at, created_at, updated_at";
+  "id, project_id, brand_id, name, description, color, position, assignee_id, start_date, due_at, status_id, job_number, estimated_minutes, done_at, archived_at, created_at, updated_at";
 
 export const listJobsFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -101,13 +103,14 @@ export const updateJobFn = createServerFn({ method: "POST" })
         patch: z
           .object({
             name: z.string().trim().min(1).max(120).optional(),
-            description: z.string().max(2000).nullable().optional(),
+            description: z.string().max(100000).nullable().optional(),
             color: z.string().max(20).nullable().optional(),
             position: z.number().int().optional(),
             assignee_id: z.string().uuid().nullable().optional(),
             start_date: z.string().nullable().optional(),
             due_at: z.string().nullable().optional(),
             status_id: z.string().uuid().nullable().optional(),
+            estimated_minutes: z.number().int().min(0).nullable().optional(),
           })
           .partial(),
       })

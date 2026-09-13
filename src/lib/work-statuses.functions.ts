@@ -7,6 +7,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { TaskStatus } from "@/lib/tasks.functions";
 
 export const WORK_STATUS_SCOPES = ["project", "job", "task"] as const;
 export type WorkStatusScope = (typeof WORK_STATUS_SCOPES)[number];
@@ -20,9 +21,21 @@ export type WorkStatus = {
   position: number;
   is_done: boolean;
   is_default: boolean;
+  task_state: TaskStatus | null;
 };
 
-const SELECT = "id, brand_id, scope, name, color, position, is_done, is_default";
+const SELECT = "id, brand_id, scope, name, color, position, is_done, is_default, task_state";
+
+export const ensureWorkStatusDefaultsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.rpc("ensure_default_work_statuses", {
+      _brand_id: data.brandId,
+    });
+    if (error) throw error;
+    return { ok: true };
+  });
 
 export const listWorkStatusesFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -44,7 +57,7 @@ export const listWorkStatusesFn = createServerFn({ method: "GET" })
     if (data.scope) q = q.eq("scope", data.scope);
     const { data: rows, error } = await q;
     if (error) throw error;
-    return (rows ?? []) as WorkStatus[];
+    return Array.isArray(rows) ? (rows as WorkStatus[]) : [];
   });
 
 export const createWorkStatusFn = createServerFn({ method: "POST" })
@@ -57,6 +70,7 @@ export const createWorkStatusFn = createServerFn({ method: "POST" })
         name: z.string().trim().min(1).max(60),
         color: z.string().max(20).optional(),
         isDone: z.boolean().optional(),
+        taskState: z.enum(["todo", "in_progress", "review", "blocked", "done"]).nullable().optional(),
       })
       .parse(i),
   )
@@ -78,6 +92,7 @@ export const createWorkStatusFn = createServerFn({ method: "POST" })
         name: data.name,
         color: data.color ?? "#8b5cf6",
         is_done: data.isDone ?? false,
+        task_state: data.taskState ?? null,
         position: nextPos,
       } as never)
       .select("id")

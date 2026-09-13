@@ -4,7 +4,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export type TimeEntry = {
   id: string;
-  task_id: string;
+  task_id: string | null;
+  job_id: string | null;
   user_id: string;
   brand_id: string;
   started_at: string;
@@ -16,11 +17,13 @@ export type TimeEntry = {
   is_rework: boolean;
   source: "timer" | "manual";
   user_name?: string | null;
+  task_title?: string | null;
 };
 
 export type ActiveTimer = {
   id: string;
-  task_id: string;
+  task_id: string | null;
+  job_id: string | null;
   started_at: string;
   brand_id: string;
   /** Tempo já transcorrido, calculado no servidor para não depender do relógio do navegador. */
@@ -37,7 +40,65 @@ export type TimerState = {
 };
 
 const ENTRY_COLUMNS =
-  "id, task_id, user_id, brand_id, started_at, ended_at, minutes, seconds, ended_reason, description, is_rework, source";
+  "id, task_id, job_id, user_id, brand_id, started_at, ended_at, minutes, seconds, ended_reason, description, is_rework, source";
+
+export type JobTimerState = TimerState & { directSeconds: number; taskSeconds: number };
+
+export const listJobTimeEntriesFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid(), jobId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }): Promise<TimeEntry[]> => {
+    const { data: taskRows, error: taskError } = await context.supabase.from("tasks").select("id, title").eq("brand_id", data.brandId).eq("job_id", data.jobId);
+    if (taskError) throw taskError;
+    const tasks = (taskRows ?? []) as Array<{ id: string; title: string }>;
+    const taskIds = tasks.map((task) => task.id);
+    let query = context.supabase.from("task_time_entries").select(ENTRY_COLUMNS).eq("brand_id", data.brandId).order("started_at", { ascending: false }).limit(500);
+    query = taskIds.length ? query.or(`job_id.eq.${data.jobId},task_id.in.(${taskIds.join(",")})`) : query.eq("job_id", data.jobId);
+    const { data: rows, error } = await query;
+    if (error) throw error;
+    const entries = (rows ?? []) as unknown as TimeEntry[];
+    const userIds = Array.from(new Set(entries.map((entry) => entry.user_id)));
+    const { data: profiles } = userIds.length ? await context.supabase.from("user_profiles").select("id, full_name").in("id", userIds) : { data: [] };
+    const names = new Map(((profiles ?? []) as Array<{ id: string; full_name: string | null }>).map((profile) => [profile.id, profile.full_name]));
+    const titles = new Map(tasks.map((task) => [task.id, task.title]));
+    return entries.map((entry) => ({ ...entry, user_name: names.get(entry.user_id) ?? null, task_title: entry.task_id ? titles.get(entry.task_id) ?? null : null }));
+  });
+
+export const getJobTimerStateFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid(), jobId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }): Promise<JobTimerState> => {
+    const { data: taskRows, error: taskError } = await context.supabase.from("tasks").select("id").eq("brand_id", data.brandId).eq("job_id", data.jobId);
+    if (taskError) throw taskError;
+    const taskIds = ((taskRows ?? []) as Array<{ id: string }>).map((task) => task.id);
+    let totalsQuery = context.supabase.from("task_time_entries").select("task_id, job_id, seconds, minutes").eq("brand_id", data.brandId).not("ended_at", "is", null);
+    totalsQuery = taskIds.length ? totalsQuery.or(`job_id.eq.${data.jobId},task_id.in.(${taskIds.join(",")})`) : totalsQuery.eq("job_id", data.jobId);
+    const [totalsRes, activeRes, lastRes] = await Promise.all([
+      totalsQuery,
+      context.supabase.from("task_time_entries").select("id, task_id, job_id, started_at, brand_id").eq("brand_id", data.brandId).eq("user_id", context.userId).is("ended_at", null).order("started_at", { ascending: false }).limit(1),
+      context.supabase.from("task_time_entries").select("ended_reason").eq("brand_id", data.brandId).eq("job_id", data.jobId).eq("user_id", context.userId).not("ended_at", "is", null).order("ended_at", { ascending: false }).limit(1),
+    ]);
+    if (totalsRes.error) throw totalsRes.error;
+    if (activeRes.error) throw activeRes.error;
+    if (lastRes.error) throw lastRes.error;
+    const totals = (totalsRes.data ?? []) as Array<{ task_id: string | null; job_id: string | null; seconds: number | null; minutes: number | null }>;
+    const directSeconds = totals.filter((entry) => entry.job_id === data.jobId).reduce((sum, entry) => sum + entrySeconds(entry), 0);
+    const taskSeconds = totals.filter((entry) => entry.task_id != null).reduce((sum, entry) => sum + entrySeconds(entry), 0);
+    const activeRow = ((activeRes.data ?? [])[0] as ActiveTimer | undefined) ?? null;
+    const active = activeRow ? { ...activeRow, elapsed_seconds: Math.max(0, Math.floor((Date.now() - new Date(activeRow.started_at).getTime()) / 1000)) } : null;
+    return { totalSeconds: directSeconds + taskSeconds, directSeconds, taskSeconds, active, paused: active?.job_id !== data.jobId && ((lastRes.data ?? [])[0] as { ended_reason?: string } | undefined)?.ended_reason === "pause" };
+  });
+
+export const startJobTimerFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid(), jobId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }): Promise<ActiveTimer> => {
+    const { data: id, error } = await context.supabase.rpc("start_job_timer", { _job_id: data.jobId, _brand_id: data.brandId });
+    if (error) throw error;
+    const { data: row, error: rowError } = await context.supabase.from("task_time_entries").select("id, task_id, job_id, started_at, brand_id").eq("id", id as string).single();
+    if (rowError) throw rowError;
+    return { ...(row as ActiveTimer), elapsed_seconds: 0 };
+  });
 
 function entrySeconds(e: { seconds: number | null; minutes: number | null }): number {
   if (e.seconds != null) return Math.max(0, e.seconds);
@@ -78,7 +139,7 @@ export const getMyActiveTimerFn = createServerFn({ method: "GET" })
   .handler(async ({ data, context }): Promise<ActiveTimer | null> => {
     const { data: rows, error } = await context.supabase
       .from("task_time_entries")
-      .select("id, task_id, started_at, brand_id")
+      .select("id, task_id, job_id, started_at, brand_id")
       .eq("brand_id", data.brandId)
       .eq("user_id", context.userId)
       .is("ended_at", null)
@@ -104,7 +165,7 @@ export const getTimerStateFn = createServerFn({ method: "GET" })
         .not("ended_at", "is", null),
       context.supabase
         .from("task_time_entries")
-        .select("id, task_id, started_at, brand_id")
+        .select("id, task_id, job_id, started_at, brand_id")
         .eq("brand_id", data.brandId)
         .eq("user_id", context.userId)
         .is("ended_at", null)
@@ -161,7 +222,7 @@ export const startTimerFn = createServerFn({ method: "POST" })
     if (error) throw error;
     const { data: row, error: rowError } = await context.supabase
       .from("task_time_entries")
-      .select("id, task_id, started_at, brand_id")
+      .select("id, task_id, job_id, started_at, brand_id")
       .eq("id", id as string)
       .single();
     if (rowError) throw rowError;
