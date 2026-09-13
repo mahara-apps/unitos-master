@@ -362,6 +362,30 @@ WITH checks AS (
                 (SELECT count(*) FROM public.installation_meta_app)),
          'INFO'
 
+  UNION ALL
+  SELECT 56, 'Instalações: execução exclusiva com lease e heartbeat',
+         (SELECT count(*)::text FROM information_schema.columns
+           WHERE table_schema = 'public' AND table_name = 'installation_operations'
+             AND column_name IN ('lease_owner','lease_expires_at','attempt_count'))
+         || ' colunas / funções=' ||
+         (SELECT count(*)::text FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+           WHERE n.nspname = 'public'
+             AND p.proname IN ('claim_installation_operation','claim_stale_installation_operations','heartbeat_installation_operation')),
+         CASE WHEN (SELECT count(*) FROM information_schema.columns
+                         WHERE table_schema = 'public' AND table_name = 'installation_operations'
+                           AND column_name IN ('lease_owner','lease_expires_at','attempt_count')) = 3
+                    AND (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                          WHERE n.nspname = 'public'
+                            AND p.proname IN ('claim_installation_operation','claim_stale_installation_operations','heartbeat_installation_operation')) = 3
+                    AND NOT EXISTS (
+                      SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                      WHERE n.nspname = 'public'
+                        AND p.proname IN ('claim_installation_operation','claim_stale_installation_operations','heartbeat_installation_operation')
+                        AND (has_function_privilege('anon', p.oid, 'EXECUTE')
+                             OR has_function_privilege('authenticated', p.oid, 'EXECUTE'))
+                    )
+              THEN 'PASS' ELSE 'FAIL' END
+
   -- ----------------------------------------------------------------- vault / cron
   UNION ALL
   SELECT 60, 'vault: cron_secret presente e com tamanho mínimo',
