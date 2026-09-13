@@ -7,7 +7,7 @@
 - [x] Ampliar o tempo do acionador automático para uma fatia completa.
 - [x] Cobrir contador, histórico e timeout com testes de regressão.
 - [x] Regenerar o pacote e sincronizar versão/SHA.
-- [ ] Executar os guardiões MASTER-first e os testes direcionados.
+- [x] Executar os guardiões MASTER-first e os testes direcionados.
 - [ ] Publicar o MASTER e iniciar uma nova atualização da Taveira somente após autorização explícita.
 
 ## MASTER 1.3.87 — Consulta vazia no ledger incremental
