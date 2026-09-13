@@ -9372,6 +9372,15 @@ export type Database = {
         }
         Returns: string
       }
+      yield_installation_operation: {
+        Args: {
+          _delay_seconds?: number
+          _fencing_token: number
+          _operation_id: string
+          _owner: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       alert_severity: "info" | "warning" | "critical"
