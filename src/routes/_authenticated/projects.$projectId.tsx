@@ -77,6 +77,7 @@ import { PautaBoard, type BoardPauta, type BoardView } from "@/components/projec
 import { UnitNetworkMatrix } from "@/components/projects/unit-network-matrix";
 import { UpcomingDeadlines, type DeadlineEntry } from "@/components/projects/upcoming-deadlines";
 import { CONTENT_STAGES, contentStageOf, type ContentStage } from "@/lib/content-stage-tokens";
+import { ProjectOverview } from "@/components/projects/project-overview";
 
 const PROJECT_TABS = ["overview", "jobs", "comments", "links"] as const;
 type ProjectTab = (typeof PROJECT_TABS)[number];
@@ -633,12 +634,7 @@ function ProjectDetailPage() {
         done={doneItems}
         total={totalItems}
         stages={
-          <StageFunnel
-            counts={funnelCounts}
-            onSelect={(stage) =>
-              setSearch({ tab: "jobs", board: "board", pauta: undefined, estagio: stage ?? undefined })
-            }
-          />
+          undefined
         }
         planBadge={
           project.plan ? <PlanStatusBadge status={project.plan.status} prefix="Pauta:" /> : null
@@ -656,17 +652,15 @@ function ProjectDetailPage() {
           />
         }
         status={
-          <>
-            <StatusPicker
-              brandId={brandId!}
-              scope="project"
-              value={project.status_id ?? null}
-              onChange={(statusId) => saveField({ status_id: statusId })}
-            />
-            <Badge variant="outline" className="h-8 rounded-full px-3 text-[11px]">
-              {statusLabel}
-            </Badge>
-          </>
+          <StatusPicker
+            brandId={brandId!}
+            scope="project"
+            value={project.status_id ?? null}
+            disabled={!canEditProject}
+            placeholder={statusLabel}
+            className="h-8 w-[180px] rounded-full"
+            onChange={(statusId) => saveField({ status_id: statusId })}
+          />
         }
         actions={
           <div className="flex items-center gap-1.5">
@@ -748,6 +742,26 @@ function ProjectDetailPage() {
           stage={search.estagio ?? null}
           onStageChange={(s) => setSearch({ estagio: s ?? undefined })}
         />
+      ) : tab === "overview" ? (
+        <ProjectOverview
+          brandId={brandId!}
+          projectId={projectId}
+          dueAt={project.due_at}
+          completedItems={doneItems}
+          publishedItems={stats.published}
+          totalItems={totalItems}
+          funnelCounts={funnelCounts}
+          pautaCount={pautaDetails.length}
+          approvedCount={stats.approved + stats.published}
+          deadlines={deadlines}
+          team={team}
+          onSelectStage={(stage) =>
+            setSearch({ tab: "jobs", board: "board", pauta: undefined, estagio: stage ?? undefined })
+          }
+          onOpenJob={(jobId) => setSearch({ tab: "jobs", job: jobId, board: undefined })}
+          onViewJobs={() => setSearch({ tab: "jobs", board: undefined })}
+          onOpenPautas={() => setSearch({ tab: "jobs", board: "board" })}
+        />
       ) : (
         <div className="min-w-0 space-y-4">
           {/* Níveis 2 e 3 — JOBS › TAREFAS (a pauta é um job de conteúdo na mesma lista) */}
@@ -758,7 +772,7 @@ function ProjectDetailPage() {
             clientName={clientName}
             team={team}
             currentUserId={userId}
-            initialMode={tab === "jobs" ? "jobs" : "overview"}
+            initialMode="jobs"
             initialJobId={search.job ?? null}
             onOpenJobChange={(jobId) => setSearch({ tab: "jobs", job: jobId ?? undefined })}
             onOpenPautas={() => setSearch({ tab: "jobs", board: "board" })}

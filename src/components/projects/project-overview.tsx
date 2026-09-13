@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -9,7 +9,6 @@ import {
   FileText,
   Plus,
   Radio,
-  Rows3,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AssigneeAvatar, type TeamOption } from "@/components/projects/assignee-picker";
@@ -97,6 +96,7 @@ export function ProjectOverview(props: Props) {
   const statusesQ = useWorkStatuses(props.brandId, "job");
   const [newJobOpen, setNewJobOpen] = useState(false);
   const [newJobName, setNewJobName] = useState("");
+  const ensuredStatuses = useRef(false);
 
   const overviewQ = useQuery({
     queryKey: ["project-overview", props.brandId, props.projectId],
@@ -105,11 +105,12 @@ export function ProjectOverview(props: Props) {
   });
 
   useEffect(() => {
-    if (statusesQ.data?.length) return;
+    if (ensuredStatuses.current) return;
+    ensuredStatuses.current = true;
     ensureStatuses({ data: { brandId: props.brandId } })
       .then(() => queryClient.invalidateQueries({ queryKey: ["work-statuses", props.brandId] }))
       .catch(() => undefined);
-  }, [ensureStatuses, props.brandId, queryClient, statusesQ.data?.length]);
+  }, [ensureStatuses, props.brandId, queryClient]);
 
   const createMut = useMutation({
     mutationFn: () =>
