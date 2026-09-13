@@ -4209,7 +4209,8 @@ export async function applyDatabaseDelta(input: {
   const appliedLabels = new Set(
     ledger.rows
       .filter((row): row is Record<string, unknown> => !!row && typeof row === "object")
-      .map((row) => `${String(row["file"] ?? "")}:${String(row["fingerprint"] ?? "")}`)
+      .filter((row) => Boolean(row["file"] && row["fingerprint"]))
+      .map((row) => `${String(row["file"])}:${String(row["fingerprint"])}`)
       .filter(Boolean),
   );
   const hasLegacyBlob = ledger.rows.some(

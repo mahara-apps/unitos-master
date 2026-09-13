@@ -34,6 +34,9 @@ update public.installation set
   service_changed_at = now(),
   service_changed_by = ${quote(input.actor)}
 ${input.onlyIfMaintenance ? "where service_state = 'maintenance'" : ""};
+select count(*)::integer as matched
+from public.installation
+where service_state = ${quote(input.state)};
 `.trim();
 }
 
@@ -68,7 +71,11 @@ export async function setRemoteInstallationServiceState(input: {
         onlyIfMaintenance: input.state === "active" && input.preserveSuspended !== false,
       }),
     );
-    return result.ok;
+    if (!result.ok) return false;
+    const row = result.rows.find(
+      (value): value is Record<string, unknown> => Boolean(value && typeof value === "object"),
+    );
+    return Number(row?.["matched"] ?? 0) > 0;
   } catch {
     return false;
   }

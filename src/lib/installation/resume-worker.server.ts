@@ -31,44 +31,39 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
 
   const operations: string[] = [];
   for (const op of rows ?? []) {
-    const { data: installation } = await supabaseAdmin
-      .from("installations")
-      .select("*")
-      .eq("id", (op as { installation_id: string }).installation_id)
-      .maybeSingle();
-    if (!installation) continue;
-
-    const row = installation as Record<string, unknown>;
-    const { runAutomatedProvision, runAutomatedUpdate, runAutomatedValidate, classifyAccessFailure } =
-      await import("./automation.server");
-    const { finalizeOperation, retryOperation, withOperationHeartbeat, yieldOperation } = await import("./runner.server");
-    // Cada tipo de operação tem o próprio conjunto de etapas: retomar tudo como
-    // provisionamento deixava UPDATE/VALIDATE presos reportando etapas inexistentes.
-    const kind = (op as { kind?: string }).kind ?? "provision";
-    // Cada instalação pode ter credenciais próprias (banco/deploy/repositório
-    // do cliente): a retomada precisa usar as MESMAS credenciais do início.
-    const { resolveInstallationEnv } = await import("./credentials.server");
-    const { setRemoteInstallationServiceState } = await import("./service-state.server");
-    const env = await resolveInstallationEnv(supabaseAdmin as never, row.id as string);
-    const args = {
-      client: supabaseAdmin as never,
-      operation: op as never,
-      env,
-      installation: {
-        id: row.id as string,
-        domain: (row.domain ?? null) as string | null,
-        supabaseUrl: (row.supabase_url ?? null) as string | null,
-        supabaseProjectRef: (row.supabase_project_ref ?? null) as string | null,
-        deployProject: (row.deploy_project ?? null) as string | null,
-        gitRepoUrl: (row.git_repo_url ?? null) as string | null,
-      },
-      // Retomada nunca "atualiza para o mais novo": segue o commit autorizado
-      // quando a operação foi aberta.
-      commitSha:
-        ((op as { detail?: { targetCommitSha?: string } }).detail?.targetCommitSha ?? null) ||
-        ((row.pinned_commit_sha ?? null) as string | null),
-    };
+    const operationId = (op as { id: string }).id;
     try {
+      const { data: installation } = await supabaseAdmin
+        .from("installations")
+        .select("*")
+        .eq("id", (op as { installation_id: string }).installation_id)
+        .maybeSingle();
+      if (!installation) throw new Error("Instalação da operação não foi encontrada.");
+
+      const row = installation as Record<string, unknown>;
+      const { runAutomatedProvision, runAutomatedUpdate, runAutomatedValidate, classifyAccessFailure } =
+        await import("./automation.server");
+      const { finalizeOperation, retryOperation, withOperationHeartbeat, yieldOperation } = await import("./runner.server");
+      const kind = (op as { kind?: string }).kind ?? "provision";
+      const { resolveInstallationEnv } = await import("./credentials.server");
+      const { setRemoteInstallationServiceState } = await import("./service-state.server");
+      const env = await resolveInstallationEnv(supabaseAdmin as never, row.id as string);
+      const args = {
+        client: supabaseAdmin as never,
+        operation: op as never,
+        env,
+        installation: {
+          id: row.id as string,
+          domain: (row.domain ?? null) as string | null,
+          supabaseUrl: (row.supabase_url ?? null) as string | null,
+          supabaseProjectRef: (row.supabase_project_ref ?? null) as string | null,
+          deployProject: (row.deploy_project ?? null) as string | null,
+          gitRepoUrl: (row.git_repo_url ?? null) as string | null,
+        },
+        commitSha:
+          ((op as { detail?: { targetCommitSha?: string } }).detail?.targetCommitSha ?? null) ||
+          ((row.pinned_commit_sha ?? null) as string | null),
+      };
       if (kind === "update") {
         const outcome = await withOperationHeartbeat(supabaseAdmin as never, op as never, () =>
           runAutomatedUpdate(args),
@@ -76,12 +71,13 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
         if (outcome.result === "PENDING") {
           await yieldOperation(supabaseAdmin as never, op as never);
         } else {
-          await setRemoteInstallationServiceState({
+          const restored = await setRemoteInstallationServiceState({
             env,
             projectRef: (row.supabase_project_ref ?? null) as string | null,
             state: "active",
             actor: null,
           });
+          if (!restored) throw new Error("estado remoto ativo não foi confirmado");
         }
       } else if (kind === "validate") {
         await withOperationHeartbeat(supabaseAdmin as never, op as never, () =>
@@ -94,26 +90,25 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
       }
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "falha inesperada na retomada";
-      const failure = classifyAccessFailure(message);
-      if (failure === "permission") {
-        await finalizeOperation(supabaseAdmin as never, op as never, {
-          ok: false,
-          summary: `BLOCKED: ${message}`,
-          errorKind: "permission",
-        });
-      } else {
-        await retryOperation(supabaseAdmin as never, op as never, "transient", message);
-      }
-      if (kind === "update") {
-        await setRemoteInstallationServiceState({
-          env,
-          projectRef: (row.supabase_project_ref ?? null) as string | null,
-          state: "active",
-          actor: null,
-        });
+      try {
+        const { classifyAccessFailure } = await import("./automation.server");
+        const { finalizeOperation, retryOperation } = await import("./runner.server");
+        if (classifyAccessFailure(message) === "permission") {
+          await finalizeOperation(supabaseAdmin as never, op as never, {
+            ok: false,
+            summary: `BLOCKED: ${message}`,
+            errorKind: "permission",
+          });
+        } else {
+          // Em retry o ambiente continua em manutenção; só volta a active após
+          // conclusão definitiva confirmada pelo caminho de sucesso acima.
+          await retryOperation(supabaseAdmin as never, op as never, "transient", message);
+        }
+      } catch {
+        // Falha de uma operação não interrompe os demais claims deste lote.
       }
     }
-    operations.push((op as { id: string }).id);
+    operations.push(operationId);
   }
 
   return { claimed: operations.length, operations };
