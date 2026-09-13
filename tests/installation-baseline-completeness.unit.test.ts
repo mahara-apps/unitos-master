@@ -287,7 +287,9 @@ describe("reexecução idempotente do baseline", () => {
     );
 
     expect(result).toMatchObject({ ok: true, processed: 3, total: 3, complete: true });
-    expect(batches.some((batch) => batch.includes("truncate table public._unitos_deferred_sql"))).toBe(true);
+    expect(
+      batches.some((batch) => batch.includes("delete from public._unitos_deferred_sql where run_key")),
+    ).toBe(true);
     expect(batches.some((batch) => batch.includes("DO $unitos_guard$"))).toBe(true);
   });
 

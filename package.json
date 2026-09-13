@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "master:check": "python3 supabase/baseline-snapshot/tools/build_delta.py && vitest run tests/installation-master-sync.unit.test.ts tests/installation-baseline-completeness.unit.test.ts"
+    "master:check": "python3 supabase/baseline-snapshot/tools/build_delta.py && vitest run tests/installation-master-sync.unit.test.ts tests/installation-baseline-completeness.unit.test.ts",
+    "verify:disposable": "bash supabase/baseline-snapshot/tools/verify_on_disposable_project.sh"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4",
