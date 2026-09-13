@@ -7064,6 +7064,39 @@ export type Database = {
           },
         ]
       }
+      project_job_counters: {
+        Row: {
+          brand_id: string
+          next_number: number
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          next_number?: number
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          next_number?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_job_counters_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "project_job_counters_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_jobs: {
         Row: {
           archived_at: string | null
@@ -7074,7 +7107,9 @@ export type Database = {
           description: string | null
           done_at: string | null
           due_at: string | null
+          estimated_minutes: number | null
           id: string
+          job_number: number
           name: string
           position: number
           project_id: string
@@ -7091,7 +7126,9 @@ export type Database = {
           description?: string | null
           done_at?: string | null
           due_at?: string | null
+          estimated_minutes?: number | null
           id?: string
+          job_number: number
           name: string
           position?: number
           project_id: string
@@ -7108,7 +7145,9 @@ export type Database = {
           description?: string | null
           done_at?: string | null
           due_at?: string | null
+          estimated_minutes?: number | null
           id?: string
+          job_number?: number
           name?: string
           position?: number
           project_id?: string
@@ -7839,11 +7878,12 @@ export type Database = {
           ended_reason: string | null
           id: string
           is_rework: boolean
+          job_id: string | null
           minutes: number | null
           seconds: number | null
           source: string
           started_at: string
-          task_id: string
+          task_id: string | null
           updated_at: string
           user_id: string
         }
@@ -7855,11 +7895,12 @@ export type Database = {
           ended_reason?: string | null
           id?: string
           is_rework?: boolean
+          job_id?: string | null
           minutes?: number | null
           seconds?: number | null
           source?: string
           started_at?: string
-          task_id: string
+          task_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -7871,11 +7912,12 @@ export type Database = {
           ended_reason?: string | null
           id?: string
           is_rework?: boolean
+          job_id?: string | null
           minutes?: number | null
           seconds?: number | null
           source?: string
           started_at?: string
-          task_id?: string
+          task_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -7892,6 +7934,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_time_entries_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "project_jobs"
             referencedColumns: ["id"]
           },
           {
@@ -8430,6 +8479,7 @@ export type Database = {
           name: string
           position: number
           scope: string
+          task_state: Database["public"]["Enums"]["task_status"] | null
           updated_at: string
         }
         Insert: {
@@ -8442,6 +8492,7 @@ export type Database = {
           name: string
           position?: number
           scope: string
+          task_state?: Database["public"]["Enums"]["task_status"] | null
           updated_at?: string
         }
         Update: {
@@ -8454,6 +8505,7 @@ export type Database = {
           name?: string
           position?: number
           scope?: string
+          task_state?: Database["public"]["Enums"]["task_status"] | null
           updated_at?: string
         }
         Relationships: [
@@ -9132,6 +9184,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      start_job_timer: {
+        Args: { _brand_id: string; _job_id: string }
+        Returns: string
       }
       start_timer: {
         Args: { _brand_id: string; _task_id: string }
