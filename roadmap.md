@@ -1,11 +1,18 @@
 # Roadmap
 
+## MASTER 1.3.87 — Consulta vazia no ledger incremental
+
+- [x] Impedir envio de SQL vazio ao preparar o ledger sem seeds.
+- [x] Cobrir a regressão que interrompeu a atualização da Taveira.
+- [ ] Regenerar o pacote, sincronizar versão/SHA e executar os guardiões MASTER-first.
+- [ ] Publicar o MASTER e retomar a Taveira somente após autorização explícita.
+
 ## MASTER 1.3.86 — Desbloqueio da atualização após validação
 
-- [ ] Permitir atualização de instalação em erro quando não houver operação ativa.
-- [ ] Cobrir a transição validação antiga → erro → atualização autorizada.
-- [ ] Regenerar o pacote, sincronizar versão/SHA e executar os guardiões MASTER-first.
-- [ ] Publicar o MASTER e acompanhar a Taveira até a validação final.
+- [x] Permitir atualização de instalação em erro quando não houver operação ativa.
+- [x] Cobrir a transição validação antiga → erro → atualização autorizada.
+- [x] Regenerar o pacote, sincronizar versão/SHA e executar os guardiões MASTER-first.
+- [x] Publicar o MASTER e acompanhar a Taveira até a validação final.
 
 ## MASTER 1.3.85 — P0 de instalação e atualização
 

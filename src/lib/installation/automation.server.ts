@@ -4120,6 +4120,10 @@ async function seedDeltaLedger(
     ].join(";\n"),
   );
   if (!setup.ok) return { ok: false, error: setup.error };
+  // A atualização chama este helper sem itens apenas para garantir a estrutura
+  // do ledger antes de consultá-lo. A Management API rejeita `query: ""`,
+  // portanto não deve haver uma segunda chamada quando não existe seed.
+  if (migrations.length === 0) return { ok: true };
   const written = await management.query(
     migrations
       .map((item) =>
