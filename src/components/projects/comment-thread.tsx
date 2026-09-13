@@ -23,6 +23,7 @@ import { addTaskCommentFn, deleteTaskCommentFn, listTaskCommentsFn } from "@/lib
 import { listBrandAssigneesFn } from "@/lib/content.functions";
 import { formatDateTimeBr } from "@/lib/timezone";
 import { displayName, initialsOf } from "@/lib/identity";
+import { cn } from "@/lib/utils";
 
 function formatWhen(iso: string) {
   return formatDateTimeBr(iso);

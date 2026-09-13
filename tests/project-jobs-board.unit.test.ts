@@ -21,14 +21,15 @@ describe("gestão de jobs e tarefas no projeto", () => {
     expect(jobs).toContain("JobListView");
   });
 
-  it("abre o job em drawer e aceita link direto", () => {
-    expect(detail).toContain("<Sheet");
-    expect(detail).not.toContain("<Dialog");
+  it("abre o job em modal central e aceita link direto", () => {
+    expect(detail).toContain("<Dialog");
+    expect(detail).not.toContain("<Sheet");
+    expect(detail).toContain("max-w-[1440px]");
     expect(route).toContain('job: z.string().uuid().optional()');
     expect(route).toContain("initialJobId={search.job ?? null}");
   });
 
-  it("mantém a rota e evolui o drawer com número, briefing e quatro abas", () => {
+  it("mantém a rota e evolui o modal com número, briefing e quatro abas", () => {
     expect(jobs).toContain('code={currentJob ? `#${currentJob.job_number}.1`');
     expect(jobs).toContain("JobBriefingEditor");
     expect(jobs).toContain('label: "Comentários"');
