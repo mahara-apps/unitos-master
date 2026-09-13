@@ -6818,3 +6818,8 @@ GRANT EXECUTE ON FUNCTION public.claim_installation_operation(uuid, text, intege
 GRANT EXECUTE ON FUNCTION public.claim_stale_installation_operations(text, integer, integer) TO service_role;
 GRANT EXECUTE ON FUNCTION public.yield_installation_operation(uuid, text, bigint, integer) TO service_role;
 GRANT EXECUTE ON FUNCTION public.retry_installation_operation(uuid, text, bigint, integer, text, text, jsonb) TO service_role;
+
+-- ---------------------------------------------------------------------------
+-- 20260913183337_3fa6a913-29df-4538-acdb-e21b44a320dd.sql
+-- ---------------------------------------------------------------------------
+DROP FUNCTION public.heartbeat_installation_operation(uuid, text, integer);
