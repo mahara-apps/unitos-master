@@ -8,6 +8,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { TaskStatus } from "@/lib/tasks.functions";
+import { callRpc } from "@/lib/supabase-rpc";
 
 export const WORK_STATUS_SCOPES = ["project", "job", "task"] as const;
 export type WorkStatusScope = (typeof WORK_STATUS_SCOPES)[number];
@@ -30,10 +31,10 @@ export const ensureWorkStatusDefaultsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.rpc("ensure_default_work_statuses", {
+    const { error } = await callRpc(context.supabase, "ensure_default_work_statuses", {
       _brand_id: data.brandId,
     });
-    if (error) throw error;
+    if (error) throw new Error(error.message);
     return { ok: true };
   });
 
