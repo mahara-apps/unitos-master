@@ -298,15 +298,11 @@ export function JobsPanel({ brandId, projectId, projectName = "Projeto", clientN
   return (
     <>
       <DashboardPanelSurface className="overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 bg-background/40 px-4 py-2.5">
-          <div className="flex min-w-0 items-center gap-2">
-            {mode === "jobs" ? <Button variant="ghost" size="sm" className="-ml-2 h-8 gap-1.5 px-2 text-xs" onClick={() => setMode("overview")}><ChevronLeft className="h-3.5 w-3.5" />Visão geral</Button> : null}
-            <div className="flex min-w-0 items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground"><span className="truncate">{projectName}</span><ChevronRight className="h-3 w-3" /><span className="text-foreground">{mode === "jobs" ? "Jobs" : "Visão geral"}</span></div>
-          </div>
-          <div className="flex items-center gap-1.5">
-             {mode === "overview" ? <DropdownMenu><DropdownMenuTrigger asChild><Button size="sm" variant={visibility === "active" ? "ghost" : "secondary"} className="h-8 gap-1.5 px-2 text-xs"><Archive className="h-3 w-3" />{visibility === "active" ? "Exibir" : VISIBILITY_LABELS[visibility]}</Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><VisibilityMenuBlock value={visibility} onChange={setVisibility} label="Exibir jobs" withSeparator={false} /></DropdownMenuContent></DropdownMenu> : null}
-             {mode === "jobs" && hasPautas ? <Button size="sm" variant="outline" className="h-8 gap-1.5 px-3 text-xs" onClick={openPautas}><Sparkles className="h-3.5 w-3.5" />Pautas</Button> : null}
-            <Button size="sm" className="h-8 gap-1.5 px-3 text-xs" onClick={() => setMode("jobs")}><Plus className="h-3.5 w-3.5" />Jobs</Button>
+        <div className="border-b border-border/60 bg-background/40 p-3">
+          <div className="mb-2 flex min-w-0 items-center gap-1.5 px-1 font-mono text-[10px] uppercase text-muted-foreground"><span className="truncate">{projectName}</span><ChevronRight className="h-3 w-3" /><span className="text-foreground">Jobs & Pautas</span></div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button variant={mode === "jobs" ? "secondary" : "outline"} className="h-auto justify-between rounded-md px-4 py-3 text-left" onClick={() => setMode("jobs")}><span className="flex min-w-0 items-center gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary/10 text-primary"><List className="h-4 w-4" /></span><span><span className="block text-sm font-semibold">Jobs</span><span className="block text-[11px] font-normal text-muted-foreground">{jobs.length} frentes · {taskTotals.total} tarefas</span></span></span><ChevronRight className="h-4 w-4 shrink-0" /></Button>
+            {hasPautas ? <Button variant="outline" className="h-auto justify-between rounded-md px-4 py-3 text-left" onClick={openPautas}><span className="flex min-w-0 items-center gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-accent text-accent-foreground"><Sparkles className="h-4 w-4" /></span><span><span className="block text-sm font-semibold">Pautas</span><span className="block text-[11px] font-normal text-muted-foreground">{pautasCount} {pautasCount === 1 ? "peça" : "peças"} de conteúdo</span></span></span><ChevronRight className="h-4 w-4 shrink-0" /></Button> : null}
           </div>
         </div>
 
