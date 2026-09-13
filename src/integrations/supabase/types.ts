@@ -8864,6 +8864,10 @@ export type Database = {
         Args: { _event_id: string }
         Returns: number
       }
+      duplicate_project_job: {
+        Args: { _brand_id: string; _job_id: string }
+        Returns: string
+      }
       effective_module_permissions: {
         Args: { _brand_id: string; _user_id: string }
         Returns: Json
