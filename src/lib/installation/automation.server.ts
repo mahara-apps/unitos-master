@@ -2592,6 +2592,10 @@ export const BASELINE_STATEMENTS_PER_INVOCATION = 25;
 export const UPDATE_DATABASE_TIME_BUDGET_MS = 20_000;
 export const UPDATE_DATABASE_MIGRATIONS_PER_INVOCATION = 8;
 
+function operationUsesFencing(operation: OperationRow): boolean {
+  return !!operation.lease_owner && typeof operation.fencing_token === "number" && operation.fencing_token >= 0;
+}
+
 /**
  * Lê o checkpoint da instalação: a última operação (inclusive a atual) que
  * registrou progresso de baseline. Permite retomar sem reaplicar tudo.
@@ -2646,7 +2650,8 @@ export async function saveBaselineProgress(
   operation: OperationRow,
   progress: BaselineProgress,
 ): Promise<void> {
-  const { data: fresh } = await (
+  try {
+    const { data: fresh } = await (
       client as never as {
         from: (t: string) => {
           select: (c: string) => {
@@ -2662,10 +2667,10 @@ export async function saveBaselineProgress(
       .select("detail")
       .eq("id", operation.id)
       .maybeSingle();
-  const rpc = client as never as {
+    const rpc = client as never as {
       rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
     };
-  const { data: saved, error } = await rpc.rpc("checkpoint_installation_operation", {
+    const { data: saved, error } = await rpc.rpc("checkpoint_installation_operation", {
       _operation_id: operation.id,
       _owner: operation.lease_owner ?? "",
       _fencing_token: operation.fencing_token ?? -1,
@@ -2678,7 +2683,10 @@ export async function saveBaselineProgress(
       _summary: null,
       _metrics: { lastCheckpointAt: new Date().toISOString() },
     });
-  if (error || saved !== true) throw new Error(error?.message ?? "lease da operação perdida");
+    if (error || saved !== true) throw new Error(error?.message ?? "lease da operação perdida");
+  } catch (error) {
+    if (operationUsesFencing(operation)) throw error;
+  }
 }
 
 /** Checkpoint das fases pós-baseline (nunca contém secrets). */
@@ -2744,7 +2752,8 @@ export async function saveStageProgress(
   operation: OperationRow,
   patch: StageProgress,
 ): Promise<void> {
-  const { data: fresh } = await (
+  try {
+    const { data: fresh } = await (
       client as never as {
         from: (t: string) => {
           select: (c: string) => {
@@ -2760,11 +2769,11 @@ export async function saveStageProgress(
       .select("detail")
       .eq("id", operation.id)
       .maybeSingle();
-  const detail = (fresh?.detail ?? operation.detail ?? {}) as Record<string, unknown>;
-  const rpc = client as never as {
+    const detail = (fresh?.detail ?? operation.detail ?? {}) as Record<string, unknown>;
+    const rpc = client as never as {
       rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
     };
-  const { data: saved, error } = await rpc.rpc("checkpoint_installation_operation", {
+    const { data: saved, error } = await rpc.rpc("checkpoint_installation_operation", {
       _operation_id: operation.id,
       _owner: operation.lease_owner ?? "",
       _fencing_token: operation.fencing_token ?? -1,
@@ -2777,7 +2786,10 @@ export async function saveStageProgress(
       _summary: null,
       _metrics: { lastCheckpointAt: new Date().toISOString() },
     });
-  if (error || saved !== true) throw new Error(error?.message ?? "lease da operação perdida");
+    if (error || saved !== true) throw new Error(error?.message ?? "lease da operação perdida");
+  } catch (error) {
+    if (operationUsesFencing(operation)) throw error;
+  }
 }
 
 async function report(
@@ -2788,12 +2800,16 @@ async function report(
   detail?: string | null,
   percent?: number | null,
 ) {
-  await applyProgressReport(client as never, op as never, {
-    step,
-    state,
-    detail: detail ?? null,
-    percent: percent ?? null,
-  });
+  try {
+    await applyProgressReport(client as never, op as never, {
+      step,
+      state,
+      detail: detail ?? null,
+      percent: percent ?? null,
+    });
+  } catch (error) {
+    if (operationUsesFencing(op)) throw error;
+  }
 }
 
 /* ------------------------------------------------- preflight de credenciais */
