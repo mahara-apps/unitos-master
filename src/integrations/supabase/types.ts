@@ -8896,6 +8896,10 @@ export type Database = {
         Returns: number
       }
       enqueue_deadline_notifications: { Args: never; Returns: number }
+      ensure_default_work_statuses: {
+        Args: { _brand_id: string }
+        Returns: undefined
+      }
       find_user_id_by_email: { Args: { _email: string }; Returns: string }
       get_brain_graph: {
         Args: { _brand_id?: string; _limit?: number }
