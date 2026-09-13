@@ -87,6 +87,15 @@
   --color-work-todo: var(--work-todo);
   --color-work-progress: var(--work-progress);
   --color-work-done: var(--work-done);
+  --color-work-completed-surface: var(--work-completed-surface);
+  --color-work-completed-border: var(--work-completed-border);
+  --color-work-completed-foreground: var(--work-completed-foreground);
+  --color-work-cancelled-surface: var(--work-cancelled-surface);
+  --color-work-cancelled-border: var(--work-cancelled-border);
+  --color-work-cancelled-foreground: var(--work-cancelled-foreground);
+  --color-work-archived-surface: var(--work-archived-surface);
+  --color-work-archived-border: var(--work-archived-border);
+  --color-work-archived-foreground: var(--work-archived-foreground);
   /* Status de publicação (calendário) — COR = STATUS */
   --color-pub-draft: var(--pub-draft);
   --color-pub-reserved: var(--pub-reserved);
@@ -160,6 +169,15 @@
   --work-todo: #64748b;
   --work-progress: #0ea5e9;
   --work-done: #16a34a;
+  --work-completed-surface: oklch(0.965 0.043 150);
+  --work-completed-border: oklch(0.86 0.09 150);
+  --work-completed-foreground: oklch(0.48 0.14 150);
+  --work-cancelled-surface: oklch(0.965 0.035 25);
+  --work-cancelled-border: oklch(0.87 0.085 25);
+  --work-cancelled-foreground: oklch(0.54 0.19 25);
+  --work-archived-surface: oklch(0.97 0.004 260);
+  --work-archived-border: oklch(0.88 0.01 260);
+  --work-archived-foreground: oklch(0.5 0.02 260);
   /* Status de publicação — referência #64748B #E0A011 #EC4899 #0EA5E9 #16A34A #8B5CF6 #DC2626 */
   --pub-draft: oklch(0.554 0.041 257.417);
   --pub-reserved: oklch(0.72 0.144 78.5);
@@ -232,6 +250,15 @@
   --work-todo: #94a3b8;
   --work-progress: #38bdf8;
   --work-done: #4ade80;
+  --work-completed-surface: oklch(0.24 0.035 150);
+  --work-completed-border: oklch(0.39 0.075 150);
+  --work-completed-foreground: oklch(0.78 0.14 150);
+  --work-cancelled-surface: oklch(0.23 0.035 25);
+  --work-cancelled-border: oklch(0.4 0.085 25);
+  --work-cancelled-foreground: oklch(0.78 0.15 25);
+  --work-archived-surface: oklch(0.17 0.006 260);
+  --work-archived-border: oklch(0.3 0.012 260);
+  --work-archived-foreground: oklch(0.7 0.015 260);
   /* Status de publicação — mesmas matizes, luminosidade ajustada ao escuro */
   --pub-draft: oklch(0.72 0.035 257.417);
   --pub-reserved: oklch(0.82 0.15 82);
