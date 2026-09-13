@@ -6,7 +6,8 @@
 - [x] Fechar tentativas por fencing token em yield e retry.
 - [x] Ampliar o tempo do acionador automático para uma fatia completa.
 - [x] Cobrir contador, histórico e timeout com testes de regressão.
-- [ ] Regenerar o pacote, sincronizar SHA e executar os guardiões MASTER-first.
+- [x] Regenerar o pacote e sincronizar versão/SHA.
+- [ ] Executar os guardiões MASTER-first e os testes direcionados.
 - [ ] Publicar o MASTER e iniciar uma nova atualização da Taveira somente após autorização explícita.
 
 ## MASTER 1.3.87 — Consulta vazia no ledger incremental
