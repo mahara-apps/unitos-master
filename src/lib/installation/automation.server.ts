@@ -4256,7 +4256,8 @@ export async function applyDatabaseDelta(input: {
       runKey: `${operation.id}:${ledgerLabel}`,
       isCancelled: async () => {
         const { data } = await client.from("installation_operations").select("status, fencing_token").eq("id", operation.id).maybeSingle();
-        return data?.status === "failed" || data?.fencing_token !== operation.fencing_token;
+        const current = data as { status?: string; fencing_token?: string | null } | null;
+        return current?.status === "failed" || current?.fencing_token !== operation.fencing_token;
       },
       startIndex: alreadyApplied === DONE ? 0 : alreadyApplied,
       maxStatements: input.maxStatementsPerInvocation ?? BASELINE_STATEMENTS_PER_INVOCATION,
