@@ -6282,3 +6282,8 @@ $$;
 -- ---------------------------------------------------------------------------
 REVOKE ALL ON FUNCTION public.seed_default_work_statuses_for_brand() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.seed_default_work_statuses_for_brand() TO service_role;
+
+-- ---------------------------------------------------------------------------
+-- 20260913160318_0e170cac-a65c-4bfe-96e4-93addf3780ff.sql
+-- ---------------------------------------------------------------------------
+SELECT 1;
