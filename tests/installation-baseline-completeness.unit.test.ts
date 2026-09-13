@@ -271,6 +271,31 @@ describe("reexecução idempotente do baseline", () => {
     expect(batches.some((batch) => batch.includes("truncate table public._unitos_deferred_sql"))).toBe(true);
     expect(batches.some((batch) => batch.includes("DO $unitos_guard$"))).toBe(true);
   });
+
+  it("reavalia dependências após cada lote e preserva o diagnóstico SQL real", async () => {
+    const batches: string[] = [];
+    const result = await applyStatementByStatement(
+      {
+        query: async (batch) => {
+          batches.push(batch);
+          return {
+            ok: true,
+            rows: batch.includes(" as initialized") ? [{ initialized: true }] : [],
+          };
+        },
+      },
+      [
+        "ALTER TABLE public.installation_operations ADD COLUMN IF NOT EXISTS next_attempt_at timestamptz;",
+        "DROP INDEX IF EXISTS public.installation_operations_resume_idx;",
+        "CREATE INDEX IF NOT EXISTS installation_operations_resume_idx ON public.installation_operations (next_attempt_at, lease_expires_at, created_at) WHERE status IN ('pending', 'running', 'retryable');",
+      ].join("\n"),
+    );
+
+    expect(result).toMatchObject({ ok: true, processed: 3, total: 3, complete: true });
+    expect(batches.some((batch) => batch.includes("DO $unitos_retry_deferred$"))).toBe(true);
+    expect(batches.some((batch) => batch.includes("GET STACKED DIAGNOSTICS"))).toBe(true);
+    expect(batches.some((batch) => batch.includes("coalesce(sqlstate, 'unknown')"))).toBe(true);
+  });
 });
 
 describe("tabelas auxiliares da automação e RLS", () => {
@@ -289,6 +314,8 @@ describe("tabelas auxiliares da automação e RLS", () => {
     expect(prep).toBeTruthy();
     expect(prep).toContain("enable row level security");
     expect(prep).toContain("revoke all on public._unitos_deferred_sql from anon, authenticated");
+    expect(prep).toContain("add column if not exists sqlstate text");
+    expect(prep).toContain("add column if not exists error_message text");
   });
 
   it("hardenHelperTables é idempotente e cobre as duas tabelas auxiliares", async () => {
