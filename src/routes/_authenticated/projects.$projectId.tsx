@@ -77,6 +77,7 @@ import { UnitNetworkMatrix } from "@/components/projects/unit-network-matrix";
 import { UpcomingDeadlines, type DeadlineEntry } from "@/components/projects/upcoming-deadlines";
 import { CONTENT_STAGES, contentStageOf, type ContentStage } from "@/lib/content-stage-tokens";
 import { ProjectOverview } from "@/components/projects/project-overview";
+import { StageFunnel } from "@/components/projects/stage-funnel";
 
 const PROJECT_TABS = ["overview", "jobs", "comments", "links"] as const;
 type ProjectTab = (typeof PROJECT_TABS)[number];
@@ -629,6 +630,18 @@ function ProjectDetailPage() {
         name={project.name}
         color={color}
         clientName={clientName}
+        compact={tab === "overview"}
+        periodLabel={`${fmtDate(project.start_date)} — ${fmtDate(project.due_at)}`}
+        done={doneItems}
+        total={totalItems}
+        stages={
+          <StageFunnel
+            counts={funnelCounts}
+            onSelect={(stage) =>
+              setSearch({ tab: "jobs", board: "board", pauta: undefined, estagio: stage ?? undefined })
+            }
+          />
+        }
         planBadge={
           project.plan ? <PlanStatusBadge status={project.plan.status} prefix="Pauta:" /> : null
         }
