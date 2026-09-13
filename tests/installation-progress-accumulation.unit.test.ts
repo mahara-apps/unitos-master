@@ -9,17 +9,23 @@ import {
 /** Cliente Supabase falso com uma única linha de installation_operations. */
 function fakeClient(initialSteps: unknown) {
   const row: { id: string; steps: unknown } = { id: "op-1", steps: initialSteps };
+  const mutation = (patch: Record<string, unknown>) => {
+    const chain = {
+      eq: () => chain,
+      in: () => chain,
+      select: () => chain,
+      maybeSingle: async () => {
+        if ("steps" in patch) row.steps = patch.steps;
+        return { data: { id: row.id }, error: null };
+      },
+    };
+    return chain;
+  };
   const client = {
+    rpc: async () => ({ data: true, error: null }),
     from() {
       return {
-        update(patch: Record<string, unknown>) {
-          return {
-            eq() {
-              if ("steps" in patch) row.steps = patch.steps;
-              return Promise.resolve({ error: null });
-            },
-          };
-        },
+        update: mutation,
         select() {
           return {
             eq() {
@@ -37,7 +43,12 @@ describe("applyProgressReport acumula etapas", () => {
   it("preserva etapas já concluídas ao reportar a próxima", async () => {
     const initial = initialSteps("provision");
     const { client, row } = fakeClient(initial);
-    const op = { id: "op-1", kind: "provision", steps: initial } as never;
+    const op = {
+      id: "op-1",
+      kind: "provision",
+      steps: initial,
+      lease_owner: "test:worker",
+    } as never;
 
     await applyProgressReport(client as never, op, { step: "supabase", state: "done" });
     await applyProgressReport(client as never, op, { step: "database", state: "done" });
