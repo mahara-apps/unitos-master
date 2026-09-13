@@ -1,10 +1,16 @@
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  WorkItemStateBadge,
+  type WorkItemVisualState,
+  workItemSurfaceClass,
+} from "./work-item-visual-state";
 
 type Props = {
   title: string;
   done: boolean;
+  visualState: WorkItemVisualState;
   onOpen: () => void;
   completion: ReactNode;
   status: ReactNode;
@@ -19,6 +25,7 @@ type Props = {
 export function JobTaskRow({
   title,
   done,
+  visualState,
   onOpen,
   completion,
   status,
@@ -30,7 +37,10 @@ export function JobTaskRow({
   menu,
 }: Props) {
   return (
-    <div className="grid grid-cols-[28px_minmax(0,1fr)_32px] items-start gap-x-2 gap-y-2.5 px-4 py-3.5 @[900px]:grid-cols-[28px_minmax(220px,1fr)_112px_88px_32px_76px_32px_32px_32px] @[900px]:items-center @[900px]:gap-x-2">
+    <div className={cn(
+      "grid grid-cols-[28px_minmax(0,1fr)_32px] items-start gap-x-2 gap-y-2.5 border-l-2 border-l-transparent px-4 py-3.5 transition-colors @[900px]:grid-cols-[28px_minmax(220px,1fr)_112px_88px_32px_76px_32px_32px_32px] @[900px]:items-center @[900px]:gap-x-2",
+      workItemSurfaceClass(visualState),
+    )}>
       <div className="shrink-0">{completion}</div>
 
       <Button
@@ -39,13 +49,16 @@ export function JobTaskRow({
         onClick={onOpen}
         title={title}
       >
-        <span
-          className={cn(
-            "line-clamp-2 min-w-0 text-sm font-medium leading-5",
-            done && "text-muted-foreground line-through",
-          )}
-        >
-          {title}
+        <span className="flex min-w-0 flex-col items-start gap-0.5">
+          <span
+            className={cn(
+              "line-clamp-2 min-w-0 text-sm font-medium leading-5",
+              done && "text-muted-foreground line-through",
+            )}
+          >
+            {title}
+          </span>
+          <WorkItemStateBadge state={visualState} />
         </span>
       </Button>
 

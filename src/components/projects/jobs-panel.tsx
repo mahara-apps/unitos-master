@@ -27,6 +27,7 @@ import {
   ArrowUpDown,
   Sparkles,
   Trash2,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -88,6 +89,11 @@ import { DueMenuBlock, VisibilityMenuBlock } from "./work-filter-menu";
 import { isOverdue } from "./work-item-row";
 import { ensureWorkStatusDefaultsFn } from "@/lib/work-statuses.functions";
 import { JobListView, type JobListStats } from "./job-list-view";
+import {
+  WorkItemStateBadge,
+  resolveWorkItemVisualState,
+  workItemSurfaceClass,
+} from "./work-item-visual-state";
 
 type Props = {
   brandId: string;
@@ -131,12 +137,14 @@ function timelineState(start: string | null, due: string | null) {
   };
 }
 
-function TaskBoardCard({ task, team, onOpen }: { task: JobTask; team: TeamOption[]; onOpen: () => void }) {
+function TaskBoardCard({ task, team, status, onOpen }: { task: JobTask; team: TeamOption[]; status?: { name: string; is_done: boolean }; onOpen: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
+  const visualState = resolveWorkItemVisualState({ archivedAt: task.archived_at, done: isItemDone(task), statusName: status?.name, statusIsDone: status?.is_done });
   return (
-    <article ref={setNodeRef} style={style} {...attributes} {...listeners} className={cn("cursor-grab rounded-lg border border-border/60 bg-background p-3 shadow-sm", isDragging && "opacity-40")}>
+    <article ref={setNodeRef} style={style} {...attributes} {...listeners} className={cn("cursor-grab rounded-lg border border-border/60 bg-background p-3 shadow-sm", workItemSurfaceClass(visualState), isDragging && "opacity-40")}>
       <Button variant="ghost" className="h-auto w-full justify-start p-0 text-left" onClick={onOpen}>{task.title}</Button>
+      <WorkItemStateBadge state={visualState} className="mt-1.5" />
       <div className="mt-3 flex items-center justify-between gap-2">
         <Badge variant="outline" className={cn("text-[9px]", PRIORITY_META[task.priority].badge)}>{PRIORITY_META[task.priority].label}</Badge>
         <AssigneeAvatar userId={task.assignee_id} options={team} className="h-6 w-6" />
@@ -146,14 +154,14 @@ function TaskBoardCard({ task, team, onOpen }: { task: JobTask; team: TeamOption
   );
 }
 
-function TaskBoardColumn({ status, tasks, team, onOpen }: { status: TaskStatus; tasks: JobTask[]; team: TeamOption[]; onOpen: (task: JobTask) => void }) {
+function TaskBoardColumn({ status, tasks, team, statusMap, onOpen }: { status: TaskStatus; tasks: JobTask[]; team: TeamOption[]; statusMap: Map<string, { name: string; is_done: boolean }>; onOpen: (task: JobTask) => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: `task-status:${status}` });
   return (
     <section className="flex w-[230px] shrink-0 flex-col overflow-hidden rounded-lg border border-border/60 bg-muted/25">
       <div className={cn("h-1", STATUS_META[status].dot)} />
       <header className="flex items-center gap-2 border-b border-border/60 px-3 py-2.5"><span className={cn("h-2 w-2 rounded-full", STATUS_META[status].dot)} /><h3 className="text-xs font-semibold">{STATUS_META[status].label}</h3><Badge variant="outline" className="ml-auto h-5 px-1.5 text-[10px]">{tasks.length}</Badge></header>
       <div ref={setNodeRef} className={cn("flex min-h-[190px] flex-1 flex-col gap-2 p-2", isOver && "bg-primary/5")}>
-        {tasks.map((task) => <TaskBoardCard key={task.id} task={task} team={team} onOpen={() => onOpen(task)} />)}
+        {tasks.map((task) => <TaskBoardCard key={task.id} task={task} team={team} status={statusMap.get(task.status_id ?? "")} onOpen={() => onOpen(task)} />)}
         {tasks.length === 0 ? <div className="grid flex-1 place-items-center rounded-md border border-dashed border-border/60 p-4 text-center text-[10px] text-muted-foreground">Sem tarefas</div> : null}
       </div>
     </section>
