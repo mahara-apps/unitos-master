@@ -5356,10 +5356,327 @@ export type Database = {
         }
         Relationships: []
       }
+      installation_migration_ledger: {
+        Row: {
+          applied_at: string | null
+          content_hash: string
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          installation_id: string
+          migration_id: string
+          operation_id: string | null
+          predecessor_id: string | null
+          release_version: string
+          sequence_number: number
+          sqlstate: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          content_hash: string
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          installation_id: string
+          migration_id: string
+          operation_id?: string | null
+          predecessor_id?: string | null
+          release_version: string
+          sequence_number: number
+          sqlstate?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          content_hash?: string
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          installation_id?: string
+          migration_id?: string
+          operation_id?: string | null
+          predecessor_id?: string | null
+          release_version?: string
+          sequence_number?: number
+          sqlstate?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_migration_ledger_installation_id_fkey"
+            columns: ["installation_id"]
+            isOneToOne: false
+            referencedRelation: "installations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installation_migration_ledger_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "installation_operations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      installation_operation_attempts: {
+        Row: {
+          attempt_number: number
+          created_at: string
+          error_code: string | null
+          error_kind: string | null
+          error_message: string | null
+          fencing_token: number
+          finished_at: string | null
+          heartbeat_at: string
+          id: string
+          metrics: Json
+          operation_id: string
+          owner: string
+          retryable: boolean | null
+          started_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_number: number
+          created_at?: string
+          error_code?: string | null
+          error_kind?: string | null
+          error_message?: string | null
+          fencing_token: number
+          finished_at?: string | null
+          heartbeat_at?: string
+          id?: string
+          metrics?: Json
+          operation_id: string
+          owner: string
+          retryable?: boolean | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_number?: number
+          created_at?: string
+          error_code?: string | null
+          error_kind?: string | null
+          error_message?: string | null
+          fencing_token?: number
+          finished_at?: string | null
+          heartbeat_at?: string
+          id?: string
+          metrics?: Json
+          operation_id?: string
+          owner?: string
+          retryable?: boolean | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_operation_attempts_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "installation_operations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      installation_operation_effects: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          effect_key: string
+          error_code: string | null
+          error_kind: string | null
+          error_message: string | null
+          external_resource_id: string | null
+          id: string
+          input_fingerprint: string
+          operation_id: string
+          provider: string
+          result_fingerprint: string | null
+          started_at: string | null
+          status: string
+          step_key: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          effect_key: string
+          error_code?: string | null
+          error_kind?: string | null
+          error_message?: string | null
+          external_resource_id?: string | null
+          id?: string
+          input_fingerprint: string
+          operation_id: string
+          provider: string
+          result_fingerprint?: string | null
+          started_at?: string | null
+          status?: string
+          step_key: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          effect_key?: string
+          error_code?: string | null
+          error_kind?: string | null
+          error_message?: string | null
+          external_resource_id?: string | null
+          id?: string
+          input_fingerprint?: string
+          operation_id?: string
+          provider?: string
+          result_fingerprint?: string | null
+          started_at?: string | null
+          status?: string
+          step_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_operation_effects_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "installation_operations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      installation_operation_outbox: {
+        Row: {
+          available_at: string
+          claimed_at: string | null
+          command: string
+          created_at: string
+          deduplication_key: string
+          delivered_at: string | null
+          delivery_attempts: number
+          id: string
+          last_error: string | null
+          operation_id: string
+          payload: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          available_at?: string
+          claimed_at?: string | null
+          command: string
+          created_at?: string
+          deduplication_key: string
+          delivered_at?: string | null
+          delivery_attempts?: number
+          id?: string
+          last_error?: string | null
+          operation_id: string
+          payload?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          available_at?: string
+          claimed_at?: string | null
+          command?: string
+          created_at?: string
+          deduplication_key?: string
+          delivered_at?: string | null
+          delivery_attempts?: number
+          id?: string
+          last_error?: string | null
+          operation_id?: string
+          payload?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_operation_outbox_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "installation_operations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      installation_operation_steps: {
+        Row: {
+          created_at: string
+          detail: string | null
+          finished_at: string | null
+          id: string
+          input_fingerprint: string | null
+          label: string
+          last_error_at: string | null
+          operation_id: string
+          position: number
+          progress: number
+          started_at: string | null
+          state: string
+          step_key: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          finished_at?: string | null
+          id?: string
+          input_fingerprint?: string | null
+          label: string
+          last_error_at?: string | null
+          operation_id: string
+          position: number
+          progress?: number
+          started_at?: string | null
+          state?: string
+          step_key: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          finished_at?: string | null
+          id?: string
+          input_fingerprint?: string | null
+          label?: string
+          last_error_at?: string | null
+          operation_id?: string
+          position?: number
+          progress?: number
+          started_at?: string | null
+          state?: string
+          step_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_operation_steps_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "installation_operations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       installation_operations: {
         Row: {
           actor_id: string | null
           attempt_count: number
+          baseline_hash: string | null
+          baseline_id: string | null
+          blocked_reason: string | null
           created_at: string
           current_step: string | null
           detail: Json
@@ -5367,6 +5684,7 @@ export type Database = {
           error_kind: string | null
           fencing_token: number
           finished_at: string | null
+          heartbeat_at: string | null
           id: string
           idempotency_key: string | null
           installation_id: string
@@ -5377,16 +5695,22 @@ export type Database = {
           max_attempts: number
           metrics: Json
           next_attempt_at: string | null
+          next_command: string | null
+          reconciled_at: string | null
           run_token_expires_at: string | null
           run_token_hash: string | null
           started_at: string
           status: string
           steps: Json
           summary: string | null
+          workflow_version: number
         }
         Insert: {
           actor_id?: string | null
           attempt_count?: number
+          baseline_hash?: string | null
+          baseline_id?: string | null
+          blocked_reason?: string | null
           created_at?: string
           current_step?: string | null
           detail?: Json
@@ -5394,6 +5718,7 @@ export type Database = {
           error_kind?: string | null
           fencing_token?: number
           finished_at?: string | null
+          heartbeat_at?: string | null
           id?: string
           idempotency_key?: string | null
           installation_id: string
@@ -5404,16 +5729,22 @@ export type Database = {
           max_attempts?: number
           metrics?: Json
           next_attempt_at?: string | null
+          next_command?: string | null
+          reconciled_at?: string | null
           run_token_expires_at?: string | null
           run_token_hash?: string | null
           started_at?: string
           status?: string
           steps?: Json
           summary?: string | null
+          workflow_version?: number
         }
         Update: {
           actor_id?: string | null
           attempt_count?: number
+          baseline_hash?: string | null
+          baseline_id?: string | null
+          blocked_reason?: string | null
           created_at?: string
           current_step?: string | null
           detail?: Json
@@ -5421,6 +5752,7 @@ export type Database = {
           error_kind?: string | null
           fencing_token?: number
           finished_at?: string | null
+          heartbeat_at?: string | null
           id?: string
           idempotency_key?: string | null
           installation_id?: string
@@ -5431,12 +5763,15 @@ export type Database = {
           max_attempts?: number
           metrics?: Json
           next_attempt_at?: string | null
+          next_command?: string | null
+          reconciled_at?: string | null
           run_token_expires_at?: string | null
           run_token_hash?: string | null
           started_at?: string
           status?: string
           steps?: Json
           summary?: string | null
+          workflow_version?: number
         }
         Relationships: [
           {
@@ -8796,6 +9131,9 @@ export type Database = {
         Returns: {
           actor_id: string | null
           attempt_count: number
+          baseline_hash: string | null
+          baseline_id: string | null
+          blocked_reason: string | null
           created_at: string
           current_step: string | null
           detail: Json
@@ -8803,6 +9141,7 @@ export type Database = {
           error_kind: string | null
           fencing_token: number
           finished_at: string | null
+          heartbeat_at: string | null
           id: string
           idempotency_key: string | null
           installation_id: string
@@ -8813,12 +9152,15 @@ export type Database = {
           max_attempts: number
           metrics: Json
           next_attempt_at: string | null
+          next_command: string | null
+          reconciled_at: string | null
           run_token_expires_at: string | null
           run_token_hash: string | null
           started_at: string
           status: string
           steps: Json
           summary: string | null
+          workflow_version: number
         }
         SetofOptions: {
           from: "*"
@@ -8848,6 +9190,9 @@ export type Database = {
         Returns: {
           actor_id: string | null
           attempt_count: number
+          baseline_hash: string | null
+          baseline_id: string | null
+          blocked_reason: string | null
           created_at: string
           current_step: string | null
           detail: Json
@@ -8855,6 +9200,7 @@ export type Database = {
           error_kind: string | null
           fencing_token: number
           finished_at: string | null
+          heartbeat_at: string | null
           id: string
           idempotency_key: string | null
           installation_id: string
@@ -8865,12 +9211,15 @@ export type Database = {
           max_attempts: number
           metrics: Json
           next_attempt_at: string | null
+          next_command: string | null
+          reconciled_at: string | null
           run_token_expires_at: string | null
           run_token_hash: string | null
           started_at: string
           status: string
           steps: Json
           summary: string | null
+          workflow_version: number
         }[]
         SetofOptions: {
           from: "*"
@@ -9240,6 +9589,61 @@ export type Database = {
         }
         Returns: number
       }
+      start_durable_installation_operation: {
+        Args: {
+          _actor_id: string
+          _baseline_hash?: string
+          _baseline_id?: string
+          _detail: Json
+          _installation_id: string
+          _kind: string
+          _run_token_expires_at?: string
+          _run_token_hash?: string
+          _steps: Json
+          _summary: string
+          _workflow_version: number
+        }
+        Returns: {
+          actor_id: string | null
+          attempt_count: number
+          baseline_hash: string | null
+          baseline_id: string | null
+          blocked_reason: string | null
+          created_at: string
+          current_step: string | null
+          detail: Json
+          error_detail: Json
+          error_kind: string | null
+          fencing_token: number
+          finished_at: string | null
+          heartbeat_at: string | null
+          id: string
+          idempotency_key: string | null
+          installation_id: string
+          kind: string
+          last_report_at: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
+          max_attempts: number
+          metrics: Json
+          next_attempt_at: string | null
+          next_command: string | null
+          reconciled_at: string | null
+          run_token_expires_at: string | null
+          run_token_hash: string | null
+          started_at: string
+          status: string
+          steps: Json
+          summary: string | null
+          workflow_version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "installation_operations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       start_installation_operation: {
         Args: {
           _actor_id: string
@@ -9253,6 +9657,9 @@ export type Database = {
         Returns: {
           actor_id: string | null
           attempt_count: number
+          baseline_hash: string | null
+          baseline_id: string | null
+          blocked_reason: string | null
           created_at: string
           current_step: string | null
           detail: Json
@@ -9260,6 +9667,7 @@ export type Database = {
           error_kind: string | null
           fencing_token: number
           finished_at: string | null
+          heartbeat_at: string | null
           id: string
           idempotency_key: string | null
           installation_id: string
@@ -9270,12 +9678,15 @@ export type Database = {
           max_attempts: number
           metrics: Json
           next_attempt_at: string | null
+          next_command: string | null
+          reconciled_at: string | null
           run_token_expires_at: string | null
           run_token_hash: string | null
           started_at: string
           status: string
           steps: Json
           summary: string | null
+          workflow_version: number
         }
         SetofOptions: {
           from: "*"
