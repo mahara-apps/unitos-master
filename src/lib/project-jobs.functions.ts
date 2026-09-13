@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { TASK_PRIORITIES, TASK_STATUSES, type TaskPriority, type TaskStatus } from "@/lib/tasks.functions";
+import type { Json } from "@/integrations/supabase/types";
 
 export type ProjectJob = {
   id: string;
@@ -342,7 +343,7 @@ export type JobActivity = {
   actor_name: string | null;
   entity_type: string;
   verb: string;
-  payload: Record<string, unknown> | null;
+  payload: Json | null;
   created_at: string;
 };
 

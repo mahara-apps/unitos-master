@@ -65,6 +65,7 @@ export function StatusPicker({
   value,
   onChange,
   disabled,
+  placeholder = "Sem status",
   className = "h-8 w-[170px]",
 }: {
   brandId: string;
@@ -73,6 +74,7 @@ export function StatusPicker({
   onChange: (statusId: string | null) => void;
   disabled?: boolean;
   className?: string;
+  placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -98,7 +100,7 @@ export function StatusPicker({
         >
           <span className="flex min-w-0 items-center gap-2">
             {current ? <StatusDot color={current.color} /> : null}
-            <span className="truncate text-xs">{current ? current.name : "Sem status"}</span>
+             <span className="truncate text-xs">{current ? current.name : placeholder}</span>
           </span>
           <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
         </Button>

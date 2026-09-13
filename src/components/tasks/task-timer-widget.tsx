@@ -95,7 +95,8 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
       setLocalState({
         active: {
           id: `local-${taskId}-${Date.now()}`,
-          task_id: taskId,
+        task_id: taskId,
+        job_id: null,
           brand_id: brandId,
           started_at: new Date().toISOString(),
           elapsed_seconds: 0,
