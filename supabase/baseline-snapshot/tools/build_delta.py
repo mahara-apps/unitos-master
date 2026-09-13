@@ -100,7 +100,11 @@ def _validate_cutover(files: list[str], selected: list[str]) -> None:
     snapshot_path = os.path.join(ROOT, "baseline-snapshot", "001_initial_schema.sql")
     with open(snapshot_path, encoding="utf-8") as fh:
         snapshot = fh.read()
-    delta_sql = "\n".join(open(path, encoding="utf-8").read() for path in selected)
+    delta_parts = []
+    for path in selected:
+        with open(path, encoding="utf-8") as fh:
+            delta_parts.append(fh.read())
+    delta_sql = "\n".join(delta_parts)
     overlap = sorted(_created_tables(snapshot) & _created_tables(delta_sql, unguarded_only=True))
     if overlap:
         raise SystemExit(f"objetos sobrepostos entre snapshot e delta: {', '.join(overlap)}")

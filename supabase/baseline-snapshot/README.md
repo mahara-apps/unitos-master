@@ -35,7 +35,8 @@ arquivos (ou sem isolamento por workspace/cliente).
 | `003_storage_buckets.sql` | `brand-assets`, `brand-documents`, `brand-media`, `avatars`, `chat-attachments` (privados) | `storage.buckets` |
 | `006_storage_policies.sql` | 12 policies de `storage.objects` + RLS | `pg_policies` |
 | `004_seeds.sql` | 9 `agent_prompts` + 14 `feature_catalog` + 7 `brain_retention_config` + singleton vazio de `installation`; zero dados de negócio/cliente/credencial | catálogos do Master (somente leitura) |
-| `002_bootstrap_cron.sql` | 14 jobs (7 via `net.http_post`, 7 SQL diretos) | `cron.job` |
+| `007_delta_migrations.sql` | migrations posteriores ao corte declarado pelo gerador | `supabase/migrations` |
+| `../install/020_cron.sql` | cron da instalação, com URL validada e segredo próprio | contrato do instalador |
 | `tools/dump_schema.sh` | regenera o `001` | — |
 
 ## Dependências externas obrigatórias (fornecidas pelo Supabase)
@@ -61,8 +62,8 @@ INSERT INTO public.installation (id) VALUES (true)          -- singleton, se aus
   ON CONFLICT DO NOTHING;
 ```
 
-Em `002_bootstrap_cron.sql`: substituir `APP_URL_AQUI` pela URL **da própria**
-instalação.
+O cron é aplicado somente por `supabase/install/020_cron.sql`, que valida a URL
+da própria instalação e não aceita placeholder ou referência ao MASTER.
 
 Na aplicação (env):
 
@@ -88,7 +89,7 @@ Nenhum valor de domínio, ID, usuário ou marca desta instalação está no SQL
 3. `pg_net`: documentado que as funções ficam em `net.*` (como `002` chama),
    apesar de `extnamespace = public`.
 4. `006_storage_policies.sql` criado (lacuna real: `storage` fora do dump).
-5. `002` passou a exigir explicitamente `set_cron_secret` antes dos jobs HTTP.
+5. `020_cron.sql` exige explicitamente `set_cron_secret` antes dos jobs HTTP.
 
 ## Ordem interna do `001_initial_schema.sql`
 

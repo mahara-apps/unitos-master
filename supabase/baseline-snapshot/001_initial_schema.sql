@@ -13961,7 +13961,6 @@ GRANT ALL ON FUNCTION public.validate_placement_connection() TO service_role;
 -- Name: TABLE activity_events; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.activity_events TO anon;
 
 GRANT ALL ON TABLE public.activity_events TO authenticated;
 
@@ -13971,7 +13970,6 @@ GRANT ALL ON TABLE public.activity_events TO service_role;
 -- Name: TABLE agent_prompt_overrides; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.agent_prompt_overrides TO anon;
 
 GRANT ALL ON TABLE public.agent_prompt_overrides TO authenticated;
 
@@ -13981,7 +13979,6 @@ GRANT ALL ON TABLE public.agent_prompt_overrides TO service_role;
 -- Name: TABLE agent_prompts; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.agent_prompts TO anon;
 
 GRANT REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.agent_prompts TO authenticated;
 
@@ -13991,7 +13988,6 @@ GRANT ALL ON TABLE public.agent_prompts TO service_role;
 -- Name: TABLE ai_jobs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.ai_jobs TO anon;
 
 GRANT ALL ON TABLE public.ai_jobs TO authenticated;
 
@@ -14001,7 +13997,6 @@ GRANT ALL ON TABLE public.ai_jobs TO service_role;
 -- Name: TABLE ai_model_catalog_overrides; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.ai_model_catalog_overrides TO anon;
 
 GRANT ALL ON TABLE public.ai_model_catalog_overrides TO authenticated;
 
@@ -14011,7 +14006,6 @@ GRANT ALL ON TABLE public.ai_model_catalog_overrides TO service_role;
 -- Name: TABLE ai_model_health; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.ai_model_health TO anon;
 
 GRANT ALL ON TABLE public.ai_model_health TO authenticated;
 
@@ -14021,7 +14015,6 @@ GRANT ALL ON TABLE public.ai_model_health TO service_role;
 -- Name: TABLE ai_usage_limits; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.ai_usage_limits TO anon;
 
 GRANT ALL ON TABLE public.ai_usage_limits TO authenticated;
 
@@ -14031,7 +14024,6 @@ GRANT ALL ON TABLE public.ai_usage_limits TO service_role;
 -- Name: TABLE brain_embeddings; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brain_embeddings TO anon;
 
 GRANT ALL ON TABLE public.brain_embeddings TO authenticated;
 
@@ -14041,7 +14033,6 @@ GRANT ALL ON TABLE public.brain_embeddings TO service_role;
 -- Name: TABLE brain_events; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.brain_events TO anon;
 
 GRANT ALL ON TABLE public.brain_events TO authenticated;
 
@@ -14051,7 +14042,6 @@ GRANT ALL ON TABLE public.brain_events TO service_role;
 -- Name: TABLE brain_insights; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brain_insights TO anon;
 
 GRANT ALL ON TABLE public.brain_insights TO authenticated;
 
@@ -14061,7 +14051,6 @@ GRANT ALL ON TABLE public.brain_insights TO service_role;
 -- Name: TABLE brain_learning_queue; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brain_learning_queue TO anon;
 
 GRANT ALL ON TABLE public.brain_learning_queue TO authenticated;
 
@@ -14071,7 +14060,6 @@ GRANT ALL ON TABLE public.brain_learning_queue TO service_role;
 -- Name: TABLE brain_memory; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brain_memory TO anon;
 
 GRANT ALL ON TABLE public.brain_memory TO authenticated;
 
@@ -14081,7 +14069,6 @@ GRANT ALL ON TABLE public.brain_memory TO service_role;
 -- Name: TABLE brain_memory_versions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brain_memory_versions TO anon;
 
 GRANT ALL ON TABLE public.brain_memory_versions TO authenticated;
 
@@ -14091,7 +14078,6 @@ GRANT ALL ON TABLE public.brain_memory_versions TO service_role;
 -- Name: TABLE brain_metrics_snapshots; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brain_metrics_snapshots TO anon;
 
 GRANT ALL ON TABLE public.brain_metrics_snapshots TO authenticated;
 
@@ -14101,7 +14087,6 @@ GRANT ALL ON TABLE public.brain_metrics_snapshots TO service_role;
 -- Name: TABLE brain_reasoning_logs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brain_reasoning_logs TO anon;
 
 GRANT ALL ON TABLE public.brain_reasoning_logs TO authenticated;
 
@@ -14111,7 +14096,6 @@ GRANT ALL ON TABLE public.brain_reasoning_logs TO service_role;
 -- Name: TABLE brain_recommendations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brain_recommendations TO anon;
 
 GRANT ALL ON TABLE public.brain_recommendations TO authenticated;
 
@@ -14121,7 +14105,6 @@ GRANT ALL ON TABLE public.brain_recommendations TO service_role;
 -- Name: TABLE brain_relationships; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brain_relationships TO anon;
 
 GRANT ALL ON TABLE public.brain_relationships TO authenticated;
 
@@ -14131,7 +14114,6 @@ GRANT ALL ON TABLE public.brain_relationships TO service_role;
 -- Name: TABLE brain_retention_config; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brain_retention_config TO anon;
 
 GRANT ALL ON TABLE public.brain_retention_config TO authenticated;
 
@@ -14141,7 +14123,6 @@ GRANT ALL ON TABLE public.brain_retention_config TO service_role;
 -- Name: TABLE brands; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brands TO anon;
 
 GRANT ALL ON TABLE public.brands TO authenticated;
 
@@ -14151,7 +14132,6 @@ GRANT ALL ON TABLE public.brands TO service_role;
 -- Name: TABLE posts; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.posts TO anon;
 
 GRANT ALL ON TABLE public.posts TO authenticated;
 
@@ -14161,7 +14141,6 @@ GRANT ALL ON TABLE public.posts TO service_role;
 -- Name: TABLE projects; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.projects TO anon;
 
 GRANT ALL ON TABLE public.projects TO authenticated;
 
@@ -14171,7 +14150,6 @@ GRANT ALL ON TABLE public.projects TO service_role;
 -- Name: TABLE tasks; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.tasks TO anon;
 
 GRANT ALL ON TABLE public.tasks TO authenticated;
 
@@ -14187,7 +14165,6 @@ GRANT ALL ON TABLE public.brain_stats_mv TO service_role;
 -- Name: TABLE brain_worker_runs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brain_worker_runs TO anon;
 
 GRANT ALL ON TABLE public.brain_worker_runs TO authenticated;
 
@@ -14197,7 +14174,6 @@ GRANT ALL ON TABLE public.brain_worker_runs TO service_role;
 -- Name: TABLE brand_ai_content; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_ai_content TO anon;
 
 GRANT ALL ON TABLE public.brand_ai_content TO authenticated;
 
@@ -14207,7 +14183,6 @@ GRANT ALL ON TABLE public.brand_ai_content TO service_role;
 -- Name: TABLE brand_ai_usage; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_ai_usage TO anon;
 
 GRANT ALL ON TABLE public.brand_ai_usage TO authenticated;
 
@@ -14217,7 +14192,6 @@ GRANT ALL ON TABLE public.brand_ai_usage TO service_role;
 -- Name: TABLE brand_ai_versions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_ai_versions TO anon;
 
 GRANT ALL ON TABLE public.brand_ai_versions TO authenticated;
 
@@ -14227,7 +14201,6 @@ GRANT ALL ON TABLE public.brand_ai_versions TO service_role;
 -- Name: TABLE brand_api_credentials; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_api_credentials TO anon;
 
 GRANT ALL ON TABLE public.brand_api_credentials TO authenticated;
 
@@ -14237,7 +14210,6 @@ GRANT ALL ON TABLE public.brand_api_credentials TO service_role;
 -- Name: TABLE brand_briefing_proposals; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_briefing_proposals TO anon;
 
 GRANT ALL ON TABLE public.brand_briefing_proposals TO authenticated;
 
@@ -14247,7 +14219,6 @@ GRANT ALL ON TABLE public.brand_briefing_proposals TO service_role;
 -- Name: TABLE brand_briefing_requests; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_briefing_requests TO anon;
 
 GRANT ALL ON TABLE public.brand_briefing_requests TO authenticated;
 
@@ -14257,7 +14228,6 @@ GRANT ALL ON TABLE public.brand_briefing_requests TO service_role;
 -- Name: TABLE brand_briefing_reviews; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_briefing_reviews TO anon;
 
 GRANT ALL ON TABLE public.brand_briefing_reviews TO authenticated;
 
@@ -14267,7 +14237,6 @@ GRANT ALL ON TABLE public.brand_briefing_reviews TO service_role;
 -- Name: TABLE brand_briefing_versions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_briefing_versions TO anon;
 
 GRANT ALL ON TABLE public.brand_briefing_versions TO authenticated;
 
@@ -14277,7 +14246,6 @@ GRANT ALL ON TABLE public.brand_briefing_versions TO service_role;
 -- Name: TABLE brand_briefings; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_briefings TO anon;
 
 GRANT ALL ON TABLE public.brand_briefings TO authenticated;
 
@@ -14287,7 +14255,6 @@ GRANT ALL ON TABLE public.brand_briefings TO service_role;
 -- Name: TABLE brand_cohorts; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_cohorts TO anon;
 
 GRANT ALL ON TABLE public.brand_cohorts TO authenticated;
 
@@ -14297,7 +14264,6 @@ GRANT ALL ON TABLE public.brand_cohorts TO service_role;
 -- Name: TABLE brand_competitors; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_competitors TO anon;
 
 GRANT ALL ON TABLE public.brand_competitors TO authenticated;
 
@@ -14307,7 +14273,6 @@ GRANT ALL ON TABLE public.brand_competitors TO service_role;
 -- Name: TABLE brand_connections; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_connections TO anon;
 
 GRANT ALL ON TABLE public.brand_connections TO authenticated;
 
@@ -14317,7 +14282,6 @@ GRANT ALL ON TABLE public.brand_connections TO service_role;
 -- Name: TABLE brand_features; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_features TO anon;
 
 GRANT ALL ON TABLE public.brand_features TO authenticated;
 
@@ -14327,7 +14291,6 @@ GRANT ALL ON TABLE public.brand_features TO service_role;
 -- Name: TABLE brand_invites; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_invites TO anon;
 
 GRANT ALL ON TABLE public.brand_invites TO authenticated;
 
@@ -14337,7 +14300,6 @@ GRANT ALL ON TABLE public.brand_invites TO service_role;
 -- Name: TABLE brand_journey_stage_templates; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_journey_stage_templates TO anon;
 
 GRANT ALL ON TABLE public.brand_journey_stage_templates TO authenticated;
 
@@ -14347,7 +14309,6 @@ GRANT ALL ON TABLE public.brand_journey_stage_templates TO service_role;
 -- Name: TABLE brand_media_assets; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_media_assets TO anon;
 
 GRANT ALL ON TABLE public.brand_media_assets TO authenticated;
 
@@ -14357,7 +14318,6 @@ GRANT ALL ON TABLE public.brand_media_assets TO service_role;
 -- Name: TABLE brand_members; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_members TO anon;
 
 GRANT ALL ON TABLE public.brand_members TO authenticated;
 
@@ -14367,7 +14327,6 @@ GRANT ALL ON TABLE public.brand_members TO service_role;
 -- Name: TABLE brand_pautas; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_pautas TO anon;
 
 GRANT ALL ON TABLE public.brand_pautas TO authenticated;
 
@@ -14377,7 +14336,6 @@ GRANT ALL ON TABLE public.brand_pautas TO service_role;
 -- Name: TABLE brand_personas; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_personas TO anon;
 
 GRANT ALL ON TABLE public.brand_personas TO authenticated;
 
@@ -14387,7 +14345,6 @@ GRANT ALL ON TABLE public.brand_personas TO service_role;
 -- Name: TABLE brand_swot; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_swot TO anon;
 
 GRANT ALL ON TABLE public.brand_swot TO authenticated;
 
@@ -14397,7 +14354,6 @@ GRANT ALL ON TABLE public.brand_swot TO service_role;
 -- Name: TABLE brand_voice_cards; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.brand_voice_cards TO anon;
 
 GRANT ALL ON TABLE public.brand_voice_cards TO authenticated;
 
@@ -14407,7 +14363,6 @@ GRANT ALL ON TABLE public.brand_voice_cards TO service_role;
 -- Name: TABLE calendar_events; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.calendar_events TO anon;
 
 GRANT ALL ON TABLE public.calendar_events TO authenticated;
 
@@ -14417,7 +14372,6 @@ GRANT ALL ON TABLE public.calendar_events TO service_role;
 -- Name: TABLE card_approval_events; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.card_approval_events TO anon;
 
 GRANT ALL ON TABLE public.card_approval_events TO authenticated;
 
@@ -14427,7 +14381,6 @@ GRANT ALL ON TABLE public.card_approval_events TO service_role;
 -- Name: TABLE card_approval_tokens; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.card_approval_tokens TO anon;
 
 GRANT ALL ON TABLE public.card_approval_tokens TO authenticated;
 
@@ -14437,7 +14390,6 @@ GRANT ALL ON TABLE public.card_approval_tokens TO service_role;
 -- Name: TABLE chat_conversations; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.chat_conversations TO anon;
 
 GRANT ALL ON TABLE public.chat_conversations TO authenticated;
 
@@ -14447,7 +14399,6 @@ GRANT ALL ON TABLE public.chat_conversations TO service_role;
 -- Name: TABLE chat_messages; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.chat_messages TO anon;
 
 GRANT ALL ON TABLE public.chat_messages TO authenticated;
 
@@ -14457,7 +14408,6 @@ GRANT ALL ON TABLE public.chat_messages TO service_role;
 -- Name: TABLE client_briefing_tokens; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.client_briefing_tokens TO anon;
 
 GRANT ALL ON TABLE public.client_briefing_tokens TO authenticated;
 
@@ -14467,7 +14417,6 @@ GRANT ALL ON TABLE public.client_briefing_tokens TO service_role;
 -- Name: TABLE client_briefings; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.client_briefings TO anon;
 
 GRANT ALL ON TABLE public.client_briefings TO authenticated;
 
@@ -14477,7 +14426,6 @@ GRANT ALL ON TABLE public.client_briefings TO service_role;
 -- Name: TABLE client_documents; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.client_documents TO anon;
 
 GRANT ALL ON TABLE public.client_documents TO authenticated;
 
@@ -14487,7 +14435,6 @@ GRANT ALL ON TABLE public.client_documents TO service_role;
 -- Name: TABLE client_journey_events; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.client_journey_events TO anon;
 
 GRANT ALL ON TABLE public.client_journey_events TO authenticated;
 
@@ -14497,7 +14444,6 @@ GRANT ALL ON TABLE public.client_journey_events TO service_role;
 -- Name: TABLE client_members; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.client_members TO anon;
 
 GRANT ALL ON TABLE public.client_members TO authenticated;
 
@@ -14507,7 +14453,6 @@ GRANT ALL ON TABLE public.client_members TO service_role;
 -- Name: TABLE client_social_accounts; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.client_social_accounts TO anon;
 
 GRANT ALL ON TABLE public.client_social_accounts TO authenticated;
 
@@ -14517,7 +14462,6 @@ GRANT ALL ON TABLE public.client_social_accounts TO service_role;
 -- Name: TABLE clients; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.clients TO anon;
 
 GRANT ALL ON TABLE public.clients TO authenticated;
 
@@ -14527,7 +14471,6 @@ GRANT ALL ON TABLE public.clients TO service_role;
 -- Name: TABLE content_pipeline_stages; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.content_pipeline_stages TO anon;
 
 GRANT ALL ON TABLE public.content_pipeline_stages TO authenticated;
 
@@ -14537,7 +14480,6 @@ GRANT ALL ON TABLE public.content_pipeline_stages TO service_role;
 -- Name: TABLE content_pipelines; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.content_pipelines TO anon;
 
 GRANT ALL ON TABLE public.content_pipelines TO authenticated;
 
@@ -14547,7 +14489,6 @@ GRANT ALL ON TABLE public.content_pipelines TO service_role;
 -- Name: TABLE evolution_events; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.evolution_events TO anon;
 
 GRANT ALL ON TABLE public.evolution_events TO authenticated;
 
@@ -14557,7 +14498,6 @@ GRANT ALL ON TABLE public.evolution_events TO service_role;
 -- Name: TABLE evolution_instances; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.evolution_instances TO anon;
 
 GRANT ALL ON TABLE public.evolution_instances TO authenticated;
 
@@ -14567,7 +14507,6 @@ GRANT ALL ON TABLE public.evolution_instances TO service_role;
 -- Name: TABLE feature_catalog; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.feature_catalog TO anon;
 
 GRANT ALL ON TABLE public.feature_catalog TO authenticated;
 
@@ -14577,7 +14516,6 @@ GRANT ALL ON TABLE public.feature_catalog TO service_role;
 -- Name: TABLE installation; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.installation TO anon;
 
 GRANT ALL ON TABLE public.installation TO authenticated;
 
@@ -14587,7 +14525,6 @@ GRANT ALL ON TABLE public.installation TO service_role;
 -- Name: TABLE media_plan_items; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.media_plan_items TO anon;
 
 GRANT ALL ON TABLE public.media_plan_items TO authenticated;
 
@@ -14597,7 +14534,6 @@ GRANT ALL ON TABLE public.media_plan_items TO service_role;
 -- Name: TABLE media_plans; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.media_plans TO anon;
 
 GRANT ALL ON TABLE public.media_plans TO authenticated;
 
@@ -14615,7 +14551,6 @@ GRANT ALL ON TABLE public.message_logs TO service_role;
 -- Name: TABLE message_templates; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.message_templates TO anon;
 
 GRANT ALL ON TABLE public.message_templates TO authenticated;
 
@@ -14631,7 +14566,6 @@ GRANT ALL ON TABLE public.meta_compliance_events TO service_role;
 -- Name: TABLE meta_oauth_sessions; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.meta_oauth_sessions TO anon;
 
 GRANT ALL ON TABLE public.meta_oauth_sessions TO authenticated;
 
@@ -14641,7 +14575,6 @@ GRANT ALL ON TABLE public.meta_oauth_sessions TO service_role;
 -- Name: TABLE monthly_plan_tokens; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.monthly_plan_tokens TO anon;
 
 GRANT ALL ON TABLE public.monthly_plan_tokens TO authenticated;
 
@@ -14651,7 +14584,6 @@ GRANT ALL ON TABLE public.monthly_plan_tokens TO service_role;
 -- Name: TABLE monthly_plan_topics; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.monthly_plan_topics TO anon;
 
 GRANT ALL ON TABLE public.monthly_plan_topics TO authenticated;
 
@@ -14661,7 +14593,6 @@ GRANT ALL ON TABLE public.monthly_plan_topics TO service_role;
 -- Name: TABLE monthly_plans; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.monthly_plans TO anon;
 
 GRANT ALL ON TABLE public.monthly_plans TO authenticated;
 
@@ -14671,7 +14602,6 @@ GRANT ALL ON TABLE public.monthly_plans TO service_role;
 -- Name: TABLE notifications; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.notifications TO anon;
 
 GRANT ALL ON TABLE public.notifications TO authenticated;
 
@@ -14681,7 +14611,6 @@ GRANT ALL ON TABLE public.notifications TO service_role;
 -- Name: TABLE plan_overage_requests; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.plan_overage_requests TO anon;
 
 GRANT ALL ON TABLE public.plan_overage_requests TO authenticated;
 
@@ -14697,7 +14626,6 @@ GRANT ALL ON TABLE public.portal_rate_limit TO service_role;
 -- Name: TABLE portal_tokens; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.portal_tokens TO anon;
 
 GRANT ALL ON TABLE public.portal_tokens TO authenticated;
 
@@ -14707,7 +14635,6 @@ GRANT ALL ON TABLE public.portal_tokens TO service_role;
 -- Name: TABLE post_approvals; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.post_approvals TO anon;
 
 GRANT ALL ON TABLE public.post_approvals TO authenticated;
 
@@ -14717,7 +14644,6 @@ GRANT ALL ON TABLE public.post_approvals TO service_role;
 -- Name: TABLE post_placements; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.post_placements TO anon;
 
 GRANT ALL ON TABLE public.post_placements TO authenticated;
 
@@ -14727,7 +14653,6 @@ GRANT ALL ON TABLE public.post_placements TO service_role;
 -- Name: TABLE project_jobs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.project_jobs TO anon;
 
 GRANT ALL ON TABLE public.project_jobs TO authenticated;
 
@@ -14737,7 +14662,6 @@ GRANT ALL ON TABLE public.project_jobs TO service_role;
 -- Name: TABLE project_template_jobs; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.project_template_jobs TO anon;
 
 GRANT ALL ON TABLE public.project_template_jobs TO authenticated;
 
@@ -14747,7 +14671,6 @@ GRANT ALL ON TABLE public.project_template_jobs TO service_role;
 -- Name: TABLE project_template_tasks; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.project_template_tasks TO anon;
 
 GRANT ALL ON TABLE public.project_template_tasks TO authenticated;
 
@@ -14757,7 +14680,6 @@ GRANT ALL ON TABLE public.project_template_tasks TO service_role;
 -- Name: TABLE project_templates; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.project_templates TO anon;
 
 GRANT ALL ON TABLE public.project_templates TO authenticated;
 
@@ -14767,7 +14689,6 @@ GRANT ALL ON TABLE public.project_templates TO service_role;
 -- Name: TABLE sla_rules; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.sla_rules TO anon;
 
 GRANT ALL ON TABLE public.sla_rules TO authenticated;
 
@@ -14777,7 +14698,6 @@ GRANT ALL ON TABLE public.sla_rules TO service_role;
 -- Name: TABLE social_connections; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.social_connections TO anon;
 
 GRANT ALL ON TABLE public.social_connections TO authenticated;
 
@@ -14787,7 +14707,6 @@ GRANT ALL ON TABLE public.social_connections TO service_role;
 -- Name: TABLE social_posts; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.social_posts TO anon;
 
 GRANT ALL ON TABLE public.social_posts TO authenticated;
 
@@ -14797,7 +14716,6 @@ GRANT ALL ON TABLE public.social_posts TO service_role;
 -- Name: TABLE task_comments; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.task_comments TO anon;
 
 GRANT ALL ON TABLE public.task_comments TO authenticated;
 
@@ -14807,7 +14725,6 @@ GRANT ALL ON TABLE public.task_comments TO service_role;
 -- Name: TABLE task_subtasks; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.task_subtasks TO anon;
 
 GRANT ALL ON TABLE public.task_subtasks TO authenticated;
 
@@ -14817,7 +14734,6 @@ GRANT ALL ON TABLE public.task_subtasks TO service_role;
 -- Name: TABLE task_time_entries; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT MAINTAIN ON TABLE public.task_time_entries TO anon;
 
 GRANT ALL ON TABLE public.task_time_entries TO authenticated;
 
@@ -14835,7 +14751,6 @@ GRANT ALL ON TABLE public.user_profiles TO service_role;
 -- Name: TABLE whatsapp_recipients; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.whatsapp_recipients TO anon;
 
 GRANT ALL ON TABLE public.whatsapp_recipients TO authenticated;
 
