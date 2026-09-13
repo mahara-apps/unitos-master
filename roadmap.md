@@ -5,7 +5,7 @@
 - [x] Reavaliar dependências SQL após cada lote e preservar a fila entre retomadas.
 - [x] Registrar SQLSTATE e mensagem original de cada statement adiado.
 - [x] Garantir colunas e índice de retomada com migration corretiva idempotente.
-- [ ] Regenerar e validar o pacote MASTER-first.
+- [x] Regenerar o pacote MASTER-first 1.3.83 e sincronizar versão/SHA.
 - [ ] Publicar o MASTER e iniciar nova tentativa na Taveira somente após autorização explícita.
 
 ## MASTER 1.3.82 — Atualização contínua e progresso real
