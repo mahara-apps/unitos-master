@@ -28,7 +28,7 @@ pg_dump "$DB_URL" \
 # Reordenacao por dependencia (obrigatoria): pg_dump emite funcoes ANTES das
 # tabelas que elas referenciam, o que quebra a execucao em banco vazio via
 # `supabase db query --linked`. O script abaixo apenas reordena statements e
-# remove meta-comandos do psql (\restrict/\unrestrict) — nenhuma DDL muda.
+# remove meta-comandos do psql e ACLs de tabela indevidas para `anon`.
 python3 "$(dirname "$0")/reorder_schema.py" "$OUT.raw" "$OUT"
 
 rm -f "$OUT.raw"
@@ -40,7 +40,7 @@ cat <<'NEXT'
 Proximo passo (NAO aplicar em producao):
   1. criar projeto Supabase descartavel
   2. psql "<URL_DESCARTAVEL>" -f 001_initial_schema.sql
-  3. psql "<URL_DESCARTAVEL>" -f 003_storage_buckets.sql
-  4. ajustar APP_URL e aplicar 002_bootstrap_cron.sql (ou manter jobs inativos)
-  5. comparar contagens com a tabela do README.md e relatar divergencias
+  3. executar supabase/install/bootstrap.sh com SKIP_URL_PROBE=1
+  4. executar novamente para comprovar idempotencia
+  5. executar supabase/install/verify-installation.sql e relatar divergencias
 NEXT

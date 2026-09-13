@@ -9,8 +9,8 @@ Ordem de saida:
   RLS -> policies -> comments -> grants/revokes
 
 Uso: python3 tools/reorder_schema.py <in.sql> <out.sql>
-Nao remove nem adiciona objetos: apenas reordena statements e descarta
-meta-comandos do psql (\\restrict / \\unrestrict) e comandos SET de sessao.
+Nao adiciona objetos: reordena statements e descarta meta-comandos do psql,
+comandos SET de sessao e privilegios de tabela indevidos para `anon`.
 """
 import re
 import sys
@@ -123,6 +123,12 @@ def bucket(stmt: str) -> int:
     return 6  # outros ALTERs de tabela (defaults, identity, replica identity)
 
 
+def is_unsafe_anon_table_grant(stmt: str) -> bool:
+    """Impede que ACLs historicas do MASTER vazem para instalacoes novas."""
+    c = code_of(stmt)
+    return bool(re.match(r"^GRANT\s+.+\s+ON\s+TABLE\s+.+\s+TO\s+anon\s*;?$", c, re.I))
+
+
 HEADER = """\
 -- =============================================================================
 -- 001_initial_schema.sql — SNAPSHOT ESTRUTURAL DO ESTADO ATUAL APROVADO
@@ -135,9 +141,9 @@ HEADER = """\
 -- defaults -> constraints (PK/UNIQUE/CHECK) -> FKs -> indices -> triggers ->
 -- RLS -> policies -> comments -> grants.
 --
--- Nenhuma DDL foi alterada, removida ou adicionada: apenas a ordem dos
--- statements. Meta-comandos do psql (\\restrict/\\unrestrict) e SETs de sessao
--- foram removidos por incompatibilidade com `supabase db query`.
+-- Nenhuma DDL foi alterada ou adicionada. Meta-comandos do psql, SETs de sessao
+-- e GRANTs de tabela para anon foram removidos. Superficies publicas usam RPCs
+-- explicitamente autorizadas, nunca privilegios diretos em tabelas de negocio.
 --
 -- NAO contem: DML de seed/backfill, dados de producao, cron jobs, buckets e
 -- policies de Storage, trigger em auth.users. Ver 000/002/003/004/005/006.
@@ -171,6 +177,9 @@ def main():
     groups = {k: [] for k in LABELS}
     dropped = 0
     for s in stmts:
+        if is_unsafe_anon_table_grant(s):
+            dropped += 1
+            continue
         b = bucket(s)
         if b < 0:
             dropped += 1
