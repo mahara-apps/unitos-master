@@ -44,10 +44,7 @@ type Row = {
 /** Cliente Supabase mínimo (o real é injetado pelas server functions). */
 type Client = {
   from: (table: string) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
-  rpc?: (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
+  rpc?: (...args: any[]) => Promise<{ data?: unknown; error?: { message?: string } | null }>; // eslint-disable-line @typescript-eslint/no-explicit-any
 };
 
 const TABLE = "installation_credentials";
@@ -257,7 +254,9 @@ async function readGeneratedSecretsSnapshot(
   try {
     const { decryptCredential } = await import("@/lib/credentials-crypto.server");
     const parsed = JSON.parse(await decryptCredential(stored)) as unknown;
-    if (!parsed || typeof parsed !== "object") return {};
+    if (!parsed || typeof parsed !== "object") {
+      return { secrets: {}, updatedAt: row?.updated_at ?? null };
+    }
     const out: InstallationSecrets = {};
     for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
       if (typeof value === "string" && value.trim()) out[key] = value.trim();

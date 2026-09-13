@@ -37,8 +37,8 @@ CREATE EXTENSION IF NOT EXISTS supabase_vault WITH SCHEMA vault;
 CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
 
 -- pg_net registrado com schema public no banco de origem, mas a propria extensao
--- cria o schema "net": as funcoes ficam em net.http_post/net.http_get, que e como
--- 002_bootstrap_cron.sql as chama.
+-- cria o schema "net": as funcoes ficam em net.http_post/net.http_get, usadas
+-- pelo cron canonico em supabase/install/020_cron.sql.
 CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA public;
 
 -- pg_cron sempre em pg_catalog no Supabase.

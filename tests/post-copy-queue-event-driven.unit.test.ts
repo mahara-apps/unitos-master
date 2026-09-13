@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 
 const cronFiles = [
   "supabase/install/020_cron.sql",
-  "supabase/baseline-snapshot/002_bootstrap_cron.sql",
 ];
 
 describe("fila de legendas acionada por evento", () => {
