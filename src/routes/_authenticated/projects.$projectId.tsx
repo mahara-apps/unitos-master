@@ -72,7 +72,6 @@ import { z } from "zod";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CommentThread } from "@/components/projects/comment-thread";
 import { WorkLinks } from "@/components/ui/work-links";
-import { StageFunnel } from "@/components/projects/stage-funnel";
 import { PautaBoard, type BoardPauta, type BoardView } from "@/components/projects/pauta-board";
 import { UnitNetworkMatrix } from "@/components/projects/unit-network-matrix";
 import { UpcomingDeadlines, type DeadlineEntry } from "@/components/projects/upcoming-deadlines";
@@ -630,12 +629,6 @@ function ProjectDetailPage() {
         name={project.name}
         color={color}
         clientName={clientName}
-        periodLabel={`${fmtDate(project.start_date)} — ${fmtDate(project.due_at)}`}
-        done={doneItems}
-        total={totalItems}
-        stages={
-          undefined
-        }
         planBadge={
           project.plan ? <PlanStatusBadge status={project.plan.status} prefix="Pauta:" /> : null
         }

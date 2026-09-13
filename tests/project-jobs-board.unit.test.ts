@@ -8,6 +8,7 @@ const jobFns = fs.readFileSync("src/lib/project-jobs.functions.ts", "utf8");
 const route = fs.readFileSync("src/routes/_authenticated/projects.$projectId.tsx", "utf8");
 const verify = fs.readFileSync("supabase/install/verify-installation.sql", "utf8");
 const list = fs.readFileSync("src/components/projects/job-list-view.tsx", "utf8");
+const overview = fs.readFileSync("src/components/projects/project-overview.tsx", "utf8");
 
 describe("gestão de jobs e tarefas no projeto", () => {
   it("separa Jobs e Pautas e agrupa jobs em três colunas", () => {
@@ -68,5 +69,16 @@ describe("gestão de jobs e tarefas no projeto", () => {
     expect(jobFns).toContain("z.enum(TASK_STATUSES)");
     expect(jobFns).toContain("z.enum(TASK_PRIORITIES)");
     expect(verify).toContain("estado Bloqueada disponível");
+  });
+
+  it("mantém a Visão geral como resumo operacional sem alterar a rota", () => {
+    expect(route).toContain('tab === "overview"');
+    expect(route).toContain("<ProjectOverview");
+    expect(overview).toContain("PageKpiGrid");
+    expect(overview).toContain("Resumo de jobs");
+    expect(overview).toContain("Pipeline de conteúdo");
+    expect(overview).toContain("Atividade recente");
+    expect(jobFns).toContain("getProjectOverviewFn");
+    expect(jobFns).toContain('.eq("project_id", data.projectId)');
   });
 });

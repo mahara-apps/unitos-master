@@ -14,6 +14,13 @@
 - [x] Duplicação transacional de job e tarefas sem copiar horas, conversas ou anexos.
 - [ ] Publicar e propagar somente após autorização explícita.
 
+## MASTER 1.3.75 — Visão geral do projeto
+
+- [x] Cabeçalho compacto com status pesquisável, pauta, responsável e ações preservadas.
+- [x] Indicadores canônicos, pipeline contínuo, resumo de jobs, pautas, entregas e atividade real.
+- [x] Manter `/projects/$projectId` e todos os parâmetros e abas existentes.
+- [ ] Publicar e propagar somente após autorização explícita.
+
 - [x] Reformular visualmente lista, detalhe e painel de job da área Projetos; preservar ações e sincronizar MASTER 1.3.66.
 - [x] Adicionar reenvio/edição de convites e ocultar o Super Admin global de listas e menções; sincronizar MASTER.
 - [x] Corrigir conclusão prematura do deploy por Git e reconciliar a versão registrada da Casa 8.

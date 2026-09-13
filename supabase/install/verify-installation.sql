@@ -388,7 +388,7 @@ WITH checks AS (
 
   UNION ALL
   SELECT 57, 'Jobs: numeração, status e timer direto instalados',
-         format('contador=%s colunas=%s xor=%s funções=%s triggers=%s',
+         format('contador=%s colunas=%s xor=%s funções=%s triggers=%s status_projeto=%s',
            to_regclass('public.project_job_counters') IS NOT NULL,
            (SELECT count(*) FROM information_schema.columns
              WHERE table_schema = 'public'
@@ -396,7 +396,8 @@ WITH checks AS (
            EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'task_time_entries_one_target'),
            (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
              WHERE n.nspname = 'public' AND p.proname IN ('start_job_timer','ensure_default_work_statuses','log_work_timer_start','seed_default_work_statuses_for_brand','duplicate_project_job')),
-           (SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal AND tgname IN ('project_jobs_assign_number','project_jobs_number_immutable','task_time_entries_activity_start','brands_seed_default_work_statuses'))),
+           (SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal AND tgname IN ('project_jobs_assign_number','project_jobs_number_immutable','task_time_entries_activity_start','brands_seed_default_work_statuses')),
+           (SELECT count(DISTINCT lower(name)) FROM public.work_statuses WHERE scope = 'project' AND lower(name) IN ('rascunho','em planejamento','ativa','pausada','aguardando cliente','concluído'))),
          CASE WHEN to_regclass('public.project_job_counters') IS NOT NULL
                     AND (SELECT count(*) FROM information_schema.columns
                           WHERE table_schema = 'public'
@@ -410,6 +411,12 @@ WITH checks AS (
                     AND NOT has_function_privilege('anon', 'public.start_job_timer(uuid,uuid)', 'EXECUTE')
                     AND NOT has_function_privilege('anon', 'public.ensure_default_work_statuses(uuid)', 'EXECUTE')
                      AND NOT has_function_privilege('anon', 'public.duplicate_project_job(uuid,uuid)', 'EXECUTE')
+                     AND NOT EXISTS (
+                       SELECT 1 FROM public.brands b
+                       WHERE (SELECT count(DISTINCT lower(ws.name)) FROM public.work_statuses ws
+                              WHERE ws.brand_id = b.id AND ws.scope = 'project'
+                                AND lower(ws.name) IN ('rascunho','em planejamento','ativa','pausada','aguardando cliente','concluído')) < 6
+                     )
               THEN 'PASS' ELSE 'FAIL' END
 
   -- ----------------------------------------------------------------- vault / cron
