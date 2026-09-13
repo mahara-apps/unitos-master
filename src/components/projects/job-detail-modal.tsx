@@ -22,6 +22,9 @@ export function JobDetailModal({
   main,
   aside,
   timeline,
+  code,
+  collaborators,
+  share,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -35,10 +38,13 @@ export function JobDetailModal({
   main: ReactNode;
   aside?: ReactNode;
   timeline?: ReactNode;
+  code?: string;
+  collaborators?: ReactNode;
+  share?: ReactNode;
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex h-dvh w-[min(920px,96vw)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
+      <SheetContent className="flex h-dvh w-[min(1180px,98vw)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
         <SheetTitle className="sr-only">{title}</SheetTitle>
 
         {/* Barra de ações */}
@@ -62,12 +68,12 @@ export function JobDetailModal({
             </Button>
           ) : null}
           <div className="flex min-w-0 flex-wrap items-center gap-2">{controls}</div>
-          <div className="ml-auto flex items-center gap-1">{menu}</div>
+          <div className="ml-auto flex items-center gap-1">{collaborators}{share}{menu}</div>
         </div>
 
         {/* Título + trilha */}
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-5 py-4 sm:flex sm:justify-between">
-          <h2 className="truncate text-xl font-semibold leading-tight sm:text-2xl">{title}</h2>
+          <div className="min-w-0"><p className="mb-1 font-mono text-[11px] text-muted-foreground">{code}</p><h2 className="truncate text-xl font-semibold leading-tight sm:text-2xl">{title}</h2></div>
           {breadcrumb ? (
             <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
               {breadcrumb}
@@ -78,7 +84,7 @@ export function JobDetailModal({
         {timeline ? <div className="border-t border-border/60 px-5 py-4">{timeline}</div> : null}
 
         {/* Corpo em duas colunas */}
-        <div className="grid min-h-0 flex-1 grid-cols-1 border-t border-border/60 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 border-t border-border/60 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="min-h-0 min-w-0 overflow-y-auto lg:border-r lg:border-border/60">
             {main}
           </div>

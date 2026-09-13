@@ -4,10 +4,10 @@
  * Sem status cadastrados, oferece o atalho "Definir status".
  */
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
-import { Check, ChevronDown, Settings2 } from "lucide-react";
+import { Check, ChevronDown, Plus, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -21,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   listWorkStatusesFn,
+  createWorkStatusFn,
   type WorkStatus,
   type WorkStatusScope,
 } from "@/lib/work-statuses.functions";
@@ -74,24 +75,15 @@ export function StatusPicker({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState("");
+  const qc = useQueryClient();
   const statusesQ = useWorkStatuses(brandId, scope);
+  const create = useServerFn(createWorkStatusFn);
+  const createMut = useMutation({ mutationFn: () => create({ data: { brandId, scope, name: name.trim() } }), onSuccess: (row) => { qc.invalidateQueries({ queryKey: ["work-statuses", brandId, scope] }); onChange(row.id); setName(""); setCreating(false); setOpen(false); } });
   const statuses = (statusesQ.data ?? []) as WorkStatus[];
 
-  if (statuses.length === 0) {
-    if (statusesQ.isLoading) return null;
-    return (
-      <Button
-        asChild
-        variant="ghost"
-        size="sm"
-        className="h-8 gap-1.5 text-[11px] text-muted-foreground"
-      >
-        <Link to="/settings/work-statuses">
-          <Settings2 className="h-3 w-3" /> Definir status
-        </Link>
-      </Button>
-    );
-  }
+  if (statusesQ.isLoading) return null;
 
   const current = statuses.find((s) => s.id === value) ?? null;
 
@@ -116,7 +108,7 @@ export function StatusPicker({
           <CommandInput placeholder="Buscar status" className="h-9" />
           <CommandList className="max-h-[260px]">
             <CommandEmpty>Nenhum status encontrado.</CommandEmpty>
-            <CommandGroup>
+             <CommandGroup>
               <CommandItem
                 value="Sem status"
                 onSelect={() => {
@@ -150,8 +142,8 @@ export function StatusPicker({
             </CommandGroup>
           </CommandList>
         </Command>
-        <div className="flex items-center justify-end border-t border-border/60 px-3 py-2">
-          <ManageLink />
+        <div className="border-t border-border/60 px-3 py-2">
+          {creating ? <div className="flex gap-2"><input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) createMut.mutate(); }} className="h-8 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-xs" placeholder="Nome do status" /><Button size="sm" className="h-8" disabled={!name.trim()} onClick={() => createMut.mutate()}>Criar</Button></div> : <div className="flex items-center justify-between"><Button size="sm" variant="ghost" className="h-7 gap-1 px-1 text-xs" onClick={() => setCreating(true)}><Plus className="h-3 w-3" />Novo status</Button><ManageLink /></div>}
         </div>
       </PopoverContent>
     </Popover>
