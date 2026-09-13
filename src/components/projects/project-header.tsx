@@ -1,10 +1,9 @@
 /**
- * Cabeçalho do projeto — barra única com identidade, cliente, responsável,
- * status e ações. Apenas apresentação; os controles vêm por slots.
+ * Cabeçalho do projeto — identidade e controles exclusivos do projeto.
+ * Métricas editoriais pertencem ao contexto de Pautas, não a este cabeçalho.
  */
 import type { ReactNode } from "react";
 import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
-import { Progress } from "@/components/ui/progress";
 
 export function ProjectHeader({
   name,
@@ -15,11 +14,6 @@ export function ProjectHeader({
   status,
   planBadge,
   actions,
-  periodLabel,
-  done,
-  total,
-  stages,
-  compact = false,
 }: {
   name: string;
   color: string;
@@ -29,17 +23,10 @@ export function ProjectHeader({
   status?: ReactNode;
   planBadge?: ReactNode;
   actions?: ReactNode;
-  periodLabel: string;
-  done: number;
-  total: number;
-  stages?: ReactNode;
-  compact?: boolean;
 }) {
-  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
-
   return (
-    <DashboardPanelSurface className="overflow-hidden">
-      <div className="grid grid-cols-1 items-start gap-4 px-5 py-5 md:grid-cols-[minmax(0,1fr)_auto] xl:flex xl:flex-wrap xl:items-center xl:justify-between">
+    <DashboardPanelSurface>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-4 sm:flex sm:flex-wrap sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <span
             aria-hidden
@@ -54,27 +41,13 @@ export function ProjectHeader({
             </div>
           </div>
         </div>
-      {!compact ? (
-        <>
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-border/60 bg-background/40 px-5 py-3 text-[11px] text-muted-foreground sm:flex">
-            <span className="tabular-nums">{periodLabel}</span>
-            <span className="tabular-nums">{done}/{total} peças concluídas</span>
-            <span className="ml-auto flex min-w-[140px] items-center gap-2">
-              <Progress value={pct} className="h-[3px] flex-1" />
-              <span className="font-medium tabular-nums text-foreground">{pct}%</span>
-            </span>
-          </div>
-          {stages ? <div className="border-t border-border/60 p-3 sm:p-4">{stages}</div> : null}
-        </>
-      ) : null}
-        <div className="flex min-w-0 flex-wrap items-center gap-2 md:justify-end">
+        <div className="col-span-2 flex min-w-0 flex-wrap items-center gap-2 sm:col-auto sm:ml-auto sm:justify-end">
           {planBadge}
           {assignee}
           {status}
           {actions}
         </div>
       </div>
-
     </DashboardPanelSurface>
   );
 }

@@ -630,18 +630,6 @@ function ProjectDetailPage() {
         name={project.name}
         color={color}
         clientName={clientName}
-        compact={tab === "overview"}
-        periodLabel={`${fmtDate(project.start_date)} — ${fmtDate(project.due_at)}`}
-        done={doneItems}
-        total={totalItems}
-        stages={
-          <StageFunnel
-            counts={funnelCounts}
-            onSelect={(stage) =>
-              setSearch({ tab: "jobs", board: "board", pauta: undefined, estagio: stage ?? undefined })
-            }
-          />
-        }
         planBadge={
           project.plan ? <PlanStatusBadge status={project.plan.status} prefix="Pauta:" /> : null
         }
@@ -740,14 +728,29 @@ function ProjectDetailPage() {
         </DashboardPanelSurface>
       ) : boardOpen ? (
         /* Board de pautas — nível "job de conteúdo" aberto in-place */
-        <PautaBoard
-          items={boardItems}
-          view={boardView}
-          onViewChange={(v) => setSearch({ board: v })}
-          onOpenItem={(key) => setOpenPautaKey(key)}
-          stage={search.estagio ?? null}
-          onStageChange={(s) => setSearch({ estagio: s ?? undefined })}
-        />
+        <div className="space-y-4">
+          <DashboardPanelSurface>
+            <div className="border-b border-border/60 px-4 py-3">
+              <h2 className="text-sm font-semibold">Pipeline de conteúdo</h2>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">Etapas das peças da pauta</p>
+            </div>
+            <div className="p-3 sm:p-4">
+              <StageFunnel
+                counts={funnelCounts}
+                active={search.estagio ?? null}
+                onSelect={(stage) => setSearch({ estagio: stage ?? undefined })}
+              />
+            </div>
+          </DashboardPanelSurface>
+          <PautaBoard
+            items={boardItems}
+            view={boardView}
+            onViewChange={(v) => setSearch({ board: v })}
+            onOpenItem={(key) => setOpenPautaKey(key)}
+            stage={search.estagio ?? null}
+            onStageChange={(s) => setSearch({ estagio: s ?? undefined })}
+          />
+        </div>
       ) : tab === "overview" ? (
         <ProjectOverview
           brandId={brandId!}
