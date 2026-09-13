@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Clock3, History } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { listJobActivityFn } from "@/lib/project-jobs.functions";
+import { listJobActivityFn, type JobActivity } from "@/lib/project-jobs.functions";
 import { entryDurationSeconds, formatMinutes, formatSeconds, listJobTimeEntriesFn } from "@/lib/timesheet.functions";
 import { formatDateTimeBr } from "@/lib/timezone";
 
@@ -22,6 +22,7 @@ const VERBS: Record<string, string> = { created: "criou", status_changed: "mudou
 export function JobHistoryPanel({ brandId, jobId }: { brandId: string; jobId: string }) {
   const list = useServerFn(listJobActivityFn);
   const query = useQuery({ queryKey: ["job-activity", brandId, jobId], queryFn: () => list({ data: { brandId, jobId } }) });
+  const events = (query.data ?? []) as JobActivity[];
   if (query.isPending) return <Skeleton className="h-40" />;
-  return <div className="relative space-y-0 pl-4 before:absolute before:bottom-3 before:left-[6px] before:top-3 before:w-px before:bg-border">{(query.data ?? []).map((event) => <div key={event.id} className="relative pb-5 pl-4"><span className="absolute left-[-14px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-background bg-primary" /><p className="text-xs"><strong>{event.actor_name ?? "Sistema"}</strong> {VERBS[event.verb] ?? event.verb}{typeof event.payload?.title === "string" ? ` “${event.payload.title}”` : ""}</p><p className="mt-1 text-[10px] text-muted-foreground">{formatDateTimeBr(event.created_at)}</p></div>)}{query.data?.length === 0 ? <div className="flex flex-col items-center gap-2 py-10 text-xs text-muted-foreground"><History className="h-5 w-5" />Nenhuma atividade registrada.</div> : null}</div>;
+  return <div className="relative space-y-0 pl-4 before:absolute before:bottom-3 before:left-[6px] before:top-3 before:w-px before:bg-border">{events.map((event) => <div key={event.id} className="relative pb-5 pl-4"><span className="absolute left-[-14px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-background bg-primary" /><p className="text-xs"><strong>{event.actor_name ?? "Sistema"}</strong> {VERBS[event.verb] ?? event.verb}{event.payload && !Array.isArray(event.payload) && typeof event.payload === "object" && typeof event.payload.title === "string" ? ` “${event.payload.title}”` : ""}</p><p className="mt-1 text-[10px] text-muted-foreground">{formatDateTimeBr(event.created_at)}</p></div>)}{events.length === 0 ? <div className="flex flex-col items-center gap-2 py-10 text-xs text-muted-foreground"><History className="h-5 w-5" />Nenhuma atividade registrada.</div> : null}</div>;
 }
