@@ -1,5 +1,18 @@
 # Roadmap
 
+## MASTER 1.3.81 — Orquestração durável das instalações
+
+- [ ] Unificar claim, lease, heartbeat e retomada em um único executor do servidor; a tela apenas observa.
+- [ ] Isolar falhas por instalação, aplicar limite de tentativas e encaminhar casos esgotados para revisão manual.
+- [ ] Tornar progresso, checkpoints e finalização transacionais e protegidos por fencing token.
+- [ ] Substituir o delta cumulativo por ledger de migrations individuais, com compatibilidade para instalações existentes.
+- [ ] Preparar código, aplicar alterações compatíveis, ativar o deploy, validar e registrar a versão em ordem segura.
+- [ ] Reconciliar banco, commit, deployment, manutenção e versão desejada/publicada.
+- [ ] Registrar métricas por etapa, tentativa e provedor, com erros classificados e correlação da operação.
+- [ ] Cobrir concorrência, crash/replay, migrations, provedores e recuperação com testes automatizados.
+- [ ] Regenerar o pacote MASTER, sincronizar versão/SHA, verificar o instalador e executar `bun run master:check`.
+- [ ] Publicar e propagar somente após autorização explícita.
+
 ## MASTER 1.3.77 — Detalhe central do Job
 
 - [x] Substituir o painel lateral por modal central, preservando o parâmetro `job` e todas as ações.
