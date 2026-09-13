@@ -24,6 +24,8 @@ import {
   MoreHorizontal,
   Plus,
   Search,
+  Share2,
+  ArrowUpDown,
   Sparkles,
   Trash2,
 } from "lucide-react";
@@ -74,10 +76,15 @@ import { CommentThread } from "./comment-thread";
 import { ContextTabs } from "./context-tabs";
 import { DueDateChip } from "./due-date-chip";
 import { JobDetailModal } from "./job-detail-modal";
+import { JobBriefingEditor } from "./job-briefing-editor";
+import { JobHistoryPanel, JobTimesheetPanel } from "./job-context-panels";
+import { JobTimerWidget } from "./job-timer-widget";
 import { StatusPicker, useWorkStatuses } from "./status-picker";
+import { TaskSubtasksPopover } from "./task-subtasks-popover";
 import { TaskTimesheetSheet } from "./task-timesheet-sheet";
 import { DueMenuBlock, VisibilityMenuBlock } from "./work-filter-menu";
 import { isOverdue } from "./work-item-row";
+import { ensureWorkStatusDefaultsFn } from "@/lib/work-statuses.functions";
 
 type Props = {
   brandId: string;
@@ -198,6 +205,7 @@ export function JobsPanel({ brandId, projectId, projectName = "Projeto", clientN
   const deleteTask = useServerFn(deleteTaskFn);
   const createTask = useServerFn(createJobTaskFn);
   const updateTask = useServerFn(updateJobTaskFn);
+  const ensureStatuses = useServerFn(ensureWorkStatusDefaultsFn);
   const [visibility, setVisibility] = useState<VisibilityFilter>("active");
   const [taskVisibility, setTaskVisibility] = useState<VisibilityFilter>("active");
   const [dueFilter, setDueFilter] = useState<DueFilter>("all");
@@ -211,13 +219,22 @@ export function JobsPanel({ brandId, projectId, projectName = "Projeto", clientN
   const [addingJob, setAddingJob] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDue, setNewTaskDue] = useState("");
+  const [taskSearch, setTaskSearch] = useState("");
+  const [taskSort, setTaskSort] = useState<"position" | "due" | "name">("position");
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const workStatusesQ = useWorkStatuses(brandId, "job");
+  const taskStatusesQ = useWorkStatuses(brandId, "task");
 
   const setOpenJobId = (jobId: string | null) => { setOpenJobIdState(jobId); onOpenJobChange?.(jobId); };
   useEffect(() => setMode(initialMode), [initialMode]);
   useEffect(() => setOpenJobIdState(initialJobId), [initialJobId]);
+  useEffect(() => {
+    if (!brandId || (workStatusesQ.data?.length && taskStatusesQ.data?.length)) return;
+    ensureStatuses({ data: { brandId } }).then(() => {
+      qc.invalidateQueries({ queryKey: ["work-statuses", brandId] });
+    }).catch(() => undefined);
+  }, [brandId, ensureStatuses, qc, taskStatusesQ.data?.length, workStatusesQ.data?.length]);
 
   const jobsArchive = needsArchived(visibility) ? "all" : "active";
   const jobsQ = useQuery({ queryKey: ["project-jobs", brandId, projectId, jobsArchive], queryFn: () => listJobs({ data: { brandId, projectId, archive: jobsArchive } }) });
@@ -253,7 +270,10 @@ export function JobsPanel({ brandId, projectId, projectName = "Projeto", clientN
   const taskTotals = useMemo(() => ({ total: tasks.length, done: tasks.filter(isItemDone).length }), [tasks]);
   const visibleJobs = useMemo(() => { const q = search.trim().toLowerCase(); return q ? jobs.filter((job) => job.name.toLowerCase().includes(q)) : jobs; }, [jobs, search]);
   const currentJob = allJobs.find((job) => job.id === openJobId) ?? null;
-  const currentJobTasks = useMemo(() => allTasks.filter((task) => task.job_id === openJobId && matchesVisibility(task, taskVisibility) && matchesDue(task.due_at, isItemDone(task), dueFilter)), [allTasks, openJobId, taskVisibility, dueFilter]);
+  const currentJobTasks = useMemo(() => {
+    const query = taskSearch.trim().toLowerCase();
+    return allTasks.filter((task) => task.job_id === openJobId && matchesVisibility(task, taskVisibility) && matchesDue(task.due_at, isItemDone(task), dueFilter) && (!query || task.title.toLowerCase().includes(query))).sort((a, b) => taskSort === "name" ? a.title.localeCompare(b.title, "pt-BR") : taskSort === "due" ? (a.due_at ?? "9999").localeCompare(b.due_at ?? "9999") : a.position - b.position);
+  }, [allTasks, openJobId, taskVisibility, dueFilter, taskSearch, taskSort]);
   const openTasksCount = currentJobTasks.filter((task) => !isItemDone(task)).length;
   const currentStats = currentJob ? (jobStats.get(currentJob.id) ?? { total: 0, done: 0, minutes: 0, assignees: [] }) : { total: 0, done: 0, minutes: 0, assignees: [] };
   const timeline = currentJob ? timelineState(currentJob.start_date, currentJob.due_at) : { percent: 0, label: "" };
@@ -296,6 +316,10 @@ export function JobsPanel({ brandId, projectId, projectName = "Projeto", clientN
   );
 
   const changeTaskStatus = (task: JobTask, status: TaskStatus) => patchTaskMut.mutate({ taskId: task.id, patch: { status, done: status === "done" } });
+  const changeTaskWorkStatus = (task: JobTask, statusId: string | null) => {
+    const custom = (taskStatusesQ.data ?? []).find((status) => status.id === statusId);
+    patchTaskMut.mutate({ taskId: task.id, patch: { status_id: statusId, status: custom?.task_state ?? task.status, done: custom?.task_state === "done" } });
+  };
   const onTaskDragEnd = (event: DragEndEvent) => {
     setDraggedTaskId(null);
     const target = String(event.over?.id ?? "");
