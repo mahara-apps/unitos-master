@@ -1,0 +1,11 @@
+ALTER FUNCTION public.start_job_timer(uuid, uuid) SECURITY INVOKER;
+REVOKE ALL ON FUNCTION public.assign_project_job_number() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prevent_project_job_number_change() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.log_project_job_activity() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.log_task_activity() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.log_work_timer_stop() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.assign_project_job_number() TO service_role;
+GRANT EXECUTE ON FUNCTION public.prevent_project_job_number_change() TO service_role;
+GRANT EXECUTE ON FUNCTION public.log_project_job_activity() TO service_role;
+GRANT EXECUTE ON FUNCTION public.log_task_activity() TO service_role;
+GRANT EXECUTE ON FUNCTION public.log_work_timer_stop() TO service_role;
