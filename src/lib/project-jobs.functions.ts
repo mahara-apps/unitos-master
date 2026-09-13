@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { TASK_PRIORITIES, TASK_STATUSES, type TaskPriority, type TaskStatus } from "@/lib/tasks.functions";
 import type { Json } from "@/integrations/supabase/types";
 import sanitizeHtml from "sanitize-html";
+import { callRpc } from "@/lib/supabase-rpc";
 
 export type ProjectJob = {
   id: string;
@@ -153,6 +154,22 @@ export const deleteJobFn = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const duplicateJobFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ brandId: z.string().uuid(), jobId: z.string().uuid() }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: duplicatedId, error } = await callRpc<string>(
+      context.supabase,
+      "duplicate_project_job",
+      { _job_id: data.jobId, _brand_id: data.brandId },
+    );
+    if (error) throw new Error(error.message);
+    if (!duplicatedId) throw new Error("Não foi possível duplicar o job.");
+    return { id: duplicatedId };
+  });
+
 export type JobTask = {
   id: string;
   job_id: string | null;
@@ -171,6 +188,80 @@ export type JobTask = {
   total_minutes: number;
   position: number;
 };
+
+export type JobTimeRollup = {
+  jobId: string;
+  minutes: number;
+  running: boolean;
+};
+
+export const listJobTimeRollupsFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ brandId: z.string().uuid(), projectId: z.string().uuid() }).parse(i),
+  )
+  .handler(async ({ data, context }): Promise<JobTimeRollup[]> => {
+    const { data: jobs, error: jobsError } = await context.supabase
+      .from("project_jobs")
+      .select("id")
+      .eq("brand_id", data.brandId)
+      .eq("project_id", data.projectId);
+    if (jobsError) throw jobsError;
+    const jobIds = ((jobs ?? []) as Array<{ id: string }>).map((job) => job.id);
+    if (jobIds.length === 0) return [];
+
+    const { data: taskRows, error: taskError } = await context.supabase
+      .from("tasks")
+      .select("id, job_id")
+      .eq("brand_id", data.brandId)
+      .eq("project_id", data.projectId)
+      .in("job_id", jobIds);
+    if (taskError) throw taskError;
+    const tasks = (taskRows ?? []) as Array<{ id: string; job_id: string | null }>;
+    const taskToJob = new Map(tasks.map((task) => [task.id, task.job_id]));
+    const taskIds = tasks.map((task) => task.id);
+
+    const directQuery = context.supabase
+      .from("task_time_entries")
+      .select("job_id, task_id, minutes, seconds, started_at, ended_at")
+      .eq("brand_id", data.brandId)
+      .in("job_id", jobIds);
+    const taskQuery = taskIds.length
+      ? context.supabase
+          .from("task_time_entries")
+          .select("job_id, task_id, minutes, seconds, started_at, ended_at")
+          .eq("brand_id", data.brandId)
+          .in("task_id", taskIds)
+      : Promise.resolve({ data: [], error: null });
+    const [directResult, taskResult] = await Promise.all([directQuery, taskQuery]);
+    if (directResult.error) throw directResult.error;
+    if (taskResult.error) throw taskResult.error;
+
+    const rows = [...(directResult.data ?? []), ...(taskResult.data ?? [])] as Array<{
+      job_id: string | null;
+      task_id: string | null;
+      minutes: number | null;
+      seconds: number | null;
+      started_at: string;
+      ended_at: string | null;
+    }>;
+    const totals = new Map<string, JobTimeRollup>(
+      jobIds.map((jobId) => [jobId, { jobId, minutes: 0, running: false }]),
+    );
+    const now = Date.now();
+    for (const row of rows) {
+      const jobId = row.job_id ?? (row.task_id ? taskToJob.get(row.task_id) : null);
+      if (!jobId) continue;
+      const total = totals.get(jobId);
+      if (!total) continue;
+      const seconds = row.ended_at
+        ? (row.seconds ?? (row.minutes ?? 0) * 60)
+        : Math.max(0, Math.floor((now - new Date(row.started_at).getTime()) / 1000));
+      total.minutes += Math.floor(seconds / 60);
+      if (!row.ended_at) total.running = true;
+    }
+    return Array.from(totals.values());
+  });
 
 export const listProjectTasksFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
