@@ -55,6 +55,7 @@ export function isMasterInstallation(input: MasterDetectionInput): boolean {
 export const INSTALLATION_STATUSES = [
   "preparing",
   "provisioning",
+  "updating",
   "validating",
   "update_available",
   "up_to_date",
@@ -67,6 +68,7 @@ export type InstallationStatus = (typeof INSTALLATION_STATUSES)[number];
 export const INSTALLATION_STATUS_LABEL: Record<InstallationStatus, string> = {
   preparing: "Preparando",
   provisioning: "Provisionando",
+  updating: "Atualizando",
   validating: "Validando",
   update_available: "Atualização disponível",
   up_to_date: "Atualizada",
@@ -123,6 +125,7 @@ export function canStartOperation(
 /** Status enquanto a operação está em execução. */
 export function runningStatusFor(kind: InstallationOperationKind): InstallationStatus {
   if (kind === "validate") return "validating";
+  if (kind === "update") return "updating";
   return "provisioning";
 }
 

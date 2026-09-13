@@ -293,7 +293,9 @@ async function reconcileStuckOperations(context: { supabase: unknown }): Promise
       .in("status", ["pending", "running"])
       .order("created_at", { ascending: false })
       .limit(20);
-    const rows = data ?? [];
+    const rows = (data ?? []).filter(
+      (row) => !((row as { detail?: { automated?: boolean } }).detail?.automated ?? false),
+    );
     if (!rows.length) return;
     const [{ isOperationStale }, { finalizeOperation }] = await Promise.all([
       import("./manager-contract"),
@@ -1064,6 +1066,7 @@ async function startAtomicInstallationOperation(input: {
       throw new Error("Já existe uma operação em andamento nesta instalação.");
     throw new Error(message);
   }
+  const owner = `request:${crypto.randomUUID()}`;
   const { data: operation, error: detailError } = await supabaseAdmin
     .from("installation_operations")
     .update({
@@ -1075,7 +1078,13 @@ async function startAtomicInstallationOperation(input: {
     .select("*")
     .single();
   if (detailError) throw detailError;
-  return operation;
+  const { data: claimed, error: claimError } = await callRpc<Record<string, unknown>>(
+    supabaseAdmin as never,
+    "claim_installation_operation",
+    { _operation_id: data["id"], _owner: owner, _lease_seconds: 180 },
+  );
+  if (claimError || !claimed) throw claimError ?? new Error("Não foi possível assumir a operação.");
+  return claimed;
 }
 
 /**
@@ -1158,9 +1167,10 @@ async function openAutomatedProvision(
   });
 
   const { runAutomatedProvision } = await import("./automation.server");
+  const { withOperationHeartbeat } = await import("./runner.server");
   const { waitUntil } = await import("@/lib/wait-until.server");
   waitUntil(
-    runAutomatedProvision({
+    withOperationHeartbeat(supabase as never, op as never, () => runAutomatedProvision({
       client: supabase as never,
       operation: op as never,
       env,
@@ -1172,7 +1182,7 @@ async function openAutomatedProvision(
         deployProject: record.deployProject,
         gitRepoUrl: record.gitRepoUrl,
       },
-    }).catch(async (error: unknown) => {
+    })).catch(async (error: unknown) => {
       // Nenhuma exceção de rede/runtime pode deixar uma operação viva para
       // sempre. O erro persistido é sanitizado por finalizeOperation.
       const { finalizeOperation } = await import("./runner.server");
@@ -1646,6 +1656,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
     await supabase.from("installations").update({ pinned_by: context.userId }).eq("id", data.id);
 
     const { runAutomatedUpdate } = await import("./automation.server");
+    const { withOperationHeartbeat } = await import("./runner.server");
     const { waitUntil } = await import("@/lib/wait-until.server");
     const { setRemoteInstallationServiceState } = await import("./service-state.server");
 
@@ -1667,7 +1678,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
     await setServiceState("maintenance");
 
     waitUntil(
-      runAutomatedUpdate({
+      withOperationHeartbeat(supabase as never, op as never, () => runAutomatedUpdate({
         client: supabase as never,
         operation: op as never,
         env,
@@ -1680,7 +1691,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
           deployProject: record.deployProject,
           gitRepoUrl: record.gitRepoUrl,
         },
-      })
+      }))
         .then(async (outcome: { result: string }) => {
           // PENDING = o watchdog retoma a MESMA operação: manter o aviso.
           if (outcome?.result !== "PENDING") await setServiceState("active");
