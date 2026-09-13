@@ -370,17 +370,17 @@ WITH checks AS (
          || ' colunas / funções=' ||
          (SELECT count(*)::text FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
            WHERE n.nspname = 'public'
-             AND p.proname IN ('claim_installation_operation','claim_stale_installation_operations','heartbeat_installation_operation')),
+              AND p.proname IN ('claim_installation_operation','claim_stale_installation_operations','heartbeat_installation_operation','checkpoint_installation_operation','yield_installation_operation','retry_installation_operation','finalize_installation_operation')),
          CASE WHEN (SELECT count(*) FROM information_schema.columns
                          WHERE table_schema = 'public' AND table_name = 'installation_operations'
-                           AND column_name IN ('lease_owner','lease_expires_at','attempt_count')) = 3
+                            AND column_name IN ('lease_owner','lease_expires_at','attempt_count','max_attempts','fencing_token','current_step','next_attempt_at','idempotency_key','error_detail','metrics')) = 10
                     AND (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                           WHERE n.nspname = 'public'
-                            AND p.proname IN ('claim_installation_operation','claim_stale_installation_operations','heartbeat_installation_operation')) = 3
+                             AND p.proname IN ('claim_installation_operation','claim_stale_installation_operations','heartbeat_installation_operation','checkpoint_installation_operation','yield_installation_operation','retry_installation_operation','finalize_installation_operation')) = 7
                     AND NOT EXISTS (
                       SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                       WHERE n.nspname = 'public'
-                        AND p.proname IN ('claim_installation_operation','claim_stale_installation_operations','heartbeat_installation_operation')
+                        AND p.proname IN ('claim_installation_operation','claim_stale_installation_operations','heartbeat_installation_operation','checkpoint_installation_operation','yield_installation_operation','retry_installation_operation','finalize_installation_operation')
                         AND (has_function_privilege('anon', p.oid, 'EXECUTE')
                              OR has_function_privilege('authenticated', p.oid, 'EXECUTE'))
                     )

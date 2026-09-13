@@ -22,7 +22,12 @@ function fakeClient(initialSteps: unknown) {
     return chain;
   };
   const client = {
-    rpc: async () => ({ data: true, error: null }),
+    rpc: async (name: string, args: Record<string, unknown>) => {
+      if (name === "checkpoint_installation_operation" && "_steps" in args) {
+        row.steps = args["_steps"];
+      }
+      return { data: true, error: null };
+    },
     from() {
       return {
         update: mutation,
@@ -48,6 +53,7 @@ describe("applyProgressReport acumula etapas", () => {
       kind: "provision",
       steps: initial,
       lease_owner: "test:worker",
+      fencing_token: 1,
     } as never;
 
     await applyProgressReport(client as never, op, { step: "supabase", state: "done" });

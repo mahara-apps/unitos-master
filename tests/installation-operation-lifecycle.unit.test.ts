@@ -12,7 +12,7 @@ import {
 
 const NOW = Date.parse("2026-01-10T12:00:00.000Z");
 
-function op(overrides: Partial<{ status: "pending" | "running" | "success" | "failed"; startedAt: string; lastReportAt: string | null }>) {
+function op(overrides: Partial<{ status: "pending" | "running" | "retryable" | "success" | "failed"; startedAt: string; lastReportAt: string | null }>) {
   return {
     status: "running" as const,
     startedAt: new Date(NOW - 60_000).toISOString(),
@@ -47,6 +47,15 @@ describe("operação travada", () => {
         NOW,
       ),
     ).toBe(false);
+  });
+
+  it("operação aguardando nova tentativa continua ativa e pode ficar travada", () => {
+    expect(
+      isOperationStale(
+        op({ status: "retryable", startedAt: "2026-09-13T10:00:00.000Z", lastReportAt: null }),
+        Date.parse("2026-09-13T10:10:00.000Z"),
+      ),
+    ).toBe(true);
   });
 
   it("último sinal considera o report mais recente", () => {

@@ -19,7 +19,8 @@ describe("reconciliação de versão da instalação", () => {
 
   it("a autorização usa sempre o ponto atual do código do MASTER", () => {
     expect(manager).toContain("const head = await masterCode.masterHeadSha()");
-    expect(manager).toContain("commitSha: targetSha");
+    expect(manager).toContain("targetCommitSha: targetSha");
+    expect(manager).not.toContain("waitUntil(runAutomatedUpdate");
   });
 
   it("existe sincronização com a versão publicada no repositório da instalação", () => {

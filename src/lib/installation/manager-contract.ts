@@ -736,7 +736,7 @@ export function isOperationStale(
   nowMs: number = Date.now(),
   thresholdMs: number = STALE_OPERATION_MS,
 ): boolean {
-  if (op.status !== "pending" && op.status !== "running") return false;
+  if (op.status !== "pending" && op.status !== "running" && op.status !== "retryable") return false;
   const signal = lastSignalAt(op);
   if (!signal) return false;
   return nowMs - signal > thresholdMs;

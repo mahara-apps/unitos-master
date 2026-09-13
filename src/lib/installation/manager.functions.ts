@@ -290,7 +290,7 @@ async function reconcileStuckOperations(context: { supabase: unknown }): Promise
     const { data } = await supabase
       .from("installation_operations")
       .select("*")
-      .in("status", ["pending", "running"])
+      .in("status", ["pending", "running", "retryable"])
       .order("created_at", { ascending: false })
       .limit(20);
     const rows = (data ?? []).filter(
@@ -341,7 +341,7 @@ async function reconcileStuckOperations(context: { supabase: unknown }): Promise
         .eq("id", row.active_operation_id)
         .maybeSingle();
       const status = (op as { status?: string } | null)?.status ?? null;
-      if (!status || status === "pending" || status === "running") continue;
+      if (!status || status === "pending" || status === "running" || status === "retryable") continue;
       await db
         .from("installations")
         .update({
@@ -791,7 +791,7 @@ export const startInstallationOperationFn = createServerFn({ method: "POST" })
       .from("installation_operations")
       .select("id")
       .eq("installation_id", data.id)
-      .in("status", ["pending", "running"])
+      .in("status", ["pending", "running", "retryable"])
       .maybeSingle();
     if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
 
@@ -1145,7 +1145,7 @@ async function openAutomatedProvision(
     .from("installation_operations")
     .select("id")
     .eq("installation_id", installationId)
-    .in("status", ["pending", "running"])
+    .in("status", ["pending", "running", "retryable"])
     .maybeSingle();
   if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
 
@@ -1248,7 +1248,7 @@ export const runAutomatedValidateFn = createServerFn({ method: "POST" })
       .from("installation_operations")
       .select("id")
       .eq("installation_id", data.id)
-      .in("status", ["pending", "running"])
+      .in("status", ["pending", "running", "retryable"])
       .maybeSingle();
     if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
 
@@ -1294,7 +1294,7 @@ export const restartAutomatedProvisionFn = createServerFn({ method: "POST" })
       .from("installation_operations")
       .select("*")
       .eq("installation_id", data.id)
-      .in("status", ["pending", "running"])
+      .in("status", ["pending", "running", "retryable"])
       .order("created_at", { ascending: false })
       .limit(1);
     if (error) throw error;
@@ -1459,7 +1459,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
       .from("installation_operations")
       .select("id")
       .eq("installation_id", data.id)
-      .in("status", ["pending", "running"])
+      .in("status", ["pending", "running", "retryable"])
       .maybeSingle();
     if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
 

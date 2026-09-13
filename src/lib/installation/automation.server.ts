@@ -2644,13 +2644,6 @@ export async function saveBaselineProgress(
   progress: BaselineProgress,
 ): Promise<void> {
   try {
-    const db = client as never as {
-      from: (t: string) => {
-        update: (v: Record<string, unknown>) => {
-          eq: (c: string, v: string) => Promise<unknown>;
-        };
-      };
-    };
     const { data: fresh } = await (
       client as never as {
         from: (t: string) => {
@@ -2667,16 +2660,23 @@ export async function saveBaselineProgress(
       .select("detail")
       .eq("id", operation.id)
       .maybeSingle();
-    await db
-      .from("installation_operations")
-      .update({
-        detail: {
-          ...((fresh?.detail ?? operation.detail ?? {}) as Record<string, unknown>),
-          baselineProgress: progress,
-        },
-        last_report_at: new Date().toISOString(),
-      })
-      .eq("id", operation.id);
+    const rpc = client as never as {
+      rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
+    };
+    const { data: saved, error } = await rpc.rpc("checkpoint_installation_operation", {
+      _operation_id: operation.id,
+      _owner: operation.lease_owner ?? "",
+      _fencing_token: operation.fencing_token ?? -1,
+      _steps: operation.steps,
+      _detail: {
+        ...((fresh?.detail ?? operation.detail ?? {}) as Record<string, unknown>),
+        baselineProgress: progress,
+      },
+      _current_step: null,
+      _summary: null,
+      _metrics: { lastCheckpointAt: new Date().toISOString() },
+    });
+    if (error || saved !== true) throw new Error(error?.message ?? "lease da operação perdida");
   } catch {
     // idem: perder o checkpoint não invalida a operação.
   }
@@ -2763,24 +2763,23 @@ export async function saveStageProgress(
       .eq("id", operation.id)
       .maybeSingle();
     const detail = (fresh?.detail ?? operation.detail ?? {}) as Record<string, unknown>;
-    await (
-      client as never as {
-        from: (t: string) => {
-          update: (v: Record<string, unknown>) => {
-            eq: (c: string, v: string) => Promise<unknown>;
-          };
-        };
-      }
-    )
-      .from("installation_operations")
-      .update({
-        detail: {
-          ...detail,
-          stageProgress: { ...((detail.stageProgress ?? {}) as StageProgress), ...patch },
-        },
-        last_report_at: new Date().toISOString(),
-      })
-      .eq("id", operation.id);
+    const rpc = client as never as {
+      rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
+    };
+    const { data: saved, error } = await rpc.rpc("checkpoint_installation_operation", {
+      _operation_id: operation.id,
+      _owner: operation.lease_owner ?? "",
+      _fencing_token: operation.fencing_token ?? -1,
+      _steps: operation.steps,
+      _detail: {
+        ...detail,
+        stageProgress: { ...((detail.stageProgress ?? {}) as StageProgress), ...patch },
+      },
+      _current_step: null,
+      _summary: null,
+      _metrics: { lastCheckpointAt: new Date().toISOString() },
+    });
+    if (error || saved !== true) throw new Error(error?.message ?? "lease da operação perdida");
   } catch {
     // idem.
   }
@@ -3007,7 +3006,7 @@ export async function runAutomatedProvision(input: {
       .select("status")
       .eq("id", operation.id)
       .maybeSingle();
-    return current.data?.status !== "running" && current.data?.status !== "pending";
+    return !["running", "pending", "retryable"].includes(current.data?.status ?? "");
   };
 
   /* 1. credenciais próprias do MASTER */
@@ -4018,6 +4017,22 @@ export function deltaProgressKey(sql: string): string {
   return `${UPDATE_DELTA_LABEL}:${deltaFingerprint(sql)}`;
 }
 
+export type DeltaMigration = { file: string; sql: string; fingerprint: string };
+export const INCREMENTAL_LEDGER_CUTOVER_FILE =
+  "20260913124118_9f453a5e-8c5e-4504-9f99-3a8ecfd59eb2.sql";
+
+/** Divide o pacote pelos marcadores emitidos pelo gerador MASTER-first. */
+export function splitDeltaMigrations(sql: string): DeltaMigration[] {
+  const marker = /^-- -+\n-- ([0-9]{14}_[A-Za-z0-9_-]+\.sql)\n-- -+\n/gm;
+  const matches = [...sql.matchAll(marker)];
+  return matches.map((match, index) => {
+    const start = (match.index ?? 0) + match[0].length;
+    const end = matches[index + 1]?.index ?? sql.length;
+    const body = sql.slice(start, end).trim();
+    return { file: match[1] ?? `migration-${index}.sql`, sql: body, fingerprint: deltaFingerprint(body) };
+  });
+}
+
 /**
  * Aplica o delta de banco do MASTER no Supabase da instalação, item por item,
  * com checkpoint e ledger no banco de destino. Idempotente: repetir com o mesmo
@@ -4052,15 +4067,19 @@ export async function applyDatabaseDelta(input: {
     fetchImpl: input.fetchImpl,
   });
 
-  const fingerprint = deltaFingerprint(baseline007);
-  const ledgerLabel = `${UPDATE_DELTA_LABEL}:${fingerprint}`;
+  const migrations = splitDeltaMigrations(baseline007);
+  if (migrations.length === 0) {
+    return { state: "error", detail: "pacote de migrations do MASTER está sem marcadores válidos" };
+  }
 
   const ledger = await management.query(
     [
       "create table if not exists public._unitos_applied_deltas (label text primary key, applied_at timestamptz not null default now())",
+      "alter table public._unitos_applied_deltas add column if not exists kind text not null default 'blob'",
+      "alter table public._unitos_applied_deltas add column if not exists file text",
+      "create unique index if not exists _unitos_applied_deltas_file_key on public._unitos_applied_deltas (file) where kind = 'migration'",
       HELPER_TABLE_HARDENING_SQL("public._unitos_applied_deltas"),
-
-      `select exists(select 1 from public._unitos_applied_deltas where label = ${sqlLiteral(ledgerLabel)}) as applied`,
+      "select label, file from public._unitos_applied_deltas order by applied_at, label",
     ].join(";\n"),
   );
   if (!ledger.ok) {
@@ -4069,18 +4088,45 @@ export async function applyDatabaseDelta(input: {
       detail: `banco da instalação inacessível: ${ledger.error ?? "falha"}`,
     };
   }
-  const ledgerRow = ledger.rows.find(
-    (row): row is Record<string, unknown> => !!row && typeof row === "object",
+  const appliedFiles = new Set(
+    ledger.rows
+      .filter((row): row is Record<string, unknown> => !!row && typeof row === "object")
+      .map((row) => String(row["file"] ?? ""))
+      .filter(Boolean),
   );
-  if (ledgerRow?.["applied"] === true || ledgerRow?.["applied"] === "true") {
+  const hasLegacyBlob = ledger.rows.some(
+    (row) =>
+      !!row &&
+      typeof row === "object" &&
+      String((row as Record<string, unknown>)["label"] ?? "").startsWith(`${UPDATE_DELTA_LABEL}:`) &&
+      !(row as Record<string, unknown>)["file"],
+  );
+  if (hasLegacyBlob && appliedFiles.size === 0) {
+    const historical = migrations.filter((item) => item.file <= INCREMENTAL_LEDGER_CUTOVER_FILE);
+    const transition = await management.query(
+      historical
+        .map(
+          (item) =>
+            `insert into public._unitos_applied_deltas (label, kind, file) values (${sqlLiteral(`${item.file}:${item.fingerprint}`)}, 'migration', ${sqlLiteral(item.file)}) on conflict do nothing`,
+        )
+        .join(";\n"),
+    );
+    if (!transition.ok) {
+      return { state: "error", detail: `transição do ledger legado falhou: ${transition.error ?? "erro"}` };
+    }
+    for (const item of historical) appliedFiles.add(item.file);
+  }
+  const migration = migrations.find((item) => !appliedFiles.has(item.file));
+  if (!migration) {
     return { state: "done", detail: "banco já está na versão do MASTER" };
   }
 
   const progress = await readBaselineProgress(client, installation.id, operation);
-  const checkpointKey = `update:${ledgerLabel}`;
+  const ledgerLabel = `${migration.file}:${migration.fingerprint}`;
+  const checkpointKey = `update:migration:${ledgerLabel}`;
   const alreadyApplied = progress[checkpointKey] ?? 0;
 
-  const prepared = sanitizeBaselineSqlForManagementApi(baseline007);
+  const prepared = sanitizeBaselineSqlForManagementApi(migration.sql);
   const applied = await applyStatementByStatement(management, prepared.sql, {
     startIndex: alreadyApplied === DONE ? 0 : alreadyApplied,
     maxStatements: input.maxStatementsPerInvocation ?? BASELINE_STATEMENTS_PER_INVOCATION,
@@ -4110,7 +4156,7 @@ export async function applyDatabaseDelta(input: {
   }
 
   const mark = await management.query(
-    `insert into public._unitos_applied_deltas (label) values (${sqlLiteral(ledgerLabel)}) on conflict (label) do nothing`,
+    `insert into public._unitos_applied_deltas (label, kind, file) values (${sqlLiteral(ledgerLabel)}, 'migration', ${sqlLiteral(migration.file)}) on conflict do nothing`,
   );
   if (!mark.ok) {
     return {
@@ -4121,7 +4167,10 @@ export async function applyDatabaseDelta(input: {
   await management.query("NOTIFY pgrst, 'reload schema';").catch(() => undefined);
   await saveBaselineProgress(client, operation, { ...progress, [checkpointKey]: DONE });
 
-  return { state: "done", detail: `banco atualizado (${applied.total} comandos verificados)` };
+  const remaining = migrations.length - appliedFiles.size - 1;
+  return remaining > 0
+    ? { state: "pending", detail: `${migration.file} aplicada; ${remaining} migration(ões) pendente(s)` }
+    : { state: "done", detail: `banco atualizado (${migrations.length} migrations registradas)` };
 }
 
 /* ----------------------------------------------------- atualização de código */

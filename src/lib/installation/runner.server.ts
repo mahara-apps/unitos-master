@@ -215,6 +215,44 @@ export async function withOperationHeartbeat<T>(
   }
 }
 
+/** Libera uma fatia concluída para o executor retomar sem consumir uma tentativa. */
+export async function yieldOperation(
+  client: AnyClient,
+  op: OperationRow,
+  delaySeconds = 5,
+): Promise<void> {
+  const { data, error } = await client.rpc("yield_installation_operation", {
+    _operation_id: op.id,
+    _owner: op.lease_owner ?? "",
+    _fencing_token: op.fencing_token ?? -1,
+    _delay_seconds: delaySeconds,
+  });
+  if (error) throw error;
+  if (data !== true) throw new InstallationLeaseLostError();
+}
+
+/** Agenda falha transitória com backoff exponencial e limite persistido. */
+export async function retryOperation(
+  client: AnyClient,
+  op: OperationRow,
+  errorKind: string,
+  summary: string,
+): Promise<void> {
+  const attempt = Math.max(op.attempt_count ?? 0, 0) + 1;
+  const delaySeconds = Math.min(900, 15 * 2 ** Math.min(attempt - 1, 6));
+  const { data, error } = await client.rpc("retry_installation_operation", {
+    _operation_id: op.id,
+    _owner: op.lease_owner ?? "",
+    _fencing_token: op.fencing_token ?? -1,
+    _delay_seconds: delaySeconds,
+    _error_kind: errorKind,
+    _summary: sanitize(summary),
+    _error_detail: { attempt, retryDelaySeconds: delaySeconds },
+  });
+  if (error) throw error;
+  if (data !== true) throw new InstallationLeaseLostError();
+}
+
 function readSteps(raw: unknown): OperationStep[] {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -413,7 +451,7 @@ export async function finalizeOperation(
     })
     .eq("id", op.id)
     .is("lease_owner", null)
-    .in("status", ["pending", "running"])
+    .in("status", ["pending", "running", "retryable"])
     .select("id")
     .maybeSingle();
   if (opError) throw opError;
