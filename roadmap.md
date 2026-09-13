@@ -1,5 +1,12 @@
 # Roadmap
 
+## MASTER 1.3.73 — Drawer de Jobs
+
+- Drawer de job ampliado sem alterar `/projects/$projectId?tab=jobs&job=<uuid>`.
+- Número imutável por workspace, timer direto e estimativa de job.
+- Status pesquisáveis de job e tarefa, briefing rico sanitizado e subtarefas.
+- Painel lateral com Comentários, Anexos, Timesheet e Histórico.
+
 - [x] Reformular visualmente lista, detalhe e painel de job da área Projetos; preservar ações e sincronizar MASTER 1.3.66.
 - [x] Adicionar reenvio/edição de convites e ocultar o Super Admin global de listas e menções; sincronizar MASTER.
 - [x] Corrigir conclusão prematura do deploy por Git e reconciliar a versão registrada da Casa 8.

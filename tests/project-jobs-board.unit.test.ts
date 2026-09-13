@@ -24,6 +24,23 @@ describe("gestão de jobs e tarefas no projeto", () => {
     expect(route).toContain("initialJobId={search.job ?? null}");
   });
 
+  it("mantém a rota e evolui o drawer com número, briefing e quatro abas", () => {
+    expect(jobs).toContain('code={currentJob ? `#${currentJob.job_number}.1`');
+    expect(jobs).toContain("JobBriefingEditor");
+    expect(jobs).toContain('label: "Comentários"');
+    expect(jobs).toContain('label: "Anexos"');
+    expect(jobs).toContain('label: "Timesheet"');
+    expect(jobs).toContain('label: "Histórico"');
+    expect(route).toContain('tab: z.enum(["overview", "jobs"])');
+  });
+
+  it("oferece status pesquisável, timer direto e subtarefas", () => {
+    expect(jobs).toContain('scope="task"');
+    expect(jobs).toContain('placeholder="+ status"');
+    expect(jobs).toContain("JobTimerWidget");
+    expect(jobs).toContain("TaskSubtasksPopover");
+  });
+
   it("mantém lista e quadro com arrastar por status", () => {
     expect(jobs).toContain('taskView === "board"');
     expect(jobs).toContain("<DndContext");
