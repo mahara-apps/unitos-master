@@ -6,7 +6,7 @@
 - [x] Processar várias migrations pequenas na mesma execução com orçamento seguro.
 - [x] Propagar falhas de checkpoint e perda de lease ao executor durável.
 - [ ] Validar a conclusão da atualização 1.3.81 da Taveira sem reiniciar a operação.
-- [ ] Regenerar e validar o pacote MASTER-first.
+- [x] Regenerar e validar o pacote MASTER-first.
 - [ ] Publicar e propagar somente após autorização explícita.
 
 ## MASTER 1.3.81 — Orquestração durável das instalações
