@@ -1,5 +1,12 @@
 # Roadmap
 
+## MASTER 1.3.86 — Desbloqueio da atualização após validação
+
+- [ ] Permitir atualização de instalação em erro quando não houver operação ativa.
+- [ ] Cobrir a transição validação antiga → erro → atualização autorizada.
+- [ ] Regenerar o pacote, sincronizar versão/SHA e executar os guardiões MASTER-first.
+- [ ] Publicar o MASTER e acompanhar a Taveira até a validação final.
+
 ## MASTER 1.3.85 — P0 de instalação e atualização
 
 - [x] Eliminar sobreposição entre snapshot e delta e bloquear regressões no gerador.

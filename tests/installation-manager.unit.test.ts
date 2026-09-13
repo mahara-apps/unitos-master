@@ -103,6 +103,11 @@ describe("estados do provisionamento", () => {
     expect(canStartOperation("validate", "validating")).toBe(false);
   });
 
+  it("permite atualizar após validação falhar por schema antigo", () => {
+    expect(canStartOperation("update", "error")).toBe(true);
+    expect(canStartOperation("update", "updating")).toBe(false);
+  });
+
   it("estado em execução por tipo de operação", () => {
     expect(runningStatusFor("provision")).toBe("provisioning");
     expect(runningStatusFor("update")).toBe("updating");

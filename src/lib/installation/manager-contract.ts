@@ -21,7 +21,7 @@ import { MASTER_FORBIDDEN_TOKENS } from "./bootstrap-contract";
  * Subir a cada correção de banco/código propagável: é o que habilita o botão
  * "Atualizar" (que agora também aplica o delta de banco na instalação).
  */
-export const MASTER_RELEASE_VERSION = "1.3.85";
+export const MASTER_RELEASE_VERSION = "1.3.86";
 
 /* ------------------------------------------------------------------ MASTER */
 
@@ -122,7 +122,10 @@ const ALLOWED_START: Record<InstallationOperationKind, readonly InstallationStat
   register: ["preparing"],
   provision: ["preparing", "attention", "error"],
   validate: ["preparing", "up_to_date", "update_available", "attention", "error"],
-  update: ["up_to_date", "update_available", "attention"],
+  // Uma validação de uma instalação antiga pode falhar justamente porque o
+  // schema ainda não recebeu o delta. Sem operação ativa, `error` precisa
+  // continuar elegível para atualização; o lock atômico impede concorrência.
+  update: ["up_to_date", "update_available", "attention", "error"],
 };
 
 export function canStartOperation(
