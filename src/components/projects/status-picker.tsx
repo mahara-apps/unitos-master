@@ -83,7 +83,7 @@ export function StatusPicker({
   const qc = useQueryClient();
   const statusesQ = useWorkStatuses(brandId, scope);
   const create = useServerFn(createWorkStatusFn);
-  const createMut = useMutation({ mutationFn: () => create({ data: { brandId, scope, name: name.trim() } }), onSuccess: (row) => { qc.invalidateQueries({ queryKey: ["work-statuses", brandId, scope] }); onChange(row.id); setName(""); setCreating(false); setOpen(false); }, onError: () => toast.error("Apenas administradores podem criar status.") });
+  const createMut = useMutation({ mutationFn: () => create({ data: { brandId, scope, name: name.trim(), taskState: scope === "task" ? "todo" : null } }), onSuccess: (row) => { qc.invalidateQueries({ queryKey: ["work-statuses", brandId, scope] }); onChange(row.id); setName(""); setCreating(false); setOpen(false); }, onError: () => toast.error("Apenas administradores podem criar status.") });
   const statuses = (statusesQ.data ?? []) as WorkStatus[];
 
   if (statusesQ.isLoading) return null;
