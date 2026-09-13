@@ -12,6 +12,8 @@ const overview = fs.readFileSync("src/components/projects/project-overview.tsx",
 const header = fs.readFileSync("src/components/projects/project-header.tsx", "utf8");
 const taskRow = fs.readFileSync("src/components/projects/job-task-row.tsx", "utf8");
 const taskTimer = fs.readFileSync("src/components/tasks/task-timer-widget.tsx", "utf8");
+const visualState = fs.readFileSync("src/components/projects/work-item-visual-state.tsx", "utf8");
+const styles = fs.readFileSync("src/styles.css", "utf8");
 
 describe("gestão de jobs e tarefas no projeto", () => {
   it("separa Jobs e Pautas e agrupa jobs em três colunas", () => {
@@ -64,6 +66,17 @@ describe("gestão de jobs e tarefas no projeto", () => {
     expect(jobs).toContain("<DndContext");
     expect(jobs).toContain("task-status:");
     expect(jobs).toContain("TaskTimerWidget");
+  });
+
+  it("diferencia concluídos, cancelados e arquivados em listas e quadros", () => {
+    expect(visualState).toContain('"completed" | "cancelled" | "archived"');
+    expect(visualState).toContain("normalizeStatusName(statusName).startsWith(\"cancelad\")");
+    expect(list).toContain("workItemSurfaceClass(visualState)");
+    expect(jobs).toContain("<WorkItemStateBadge");
+    expect(taskRow).toContain("workItemSurfaceClass(visualState)");
+    expect(styles).toContain("--work-completed-surface:");
+    expect(styles).toContain("--work-cancelled-surface:");
+    expect(styles).toContain("--work-archived-surface:");
   });
 
   it("oferece linhas densas, busca por número e criação contextual", () => {

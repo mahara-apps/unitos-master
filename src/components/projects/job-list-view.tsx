@@ -41,6 +41,11 @@ import { DueDateChip } from "./due-date-chip";
 import { StatusDot, StatusPicker } from "./status-picker";
 import { VisibilityMenuBlock } from "./work-filter-menu";
 import { isOverdue } from "./work-item-row";
+import {
+  WorkItemStateBadge,
+  resolveWorkItemVisualState,
+  workItemSurfaceClass,
+} from "./work-item-visual-state";
 
 export type JobListStats = { total: number; done: number; minutes: number; assignees: string[] };
 type GroupBy = "none" | "status" | "assignee" | "due";
@@ -91,10 +96,16 @@ function JobRow({ brandId, job, stats, rollup, status, team, onOpen, onStatusCha
   brandId: string; job: ProjectJob; stats: JobListStats; rollup?: JobTimeRollup; status?: WorkStatus; team: TeamOption[]; onOpen: () => void; onStatusChange: (id: string | null) => void; onAssigneeChange: (id: string | null) => void; onDueChange: (value: string | null) => void; menu: ReactNode;
 }) {
   const minutes = rollup?.minutes ?? stats.minutes;
+  const visualState = resolveWorkItemVisualState({
+    archivedAt: job.archived_at,
+    done: !!job.done_at,
+    statusName: status?.name,
+    statusIsDone: status?.is_done,
+  });
   return (
-    <div className="grid min-h-[58px] grid-cols-[auto_minmax(150px,1fr)_auto] items-center gap-x-3 gap-y-2 border-b border-border/50 px-4 py-2.5 transition-colors last:border-b-0 hover:bg-muted/20 lg:grid-cols-[auto_minmax(170px,1fr)_120px_66px_64px_70px_150px_24px]">
+    <div className={cn("grid min-h-[58px] grid-cols-[auto_minmax(150px,1fr)_auto] items-center gap-x-3 gap-y-2 border-b border-l-2 border-border/50 border-l-transparent px-4 py-2.5 transition-colors last:border-b-0 hover:bg-muted/20 lg:grid-cols-[auto_minmax(170px,1fr)_120px_66px_64px_70px_150px_24px]", workItemSurfaceClass(visualState))}>
       <Badge variant="secondary" className="h-6 rounded-md border-0 bg-primary/10 px-2 font-mono text-[10px] font-bold tabular-nums text-primary">#{job.job_number}.1</Badge>
-      <Button variant="ghost" className="h-auto min-w-0 justify-start p-0 text-left" onClick={onOpen}><span className="truncate text-sm font-semibold">{job.name}</span></Button>
+      <Button variant="ghost" className="h-auto min-w-0 justify-start p-0 text-left hover:bg-transparent" onClick={onOpen}><span className="flex min-w-0 flex-col items-start gap-0.5"><span className="truncate text-sm font-semibold">{job.name}</span><WorkItemStateBadge state={visualState} /></span></Button>
       <div className="hidden lg:block"><ProgressCell stats={stats} color={status?.color} /></div>
       <div className={cn("hidden items-center gap-1.5 text-xs tabular-nums lg:flex", rollup?.running ? "font-medium text-work-done" : "text-muted-foreground")}><Clock3 className={cn("h-3.5 w-3.5", rollup?.running && "animate-pulse")} />{formatMinutes(minutes)}</div>
       <div className="hidden items-center lg:flex"><AssigneePicker compact value={job.assignee_id} options={team} placeholder="Sem responsável" onChange={onAssigneeChange} />{stats.assignees.filter((id) => id !== job.assignee_id).slice(0, 2).map((id) => <AssigneeAvatar key={id} userId={id} options={team} className="-ml-2 h-7 w-7 border-2 border-background" />)}</div>
@@ -109,9 +120,16 @@ function JobRow({ brandId, job, stats, rollup, status, team, onOpen, onStatusCha
 function JobBoardCard({ job, stats, rollup, status, team, menu, onOpen }: { job: ProjectJob; stats: JobListStats; rollup?: JobTimeRollup; status?: WorkStatus; team: TeamOption[]; menu: ReactNode; onOpen: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: job.id });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
+  const visualState = resolveWorkItemVisualState({
+    archivedAt: job.archived_at,
+    done: !!job.done_at,
+    statusName: status?.name,
+    statusIsDone: status?.is_done,
+  });
   return (
-    <article ref={setNodeRef} style={style} {...attributes} {...listeners} className={cn("cursor-grab rounded-md border border-border/60 bg-background p-3 shadow-sm transition-shadow hover:shadow-md", isDragging && "opacity-40")}>
+    <article ref={setNodeRef} style={style} {...attributes} {...listeners} className={cn("cursor-grab rounded-md border border-border/60 bg-background p-3 shadow-sm transition-shadow hover:shadow-md", workItemSurfaceClass(visualState), isDragging && "opacity-40")}>
       <div className="flex items-start gap-2"><Badge variant="secondary" className="mt-0.5 rounded-md border border-primary/15 bg-primary/10 font-mono text-[9px] text-primary">#{job.job_number}.1</Badge><Button variant="ghost" className="h-auto min-w-0 flex-1 justify-start p-0 text-left" onClick={onOpen}><span className="line-clamp-2 text-sm font-semibold">{job.name}</span></Button>{menu}</div>
+      <WorkItemStateBadge state={visualState} className="mt-1.5" />
       <div className="mt-3"><ProgressCell stats={stats} color={status?.color} /></div>
       <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground"><span className={cn("flex items-center gap-1", rollup?.running && "text-work-done")}><Clock3 className="h-3 w-3" />{formatMinutes(rollup?.minutes ?? stats.minutes)}</span><JobAvatars job={job} stats={stats} team={team} /></div>
     </article>
