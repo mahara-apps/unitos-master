@@ -267,7 +267,7 @@ export async function applyProgressReport(
     detail: sanitize(report.detail),
     percent: report.percent ?? null,
   });
-  const { error } = await client
+  const { data: saved, error } = await client
     .from("installation_operations")
     .update({
       steps,
@@ -275,8 +275,12 @@ export async function applyProgressReport(
       last_report_at: new Date().toISOString(),
     })
     .eq("id", op.id)
-    .in("status", ["pending", "running"]);
+    .eq("lease_owner", op.lease_owner)
+    .in("status", ["pending", "running"])
+    .select("id")
+    .maybeSingle();
   if (error) throw error;
+  if (!saved) throw new InstallationLeaseLostError();
   return steps;
 }
 
@@ -326,7 +330,7 @@ export async function finalizeOperation(
     version: (report.version ?? "").trim() || null,
   };
 
-  const { error: opError } = await client
+  const { data: closed, error: opError } = await client
     .from("installation_operations")
     .update({
       steps: finalSteps,
@@ -346,8 +350,12 @@ export async function finalizeOperation(
       last_report_at: nowIso,
     })
     .eq("id", op.id)
-    .in("status", ["pending", "running"]);
+    .eq("lease_owner", op.lease_owner)
+    .in("status", ["pending", "running"])
+    .select("id")
+    .maybeSingle();
   if (opError) throw opError;
+  if (!closed) throw new InstallationLeaseLostError();
 
   const { data: installation } = await client
     .from("installations")
@@ -387,6 +395,7 @@ export async function finalizeOperation(
   const { error: instError } = await client
     .from("installations")
     .update(patch)
-    .eq("id", op.installation_id);
+    .eq("id", op.installation_id)
+    .eq("active_operation_id", op.id);
   if (instError) throw instError;
 }

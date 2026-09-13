@@ -72,7 +72,8 @@ const FILTERS: { id: Filter; label: string }[] = [
 ];
 
 const matchesFilter = (i: InstallationRecord, filter: Filter) => {
-  if (filter === "running") return i.status === "provisioning" || i.status === "validating";
+  if (filter === "running")
+    return i.status === "provisioning" || i.status === "updating" || i.status === "validating";
   if (filter === "outdated") return i.status === "update_available";
   if (filter === "problems") return i.status === "error" || i.status === "attention";
   return true;
@@ -174,7 +175,9 @@ function AdminInstallationsPage() {
     const count = (fn: (i: InstallationRecord) => boolean) => installations.filter(fn).length;
     return {
       total: installations.length,
-      running: count((i) => i.status === "provisioning" || i.status === "validating"),
+      running: count(
+        (i) => i.status === "provisioning" || i.status === "updating" || i.status === "validating",
+      ),
       outdated: count((i) => i.status === "update_available"),
       problems: count((i) => i.status === "error" || i.status === "attention"),
     };

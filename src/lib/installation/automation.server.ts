@@ -3808,50 +3808,55 @@ async function readFirstAccessState(management: {
 
 /* ------------------------------------------------------- validação automática */
 
-/** Distribui cada verificação do verify entre as etapas de validação da UI. */
-export function classifyVerificationCheck(checkName: string): string {
-  const name = checkName.toLowerCase();
-  if (name.startsWith("isolamento") || name.startsWith("installation.app_url")) return "isolation";
-  if (name.startsWith("sem dados de negócio")) return "isolation";
-  if (name.startsWith("storage:")) return "storage";
-  if (name.startsWith("cron:") || name.startsWith("vault:") || name.includes("brain_stats_mv"))
-    return "cron";
-  if (
-    name.startsWith("rls ") ||
-    name.includes("policies") ||
-    name.includes("triggers") ||
-    name.startsWith("trigger ")
-  )
-    return "rls";
-  return "database";
-}
+type VerificationTarget = {
+  step: (typeof VALIDATE_STEPS)[number]["id"];
+  health: HealthCheckId;
+};
 
-/** Mapeia o resultado do verify para o cartão exato do núcleo da instalação. */
-export function classifyVerificationHealthCheck(checkName: string): HealthCheckId {
+/** Fonte única para a etapa da linha do tempo e o cartão de saúde. */
+export function classifyVerificationTarget(checkName: string): VerificationTarget {
   const name = checkName.toLowerCase();
-  if (name.startsWith("isolamento") || name.startsWith("installation.app_url"))
-    return "configuration";
-  if (name.startsWith("storage:")) return "storage";
+  if (
+    name.startsWith("isolamento") ||
+    name.startsWith("installation.app_url") ||
+    name.startsWith("sem dados de negócio")
+  )
+    return { step: "isolation", health: "configuration" };
+  if (name.startsWith("storage:")) return { step: "storage", health: "storage" };
   if (name.startsWith("cron:") || name.startsWith("vault:") || name.includes("brain_stats_mv"))
-    return "cron";
-  if (name.startsWith("seeds:") || name.startsWith("mensagens: recurso")) return "seeds";
+    return { step: "cron", health: "cron" };
+  if (name.startsWith("seeds:") || name.startsWith("mensagens: recurso"))
+    return { step: "seeds", health: "seeds" };
   if (
     name.startsWith("rls ") ||
     name.includes("policies") ||
     name.includes("triggers") ||
     name.startsWith("trigger ")
   )
-    return "rls";
+    return { step: "rls", health: "rls" };
   if (
     name.startsWith("schema:") ||
     name.startsWith("módulo ") ||
     name.startsWith("clientes:") ||
     name.startsWith("briefing:") ||
     name.startsWith("conteúdo:") ||
-    name.startsWith("auditoria:")
+    name.startsWith("auditoria:") ||
+    name.startsWith("legendas:") ||
+    name.startsWith("tarefas:") ||
+    name.startsWith("ambiente:") ||
+    name.startsWith("instalações:")
   )
-    return "schema";
-  return "database";
+    return { step: "schema", health: "schema" };
+  return { step: "database", health: "database" };
+}
+
+/** Compatibilidade para consumidores existentes; ambos derivam da mesma regra. */
+export function classifyVerificationCheck(checkName: string): VerificationTarget["step"] {
+  return classifyVerificationTarget(checkName).step;
+}
+
+export function classifyVerificationHealthCheck(checkName: string): HealthCheckId {
+  return classifyVerificationTarget(checkName).health;
 }
 
 type VerificationRow = { status: string; check_name: string; observed: string | null };
@@ -3928,8 +3933,9 @@ export async function runAutomatedValidate(input: {
   const failedHealth = new Set<HealthCheckId>();
   const measuredHealth = new Set<HealthCheckId>();
   for (const row of rows) {
-    const step = classifyVerificationCheck(row.check_name);
-    const healthId = classifyVerificationHealthCheck(row.check_name);
+    const target = classifyVerificationTarget(row.check_name);
+    const step = target.step;
+    const healthId = target.health;
     totalByStep.set(step, (totalByStep.get(step) ?? 0) + 1);
     measuredHealth.add(healthId);
     if (row.status === "FAIL") {

@@ -30,7 +30,7 @@ describe("etapas do provisionamento", () => {
       "cron",
       "validation",
     ]);
-    expect(VALIDATE_STEPS).toHaveLength(5);
+    expect(VALIDATE_STEPS).toHaveLength(7);
   });
 
   it("começa tudo pendente e sem progresso", () => {

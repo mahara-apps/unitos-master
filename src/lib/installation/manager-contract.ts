@@ -376,6 +376,11 @@ export const VALIDATE_STEPS = [
     script: "supabase/install/verify-installation.sql",
   },
   {
+    id: "schema",
+    label: "Estrutura funcional",
+    script: "supabase/install/verify-installation.sql",
+  },
+  {
     id: "rls",
     label: "RLS, funções e triggers",
     script: "supabase/install/verify-installation.sql",
@@ -385,6 +390,7 @@ export const VALIDATE_STEPS = [
     label: "Buckets e policies",
     script: "supabase/install/verify-installation.sql",
   },
+  { id: "seeds", label: "Catálogos e padrões", script: "supabase/install/verify-installation.sql" },
   { id: "cron", label: "Cron e URL própria", script: "supabase/install/verify-installation.sql" },
 ] as const;
 

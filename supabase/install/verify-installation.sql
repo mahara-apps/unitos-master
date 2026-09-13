@@ -232,7 +232,7 @@ WITH checks AS (
                    AND to_regprocedure('public.purge_deleted_content()') IS NOT NULL
               THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
-  SELECT 47, 'Auditoria: ações críticas (dupla confirmação) registradas',
+  SELECT 54, 'Auditoria: ações críticas (dupla confirmação) registradas',
          CASE WHEN to_regclass('public.critical_action_events') IS NULL THEN 'tabela ausente'
               ELSE 'tabela presente / policies=' ||
                    (SELECT count(*)::text FROM pg_policies
@@ -353,7 +353,7 @@ WITH checks AS (
 
   -- --------------------------------------------------- nenhum dado de negócio copiado
   UNION ALL
-  SELECT 51, 'sem dados de negócio herdados (marcas/clientes/posts/credenciais)',
+  SELECT 55, 'sem dados de negócio herdados (marcas/clientes/posts/credenciais)',
          format('brands=%s clients=%s posts=%s credenciais=%s meta_app=%s',
                 (SELECT count(*) FROM public.brands),
                 (SELECT count(*) FROM public.clients),
@@ -406,11 +406,11 @@ WITH checks AS (
               THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
   SELECT 66, 'cron: retomada do gerenciador usa a URL registrada',
-         CASE WHEN NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'installation-provision-resume')
+         CASE WHEN NOT EXISTS (SELECT 1 FROM public.installations)
               THEN 'não se aplica nesta instalação'
               ELSE coalesce((SELECT command FROM cron.job
                              WHERE jobname = 'installation-provision-resume' LIMIT 1), 'ausente') END,
-         CASE WHEN NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'installation-provision-resume') THEN 'PASS'
+         CASE WHEN NOT EXISTS (SELECT 1 FROM public.installations) THEN 'INFO'
               WHEN EXISTS (
                 SELECT 1 FROM cron.job
                 WHERE jobname = 'installation-provision-resume'
