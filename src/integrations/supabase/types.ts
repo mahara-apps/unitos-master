@@ -5361,15 +5361,22 @@ export type Database = {
           actor_id: string | null
           attempt_count: number
           created_at: string
+          current_step: string | null
           detail: Json
+          error_detail: Json
           error_kind: string | null
+          fencing_token: number
           finished_at: string | null
           id: string
+          idempotency_key: string | null
           installation_id: string
           kind: string
           last_report_at: string | null
           lease_expires_at: string | null
           lease_owner: string | null
+          max_attempts: number
+          metrics: Json
+          next_attempt_at: string | null
           run_token_expires_at: string | null
           run_token_hash: string | null
           started_at: string
@@ -5381,15 +5388,22 @@ export type Database = {
           actor_id?: string | null
           attempt_count?: number
           created_at?: string
+          current_step?: string | null
           detail?: Json
+          error_detail?: Json
           error_kind?: string | null
+          fencing_token?: number
           finished_at?: string | null
           id?: string
+          idempotency_key?: string | null
           installation_id: string
           kind: string
           last_report_at?: string | null
           lease_expires_at?: string | null
           lease_owner?: string | null
+          max_attempts?: number
+          metrics?: Json
+          next_attempt_at?: string | null
           run_token_expires_at?: string | null
           run_token_hash?: string | null
           started_at?: string
@@ -5401,15 +5415,22 @@ export type Database = {
           actor_id?: string | null
           attempt_count?: number
           created_at?: string
+          current_step?: string | null
           detail?: Json
+          error_detail?: Json
           error_kind?: string | null
+          fencing_token?: number
           finished_at?: string | null
           id?: string
+          idempotency_key?: string | null
           installation_id?: string
           kind?: string
           last_report_at?: string | null
           lease_expires_at?: string | null
           lease_owner?: string | null
+          max_attempts?: number
+          metrics?: Json
+          next_attempt_at?: string | null
           run_token_expires_at?: string | null
           run_token_hash?: string | null
           started_at?: string
@@ -8726,6 +8747,19 @@ export type Database = {
         Args: { _brand_id: string; _client_id: string; _user_id: string }
         Returns: Json
       }
+      checkpoint_installation_operation: {
+        Args: {
+          _current_step: string
+          _detail: Json
+          _fencing_token: number
+          _metrics?: Json
+          _operation_id: string
+          _owner: string
+          _steps: Json
+          _summary?: string
+        }
+        Returns: boolean
+      }
       claim_client_automation_dispatches: {
         Args: { _lease_seconds?: number; _limit?: number; _owner: string }
         Returns: {
@@ -8763,15 +8797,22 @@ export type Database = {
           actor_id: string | null
           attempt_count: number
           created_at: string
+          current_step: string | null
           detail: Json
+          error_detail: Json
           error_kind: string | null
+          fencing_token: number
           finished_at: string | null
           id: string
+          idempotency_key: string | null
           installation_id: string
           kind: string
           last_report_at: string | null
           lease_expires_at: string | null
           lease_owner: string | null
+          max_attempts: number
+          metrics: Json
+          next_attempt_at: string | null
           run_token_expires_at: string | null
           run_token_hash: string | null
           started_at: string
@@ -8808,15 +8849,22 @@ export type Database = {
           actor_id: string | null
           attempt_count: number
           created_at: string
+          current_step: string | null
           detail: Json
+          error_detail: Json
           error_kind: string | null
+          fencing_token: number
           finished_at: string | null
           id: string
+          idempotency_key: string | null
           installation_id: string
           kind: string
           last_report_at: string | null
           lease_expires_at: string | null
           lease_owner: string | null
+          max_attempts: number
+          metrics: Json
+          next_attempt_at: string | null
           run_token_expires_at: string | null
           run_token_hash: string | null
           started_at: string
@@ -8904,6 +8952,25 @@ export type Database = {
         Args: { _brand_id: string }
         Returns: undefined
       }
+      finalize_installation_operation: {
+        Args: {
+          _current_version?: string
+          _detail: Json
+          _error_kind: string
+          _fencing_token: number
+          _health: string
+          _health_checks: Json
+          _installation_status: string
+          _operation_id: string
+          _operation_status: string
+          _owner: string
+          _steps: Json
+          _summary: string
+          _touch_provisioned?: boolean
+          _touch_validated?: boolean
+        }
+        Returns: boolean
+      }
       find_user_id_by_email: { Args: { _email: string }; Returns: string }
       get_brain_graph: {
         Args: { _brand_id?: string; _limit?: number }
@@ -8935,10 +9002,24 @@ export type Database = {
         }
         Returns: boolean
       }
-      heartbeat_installation_operation: {
-        Args: { _lease_seconds?: number; _operation_id: string; _owner: string }
-        Returns: boolean
-      }
+      heartbeat_installation_operation:
+        | {
+            Args: {
+              _fencing_token: number
+              _lease_seconds?: number
+              _operation_id: string
+              _owner: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              _lease_seconds?: number
+              _operation_id: string
+              _owner: string
+            }
+            Returns: boolean
+          }
       installation_setup_state: { Args: never; Returns: Json }
       instantiate_project_template: {
         Args: {
@@ -9141,6 +9222,18 @@ export type Database = {
         Args: { _task_id: string }
         Returns: number
       }
+      retry_installation_operation: {
+        Args: {
+          _delay_seconds: number
+          _error_detail?: Json
+          _error_kind: string
+          _fencing_token: number
+          _operation_id: string
+          _owner: string
+          _summary: string
+        }
+        Returns: boolean
+      }
       safe_uuid: { Args: { _txt: string }; Returns: string }
       seed_access_profiles: { Args: { _brand_id: string }; Returns: number }
       set_client_default_whatsapp_recipient: {
@@ -9170,15 +9263,22 @@ export type Database = {
           actor_id: string | null
           attempt_count: number
           created_at: string
+          current_step: string | null
           detail: Json
+          error_detail: Json
           error_kind: string | null
+          fencing_token: number
           finished_at: string | null
           id: string
+          idempotency_key: string | null
           installation_id: string
           kind: string
           last_report_at: string | null
           lease_expires_at: string | null
           lease_owner: string | null
+          max_attempts: number
+          metrics: Json
+          next_attempt_at: string | null
           run_token_expires_at: string | null
           run_token_hash: string | null
           started_at: string

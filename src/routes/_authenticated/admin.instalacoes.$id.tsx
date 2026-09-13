@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -26,7 +26,6 @@ import {
   getInstallationFn,
   getAutomationCapabilityFn,
   refreshInstallationHealthFn,
-  resumeAutomatedProvisionFn,
   restartAutomatedProvisionFn,
   runAutomatedProvisionFn,
   runAutomatedValidateFn,
@@ -219,7 +218,6 @@ function InstallationDetailPage() {
   const syncVersionFn = useServerFn(syncInstallationVersionFn);
 
   const restartFn = useServerFn(restartAutomatedProvisionFn);
-  const resumeFn = useServerFn(resumeAutomatedProvisionFn);
   const editFn = useServerFn(updateInstallationFn);
   const removeFn = useServerFn(deleteInstallationFn);
   const serviceStateFn = useServerFn(setInstallationServiceStateFn);
@@ -242,7 +240,6 @@ function InstallationDetailPage() {
   const [provisionOpen, setProvisionOpen] = useState(false);
   const [opsPageRaw, setOpsPage] = useState(1);
   const [tab, setTab] = useState<TabValue>(tabParam ?? "visao");
-  const resumePendingRef = useRef(false);
 
   const detail = useQuery({
     queryKey: ["installation", id],
@@ -379,33 +376,6 @@ function InstallationDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const resumeProvision = useMutation({
-    mutationFn: async () => {
-      resumePendingRef.current = true;
-      try {
-        return await resumeFn({ data: { id } });
-      } finally {
-        resumePendingRef.current = false;
-      }
-    },
-    onSuccess: (result) => {
-      if (result.resumed) invalidate();
-    },
-  });
-
-  // O Worker pode ser reciclado entre lotes. Enquanto esta tela acompanha uma
-  // operação automática, o watchdog agenda a próxima fatia curta do baseline;
-  // a lease condicional no servidor evita execução concorrente.
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      const live = detail.data?.operations.find(
-        (op) =>
-          (op.status === "pending" || op.status === "running") && op.detail.automated === true,
-      );
-      if (live && !resumePendingRef.current) resumeProvision.mutate();
-    }, 6_000);
-    return () => window.clearInterval(timer);
-  }, [detail.data?.operations]);
 
   const complete = useMutation({
     mutationFn: (input: {

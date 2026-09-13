@@ -110,8 +110,10 @@ export function OperationStatusBadge({ status }: { status: keyof typeof OPERATIO
   const tone =
     status === "success"
       ? "border-health-good/40 text-health-good"
-      : status === "failed"
+      : status === "failed" || status === "blocked"
         ? "border-destructive/40 text-destructive"
+        : status === "manual_review"
+          ? "border-warning/40 text-warning"
         : "border-severity-info/40 text-severity-info";
   return (
     <Badge variant="outline" className={cn("text-[10px]", tone)}>
