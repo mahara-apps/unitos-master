@@ -4,7 +4,7 @@
 
 - [x] Impedir envio de SQL vazio ao preparar o ledger sem seeds.
 - [x] Cobrir a regressão que interrompeu a atualização da Taveira.
-- [ ] Regenerar o pacote, sincronizar versão/SHA e executar os guardiões MASTER-first.
+- [x] Regenerar o pacote, sincronizar versão/SHA e executar os guardiões MASTER-first.
 - [ ] Publicar o MASTER e retomar a Taveira somente após autorização explícita.
 
 ## MASTER 1.3.86 — Desbloqueio da atualização após validação
