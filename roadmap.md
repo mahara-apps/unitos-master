@@ -1,11 +1,19 @@
 # Roadmap
 
+## MASTER 1.3.83 — Retomada segura da atualização da Taveira
+
+- [x] Reavaliar dependências SQL após cada lote e preservar a fila entre retomadas.
+- [x] Registrar SQLSTATE e mensagem original de cada statement adiado.
+- [x] Garantir colunas e índice de retomada com migration corretiva idempotente.
+- [ ] Regenerar e validar o pacote MASTER-first.
+- [ ] Publicar o MASTER e iniciar nova tentativa na Taveira somente após autorização explícita.
+
 ## MASTER 1.3.82 — Atualização contínua e progresso real
 
 - [x] Mostrar progresso acumulado entre migrations sem regressão visual para 0%.
 - [x] Processar várias migrations pequenas na mesma execução com orçamento seguro.
 - [x] Propagar falhas de checkpoint e perda de lease ao executor durável.
-- [ ] Validar a conclusão da atualização 1.3.81 da Taveira sem reiniciar a operação.
+- [x] Confirmar o encerramento da tentativa da Taveira e diagnosticar a falha de dependência SQL.
 - [x] Regenerar e validar o pacote MASTER-first.
 - [ ] Publicar e propagar somente após autorização explícita.
 

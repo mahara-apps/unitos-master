@@ -262,6 +262,8 @@ export async function applyStatementByStatement(
   const prep = await management.query(
     [
       "create table if not exists public._unitos_deferred_sql (id bigserial primary key, stmt text not null)",
+      "alter table public._unitos_deferred_sql add column if not exists sqlstate text",
+      "alter table public._unitos_deferred_sql add column if not exists error_message text",
       HELPER_TABLE_HARDENING_SQL("public._unitos_deferred_sql"),
       `select exists(select 1 from public._unitos_deferred_sql where stmt = '${marker}') as initialized`,
     ].join(";\n"),
@@ -335,7 +337,7 @@ export async function applyStatementByStatement(
             "    OR SQLSTATE '42701' OR SQLSTATE '42723' OR SQLSTATE '23505' THEN NULL;",
             "  WHEN SQLSTATE '42883' OR SQLSTATE '42P01' OR SQLSTATE '42704'",
             "    OR SQLSTATE '42703' OR SQLSTATE '42P17' THEN",
-            `    INSERT INTO public._unitos_deferred_sql (stmt) VALUES (${tag}${statement}${tag});`,
+            `    INSERT INTO public._unitos_deferred_sql (stmt, sqlstate, error_message) VALUES (${tag}${statement}${tag}, SQLSTATE, SQLERRM);`,
             "  WHEN SQLSTATE '42P16' THEN",
             "    IF SQLERRM ILIKE '%multiple primary key%' THEN",
             "      NULL;",
@@ -349,6 +351,34 @@ export async function applyStatementByStatement(
         .join("\n");
       const result = await management.query(`SET check_function_bodies = off;\n${guarded}`);
       if (!result.ok) return { ok: false, error: result.error, processed };
+
+      // Uma dependência pode ter sido criada no mesmo lote depois do statement
+      // que a utiliza. Tenta resolver a fila imediatamente, mas mantém o item e
+      // seu erro original quando a dependência ainda pertence a um lote futuro.
+      const retryDeferred = await management.query(
+        [
+          "SET check_function_bodies = off;",
+          "DO $unitos_retry_deferred$",
+          "DECLARE r record; v_state text; v_message text;",
+          "BEGIN",
+          `  FOR r IN SELECT id, stmt FROM public._unitos_deferred_sql WHERE stmt <> '${marker}' ORDER BY id LOOP`,
+          "    BEGIN",
+          "      EXECUTE r.stmt;",
+          "      DELETE FROM public._unitos_deferred_sql WHERE id = r.id;",
+          "    EXCEPTION",
+          "      WHEN SQLSTATE '42710' OR SQLSTATE '42P07' OR SQLSTATE '42P06'",
+          "        OR SQLSTATE '42701' OR SQLSTATE '42723' OR SQLSTATE '23505' THEN",
+          "        DELETE FROM public._unitos_deferred_sql WHERE id = r.id;",
+          "      WHEN OTHERS THEN",
+          "        GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE, v_message = MESSAGE_TEXT;",
+          "        UPDATE public._unitos_deferred_sql SET sqlstate = v_state, error_message = v_message WHERE id = r.id;",
+          "    END;",
+          "  END LOOP;",
+          "END",
+          "$unitos_retry_deferred$;",
+        ].join("\n"),
+      );
+      if (!retryDeferred.ok) return { ok: false, error: retryDeferred.error, processed };
     }
 
     processed += batch.length;
@@ -363,7 +393,7 @@ export async function applyStatementByStatement(
       [
         "SET check_function_bodies = off;",
         "DO $unitos_drain$",
-        "DECLARE r record; cur int; prev int := -1; pend text;",
+        "DECLARE r record; cur int; prev int := -1; pend text; v_state text; v_message text;",
         "BEGIN",
         "  LOOP",
         `    SELECT count(*) INTO cur FROM public._unitos_deferred_sql WHERE stmt <> '${marker}';`,
@@ -377,11 +407,13 @@ export async function applyStatementByStatement(
         "        WHEN SQLSTATE '42710' OR SQLSTATE '42P07' OR SQLSTATE '42P06'",
         "          OR SQLSTATE '42701' OR SQLSTATE '42723' OR SQLSTATE '23505' THEN",
         "          DELETE FROM public._unitos_deferred_sql WHERE id = r.id;",
-        "        WHEN OTHERS THEN NULL;",
+        "        WHEN OTHERS THEN",
+        "          GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE, v_message = MESSAGE_TEXT;",
+        "          UPDATE public._unitos_deferred_sql SET sqlstate = v_state, error_message = v_message WHERE id = r.id;",
         "      END;",
         "    END LOOP;",
         "  END LOOP;",
-        `  SELECT string_agg(left(stmt, 160), ' || ') INTO pend FROM public._unitos_deferred_sql WHERE stmt <> '${marker}';`,
+        `  SELECT string_agg(format('[%s] %s :: %s', coalesce(sqlstate, 'unknown'), coalesce(error_message, 'erro não capturado'), left(stmt, 240)), ' || ') INTO pend FROM public._unitos_deferred_sql WHERE stmt <> '${marker}';`,
         "  IF pend IS NOT NULL THEN",
         "    RAISE EXCEPTION 'statements com dependência não resolvida: %', pend;",
         "  END IF;",
