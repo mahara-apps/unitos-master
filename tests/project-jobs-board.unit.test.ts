@@ -70,8 +70,8 @@ describe("gestão de jobs e tarefas no projeto", () => {
     expect(route).toContain('tab: z.enum(PROJECT_TABS).optional()');
     expect(route).toContain('job: z.string().uuid().optional()');
     expect(route).toContain('pauta: z.string().optional()');
-    expect(route).toContain('board: z.enum(["board", "calendar"]).optional()');
-    expect(route).toContain('estagio: z.enum(CONTENT_STAGE_KEYS).optional()');
+    expect(route).toContain('board: z.enum(["board", "list", "matrix"]).optional()');
+    expect(route).toContain('estagio: z.enum(CONTENT_STAGES).optional()');
   });
 
   it("distribui os cinco status oficiais de job sem os legados", () => {
