@@ -27,6 +27,7 @@ export const BASELINE_ORDER = [
   "000_extensions.sql",
   "001_initial_schema.sql",
   "005_auth_trigger.sql",
+  "007_delta_migrations.sql",
   "003_storage_buckets.sql",
   "006_storage_policies.sql",
   "004_seeds.sql",

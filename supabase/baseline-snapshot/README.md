@@ -14,10 +14,11 @@ Nada nesta pasta é aplicado automaticamente. Produção não foi alterada: só
 000_extensions.sql        -- extensões (inclui vault, pgvector, pg_net, pg_cron)
 001_initial_schema.sql    -- schema public completo (estrutura, RLS, funções)
 005_auth_trigger.sql      -- trigger on_auth_user_created em auth.users
+007_delta_migrations.sql  -- migrations posteriores ao corte do snapshot
 003_storage_buckets.sql    -- os 5 buckets privados
 006_storage_policies.sql   -- as 12 policies de storage.objects
 004_seeds.sql             -- seeds de catálogo (9 agentes, 14 features, 7 TTLs, installation)
-002_bootstrap_cron.sql    -- os 14 cron jobs (por último: dependem de tudo acima)
+../install/020_cron.sql   -- fonte única dos cron jobs da instalação
 ```
 
 `006` é obrigatório: `001` foi dumpado com `--schema=public` e por isso **não
@@ -34,7 +35,8 @@ arquivos (ou sem isolamento por workspace/cliente).
 | `003_storage_buckets.sql` | `brand-assets`, `brand-documents`, `brand-media`, `avatars`, `chat-attachments` (privados) | `storage.buckets` |
 | `006_storage_policies.sql` | 12 policies de `storage.objects` + RLS | `pg_policies` |
 | `004_seeds.sql` | 9 `agent_prompts` + 14 `feature_catalog` + 7 `brain_retention_config` + singleton vazio de `installation`; zero dados de negócio/cliente/credencial | catálogos do Master (somente leitura) |
-| `002_bootstrap_cron.sql` | 14 jobs (7 via `net.http_post`, 7 SQL diretos) | `cron.job` |
+| `007_delta_migrations.sql` | migrations posteriores ao corte declarado pelo gerador | `supabase/migrations` |
+| `../install/020_cron.sql` | cron da instalação, com URL validada e segredo próprio | contrato do instalador |
 | `tools/dump_schema.sh` | regenera o `001` | — |
 
 ## Dependências externas obrigatórias (fornecidas pelo Supabase)
@@ -60,8 +62,8 @@ INSERT INTO public.installation (id) VALUES (true)          -- singleton, se aus
   ON CONFLICT DO NOTHING;
 ```
 
-Em `002_bootstrap_cron.sql`: substituir `APP_URL_AQUI` pela URL **da própria**
-instalação.
+O cron é aplicado somente por `supabase/install/020_cron.sql`, que valida a URL
+da própria instalação e não aceita placeholder ou referência ao MASTER.
 
 Na aplicação (env):
 
@@ -87,7 +89,7 @@ Nenhum valor de domínio, ID, usuário ou marca desta instalação está no SQL
 3. `pg_net`: documentado que as funções ficam em `net.*` (como `002` chama),
    apesar de `extnamespace = public`.
 4. `006_storage_policies.sql` criado (lacuna real: `storage` fora do dump).
-5. `002` passou a exigir explicitamente `set_cron_secret` antes dos jobs HTTP.
+5. `020_cron.sql` exige explicitamente `set_cron_secret` antes dos jobs HTTP.
 
 ## Ordem interna do `001_initial_schema.sql`
 
@@ -153,7 +155,8 @@ seeds (item 2).
 
 ## 007_delta_migrations.sql (delta pos-dump)
 
-O dump `001_initial_schema.sql` congela o schema na migration `20260829120135`.
+O dump `001_initial_schema.sql` congela o schema até a migration
+`20260829130645_6465717a-f869-49b9-b603-bc7434389391.sql`.
 Todas as migrations posteriores sao concatenadas em `007_delta_migrations.sql`
 (gerado por `tools/build_delta.py`, manifesto em `tools/delta_manifest.txt`) e
 aplicadas **depois** de `005_auth_trigger.sql`. Sem esse arquivo, uma instalacao

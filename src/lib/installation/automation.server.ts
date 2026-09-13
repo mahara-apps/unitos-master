@@ -232,6 +232,8 @@ export async function applyStatementByStatement(
     startIndex?: number;
     /** Limita o trabalho por invocação para caber na janela do Worker. */
     maxStatements?: number;
+    /** Namespace estável: operação + arquivo + fingerprint. */
+    runKey?: string;
   },
 ): Promise<
   | { ok: true; skipped: number; processed: number; total: number; complete: boolean }
@@ -258,14 +260,17 @@ export async function applyStatementByStatement(
   // check_function_bodies (que não cobre views/policies), o statement que falha
   // por objeto inexistente é guardado e reexecutado no final, em rodadas, até
   // não haver mais progresso.
-  const marker = "-- __unitos_deferred_sql_initialized__";
+  const runKey = (options?.runKey ?? `legacy:${deltaFingerprint(sql)}`).slice(0, 500);
+  const runKeySql = sqlLiteral(runKey);
   const prep = await management.query(
     [
-      "create table if not exists public._unitos_deferred_sql (id bigserial primary key, stmt text not null)",
+      "create table if not exists public._unitos_deferred_sql (id bigserial primary key, stmt text not null, run_key text not null default 'legacy')",
+      "alter table public._unitos_deferred_sql add column if not exists run_key text not null default 'legacy'",
       "alter table public._unitos_deferred_sql add column if not exists sqlstate text",
       "alter table public._unitos_deferred_sql add column if not exists error_message text",
+      "create index if not exists _unitos_deferred_sql_run_key_idx on public._unitos_deferred_sql (run_key, id)",
       HELPER_TABLE_HARDENING_SQL("public._unitos_deferred_sql"),
-      `select exists(select 1 from public._unitos_deferred_sql where stmt = '${marker}') as initialized`,
+      `select exists(select 1 from public._unitos_deferred_sql where run_key = ${runKeySql}) as initialized`,
     ].join(";\n"),
   );
 
@@ -277,7 +282,7 @@ export async function applyStatementByStatement(
   const initialized = prepRow?.["initialized"] === true || prepRow?.["initialized"] === "true";
   if (from === 0 || !initialized) {
     const reset = await management.query(
-      `truncate table public._unitos_deferred_sql; insert into public._unitos_deferred_sql (stmt) values ('${marker}')`,
+      `delete from public._unitos_deferred_sql where run_key = ${runKeySql}; insert into public._unitos_deferred_sql (run_key, stmt) values (${runKeySql}, '-- initialized --')`,
     );
     if (!reset.ok) return { ok: false, error: reset.error, processed: 0 };
     // Checkpoints gravados por versões anteriores podem apontar para o final do
@@ -337,7 +342,7 @@ export async function applyStatementByStatement(
             "    OR SQLSTATE '42701' OR SQLSTATE '42723' OR SQLSTATE '23505' THEN NULL;",
             "  WHEN SQLSTATE '42883' OR SQLSTATE '42P01' OR SQLSTATE '42704'",
             "    OR SQLSTATE '42703' OR SQLSTATE '42P17' THEN",
-            `    INSERT INTO public._unitos_deferred_sql (stmt, sqlstate, error_message) VALUES (${tag}${statement}${tag}, SQLSTATE, SQLERRM);`,
+            `    INSERT INTO public._unitos_deferred_sql (run_key, stmt, sqlstate, error_message) VALUES (${runKeySql}, ${tag}${statement}${tag}, SQLSTATE, SQLERRM);`,
             "  WHEN SQLSTATE '42P16' THEN",
             "    IF SQLERRM ILIKE '%multiple primary key%' THEN",
             "      NULL;",
@@ -361,7 +366,7 @@ export async function applyStatementByStatement(
           "DO $unitos_retry_deferred$",
           "DECLARE r record; v_state text; v_message text;",
           "BEGIN",
-          `  FOR r IN SELECT id, stmt FROM public._unitos_deferred_sql WHERE stmt <> '${marker}' ORDER BY id LOOP`,
+          `  FOR r IN SELECT id, stmt FROM public._unitos_deferred_sql WHERE run_key = ${runKeySql} AND stmt <> '-- initialized --' ORDER BY id LOOP`,
           "    BEGIN",
           "      EXECUTE r.stmt;",
           "      DELETE FROM public._unitos_deferred_sql WHERE id = r.id;",
@@ -396,10 +401,10 @@ export async function applyStatementByStatement(
         "DECLARE r record; cur int; prev int := -1; pend text; v_state text; v_message text;",
         "BEGIN",
         "  LOOP",
-        `    SELECT count(*) INTO cur FROM public._unitos_deferred_sql WHERE stmt <> '${marker}';`,
+        `    SELECT count(*) INTO cur FROM public._unitos_deferred_sql WHERE run_key = ${runKeySql} AND stmt <> '-- initialized --';`,
         "    EXIT WHEN cur = 0 OR cur = prev;",
         "    prev := cur;",
-        `    FOR r IN SELECT id, stmt FROM public._unitos_deferred_sql WHERE stmt <> '${marker}' ORDER BY id LOOP`,
+        `    FOR r IN SELECT id, stmt FROM public._unitos_deferred_sql WHERE run_key = ${runKeySql} AND stmt <> '-- initialized --' ORDER BY id LOOP`,
         "      BEGIN",
         "        EXECUTE r.stmt;",
         "        DELETE FROM public._unitos_deferred_sql WHERE id = r.id;",
@@ -413,11 +418,11 @@ export async function applyStatementByStatement(
         "      END;",
         "    END LOOP;",
         "  END LOOP;",
-        `  SELECT string_agg(format('[%s] %s :: %s', coalesce(sqlstate, 'unknown'), coalesce(error_message, 'erro não capturado'), left(stmt, 240)), ' || ') INTO pend FROM public._unitos_deferred_sql WHERE stmt <> '${marker}';`,
+        `  SELECT string_agg(format('[%s] %s :: %s', coalesce(sqlstate, 'unknown'), coalesce(error_message, 'erro não capturado'), left(stmt, 240)), ' || ') INTO pend FROM public._unitos_deferred_sql WHERE run_key = ${runKeySql} AND stmt <> '-- initialized --';`,
         "  IF pend IS NOT NULL THEN",
         "    RAISE EXCEPTION 'statements com dependência não resolvida: %', pend;",
         "  END IF;",
-        "  DROP TABLE IF EXISTS public._unitos_deferred_sql;",
+        `  DELETE FROM public._unitos_deferred_sql WHERE run_key = ${runKeySql};`,
         "END",
         "$unitos_drain$;",
       ].join("\n"),
@@ -3437,6 +3442,7 @@ export async function runAutomatedProvision(input: {
       // e retomada, portanto todos os arquivos do instalador ficam protegidos.
       const perStatement = await applyStatementByStatement(management, prepared.sql, {
         isCancelled,
+        runKey: `${operation.id}:${file.key}`,
         startIndex: alreadyApplied,
         maxStatements: BASELINE_STATEMENTS_PER_INVOCATION,
         ...(input.maxStatementsPerInvocation !== undefined
@@ -3477,6 +3483,15 @@ export async function runAutomatedProvision(input: {
           urlSource,
           steps,
         };
+      }
+      if (file.label === UPDATE_DELTA_LABEL) {
+        const seeded = await seedDeltaLedger(management, splitDeltaMigrations(file.sql));
+        if (!seeded.ok) {
+          failures.push(`ledger do delta: ${seeded.error ?? "falha ao registrar"}`);
+          await mark(file.id, "error", "ledger do delta falhou");
+          checks.database = "error";
+          return finish(appUrl, urlSource);
+        }
       }
       progress[file.key] = DONE;
       groupDone[file.id] = (groupDone[file.id] ?? 0) + 1;
@@ -4089,6 +4104,32 @@ export function splitDeltaMigrations(sql: string): DeltaMigration[] {
   });
 }
 
+async function seedDeltaLedger(
+  management: Pick<ManagementClient, "query">,
+  migrations: DeltaMigration[],
+): Promise<{ ok: boolean; error?: string }> {
+  const setup = await management.query(
+    [
+      "create table if not exists public._unitos_applied_deltas (label text primary key, applied_at timestamptz not null default now())",
+      "alter table public._unitos_applied_deltas add column if not exists kind text not null default 'blob'",
+      "alter table public._unitos_applied_deltas add column if not exists file text",
+      "alter table public._unitos_applied_deltas add column if not exists fingerprint text",
+      "drop index if exists public._unitos_applied_deltas_file_key",
+      "create unique index if not exists _unitos_applied_deltas_file_fingerprint_key on public._unitos_applied_deltas (file, fingerprint) where kind = 'migration'",
+      HELPER_TABLE_HARDENING_SQL("public._unitos_applied_deltas"),
+    ].join(";\n"),
+  );
+  if (!setup.ok) return { ok: false, error: setup.error };
+  const written = await management.query(
+    migrations
+      .map((item) =>
+        `insert into public._unitos_applied_deltas (label, kind, file, fingerprint) values (${sqlLiteral(`${item.file}:${item.fingerprint}`)}, 'migration', ${sqlLiteral(item.file)}, ${sqlLiteral(item.fingerprint)}) on conflict do nothing`,
+      )
+      .join(";\n"),
+  );
+  return written.ok ? { ok: true } : { ok: false, error: written.error };
+}
+
 /** Progresso acumulado entre todas as migrations, sem regredir na troca de arquivo. */
 export function databaseMigrationsPercent(input: {
   total: number;
@@ -4154,15 +4195,10 @@ export async function applyDatabaseDelta(input: {
     return { state: "error", detail: "pacote de migrations do MASTER está sem marcadores válidos" };
   }
 
+  const ledgerSetup = await seedDeltaLedger(management, []);
+  if (!ledgerSetup.ok) return { state: "error", detail: `banco da instalação inacessível: ${ledgerSetup.error ?? "falha"}` };
   const ledger = await management.query(
-    [
-      "create table if not exists public._unitos_applied_deltas (label text primary key, applied_at timestamptz not null default now())",
-      "alter table public._unitos_applied_deltas add column if not exists kind text not null default 'blob'",
-      "alter table public._unitos_applied_deltas add column if not exists file text",
-      "create unique index if not exists _unitos_applied_deltas_file_key on public._unitos_applied_deltas (file) where kind = 'migration'",
-      HELPER_TABLE_HARDENING_SQL("public._unitos_applied_deltas"),
-      "select label, file from public._unitos_applied_deltas order by applied_at, label",
-    ].join(";\n"),
+    "select label, file, fingerprint from public._unitos_applied_deltas order by applied_at, label",
   );
   if (!ledger.ok) {
     return {
@@ -4170,10 +4206,10 @@ export async function applyDatabaseDelta(input: {
       detail: `banco da instalação inacessível: ${ledger.error ?? "falha"}`,
     };
   }
-  const appliedFiles = new Set(
+  const appliedLabels = new Set(
     ledger.rows
       .filter((row): row is Record<string, unknown> => !!row && typeof row === "object")
-      .map((row) => String(row["file"] ?? ""))
+      .map((row) => `${String(row["file"] ?? "")}:${String(row["fingerprint"] ?? "")}`)
       .filter(Boolean),
   );
   const hasLegacyBlob = ledger.rows.some(
@@ -4183,22 +4219,22 @@ export async function applyDatabaseDelta(input: {
       String((row as Record<string, unknown>)["label"] ?? "").startsWith(`${UPDATE_DELTA_LABEL}:`) &&
       !(row as Record<string, unknown>)["file"],
   );
-  if (hasLegacyBlob && appliedFiles.size === 0) {
+  if (hasLegacyBlob && appliedLabels.size === 0) {
     const historical = migrations.filter((item) => item.file <= INCREMENTAL_LEDGER_CUTOVER_FILE);
     const transition = await management.query(
       historical
         .map(
           (item) =>
-            `insert into public._unitos_applied_deltas (label, kind, file) values (${sqlLiteral(`${item.file}:${item.fingerprint}`)}, 'migration', ${sqlLiteral(item.file)}) on conflict do nothing`,
+            `insert into public._unitos_applied_deltas (label, kind, file, fingerprint) values (${sqlLiteral(`${item.file}:${item.fingerprint}`)}, 'migration', ${sqlLiteral(item.file)}, ${sqlLiteral(item.fingerprint)}) on conflict do nothing`,
         )
         .join(";\n"),
     );
     if (!transition.ok) {
       return { state: "error", detail: `transição do ledger legado falhou: ${transition.error ?? "erro"}` };
     }
-    for (const item of historical) appliedFiles.add(item.file);
+    for (const item of historical) appliedLabels.add(`${item.file}:${item.fingerprint}`);
   }
-  let migration = migrations.find((item) => !appliedFiles.has(item.file));
+  let migration = migrations.find((item) => !appliedLabels.has(`${item.file}:${item.fingerprint}`));
   if (!migration) {
     return { state: "done", detail: "banco já está na versão do MASTER", percent: 100 };
   }
@@ -4216,6 +4252,11 @@ export async function applyDatabaseDelta(input: {
     const alreadyApplied = progress[checkpointKey] ?? 0;
     const prepared = sanitizeBaselineSqlForManagementApi(migration.sql);
     const applied = await applyStatementByStatement(management, prepared.sql, {
+      runKey: `${operation.id}:${ledgerLabel}`,
+      isCancelled: async () => {
+        const { data } = await client.from("installation_operations").select("status, fencing_token").eq("id", operation.id).maybeSingle();
+        return data?.status === "failed" || data?.fencing_token !== operation.fencing_token;
+      },
       startIndex: alreadyApplied === DONE ? 0 : alreadyApplied,
       maxStatements: input.maxStatementsPerInvocation ?? BASELINE_STATEMENTS_PER_INVOCATION,
     });
@@ -4226,7 +4267,7 @@ export async function applyDatabaseDelta(input: {
       return { state: "error", detail: `atualização do banco falhou: ${applied.error ?? "erro"}` };
     }
 
-    const completedBefore = appliedFiles.size;
+    const completedBefore = appliedLabels.size;
     if (!applied.complete) {
       progress = { ...progress, [checkpointKey]: applied.processed };
       await saveBaselineProgress(client, operation, progress);
@@ -4244,17 +4285,17 @@ export async function applyDatabaseDelta(input: {
     }
 
     const mark = await management.query(
-      `insert into public._unitos_applied_deltas (label, kind, file) values (${sqlLiteral(ledgerLabel)}, 'migration', ${sqlLiteral(migration.file)}) on conflict do nothing`,
+      `insert into public._unitos_applied_deltas (label, kind, file, fingerprint) values (${sqlLiteral(ledgerLabel)}, 'migration', ${sqlLiteral(migration.file)}, ${sqlLiteral(migration.fingerprint)}) on conflict do nothing`,
     );
     if (!mark.ok) {
       return { state: "error", detail: `registro da versão do banco falhou: ${mark.error ?? "erro"}` };
     }
     progress = { ...progress, [checkpointKey]: DONE };
     await saveBaselineProgress(client, operation, progress);
-    appliedFiles.add(migration.file);
+    appliedLabels.add(ledgerLabel);
     processedMigrations += 1;
 
-    const remaining = migrations.length - appliedFiles.size;
+    const remaining = migrations.length - appliedLabels.size;
     if (remaining === 0) {
       await management.query("NOTIFY pgrst, 'reload schema';").catch(() => undefined);
       return { state: "done", detail: `banco atualizado (${migrations.length} migrations registradas)`, percent: 100 };
@@ -4262,17 +4303,17 @@ export async function applyDatabaseDelta(input: {
 
     const percent = databaseMigrationsPercent({
       total: migrations.length,
-      completed: appliedFiles.size,
+      completed: appliedLabels.size,
     });
     if (processedMigrations >= migrationLimit || now() - startedAt >= budgetMs) {
       await management.query("NOTIFY pgrst, 'reload schema';").catch(() => undefined);
       return {
         state: "pending",
         percent,
-        detail: `Banco ${appliedFiles.size}/${migrations.length} migrations concluídas; ${remaining} pendentes · ${percent}%`,
+        detail: `Banco ${appliedLabels.size}/${migrations.length} migrations concluídas; ${remaining} pendentes · ${percent}%`,
       };
     }
-    migration = migrations.find((item) => !appliedFiles.has(item.file));
+    migration = migrations.find((item) => !appliedLabels.has(`${item.file}:${item.fingerprint}`));
   }
 
   return { state: "done", detail: `banco atualizado (${migrations.length} migrations registradas)`, percent: 100 };

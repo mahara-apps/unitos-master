@@ -3,19 +3,21 @@ import { sanitizeBaselineSqlForManagementApi } from "@/lib/installation/baseline
 import baseline001 from "../supabase/baseline-snapshot/001_initial_schema.sql?raw";
 
 describe("sanitizeBaselineSqlForManagementApi", () => {
-  it("remove ALTER DEFAULT PRIVILEGES e COMMENT ON SCHEMA public", () => {
+  it("remove privilégios de superusuário e grants de tabela para anon", () => {
     const sql = [
       "CREATE TABLE public.a (id uuid PRIMARY KEY);",
       "COMMENT ON SCHEMA public IS 'standard public schema';",
       "ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES TO anon;",
       "GRANT SELECT ON public.a TO authenticated;",
+      "GRANT REFERENCES,TRIGGER,TRUNCATE,MAINTAIN ON TABLE public.a TO anon;",
     ].join("\n");
     const result = sanitizeBaselineSqlForManagementApi(sql);
     expect(result.sql).toContain("CREATE TABLE public.a");
     expect(result.sql).toContain("GRANT SELECT ON public.a TO authenticated;");
     expect(result.sql).not.toMatch(/ALTER DEFAULT PRIVILEGES/i);
     expect(result.sql).not.toMatch(/COMMENT ON SCHEMA public/i);
-    expect(result.removed).toHaveLength(2);
+    expect(result.sql).not.toMatch(/ON TABLE public\.a TO anon/i);
+    expect(result.removed).toHaveLength(3);
   });
 
   it("preserva GRANTs, policies e funções", () => {
@@ -34,6 +36,7 @@ describe("sanitizeBaselineSqlForManagementApi", () => {
     expect(result.removed.length).toBeGreaterThan(0);
     expect(result.sql).not.toMatch(/^\s*ALTER\s+DEFAULT\s+PRIVILEGES/im);
     expect(result.sql).not.toMatch(/^\s*COMMENT\s+ON\s+SCHEMA\s+public/im);
+    expect(result.sql).not.toMatch(/^\s*GRANT\s+.+\s+ON\s+TABLE\s+.+\s+TO\s+anon/im);
     // O schema em si permanece intacto.
     expect(result.sql).toContain("CREATE TABLE");
     expect(result.sql).toContain("ENABLE ROW LEVEL SECURITY");

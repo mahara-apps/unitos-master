@@ -27,6 +27,9 @@ const SUPERUSER_ONLY_PATTERNS: readonly RegExp[] = [
   // objects`. RLS ja vem habilitado nesta tabela em qualquer projeto novo.
   /^ALTER\s+TABLE\s+(?:ONLY\s+)?storage\.\w+\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY\b/i,
   /^ALTER\s+TABLE\s+(?:ONLY\s+)?storage\.\w+\s+OWNER\s+TO\b/i,
+  // RLS não protege TRUNCATE/TRIGGER/REFERENCES. O acesso público usa RPCs
+  // explicitamente autorizadas, nunca grants diretos em tabelas de negócio.
+  /^GRANT\s+.+\s+ON\s+TABLE\s+.+\s+TO\s+anon\b/i,
 ];
 
 export type SanitizedBaseline = {
