@@ -2607,7 +2607,7 @@ export type AutomationInstallation = {
   gitRepoUrl?: string | null;
 };
 
-type Client = { from: (table: string) => unknown };
+type Client = { from: (table: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export type AutomationRunResult = Omit<AutomationOutcome, "result"> & {
   result: AutomationOutcome["result"] | "RUNNING";
