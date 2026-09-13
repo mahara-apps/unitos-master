@@ -39,9 +39,9 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
     if (!installation) continue;
 
     const row = installation as Record<string, unknown>;
-    const { runAutomatedProvision, runAutomatedUpdate, runAutomatedValidate } =
+    const { runAutomatedProvision, runAutomatedUpdate, runAutomatedValidate, classifyAccessFailure } =
       await import("./automation.server");
-    const { finalizeOperation, withOperationHeartbeat } = await import("./runner.server");
+    const { finalizeOperation, retryOperation, withOperationHeartbeat, yieldOperation } = await import("./runner.server");
     // Cada tipo de operação tem o próprio conjunto de etapas: retomar tudo como
     // provisionamento deixava UPDATE/VALIDATE presos reportando etapas inexistentes.
     const kind = (op as { kind?: string }).kind ?? "provision";
@@ -73,7 +73,9 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
         const outcome = await withOperationHeartbeat(supabaseAdmin as never, op as never, () =>
           runAutomatedUpdate(args),
         );
-        if (outcome.result !== "PENDING") {
+        if (outcome.result === "PENDING") {
+          await yieldOperation(supabaseAdmin as never, op as never);
+        } else {
           await setRemoteInstallationServiceState({
             env,
             projectRef: (row.supabase_project_ref ?? null) as string | null,
@@ -86,17 +88,23 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
           runAutomatedValidate(args),
         );
       } else {
-        await withOperationHeartbeat(supabaseAdmin as never, op as never, () =>
+        const outcome = await withOperationHeartbeat(supabaseAdmin as never, op as never, () =>
           runAutomatedProvision(args),
         );
+        if (outcome.result === "PENDING") await yieldOperation(supabaseAdmin as never, op as never);
       }
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "falha inesperada na retomada";
-      await finalizeOperation(supabaseAdmin as never, op as never, {
-        ok: false,
-        summary: `FAIL: ${message}`,
-        errorKind: "unexpected_error",
-      });
+      const failure = classifyAccessFailure(message);
+      if (failure === "permission") {
+        await finalizeOperation(supabaseAdmin as never, op as never, {
+          ok: false,
+          summary: `BLOCKED: ${message}`,
+          errorKind: "permission",
+        });
+      } else {
+        await retryOperation(supabaseAdmin as never, op as never, "transient", message);
+      }
       if (kind === "update") {
         await setRemoteInstallationServiceState({
           env,
