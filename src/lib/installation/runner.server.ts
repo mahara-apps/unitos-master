@@ -305,7 +305,7 @@ export async function finalizeOperation(
   op: OperationRow,
   report: FinalReport,
 ): Promise<void> {
-  await assertOperationLease(client, op);
+  if (op.lease_owner?.trim()) await assertOperationLease(client, op);
   const kind = op.kind as InstallationOperationKind;
   const nowIso = new Date().toISOString();
 

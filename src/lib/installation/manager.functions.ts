@@ -1066,25 +1066,17 @@ async function startAtomicInstallationOperation(input: {
       throw new Error("Já existe uma operação em andamento nesta instalação.");
     throw new Error(message);
   }
-  const owner = `request:${crypto.randomUUID()}`;
   const { data: operation, error: detailError } = await supabaseAdmin
     .from("installation_operations")
     .update({
       detail: input.detail as never,
       actor_id: input.actorId,
-      status: "running",
     })
     .eq("id", data["id"])
     .select("*")
     .single();
   if (detailError) throw detailError;
-  const { data: claimed, error: claimError } = await callRpc<Record<string, unknown>>(
-    supabaseAdmin as never,
-    "claim_installation_operation",
-    { _operation_id: data["id"], _owner: owner, _lease_seconds: 180 },
-  );
-  if (claimError || !claimed) throw claimError ?? new Error("Não foi possível assumir a operação.");
-  return claimed;
+  return operation;
 }
 
 /**
@@ -1165,37 +1157,6 @@ async function openAutomatedProvision(
     steps: initialSteps("provision"),
     detail: { releaseVersion: MASTER_RELEASE_VERSION, executed: true, automated: true },
   });
-
-  const { runAutomatedProvision } = await import("./automation.server");
-  const { withOperationHeartbeat } = await import("./runner.server");
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { waitUntil } = await import("@/lib/wait-until.server");
-  waitUntil(
-    withOperationHeartbeat(supabaseAdmin as never, op as never, () => runAutomatedProvision({
-      client: supabaseAdmin as never,
-      operation: op as never,
-      env,
-      installation: {
-        id: record.id,
-        domain: record.domain,
-        supabaseUrl: record.supabaseUrl,
-        supabaseProjectRef: record.supabaseProjectRef,
-        deployProject: record.deployProject,
-        gitRepoUrl: record.gitRepoUrl,
-      },
-    })).catch(async (error: unknown) => {
-      // Nenhuma exceção de rede/runtime pode deixar uma operação viva para
-      // sempre. O erro persistido é sanitizado por finalizeOperation.
-      const { finalizeOperation } = await import("./runner.server");
-      const message =
-        error instanceof Error ? error.message : "falha inesperada no provisionamento";
-      await finalizeOperation(supabaseAdmin as never, op as never, {
-        ok: false,
-        summary: `FAIL: ${message}`,
-        errorKind: "unexpected_error",
-      });
-    }),
-  );
 
   return {
     result: "STARTED",
@@ -1300,119 +1261,7 @@ export const runAutomatedValidateFn = createServerFn({ method: "POST" })
       detail: { releaseVersion: MASTER_RELEASE_VERSION, executed: true, automated: true },
     });
 
-    const { runAutomatedValidate } = await import("./automation.server");
-    const { withOperationHeartbeat } = await import("./runner.server");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { waitUntil } = await import("@/lib/wait-until.server");
-    waitUntil(
-      withOperationHeartbeat(supabaseAdmin as never, op as never, () => runAutomatedValidate({
-        client: supabaseAdmin as never,
-        operation: op as never,
-        env,
-        installation: {
-          id: record.id,
-          domain: record.domain,
-          supabaseUrl: record.supabaseUrl,
-          supabaseProjectRef: record.supabaseProjectRef,
-          deployProject: record.deployProject,
-          gitRepoUrl: record.gitRepoUrl,
-        },
-      })).catch(async (caught: unknown) => {
-        const { finalizeOperation } = await import("./runner.server");
-        const message = caught instanceof Error ? caught.message : "falha inesperada na validação";
-        await finalizeOperation(supabaseAdmin as never, op as never, {
-          ok: false,
-          summary: `FAIL: ${message}`,
-          errorKind: "unexpected_error",
-        });
-      }),
-    );
-
     return { result: "STARTED" as const, operationId: op.id as string, reasons: [] };
-  });
-
-/**
- * Watchdog do provisionamento automático. O polling da tela chama esta função;
- * ela só assume uma operação automatizada que esteja realmente sem heartbeat.
- * O update condicional funciona como lease e impede duas retomadas concorrentes.
- */
-export const resumeAutomatedProvisionFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
-  .handler(async ({ data, context }) => {
-    await guard(context);
-    // Cada invocação do executor aplica só um lote e encerra normalmente.
-    // Uma nova invocação pode assumir logo depois do heartbeat; a atualização
-    // condicional continua sendo a lease distribuída contra concorrência.
-    // Chamadas externas legítimas podem levar dezenas de segundos. Uma lease
-    // curta permitia dois executores na mesma operação.
-    const cutoff = new Date(Date.now() - 90_000).toISOString();
-    const { data: rows, error } = await context.supabase
-      .from("installation_operations")
-      .update({
-        last_report_at: new Date().toISOString(),
-        summary: "Operação automática retomada pelo watchdog do MASTER.",
-      })
-      .eq("installation_id", data.id)
-      .in("status", ["pending", "running"])
-      .eq("detail->>automated", "true")
-      .lt("last_report_at", cutoff)
-      .select("*")
-      .limit(1);
-    if (error) throw error;
-    const op = (rows ?? [])[0];
-    if (!op) return { resumed: false as const };
-
-    const { data: installation, error: installationError } = await context.supabase
-      .from("installations")
-      .select("*")
-      .eq("id", data.id)
-      .maybeSingle();
-    if (installationError) throw installationError;
-    if (!installation) throw new Error("Instalação não encontrada.");
-    const record = mapInstallation(installation);
-    const { runAutomatedProvision, runAutomatedUpdate, runAutomatedValidate } =
-      await import("./automation.server");
-    const { waitUntil } = await import("@/lib/wait-until.server");
-    // A retomada precisa usar o runner do MESMO tipo da operação: retomar um
-    // UPDATE como provisionamento reportava etapas inexistentes e travava a barra.
-    const kind = (op as { kind?: string }).kind ?? "provision";
-    const runner =
-      kind === "update"
-        ? runAutomatedUpdate
-        : kind === "validate"
-          ? runAutomatedValidate
-          : runAutomatedProvision;
-    const resumeCommitSha =
-      ((op as { detail?: { targetCommitSha?: string } }).detail?.targetCommitSha ?? null) ||
-      record.pinnedCommitSha;
-    const { resolveInstallationEnv } = await import("./credentials.server");
-    const env = await resolveInstallationEnv(context.supabase as never, data.id);
-    waitUntil(
-      runner({
-        commitSha: resumeCommitSha,
-        env,
-        client: context.supabase as never,
-        operation: op as never,
-        installation: {
-          id: record.id,
-          domain: record.domain,
-          supabaseUrl: record.supabaseUrl,
-          supabaseProjectRef: record.supabaseProjectRef,
-          deployProject: record.deployProject,
-          gitRepoUrl: record.gitRepoUrl,
-        },
-      }).catch(async (caught: unknown) => {
-        const { finalizeOperation } = await import("./runner.server");
-        const message = caught instanceof Error ? caught.message : "falha inesperada na retomada";
-        await finalizeOperation(context.supabase as never, op as never, {
-          ok: false,
-          summary: `FAIL: ${message}`,
-          errorKind: "unexpected_error",
-        });
-      }),
-    );
-    return { resumed: true as const };
   });
 
 /**
@@ -1657,62 +1506,6 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
       },
     });
     await supabase.from("installations").update({ pinned_by: context.userId }).eq("id", data.id);
-
-    const { runAutomatedUpdate } = await import("./automation.server");
-    const { withOperationHeartbeat } = await import("./runner.server");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { waitUntil } = await import("@/lib/wait-until.server");
-    const { setRemoteInstallationServiceState } = await import("./service-state.server");
-
-    /**
-     * Aviso no ambiente do cliente: durante a atualização o banco muda e o
-     * site é republicado. A faixa fica no topo e a gravação é bloqueada. O
-     * `service_until` é rede de segurança: se a operação for interrompida, o
-     * aviso expira sozinho e o ambiente nunca fica travado.
-     */
-    const setServiceState = async (state: "maintenance" | "active") => {
-      await setRemoteInstallationServiceState({
-        env,
-        projectRef: record.supabaseProjectRef,
-        state,
-        actor: context.userId,
-      });
-    };
-
-    await setServiceState("maintenance");
-
-    waitUntil(
-      withOperationHeartbeat(supabaseAdmin as never, op as never, () => runAutomatedUpdate({
-        client: supabaseAdmin as never,
-        operation: op as never,
-        env,
-        commitSha: targetSha,
-        installation: {
-          id: record.id,
-          domain: record.domain,
-          supabaseUrl: record.supabaseUrl,
-          supabaseProjectRef: record.supabaseProjectRef,
-          deployProject: record.deployProject,
-          gitRepoUrl: record.gitRepoUrl,
-        },
-      }))
-        .then(async (outcome: { result: string }) => {
-          // PENDING = o watchdog retoma a MESMA operação: manter o aviso.
-          if (outcome?.result !== "PENDING") await setServiceState("active");
-          return outcome;
-        })
-        .catch(async (error: unknown) => {
-          const { finalizeOperation } = await import("./runner.server");
-          const message =
-            error instanceof Error ? error.message : "falha inesperada na atualização";
-          await finalizeOperation(supabaseAdmin as never, op as never, {
-            ok: false,
-            summary: `FAIL: ${message}`,
-            errorKind: "unexpected_error",
-          });
-          await setServiceState("active");
-        }),
-    );
 
     return { result: "STARTED" as const, operationId: op.id as string, reasons: [] as string[] };
   });
