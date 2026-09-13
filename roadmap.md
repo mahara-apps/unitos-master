@@ -5,7 +5,7 @@
 - [x] Confirmar a falha atual e identificar que a migration corretiva era posterior ao bloqueio.
 - [x] Preparar colunas de lease idempotentes antes de ler e aplicar o ledger incremental.
 - [x] Cobrir a ordem obrigatória com teste de regressão.
-- [ ] Regenerar o pacote, sincronizar versão/SHA e executar `master:check`.
+- [x] Regenerar o pacote, sincronizar versão/SHA e executar `master:check`.
 - [ ] Publicar o MASTER e iniciar nova tentativa na Taveira somente após autorização explícita.
 
 ## MASTER 1.3.83 — Retomada segura da atualização da Taveira
