@@ -4,6 +4,7 @@
  * Mostra a data de entrega (dd/mm) direto na linha e permite ajustá-la sem
  * abrir a tarefa. Vermelho quando atrasada; "prazo" quando ainda não há data.
  */
+import { useState } from "react";
 import { CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -36,9 +37,10 @@ export function DueDateChip({
   disabled?: boolean;
   onChange: (iso: string | null) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const label = formatShortDate(value);
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -64,7 +66,11 @@ export function DueDateChip({
         <Calendar
           mode="single"
           selected={toDate(value)}
-          onSelect={(d) => onChange(d ? toIso(d) : null)}
+          onSelect={(date) => {
+            if (!date) return;
+            onChange(toIso(date));
+            setOpen(false);
+          }}
           initialFocus
           className={cn("pointer-events-auto p-3")}
         />
@@ -75,7 +81,10 @@ export function DueDateChip({
               variant="ghost"
               size="sm"
               className="w-full text-xs"
-              onClick={() => onChange(null)}
+              onClick={() => {
+                onChange(null);
+                setOpen(false);
+              }}
             >
               Remover prazo
             </Button>
