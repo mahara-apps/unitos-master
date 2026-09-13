@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { TASK_PRIORITIES, TASK_STATUSES, type TaskPriority, type TaskStatus } from "@/lib/tasks.functions";
 import type { Json } from "@/integrations/supabase/types";
+import sanitizeHtml from "sanitize-html";
 
 export type ProjectJob = {
   id: string;
@@ -118,9 +119,19 @@ export const updateJobFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
+    const patch = { ...data.patch };
+    if (typeof patch.description === "string") {
+      patch.description = sanitizeHtml(patch.description, {
+        allowedTags: ["p", "br", "strong", "b", "em", "i", "u", "s", "a", "span", "mark", "ul", "ol", "li", "pre", "code", "h2", "h3", "blockquote", "img"],
+        allowedAttributes: { a: ["href", "target", "rel"], span: ["style"], mark: ["style"], img: ["src", "alt", "title"] },
+        allowedSchemes: ["https", "mailto"],
+        allowedStyles: { "*": { color: [/^#[0-9a-f]{3,8}$/i], "background-color": [/^#[0-9a-f]{3,8}$/i] } },
+        transformTags: { a: sanitizeHtml.simpleTransform("a", { rel: "noopener noreferrer", target: "_blank" }) },
+      });
+    }
     const { error } = await context.supabase
       .from("project_jobs")
-      .update(data.patch as never)
+      .update(patch as never)
       .eq("id", data.jobId)
       .eq("brand_id", data.brandId);
     if (error) throw error;
