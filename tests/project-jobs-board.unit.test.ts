@@ -31,7 +31,7 @@ describe("gestão de jobs e tarefas no projeto", () => {
     expect(jobs).toContain('label: "Anexos"');
     expect(jobs).toContain('label: "Timesheet"');
     expect(jobs).toContain('label: "Histórico"');
-    expect(route).toContain('tab: z.enum(["overview", "jobs"])');
+    expect(route).toContain("tab: z.enum(PROJECT_TABS).optional()");
   });
 
   it("oferece status pesquisável, timer direto e subtarefas", () => {
