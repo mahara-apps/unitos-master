@@ -88,10 +88,9 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
           runAutomatedValidate(args),
         );
       } else {
-        const outcome = await withOperationHeartbeat(supabaseAdmin as never, op as never, () =>
+        await withOperationHeartbeat(supabaseAdmin as never, op as never, () =>
           runAutomatedProvision(args),
         );
-        if (outcome.result === "PENDING") await yieldOperation(supabaseAdmin as never, op as never);
       }
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "falha inesperada na retomada";

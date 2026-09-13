@@ -1145,7 +1145,7 @@ async function openAutomatedProvision(
     .from("installation_operations")
     .select("id")
     .eq("installation_id", installationId)
-    .in("status", ["pending", "running"])
+    .in("status", ["pending", "running", "retryable"])
     .maybeSingle();
   if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
 
@@ -1248,7 +1248,7 @@ export const runAutomatedValidateFn = createServerFn({ method: "POST" })
       .from("installation_operations")
       .select("id")
       .eq("installation_id", data.id)
-      .in("status", ["pending", "running"])
+      .in("status", ["pending", "running", "retryable"])
       .maybeSingle();
     if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
 

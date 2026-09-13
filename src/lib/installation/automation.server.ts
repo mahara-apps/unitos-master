@@ -2660,7 +2660,10 @@ export async function saveBaselineProgress(
       .select("detail")
       .eq("id", operation.id)
       .maybeSingle();
-    await client.rpc("checkpoint_installation_operation", {
+    const rpc = client as never as {
+      rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
+    };
+    const { data: saved, error } = await rpc.rpc("checkpoint_installation_operation", {
       _operation_id: operation.id,
       _owner: operation.lease_owner ?? "",
       _fencing_token: operation.fencing_token ?? -1,
@@ -2673,6 +2676,7 @@ export async function saveBaselineProgress(
       _summary: null,
       _metrics: { lastCheckpointAt: new Date().toISOString() },
     });
+    if (error || saved !== true) throw new Error(error?.message ?? "lease da operação perdida");
   } catch {
     // idem: perder o checkpoint não invalida a operação.
   }
@@ -2759,7 +2763,10 @@ export async function saveStageProgress(
       .eq("id", operation.id)
       .maybeSingle();
     const detail = (fresh?.detail ?? operation.detail ?? {}) as Record<string, unknown>;
-    await client.rpc("checkpoint_installation_operation", {
+    const rpc = client as never as {
+      rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
+    };
+    const { data: saved, error } = await rpc.rpc("checkpoint_installation_operation", {
       _operation_id: operation.id,
       _owner: operation.lease_owner ?? "",
       _fencing_token: operation.fencing_token ?? -1,
@@ -2772,6 +2779,7 @@ export async function saveStageProgress(
       _summary: null,
       _metrics: { lastCheckpointAt: new Date().toISOString() },
     });
+    if (error || saved !== true) throw new Error(error?.message ?? "lease da operação perdida");
   } catch {
     // idem.
   }
