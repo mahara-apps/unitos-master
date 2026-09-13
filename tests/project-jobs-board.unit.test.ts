@@ -9,6 +9,7 @@ const route = fs.readFileSync("src/routes/_authenticated/projects.$projectId.tsx
 const verify = fs.readFileSync("supabase/install/verify-installation.sql", "utf8");
 const list = fs.readFileSync("src/components/projects/job-list-view.tsx", "utf8");
 const overview = fs.readFileSync("src/components/projects/project-overview.tsx", "utf8");
+const header = fs.readFileSync("src/components/projects/project-header.tsx", "utf8");
 
 describe("gestão de jobs e tarefas no projeto", () => {
   it("separa Jobs e Pautas e agrupa jobs em três colunas", () => {
@@ -104,5 +105,14 @@ describe("gestão de jobs e tarefas no projeto", () => {
     expect(overview).toContain("Atividade recente");
     expect(jobFns).toContain("getProjectOverviewFn");
     expect(jobFns).toContain('.eq("project_id", data.projectId)');
+  });
+
+  it("separa o cabeçalho do projeto dos indicadores editoriais da pauta", () => {
+    expect(header).not.toContain("peças concluídas");
+    expect(header).not.toContain("StageFunnel");
+    expect(header).not.toContain("periodLabel");
+    expect(route).not.toContain('compact={tab === "overview"}');
+    expect(route).toContain("Etapas das peças da pauta");
+    expect(route).toContain("active={search.estagio ?? null}");
   });
 });
