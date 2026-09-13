@@ -44,6 +44,10 @@ type Row = {
 /** Cliente Supabase mínimo (o real é injetado pelas server functions). */
 type Client = {
   from: (table: string) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  rpc?: (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
 };
 
 const TABLE = "installation_credentials";
@@ -243,18 +247,13 @@ export class UnreadableInstallationSecretsError extends Error {
   }
 }
 
-async function readGeneratedSecrets(
+async function readGeneratedSecretsSnapshot(
   client: Client,
   installationId: string,
-): Promise<InstallationSecrets> {
-  let row: Row | null = null;
-  try {
-    row = await readRow(client, installationId);
-  } catch {
-    return {};
-  }
+): Promise<{ secrets: InstallationSecrets; updatedAt: string | null }> {
+  const row = await readRowReliable(client, installationId);
   const stored = (row?.generated_secrets_ciphertext ?? "").trim();
-  if (!stored) return {};
+  if (!stored) return { secrets: {}, updatedAt: row?.updated_at ?? null };
   try {
     const { decryptCredential } = await import("@/lib/credentials-crypto.server");
     const parsed = JSON.parse(await decryptCredential(stored)) as unknown;
@@ -263,7 +262,7 @@ async function readGeneratedSecrets(
     for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
       if (typeof value === "string" && value.trim()) out[key] = value.trim();
     }
-    return out;
+    return { secrets: out, updatedAt: row?.updated_at ?? null };
   } catch {
     // Valor ilegível (chave de criptografia do MASTER trocada). Gerar novos
     // segredos aqui invalidaria em silêncio os acessos já cifrados no destino —
@@ -273,21 +272,30 @@ async function readGeneratedSecrets(
   }
 }
 
-async function writeGeneratedSecrets(
+async function readGeneratedSecrets(
+  client: Client,
+  installationId: string,
+): Promise<InstallationSecrets> {
+  return (await readGeneratedSecretsSnapshot(client, installationId)).secrets;
+}
+
+async function compareAndSetGeneratedSecrets(
   client: Client,
   installationId: string,
   actorId: string | null,
   secrets: InstallationSecrets,
-): Promise<void> {
+  expectedUpdatedAt: string | null,
+): Promise<boolean> {
+  if (!client.rpc) throw new InstallationCredentialStoreError();
   const { encryptCredential } = await import("@/lib/credentials-crypto.server");
-  const payload: Record<string, unknown> = {
-    installation_id: installationId,
-    generated_secrets_ciphertext: await encryptCredential(JSON.stringify(secrets)),
-    updated_at: new Date().toISOString(),
-  };
-  if (actorId) payload["updated_by"] = actorId;
-  const { error } = await client.from(TABLE).upsert(payload, { onConflict: "installation_id" });
+  const { data, error } = await client.rpc("compare_and_set_installation_generated_secrets", {
+    _installation_id: installationId,
+    _expected_updated_at: expectedUpdatedAt,
+    _ciphertext: await encryptCredential(JSON.stringify(secrets)),
+    _updated_by: actorId,
+  });
   if (error) throw error;
+  return data === true;
 }
 
 /**
@@ -301,25 +309,36 @@ export async function ensureInstallationSecrets(input: {
   names: readonly string[];
   generate: () => string;
 }): Promise<{ secrets: InstallationSecrets; created: string[]; reused: string[] }> {
-  const existing = await readGeneratedSecrets(input.client, input.installationId);
-  const secrets: InstallationSecrets = { ...existing };
-  const created: string[] = [];
-  const reused: string[] = [];
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const snapshot = await readGeneratedSecretsSnapshot(input.client, input.installationId);
+    const secrets: InstallationSecrets = { ...snapshot.secrets };
+    const created: string[] = [];
+    const reused: string[] = [];
 
-  for (const name of input.names) {
-    const current = (secrets[name] ?? "").trim();
-    if (current) {
-      reused.push(name);
-      continue;
+    for (const name of input.names) {
+      const current = (secrets[name] ?? "").trim();
+      if (current) {
+        reused.push(name);
+        continue;
+      }
+      secrets[name] = input.generate();
+      created.push(name);
     }
-    secrets[name] = input.generate();
-    created.push(name);
-  }
 
-  if (created.length > 0) {
-    await writeGeneratedSecrets(input.client, input.installationId, input.actorId ?? null, secrets);
+    if (created.length === 0) return { secrets, created, reused };
+    if (
+      await compareAndSetGeneratedSecrets(
+        input.client,
+        input.installationId,
+        input.actorId ?? null,
+        secrets,
+        snapshot.updatedAt,
+      )
+    ) {
+      return { secrets, created, reused };
+    }
   }
-  return { secrets, created, reused };
+  throw new Error("O cofre foi alterado concorrentemente; tente novamente.");
 }
 
 /**
@@ -334,9 +353,20 @@ export async function rotateInstallationSecret(input: {
   name: string;
   generate: () => string;
 }): Promise<void> {
-  const existing = await readGeneratedSecrets(input.client, input.installationId);
-  existing[input.name] = input.generate();
-  await writeGeneratedSecrets(input.client, input.installationId, input.actorId ?? null, existing);
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const snapshot = await readGeneratedSecretsSnapshot(input.client, input.installationId);
+    const secrets = { ...snapshot.secrets, [input.name]: input.generate() };
+    if (
+      await compareAndSetGeneratedSecrets(
+        input.client,
+        input.installationId,
+        input.actorId ?? null,
+        secrets,
+        snapshot.updatedAt,
+      )
+    ) return;
+  }
+  throw new Error("O cofre foi alterado concorrentemente; tente novamente.");
 }
 
 /** Quais secrets da instalação já estão persistidos (nunca os valores). */
