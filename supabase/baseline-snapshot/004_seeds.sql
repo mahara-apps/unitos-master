@@ -6,8 +6,7 @@
 -- negocio, cliente, usuario, credencial, token, conversa, post, metrica ou
 -- dado especifico da instalacao Master.
 --
--- Ordem: aplicar DEPOIS de 001_initial_schema.sql (tabelas/enums/policies) e
--- ANTES de 002_bootstrap_cron.sql.
+-- Ordem: aplicar DEPOIS do schema/delta e antes da verificacao final.
 --
 -- Dependencias (todas presentes em 001_initial_schema.sql):
 --   public.agent_prompts          (PK agent_id)

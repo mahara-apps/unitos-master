@@ -263,6 +263,7 @@ describe("resultado do fluxo automatizado", () => {
 function fakeClient(detail: Record<string, unknown> = {}) {
   const updates: Record<string, unknown>[] = [];
   const api = {
+    rpc: async () => ({ data: true, error: null }),
     from: () => ({
       update: (patch: Record<string, unknown>) => {
         updates.push(patch);
@@ -270,7 +271,15 @@ function fakeClient(detail: Record<string, unknown> = {}) {
       },
       select: () => ({
         eq: () => ({
-          maybeSingle: async () => ({ data: { status: "running", steps: [], detail } }),
+          maybeSingle: async () => ({
+            data: {
+              status: "running",
+              steps: [],
+              detail,
+              generated_secrets_ciphertext: null,
+              updated_at: null,
+            },
+          }),
         }),
       }),
       // As chaves próprias da instalação são persistidas para serem reutilizadas.

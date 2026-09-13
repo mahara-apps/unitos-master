@@ -2,14 +2,14 @@
 
 ## MASTER 1.3.85 — P0 de instalação e atualização
 
-- [ ] Eliminar sobreposição entre snapshot e delta e bloquear regressões no gerador.
-- [ ] Remover privilégios perigosos de `anon` do snapshot e validar no instalador.
-- [ ] Isolar statements adiados por operação, arquivo e fingerprint, com fencing.
-- [ ] Corrigir ledger por arquivo + fingerprint e semear o ledger em instalações novas.
-- [ ] Manter ambientes em manutenção durante retry/falha e isolar erros do worker.
-- [ ] Tornar a geração de secrets atômica e cobrir concorrência.
-- [ ] Unificar ordem, versão, documentação e verificação do instalador.
-- [ ] Regenerar o pacote e executar todos os guardiões MASTER-first.
+- [x] Eliminar sobreposição entre snapshot e delta e bloquear regressões no gerador.
+- [x] Remover privilégios perigosos de `anon` do snapshot e validar no instalador.
+- [x] Isolar statements adiados por operação, arquivo e fingerprint, com fencing.
+- [x] Corrigir ledger por arquivo + fingerprint e semear o ledger em instalações novas.
+- [x] Manter ambientes em manutenção durante retry/falha e isolar erros do worker.
+- [x] Tornar a geração de secrets atômica e cobrir concorrência.
+- [x] Unificar ordem, versão, documentação e verificação do instalador.
+- [x] Regenerar o pacote e executar todos os guardiões MASTER-first.
 - [ ] Publicar e propagar somente após autorização explícita.
 
 ## MASTER 1.3.84 — Compatibilidade antes do delta da Taveira

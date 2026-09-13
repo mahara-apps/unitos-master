@@ -532,6 +532,46 @@ WITH checks AS (
            ]) AS t
            WHERE to_regclass('public.' || t) IS NULL
          ) THEN 'PASS' ELSE 'FAIL' END
+
+  UNION ALL
+  SELECT 81, 'retomada: ledger incremental disponível',
+         CASE WHEN to_regclass('public._unitos_applied_deltas') IS NOT NULL
+              THEN 'presente' ELSE 'ausente' END,
+         CASE WHEN to_regclass('public._unitos_applied_deltas') IS NOT NULL
+              AND EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = '_unitos_applied_deltas'
+                  AND column_name = 'fingerprint'
+              ) THEN 'PASS' ELSE 'FAIL' END
+
+  UNION ALL
+  SELECT 82, 'retomada: fila SQL isolada por execução',
+         CASE WHEN EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = '_unitos_deferred_sql'
+                  AND column_name = 'run_key'
+              ) THEN 'run_key presente' ELSE 'run_key ausente' END,
+         CASE WHEN EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = '_unitos_deferred_sql'
+                  AND column_name = 'run_key'
+              ) THEN 'PASS' ELSE 'FAIL' END
+
+  UNION ALL
+  SELECT 83, 'segurança: anon sem privilégios perigosos em tabelas',
+         coalesce((
+           SELECT string_agg(table_schema || '.' || table_name || ':' || privilege_type, ', ' ORDER BY table_schema, table_name, privilege_type)
+           FROM information_schema.role_table_grants
+           WHERE grantee = 'anon'
+             AND table_schema = 'public'
+             AND privilege_type IN ('TRUNCATE', 'TRIGGER', 'REFERENCES', 'MAINTAIN')
+         ), 'nenhum'),
+         CASE WHEN NOT EXISTS (
+           SELECT 1 FROM information_schema.role_table_grants
+           WHERE grantee = 'anon'
+             AND table_schema = 'public'
+             AND privilege_type IN ('TRUNCATE', 'TRIGGER', 'REFERENCES', 'MAINTAIN')
+         ) THEN 'PASS' ELSE 'FAIL' END
 )
 
 SELECT status, check_name, observed

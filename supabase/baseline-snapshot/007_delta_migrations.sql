@@ -2,7 +2,7 @@
 -- 007_delta_migrations.sql — DELTA do baseline.
 --
 -- O dump `001_initial_schema.sql` foi tirado em 2026-08-29 (migration
--- 20260829120135). Tudo que entrou depois vive aqui, na ordem cronologica
+-- 20260829130645). Tudo que entrou depois vive aqui, na ordem cronologica
 -- original das migrations, para que uma instalacao nova nasca identica ao
 -- MASTER (briefing import por IA, workspace singleton, Installation Manager,
 -- leases de ai_jobs, autoridade de integracao, /setup, etc).
@@ -12,95 +12,6 @@
 -- Nao editar a mao: regenerar quando novas migrations forem criadas.
 -- =============================================================================
 
-
--- ---------------------------------------------------------------------------
--- 20260829124704_ed97a5cb-3e08-49ce-bc7a-88e12e0d9723.sql
--- ---------------------------------------------------------------------------
-DO $$
-DECLARE v_orphans int; v_emb int;
-BEGIN
-  -- 1) Encerrar órfãos da fila sem retry
-  UPDATE public.brain_learning_queue q
-     SET status = 'skipped',
-         error = COALESCE(NULLIF(q.error, ''), 'orphan_event: event_id não existe em brain_events (evento expurgado)'),
-         processed_at = COALESCE(q.processed_at, now()),
-         updated_at = now()
-   WHERE NOT EXISTS (SELECT 1 FROM public.brain_events e WHERE e.id = q.event_id)
-     AND q.status <> 'skipped';
-
-  -- 2) Remover as linhas órfãs remanescentes (não podem satisfazer a FK)
-  DELETE FROM public.brain_learning_queue q
-   WHERE NOT EXISTS (SELECT 1 FROM public.brain_events e WHERE e.id = q.event_id);
-
-  DELETE FROM public.brain_embeddings b
-   WHERE b.event_id IS NOT NULL
-     AND NOT EXISTS (SELECT 1 FROM public.brain_events e WHERE e.id = b.event_id);
-
-  SELECT count(*) INTO v_orphans FROM public.brain_learning_queue q
-   WHERE NOT EXISTS (SELECT 1 FROM public.brain_events e WHERE e.id = q.event_id);
-  SELECT count(*) INTO v_emb FROM public.brain_embeddings b
-   WHERE b.event_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.brain_events e WHERE e.id = b.event_id);
-  IF v_orphans <> 0 OR v_emb <> 0 THEN
-    RAISE EXCEPTION 'orfaos remanescentes: fila=% embeddings=%', v_orphans, v_emb;
-  END IF;
-END $$;
-
--- 3) FKs reais (CASCADE: o expurgo por idade de brain_events remove dependentes,
---    eliminando estruturalmente a classe de órfãos)
-ALTER TABLE public.brain_learning_queue
-  ADD CONSTRAINT brain_learning_queue_event_id_fkey
-  FOREIGN KEY (event_id) REFERENCES public.brain_events(id) ON DELETE CASCADE;
-
-ALTER TABLE public.brain_embeddings
-  ADD CONSTRAINT brain_embeddings_event_id_fkey
-  FOREIGN KEY (event_id) REFERENCES public.brain_events(id) ON DELETE CASCADE;
-
--- 4) Renomear policies (regras inalteradas)
-ALTER POLICY "brain_events_part_select" ON public.brain_events RENAME TO "brain_events_select";
-ALTER POLICY "brain_events_part_insert" ON public.brain_events RENAME TO "brain_events_insert";
-
--- ---------------------------------------------------------------------------
--- 20260829130645_6465717a-f869-49b9-b603-bc7434389391.sql
--- ---------------------------------------------------------------------------
-CREATE TABLE public.installation (
-  id boolean NOT NULL DEFAULT true PRIMARY KEY,
-  app_url text,
-  logo_url text,
-  logo_dark_url text,
-  icon_url text,
-  login_logo_url text,
-  email_from text,
-  email_from_name text,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT installation_singleton_chk CHECK (id)
-);
-
-GRANT SELECT ON public.installation TO anon;
-GRANT SELECT ON public.installation TO authenticated;
-GRANT ALL ON public.installation TO service_role;
-
-ALTER TABLE public.installation ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "installation_select_public" ON public.installation
-  FOR SELECT USING (true);
-
-CREATE POLICY "installation_update_super_admin" ON public.installation
-  FOR UPDATE TO authenticated
-  USING (public.is_super_admin(auth.uid()))
-  WITH CHECK (public.is_super_admin(auth.uid()));
-
-CREATE TRIGGER installation_touch_updated_at
-  BEFORE UPDATE ON public.installation
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
-INSERT INTO public.installation (id, logo_url, logo_dark_url, icon_url, login_logo_url)
-SELECT true, b.logo_url, b.logo_dark_url, b.icon_url, b.login_logo_url
-FROM public.brands b
-WHERE b.id = '60fce5a7-1859-4bbd-a887-9018ed7f17b5'
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO public.installation (id) VALUES (true) ON CONFLICT (id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
 -- 20260829192349_ff418028-7401-404c-92d9-be9b0e29e2bd.sql
@@ -6836,3 +6747,60 @@ DROP INDEX IF EXISTS public.installation_operations_resume_idx;
 CREATE INDEX IF NOT EXISTS installation_operations_resume_idx
   ON public.installation_operations (next_attempt_at, lease_expires_at, created_at)
   WHERE status IN ('pending', 'running', 'retryable');
+
+-- ---------------------------------------------------------------------------
+-- 20260913205310_998a5893-b6be-4068-806a-520361185290.sql
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.compare_and_set_installation_generated_secrets(
+  _installation_id uuid,
+  _expected_updated_at timestamptz,
+  _ciphertext text,
+  _updated_by uuid DEFAULT NULL
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  _changed integer := 0;
+BEGIN
+  IF _ciphertext IS NULL OR btrim(_ciphertext) = '' THEN
+    RAISE EXCEPTION 'ciphertext obrigatório';
+  END IF;
+
+  IF _expected_updated_at IS NULL THEN
+    INSERT INTO public.installation_credentials (
+      installation_id,
+      generated_secrets_ciphertext,
+      updated_by,
+      updated_at
+    )
+    VALUES (
+      _installation_id,
+      _ciphertext,
+      _updated_by,
+      now()
+    )
+    ON CONFLICT (installation_id) DO NOTHING;
+    GET DIAGNOSTICS _changed = ROW_COUNT;
+  ELSE
+    UPDATE public.installation_credentials
+       SET generated_secrets_ciphertext = _ciphertext,
+           updated_by = COALESCE(_updated_by, updated_by),
+           updated_at = now()
+     WHERE installation_id = _installation_id
+       AND updated_at = _expected_updated_at;
+    GET DIAGNOSTICS _changed = ROW_COUNT;
+  END IF;
+
+  RETURN _changed = 1;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.compare_and_set_installation_generated_secrets(uuid, timestamptz, text, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.compare_and_set_installation_generated_secrets(uuid, timestamptz, text, uuid) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.compare_and_set_installation_generated_secrets(uuid, timestamptz, text, uuid) TO service_role;
+
+COMMENT ON FUNCTION public.compare_and_set_installation_generated_secrets(uuid, timestamptz, text, uuid) IS
+  'CAS service-role-only para preservar secrets gerados sob concorrência.';

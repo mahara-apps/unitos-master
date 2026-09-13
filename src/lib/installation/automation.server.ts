@@ -2607,7 +2607,7 @@ export type AutomationInstallation = {
   gitRepoUrl?: string | null;
 };
 
-type Client = { from: (table: string) => unknown };
+type Client = { from: (table: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export type AutomationRunResult = Omit<AutomationOutcome, "result"> & {
   result: AutomationOutcome["result"] | "RUNNING";
@@ -4209,7 +4209,8 @@ export async function applyDatabaseDelta(input: {
   const appliedLabels = new Set(
     ledger.rows
       .filter((row): row is Record<string, unknown> => !!row && typeof row === "object")
-      .map((row) => `${String(row["file"] ?? "")}:${String(row["fingerprint"] ?? "")}`)
+      .filter((row) => Boolean(row["file"] && row["fingerprint"]))
+      .map((row) => `${String(row["file"])}:${String(row["fingerprint"])}`)
       .filter(Boolean),
   );
   const hasLegacyBlob = ledger.rows.some(
@@ -4254,8 +4255,14 @@ export async function applyDatabaseDelta(input: {
     const applied = await applyStatementByStatement(management, prepared.sql, {
       runKey: `${operation.id}:${ledgerLabel}`,
       isCancelled: async () => {
-        const { data } = await client.from("installation_operations").select("status, fencing_token").eq("id", operation.id).maybeSingle();
-        return data?.status === "failed" || data?.fencing_token !== operation.fencing_token;
+        const result = (await client
+          .from("installation_operations")
+          .select("status, fencing_token")
+          .eq("id", operation.id)
+          .maybeSingle()) as { data?: unknown };
+        const { data } = result;
+        const current = data as { status?: string; fencing_token?: string | null } | null;
+        return current?.status === "failed" || current?.fencing_token !== operation.fencing_token;
       },
       startIndex: alreadyApplied === DONE ? 0 : alreadyApplied,
       maxStatements: input.maxStatementsPerInvocation ?? BASELINE_STATEMENTS_PER_INVOCATION,
