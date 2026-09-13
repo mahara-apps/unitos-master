@@ -12,7 +12,6 @@ import {
 import {
   Archive,
   ArrowUpDown,
-  CalendarDays,
   CheckSquare2,
   Clock3,
   Kanban,
@@ -99,7 +98,7 @@ function JobRow({ brandId, job, stats, rollup, status, team, onOpen, onStatusCha
       <Button variant="ghost" className="h-auto min-w-0 justify-start p-0 text-left" onClick={onOpen}><span className="truncate text-sm font-semibold">{job.name}</span></Button>
       <div className="hidden lg:block"><ProgressCell stats={stats} color={status?.color} /></div>
       <div className={cn("hidden items-center gap-1.5 text-xs tabular-nums lg:flex", rollup?.running ? "font-medium text-work-done" : "text-muted-foreground")}><Clock3 className={cn("h-3.5 w-3.5", rollup?.running && "animate-pulse")} />{formatMinutes(minutes)}</div>
-      <div className="hidden justify-center lg:flex"><JobAvatars job={job} stats={stats} team={team} /></div>
+      <div className="hidden items-center justify-center lg:flex"><AssigneePicker compact value={job.assignee_id} options={team} placeholder="Sem responsável" onChange={onAssigneeChange} />{stats.assignees.filter((id) => id !== job.assignee_id).slice(0, 2).map((id) => <AssigneeAvatar key={id} userId={id} options={team} className="-ml-2 h-7 w-7 border-2 border-background" />)}</div>
       <div className="hidden lg:block"><DueDateChip value={job.due_at} overdue={isOverdue(job.due_at, !!job.done_at)} onChange={onDueChange} /></div>
       <div className="hidden lg:block"><StatusPicker brandId={brandId} scope="job" value={job.status_id} className="h-8 w-[160px] rounded-full" onChange={onStatusChange} /></div>
       <div className="flex items-center justify-end gap-1 lg:justify-start"><div className="lg:hidden"><StatusDot color={status?.color ?? null} /></div>{menu}</div>

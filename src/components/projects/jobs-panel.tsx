@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Kanban,
   List,
   MoreHorizontal,
   Plus,
