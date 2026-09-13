@@ -37,14 +37,22 @@ export function useWorkStatuses(brandId: string, scope: WorkStatusScope) {
   });
 }
 
-export function StatusDot({ color }: { color: string | null }) {
+export function StatusDot({ color, round = false }: { color: string | null; round?: boolean }) {
   return (
     <span
-      className="h-2.5 w-4 shrink-0 rounded-full"
+      className={cn("h-2.5 shrink-0 rounded-full", round ? "w-2.5" : "w-4")}
       style={{ backgroundColor: color ?? "hsl(var(--muted-foreground))" }}
     />
   );
 }
+
+const OFFICIAL_JOB_STATUSES = new Set([
+  "não iniciado",
+  "em andamento",
+  "em revisão",
+  "bloqueado",
+  "concluído",
+]);
 
 function ManageLink({ className }: { className?: string }) {
   return (
@@ -88,7 +96,11 @@ export function StatusPicker({
   const statusesQ = useWorkStatuses(brandId, scope);
   const create = useServerFn(createWorkStatusFn);
   const createMut = useMutation({ mutationFn: () => create({ data: { brandId, scope, name: name.trim(), taskState: scope === "task" ? "todo" : null } }), onSuccess: (row) => { qc.invalidateQueries({ queryKey: ["work-statuses", brandId, scope] }); onChange(row.id); setName(""); setCreating(false); setOpen(false); }, onError: () => toast.error("Apenas administradores podem criar status.") });
-  const statuses = (statusesQ.data ?? []) as WorkStatus[];
+  const statuses = ((statusesQ.data ?? []) as WorkStatus[]).filter((status) =>
+    selectionOnly && scope === "job"
+      ? OFFICIAL_JOB_STATUSES.has(status.name.trim().toLocaleLowerCase("pt-BR"))
+      : true,
+  );
 
   if (statusesQ.isLoading) return null;
 
@@ -112,7 +124,7 @@ export function StatusPicker({
           } : undefined}
         >
           <span className="flex min-w-0 items-center gap-2">
-            {current ? <StatusDot color={current.color} /> : null}
+             {current ? <StatusDot color={current.color} round={compactPill} /> : null}
              <span className="truncate text-xs">{current ? current.name : placeholder}</span>
           </span>
           <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
