@@ -1477,6 +1477,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
     const [masterOwner, masterName] = masterRepoSlug.split("/");
     const masterCode = createCodeClient({
       token: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
+      masterToken: masterGithubToken(),
       owner: masterOwner ?? "",
       repo: masterName ?? "",
       masterRepo: masterRepoSlug,

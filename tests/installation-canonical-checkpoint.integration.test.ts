@@ -72,3 +72,44 @@ describe("ensaio 81/103 → 103/103 com checkpoint canônico", () => {
     });
   });
 });
+
+describe("ensaio 81/104 → 104/104 com snapshot fixo", () => {
+  it("sobrevive a timeout pós-gravação e replay sem repetir 1–81", async () => {
+    const total = 104;
+    const sql = Array.from({ length: total }, (_, index) => `SELECT ${index + 1};`).join("\n");
+    const destination = canonicalDestination(81, total);
+    destination.crashNext();
+
+    await expect(
+      applyStatementByStatement(destination, sql, {
+        runKey: "op:fixed-package:migration:fingerprint",
+        startIndex: 0,
+        maxStatements: 25,
+      }),
+    ).resolves.toMatchObject({ ok: false });
+
+    await expect(
+      applyStatementByStatement(destination, sql, {
+        runKey: "op:fixed-package:migration:fingerprint",
+        startIndex: 0,
+        maxStatements: 25,
+      }),
+    ).resolves.toMatchObject({ ok: true, processed: 104, total: 104, complete: true });
+    expect([...destination.executed].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: 23 }, (_, index) => index + 82),
+    );
+  });
+
+  it("rejeita replay 88/103 contra pacote de 104 comandos", async () => {
+    const mismatch = canonicalDestination(88, 103);
+    const sql104 = Array.from({ length: 104 }, (_, index) => `SELECT ${index + 1};`).join("\n");
+    await expect(
+      applyStatementByStatement(mismatch, sql104, {
+        runKey: "op:fixed-package:migration:fingerprint",
+        startIndex: 0,
+        maxStatements: 25,
+      }),
+    ).resolves.toMatchObject({ ok: false, error: expect.stringContaining("incompatível") });
+    expect(mismatch.executed.size).toBe(0);
+  });
+});
