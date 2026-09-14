@@ -22,7 +22,6 @@
  */
 
 import {
-  ACTIVE_SERVICE_STATE,
   isServiceState,
   type ServiceStateInfo,
 } from "./service-state";
@@ -100,7 +99,9 @@ export async function getInstallationSettings(opts?: {
       )
       .limit(1)
       .maybeSingle();
-    const value = map(((res as { data: unknown }).data as Row | null) ?? null);
+    const result = res as { data: unknown; error?: { message?: string } | null };
+    if (result.error) throw new Error(result.error.message ?? "Falha ao ler configuração da instalação.");
+    const value = map((result.data as Row | null) ?? null);
     cache = { at: Date.now(), value };
     return value;
   } catch {
@@ -154,6 +155,25 @@ export function __resetInstallationSettingsCache(): void {
 const SERVICE_CACHE_MS = 10_000;
 let serviceCache: { at: number; value: ServiceStateInfo } | null = null;
 
+export const UNAVAILABLE_SERVICE_STATE: ServiceStateInfo = {
+  state: "maintenance",
+  message: "Não foi possível confirmar o estado do ambiente. Tente novamente em instantes.",
+  until: null,
+};
+
+export function resolveServiceStateRead(result: {
+  data?: unknown;
+  error?: { message?: string } | null;
+}): ServiceStateInfo {
+  if (result.error) throw new Error(result.error.message ?? "Falha ao ler estado operacional.");
+  const row = (result.data as Row | null | undefined) ?? null;
+  return {
+    state: isServiceState(row?.service_state) ? row.service_state : "active",
+    message: row?.service_message ?? null,
+    until: row?.service_until ?? null,
+  };
+}
+
 export async function getInstallationServiceState(opts?: {
   fresh?: boolean;
 }): Promise<ServiceStateInfo> {
@@ -167,16 +187,11 @@ export async function getInstallationServiceState(opts?: {
       .select("service_state, service_message, service_until")
       .limit(1)
       .maybeSingle();
-    const row = ((res as { data: unknown }).data as Row | null) ?? null;
-    const value: ServiceStateInfo = {
-      state: isServiceState(row?.service_state) ? row!.service_state! : "active",
-      message: row?.service_message ?? null,
-      until: row?.service_until ?? null,
-    };
+    const value = resolveServiceStateRead(res as { data?: unknown; error?: { message?: string } | null });
     serviceCache = { at: Date.now(), value };
     return value;
   } catch {
-    return serviceCache?.value ?? ACTIVE_SERVICE_STATE;
+    return serviceCache?.value ?? UNAVAILABLE_SERVICE_STATE;
   }
 }
 

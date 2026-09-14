@@ -323,15 +323,24 @@ export async function applyStatementByStatement(
       "alter table public._unitos_deferred_sql add column if not exists error_message text",
       "create index if not exists _unitos_deferred_sql_run_key_idx on public._unitos_deferred_sql (run_key, id)",
       HELPER_TABLE_HARDENING_SQL("public._unitos_deferred_sql"),
-      `select exists(select 1 from public._unitos_deferred_sql where run_key = ${runKeySql}) as initialized`,
     ].join(";\n"),
   );
 
   if (!prep.ok) return { ok: false, error: prep.error, processed };
-
-  const prepRow = prep.rows.find(
+  const marker = await management.query(
+    `select exists(select 1 from public._unitos_deferred_sql where run_key = ${runKeySql}) as initialized`,
+  );
+  if (!marker.ok) return { ok: false, error: marker.error, processed };
+  const prepRow = marker.rows.find(
     (row): row is Record<string, unknown> => !!row && typeof row === "object",
   );
+  if (!prepRow || !("initialized" in prepRow)) {
+    return {
+      ok: false,
+      error: "Leitura do marcador interno retornou uma resposta vazia.",
+      processed,
+    };
+  }
   const initialized = prepRow?.["initialized"] === true || prepRow?.["initialized"] === "true";
   if (from === 0 || !initialized) {
     const reset = await management.query(
@@ -641,8 +650,24 @@ export function createManagementClient(input: {
             last = { ok: false, rows: [], error: managementApiError(res.status, text, "database") };
             if (!isRetryableManagementStatus(res.status)) return last;
           } else {
-            const body = (await res.json().catch(() => [])) as unknown;
-            return { ok: true, rows: Array.isArray(body) ? body : [] };
+            try {
+              const body = (await res.json()) as unknown;
+              if (!Array.isArray(body)) {
+                last = {
+                  ok: false,
+                  rows: [],
+                  error: "resposta inválida da Management API: esperado um array JSON",
+                };
+              } else {
+                return { ok: true, rows: body };
+              }
+            } catch {
+              last = {
+                ok: false,
+                rows: [],
+                error: "resposta ilegível da Management API",
+              };
+            }
           }
         } catch (e) {
           const aborted = e instanceof Error && e.name === "AbortError";
@@ -2676,6 +2701,18 @@ export const DONE = -1;
 
 export type BaselineProgress = Record<string, number>;
 
+export function mergeBaselineProgress(
+  existing: BaselineProgress,
+  incoming: BaselineProgress,
+): BaselineProgress {
+  const merged = { ...existing };
+  for (const [key, value] of Object.entries(incoming)) {
+    const previous = merged[key];
+    merged[key] = value === DONE || previous === DONE ? DONE : Math.max(previous ?? 0, value);
+  }
+  return merged;
+}
+
 /** Janela pequena: cada invocação faz um lote e devolve o controle ao runtime. */
 export const BASELINE_STATEMENTS_PER_INVOCATION = 25;
 /** Evita ultrapassar a janela segura do Worker, mas aproveita a mesma chamada. */
@@ -2713,7 +2750,7 @@ export async function readBaselineProgress(
   if (error) throw error;
   if (!data) throw new Error(`Operação da instalação ${installationId} não encontrada durante a leitura do baseline.`);
   const rows = [data];
-  const merged: BaselineProgress = {};
+  let merged: BaselineProgress = {};
   for (const row of rows) {
       const raw = (row?.detail as { baselineProgress?: unknown } | null)?.baselineProgress;
       if (raw && typeof raw === "object") {
@@ -2721,7 +2758,7 @@ export async function readBaselineProgress(
         for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
           if (typeof value === "number" && Number.isFinite(value)) out[key] = value;
         }
-      for (const [key, value] of Object.entries(out)) merged[key] = Math.max(merged[key] ?? 0, value);
+      merged = mergeBaselineProgress(merged, out);
       }
     }
   return merged;
@@ -2733,8 +2770,7 @@ export async function saveBaselineProgress(
   operation: OperationRow,
   progress: BaselineProgress,
 ): Promise<void> {
-  try {
-    const { data: fresh, error: readError } = await (
+  const { data: fresh, error: readError } = await (
       client as never as {
         from: (t: string) => {
           select: (c: string) => {
@@ -2753,8 +2789,7 @@ export async function saveBaselineProgress(
     if (readError) throw readError;
     if (!fresh) throw new Error("Operação não encontrada durante o checkpoint do baseline.");
     const existing = ((fresh.detail as { baselineProgress?: BaselineProgress } | null)?.baselineProgress ?? {});
-    const monotonic = { ...existing };
-    for (const [key, value] of Object.entries(progress)) monotonic[key] = Math.max(monotonic[key] ?? 0, value);
+    const monotonic = mergeBaselineProgress(existing, progress);
     const rpc = client as never as {
       rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
     };
@@ -2771,10 +2806,7 @@ export async function saveBaselineProgress(
       _summary: null,
       _metrics: { lastCheckpointAt: new Date().toISOString() },
     });
-    if (error || saved !== true) throw new Error(error?.message ?? "lease da operação perdida");
-  } catch (error) {
-    if (operationUsesFencing(operation)) throw error;
-  }
+  if (error || saved !== true) throw new Error(error?.message ?? "lease da operação perdida");
 }
 
 /** Checkpoint das fases pós-baseline (nunca contém secrets). */
@@ -3171,7 +3203,14 @@ export async function runAutomatedProvision(input: {
     return finish(null, null);
   }
 
-  const schemas = Number((ping.rows[0] as { schemas?: number } | undefined)?.schemas ?? 0);
+  const pingRow = ping.rows[0] as { schemas?: number } | undefined;
+  if (!pingRow || pingRow.schemas === undefined) {
+    blocked.push("Supabase respondeu sem o resultado esperado da verificação de schemas.");
+    await mark("supabase", "error", "resposta vazia na verificação de schemas");
+    checks.supabase = "attention";
+    return finish(null, null);
+  }
+  const schemas = Number(pingRow.schemas);
   if (schemas < 3) {
     blocked.push("O alvo não é um projeto Supabase completo (auth/storage/vault ausentes).");
     await mark("supabase", "error", "schemas de plataforma ausentes");
@@ -3867,7 +3906,7 @@ export async function runAutomatedProvision(input: {
  * precisa ser reportado — sem isso o núcleo nunca é comprovado e o painel não
  * consegue afirmar que a instalação está PRONTA.
  */
-async function readFirstAccessState(management: {
+export async function readFirstAccessState(management: {
   query: (sql: string) => Promise<{ ok: boolean; rows: readonly unknown[]; error?: string | null }>;
 }): Promise<{ superAdmin: CheckState; workspace: CheckState; detail: string }> {
   const res = await management.query(
@@ -3881,7 +3920,13 @@ async function readFirstAccessState(management: {
       detail: "primeiro acesso não verificado",
     };
   }
-  const row = (res.rows[0] ?? {}) as { has_super_admin?: boolean | null; brand_count?: unknown };
+  const row = res.rows[0] as { has_super_admin?: boolean | null; brand_count?: unknown } | undefined;
+  if (!row || !("has_super_admin" in row) || !("brand_count" in row)) {
+    return {
+      superAdmin: { state: "pending", detail: "Resposta vazia ao verificar o Super Admin." },
+      workspace: { state: "pending", detail: "Resposta vazia ao verificar o workspace." },
+    };
+  }
   const hasSuperAdmin = row.has_super_admin === true;
   const brands = Number(row.brand_count ?? 0);
   const workspace: CheckState = brands === 1 ? "ok" : brands === 0 ? "attention" : "error";

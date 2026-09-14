@@ -198,6 +198,20 @@ async function guard(context: { supabase: unknown; userId: string }) {
   await assertSuperAdmin(context.supabase as unknown as RpcClient, context.userId);
 }
 
+export async function assertNoActiveInstallationOperation(
+  supabase: { from: (table: string) => any }, // eslint-disable-line @typescript-eslint/no-explicit-any
+  installationId: string,
+): Promise<void> {
+  const { data: active, error } = await supabase
+    .from("installation_operations")
+    .select("id")
+    .eq("installation_id", installationId)
+    .in("status", ["pending", "running", "retryable"])
+    .maybeSingle();
+  if (error) throw error;
+  if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
+}
+
 /**
  * Ação CRÍTICA de instalação: além do guard de autoridade, exige que o Super
  * Admin tenha digitado o NOME EXATO da instalação (validação real no servidor,
@@ -262,7 +276,7 @@ export const getInstallationManagerAccessFn = createServerFn({ method: "POST" })
  * Encerra operações que ficaram "em andamento" sem reportar progresso. Sem
  * isto, uma queda no meio da execução deixa a instalação travada para sempre.
  */
-async function reconcileStuckOperations(context: { supabase: unknown }): Promise<void> {
+export async function reconcileStuckOperations(context: { supabase: unknown }): Promise<void> {
   const supabase = context.supabase as {
     from: (table: string) => {
       select: (columns: string) => {
@@ -326,22 +340,24 @@ async function reconcileStuckOperations(context: { supabase: unknown }): Promise
     const db = context.supabase as never as {
       from: (table: string) => any;
     };
-    const { data: pending } = await db
+    const { data: pending, error: pendingError } = await db
       .from("installations")
       .select("id, active_operation_id, status")
       .not("active_operation_id", "is", null)
       .limit(50);
+    if (pendingError) throw pendingError;
     for (const row of (pending ?? []) as Array<{
       id: string;
       active_operation_id: string;
     }>) {
-      const { data: op } = await db
+      const { data: op, error: operationError } = await db
         .from("installation_operations")
         .select("status, summary")
         .eq("id", row.active_operation_id)
         .maybeSingle();
+      if (operationError) throw operationError;
       const status = (op as { status?: string } | null)?.status ?? null;
-      if (!status || status === "pending" || status === "running" || status === "retryable") continue;
+      if (status === "pending" || status === "running" || status === "retryable") continue;
       await db
         .from("installations")
         .update({
@@ -351,7 +367,9 @@ async function reconcileStuckOperations(context: { supabase: unknown }): Promise
             : {
                 status: "error",
                 last_error:
-                  (op as { summary?: string | null }).summary ?? "Falha registrada na operação.",
+                  status === null
+                    ? "A referência apontava para uma operação inexistente."
+                    : (op as { summary?: string | null }).summary ?? "Falha registrada na operação.",
               }),
         })
         .eq("id", row.id);
@@ -787,13 +805,7 @@ export const startInstallationOperationFn = createServerFn({ method: "POST" })
     }
 
     // Trava: no máximo uma operação viva por instalação (índice único no banco).
-    const { data: active } = await context.supabase
-      .from("installation_operations")
-      .select("id")
-      .eq("installation_id", data.id)
-      .in("status", ["pending", "running", "retryable"])
-      .maybeSingle();
-    if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
+    await assertNoActiveInstallationOperation(context.supabase as never, data.id);
 
     const { generateRunToken, hashRunToken, RUN_TOKEN_TTL_MS } = await import("./runner.server");
     const runToken = generateRunToken();
@@ -1141,13 +1153,7 @@ async function openAutomatedProvision(
     supabaseUrl: record.supabaseUrl,
   });
 
-  const { data: active } = await supabase
-    .from("installation_operations")
-    .select("id")
-    .eq("installation_id", installationId)
-    .in("status", ["pending", "running", "retryable"])
-    .maybeSingle();
-  if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
+  await assertNoActiveInstallationOperation(supabase, installationId);
 
   const op = await startAtomicInstallationOperation({
     actorId: context.userId,
@@ -1244,13 +1250,7 @@ export const runAutomatedValidateFn = createServerFn({ method: "POST" })
       requireKeys: false,
     });
 
-    const { data: active } = await context.supabase
-      .from("installation_operations")
-      .select("id")
-      .eq("installation_id", data.id)
-      .in("status", ["pending", "running", "retryable"])
-      .maybeSingle();
-    if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
+    await assertNoActiveInstallationOperation(context.supabase as never, data.id);
 
     const op = await startAtomicInstallationOperation({
       actorId: context.userId,
