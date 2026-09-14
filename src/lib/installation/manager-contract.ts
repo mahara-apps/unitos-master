@@ -21,7 +21,7 @@ import { MASTER_FORBIDDEN_TOKENS } from "./bootstrap-contract";
  * Subir a cada correção de banco/código propagável: é o que habilita o botão
  * "Atualizar" (que agora também aplica o delta de banco na instalação).
  */
-export const MASTER_RELEASE_VERSION = "1.3.88";
+export const MASTER_RELEASE_VERSION = "1.3.89";
 
 /* ------------------------------------------------------------------ MASTER */
 
@@ -492,12 +492,15 @@ export function applyStepReport(
   const reported = normalizeStepPercent(report.percent);
   return steps.map((s) => {
     if (s.id !== report.step) return s;
+    if (s.state === "done") return s;
     const percent =
       report.state === "done"
         ? 100
         : report.state === "pending"
-          ? null
-          : (reported ?? s.percent ?? (report.state === "running" ? 0 : null));
+          ? s.percent ?? null
+          : reported === null
+            ? (s.percent ?? (report.state === "running" ? 0 : null))
+            : Math.max(s.percent ?? 0, reported);
     return {
       ...s,
       state: report.state,

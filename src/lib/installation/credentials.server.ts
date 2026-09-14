@@ -21,6 +21,7 @@ import {
   BYOK_SUPABASE_MARKER,
   type AutomationEnv,
 } from "./automation-contract";
+import { readWithBackoff } from "./resilience.server";
 
 export type InstallationCredentialField =
   | "supabaseManagementToken"
@@ -81,26 +82,18 @@ export class InstallationCredentialStoreError extends Error {
 }
 
 async function readRowReliable(client: Client, installationId: string): Promise<Row | null> {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      return await readRow(client, installationId);
-    } catch {
-      if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 150));
-    }
-  }
-  throw new InstallationCredentialStoreError();
+  return readWithBackoff(() => readRowResult(client, installationId));
 }
 
-async function readRow(client: Client, installationId: string): Promise<Row | null> {
-  const { data, error } = await client
+async function readRowResult(client: Client, installationId: string) {
+  const result = await client
     .from(TABLE)
     .select(
       "supabase_management_token_ciphertext, supabase_publishable_key_ciphertext, supabase_service_role_key_ciphertext, vercel_token_ciphertext, vercel_team_id, github_token_ciphertext, generated_secrets_ciphertext, updated_at",
     )
     .eq("installation_id", installationId)
     .maybeSingle();
-  if (error) throw error;
-  return (data as Row | null) ?? null;
+  return { data: (result.data as Row | null) ?? null, error: result.error };
 }
 
 /**
@@ -415,12 +408,14 @@ export async function requiresOwnSupabaseToken(
   client: Client,
   installationId: string,
 ): Promise<boolean> {
-  const { data, error } = await client
-    .from("installations")
-    .select("requires_own_supabase_token")
-    .eq("id", installationId)
-    .maybeSingle();
-  if (error) throw new InstallationCredentialStoreError();
+  const data = await readWithBackoff(async () => {
+    const result = await client
+      .from("installations")
+      .select("requires_own_supabase_token")
+      .eq("id", installationId)
+      .maybeSingle();
+    return { data: result.data as { requires_own_supabase_token?: boolean } | null, error: result.error };
+  });
   return (
     (data as { requires_own_supabase_token?: boolean } | null)?.requires_own_supabase_token === true
   );
