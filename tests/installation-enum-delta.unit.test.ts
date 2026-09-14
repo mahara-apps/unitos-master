@@ -15,7 +15,12 @@ describe("delta com novo valor de enum", () => {
       queries,
       query: async (sql: string) => {
         queries.push(sql);
-        return { ok: true, rows: [] as unknown[] };
+        return {
+          ok: true,
+          rows: sql.includes("select statement_index")
+            ? [{ statement_index: 0, total_statements: 3, status: "running" }]
+            : [],
+        };
       },
     };
   }
@@ -34,7 +39,7 @@ describe("delta com novo valor de enum", () => {
     const enumCalls = management.queries.filter((q) => /alter\s+type/i.test(q));
     expect(enumCalls).toHaveLength(1);
     expect(enumCalls[0]).not.toMatch(/unitos_guard/);
-    expect(enumCalls[0]!.trim()).toMatch(/^ALTER TYPE/);
+    expect(enumCalls[0]?.trim()).toMatch(/^BEGIN;\s*ALTER TYPE/);
   });
 
   it("tolera enum já existente sem abortar a aplicação", async () => {
@@ -42,6 +47,9 @@ describe("delta com novo valor de enum", () => {
     const management = {
       query: async (statement: string) => {
         queries.push(statement);
+        if (statement.includes("select statement_index")) {
+          return { ok: true, rows: [{ statement_index: 0, total_statements: 3, status: "running" }] };
+        }
         if (/alter\s+type/i.test(statement)) {
           return { ok: false, rows: [] as unknown[], error: 'enum label "message" already exists' };
         }
@@ -55,7 +63,9 @@ describe("delta com novo valor de enum", () => {
   it("aborta em erro real do ALTER TYPE", async () => {
     const management = {
       query: async (statement: string) =>
-        /alter\s+type/i.test(statement)
+        statement.includes("select statement_index")
+          ? { ok: true, rows: [{ statement_index: 0, total_statements: 3, status: "running" }] }
+          : /alter\s+type/i.test(statement)
           ? { ok: false, rows: [] as unknown[], error: "permission denied" }
           : { ok: true, rows: [] as unknown[] },
     };

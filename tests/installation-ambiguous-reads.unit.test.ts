@@ -101,7 +101,9 @@ describe("ocorrência 2 — marcador interno e loop 25/34", () => {
     const batches: string[] = [];
     const query = vi.fn(async (statement: string) => {
       batches.push(statement);
-      if (statement.startsWith("select exists")) return { ok: true, rows: [{ initialized: true }] };
+      if (statement.includes("select statement_index")) {
+        return { ok: true, rows: [{ statement_index: 25, total_statements: 34, status: "running" }] };
+      }
       return { ok: true, rows: [] };
     });
     await expect(applyStatementByStatement({ query }, sql, { startIndex: 25 })).resolves.toMatchObject({

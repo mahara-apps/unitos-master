@@ -240,6 +240,7 @@ export const HELPER_TABLE_HARDENING_SQL = (table: string): string =>
 export const HELPER_TABLES = [
   "public._unitos_applied_deltas",
   "public._unitos_deferred_sql",
+  "public._unitos_migration_checkpoints",
 ] as const;
 
 /**
@@ -323,39 +324,45 @@ export async function applyStatementByStatement(
       "alter table public._unitos_deferred_sql add column if not exists error_message text",
       "create index if not exists _unitos_deferred_sql_run_key_idx on public._unitos_deferred_sql (run_key, id)",
       HELPER_TABLE_HARDENING_SQL("public._unitos_deferred_sql"),
+      "create table if not exists public._unitos_migration_checkpoints (run_key text primary key, statement_index integer not null default 0, total_statements integer not null, status text not null default 'running', updated_at timestamptz not null default now())",
+      HELPER_TABLE_HARDENING_SQL("public._unitos_migration_checkpoints"),
     ].join(";\n"),
   );
 
   if (!prep.ok) return { ok: false, error: prep.error, processed };
-  const marker = await management.query(
-    `select exists(select 1 from public._unitos_deferred_sql where run_key = ${runKeySql}) as initialized`,
+  const checkpoint = await management.query(
+    [
+      "insert into public._unitos_migration_checkpoints (run_key, statement_index, total_statements, status)",
+      `values (${runKeySql}, ${from}, ${statements.length}, 'running')`,
+      "on conflict (run_key) do nothing",
+      `returning statement_index, total_statements, status; select statement_index, total_statements, status from public._unitos_migration_checkpoints where run_key = ${runKeySql}`,
+    ].join("\n"),
   );
-  if (!marker.ok) return { ok: false, error: marker.error, processed };
-  const prepRow = marker.rows.find(
+  if (!checkpoint.ok) return { ok: false, error: checkpoint.error, processed };
+  const checkpointRow = checkpoint.rows.find(
     (row): row is Record<string, unknown> => !!row && typeof row === "object",
   );
-  if ((!prepRow || !("initialized" in prepRow)) && from > 0) {
+  if (!checkpointRow || !("statement_index" in checkpointRow)) {
     return {
       ok: false,
-      error: "Leitura do marcador interno retornou uma resposta vazia.",
+      error: "Leitura do checkpoint canônico retornou uma resposta vazia.",
       processed,
     };
   }
-  const initialized = prepRow?.["initialized"] === true || prepRow?.["initialized"] === "true";
-  if (from === 0 || !initialized) {
-    const reset = await management.query(
-      `delete from public._unitos_deferred_sql where run_key = ${runKeySql}; insert into public._unitos_deferred_sql (run_key, stmt) values (${runKeySql}, '-- initialized --')`,
-    );
-    if (!reset.ok) return { ok: false, error: reset.error, processed: 0 };
-    // Checkpoints gravados por versões anteriores podem apontar para o final do
-    // arquivo sem que a fila de dependências exista. Recomeçar é seguro porque
-    // cada statement já trata objetos duplicados isoladamente.
-    if (!initialized) {
-      from = 0;
-      processed = 0;
-      stopAt = Math.min(statements.length, maxStatements);
-    }
+  const canonicalTotal = Number(checkpointRow["total_statements"]);
+  const canonicalIndex = Number(checkpointRow["statement_index"]);
+  if (!Number.isInteger(canonicalTotal) || canonicalTotal !== statements.length) {
+    return { ok: false, error: "Checkpoint canônico incompatível com o conteúdo da migration.", processed };
   }
+  if (!Number.isInteger(canonicalIndex) || canonicalIndex < 0 || canonicalIndex > statements.length) {
+    return { ok: false, error: "Checkpoint canônico contém um índice inválido.", processed };
+  }
+  from = canonicalIndex;
+  processed = canonicalIndex;
+  stopAt = Math.min(statements.length, from + maxStatements);
+
+  const checkpointSql = (index: number, status = "running") =>
+    `insert into public._unitos_migration_checkpoints (run_key, statement_index, total_statements, status, updated_at) values (${runKeySql}, ${index}, ${statements.length}, ${sqlLiteral(status)}, now()) on conflict (run_key) do update set statement_index = greatest(public._unitos_migration_checkpoints.statement_index, excluded.statement_index), total_statements = excluded.total_statements, status = excluded.status, updated_at = now()`;
 
   for (let start = from; start < stopAt; start += batchSize) {
     if (await options?.isCancelled?.()) {
@@ -373,16 +380,24 @@ export async function applyStatementByStatement(
       else segments.push({ kind: isEnumAdd ? "enum" : "guarded", statements: [statement] });
     }
 
+    let segmentProcessed = start;
     for (const segment of segments) {
+      const segmentEnd = segmentProcessed + segment.statements.length;
       if (segment.kind === "enum") {
         for (const statement of segment.statements) {
-          const enumRes = await management.query(statement);
+          const nextIndex = segmentProcessed + 1;
+          const enumRes = await management.query(`BEGIN;\n${statement}\n${checkpointSql(nextIndex)};\nCOMMIT;`);
           if (
             !enumRes.ok &&
             !/already exists|duplicate|does not exist/i.test(enumRes.error ?? "")
           ) {
             return { ok: false, error: enumRes.error, processed };
           }
+          if (!enumRes.ok) {
+            const duplicateCheckpoint = await management.query(checkpointSql(nextIndex));
+            if (!duplicateCheckpoint.ok) return { ok: false, error: duplicateCheckpoint.error, processed };
+          }
+          segmentProcessed = nextIndex;
         }
         continue;
       }
@@ -416,8 +431,11 @@ export async function applyStatementByStatement(
           ].join("\n");
         })
         .join("\n");
-      const result = await management.query(`SET check_function_bodies = off;\n${guarded}`);
+      const result = await management.query(
+        `BEGIN;\nSET LOCAL check_function_bodies = off;\n${guarded}\n${checkpointSql(segmentEnd)};\nCOMMIT;`,
+      );
       if (!result.ok) return { ok: false, error: result.error, processed };
+      segmentProcessed = segmentEnd;
 
       // Uma dependência pode ter sido criada no mesmo lote depois do statement
       // que a utiliza. Tenta resolver a fila imediatamente, mas mantém o item e
@@ -428,7 +446,7 @@ export async function applyStatementByStatement(
           "DO $unitos_retry_deferred$",
           "DECLARE r record; v_state text; v_message text;",
           "BEGIN",
-          `  FOR r IN SELECT id, stmt FROM public._unitos_deferred_sql WHERE run_key = ${runKeySql} AND stmt <> '-- initialized --' ORDER BY id LOOP`,
+          `  FOR r IN SELECT id, stmt FROM public._unitos_deferred_sql WHERE run_key = ${runKeySql} ORDER BY id LOOP`,
           "    BEGIN",
           "      EXECUTE r.stmt;",
           "      DELETE FROM public._unitos_deferred_sql WHERE id = r.id;",
@@ -463,10 +481,10 @@ export async function applyStatementByStatement(
         "DECLARE r record; cur int; prev int := -1; pend text; v_state text; v_message text;",
         "BEGIN",
         "  LOOP",
-        `    SELECT count(*) INTO cur FROM public._unitos_deferred_sql WHERE run_key = ${runKeySql} AND stmt <> '-- initialized --';`,
+        `    SELECT count(*) INTO cur FROM public._unitos_deferred_sql WHERE run_key = ${runKeySql};`,
         "    EXIT WHEN cur = 0 OR cur = prev;",
         "    prev := cur;",
-        `    FOR r IN SELECT id, stmt FROM public._unitos_deferred_sql WHERE run_key = ${runKeySql} AND stmt <> '-- initialized --' ORDER BY id LOOP`,
+        `    FOR r IN SELECT id, stmt FROM public._unitos_deferred_sql WHERE run_key = ${runKeySql} ORDER BY id LOOP`,
         "      BEGIN",
         "        EXECUTE r.stmt;",
         "        DELETE FROM public._unitos_deferred_sql WHERE id = r.id;",
@@ -480,11 +498,12 @@ export async function applyStatementByStatement(
         "      END;",
         "    END LOOP;",
         "  END LOOP;",
-        `  SELECT string_agg(format('[%s] %s :: %s', coalesce(sqlstate, 'unknown'), coalesce(error_message, 'erro não capturado'), left(stmt, 240)), ' || ') INTO pend FROM public._unitos_deferred_sql WHERE run_key = ${runKeySql} AND stmt <> '-- initialized --';`,
+        `  SELECT string_agg(format('[%s] %s :: %s', coalesce(sqlstate, 'unknown'), coalesce(error_message, 'erro não capturado'), left(stmt, 240)), ' || ') INTO pend FROM public._unitos_deferred_sql WHERE run_key = ${runKeySql};`,
         "  IF pend IS NOT NULL THEN",
         "    RAISE EXCEPTION 'statements com dependência não resolvida: %', pend;",
         "  END IF;",
         `  DELETE FROM public._unitos_deferred_sql WHERE run_key = ${runKeySql};`,
+        `  ${checkpointSql(statements.length, "completed")};`,
         "END",
         "$unitos_drain$;",
       ].join("\n"),

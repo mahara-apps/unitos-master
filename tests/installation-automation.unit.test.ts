@@ -315,6 +315,26 @@ const INSTALLATION = {
 const runProvision = (input: Parameters<typeof runAutomatedProvision>[0]) =>
   runAutomatedProvision({ ...input, maxStatementsPerInvocation: Number.POSITIVE_INFINITY });
 
+function managementRows(body: string, fallback: Record<string, unknown> = { schemas: 3, item: "ok" }) {
+  const sql = (() => {
+    try {
+      const parsed = JSON.parse(body) as { query?: unknown };
+      return typeof parsed.query === "string" ? parsed.query : body;
+    } catch {
+      return body;
+    }
+  })();
+  if (sql.includes("select statement_index")) {
+    const values = /values \('[^']*',\s*(\d+),\s*(\d+),\s*'running'\)/i.exec(sql);
+    return [{
+      statement_index: Number(values?.[1] ?? 0),
+      total_statements: Number(values?.[2] ?? 0),
+      status: "running",
+    }];
+  }
+  return [fallback];
+}
+
 describe("runAutomatedProvision", () => {
   it("BLOCKED sem credenciais de gestão — sem nenhuma chamada externa", async () => {
     const { api } = fakeClient();
@@ -373,7 +393,7 @@ describe("runAutomatedProvision", () => {
   it("PASS ponta a ponta usando a URL temporária do deploy", async () => {
     const { api } = fakeClient();
     const calls: string[] = [];
-    const fetchImpl = vi.fn(async (url: string) => {
+    const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
       calls.push(url);
@@ -384,7 +404,7 @@ describe("runAutomatedProvision", () => {
         ]);
       }
       if (url.includes("/database/query")) {
-        return Response.json([{ schemas: 3, item: "ok" }]);
+        return Response.json(managementRows(String(init?.body ?? "")));
       }
       if (url.includes("api.vercel.com/v9/projects")) {
         return Response.json({
@@ -445,7 +465,7 @@ describe("runAutomatedProvision", () => {
         } else if (body.includes("create table") || body.includes("CREATE TABLE")) {
           if (!order.includes("baseline")) order.push("baseline");
         }
-        return Response.json([{ schemas: 3, item: "ok" }]);
+        return Response.json(managementRows(body));
       }
       if (url.includes("api.vercel.com/v9/projects")) {
         return Response.json({
@@ -484,7 +504,7 @@ describe("runAutomatedProvision", () => {
 
   it("avisa (sem quebrar) quando o redeploy não pode ser disparado", async () => {
     const { api } = fakeClient();
-    const fetchImpl = vi.fn(async (url: string) => {
+    const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
       if (url.includes("/api-keys")) {
@@ -493,7 +513,7 @@ describe("runAutomatedProvision", () => {
           { name: "service_role", api_key: "s" },
         ]);
       }
-      if (url.includes("/database/query")) return Response.json([{ schemas: 3, status: "PASS" }]);
+      if (url.includes("/database/query")) return Response.json(managementRows(String(init?.body ?? ""), { schemas: 3, status: "PASS" }));
       if (url.includes("api.vercel.com/v9/projects")) {
         return Response.json({ name: "x", targets: { production: { url: "x-abc.vercel.app" } } });
       }
@@ -523,7 +543,7 @@ describe("runAutomatedProvision", () => {
 
   it("frontend fica em atenção quando a URL operacional não responde", async () => {
     const { api } = fakeClient();
-    const fetchImpl = vi.fn(async (url: string) => {
+    const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
       if (url.includes("/api-keys")) {
@@ -532,7 +552,7 @@ describe("runAutomatedProvision", () => {
           { name: "service_role", api_key: "s" },
         ]);
       }
-      if (url.includes("/database/query")) return Response.json([{ schemas: 3, status: "PASS" }]);
+      if (url.includes("/database/query")) return Response.json(managementRows(String(init?.body ?? ""), { schemas: 3, status: "PASS" }));
       if (url.includes("api.vercel.com/v9/projects")) {
         return Response.json({ name: "x", targets: { production: { url: "x-abc.vercel.app" } } });
       }
@@ -561,7 +581,7 @@ describe("runAutomatedProvision", () => {
 
   it("domínio definitivo pendente gera aviso sem bloquear a instalação", async () => {
     const { api } = fakeClient();
-    const fetchImpl = vi.fn(async (url: string) => {
+    const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
       if (url.includes("/api-keys")) {
@@ -570,7 +590,7 @@ describe("runAutomatedProvision", () => {
           { name: "service_role", api_key: "s" },
         ]);
       }
-      if (url.includes("/database/query")) return Response.json([{ schemas: 3, status: "PASS" }]);
+      if (url.includes("/database/query")) return Response.json(managementRows(String(init?.body ?? ""), { schemas: 3, status: "PASS" }));
       if (url.includes("api.vercel.com/v9/projects")) {
         return Response.json({ name: "x", targets: { production: { url: "x-abc.vercel.app" } } });
       }
@@ -603,7 +623,7 @@ describe("runAutomatedProvision", () => {
 
   it("BLOCKED quando o deploy não expõe URL e não há domínio", async () => {
     const { api } = fakeClient();
-    const fetchImpl = vi.fn(async (url: string) => {
+    const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
       if (url.includes("/api-keys")) {
@@ -634,7 +654,7 @@ describe("runAutomatedProvision", () => {
   it("FAIL quando o baseline falha no destino", async () => {
     const { api } = fakeClient();
     let queries = 0;
-    const fetchImpl = vi.fn(async (url: string) => {
+    const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
       if (url.includes("/api-keys")) {
@@ -673,7 +693,12 @@ describe("runAutomatedProvision", () => {
         query: async (batch) => {
           const n = (batch.match(/DO \$unitos_guard\$/g) ?? []).length;
           if (n > 0) sizes.push(n);
-          return { ok: true, rows: [] };
+          return {
+            ok: true,
+            rows: batch.includes("select statement_index")
+              ? [{ statement_index: 0, total_statements: 57, status: "running" }]
+              : [],
+          };
         },
       },
       sql,
@@ -698,7 +723,13 @@ describe("runAutomatedProvision", () => {
         if (n > 0) sizes.push(n);
         return {
           ok: true,
-          rows: batch.includes(" as initialized") ? [{ initialized: true }] : [],
+          rows: batch.includes("select statement_index")
+            ? [{
+                statement_index: batch.includes("values ('legacy:") && batch.includes(", 50, 57") ? 50 : 25,
+                total_statements: 57,
+                status: "running",
+              }]
+            : [],
         };
       },
     };
@@ -721,7 +752,7 @@ describe("runAutomatedProvision", () => {
       },
     });
     const calls: string[] = [];
-    const fetchImpl = vi.fn(async (url: string) => {
+    const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
       calls.push(url);
@@ -731,7 +762,7 @@ describe("runAutomatedProvision", () => {
           { name: "service_role", api_key: "sb_secret_x" },
         ]);
       }
-      if (url.includes("/database/query")) return Response.json([{ schemas: 3, item: "ok" }]);
+      if (url.includes("/database/query")) return Response.json(managementRows(String(init?.body ?? "")));
       return new Response("{}", { status: 200 });
     });
 
