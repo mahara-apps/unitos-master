@@ -1,5 +1,16 @@
 # Roadmap
 
+## MASTER 1.3.94 — Snapshot imutável do pacote por operação
+
+- [ ] Manter a Taveira congelada e sem itens ativos enquanto o pacote é desenvolvido.
+- [ ] Fixar versão, SHA e total do delta no início da operação e impedir troca durante retomadas.
+- [ ] Tornar progresso persistido e texto exibido monotônicos usando o snapshot da operação.
+- [ ] Inventariar todos os caminhos que leem o pacote atual durante uma operação já iniciada.
+- [ ] Reproduzir 88→87/104, resposta parcial, timeout após gravação e replay com respostas reais.
+- [ ] Ensaiar integralmente o estado equivalente da Taveira de 81→104 sem regressão ou repetição.
+- [ ] Executar MASTER-first completo e apresentar inventário/evidências antes de publicar.
+- [ ] Publicar e retomar a Taveira somente após nova autorização explícita.
+
 ## MASTER 1.3.93 — Checkpoint canônico e retomada atômica
 
 - [x] Manter a Taveira congelada e provar que nenhuma retomada automática continua ativa.

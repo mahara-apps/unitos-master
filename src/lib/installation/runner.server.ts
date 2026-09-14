@@ -158,6 +158,8 @@ export type OperationRow = {
   fencing_token?: number;
   attempt_count?: number;
   max_attempts?: number;
+  baseline_id?: string | null;
+  baseline_hash?: string | null;
 };
 
 export const AUTOMATION_LEASE_SECONDS = 180;
