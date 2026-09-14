@@ -1,0 +1,210 @@
+import { describe, expect, it, vi } from "vitest";
+
+import {
+  applyStatementByStatement,
+  createManagementClient,
+  DONE,
+  mergeBaselineProgress,
+  readFirstAccessState,
+  saveBaselineProgress,
+} from "@/lib/installation/automation.server";
+import { assertNoActiveInstallationOperation } from "@/lib/installation/manager.functions";
+import {
+  resolveServiceStateRead,
+  UNAVAILABLE_SERVICE_STATE,
+} from "@/lib/installation-settings.server";
+
+function operationQuery(result: { data: unknown; error?: unknown }) {
+  const chain = {
+    select: () => chain,
+    eq: () => chain,
+    in: () => chain,
+    maybeSingle: async () => result,
+  };
+  return { from: () => chain };
+}
+
+describe("ocorrência 1 — parser da Management API", () => {
+  it("erro/timeout: HTTP 200 ilegível nunca vira sucesso vazio", async () => {
+    const client = createManagementClient({
+      token: "token",
+      projectRef: "project",
+      fetchImpl: vi.fn(async () => new Response("<html>proxy</html>", { status: 200 })) as never,
+    });
+    await expect(client.query("select 1")).resolves.toMatchObject({
+      ok: false,
+      rows: [],
+      error: "resposta ilegível da Management API",
+    });
+  }, 15_000);
+
+  it("vazio real: array JSON vazio permanece resposta válida", async () => {
+    const client = createManagementClient({
+      token: "token",
+      projectRef: "project",
+      fetchImpl: vi.fn(async () => Response.json([])) as never,
+    });
+    await expect(client.query("select 1 where false")).resolves.toEqual({ ok: true, rows: [] });
+  });
+
+  it("resposta válida: linhas são preservadas", async () => {
+    const client = createManagementClient({
+      token: "token",
+      projectRef: "project",
+      fetchImpl: vi.fn(async () => Response.json([{ value: 1 }])) as never,
+    });
+    await expect(client.query("select 1 as value")).resolves.toEqual({
+      ok: true,
+      rows: [{ value: 1 }],
+    });
+  });
+});
+
+describe("ocorrência 2 — marcador interno e loop 25/34", () => {
+  const sql = Array.from({ length: 34 }, (_, index) => `SELECT ${index};`).join("\n");
+
+  it("erro/timeout: marcador indisponível preserva o índice 25 e não executa SQL", async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, rows: [] })
+      .mockResolvedValueOnce({ ok: false, rows: [], error: "timeout" });
+    await expect(applyStatementByStatement({ query }, sql, { startIndex: 25 })).resolves.toMatchObject({
+      ok: false,
+      error: "timeout",
+      processed: 25,
+    });
+    expect(query).toHaveBeenCalledTimes(2);
+  });
+
+  it("vazio real: marcador sem linha não reinicia no comando zero", async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, rows: [] })
+      .mockResolvedValueOnce({ ok: true, rows: [] });
+    await expect(applyStatementByStatement({ query }, sql, { startIndex: 25 })).resolves.toMatchObject({
+      ok: false,
+      error: expect.stringContaining("resposta vazia"),
+      processed: 25,
+    });
+    expect(query).toHaveBeenCalledTimes(2);
+  });
+
+  it("resposta válida: retoma em 25, conclui 34 e preserva DONE", async () => {
+    const batches: string[] = [];
+    const query = vi.fn(async (statement: string) => {
+      batches.push(statement);
+      if (statement.startsWith("select exists")) return { ok: true, rows: [{ initialized: true }] };
+      return { ok: true, rows: [] };
+    });
+    await expect(applyStatementByStatement({ query }, sql, { startIndex: 25 })).resolves.toMatchObject({
+      ok: true,
+      processed: 34,
+      total: 34,
+      complete: true,
+    });
+    expect(batches.join("\n")).not.toContain("SELECT 0");
+    expect(mergeBaselineProgress({ migration: 25 }, { migration: DONE })).toEqual({ migration: DONE });
+    expect(mergeBaselineProgress({ migration: DONE }, { migration: 25 })).toEqual({ migration: DONE });
+  });
+});
+
+describe("ocorrência 3 — checkpoint persistido", () => {
+  const operation = { id: "op-1", lease_owner: null, fencing_token: null, steps: [] } as never;
+
+  function checkpointClient(readResult: { data: unknown; error?: unknown }, rpcResult = { data: true, error: null }) {
+    return {
+      ...operationQuery(readResult),
+      rpc: vi.fn(async () => rpcResult),
+    };
+  }
+
+  it("erro/timeout: operação legada também interrompe a fatia", async () => {
+    const client = checkpointClient({ data: null, error: { message: "timeout" } });
+    await expect(saveBaselineProgress(client as never, operation, { migration: 25 })).rejects.toMatchObject({
+      message: "timeout",
+    });
+  });
+
+  it("vazio real: operação ausente não finge checkpoint salvo", async () => {
+    const client = checkpointClient({ data: null, error: null });
+    await expect(saveBaselineProgress(client as never, operation, { migration: 25 })).rejects.toThrow(
+      "Operação não encontrada",
+    );
+  });
+
+  it("resposta válida: salva checkpoint monotônico", async () => {
+    const client = checkpointClient({ data: { detail: { baselineProgress: { migration: 24 } } }, error: null });
+    await expect(saveBaselineProgress(client as never, operation, { migration: 25 })).resolves.toBeUndefined();
+    expect(client.rpc).toHaveBeenCalledWith(
+      "checkpoint_installation_operation",
+      expect.objectContaining({
+        _detail: expect.objectContaining({ baselineProgress: { migration: 25 } }),
+      }),
+    );
+  });
+});
+
+describe("ocorrência 4 — estado operacional local", () => {
+  it("erro/timeout: leitura falha não vira active", () => {
+    expect(() => resolveServiceStateRead({ data: null, error: { message: "timeout" } })).toThrow("timeout");
+    expect(UNAVAILABLE_SERVICE_STATE.state).toBe("maintenance");
+  });
+
+  it("vazio real: instalação antiga sem linha continua ativa", () => {
+    expect(resolveServiceStateRead({ data: null, error: null })).toMatchObject({ state: "active" });
+  });
+
+  it("resposta válida: suspensão é preservada", () => {
+    expect(
+      resolveServiceStateRead({
+        data: { service_state: "suspended", service_message: "Bloqueado", service_until: null },
+        error: null,
+      }),
+    ).toEqual({ state: "suspended", message: "Bloqueado", until: null });
+  });
+});
+
+describe("ocorrência 5 — checagem de operação ativa", () => {
+  it("erro/timeout: aborta antes de criar outra operação", async () => {
+    await expect(
+      assertNoActiveInstallationOperation(
+        operationQuery({ data: null, error: { message: "timeout" } }) as never,
+        "inst-1",
+      ),
+    ).rejects.toMatchObject({ message: "timeout" });
+  });
+
+  it("vazio real: ausência confirmada libera a criação", async () => {
+    await expect(
+      assertNoActiveInstallationOperation(operationQuery({ data: null, error: null }) as never, "inst-1"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("resposta válida: operação existente bloqueia duplicata", async () => {
+    await expect(
+      assertNoActiveInstallationOperation(operationQuery({ data: { id: "op-1" }, error: null }) as never, "inst-1"),
+    ).rejects.toThrow("Já existe uma operação");
+  });
+});
+
+describe("ocorrência 6 — primeiro acesso escalar", () => {
+  it("erro/timeout: permanece pendente", async () => {
+    await expect(
+      readFirstAccessState({ query: async () => ({ ok: false, rows: [], error: "timeout" }) }),
+    ).resolves.toMatchObject({ superAdmin: "pending", workspace: "pending" });
+  });
+
+  it("vazio real impossível: resposta vazia não inventa ausência", async () => {
+    await expect(
+      readFirstAccessState({ query: async () => ({ ok: true, rows: [] }) }),
+    ).resolves.toMatchObject({ superAdmin: "pending", workspace: "pending" });
+  });
+
+  it("resposta válida: informa presença real", async () => {
+    await expect(
+      readFirstAccessState({
+        query: async () => ({ ok: true, rows: [{ has_super_admin: true, brand_count: 1 }] }),
+      }),
+    ).resolves.toMatchObject({ superAdmin: "ok", workspace: "ok" });
+  });
+});
