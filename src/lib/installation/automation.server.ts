@@ -2916,12 +2916,16 @@ async function report(
   detail?: string | null,
   percent?: number | null,
 ) {
-  await applyProgressReport(client as never, op as never, {
-    step,
-    state,
-    detail: detail ?? null,
-    percent: percent ?? null,
-  });
+  try {
+    await applyProgressReport(client as never, op as never, {
+      step,
+      state,
+      detail: detail ?? null,
+      percent: percent ?? null,
+    });
+  } catch (error) {
+    if (operationUsesFencing(op)) throw error;
+  }
 }
 
 /* ------------------------------------------------- preflight de credenciais */

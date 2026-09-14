@@ -191,16 +191,16 @@ describe("ocorrência 6 — primeiro acesso escalar", () => {
   it("erro/timeout: permanece pendente", async () => {
     await expect(
       readFirstAccessState({ query: async () => ({ ok: false, rows: [], error: "timeout" }) }),
-    ).resolves.toMatchObject({
-      superAdmin: { state: "pending" },
-      workspace: { state: "pending" },
-    });
+    ).resolves.toMatchObject({ superAdmin: "pending", workspace: "pending" });
   });
 
   it("vazio real impossível: resposta vazia não inventa ausência", async () => {
     await expect(
       readFirstAccessState({ query: async () => ({ ok: true, rows: [] }) }),
-    ).resolves.toMatchObject({ superAdmin: "pending", workspace: "pending" });
+    ).resolves.toMatchObject({
+      superAdmin: { state: "pending" },
+      workspace: { state: "pending" },
+    });
   });
 
   it("resposta válida: informa presença real", async () => {
