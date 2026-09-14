@@ -59,6 +59,7 @@ import {
   sanitize,
   type OperationRow,
 } from "./runner.server";
+import { InstallationReadError, readWithBackoff } from "./resilience.server";
 import {
   MASTER_RELEASE_VERSION,
   VALIDATE_STEPS,
@@ -69,6 +70,58 @@ import {
 /* --------------------------------------------------------------- utilidades */
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+type OperationControlState = {
+  status?: string;
+  fencing_token?: number | string | null;
+};
+
+type OperationControlClient = {
+  from: (table: string) => {
+    select: (columns: string) => {
+      eq: (column: string, value: string) => {
+        maybeSingle: () => Promise<{ data?: OperationControlState | null; error?: unknown }>;
+      };
+    };
+  };
+};
+
+/**
+ * Lê o sinal de controle com retry. Ausência após leitura válida é tratada como
+ * indisponibilidade do plano de controle, nunca como cancelamento implícito.
+ */
+export async function readOperationControlState(
+  client: OperationControlClient,
+  operationId: string,
+  options?: Parameters<typeof readWithBackoff<OperationControlState>>[1],
+): Promise<OperationControlState> {
+  const state = await readWithBackoff(async () => {
+    const result = await client
+      .from("installation_operations")
+      .select("status, fencing_token")
+      .eq("id", operationId)
+      .maybeSingle();
+    return { data: result.data ?? null, error: result.error };
+  }, options);
+  if (!state) {
+    throw new InstallationReadError(
+      "connection",
+      "Estado da operação temporariamente indisponível no MASTER (connection).",
+    );
+  }
+  return state;
+}
+
+/** Só um estado terminal confiável ou fencing divergente confirmado interrompe. */
+export async function shouldInterruptOperation(
+  client: OperationControlClient,
+  operation: Pick<OperationRow, "id" | "fencing_token">,
+  options?: Parameters<typeof readWithBackoff<OperationControlState>>[1],
+): Promise<boolean> {
+  const current = await readOperationControlState(client, operation.id, options);
+  if (current.status === "failed") return true;
+  return operation.fencing_token != null && current.fencing_token !== operation.fencing_token;
+}
 
 /** Secret aleatório gerado NO provisionamento — nunca herdado do MASTER. */
 export function generateInstallationSecret(length = 48): string {
@@ -3035,24 +3088,8 @@ export async function runAutomatedProvision(input: {
   };
 
   const isCancelled = async () => {
-    const db = client as never as {
-      from: (table: string) => {
-        select: (columns: string) => {
-          eq: (
-            column: string,
-            value: string,
-          ) => {
-            maybeSingle: () => Promise<{ data?: { status?: string } | null }>;
-          };
-        };
-      };
-    };
-    const current = await db
-      .from("installation_operations")
-      .select("status")
-      .eq("id", operation.id)
-      .maybeSingle();
-    return !["running", "pending", "retryable"].includes(current.data?.status ?? "");
+    const current = await readOperationControlState(client as never, operation.id);
+    return !["running", "pending", "retryable"].includes(current.status ?? "");
   };
 
   /* 1. credenciais próprias do MASTER */
@@ -4256,16 +4293,7 @@ export async function applyDatabaseDelta(input: {
     const prepared = sanitizeBaselineSqlForManagementApi(migration.sql);
     const applied = await applyStatementByStatement(management, prepared.sql, {
       runKey: `${operation.id}:${ledgerLabel}`,
-      isCancelled: async () => {
-        const result = (await client
-          .from("installation_operations")
-          .select("status, fencing_token")
-          .eq("id", operation.id)
-          .maybeSingle()) as { data?: unknown };
-        const { data } = result;
-        const current = data as { status?: string; fencing_token?: string | null } | null;
-        return current?.status === "failed" || current?.fencing_token !== operation.fencing_token;
-      },
+      isCancelled: () => shouldInterruptOperation(client as never, operation),
       startIndex: alreadyApplied === DONE ? 0 : alreadyApplied,
       maxStatements: input.maxStatementsPerInvocation ?? BASELINE_STATEMENTS_PER_INVOCATION,
     });

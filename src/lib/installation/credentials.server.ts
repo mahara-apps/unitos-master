@@ -81,8 +81,12 @@ export class InstallationCredentialStoreError extends Error {
   }
 }
 
-async function readRowReliable(client: Client, installationId: string): Promise<Row | null> {
-  return readWithBackoff(() => readRowResult(client, installationId));
+export async function readCredentialRowReliable(
+  client: Client,
+  installationId: string,
+  options?: Parameters<typeof readWithBackoff<Row>>[1],
+): Promise<Row | null> {
+  return readWithBackoff(() => readRowResult(client, installationId), options);
 }
 
 async function readRowResult(client: Client, installationId: string) {
@@ -104,7 +108,7 @@ export async function getInstallationCredentialsStatus(
   client: Client,
   installationId: string,
 ): Promise<InstallationCredentialsStatus> {
-  const row = await readRowReliable(client, installationId);
+  const row = await readCredentialRowReliable(client, installationId);
   const { decryptCredential, maskCredential } = await import("@/lib/credentials-crypto.server");
 
   const describe = async (stored: string | null | undefined) => {
@@ -241,7 +245,7 @@ async function readGeneratedSecretsSnapshot(
   client: Client,
   installationId: string,
 ): Promise<{ secrets: InstallationSecrets; updatedAt: string | null }> {
-  const row = await readRowReliable(client, installationId);
+  const row = await readCredentialRowReliable(client, installationId);
   const stored = (row?.generated_secrets_ciphertext ?? "").trim();
   if (!stored) return { secrets: {}, updatedAt: row?.updated_at ?? null };
   try {
@@ -438,7 +442,7 @@ export async function resolveInstallationEnv(
     env[BYOK_SUPABASE_MARKER] = "1";
   }
 
-  const row = await readRowReliable(client, installationId);
+  const row = await readCredentialRowReliable(client, installationId);
   if (!row) return normalize(env);
 
   const { decryptCredential } = await import("@/lib/credentials-crypto.server");

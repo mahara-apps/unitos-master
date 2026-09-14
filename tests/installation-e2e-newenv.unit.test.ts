@@ -22,6 +22,12 @@ type Call = { url: string; method: string; body: string };
 function fakeClient() {
   const updates: Record<string, unknown>[] = [];
   const api = {
+    rpc: async (name: string) => {
+      if (name === "compare_and_set_installation_generated_secrets") {
+        return { data: true, error: null };
+      }
+      return { data: null, error: null };
+    },
     from: () => ({
       update: (patch: Record<string, unknown>) => {
         updates.push(patch);
