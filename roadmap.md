@@ -9,7 +9,7 @@
 - [x] Cobrir cada ocorrência com teste comportamental de erro, vazio real e resposta válida.
 - [x] Apresentar inventário, correção e matriz tripla de cada ocorrência para revisão do usuário.
 - [x] Regenerar pacote, sincronizar versão/SHA e executar todos os guardiões MASTER-first.
-- [ ] Não publicar nem retomar a Taveira antes de nova autorização explícita após a revisão das evidências.
+- [x] Publicar o MASTER 1.3.92 e retomar a Taveira somente após autorização explícita e revisão das evidências.
 
 ## MASTER 1.3.91 — Resiliência comprovada antes da Taveira
 
