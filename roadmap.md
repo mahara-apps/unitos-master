@@ -1,5 +1,16 @@
 # Roadmap
 
+## MASTER 1.3.91 — Resiliência comprovada antes da Taveira
+
+- [ ] Corrigir falso cancelamento por leitura vazia/erro de status ou fencing.
+- [ ] Cobrir cofre indisponível com teste comportamental.
+- [ ] Cobrir timeout, 5xx, 429, conexão e backoff com jitter.
+- [ ] Cobrir `data=null + error` sem mascaramento.
+- [ ] Cobrir falha do MASTER sem consumo de tentativa do destino.
+- [ ] Reproduzir exatamente o falso cancelamento da 1.3.89 e preservar cancelamento/fencing reais.
+- [ ] Regenerar pacote, sincronizar versão/SHA e executar todos os guardiões MASTER-first.
+- [ ] Publicar e iniciar nova tentativa na Taveira somente após autorização explícita.
+
 ## MASTER 1.3.90 — Contenção de privilégios anônimos administrativos
 
 - [x] Revogar `MAINTAIN`, `TRUNCATE`, `TRIGGER` e `REFERENCES` de `anon` em todas as tabelas públicas do MASTER.

@@ -18,6 +18,14 @@
 import { AUTOMATION_LEASE_SECONDS } from "./runner.server";
 import { isTransientMasterReadFailure, readWithBackoff } from "./resilience.server";
 
+export function resumeFailureAction(
+  cause: unknown,
+  accessKind: "permission" | "transient" | "other",
+): "defer" | "block" | "retry" {
+  if (isTransientMasterReadFailure(cause)) return "defer";
+  return accessKind === "permission" ? "block" : "retry";
+}
+
 export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
   claimed: number;
   operations: string[];
@@ -99,7 +107,8 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
       try {
         const { classifyAccessFailure } = await import("./automation.server");
         const { deferOperation, finalizeOperation, retryOperation } = await import("./runner.server");
-        if (!targetStarted && isTransientMasterReadFailure(cause)) {
+        const action = resumeFailureAction(cause, classifyAccessFailure(message));
+        if (action === "defer") {
           await deferOperation(
             supabaseAdmin as never,
             op as never,
@@ -109,7 +118,7 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
           operations.push(operationId);
           continue;
         }
-        if (classifyAccessFailure(message) === "permission") {
+        if (action === "block") {
           await finalizeOperation(supabaseAdmin as never, op as never, {
             ok: false,
             summary: `BLOCKED: ${message}`,
