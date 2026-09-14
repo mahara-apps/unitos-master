@@ -1,5 +1,15 @@
 # Roadmap
 
+## MASTER 1.3.90 — Contenção de privilégios anônimos administrativos
+
+- [x] Revogar `MAINTAIN`, `TRUNCATE`, `TRIGGER` e `REFERENCES` de `anon` em todas as tabelas públicas do MASTER.
+- [x] Aplicar e validar o mesmo hotfix diretamente na Taveira como contenção prioritária.
+- [x] Preservar somente os acessos públicos funcionais e explícitos necessários.
+- [x] Remover do snapshot as heranças anônimas amplas sobre funções e sequências.
+- [x] Cobrir a regressão no snapshot e na verificação read-only das instalações.
+- [ ] Regenerar o pacote, sincronizar versão/SHA e executar os guardiões MASTER-first.
+- [ ] Publicar o MASTER e propagar somente após autorização explícita.
+
 ## MASTER 1.3.89 — Resiliência das atualizações
 
 - [x] Bloquear regressão de etapas, percentuais e checkpoints diante de leituras falhas ou atrasadas.

@@ -103,6 +103,20 @@ describe("delta do baseline", () => {
     expect(snapshot).not.toMatch(/^\s*GRANT\s+.+\s+ON\s+TABLE\s+.+\s+TO\s+anon/im);
   });
 
+  it("snapshot não concede privilégios futuros amplos para anon", () => {
+    const snapshot = readFileSync("supabase/baseline-snapshot/001_initial_schema.sql", "utf8");
+    expect(snapshot).not.toMatch(
+      /^\s*ALTER\s+DEFAULT\s+PRIVILEGES\s+.+\s+GRANT\s+ALL\s+ON\s+(?:TABLES|SEQUENCES|FUNCTIONS)\s+TO\s+anon/im,
+    );
+  });
+
+  it("validação bloqueia todas as capacidades administrativas de anon em tabelas", () => {
+    expect(verifySql).toContain("segurança: anon sem privilégios perigosos em tabelas");
+    for (const privilege of ["TRUNCATE", "TRIGGER", "REFERENCES", "MAINTAIN"] as const) {
+      expect(verifySql).toContain(`'${privilege}'`);
+    }
+  });
+
   for (const objeto of [
     "work_statuses",
     "work_links",
