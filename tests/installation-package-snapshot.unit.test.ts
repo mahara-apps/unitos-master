@@ -51,4 +51,11 @@ describe("snapshot imutável do pacote por operação", () => {
     expect(reconcileConfirmedMigrationCount(88, 88)).toEqual({ completed: 88, partialRead: false });
     expect(reconcileConfirmedMigrationCount(88, 89)).toEqual({ completed: 89, partialRead: false });
   });
+
+  it("mantém uma operação 1.3.93/104 isolada do pacote MASTER 1.3.94/105", () => {
+    const newerMaster = { ...fixed, version: "1.3.94", commitSha: "e".repeat(40), total: 105, sql: packageSql(105) };
+    const operation = { baseline_id: operationPackageIdentity(fixed), baseline_hash: fixed.sha256 };
+    expect(validateOperationPackageSnapshot(operation, fixed)).toEqual({ ok: true });
+    expect(validateOperationPackageSnapshot(operation, newerMaster).ok).toBe(false);
+  });
 });
