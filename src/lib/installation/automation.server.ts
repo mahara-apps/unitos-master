@@ -334,7 +334,7 @@ export async function applyStatementByStatement(
   const prepRow = marker.rows.find(
     (row): row is Record<string, unknown> => !!row && typeof row === "object",
   );
-  if (!prepRow || !("initialized" in prepRow)) {
+  if ((!prepRow || !("initialized" in prepRow)) && from > 0) {
     return {
       ok: false,
       error: "Leitura do marcador interno retornou uma resposta vazia.",
@@ -2870,8 +2870,7 @@ export async function saveStageProgress(
   operation: OperationRow,
   patch: StageProgress,
 ): Promise<void> {
-  try {
-    const { data: fresh, error: readError } = await (
+  const { data: fresh, error: readError } = await (
       client as never as {
         from: (t: string) => {
           select: (c: string) => {
@@ -2906,10 +2905,7 @@ export async function saveStageProgress(
       _summary: null,
       _metrics: { lastCheckpointAt: new Date().toISOString() },
     });
-    if (error || saved !== true) throw new Error(error?.message ?? "lease da operação perdida");
-  } catch (error) {
-    if (operationUsesFencing(operation)) throw error;
-  }
+  if (error || saved !== true) throw new Error(error?.message ?? "lease da operação perdida");
 }
 
 async function report(
@@ -2920,16 +2916,12 @@ async function report(
   detail?: string | null,
   percent?: number | null,
 ) {
-  try {
-    await applyProgressReport(client as never, op as never, {
-      step,
-      state,
-      detail: detail ?? null,
-      percent: percent ?? null,
-    });
-  } catch (error) {
-    if (operationUsesFencing(op)) throw error;
-  }
+  await applyProgressReport(client as never, op as never, {
+    step,
+    state,
+    detail: detail ?? null,
+    percent: percent ?? null,
+  });
 }
 
 /* ------------------------------------------------- preflight de credenciais */
