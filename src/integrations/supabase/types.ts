@@ -5555,6 +5555,56 @@ export type Database = {
           },
         ]
       }
+      installation_operation_migrations: {
+        Row: {
+          confirmed_at: string | null
+          created_at: string
+          fingerprint: string
+          id: string
+          migration_file: string
+          operation_id: string
+          package_position: number
+          statement_index: number
+          status: string
+          total_statements: number
+          updated_at: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          created_at?: string
+          fingerprint: string
+          id?: string
+          migration_file: string
+          operation_id: string
+          package_position: number
+          statement_index?: number
+          status?: string
+          total_statements: number
+          updated_at?: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          created_at?: string
+          fingerprint?: string
+          id?: string
+          migration_file?: string
+          operation_id?: string
+          package_position?: number
+          statement_index?: number
+          status?: string
+          total_statements?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_operation_migrations_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "installation_operations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       installation_operation_outbox: {
         Row: {
           available_at: string
@@ -9082,6 +9132,20 @@ export type Database = {
         Args: { _brand_id: string; _client_id: string; _user_id: string }
         Returns: Json
       }
+      checkpoint_installation_migration: {
+        Args: {
+          _completed?: boolean
+          _fencing_token: number
+          _fingerprint: string
+          _migration_file: string
+          _operation_id: string
+          _owner: string
+          _package_position: number
+          _statement_index: number
+          _total_statements: number
+        }
+        Returns: boolean
+      }
       checkpoint_installation_operation: {
         Args: {
           _current_step: string
@@ -9485,6 +9549,10 @@ export type Database = {
       }
       media_plan_public_items: { Args: { _token: string }; Returns: Json }
       media_plan_public_resolve: { Args: { _token: string }; Returns: Json }
+      merge_installation_operation_steps: {
+        Args: { _current: Json; _incoming: Json }
+        Returns: Json
+      }
       message_unread_counts: {
         Args: { _brand_id: string }
         Returns: {
