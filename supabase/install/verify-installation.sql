@@ -145,6 +145,27 @@ WITH checks AS (
               THEN 'PASS' ELSE 'FAIL' END
 
   UNION ALL
+  SELECT 87, 'instalações: progresso canônico transacional de migrations',
+         CASE WHEN to_regclass('public.installation_operation_migrations') IS NULL THEN 'tabela ausente'
+              ELSE 'tabela presente / funções=' ||
+                (SELECT count(*)::text FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                 WHERE n.nspname = 'public' AND p.proname IN (
+                   'checkpoint_installation_migration',
+                   'reconcile_installation_operation_migrations',
+                   'merge_installation_operation_steps'
+                 )) END,
+         CASE WHEN to_regclass('public.installation_operation_migrations') IS NOT NULL
+                   AND (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                        WHERE n.nspname = 'public' AND p.proname IN (
+                          'checkpoint_installation_migration',
+                          'reconcile_installation_operation_migrations',
+                          'merge_installation_operation_steps'
+                        )) = 3
+                   AND NOT has_table_privilege('anon', 'public.installation_operation_migrations', 'SELECT')
+                   AND NOT has_table_privilege('authenticated', 'public.installation_operation_migrations', 'INSERT')
+              THEN 'PASS' ELSE 'FAIL' END
+
+  UNION ALL
   SELECT 16, 'trigger on_auth_user_created em auth.users',
          (SELECT count(*)::text FROM pg_trigger WHERE tgname = 'on_auth_user_created'),
          CASE WHEN EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'on_auth_user_created')

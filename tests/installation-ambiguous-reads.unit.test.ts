@@ -143,12 +143,14 @@ describe("ocorrência 3 — checkpoint persistido", () => {
   });
 
   it("resposta válida: salva checkpoint monotônico", async () => {
-    const client = checkpointClient({ data: { detail: { baselineProgress: { migration: 24 } } }, error: null });
+    const freshSteps = [{ id: "database", state: "running", percent: 88 }];
+    const client = checkpointClient({ data: { detail: { baselineProgress: { migration: 24 } }, steps: freshSteps }, error: null });
     await expect(saveBaselineProgress(client as never, operation, { migration: 25 })).resolves.toBeUndefined();
     expect(client.rpc).toHaveBeenCalledWith(
       "checkpoint_installation_operation",
       expect.objectContaining({
         _detail: expect.objectContaining({ baselineProgress: { migration: 25 } }),
+        _steps: freshSteps,
       }),
     );
   });
