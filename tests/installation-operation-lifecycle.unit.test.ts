@@ -13,7 +13,7 @@ import retryAccountingSql from "../supabase/migrations/20260913230055_f50b7d0b-e
 import deferSql from "../supabase/migrations/20260914003510_de477c51-5d2f-436b-af5c-c17ea96d7bdd.sql?raw";
 import canonicalAttemptsSql from "../supabase/migrations/20260914141212_3f236ac3-b474-429e-9cae-7bd7a2e303bb.sql?raw";
 import sealedPackageSql from "../supabase/migrations/20260914193902_b2da0b29-18e7-4dee-b276-428a57155c36.sql?raw";
-import sealedPackageStrictHashSql from "../supabase/migrations/20260914194614_75d97fb8-f7e9-4d92-83bd-c7050a4c7acb.sql?raw";
+import sealedPackageStrictHashSql from "../supabase/migrations/20260914194505_2a76102f-5090-46e6-9269-f3c0f1bd057f.sql?raw";
 
 const NOW = Date.parse("2026-01-10T12:00:00.000Z");
 
