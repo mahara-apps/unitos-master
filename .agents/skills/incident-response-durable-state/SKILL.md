@@ -1,5 +1,5 @@
 ---
-name: Resposta a incidentes de estado durável
+name: incident-response-durable-state
 description: Playbook obrigatório para incidentes em que erros, respostas vazias, retomadas ou checkpoints podem causar falso estado, repetição ou corrupção.
 ---
 
