@@ -1,5 +1,16 @@
 # Roadmap
 
+## MASTER 1.3.93 — Checkpoint canônico e retomada atômica
+
+- [ ] Manter a Taveira congelada e provar que nenhuma retomada automática continua ativa.
+- [ ] Auditar a idempotência e os efeitos reais dos 25 comandos reexecutados na Taveira.
+- [ ] Substituir progresso dividido por checkpoint canônico `operação + migration + fingerprint`.
+- [ ] Persistir statement concluído, checkpoint e tentativa de forma atômica, sob lease/fencing.
+- [ ] Encerrar tentativas órfãs de forma auditável sem apagar histórico.
+- [ ] Cobrir crash, replay, resposta `initialized:false`, checkpoint ausente e fencing divergente.
+- [ ] Ensaiar integralmente um estado equivalente a 81/103 até 103/103, com Banco e Schema aprovados.
+- [ ] Executar MASTER-first completo e apresentar evidências antes de publicar ou retomar a Taveira.
+
 ## MASTER 1.3.92 — Checkpoints e leituras sem estados ambíguos
 
 - [x] Destravar o checkpoint 25/34 sem reprocessar migrations registradas.
