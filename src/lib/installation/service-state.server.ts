@@ -40,6 +40,18 @@ where service_state = ${quote(input.state)};
 `.trim();
 }
 
+export function remoteServiceStateWasConfirmed(result: {
+  ok: boolean;
+  rows: readonly unknown[];
+}): boolean {
+  if (!result.ok) return false;
+  const row = result.rows.find(
+    (value): value is Record<string, unknown> => Boolean(value && typeof value === "object"),
+  );
+  if (!row || !("matched" in row)) return false;
+  return Number(row["matched"]) > 0;
+}
+
 /**
  * Altera o estado operacional no banco da instalação cliente.
  * Retorna false quando a credencial não existe ou a escrita remota falha: o
@@ -71,11 +83,7 @@ export async function setRemoteInstallationServiceState(input: {
         onlyIfMaintenance: input.state === "active" && input.preserveSuspended !== false,
       }),
     );
-    if (!result.ok) return false;
-    const row = result.rows.find(
-      (value): value is Record<string, unknown> => Boolean(value && typeof value === "object"),
-    );
-    return Number(row?.["matched"] ?? 0) > 0;
+    return remoteServiceStateWasConfirmed(result);
   } catch {
     return false;
   }

@@ -13,6 +13,7 @@ import {
   resolveServiceStateRead,
   UNAVAILABLE_SERVICE_STATE,
 } from "@/lib/installation-settings.server";
+import { remoteServiceStateWasConfirmed } from "@/lib/installation/service-state.server";
 
 function operationQuery(result: { data: unknown; error?: unknown }) {
   const chain = {
@@ -209,5 +210,20 @@ describe("ocorrência 6 — primeiro acesso escalar", () => {
         query: async () => ({ ok: true, rows: [{ has_super_admin: true, brand_count: 1 }] }),
       }),
     ).resolves.toMatchObject({ superAdmin: "ok", workspace: "ok" });
+  });
+});
+
+describe("ocorrência 7 — confirmação do estado remoto", () => {
+  it("erro/timeout: não confirma a alteração", () => {
+    expect(remoteServiceStateWasConfirmed({ ok: false, rows: [] })).toBe(false);
+  });
+
+  it("vazio real: ausência do resultado obrigatório não vira sucesso", () => {
+    expect(remoteServiceStateWasConfirmed({ ok: true, rows: [] })).toBe(false);
+  });
+
+  it("resposta válida: confirma somente quando uma linha foi alterada", () => {
+    expect(remoteServiceStateWasConfirmed({ ok: true, rows: [{ matched: 1 }] })).toBe(true);
+    expect(remoteServiceStateWasConfirmed({ ok: true, rows: [{ matched: 0 }] })).toBe(false);
   });
 });
