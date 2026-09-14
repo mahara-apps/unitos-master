@@ -1007,6 +1007,15 @@ export type CodeClient = {
    * MASTER é publicado.
    */
   releaseAtCommit: (sha: string) => Promise<{ ok: boolean; version?: string; error?: string }>;
+  /** Lê e valida o pacote de banco exatamente no commit autorizado. */
+  releaseSnapshotAtCommit: (sha: string) => Promise<{
+    ok: boolean;
+    version?: string;
+    sha256?: string;
+    total?: number;
+    sql?: string;
+    error?: string;
+  }>;
   /**
    * Versão que está de fato publicada no repositório DA INSTALAÇÃO (branch de
    * produção). É a verdade sobre o que está no ar: o painel usa isto para
@@ -1173,6 +1182,20 @@ export function createCodeClient(input: {
       return `Instabilidade temporária do GitHub (HTTP ${res.status}) ao ${what}. O progresso salvo será reaproveitado; tente novamente em alguns minutos.`;
     }
     return `HTTP ${res.status} ao ${what} (${text.slice(0, 200)})`;
+  };
+
+  const readMasterFileAtCommit = async (path: string, sha: string) => {
+    const res = await api(`/repos/${master}/contents/${path}?ref=${encodeURIComponent(sha)}`);
+    if (!res.ok) return { ok: false as const, error: await fail(res, `ler ${path} no MASTER`) };
+    const body = (await res.json().catch(() => ({}))) as { content?: string; encoding?: string };
+    const content =
+      body.encoding === "base64" && body.content
+        ? new TextDecoder().decode(
+            Uint8Array.from(atob(body.content.replace(/\s+/g, "")), (c) => c.charCodeAt(0)),
+          )
+        : (body.content ?? "");
+    if (!content) return { ok: false as const, error: `${path} retornou conteúdo vazio` };
+    return { ok: true as const, content };
   };
 
   const viewerLogin = async () => {
@@ -1640,25 +1663,36 @@ export function createCodeClient(input: {
     async releaseAtCommit(sha) {
       try {
         const path = "supabase/baseline-snapshot/tools/delta_version.txt";
-        const res = await api(`/repos/${master}/contents/${path}?ref=${encodeURIComponent(sha)}`);
-        if (!res.ok) {
-          return { ok: false, error: await fail(res, "ler a versão do pacote no MASTER") };
-        }
-        const body = (await res.json().catch(() => ({}))) as {
-          content?: string;
-          encoding?: string;
-        };
-        const raw =
-          body.encoding === "base64" && body.content
-            ? new TextDecoder().decode(
-                Uint8Array.from(atob(body.content.replace(/\s+/g, "")), (c) => c.charCodeAt(0)),
-              )
-            : (body.content ?? "");
+        const file = await readMasterFileAtCommit(path, sha);
+        if (!file.ok) return file;
+        const raw = file.content;
         const match = /^\s*version\s*=\s*(\S+)\s*$/m.exec(raw);
         if (!match?.[1]) return { ok: false, error: "versão do pacote não encontrada no commit" };
         return { ok: true, version: match[1] };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
+      }
+    },
+
+    async releaseSnapshotAtCommit(sha) {
+      try {
+        const [versionFile, deltaFile] = await Promise.all([
+          readMasterFileAtCommit("supabase/baseline-snapshot/tools/delta_version.txt", sha),
+          readMasterFileAtCommit("supabase/baseline-snapshot/007_delta_migrations.sql", sha),
+        ]);
+        if (!versionFile.ok) return versionFile;
+        if (!deltaFile.ok) return deltaFile;
+        const version = /^\s*version\s*=\s*(\S+)\s*$/m.exec(versionFile.content)?.[1];
+        const declaredSha = /^\s*sha256\s*=\s*([0-9a-f]{64})\s*$/mi.exec(versionFile.content)?.[1]?.toLowerCase();
+        if (!version || !declaredSha) return { ok: false, error: "metadados do pacote autorizado estão incompletos" };
+        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(deltaFile.content));
+        const actualSha = Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+        if (actualSha !== declaredSha) return { ok: false, error: "assinatura do pacote autorizado não confere" };
+        const total = splitDeltaMigrations(deltaFile.content).length;
+        if (total === 0) return { ok: false, error: "pacote autorizado não contém migrations válidas" };
+        return { ok: true, version, sha256: actualSha, total, sql: deltaFile.content };
+      } catch (error) {
+        return { ok: false, error: (error as Error).message };
       }
     },
 
@@ -2855,6 +2889,8 @@ export type StageProgress = {
   updateGitPushCommit?: string;
   /** Versão do pacote do MASTER já publicada nesta operação (registro da versão). */
   updateRelease?: string;
+  /** Maior quantidade de migrations confirmada para o snapshot desta operação. */
+  updateCompletedMigrations?: number;
 };
 
 export async function readStageProgress(
@@ -4260,6 +4296,7 @@ export async function applyDatabaseDelta(input: {
   timeBudgetMs?: number;
   maxMigrationsPerInvocation?: number;
   now?: () => number;
+  snapshot: { version: string; commitSha: string; sha256: string; total: number; sql: string };
 }): Promise<
   | { state: "done"; detail: string; percent: 100 }
   | { state: "pending"; detail: string; percent: number }
@@ -4290,9 +4327,16 @@ export async function applyDatabaseDelta(input: {
     };
   }
 
-  const migrations = splitDeltaMigrations(baseline007);
+  const migrations = splitDeltaMigrations(input.snapshot.sql);
   if (migrations.length === 0) {
     return { state: "error", detail: "pacote de migrations do MASTER está sem marcadores válidos" };
+  }
+  if (
+    operation.baseline_id !== `${input.snapshot.version}:${input.snapshot.commitSha}:${input.snapshot.total}` ||
+    operation.baseline_hash !== input.snapshot.sha256 ||
+    migrations.length !== input.snapshot.total
+  ) {
+    return { state: "blocked", detail: "snapshot do pacote divergiu da autorização da operação" };
   }
 
   const ledgerSetup = await seedDeltaLedger(management, []);
@@ -4341,6 +4385,18 @@ export async function applyDatabaseDelta(input: {
   }
 
   let progress = await readBaselineProgress(client, installation.id, operation);
+  const stageProgress = await readStageProgress(client, operation);
+  const confirmedCompleted = Math.max(0, stageProgress.updateCompletedMigrations ?? 0);
+  if (appliedLabels.size < confirmedCompleted) {
+    return {
+      state: "pending",
+      percent: databaseMigrationsPercent({ total: migrations.length, completed: confirmedCompleted }),
+      detail: `Banco ${confirmedCompleted}/${migrations.length} migrations confirmadas; leitura parcial do ledger será repetida`,
+    };
+  }
+  if (appliedLabels.size > confirmedCompleted) {
+    await saveStageProgress(client, operation, { updateCompletedMigrations: appliedLabels.size });
+  }
   const now = input.now ?? Date.now;
   const startedAt = now();
   const budgetMs = input.timeBudgetMs ?? UPDATE_DATABASE_TIME_BUDGET_MS;
@@ -4391,6 +4447,7 @@ export async function applyDatabaseDelta(input: {
     progress = { ...progress, [checkpointKey]: DONE };
     await saveBaselineProgress(client, operation, progress);
     appliedLabels.add(ledgerLabel);
+    await saveStageProgress(client, operation, { updateCompletedMigrations: appliedLabels.size });
     processedMigrations += 1;
 
     const remaining = migrations.length - appliedLabels.size;
@@ -4507,6 +4564,25 @@ export async function runAutomatedUpdate(input: {
     fetchImpl: input.fetchImpl,
   });
 
+  const checkpoint = await readStageProgress(client, operation);
+  const alreadyPublished = checkpoint.codeDone === true && Boolean(checkpoint.codeSha);
+  let targetSha = alreadyPublished
+    ? (checkpoint.codeSha ?? null)
+    : (input.commitSha ?? "").trim() || null;
+  if (!targetSha) {
+    return fail("BLOCKED", "a operação não possui commit autorizado do MASTER");
+  }
+  const packageSnapshot = await code.releaseSnapshotAtCommit(targetSha);
+  if (
+    !packageSnapshot.ok ||
+    !packageSnapshot.version ||
+    !packageSnapshot.sha256 ||
+    !packageSnapshot.total ||
+    !packageSnapshot.sql
+  ) {
+    return fail("BLOCKED", packageSnapshot.error ?? "snapshot autorizado do MASTER indisponível");
+  }
+
   // Nenhum delta é aplicado antes de comprovar banco, GitHub e Vercel.
   const updatePreflight = await preflightAccess({
     management,
@@ -4536,6 +4612,13 @@ export async function runAutomatedUpdate(input: {
     operation,
     installation,
     env,
+    snapshot: {
+      version: packageSnapshot.version,
+      commitSha: targetSha,
+      sha256: packageSnapshot.sha256,
+      total: packageSnapshot.total,
+      sql: packageSnapshot.sql,
+    },
     ...(input.fetchImpl ? { fetchImpl: input.fetchImpl } : {}),
   });
   if (delta.state === "blocked" || delta.state === "error") {
@@ -4547,7 +4630,6 @@ export async function runAutomatedUpdate(input: {
   }
   await report(client, operation, "database", "done", delta.detail, 100);
 
-  const checkpoint = await readStageProgress(client, operation);
   // Checkpoints antigos podem apontar para uma tentativa REST recusada. Só um
   // deployment associado ao commit de push Git pode ser retomado.
   let deploymentId = checkpoint.updateGitPushCommit ? (checkpoint.updateDeploymentId ?? null) : null;
@@ -4561,26 +4643,14 @@ export async function runAutomatedUpdate(input: {
   // commit do checkpoint. Nunca revalidar "MASTER publicado" aqui — o pacote já
   // está no repositório da instalação e barrar agora perderia o registro da
   // versão (foi exatamente o que deixou o painel parado numa versão antiga).
-  const alreadyPublished = checkpoint.codeDone === true && Boolean(checkpoint.codeSha);
   // Commit autorizado pelo Super Admin (gravado na operação). Sem ele, fixa o
   // commit atual da branch do MASTER no momento da autorização.
-  let targetSha = alreadyPublished
-    ? (checkpoint.codeSha ?? null)
-    : (input.commitSha ?? "").trim() || null;
-  if (!targetSha) {
-    const head = await code.masterHeadSha();
-    if (!head.ok || !head.sha) {
-      // Fail-closed: sem versão de origem identificada não há o que publicar.
-      return fail("BLOCKED", head.error ?? "versão do MASTER não pôde ser identificada");
-    }
-    targetSha = head.sha;
-  }
 
   // A versão que existe DENTRO do commit do MASTER. O repositório de código só
   // avança quando o MASTER é publicado; sem esta checagem a operação enviaria o
   // mesmo pacote de novo e ainda gravaria o número de versão novo na instalação.
   const { compareReleaseVersions, masterNotPublishedMessage } = await import("./manager-contract");
-  let publishedRelease = alreadyPublished ? (checkpoint.updateRelease ?? null) : null;
+  let publishedRelease = alreadyPublished ? (checkpoint.updateRelease ?? null) : packageSnapshot.version;
   if (!publishedRelease) {
     const repoRelease = await code.releaseAtCommit(targetSha);
     if (!repoRelease.ok || !repoRelease.version) {

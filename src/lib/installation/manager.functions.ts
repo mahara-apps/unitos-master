@@ -1072,12 +1072,14 @@ async function startAtomicInstallationOperation(input: {
   summary: string;
   steps: OperationStep[];
   detail: Record<string, unknown>;
+  baselineId?: string | null;
+  baselineHash?: string | null;
 }) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { callRpc } = await import("@/lib/supabase-rpc");
   const { data, error } = await callRpc<Record<string, unknown>>(
     supabaseAdmin as never,
-    "start_installation_operation",
+    "start_durable_installation_operation",
     {
       _actor_id: input.actorId,
       _installation_id: input.installationId,
@@ -1086,6 +1088,10 @@ async function startAtomicInstallationOperation(input: {
       _steps: input.steps,
       _run_token_hash: null,
       _run_token_expires_at: null,
+      _detail: input.detail,
+      _workflow_version: 2,
+      _baseline_id: input.baselineId ?? null,
+      _baseline_hash: input.baselineHash ?? null,
     },
   );
   if (error || !data || typeof data["id"] !== "string") {
@@ -1094,17 +1100,7 @@ async function startAtomicInstallationOperation(input: {
       throw new Error("Já existe uma operação em andamento nesta instalação.");
     throw new Error(message);
   }
-  const { data: operation, error: detailError } = await supabaseAdmin
-    .from("installation_operations")
-    .update({
-      detail: input.detail as never,
-      actor_id: input.actorId,
-    })
-    .eq("id", data["id"])
-    .select("*")
-    .single();
-  if (detailError) throw detailError;
-  return operation;
+  return data;
 }
 
 /**
@@ -1497,6 +1493,14 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
       };
     }
     const targetSha = head.sha;
+    const snapshot = await masterCode.releaseSnapshotAtCommit(targetSha);
+    if (!snapshot.ok || !snapshot.version || !snapshot.sha256 || !snapshot.total) {
+      return {
+        result: "BLOCKED" as const,
+        operationId: null,
+        reasons: [snapshot.error ?? "não foi possível fixar o pacote autorizado do MASTER"],
+      };
+    }
 
     const op = await startAtomicInstallationOperation({
       actorId: context.userId,
@@ -1504,15 +1508,23 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
       kind: "update",
       summary: "Atualização de código disparada pelo MASTER.",
       steps: initialSteps("update"),
+      baselineId: `${snapshot.version}:${targetSha}:${snapshot.total}`,
+      baselineHash: snapshot.sha256,
       detail: {
-          releaseVersion: MASTER_RELEASE_VERSION,
+          releaseVersion: snapshot.version,
           executed: true,
           automated: true,
           targetCommitSha: targetSha,
+          packageSnapshot: {
+            version: snapshot.version,
+            commitSha: targetSha,
+            sha256: snapshot.sha256,
+            totalMigrations: snapshot.total,
+          },
           fromVersion: record.pinnedCommitSha
             ? `${record.pinnedRelease ?? record.currentVersion ?? "?"} · ${record.pinnedCommitSha.slice(0, 7)}`
             : (record.currentVersion ?? null),
-          toVersion: `${MASTER_RELEASE_VERSION} · ${targetSha.slice(0, 7)}`,
+          toVersion: `${snapshot.version} · ${targetSha.slice(0, 7)}`,
       },
     });
     await supabase.from("installations").update({ pinned_by: context.userId }).eq("id", data.id);
