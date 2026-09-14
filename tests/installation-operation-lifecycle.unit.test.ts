@@ -11,6 +11,7 @@ import {
 } from "@/lib/installation/manager-contract";
 import retryAccountingSql from "../supabase/migrations/20260913230055_f50b7d0b-e5e5-4cc8-9ad0-ddcfd8104005.sql?raw";
 import deferSql from "../supabase/migrations/20260914003510_de477c51-5d2f-436b-af5c-c17ea96d7bdd.sql?raw";
+import canonicalAttemptsSql from "../supabase/migrations/20260914141212_3f236ac3-b474-429e-9cae-7bd7a2e303bb.sql?raw";
 
 const NOW = Date.parse("2026-01-10T12:00:00.000Z");
 
@@ -119,6 +120,15 @@ describe("contagem de falhas consecutivas", () => {
     expect(deferSql).toContain("status = 'deferred'");
     expect(deferSql).toContain("_error_detail");
     expect(deferSql).toContain("REVOKE ALL ON FUNCTION public.defer_installation_operation");
+  });
+
+  it("heartbeat, checkpoint e finalização mantêm a tentativa na mesma transação", () => {
+    expect(canonicalAttemptsSql).toContain("CREATE TABLE IF NOT EXISTS public.installation_operation_attempts");
+    expect(canonicalAttemptsSql).toContain("status = 'orphaned'");
+    expect(canonicalAttemptsSql).toContain("reconcile_orphan_installation_attempts");
+    expect(canonicalAttemptsSql.match(/UPDATE public\.installation_operation_attempts/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(canonicalAttemptsSql).toContain("a.fencing_token = s.fencing_token");
+    expect(canonicalAttemptsSql).toContain("fencing_token = _fencing_token");
   });
 });
 

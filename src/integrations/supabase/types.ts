@@ -9578,6 +9578,10 @@ export type Database = {
         Args: { _brand_id: string; _client_id: string }
         Returns: number
       }
+      reconcile_orphan_installation_attempts: {
+        Args: { _max_idle_seconds?: number }
+        Returns: number
+      }
       refresh_brain_stats: { Args: never; Returns: undefined }
       refresh_task_total_minutes: {
         Args: { _task_id: string }

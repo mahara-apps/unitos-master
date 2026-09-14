@@ -507,7 +507,7 @@ WITH checks AS (
                'ad_insights_daily','brain_events','briefing_import_changes',
                'briefing_import_runs','briefing_import_steps','client_portal_access',
                'client_request_events','client_requests','installation',
-               'installation_meta_app','message_thread_participants','message_threads',
+                 'installation_meta_app','installation_operation_attempts','message_thread_participants','message_threads',
                'messages','portal_notification_prefs','post_client_comments','post_copy_queue_state',
                'client_ad_accounts','project_participants','user_login_events','work_comments',
                 'work_links','work_statuses','client_automation_attempts',
@@ -523,7 +523,7 @@ WITH checks AS (
              'ad_insights_daily','brain_events','briefing_import_changes',
              'briefing_import_runs','briefing_import_steps','client_portal_access',
              'client_request_events','client_requests','installation',
-             'installation_meta_app','message_thread_participants','message_threads',
+              'installation_meta_app','installation_operation_attempts','message_thread_participants','message_threads',
              'messages','portal_notification_prefs','post_client_comments','post_copy_queue_state',
              'client_ad_accounts','project_participants','user_login_events','work_comments',
               'work_links','work_statuses','client_automation_attempts',
@@ -572,6 +572,25 @@ WITH checks AS (
              AND table_schema = 'public'
              AND privilege_type IN ('TRUNCATE', 'TRIGGER', 'REFERENCES', 'MAINTAIN')
          ) THEN 'PASS' ELSE 'FAIL' END
+
+  UNION ALL
+  SELECT 84, 'retomada: checkpoint canônico por migration',
+         CASE WHEN to_regclass('public._unitos_migration_checkpoints') IS NULL THEN 'ausente'
+              ELSE 'presente' END,
+         CASE WHEN to_regclass('public._unitos_migration_checkpoints') IS NOT NULL
+                   AND EXISTS (SELECT 1 FROM information_schema.columns
+                               WHERE table_schema='public' AND table_name='_unitos_migration_checkpoints'
+                                 AND column_name='statement_index')
+              THEN 'PASS' ELSE 'FAIL' END
+
+  UNION ALL
+  SELECT 85, 'operações: tentativas duráveis e reconciliação de órfãs',
+         CASE WHEN to_regclass('public.installation_operation_attempts') IS NULL THEN 'tabela ausente'
+              WHEN to_regprocedure('public.reconcile_orphan_installation_attempts(integer)') IS NULL THEN 'função ausente'
+              ELSE 'presentes' END,
+         CASE WHEN to_regclass('public.installation_operation_attempts') IS NOT NULL
+                   AND to_regprocedure('public.reconcile_orphan_installation_attempts(integer)') IS NOT NULL
+              THEN 'PASS' ELSE 'FAIL' END
 )
 
 SELECT status, check_name, observed

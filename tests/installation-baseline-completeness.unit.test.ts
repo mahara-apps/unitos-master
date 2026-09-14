@@ -203,6 +203,11 @@ describe("summarizeVerificationRows", () => {
 });
 
 describe("reexecução idempotente do baseline", () => {
+  const checkpointRows = (sql: string, total: number, index = 0) =>
+    sql.includes("select statement_index")
+      ? [{ statement_index: index, total_statements: total, status: "running" }]
+      : [];
+
   it("divide statements preservando corpos dollar-quoted", () => {
     const stmts = splitSqlStatements(
       [
@@ -228,7 +233,7 @@ describe("reexecução idempotente do baseline", () => {
   it("reaplica ignorando duplicados e aborta em erro real", async () => {
     const ok = await applyStatementByStatement(
       {
-        query: async () => ({ ok: true, rows: [] }),
+        query: async (statement) => ({ ok: true, rows: checkpointRows(statement, 2) }),
       },
       "CREATE TYPE t AS ENUM ('a');\nCREATE TABLE x (id int);",
     );
@@ -250,13 +255,13 @@ describe("reexecução idempotente do baseline", () => {
         query: async (batch) => {
           if (!batch.includes("DO $unitos_guard$")) {
             // chamadas auxiliares: preparação da tabela de adiados e drenagem final
-            return { ok: true, rows: [] };
+            return { ok: true, rows: checkpointRows(batch, 256) };
           }
           calls += 1;
           expect(batch).toContain("WHEN SQLSTATE '42710'");
           expect(batch).toContain("WHEN SQLSTATE '42P16'");
           expect(batch).toContain("multiple primary key");
-          return { ok: true, rows: [] };
+          return { ok: true, rows: checkpointRows(batch, 256) };
         },
 
       },
@@ -277,14 +282,14 @@ describe("reexecução idempotente do baseline", () => {
 
   it("interrompe a retomada quando a operação foi cancelada", async () => {
     const result = await applyStatementByStatement(
-      { query: async () => ({ ok: true, rows: [] }) },
+      { query: async (statement) => ({ ok: true, rows: checkpointRows(statement, 2) }) },
       "SELECT 1; SELECT 2;",
       { isCancelled: async () => true },
     );
     expect(result).toMatchObject({ ok: false, error: "Operação cancelada pelo Super Admin." });
   });
 
-  it("reinicia com segurança quando o checkpoint antigo não tem a fila de dependências", async () => {
+  it("adota o checkpoint legado sem reiniciar os comandos já processados", async () => {
     const batches: string[] = [];
     const result = await applyStatementByStatement(
       {
@@ -292,7 +297,9 @@ describe("reexecução idempotente do baseline", () => {
           batches.push(batch);
           return {
             ok: true,
-            rows: batch.includes(" as initialized") ? [{ initialized: false }] : [],
+            rows: batch.includes("select statement_index")
+              ? [{ statement_index: 3, total_statements: 3, status: "running" }]
+              : [],
           };
         },
       },
@@ -301,10 +308,8 @@ describe("reexecução idempotente do baseline", () => {
     );
 
     expect(result).toMatchObject({ ok: true, processed: 3, total: 3, complete: true });
-    expect(
-      batches.some((batch) => batch.includes("delete from public._unitos_deferred_sql where run_key")),
-    ).toBe(true);
-    expect(batches.some((batch) => batch.includes("DO $unitos_guard$"))).toBe(true);
+    expect(batches.some((batch) => batch.includes("_unitos_migration_checkpoints"))).toBe(true);
+    expect(batches.some((batch) => batch.includes("DO $unitos_guard$"))).toBe(false);
   });
 
   it("reavalia dependências após cada lote e preserva o diagnóstico SQL real", async () => {
@@ -315,7 +320,9 @@ describe("reexecução idempotente do baseline", () => {
           batches.push(batch);
           return {
             ok: true,
-            rows: batch.includes(" as initialized") ? [{ initialized: true }] : [],
+            rows: batch.includes("select statement_index")
+              ? [{ statement_index: 0, total_statements: 3, status: "running" }]
+              : [],
           };
         },
       },
@@ -366,7 +373,12 @@ describe("tabelas auxiliares da automação e RLS", () => {
       {
         query: async (batch) => {
           batches.push(batch);
-          return { ok: true, rows: batch.includes(" as initialized") ? [{ initialized: true }] : [] };
+          return {
+            ok: true,
+            rows: batch.includes("select statement_index")
+              ? [{ statement_index: 0, total_statements: 1, status: "running" }]
+              : [],
+          };
         },
       },
       "SELECT 1;",
@@ -379,7 +391,7 @@ describe("tabelas auxiliares da automação e RLS", () => {
     expect(prep).toContain("add column if not exists error_message text");
   });
 
-  it("hardenHelperTables é idempotente e cobre as duas tabelas auxiliares", async () => {
+  it("hardenHelperTables é idempotente e cobre todas as tabelas auxiliares", async () => {
     const seen: string[] = [];
     const management = {
       query: async (sql: string) => {

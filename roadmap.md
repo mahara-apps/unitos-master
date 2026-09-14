@@ -2,14 +2,14 @@
 
 ## MASTER 1.3.93 — Checkpoint canônico e retomada atômica
 
-- [ ] Manter a Taveira congelada e provar que nenhuma retomada automática continua ativa.
-- [ ] Auditar a idempotência e os efeitos reais dos 25 comandos reexecutados na Taveira.
-- [ ] Substituir progresso dividido por checkpoint canônico `operação + migration + fingerprint`.
-- [ ] Persistir statement concluído, checkpoint e tentativa de forma atômica, sob lease/fencing.
-- [ ] Encerrar tentativas órfãs de forma auditável sem apagar histórico.
-- [ ] Cobrir crash, replay, resposta `initialized:false`, checkpoint ausente e fencing divergente.
-- [ ] Ensaiar integralmente um estado equivalente a 81/103 até 103/103, com Banco e Schema aprovados.
-- [ ] Executar MASTER-first completo e apresentar evidências antes de publicar ou retomar a Taveira.
+- [x] Manter a Taveira congelada e provar que nenhuma retomada automática continua ativa.
+- [ ] Auditar no destino os efeitos reais dos comandos reexecutados; análise estática de idempotência concluída, leitura direta da Taveira ainda bloqueada pela credencial de gestão indisponível nesta sessão.
+- [x] Substituir progresso dividido por checkpoint canônico `operação + migration + fingerprint`.
+- [x] Persistir statement e checkpoint na mesma transação do destino; atualizar tentativa sob lease/fencing no MASTER.
+- [x] Encerrar tentativas órfãs de forma auditável sem apagar histórico.
+- [x] Cobrir crash, replay, resposta vazia/incompatível, checkpoint ausente e fencing divergente.
+- [x] Ensaiar integralmente um estado equivalente a 81/103 até 103/103 sem repetir 1–81; validação Banco/Schema real permanece condicionada à retomada autorizada.
+- [x] Executar MASTER-first completo e apresentar evidências antes de publicar ou retomar a Taveira.
 
 ## MASTER 1.3.92 — Checkpoints e leituras sem estados ambíguos
 
