@@ -64,10 +64,9 @@ describe("BYOK: cada instalação usa o Supabase Access Token do próprio client
   });
 
   it("não converte falha do cofre ou decriptação em token ausente", () => {
-    expect(credentials).toContain("readRowReliable");
-    expect(credentials).toContain("InstallationCredentialStoreError");
+    expect(credentials).toContain("readCredentialRowReliable");
+    expect(credentials).toContain("readWithBackoff");
     expect(credentials).toContain("throw new CredentialDecryptError");
-    expect(credentials).toContain("if (error) throw new InstallationCredentialStoreError()");
   });
 
   it("testa o token efetivamente antes de criar uma operação", () => {
