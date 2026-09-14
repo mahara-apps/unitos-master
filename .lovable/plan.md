@@ -9,12 +9,16 @@
 1. Separar a leitura do marcador interno em uma consulta própria e exigir resposta explícita.
 2. Nunca reiniciar do zero por resposta vazia; classificar como falha transitória, preservando checkpoint, ledger, lease e fencing.
 3. Corrigir o marcador `DONE = -1` para não ser bloqueado pela regra monotônica usada para percentuais.
-4. Adicionar testes comportamentais que reproduzam exatamente o loop 25/34 e comprovem avanço até o ledger.
-5. Executar o fluxo MASTER-first completo na versão 1.3.92: migration se necessária, delta, SHA/versão, verificação, testes direcionados e `master:check`.
-6. Publicar o MASTER e acompanhar a Taveira até sair de Banco/Schema, sem reprocessar migrations registradas.
+4. Fazer uma varredura estática completa no fluxo de instalações: cadastro, cofre, operações, lease/fencing, checkpoints, ledger, fila, estado remoto, código/build e validação.
+5. Corrigir no mesmo pacote todos os pontos críticos que convertam erro, timeout ou resposta vazia em ausência, cancelamento, conclusão, zero, objeto vazio ou reinicialização.
+6. Adicionar testes comportamentais por ocorrência com três controles: erro/timeout, vazio real e resposta válida; incluir a reprodução exata do loop 25/34.
+7. Executar o fluxo MASTER-first completo na versão 1.3.92: migration se necessária, delta, SHA/versão, verificação, testes direcionados e `master:check`.
+8. Publicar o MASTER e acompanhar a Taveira até sair de Banco/Schema, sem reprocessar migrations registradas.
 
 ## Critérios de liberação
 - Nenhuma resposta vazia reinicia uma migration no comando zero.
+- Nenhuma leitura crítica mantém estado ambíguo entre ausência real e indisponibilidade.
+- O inventário completo informa cada ocorrência encontrada, sua correção e seu teste dedicado.
 - A migration atual avança de 25/34 e recebe registro no ledger.
 - Falhas de leitura são reagendadas sem consumir tentativa.
 - Banco e Schema concluem a validação final sem regressão de progresso.
