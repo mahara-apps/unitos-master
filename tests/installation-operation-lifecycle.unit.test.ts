@@ -10,6 +10,7 @@ import {
   stepsProgress,
 } from "@/lib/installation/manager-contract";
 import retryAccountingSql from "../supabase/migrations/20260913230055_f50b7d0b-e5e5-4cc8-9ad0-ddcfd8104005.sql?raw";
+import deferSql from "../supabase/migrations/20260914003510_de477c51-5d2f-436b-af5c-c17ea96d7bdd.sql?raw";
 
 const NOW = Date.parse("2026-01-10T12:00:00.000Z");
 
@@ -111,6 +112,13 @@ describe("contagem de falhas consecutivas", () => {
 
   it("cron permite que a fatia termine antes de considerar timeout", () => {
     expect(retryAccountingSql).toContain("timeout_milliseconds := 60000");
+  });
+
+  it("defer preserva falhas consecutivas e fecha a tentativa sem erro do destino", () => {
+    expect(deferSql).not.toMatch(/attempt_count\s*=|attempt_count\s*\+/i);
+    expect(deferSql).toContain("status = 'deferred'");
+    expect(deferSql).toContain("failureSource");
+    expect(deferSql).toContain("REVOKE ALL ON FUNCTION public.defer_installation_operation");
   });
 });
 

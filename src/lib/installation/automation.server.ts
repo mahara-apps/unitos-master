@@ -2642,8 +2642,7 @@ export async function readBaselineProgress(
   installationId: string,
   operation: OperationRow,
 ): Promise<BaselineProgress> {
-  try {
-    const db = client as never as {
+  const db = client as never as {
       from: (t: string) => {
         select: (c: string) => {
           eq: (
@@ -2653,32 +2652,31 @@ export async function readBaselineProgress(
             order: (
               c: string,
               o: { ascending: boolean },
-            ) => { limit: (n: number) => Promise<{ data?: { detail?: unknown }[] | null }> };
+            ) => { limit: (n: number) => Promise<{ data?: { detail?: unknown }[] | null; error?: unknown }> };
           };
         };
       };
     };
-    const { data } = await db
+  const { data, error } = await db
       .from("installation_operations")
       .select("detail")
       .eq("installation_id", installationId)
       .order("started_at", { ascending: false })
       .limit(5);
-    const rows = [{ detail: operation.detail }, ...(data ?? [])];
-    for (const row of rows) {
+  if (error) throw error;
+  const rows = [...(data ?? []), { detail: operation.detail }];
+  const merged: BaselineProgress = {};
+  for (const row of rows) {
       const raw = (row?.detail as { baselineProgress?: unknown } | null)?.baselineProgress;
       if (raw && typeof raw === "object") {
         const out: BaselineProgress = {};
         for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
           if (typeof value === "number" && Number.isFinite(value)) out[key] = value;
         }
-        if (Object.keys(out).length > 0) return out;
+      for (const [key, value] of Object.entries(out)) merged[key] = Math.max(merged[key] ?? 0, value);
       }
     }
-  } catch {
-    // checkpoint é otimização: falha na leitura só significa aplicar do zero.
-  }
-  return {};
+  return merged;
 }
 
 /** Persiste o checkpoint no detalhe da operação (nunca contém secrets). */
@@ -2688,14 +2686,14 @@ export async function saveBaselineProgress(
   progress: BaselineProgress,
 ): Promise<void> {
   try {
-    const { data: fresh } = await (
+    const { data: fresh, error: readError } = await (
       client as never as {
         from: (t: string) => {
           select: (c: string) => {
             eq: (
               c: string,
               v: string,
-            ) => { maybeSingle: () => Promise<{ data?: { detail?: unknown } | null }> };
+            ) => { maybeSingle: () => Promise<{ data?: { detail?: unknown } | null; error?: unknown }> };
           };
         };
       }
@@ -2704,6 +2702,11 @@ export async function saveBaselineProgress(
       .select("detail")
       .eq("id", operation.id)
       .maybeSingle();
+    if (readError) throw readError;
+    if (!fresh) throw new Error("Operação não encontrada durante o checkpoint do baseline.");
+    const existing = ((fresh.detail as { baselineProgress?: BaselineProgress } | null)?.baselineProgress ?? {});
+    const monotonic = { ...existing };
+    for (const [key, value] of Object.entries(progress)) monotonic[key] = Math.max(monotonic[key] ?? 0, value);
     const rpc = client as never as {
       rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
     };
@@ -2713,8 +2716,8 @@ export async function saveBaselineProgress(
       _fencing_token: operation.fencing_token ?? -1,
       _steps: operation.steps,
       _detail: {
-        ...((fresh?.detail ?? operation.detail ?? {}) as Record<string, unknown>),
-        baselineProgress: progress,
+        ...((fresh.detail ?? {}) as Record<string, unknown>),
+        baselineProgress: monotonic,
       },
       _current_step: null,
       _summary: null,
@@ -2759,15 +2762,14 @@ export async function readStageProgress(
   client: Client,
   operation: OperationRow,
 ): Promise<StageProgress> {
-  try {
-    const { data } = await (
+  const { data, error } = await (
       client as never as {
         from: (t: string) => {
           select: (c: string) => {
             eq: (
               c: string,
               v: string,
-            ) => { maybeSingle: () => Promise<{ data?: { detail?: unknown } | null }> };
+            ) => { maybeSingle: () => Promise<{ data?: { detail?: unknown } | null; error?: unknown }> };
           };
         };
       }
@@ -2776,11 +2778,10 @@ export async function readStageProgress(
       .select("detail")
       .eq("id", operation.id)
       .maybeSingle();
-    const raw = (data?.detail as { stageProgress?: unknown } | null | undefined)?.stageProgress;
-    if (raw && typeof raw === "object") return raw as StageProgress;
-  } catch {
-    // checkpoint é otimização/idempotência: leitura falha => refaz a fase.
-  }
+  if (error) throw error;
+  if (!data) throw new Error("Operação não encontrada durante a leitura de etapa.");
+  const raw = (data.detail as { stageProgress?: unknown } | null | undefined)?.stageProgress;
+  if (raw && typeof raw === "object") return raw as StageProgress;
   return {};
 }
 
@@ -2790,14 +2791,14 @@ export async function saveStageProgress(
   patch: StageProgress,
 ): Promise<void> {
   try {
-    const { data: fresh } = await (
+    const { data: fresh, error: readError } = await (
       client as never as {
         from: (t: string) => {
           select: (c: string) => {
             eq: (
               c: string,
               v: string,
-            ) => { maybeSingle: () => Promise<{ data?: { detail?: unknown } | null }> };
+            ) => { maybeSingle: () => Promise<{ data?: { detail?: unknown } | null; error?: unknown }> };
           };
         };
       }
@@ -2806,7 +2807,9 @@ export async function saveStageProgress(
       .select("detail")
       .eq("id", operation.id)
       .maybeSingle();
-    const detail = (fresh?.detail ?? operation.detail ?? {}) as Record<string, unknown>;
+    if (readError) throw readError;
+    if (!fresh) throw new Error("Operação não encontrada durante o checkpoint de etapa.");
+    const detail = (fresh.detail ?? {}) as Record<string, unknown>;
     const rpc = client as never as {
       rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
     };
