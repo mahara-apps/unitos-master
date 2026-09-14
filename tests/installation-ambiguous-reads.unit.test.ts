@@ -9,8 +9,12 @@ import {
   saveBaselineProgress,
   saveStageProgress,
 } from "@/lib/installation/automation.server";
-import { assertNoActiveInstallationOperation } from "@/lib/installation/manager.functions";
 import {
+  assertNoActiveInstallationOperation,
+  resolveInstallationManagerAccess,
+} from "@/lib/installation/manager.functions";
+import {
+  resolveInstallationSettingsRead,
   resolveServiceStateRead,
   UNAVAILABLE_SERVICE_STATE,
 } from "@/lib/installation-settings.server";
@@ -251,5 +255,47 @@ describe("ocorrência 7 — confirmação do estado remoto", () => {
   it("resposta válida: confirma somente quando uma linha foi alterada", () => {
     expect(remoteServiceStateWasConfirmed({ ok: true, rows: [{ matched: 1 }] })).toBe(true);
     expect(remoteServiceStateWasConfirmed({ ok: true, rows: [{ matched: 0 }] })).toBe(false);
+  });
+});
+
+describe("ocorrência 8 — configuração e branding", () => {
+  it("erro/timeout: sem cache não inventa configuração vazia", () => {
+    expect(() => resolveInstallationSettingsRead({ data: null, error: { message: "timeout" } })).toThrow(
+      "timeout",
+    );
+  });
+
+  it("vazio real: singleton ausente devolve configuração vazia", () => {
+    expect(resolveInstallationSettingsRead({ data: null, error: null })).toMatchObject({
+      appUrl: null,
+      logoUrl: null,
+    });
+  });
+
+  it("resposta válida: preserva branding da instalação", () => {
+    expect(
+      resolveInstallationSettingsRead({
+        data: { app_url: "https://cliente.example", logo_url: "https://cliente.example/logo.png" },
+        error: null,
+      }),
+    ).toMatchObject({ appUrl: "https://cliente.example", logoUrl: "https://cliente.example/logo.png" });
+  });
+});
+
+describe("ocorrência 9 — acesso ao gerenciador", () => {
+  it("erro/timeout: não converte indisponibilidade em falta de papel", async () => {
+    await expect(
+      resolveInstallationManagerAccess(async () => {
+        throw new Error("timeout");
+      }),
+    ).rejects.toThrow("timeout");
+  });
+
+  it("vazio real: papel ausente retorna false", async () => {
+    await expect(resolveInstallationManagerAccess(async () => false)).resolves.toBe(false);
+  });
+
+  it("resposta válida: Super Admin confirmado retorna true", async () => {
+    await expect(resolveInstallationManagerAccess(async () => true)).resolves.toBe(true);
   });
 });
