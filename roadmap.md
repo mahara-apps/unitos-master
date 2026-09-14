@@ -2,13 +2,14 @@
 
 ## MASTER 1.3.92 — Checkpoints e leituras sem estados ambíguos
 
-- [ ] Destravar o checkpoint 25/34 sem reprocessar migrations registradas.
-- [ ] Separar consulta do marcador interno e rejeitar respostas vazias ou indisponíveis.
-- [ ] Varrer todo o fluxo de instalações por leituras que confundem vazio real com erro/timeout.
-- [ ] Corrigir em conjunto todos os pontos críticos encontrados, sem esperar novo incidente.
-- [ ] Cobrir cada ocorrência com teste comportamental de erro, vazio real e resposta válida.
-- [ ] Regenerar pacote, sincronizar versão/SHA e executar todos os guardiões MASTER-first.
-- [ ] Publicar e retomar a Taveira somente após autorização explícita.
+- [x] Destravar o checkpoint 25/34 sem reprocessar migrations registradas.
+- [x] Separar consulta do marcador interno e rejeitar respostas vazias ou indisponíveis.
+- [x] Varrer todo o fluxo de instalações por leituras que confundem vazio real com erro/timeout.
+- [x] Corrigir em conjunto todos os pontos críticos encontrados, sem esperar novo incidente.
+- [x] Cobrir cada ocorrência com teste comportamental de erro, vazio real e resposta válida.
+- [x] Apresentar inventário, correção e matriz tripla de cada ocorrência para revisão do usuário.
+- [x] Regenerar pacote, sincronizar versão/SHA e executar todos os guardiões MASTER-first.
+- [ ] Não publicar nem retomar a Taveira antes de nova autorização explícita após a revisão das evidências.
 
 ## MASTER 1.3.91 — Resiliência comprovada antes da Taveira
 
