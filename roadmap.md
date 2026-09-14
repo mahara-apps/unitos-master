@@ -7,7 +7,8 @@
 - [x] Aplicar backoff com jitter às leituras da instalação e do cofre.
 - [x] Reagendar falhas transitórias do MASTER sem consumir tentativas do destino.
 - [x] Distribuir jobs recorrentes ao longo do minuto e registrar duração/resultado da retomada.
-- [ ] Regenerar pacote, sincronizar versão/SHA, ampliar verificação e executar guardiões MASTER-first.
+- [x] Regenerar pacote, sincronizar versão/SHA e ampliar a verificação do instalador.
+- [ ] Executar guardiões MASTER-first e conferência final.
 - [ ] Publicar o MASTER e liberar a Taveira somente após autorização explícita.
 
 ## MASTER 1.3.88 — Retomadas sem consumir tentativas
