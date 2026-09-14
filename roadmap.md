@@ -1,5 +1,12 @@
 # Roadmap
 
+## Incidente Taveira após retomada 1.3.94
+
+- [x] Pausar imediatamente após regressão observada de 88 para 86/104.
+- [x] Remover lease, agendamento, tentativa em execução e itens vivos da fila, preservando evidências.
+- [ ] Diagnosticar por que a reconciliação monotônica validada não protegeu o progresso exibido na execução real.
+- [ ] Não retomar novamente sem causa confirmada, ensaio fiel e nova autorização explícita.
+
 ## MASTER 1.3.94 — Snapshot imutável do pacote por operação
 
 - [x] Manter a Taveira congelada e sem itens ativos enquanto o pacote é desenvolvido; confirmado `manual_review`, sem lease/agendamento, attempts `running` ou outbox vivo.
@@ -9,7 +16,7 @@
 - [x] Reproduzir 88→87/104, resposta parcial, timeout após gravação e replay com respostas reais.
 - [x] Ensaiar integralmente o estado equivalente da Taveira de 81→104 sem regressão ou repetição.
 - [x] Executar MASTER-first completo: pacote 1.3.94 com 106 migrations, SHA-256 `3ffeee781e294795577a7297276abbd833b9f80e0b8ec5592231404d7505e2b7`, 48/48 guardiões, 375/375 testes, build e diff limpos.
-- [ ] Publicar e retomar a Taveira somente após nova autorização explícita.
+- [x] Publicar e retomar a Taveira somente após nova autorização explícita.
 
 ## MASTER 1.3.93 — Checkpoint canônico e retomada atômica
 
