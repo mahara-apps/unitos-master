@@ -6989,3 +6989,79 @@ BEGIN
   );
 END
 $$;
+
+-- ---------------------------------------------------------------------------
+-- 20260914011122_99aa7238-a037-4807-b453-0a7c69deed44.sql
+-- ---------------------------------------------------------------------------
+-- INCIDENT HOTFIX: table-owner capabilities bypass or sit outside row-level policies.
+-- Remove them explicitly from anon on sensitive operational tables.
+REVOKE TRUNCATE, TRIGGER, REFERENCES ON TABLE
+  public.evolution_events,
+  public.evolution_instances,
+  public.installation,
+  public.whatsapp_recipients
+FROM anon;
+
+-- Prevent future tables created by the main database owner from inheriting
+-- these capabilities for anonymous callers.
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  REVOKE TRUNCATE, TRIGGER, REFERENCES ON TABLES FROM anon;
+
+-- Preserve anonymous schema access required by intentionally public RPCs.
+GRANT USAGE ON SCHEMA public TO anon;
+
+-- ---------------------------------------------------------------------------
+-- 20260914012337_612e5403-24d2-459c-8d67-c7566125bac4.sql
+-- ---------------------------------------------------------------------------
+DO $migration$
+DECLARE
+  _table regclass;
+BEGIN
+  FOR _table IN
+    SELECT c.oid::regclass
+    FROM pg_class AS c
+    JOIN pg_namespace AS n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relkind IN ('r', 'p')
+      AND c.relowner = 'postgres'::regrole
+  LOOP
+    EXECUTE format(
+      'REVOKE MAINTAIN, TRUNCATE, TRIGGER, REFERENCES ON TABLE %s FROM anon',
+      _table
+    );
+  END LOOP;
+END
+$migration$;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  REVOKE MAINTAIN, TRUNCATE, TRIGGER, REFERENCES ON TABLES FROM anon;
+
+GRANT USAGE ON SCHEMA public TO anon;
+GRANT SELECT ON TABLE public.installation TO anon;
+
+-- ---------------------------------------------------------------------------
+-- 20260914012526_d1546010-138e-4960-9225-a6af07398f29.sql
+-- ---------------------------------------------------------------------------
+DO $verify$
+DECLARE
+  _dangerous_count bigint;
+BEGIN
+  SELECT count(*)
+    INTO _dangerous_count
+  FROM pg_class AS c
+  JOIN pg_namespace AS n ON n.oid = c.relnamespace
+  CROSS JOIN LATERAL aclexplode(c.relacl) AS a
+  WHERE n.nspname = 'public'
+    AND c.relkind IN ('r', 'p')
+    AND a.grantee = 'anon'::regrole
+    AND a.privilege_type IN ('MAINTAIN', 'TRUNCATE', 'TRIGGER', 'REFERENCES');
+
+  IF _dangerous_count <> 0 THEN
+    RAISE EXCEPTION 'A contenção deixou % concessões administrativas anônimas', _dangerous_count;
+  END IF;
+
+  IF NOT has_table_privilege('anon', 'public.installation', 'SELECT') THEN
+    RAISE EXCEPTION 'A leitura pública intencional de installation foi removida';
+  END IF;
+END
+$verify$;
