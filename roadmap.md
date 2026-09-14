@@ -1,5 +1,15 @@
 # Roadmap
 
+## MASTER 1.3.92 — Checkpoints e leituras sem estados ambíguos
+
+- [ ] Destravar o checkpoint 25/34 sem reprocessar migrations registradas.
+- [ ] Separar consulta do marcador interno e rejeitar respostas vazias ou indisponíveis.
+- [ ] Varrer todo o fluxo de instalações por leituras que confundem vazio real com erro/timeout.
+- [ ] Corrigir em conjunto todos os pontos críticos encontrados, sem esperar novo incidente.
+- [ ] Cobrir cada ocorrência com teste comportamental de erro, vazio real e resposta válida.
+- [ ] Regenerar pacote, sincronizar versão/SHA e executar todos os guardiões MASTER-first.
+- [ ] Publicar e retomar a Taveira somente após autorização explícita.
+
 ## MASTER 1.3.91 — Resiliência comprovada antes da Taveira
 
 - [ ] Corrigir falso cancelamento por leitura vazia/erro de status ou fencing.
