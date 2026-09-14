@@ -264,7 +264,8 @@ export async function retryOperation(
   summary: string,
 ): Promise<void> {
   const attempt = Math.max(op.attempt_count ?? 0, 0) + 1;
-  const delaySeconds = Math.min(900, 15 * 2 ** Math.min(attempt - 1, 6));
+  const baseDelaySeconds = Math.min(750, 15 * 2 ** Math.min(attempt - 1, 6));
+  const delaySeconds = Math.min(900, baseDelaySeconds + Math.floor(Math.random() * Math.max(1, baseDelaySeconds * 0.2)));
   const { data, error } = await client.rpc("retry_installation_operation", {
     _operation_id: op.id,
     _owner: op.lease_owner ?? "",
