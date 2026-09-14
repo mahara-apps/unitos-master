@@ -3,13 +3,23 @@
 ## MASTER 1.3.93 — Checkpoint canônico e retomada atômica
 
 - [x] Manter a Taveira congelada e provar que nenhuma retomada automática continua ativa.
-- [ ] Auditar no destino os efeitos reais dos comandos reexecutados; análise estática de idempotência concluída, leitura direta da Taveira ainda bloqueada pela credencial de gestão indisponível nesta sessão.
+- [x] Auditar no destino os efeitos reais dos comandos reexecutados; leitura direta confirmou zero duplicidades de jobs, contadores, timers e eventos, sem contadores inconsistentes e com uma única cópia de cada índice/trigger esperado.
 - [x] Substituir progresso dividido por checkpoint canônico `operação + migration + fingerprint`.
 - [x] Persistir statement e checkpoint na mesma transação do destino; atualizar tentativa sob lease/fencing no MASTER.
 - [x] Encerrar tentativas órfãs de forma auditável sem apagar histórico.
 - [x] Cobrir crash, replay, resposta vazia/incompatível, checkpoint ausente e fencing divergente.
 - [x] Ensaiar integralmente um estado equivalente a 81/103 até 103/103 sem repetir 1–81; validação Banco/Schema real permanece condicionada à retomada autorizada.
 - [x] Executar MASTER-first completo e apresentar evidências antes de publicar ou retomar a Taveira.
+
+## Playbook permanente — incidentes de estado ambíguo e retomada
+
+- [x] Documentar o antipadrão erro/timeout/vazio convertido em ausência, cancelamento, sucesso ou zero.
+- [x] Exigir varredura completa da superfície afetada na primeira ocorrência, sem correção pontual.
+- [x] Exigir matriz tripla baseada na resposta real: erro/timeout, vazio real e resposta válida.
+- [x] Exigir ensaio integral com cópia sanitizada do estado real antes de publicar em instalação crítica.
+- [x] Exigir auditoria direta de dados para descartar duplicação ou corrupção.
+- [x] Exigir congelamento da instalação e fluxo MASTER-first com aprovações separadas para publicar e retomar.
+- [x] Ativar o processo como skill interna reutilizável.
 
 ## MASTER 1.3.92 — Checkpoints e leituras sem estados ambíguos
 
