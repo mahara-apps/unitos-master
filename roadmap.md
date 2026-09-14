@@ -1,5 +1,16 @@
 # Roadmap
 
+## MASTER 1.3.89 — Resiliência das atualizações
+
+- [x] Bloquear regressão de etapas, percentuais e checkpoints diante de leituras falhas ou atrasadas.
+- [x] Classificar ausência, timeout, HTTP 5xx, HTTP 429 e falha de conexão nas leituras críticas.
+- [x] Aplicar backoff com jitter às leituras da instalação e do cofre.
+- [x] Reagendar falhas transitórias do MASTER sem consumir tentativas do destino.
+- [x] Distribuir jobs recorrentes ao longo do minuto e registrar duração/resultado da retomada.
+- [x] Regenerar pacote, sincronizar versão/SHA e ampliar a verificação do instalador.
+- [x] Executar guardiões MASTER-first e conferência final.
+- [ ] Publicar o MASTER e liberar a Taveira somente após autorização explícita.
+
 ## MASTER 1.3.88 — Retomadas sem consumir tentativas
 
 - [x] Separar retomadas saudáveis de falhas consecutivas no executor.

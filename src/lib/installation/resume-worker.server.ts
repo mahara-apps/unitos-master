@@ -16,6 +16,7 @@
  */
 
 import { AUTOMATION_LEASE_SECONDS } from "./runner.server";
+import { isTransientMasterReadFailure, readWithBackoff } from "./resilience.server";
 
 export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
   claimed: number;
@@ -32,12 +33,16 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
   const operations: string[] = [];
   for (const op of rows ?? []) {
     const operationId = (op as { id: string }).id;
+    let targetStarted = false;
     try {
-      const { data: installation } = await supabaseAdmin
-        .from("installations")
-        .select("*")
-        .eq("id", (op as { installation_id: string }).installation_id)
-        .maybeSingle();
+      const installation = await readWithBackoff(async () => {
+        const result = await supabaseAdmin
+          .from("installations")
+          .select("*")
+          .eq("id", (op as { installation_id: string }).installation_id)
+          .maybeSingle();
+        return { data: result.data, error: result.error };
+      });
       if (!installation) throw new Error("Instalação da operação não foi encontrada.");
 
       const row = installation as Record<string, unknown>;
@@ -64,6 +69,7 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
           ((op as { detail?: { targetCommitSha?: string } }).detail?.targetCommitSha ?? null) ||
           ((row.pinned_commit_sha ?? null) as string | null),
       };
+      targetStarted = true;
       if (kind === "update") {
         const outcome = await withOperationHeartbeat(supabaseAdmin as never, op as never, () =>
           runAutomatedUpdate(args),
@@ -92,7 +98,17 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
       const message = cause instanceof Error ? cause.message : "falha inesperada na retomada";
       try {
         const { classifyAccessFailure } = await import("./automation.server");
-        const { finalizeOperation, retryOperation } = await import("./runner.server");
+        const { deferOperation, finalizeOperation, retryOperation } = await import("./runner.server");
+        if (!targetStarted && isTransientMasterReadFailure(cause)) {
+          await deferOperation(
+            supabaseAdmin as never,
+            op as never,
+            `master_${cause.kind}`,
+            cause.message,
+          );
+          operations.push(operationId);
+          continue;
+        }
         if (classifyAccessFailure(message) === "permission") {
           await finalizeOperation(supabaseAdmin as never, op as never, {
             ok: false,

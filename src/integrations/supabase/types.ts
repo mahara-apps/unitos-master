@@ -9259,6 +9259,18 @@ export type Database = {
         Returns: string
       }
       cron_secret: { Args: never; Returns: string }
+      defer_installation_operation: {
+        Args: {
+          _delay_seconds: number
+          _error_detail?: Json
+          _error_kind: string
+          _fencing_token: number
+          _operation_id: string
+          _owner: string
+          _summary: string
+        }
+        Returns: boolean
+      }
       derive_post_stage: {
         Args: {
           _current: Database["public"]["Enums"]["post_stage"]

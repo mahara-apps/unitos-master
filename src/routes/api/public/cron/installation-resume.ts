@@ -12,12 +12,21 @@ export const Route = createFileRoute("/api/public/cron/installation-resume")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const startedAt = Date.now();
         const denied = assertCronRequest(request);
         if (denied) return denied;
         const { resumeStaleAutomatedProvisions } =
           await import("@/lib/installation/resume-worker.server");
         const result = await resumeStaleAutomatedProvisions();
-        return new Response(JSON.stringify({ ok: true, result }), {
+        const durationMs = Date.now() - startedAt;
+        console.info(JSON.stringify({
+          event: "cron.completed",
+          job: "installation-provision-resume",
+          path: "/api/public/cron/installation-resume",
+          durationMs,
+          claimed: result.claimed,
+        }));
+        return new Response(JSON.stringify({ ok: true, job: "installation-provision-resume", durationMs, result }), {
           status: 200,
           headers: { "content-type": "application/json" },
         });

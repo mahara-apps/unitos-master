@@ -18,17 +18,18 @@ DECLARE
   v_stored  text;
   v_name    text;
   v_job     jsonb;
+  v_delay   integer;
   v_jobs    jsonb := jsonb_build_array(
     jsonb_build_array('prune-post-media-30d',      '0 4 * * *',    '/api/public/media/prune'),
     jsonb_build_array('brain-consolidate-daily',   '0 3 * * *',    '/api/public/hooks/brain-consolidate'),
     jsonb_build_array('sla-overdue-check-hourly',  '5 * * * *',    '/api/public/cron/sla-check'),
-    jsonb_build_array('meta-publish-scheduled',    '* * * * *',    '/api/public/meta/publish-scheduled'),
+    jsonb_build_array('meta-publish-scheduled',    '* * * * *',    '/api/public/meta/publish-scheduled', 5),
     jsonb_build_array('brain-synthesis-nightly',   '17 3 * * *',   '/api/public/hooks/brain-synthesis'),
     jsonb_build_array('brain-social-metrics-sync', '23 4 * * *',   '/api/public/hooks/social-metrics-sync'),
     jsonb_build_array('ai-models-health-daily',    '20 3 * * *',   '/api/public/hooks/ai-models-health'),
-    jsonb_build_array('briefing-import-worker',    '* * * * *',    '/api/public/cron/import-worker'),
-    jsonb_build_array('briefing-import-reaper',    '*/2 * * * *',  '/api/public/cron/import-reaper'),
-    jsonb_build_array('whatsapp-automations',      '* * * * *',    '/api/public/cron/whatsapp-automations')
+    jsonb_build_array('briefing-import-worker',    '* * * * *',    '/api/public/cron/import-worker', 20),
+    jsonb_build_array('briefing-import-reaper',    '*/2 * * * *',  '/api/public/cron/import-reaper', 35),
+    jsonb_build_array('whatsapp-automations',      '* * * * *',    '/api/public/cron/whatsapp-automations', 45)
     -- Legendas: sem job fixo. O trigger post_copy_queue_notify avisa na hora e,
     -- se preciso, agenda 'post-content-drain' (*/5) só enquanto houver fila.
   );
@@ -63,6 +64,7 @@ BEGIN
   -- Jobs HTTP: header x-cron-secret vindo do Vault (mesma origem do env CRON_SECRET).
   FOR v_job IN SELECT * FROM jsonb_array_elements(v_jobs) LOOP
     v_name := v_job->>0;
+    v_delay := coalesce((v_job->>3)::integer, 0);
     PERFORM cron.unschedule(v_name) WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = v_name);
     PERFORM cron.schedule(
       v_name,
@@ -72,7 +74,7 @@ BEGIN
           headers := jsonb_build_object('Content-Type','application/json','x-cron-secret', public.cron_secret()),
            body := '{}'::jsonb,
            timeout_milliseconds := 60000
-        );$fmt$, v_app_url || (v_job->>2))
+        ) from (select pg_sleep(%s)) stagger;$fmt$, v_app_url || (v_job->>2), v_delay)
     );
   END LOOP;
 

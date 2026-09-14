@@ -87,6 +87,18 @@ describe("percentual por etapa", () => {
     expect(steps.find((s) => s.id === "code")?.percent).toBe(100);
   });
 
+  it("ignora relatório atrasado que reduziria percentual ou reabriria etapa concluída", () => {
+    let steps = initialSteps("provision");
+    steps = applyStepReport(steps, { step: "database", state: "running", percent: 86 });
+    steps = applyStepReport(steps, { step: "database", state: "running", percent: 81 });
+    expect(steps.find((s) => s.id === "database")?.percent).toBe(86);
+
+    steps = applyStepReport(steps, { step: "database", state: "done" });
+    steps = applyStepReport(steps, { step: "database", state: "running", percent: 90 });
+    expect(steps.find((s) => s.id === "database")?.state).toBe("done");
+    expect(steps.find((s) => s.id === "database")?.percent).toBe(100);
+  });
+
   it("progresso geral conta a fração da etapa em execução", () => {
     let steps = initialSteps("provision");
     const total = steps.length;
