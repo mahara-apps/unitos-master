@@ -7,7 +7,7 @@
 - [x] Varrer todo o fluxo de instalações por leituras que confundem vazio real com erro/timeout.
 - [x] Corrigir em conjunto todos os pontos críticos encontrados, sem esperar novo incidente.
 - [x] Cobrir cada ocorrência com teste comportamental de erro, vazio real e resposta válida.
-- [ ] Apresentar inventário, correção e matriz tripla de cada ocorrência para revisão do usuário.
+- [x] Apresentar inventário, correção e matriz tripla de cada ocorrência para revisão do usuário.
 - [x] Regenerar pacote, sincronizar versão/SHA e executar todos os guardiões MASTER-first.
 - [ ] Não publicar nem retomar a Taveira antes de nova autorização explícita após a revisão das evidências.
 
