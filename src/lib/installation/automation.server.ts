@@ -4281,6 +4281,44 @@ export function databaseMigrationsPercent(input: {
   return Math.min(99, Math.max(0, Math.round(((input.completed + currentFraction) / input.total) * 100)));
 }
 
+export type OperationPackageSnapshot = {
+  version: string;
+  commitSha: string;
+  sha256: string;
+  total: number;
+  sql: string;
+};
+
+export function operationPackageIdentity(snapshot: Omit<OperationPackageSnapshot, "sql">): string {
+  return `${snapshot.version}:${snapshot.commitSha}:${snapshot.total}`;
+}
+
+export function validateOperationPackageSnapshot(
+  operation: Pick<OperationRow, "baseline_id" | "baseline_hash">,
+  snapshot: OperationPackageSnapshot,
+): { ok: true } | { ok: false; error: string } {
+  const actualTotal = splitDeltaMigrations(snapshot.sql).length;
+  if (actualTotal !== snapshot.total) {
+    return { ok: false, error: `total do pacote incompatível: esperado ${snapshot.total}, recebido ${actualTotal}` };
+  }
+  if (operation.baseline_id !== operationPackageIdentity(snapshot)) {
+    return { ok: false, error: "identidade do pacote divergiu da autorização da operação" };
+  }
+  if (operation.baseline_hash !== snapshot.sha256) {
+    return { ok: false, error: "assinatura do pacote divergiu da autorização da operação" };
+  }
+  return { ok: true };
+}
+
+export function reconcileConfirmedMigrationCount(confirmed: number, observed: number) {
+  const safeConfirmed = Math.max(0, Math.floor(confirmed));
+  const safeObserved = Math.max(0, Math.floor(observed));
+  return {
+    completed: Math.max(safeConfirmed, safeObserved),
+    partialRead: safeObserved < safeConfirmed,
+  };
+}
+
 /**
  * Aplica o delta de banco do MASTER no Supabase da instalação, item por item,
  * com checkpoint e ledger no banco de destino. Idempotente: repetir com o mesmo
@@ -4296,7 +4334,7 @@ export async function applyDatabaseDelta(input: {
   timeBudgetMs?: number;
   maxMigrationsPerInvocation?: number;
   now?: () => number;
-  snapshot: { version: string; commitSha: string; sha256: string; total: number; sql: string };
+  snapshot: OperationPackageSnapshot;
 }): Promise<
   | { state: "done"; detail: string; percent: 100 }
   | { state: "pending"; detail: string; percent: number }
@@ -4331,13 +4369,8 @@ export async function applyDatabaseDelta(input: {
   if (migrations.length === 0) {
     return { state: "error", detail: "pacote de migrations do MASTER está sem marcadores válidos" };
   }
-  if (
-    operation.baseline_id !== `${input.snapshot.version}:${input.snapshot.commitSha}:${input.snapshot.total}` ||
-    operation.baseline_hash !== input.snapshot.sha256 ||
-    migrations.length !== input.snapshot.total
-  ) {
-    return { state: "blocked", detail: "snapshot do pacote divergiu da autorização da operação" };
-  }
+  const validatedSnapshot = validateOperationPackageSnapshot(operation, input.snapshot);
+  if (!validatedSnapshot.ok) return { state: "blocked", detail: validatedSnapshot.error };
 
   const ledgerSetup = await seedDeltaLedger(management, []);
   if (!ledgerSetup.ok) return { state: "error", detail: `banco da instalação inacessível: ${ledgerSetup.error ?? "falha"}` };
@@ -4387,11 +4420,12 @@ export async function applyDatabaseDelta(input: {
   let progress = await readBaselineProgress(client, installation.id, operation);
   const stageProgress = await readStageProgress(client, operation);
   const confirmedCompleted = Math.max(0, stageProgress.updateCompletedMigrations ?? 0);
-  if (appliedLabels.size < confirmedCompleted) {
+  const reconciledCount = reconcileConfirmedMigrationCount(confirmedCompleted, appliedLabels.size);
+  if (reconciledCount.partialRead) {
     return {
       state: "pending",
-      percent: databaseMigrationsPercent({ total: migrations.length, completed: confirmedCompleted }),
-      detail: `Banco ${confirmedCompleted}/${migrations.length} migrations confirmadas; leitura parcial do ledger será repetida`,
+      percent: databaseMigrationsPercent({ total: migrations.length, completed: reconciledCount.completed }),
+      detail: `Banco ${reconciledCount.completed}/${migrations.length} migrations confirmadas; leitura parcial do ledger será repetida`,
     };
   }
   if (appliedLabels.size > confirmedCompleted) {
@@ -4582,6 +4616,32 @@ export async function runAutomatedUpdate(input: {
   ) {
     return fail("BLOCKED", packageSnapshot.error ?? "snapshot autorizado do MASTER indisponível");
   }
+  const snapshot = {
+    version: packageSnapshot.version,
+    commitSha: targetSha,
+    sha256: packageSnapshot.sha256,
+    total: packageSnapshot.total,
+    sql: packageSnapshot.sql,
+  };
+  if (!operation.baseline_id && !operation.baseline_hash) {
+    const rpc = client as never as {
+      rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
+    };
+    const { data: sealed, error: sealError } = await rpc.rpc("seal_installation_operation_baseline", {
+      _operation_id: operation.id,
+      _owner: operation.lease_owner ?? "",
+      _fencing_token: operation.fencing_token ?? -1,
+      _baseline_id: operationPackageIdentity(snapshot),
+      _baseline_hash: snapshot.sha256,
+    });
+    if (sealError || sealed !== true) {
+      return fail("BLOCKED", sealError?.message ?? "não foi possível fixar o pacote autorizado da operação");
+    }
+    operation.baseline_id = operationPackageIdentity(snapshot);
+    operation.baseline_hash = snapshot.sha256;
+  }
+  const snapshotValidation = validateOperationPackageSnapshot(operation, snapshot);
+  if (!snapshotValidation.ok) return fail("BLOCKED", snapshotValidation.error);
 
   // Nenhum delta é aplicado antes de comprovar banco, GitHub e Vercel.
   const updatePreflight = await preflightAccess({
@@ -4612,13 +4672,7 @@ export async function runAutomatedUpdate(input: {
     operation,
     installation,
     env,
-    snapshot: {
-      version: packageSnapshot.version,
-      commitSha: targetSha,
-      sha256: packageSnapshot.sha256,
-      total: packageSnapshot.total,
-      sql: packageSnapshot.sql,
-    },
+    snapshot,
     ...(input.fetchImpl ? { fetchImpl: input.fetchImpl } : {}),
   });
   if (delta.state === "blocked" || delta.state === "error") {

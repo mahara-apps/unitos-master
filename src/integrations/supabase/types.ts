@@ -9600,6 +9600,16 @@ export type Database = {
         Returns: boolean
       }
       safe_uuid: { Args: { _txt: string }; Returns: string }
+      seal_installation_operation_baseline: {
+        Args: {
+          _baseline_hash: string
+          _baseline_id: string
+          _fencing_token: number
+          _operation_id: string
+          _owner: string
+        }
+        Returns: boolean
+      }
       seed_access_profiles: { Args: { _brand_id: string }; Returns: number }
       set_client_default_whatsapp_recipient: {
         Args: { _brand_id: string; _client_id: string; _recipient_id: string }

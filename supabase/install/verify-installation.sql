@@ -591,6 +591,15 @@ WITH checks AS (
          CASE WHEN to_regclass('public.installation_operation_attempts') IS NOT NULL
                    AND to_regprocedure('public.reconcile_orphan_installation_attempts(integer)') IS NOT NULL
               THEN 'PASS' ELSE 'FAIL' END
+
+  UNION ALL
+  SELECT 86, 'operações: pacote de atualização fixado por operação',
+         CASE WHEN to_regprocedure('public.seal_installation_operation_baseline(uuid,text,bigint,text,text)') IS NULL
+              THEN 'função ausente' ELSE 'selagem disponível' END,
+         CASE WHEN to_regprocedure('public.seal_installation_operation_baseline(uuid,text,bigint,text,text)') IS NOT NULL
+                    AND NOT has_function_privilege('anon', 'public.seal_installation_operation_baseline(uuid,text,bigint,text,text)', 'EXECUTE')
+                    AND NOT has_function_privilege('authenticated', 'public.seal_installation_operation_baseline(uuid,text,bigint,text,text)', 'EXECUTE')
+              THEN 'PASS' ELSE 'FAIL' END
 )
 
 SELECT status, check_name, observed
