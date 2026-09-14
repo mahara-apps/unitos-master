@@ -7,6 +7,7 @@ import {
   mergeBaselineProgress,
   readFirstAccessState,
   saveBaselineProgress,
+  saveStageProgress,
 } from "@/lib/installation/automation.server";
 import { assertNoActiveInstallationOperation } from "@/lib/installation/manager.functions";
 import {
@@ -140,6 +141,31 @@ describe("ocorrência 3 — checkpoint persistido", () => {
       "checkpoint_installation_operation",
       expect.objectContaining({
         _detail: expect.objectContaining({ baselineProgress: { migration: 25 } }),
+      }),
+    );
+  });
+
+  it("erro/timeout no checkpoint de etapa também interrompe", async () => {
+    const client = checkpointClient({ data: null, error: { message: "timeout" } });
+    await expect(saveStageProgress(client as never, operation, { codeDone: true })).rejects.toMatchObject({
+      message: "timeout",
+    });
+  });
+
+  it("vazio real no checkpoint de etapa não finge sucesso", async () => {
+    const client = checkpointClient({ data: null, error: null });
+    await expect(saveStageProgress(client as never, operation, { codeDone: true })).rejects.toThrow(
+      "Operação não encontrada",
+    );
+  });
+
+  it("resposta válida salva checkpoint de etapa", async () => {
+    const client = checkpointClient({ data: { detail: { stageProgress: {} } }, error: null });
+    await expect(saveStageProgress(client as never, operation, { codeDone: true })).resolves.toBeUndefined();
+    expect(client.rpc).toHaveBeenCalledWith(
+      "checkpoint_installation_operation",
+      expect.objectContaining({
+        _detail: expect.objectContaining({ stageProgress: { codeDone: true } }),
       }),
     );
   });
