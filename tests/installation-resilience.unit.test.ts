@@ -93,7 +93,9 @@ describe("regressão do falso cancelamento 1.3.89", () => {
     const management = {
       query: vi.fn(async (sql: string) => ({
         ok: true,
-        rows: sql.startsWith("select exists") ? [{ initialized: true }] : [],
+        rows: sql.includes("select statement_index")
+          ? [{ statement_index: 0, total_statements: 1, status: "running" }]
+          : [],
       })),
     };
     const { applyStatementByStatement } = await import("@/lib/installation/automation.server");
