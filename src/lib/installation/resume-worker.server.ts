@@ -16,7 +16,11 @@
  */
 
 import { AUTOMATION_LEASE_SECONDS } from "./runner.server";
-import { isTransientMasterReadFailure, readWithBackoff } from "./resilience.server";
+import {
+  InstallationReadError,
+  isTransientMasterReadFailure,
+  readWithBackoff,
+} from "./resilience.server";
 
 export function resumeFailureAction(
   cause: unknown,
@@ -109,6 +113,9 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
         const { deferOperation, finalizeOperation, retryOperation } = await import("./runner.server");
         const action = resumeFailureAction(cause, classifyAccessFailure(message));
         if (action === "defer") {
+          if (!(cause instanceof InstallationReadError)) {
+            throw new Error("falha do MASTER sem classificação de leitura");
+          }
           await deferOperation(
             supabaseAdmin as never,
             op as never,
