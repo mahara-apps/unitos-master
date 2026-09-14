@@ -23,7 +23,10 @@ function fakeClient() {
   const updates: Record<string, unknown>[] = [];
   const api = {
     rpc: async (name: string) => {
-      if (name === "compare_and_set_installation_generated_secrets") {
+      if (
+        name === "compare_and_set_installation_generated_secrets" ||
+        name === "checkpoint_installation_operation"
+      ) {
         return { data: true, error: null };
       }
       return { data: null, error: null };
