@@ -204,6 +204,16 @@ export async function resolveInstallationManagerAccess(
   return read();
 }
 
+export function resolveOperationRowsRead<T>(result: { data?: T[] | null; error?: unknown }): T[] {
+  if (result.error) throw result.error;
+  return result.data ?? [];
+}
+
+export function resolveRunningProvisionRead<T>(result: { data?: T[] | null; error?: unknown }): T | null {
+  const rows = resolveOperationRowsRead(result);
+  return rows[0] ?? null;
+}
+
 export async function assertNoActiveInstallationOperation(
   supabase: { from: (table: string) => any }, // eslint-disable-line @typescript-eslint/no-explicit-any
   installationId: string,
@@ -299,6 +309,7 @@ export async function reconcileStuckOperations(context: { supabase: unknown }): 
                 started_at: string;
                 last_report_at?: string | null;
               }> | null;
+              error?: unknown;
             }>;
           };
         };
@@ -306,13 +317,13 @@ export async function reconcileStuckOperations(context: { supabase: unknown }): 
     };
   };
   try {
-    const { data } = await supabase
+    const result = await supabase
       .from("installation_operations")
       .select("*")
       .in("status", ["pending", "running", "retryable"])
       .order("created_at", { ascending: false })
       .limit(20);
-    const rows = (data ?? []).filter(
+    const rows = resolveOperationRowsRead(result).filter(
       (row) => !((row as { detail?: { automated?: boolean } }).detail?.automated ?? false),
     );
     if (!rows.length) return;
@@ -2158,22 +2169,24 @@ async function findRunningProvision(
               c: string,
               o: { ascending: boolean },
             ) => {
-              limit: (n: number) => Promise<{ data?: Array<Record<string, unknown>> | null }>;
+              limit: (n: number) => Promise<{
+                data?: Array<Record<string, unknown>> | null;
+                error?: unknown;
+              }>;
             };
           };
         };
       };
     };
   };
-  const { data } = await db
+  const result = await db
     .from("installation_operations")
     .select("*")
     .eq("installation_id", installationId)
     .eq("status", "running")
     .order("created_at", { ascending: false })
     .limit(1);
-  const row = data?.[0];
-  return row ? (row as never) : null;
+  return resolveRunningProvisionRead(result) as never;
 }
 
 /* ---------------------------------------------- integrações (somente leitura) */

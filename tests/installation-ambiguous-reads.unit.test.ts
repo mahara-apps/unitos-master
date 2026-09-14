@@ -12,6 +12,8 @@ import {
 import {
   assertNoActiveInstallationOperation,
   resolveInstallationManagerAccess,
+  resolveOperationRowsRead,
+  resolveRunningProvisionRead,
 } from "@/lib/installation/manager.functions";
 import {
   resolveInstallationSettingsRead,
@@ -294,5 +296,33 @@ describe("ocorrência 9 — acesso ao gerenciador", () => {
 
   it("resposta válida: Super Admin confirmado retorna true", async () => {
     await expect(resolveInstallationManagerAccess(async () => true)).resolves.toBe(true);
+  });
+});
+
+describe("ocorrência 10 — lista para reconciliação", () => {
+  it("erro/timeout: não vira lista vazia", () => {
+    expect(() => resolveOperationRowsRead({ data: null, error: new Error("timeout") })).toThrow("timeout");
+  });
+
+  it("vazio real: ausência confirmada permanece lista vazia", () => {
+    expect(resolveOperationRowsRead({ data: [], error: null })).toEqual([]);
+  });
+
+  it("resposta válida: operações são preservadas", () => {
+    expect(resolveOperationRowsRead({ data: [{ id: "op-1" }], error: null })).toEqual([{ id: "op-1" }]);
+  });
+});
+
+describe("ocorrência 11 — operação corrente na adoção manual", () => {
+  it("erro/timeout: não vira operação ausente", () => {
+    expect(() => resolveRunningProvisionRead({ data: null, error: new Error("timeout") })).toThrow("timeout");
+  });
+
+  it("vazio real: ausência confirmada retorna null", () => {
+    expect(resolveRunningProvisionRead({ data: [], error: null })).toBeNull();
+  });
+
+  it("resposta válida: operação corrente é preservada", () => {
+    expect(resolveRunningProvisionRead({ data: [{ id: "op-1" }], error: null })).toEqual({ id: "op-1" });
   });
 });
