@@ -1460,13 +1460,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
       );
     }
 
-    const { data: active } = await supabase
-      .from("installation_operations")
-      .select("id")
-      .eq("installation_id", data.id)
-      .in("status", ["pending", "running", "retryable"])
-      .maybeSingle();
-    if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
+    await assertNoActiveInstallationOperation(supabase, data.id);
 
     // A autorização precisa apontar para o ponto ATUAL do código do MASTER.
     // Aceitar um ponto antigo (por exemplo o commit já fixado na instalação)

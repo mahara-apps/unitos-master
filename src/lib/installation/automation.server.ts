@@ -3919,8 +3919,9 @@ export async function readFirstAccessState(management: {
   const row = res.rows[0] as { has_super_admin?: boolean | null; brand_count?: unknown } | undefined;
   if (!row || !("has_super_admin" in row) || !("brand_count" in row)) {
     return {
-      superAdmin: { state: "pending", detail: "Resposta vazia ao verificar o Super Admin." },
-      workspace: { state: "pending", detail: "Resposta vazia ao verificar o workspace." },
+      superAdmin: "pending",
+      workspace: "pending",
+      detail: "primeiro acesso não verificado: resposta vazia",
     };
   }
   const hasSuperAdmin = row.has_super_admin === true;

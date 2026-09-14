@@ -228,10 +228,7 @@ describe("ocorrência 6 — primeiro acesso escalar", () => {
   it("vazio real impossível: resposta vazia não inventa ausência", async () => {
     await expect(
       readFirstAccessState({ query: async () => ({ ok: true, rows: [] }) }),
-    ).resolves.toMatchObject({
-      superAdmin: { state: "pending" },
-      workspace: { state: "pending" },
-    });
+    ).resolves.toMatchObject({ superAdmin: "pending", workspace: "pending" });
   });
 
   it("resposta válida: informa presença real", async () => {
