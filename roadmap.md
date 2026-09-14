@@ -4,8 +4,20 @@
 
 - [x] Pausar imediatamente após regressão observada de 88 para 86/104.
 - [x] Remover lease, agendamento, tentativa em execução e itens vivos da fila, preservando evidências.
-- [ ] Diagnosticar por que a reconciliação monotônica validada não protegeu o progresso exibido na execução real.
+- [x] Diagnosticar por que a reconciliação monotônica validada não protegeu o progresso exibido: `saveBaselineProgress` reenviava `operation.steps` obsoleto e sobrescrevia 88% com 86%.
 - [ ] Não retomar novamente sem causa confirmada, ensaio fiel e nova autorização explícita.
+
+## MASTER 1.3.95 — Confirmação transacional de migrations
+
+- [x] Confirmar a causa exata da regressão 88→86 no caminho real de persistência.
+- [x] Criar registro canônico por operação, migration, fingerprint e posição do pacote.
+- [x] Tornar a escrita de etapas monotônica no próprio banco.
+- [x] Remover o snapshot obsoleto de etapas do checkpoint auxiliar.
+- [x] Reconciliar em lote o ledger comprovado do destino sem reduzir progresso.
+- [ ] Cobrir timeout pós-commit, replay, resposta parcial, concorrência e fencing com o modelo canônico.
+- [ ] Ensaiar o estado equivalente da Taveira de 88→104 e auditar efeitos.
+- [ ] Regenerar delta, sincronizar versão/SHA, verificar instalação e rodar `master:check`.
+- [ ] Publicar e retomar somente após nova autorização explícita.
 
 ## MASTER 1.3.94 — Snapshot imutável do pacote por operação
 

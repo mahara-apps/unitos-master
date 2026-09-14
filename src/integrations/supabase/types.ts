@@ -9646,6 +9646,15 @@ export type Database = {
         Args: { _brand_id: string; _client_id: string }
         Returns: number
       }
+      reconcile_installation_operation_migrations: {
+        Args: {
+          _fencing_token: number
+          _migrations: Json
+          _operation_id: string
+          _owner: string
+        }
+        Returns: number
+      }
       reconcile_orphan_installation_attempts: {
         Args: { _max_idle_seconds?: number }
         Returns: number

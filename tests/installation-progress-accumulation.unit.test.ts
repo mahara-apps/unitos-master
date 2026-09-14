@@ -110,3 +110,27 @@ describe("percentual por etapa", () => {
     expect(depois).toBe(Math.round(((1 + 0.5) / total) * 100));
   });
 });
+
+describe("regressão 88→86", () => {
+  it("o checkpoint auxiliar nunca reenvia a fotografia antiga das etapas", async () => {
+    const current = initialSteps("update").map((step) =>
+      step.id === "database" ? { ...step, state: "running" as const, percent: 88 } : step,
+    );
+    const { client, row } = fakeClient(current);
+    const stale = current.map((step) =>
+      step.id === "database" ? { ...step, percent: 86 } : step,
+    );
+    const op = {
+      id: "op-1",
+      kind: "update",
+      steps: stale,
+      lease_owner: "test:worker",
+      fencing_token: 1,
+    } as never;
+
+    const { saveBaselineProgress } = await import("@/lib/installation/automation.server");
+    await saveBaselineProgress(client as never, op, { migration: 25 });
+
+    expect((row.steps as Array<{ id: string; percent?: number }>).find((step) => step.id === "database")?.percent).toBe(88);
+  });
+});

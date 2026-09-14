@@ -2830,13 +2830,13 @@ export async function saveBaselineProgress(
             eq: (
               c: string,
               v: string,
-            ) => { maybeSingle: () => Promise<{ data?: { detail?: unknown } | null; error?: unknown }> };
+            ) => { maybeSingle: () => Promise<{ data?: { detail?: unknown; steps?: unknown } | null; error?: unknown }> };
           };
         };
       }
     )
       .from("installation_operations")
-      .select("detail")
+      .select("detail, steps")
       .eq("id", operation.id)
       .maybeSingle();
     if (readError) throw readError;
@@ -2850,7 +2850,9 @@ export async function saveBaselineProgress(
       _operation_id: operation.id,
       _owner: operation.lease_owner ?? "",
       _fencing_token: operation.fencing_token ?? -1,
-      _steps: operation.steps,
+      // Nunca reenviar `operation.steps`: essa linha foi capturada no início da
+      // execução e já causou a regressão 88→86 ao sobrescrever progresso novo.
+      _steps: fresh.steps ?? [],
       _detail: {
         ...((fresh.detail ?? {}) as Record<string, unknown>),
         baselineProgress: monotonic,
@@ -4319,6 +4321,99 @@ export function reconcileConfirmedMigrationCount(confirmed: number, observed: nu
   };
 }
 
+export type CanonicalMigrationProgress = {
+  migration_file: string;
+  fingerprint: string;
+  package_position: number;
+  statement_index: number;
+  total_statements: number;
+  status: "running" | "completed";
+};
+
+async function readCanonicalMigrationProgress(
+  client: Client,
+  operation: OperationRow,
+): Promise<CanonicalMigrationProgress[]> {
+  const { data, error } = await (client as never as {
+    from: (table: string) => {
+      select: (columns: string) => {
+        eq: (column: string, value: string) => {
+          order: (column: string, options: { ascending: boolean }) => Promise<{ data?: unknown[] | null; error?: { message?: string } | null }>;
+        };
+      };
+    };
+  })
+    .from("installation_operation_migrations")
+    .select("migration_file, fingerprint, package_position, statement_index, total_statements, status")
+    .eq("operation_id", operation.id)
+    .order("package_position", { ascending: true });
+  if (error) throw new Error(error.message ?? "falha ao ler progresso canônico");
+  if (!Array.isArray(data)) throw new Error("Leitura do progresso canônico retornou resposta inválida.");
+  return data.filter((row): row is CanonicalMigrationProgress => {
+    if (!row || typeof row !== "object") return false;
+    const value = row as Record<string, unknown>;
+    return typeof value["migration_file"] === "string" && typeof value["fingerprint"] === "string";
+  });
+}
+
+async function checkpointCanonicalMigration(
+  client: Client,
+  operation: OperationRow,
+  migration: DeltaMigration,
+  position: number,
+  statementIndex: number,
+  totalStatements: number,
+  completed: boolean,
+): Promise<void> {
+  const rpc = client as never as {
+    rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
+  };
+  const { data, error } = await rpc.rpc("checkpoint_installation_migration", {
+    _operation_id: operation.id,
+    _owner: operation.lease_owner ?? "",
+    _fencing_token: operation.fencing_token ?? -1,
+    _migration_file: migration.file,
+    _fingerprint: migration.fingerprint,
+    _package_position: position,
+    _statement_index: statementIndex,
+    _total_statements: totalStatements,
+    _completed: completed,
+  });
+  if (error || data !== true) throw new Error(error?.message ?? "lease da operação perdida no checkpoint canônico");
+}
+
+async function reconcileCanonicalMigrations(
+  client: Client,
+  operation: OperationRow,
+  migrations: DeltaMigration[],
+  appliedLabels: Set<string>,
+): Promise<void> {
+  const inventory = migrations
+    .map((migration, index) => ({ migration, index }))
+    .filter(({ migration }) => appliedLabels.has(`${migration.file}:${migration.fingerprint}`))
+    .map(({ migration, index }) => {
+      const totalStatements = splitSqlStatements(sanitizeBaselineSqlForManagementApi(migration.sql).sql).length;
+      return {
+        file: migration.file,
+        fingerprint: migration.fingerprint,
+        position: index + 1,
+        statementIndex: totalStatements,
+        totalStatements,
+        completed: true,
+      };
+    });
+  const rpc = client as never as {
+    rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
+  };
+  const { data, error } = await rpc.rpc("reconcile_installation_operation_migrations", {
+    _operation_id: operation.id,
+    _owner: operation.lease_owner ?? "",
+    _fencing_token: operation.fencing_token ?? -1,
+    _migrations: inventory,
+  });
+  if (error || typeof data !== "number") throw new Error(error?.message ?? "reconciliação canônica não confirmada");
+}
+
 /**
  * Aplica o delta de banco do MASTER no Supabase da instalação, item por item,
  * com checkpoint e ledger no banco de destino. Idempotente: repetir com o mesmo
@@ -4412,25 +4507,19 @@ export async function applyDatabaseDelta(input: {
     }
     for (const item of historical) appliedLabels.add(`${item.file}:${item.fingerprint}`);
   }
-  let migration = migrations.find((item) => !appliedLabels.has(`${item.file}:${item.fingerprint}`));
+  await reconcileCanonicalMigrations(client, operation, migrations, appliedLabels);
+  let canonicalProgress = await readCanonicalMigrationProgress(client, operation);
+  const canonicalCompleted = new Set(
+    canonicalProgress
+      .filter((item) => item.status === "completed")
+      .map((item) => `${item.migration_file}:${item.fingerprint}`),
+  );
+  let migration = migrations.find((item) => !canonicalCompleted.has(`${item.file}:${item.fingerprint}`));
   if (!migration) {
     return { state: "done", detail: "banco já está na versão do MASTER", percent: 100 };
   }
 
   let progress = await readBaselineProgress(client, installation.id, operation);
-  const stageProgress = await readStageProgress(client, operation);
-  const confirmedCompleted = Math.max(0, stageProgress.updateCompletedMigrations ?? 0);
-  const reconciledCount = reconcileConfirmedMigrationCount(confirmedCompleted, appliedLabels.size);
-  if (reconciledCount.partialRead) {
-    return {
-      state: "pending",
-      percent: databaseMigrationsPercent({ total: migrations.length, completed: reconciledCount.completed }),
-      detail: `Banco ${reconciledCount.completed}/${migrations.length} migrations confirmadas; leitura parcial do ledger será repetida`,
-    };
-  }
-  if (appliedLabels.size > confirmedCompleted) {
-    await saveStageProgress(client, operation, { updateCompletedMigrations: appliedLabels.size });
-  }
   const now = input.now ?? Date.now;
   const startedAt = now();
   const budgetMs = input.timeBudgetMs ?? UPDATE_DATABASE_TIME_BUDGET_MS;
@@ -4439,6 +4528,7 @@ export async function applyDatabaseDelta(input: {
 
   while (migration) {
     const ledgerLabel = `${migration.file}:${migration.fingerprint}`;
+    const migrationPosition = migrations.findIndex((item) => item.file === migration?.file && item.fingerprint === migration?.fingerprint) + 1;
     const checkpointKey = `update:migration:${ledgerLabel}`;
     const alreadyApplied = progress[checkpointKey] ?? 0;
     const prepared = sanitizeBaselineSqlForManagementApi(migration.sql);
@@ -4451,6 +4541,15 @@ export async function applyDatabaseDelta(input: {
 
     if (!applied.ok) {
       progress = { ...progress, [checkpointKey]: applied.processed ?? alreadyApplied };
+      await checkpointCanonicalMigration(
+        client,
+        operation,
+        migration,
+        migrationPosition,
+        applied.processed ?? alreadyApplied,
+        applied.total ?? splitSqlStatements(prepared.sql).length,
+        false,
+      );
       await saveBaselineProgress(client, operation, progress);
       return { state: "error", detail: `atualização do banco falhou: ${applied.error ?? "erro"}` };
     }
@@ -4458,17 +4557,26 @@ export async function applyDatabaseDelta(input: {
     const completedBefore = appliedLabels.size;
     if (!applied.complete) {
       progress = { ...progress, [checkpointKey]: applied.processed };
+      await checkpointCanonicalMigration(
+        client,
+        operation,
+        migration,
+        migrationPosition,
+        applied.processed,
+        applied.total,
+        false,
+      );
       await saveBaselineProgress(client, operation, progress);
       const percent = databaseMigrationsPercent({
         total: migrations.length,
-        completed: completedBefore,
+        completed: canonicalCompleted.size,
         currentProcessed: applied.processed,
         currentTotal: applied.total,
       });
       return {
         state: "pending",
         percent,
-        detail: `Banco ${completedBefore}/${migrations.length} migrations; atual ${applied.processed}/${applied.total} comandos · ${percent}%`,
+        detail: `Banco ${canonicalCompleted.size}/${migrations.length} migrations; atual ${applied.processed}/${applied.total} comandos · ${percent}%`,
       };
     }
 
@@ -4479,12 +4587,21 @@ export async function applyDatabaseDelta(input: {
       return { state: "error", detail: `registro da versão do banco falhou: ${mark.error ?? "erro"}` };
     }
     progress = { ...progress, [checkpointKey]: DONE };
+    await checkpointCanonicalMigration(
+      client,
+      operation,
+      migration,
+      migrationPosition,
+      applied.total,
+      applied.total,
+      true,
+    );
     await saveBaselineProgress(client, operation, progress);
     appliedLabels.add(ledgerLabel);
-    await saveStageProgress(client, operation, { updateCompletedMigrations: appliedLabels.size });
+    canonicalCompleted.add(ledgerLabel);
     processedMigrations += 1;
 
-    const remaining = migrations.length - appliedLabels.size;
+    const remaining = migrations.length - canonicalCompleted.size;
     if (remaining === 0) {
       await management.query("NOTIFY pgrst, 'reload schema';").catch(() => undefined);
       return { state: "done", detail: `banco atualizado (${migrations.length} migrations registradas)`, percent: 100 };
@@ -4492,17 +4609,25 @@ export async function applyDatabaseDelta(input: {
 
     const percent = databaseMigrationsPercent({
       total: migrations.length,
-      completed: appliedLabels.size,
+      completed: canonicalCompleted.size,
     });
     if (processedMigrations >= migrationLimit || now() - startedAt >= budgetMs) {
       await management.query("NOTIFY pgrst, 'reload schema';").catch(() => undefined);
       return {
         state: "pending",
         percent,
-        detail: `Banco ${appliedLabels.size}/${migrations.length} migrations concluídas; ${remaining} pendentes · ${percent}%`,
+        detail: `Banco ${canonicalCompleted.size}/${migrations.length} migrations concluídas; ${remaining} pendentes · ${percent}%`,
       };
     }
-    migration = migrations.find((item) => !appliedLabels.has(`${item.file}:${item.fingerprint}`));
+    canonicalProgress = await readCanonicalMigrationProgress(client, operation);
+    migration = migrations.find(
+      (item) => !canonicalProgress.some(
+        (confirmed) =>
+          confirmed.status === "completed" &&
+          confirmed.migration_file === item.file &&
+          confirmed.fingerprint === item.fingerprint,
+      ),
+    );
   }
 
   return { state: "done", detail: `banco atualizado (${migrations.length} migrations registradas)`, percent: 100 };
