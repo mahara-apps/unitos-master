@@ -90,7 +90,12 @@ describe("regressão do falso cancelamento 1.3.89", () => {
       sleep: async () => undefined,
     })).rejects.toMatchObject({ name: "InstallationReadError", kind: "server_error" });
 
-    const management = { query: vi.fn(async () => ({ ok: true, rows: [] })) };
+    const management = {
+      query: vi.fn(async (sql: string) => ({
+        ok: true,
+        rows: sql.startsWith("select exists") ? [{ initialized: true }] : [],
+      })),
+    };
     const { applyStatementByStatement } = await import("@/lib/installation/automation.server");
     let detail = "";
     try {
