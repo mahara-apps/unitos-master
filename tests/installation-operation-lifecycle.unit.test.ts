@@ -117,7 +117,7 @@ describe("contagem de falhas consecutivas", () => {
   it("defer preserva falhas consecutivas e fecha a tentativa sem erro do destino", () => {
     expect(deferSql).not.toMatch(/attempt_count\s*=|attempt_count\s*\+/i);
     expect(deferSql).toContain("status = 'deferred'");
-    expect(deferSql).toContain("failureSource");
+    expect(deferSql).toContain("_error_detail");
     expect(deferSql).toContain("REVOKE ALL ON FUNCTION public.defer_installation_operation");
   });
 });

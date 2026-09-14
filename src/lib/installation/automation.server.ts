@@ -2643,28 +2643,23 @@ export async function readBaselineProgress(
   operation: OperationRow,
 ): Promise<BaselineProgress> {
   const db = client as never as {
-      from: (t: string) => {
-        select: (c: string) => {
-          eq: (
-            c: string,
-            v: string,
-          ) => {
-            order: (
-              c: string,
-              o: { ascending: boolean },
-            ) => { limit: (n: number) => Promise<{ data?: { detail?: unknown }[] | null; error?: unknown }> };
-          };
-        };
+    from: (t: string) => {
+      select: (c: string) => {
+        eq: (
+          c: string,
+          v: string,
+        ) => { maybeSingle: () => Promise<{ data?: { detail?: unknown } | null; error?: unknown }> };
       };
     };
+  };
   const { data, error } = await db
       .from("installation_operations")
       .select("detail")
-      .eq("installation_id", installationId)
-      .order("started_at", { ascending: false })
-      .limit(5);
+      .eq("id", operation.id)
+      .maybeSingle();
   if (error) throw error;
-  const rows = [...(data ?? []), { detail: operation.detail }];
+  if (!data) throw new Error(`Operação da instalação ${installationId} não encontrada durante a leitura do baseline.`);
+  const rows = [data];
   const merged: BaselineProgress = {};
   for (const row of rows) {
       const raw = (row?.detail as { baselineProgress?: unknown } | null)?.baselineProgress;
