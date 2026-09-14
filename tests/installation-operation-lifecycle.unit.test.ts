@@ -12,6 +12,7 @@ import {
 import retryAccountingSql from "../supabase/migrations/20260913230055_f50b7d0b-e5e5-4cc8-9ad0-ddcfd8104005.sql?raw";
 import deferSql from "../supabase/migrations/20260914003510_de477c51-5d2f-436b-af5c-c17ea96d7bdd.sql?raw";
 import canonicalAttemptsSql from "../supabase/migrations/20260914141212_3f236ac3-b474-429e-9cae-7bd7a2e303bb.sql?raw";
+import sealedPackageSql from "../supabase/migrations/20260914193902_b2da0b29-18e7-4dee-b276-428a57155c36.sql?raw";
 
 const NOW = Date.parse("2026-01-10T12:00:00.000Z");
 
@@ -129,6 +130,16 @@ describe("contagem de falhas consecutivas", () => {
     expect(canonicalAttemptsSql.match(/UPDATE public\.installation_operation_attempts/g)?.length).toBeGreaterThanOrEqual(4);
     expect(canonicalAttemptsSql).toContain("a.fencing_token = s.fencing_token");
     expect(canonicalAttemptsSql).toContain("fencing_token = _fencing_token");
+  });
+
+  it("snapshot legado só é selado com lease/fencing e nunca é substituído", () => {
+    expect(sealedPackageSql).toContain("seal_installation_operation_baseline");
+    expect(sealedPackageSql).toContain("lease_owner = _owner");
+    expect(sealedPackageSql).toContain("fencing_token = _fencing_token");
+    expect(sealedPackageSql).toContain("lease_expires_at > now()");
+    expect(sealedPackageSql).toContain("baseline_id IS NULL OR baseline_id = _baseline_id");
+    expect(sealedPackageSql).toContain("baseline_hash IS NULL OR baseline_hash = _baseline_hash");
+    expect(sealedPackageSql).toContain("REVOKE ALL ON FUNCTION public.seal_installation_operation_baseline");
   });
 });
 
