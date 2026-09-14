@@ -85,7 +85,15 @@ function map(row: Row | null): InstallationSettings {
   };
 }
 
-/** Lê o singleton. Nunca lança: falha de leitura devolve configuração vazia. */
+export function resolveInstallationSettingsRead(result: {
+  data?: unknown;
+  error?: { message?: string } | null;
+}): InstallationSettings {
+  if (result.error) throw new Error(result.error.message ?? "Falha ao ler configuração da instalação.");
+  return map((result.data as Row | null | undefined) ?? null);
+}
+
+/** Lê o singleton. Ausência real devolve configuração vazia; indisponibilidade lança. */
 export async function getInstallationSettings(opts?: {
   fresh?: boolean;
 }): Promise<InstallationSettings> {
@@ -99,13 +107,14 @@ export async function getInstallationSettings(opts?: {
       )
       .limit(1)
       .maybeSingle();
-    const result = res as { data: unknown; error?: { message?: string } | null };
-    if (result.error) throw new Error(result.error.message ?? "Falha ao ler configuração da instalação.");
-    const value = map((result.data as Row | null) ?? null);
+    const value = resolveInstallationSettingsRead(
+      res as { data?: unknown; error?: { message?: string } | null },
+    );
     cache = { at: Date.now(), value };
     return value;
-  } catch {
-    return cache?.value ?? EMPTY;
+  } catch (error) {
+    if (cache) return cache.value;
+    throw error;
   }
 }
 

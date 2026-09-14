@@ -198,6 +198,12 @@ async function guard(context: { supabase: unknown; userId: string }) {
   await assertSuperAdmin(context.supabase as unknown as RpcClient, context.userId);
 }
 
+export async function resolveInstallationManagerAccess(
+  read: () => Promise<boolean>,
+): Promise<boolean> {
+  return read();
+}
+
 export async function assertNoActiveInstallationOperation(
   supabase: { from: (table: string) => any }, // eslint-disable-line @typescript-eslint/no-explicit-any
   installationId: string,
@@ -260,10 +266,9 @@ export const getInstallationManagerAccessFn = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const { detectMaster } = await import("./manager.server");
     const isMaster = detectMaster();
-    const isSuperAdmin = await resolveIsSuperAdmin(
-      context.supabase as unknown as RpcClient,
-      context.userId,
-    ).catch(() => false);
+    const isSuperAdmin = await resolveInstallationManagerAccess(() =>
+      resolveIsSuperAdmin(context.supabase as unknown as RpcClient, context.userId),
+    );
     return {
       isMaster,
       isSuperAdmin,
