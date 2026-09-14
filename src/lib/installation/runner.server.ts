@@ -231,6 +231,31 @@ export async function yieldOperation(
   if (data !== true) throw new InstallationLeaseLostError();
 }
 
+/** Reagenda falha transitória do MASTER sem alterar falhas do destino. */
+export async function deferOperation(
+  client: AnyClient,
+  op: OperationRow,
+  errorKind: string,
+  summary: string,
+  delaySeconds = 30,
+): Promise<void> {
+  const { data, error } = await client.rpc("defer_installation_operation", {
+    _operation_id: op.id,
+    _owner: op.lease_owner ?? "",
+    _fencing_token: op.fencing_token ?? -1,
+    _delay_seconds: delaySeconds,
+    _error_kind: errorKind,
+    _summary: sanitize(summary),
+    _error_detail: {
+      failureSource: "master",
+      deferredAt: new Date().toISOString(),
+      retryDelaySeconds: delaySeconds,
+    },
+  });
+  if (error) throw error;
+  if (data !== true) throw new InstallationLeaseLostError();
+}
+
 /** Agenda falha transitória com backoff exponencial e limite persistido. */
 export async function retryOperation(
   client: AnyClient,
@@ -296,20 +321,21 @@ export async function applyProgressReport(
   // `op` é lido uma única vez no início da operação. Aplicar o progresso sobre
   // essa cópia apagaria as etapas já concluídas (UI ficava em "0/9 etapas" e
   // a etapa 01 parecia "pulada"). A verdade é sempre a linha persistida.
-  const { data: fresh } = await client
+  const { data: fresh, error: readError } = await client
     .from("installation_operations")
     .select("steps, detail")
     .eq("id", op.id)
     .maybeSingle();
-  const current = readSteps(fresh?.steps ?? op.steps);
-  const base = current.length > 0 ? current : readSteps(op.steps);
+  if (readError) throw readError;
+  if (!fresh) throw new Error("Operação não encontrada durante o checkpoint.");
+  const base = readSteps(fresh.steps);
   const steps = applyStepReport(base, {
     step: report.step,
     state,
     detail: sanitize(report.detail),
     percent: report.percent ?? null,
   });
-  const detail = (fresh?.detail ?? op.detail ?? {}) as Record<string, unknown>;
+  const detail = (fresh.detail ?? {}) as Record<string, unknown>;
   const { data: saved, error } = await client.rpc("checkpoint_installation_operation", {
     _operation_id: op.id,
     _owner: op.lease_owner ?? "",
@@ -351,13 +377,15 @@ export async function finalizeOperation(
   // da verdade: `op` foi lido no início da operação e já está obsoleto aqui.
   // Sem esta releitura, a etapa que falhou era sobrescrita e a UI mostrava
   // "etapa não identificada".
-  const { data: fresh } = await client
+  const { data: fresh, error: progressError } = await client
     .from("installation_operations")
     .select("steps")
     .eq("id", op.id)
     .maybeSingle();
-  const persisted = readSteps(fresh?.steps ?? op.steps);
-  const steps = (persisted.length > 0 ? persisted : readSteps(op.steps)).map((s) =>
+  if (progressError) throw progressError;
+  if (!fresh) throw new Error("Operação não encontrada durante a finalização.");
+  const persisted = readSteps(fresh.steps);
+  const steps = persisted.map((s) =>
     s.state === "running" ? { ...s, state: report.ok ? ("done" as const) : ("error" as const) } : s,
   );
   const incomplete = steps.filter((step) => step.state !== "done");
@@ -371,11 +399,13 @@ export async function finalizeOperation(
     version: (report.version ?? "").trim() || null,
   };
 
-  const { data: installation } = await client
+  const { data: installation, error: installationError } = await client
     .from("installations")
     .select("health_checks, pinned_release, current_version")
     .eq("id", op.installation_id)
     .maybeSingle();
+  if (installationError) throw installationError;
+  if (!installation) throw new Error("Instalação não encontrada durante a finalização.");
 
   const checks = normalizeHealthChecks(installation?.health_checks);
   for (const [id, state] of Object.entries(report.checks ?? {})) {
