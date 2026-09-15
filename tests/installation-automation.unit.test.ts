@@ -407,6 +407,7 @@ describe("runAutomatedProvision", () => {
         UNITOS_GITHUB_TOKEN: "g",
       },
       fetchImpl: fetchImpl as never,
+      sleep: async () => {},
     });
     expect(result.result).toBe("BLOCKED");
     expect(result.reasons.join(" ")).toContain("Supabase destino");

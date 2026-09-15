@@ -33,6 +33,14 @@ const createdUserIds = new Set<string>();
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+function chunks<T>(items: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let offset = 0; offset < items.length; offset += size) {
+    result.push(items.slice(offset, offset + size));
+  }
+  return result;
+}
+
 async function deleteTestUser(id: string): Promise<string | null> {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const { error } = await admin.auth.admin.deleteUser(id);
@@ -65,36 +73,55 @@ async function deleteTestUsers(ids: string[]): Promise<string[]> {
 async function deleteOwnedTestBrands(ids: string[]): Promise<string[]> {
   if (!ids.length) return [];
   const failures: string[] = [];
-  const brands = await admin.from("brands").select("id").in("created_by", ids);
-  if (brands.error) failures.push(`brands lookup: ${brands.error.message}`);
-  else failures.push(...(await deleteTestBrands(brands.data.map((row) => row.id))));
-  const remaining = await admin.from("brands").select("id").in("created_by", ids);
-  if (remaining.error) failures.push(`brands verify: ${remaining.error.message}`);
-  else if (remaining.data.length)
-    failures.push(`brands verify: ${remaining.data.length} workspace(s) de teste permaneceram`);
+  for (const userIds of chunks(ids, 20)) {
+    const brands = await admin.from("brands").select("id").in("created_by", userIds);
+    if (brands.error) {
+      failures.push(`brands lookup: ${brands.error.message}`);
+      continue;
+    }
+    failures.push(...(await deleteTestBrands(brands.data.map((row) => row.id))));
+    const remaining = await admin.from("brands").select("id").in("created_by", userIds);
+    if (remaining.error) failures.push(`brands verify: ${remaining.error.message}`);
+    else if (remaining.data.length)
+      failures.push(`brands verify: ${remaining.data.length} workspace(s) de teste permaneceram`);
+  }
   return failures;
 }
 
 async function deleteTestBrands(brandIds: string[]): Promise<string[]> {
   if (!brandIds.length) return [];
   const failures: string[] = [];
-  const defaults = await admin
-    .from("content_pipelines")
-    .update({ is_default: false })
-    .in("brand_id", brandIds)
-    .eq("is_default", true);
-  if (defaults.error) failures.push(`content_pipelines defaults: ${defaults.error.message}`);
-  const pipelines = await admin.from("content_pipelines").delete().in("brand_id", brandIds);
-  if (pipelines.error) failures.push(`content_pipelines: ${pipelines.error.message}`);
-  const systemProfiles = await admin
-    .from("access_profiles")
-    .update({ is_system: false })
-    .in("brand_id", brandIds)
-    .eq("is_system", true);
-  if (systemProfiles.error) failures.push(`access_profiles: ${systemProfiles.error.message}`);
-  const removed = await admin.from("brands").delete().in("id", brandIds);
-  if (removed.error) failures.push(`brands: ${removed.error.message}`);
+  for (const ids of chunks(brandIds, 20)) {
+    const defaults = await admin
+      .from("content_pipelines")
+      .update({ is_default: false })
+      .in("brand_id", ids)
+      .eq("is_default", true);
+    if (defaults.error) failures.push(`content_pipelines defaults: ${defaults.error.message}`);
+    const pipelines = await admin.from("content_pipelines").delete().in("brand_id", ids);
+    if (pipelines.error) failures.push(`content_pipelines: ${pipelines.error.message}`);
+    const systemProfiles = await admin
+      .from("access_profiles")
+      .update({ is_system: false })
+      .in("brand_id", ids)
+      .eq("is_system", true);
+    if (systemProfiles.error) failures.push(`access_profiles: ${systemProfiles.error.message}`);
+    const removed = await admin.from("brands").delete().in("id", ids);
+    if (removed.error) failures.push(`brands: ${removed.error.message}`);
+  }
   return failures;
+}
+
+/** Limpa somente recursos cujos ids foram criados e registrados pelo teste chamador. */
+export async function cleanupTestResources(userIds: string[], brandIds: string[]): Promise<void> {
+  assertPrivilegedTestEnv("INTEGRATION_TEST_SUITE_CLEANUP");
+  const failures = await deleteTestBrands(brandIds);
+  const remaining = await admin.from("brands").select("id").in("id", brandIds);
+  if (remaining.error) failures.push(`brands verify: ${remaining.error.message}`);
+  else if (remaining.data.length)
+    failures.push(`brands verify: ${remaining.data.length} workspace(s) permaneceram`);
+  failures.push(...(await deleteTestUsers(userIds)));
+  if (failures.length) throw new Error(`Falha no cleanup da fixture: ${failures.join("; ")}`);
 }
 
 /**
@@ -120,8 +147,8 @@ export async function createUser(label: string): Promise<TestUser> {
   if (!data.user) throw new Error(`createUser(${label}): usuário não retornado`);
   createdUserIds.add(data.user.id);
   const client = anonClient();
-  const signIn = await client.auth.signInWithPassword({ email, password });
-  if (signIn.error) throw new Error(`signIn(${label}): ${signIn.error.message}`);
+  const signedIn = await client.auth.signInWithPassword({ email, password });
+  if (signedIn.error) throw new Error(`signIn(${label}): ${signedIn.error.message}`);
   return { id: data.user.id, email, client };
 }
 
