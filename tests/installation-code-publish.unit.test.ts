@@ -45,6 +45,7 @@ const client = (fetchImpl: unknown) =>
     repo: "unitos-pitada",
     masterRepo: "mahara-apps/unitos-master",
     fetchImpl: fetchImpl as never,
+    sleep: async () => {},
   });
 
 describe("createCodeClient", () => {
@@ -505,6 +506,7 @@ describe("cota do GitHub e credencial do MASTER", () => {
       repo: "unitos-pitada",
       masterRepo: "mahara-apps/unitos-master",
       fetchImpl: fetchImpl as never,
+      sleep: async () => {},
     });
 
   it("lê o código do MASTER com a credencial do MASTER e grava no destino com a da instalação", async () => {

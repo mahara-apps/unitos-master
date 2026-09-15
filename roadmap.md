@@ -1,5 +1,12 @@
 # Roadmap
 
+## MASTER 1.4.0 — Suíte global confiável
+
+- [x] Separar tempo de infraestrutura, testes locais e integrações remotas.
+- [x] Executar testes locais em paralelo sem carregar cleanup remoto.
+- [x] Limitar concorrência remota ao grupo de integração e tornar fixtures/cleanup determinísticos.
+- [ ] Executar grupos afetados, suíte global, tipos, lint, build, testes focados e `master:check`.
+
 ## MASTER 1.4.0 — Workflow definitivo de instalações
 
 - [x] Mapear integralmente NEW/UPDATE, esperas, retries, timeouts e efeitos externos.

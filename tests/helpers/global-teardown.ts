@@ -7,6 +7,9 @@
 import { afterAll } from "vitest";
 import { cleanupTestIdentities } from "./fixtures";
 
+let cleanupChain = Promise.resolve();
+
 afterAll(async () => {
-  await cleanupTestIdentities();
+  cleanupChain = cleanupChain.then(cleanupTestIdentities);
+  await cleanupChain;
 }, 120_000);

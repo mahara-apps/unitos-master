@@ -1109,8 +1109,11 @@ export function createCodeClient(input: {
    */
   masterToken?: string | null;
   fetchImpl?: Fetcher;
+  sleep?: (ms: number) => Promise<void>;
 }): CodeClient {
   const doFetch = input.fetchImpl ?? fetch;
+  const sleep =
+    input.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const master = (input.masterRepo ?? "").trim() || DEFAULT_MASTER_REPO;
   const branch = (input.branch ?? "").trim() || "main";
   let target = `${input.owner}/${input.repo}`;
@@ -1184,7 +1187,7 @@ export function createCodeClient(input: {
         ),
       );
       attempt += 1;
-      await new Promise((r) => setTimeout(r, waitMs));
+      await sleep(waitMs);
     }
   };
 
@@ -1521,7 +1524,7 @@ export function createCodeClient(input: {
                   };
                 }
               }
-              await new Promise((resolve) => setTimeout(resolve, 1_000));
+              await sleep(1_000);
             }
             return {
               ok: false,
@@ -1599,7 +1602,7 @@ export function createCodeClient(input: {
                 };
               }
             }
-            await new Promise((resolve) => setTimeout(resolve, 1_000));
+            await sleep(1_000);
           }
           return {
             ok: false,
@@ -1659,7 +1662,7 @@ export function createCodeClient(input: {
               };
             }
           }
-          await new Promise((resolve) => setTimeout(resolve, 1_000));
+          await sleep(1_000);
         }
         return {
           ok: false,

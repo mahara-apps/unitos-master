@@ -31,6 +31,37 @@ export const testTag = TAG;
 /** Usuários criados nesta execução — limpeza garantida no teardown global. */
 const createdUserIds = new Set<string>();
 
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+async function deleteTestUser(id: string): Promise<string | null> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { error } = await admin.auth.admin.deleteUser(id);
+    if (!error || /user not found/i.test(error.message)) {
+      createdUserIds.delete(id);
+      return null;
+    }
+    if (attempt < 2 && /database error|rate limit/i.test(error.message)) {
+      await sleep(250 * 2 ** attempt);
+      continue;
+    }
+    return error.message;
+  }
+  return "falha desconhecida";
+}
+
+async function deleteTestUsers(ids: string[]): Promise<string[]> {
+  const failures: string[] = [];
+  for (let offset = 0; offset < ids.length; offset += 2) {
+    const batch = ids.slice(offset, offset + 2);
+    const results = await Promise.all(batch.map(deleteTestUser));
+    results.forEach((reason, index) => {
+      const id = batch[index];
+      if (reason && id) failures.push(`auth.users(${id}): ${reason}`);
+    });
+  }
+  return failures;
+}
+
 /**
  * Senha de teste NÃO derivável do e-mail: aleatória por conta (ou derivada de
  * um segredo exclusivo de teste + nonce aleatório). Nunca logada.
@@ -51,11 +82,12 @@ export async function createUser(label: string): Promise<TestUser> {
     user_metadata: { full_name: `QA ${label}` },
   });
   if (error) throw new Error(`createUser(${label}): ${error.message}`);
-  createdUserIds.add(data.user!.id);
+  if (!data.user) throw new Error(`createUser(${label}): usuário não retornado`);
+  createdUserIds.add(data.user.id);
   const client = anonClient();
   const signIn = await client.auth.signInWithPassword({ email, password });
   if (signIn.error) throw new Error(`signIn(${label}): ${signIn.error.message}`);
-  return { id: data.user!.id, email, client };
+  return { id: data.user.id, email, client };
 }
 
 /**
@@ -80,36 +112,23 @@ export async function createSuperAdminUser(label: string): Promise<TestUser> {
 export async function cleanupTestIdentities(): Promise<void> {
   const ids = [...createdUserIds];
   if (!ids.length) return;
-  await admin
+  const failures: string[] = [];
+  const profileCleanup = await admin
     .from("user_profiles")
     .update({ is_super_admin: false })
-    .in("id", ids)
-    .then(
-      () => undefined,
-      () => undefined,
-    );
+    .in("id", ids);
+  if (profileCleanup.error) failures.push(`user_profiles: ${profileCleanup.error.message}`);
   // Remove vínculos em QUALQUER workspace (inclusive o workspace real da instalação),
   // para que contas de teste nunca apareçam nas listas de equipe/menções.
-  await admin
-    .from("brand_members")
-    .delete()
-    .in("user_id", ids)
-    .then(
-      () => undefined,
-      () => undefined,
-    );
-  await admin
-    .from("client_members")
-    .delete()
-    .in("user_id", ids)
-    .then(
-      () => undefined,
-      () => undefined,
-    );
-  for (const id of ids) {
-    await admin.auth.admin.deleteUser(id).catch(() => {});
-    createdUserIds.delete(id);
-  }
+  const [brandCleanup, clientCleanup] = await Promise.all([
+    admin.from("brand_members").delete().in("user_id", ids),
+    admin.from("client_members").delete().in("user_id", ids),
+  ]);
+  if (brandCleanup.error) failures.push(`brand_members: ${brandCleanup.error.message}`);
+  if (clientCleanup.error) failures.push(`client_members: ${clientCleanup.error.message}`);
+  failures.push(...(await deleteTestUsers(ids)));
+  if (failures.length)
+    throw new Error(`Falha no cleanup de identidades QA: ${failures.join("; ")}`);
 }
 
 export type Fixture = {
@@ -146,10 +165,10 @@ export async function seed(): Promise<Fixture> {
   const userB = await createUser("b");
   const userNoLink = await createUser("nolink");
   const userPortal = await createUser("portal");
+  const userOtherOwner = await createUser("owner2");
   // Criador dedicado da segunda brand: o trigger add_brand_owner promove o
   // created_by a Owner, e a "outra brand" precisa ser um workspace em que
   // userOwner NÃO tem nenhum vínculo (cenário de cross-workspace).
-  const userOtherOwner = await createUser("owner2");
 
   const brand = await admin
     .from("brands")
@@ -173,12 +192,10 @@ export async function seed(): Promise<Fixture> {
     { user: userB, role: "user" },
     { user: userNoLink, role: "user" },
   ];
-  for (const m of memberships) {
-    const r = await admin
-      .from("brand_members")
-      .insert({ brand_id: brandId, user_id: m.user.id, role: m.role });
-    if (r.error) throw new Error(`brand_members(${m.role}): ${r.error.message}`);
-  }
+  const membershipInsert = await admin
+    .from("brand_members")
+    .insert(memberships.map((m) => ({ brand_id: brandId, user_id: m.user.id, role: m.role })));
+  if (membershipInsert.error) throw new Error(`brand_members: ${membershipInsert.error.message}`);
 
   // Garantia explícita: nenhum papel foi promovido por trigger.
   const roles = await admin.from("brand_members").select("user_id, role").eq("brand_id", brandId);
@@ -253,7 +270,7 @@ export async function cleanup(fx: Fixture | null) {
   await admin.from("clients").delete().in("brand_id", [fx.brandId, fx.otherBrandId]);
   await admin.from("brand_members").delete().in("brand_id", [fx.brandId, fx.otherBrandId]);
   await admin.from("brands").delete().in("id", [fx.brandId, fx.otherBrandId]);
-  for (const u of [
+  const users = [
     fx.userOwner,
     fx.userManager,
     fx.userA,
@@ -261,9 +278,9 @@ export async function cleanup(fx: Fixture | null) {
     fx.userNoLink,
     fx.userPortal,
     fx.userOtherOwner,
-  ]) {
-    await admin.auth.admin.deleteUser(u.id).catch(() => {});
-  }
+  ];
+  const failures = await deleteTestUsers(users.map((u) => u.id));
+  if (failures.length) throw new Error(`Falha ao remover identidades QA: ${failures.join("; ")}`);
 }
 
 /** Espelha listProjectsFn: mesma workspace, sem arquivados/concluídos por padrão. */

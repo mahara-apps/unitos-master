@@ -24,6 +24,7 @@ describe("customer panel tabs (fonte única)", () => {
       "trabalho",
       "horas",
       "publicacoes",
+      "automacoes",
       "area-cliente",
     ]);
   });
@@ -32,8 +33,6 @@ describe("customer panel tabs (fonte única)", () => {
     expect(resolveCustomerTab("pedidos")).toBe("area-cliente");
     expect(resolveCustomerTab("requests")).toBe("area-cliente");
   });
-
-
   it("resolve todos os aliases legados para uma aba canônica", () => {
     for (const [alias, target] of Object.entries(CUSTOMER_TAB_ALIASES)) {
       expect(isCustomerTabAlias(alias)).toBe(true);
