@@ -29,6 +29,7 @@ describe("etapas do provisionamento", () => {
       "brain",
       "cron",
       "validation",
+      "version",
     ]);
     expect(VALIDATE_STEPS).toHaveLength(7);
   });
@@ -134,7 +135,8 @@ describe("comando de execução e atualização", () => {
     });
     expect(cmd).toContain("supabase/install/bootstrap.sh");
     expect(cmd).toContain("UNITOS_RUN_TOKEN=\"tok-1\"");
-    expect(cmd).toContain("<SENHA>");
+    expect(cmd).not.toContain("<SENHA>");
+    expect(cmd).not.toContain("DATABASE_URL");
   });
 
   it("validação usa o wrapper read-only", () => {

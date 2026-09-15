@@ -9,7 +9,7 @@
 - [x] Impedir conclusão/promoção sem migrations, validação, deploy e health comprovados.
 - [x] Regenerar pacote MASTER-first v1.4.0 e ampliar a verificação da instalação.
 - [x] Cobrir clean install, replay, retomada parcial, falhas externas e manifesto divergente.
-- [ ] Rodar lint, tipos, testes, build, `master:check` e revisar o diff final.
+- [x] Rodar lint, tipos, testes, build, `master:check` e revisar o diff final.
 
 ## Etapa 14 — Pacote e executor canônicos
 
