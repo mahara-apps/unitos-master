@@ -10,6 +10,7 @@ import {
 import {
   isDuplicateObjectError,
   prepareVerificationSql,
+  sanitizeBaselineSqlForManagementApi,
   splitSqlStatements,
   stripPsqlMetaCommands,
   summarizeVerificationRows,
@@ -125,6 +126,45 @@ describe("delta do baseline", () => {
     for (const privilege of ["TRUNCATE", "TRIGGER", "REFERENCES", "MAINTAIN"] as const) {
       expect(verifySql).toContain(`'${privilege}'`);
     }
+  });
+
+  it("pré-valida as migrations fixadas 96–104 sem bloqueios conhecidos", () => {
+    const fixed = manifestRaw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(95, 104);
+    expect(fixed).toHaveLength(9);
+
+    const sqlByFile = new Map(
+      Object.entries(migrationFiles).map(([filePath, sql]) => [filePath.split("/").pop(), sql]),
+    );
+    const prepared = fixed.map((file) => {
+      const raw = sqlByFile.get(file);
+      expect(raw, `migration ausente: ${file}`).toBeTypeOf("string");
+      return { file, raw: raw ?? "", clean: sanitizeBaselineSqlForManagementApi(raw ?? "") };
+    });
+
+    expect(prepared[0]?.raw.trim()).toBe(
+      "DROP FUNCTION public.heartbeat_installation_operation(uuid, text, integer);",
+    );
+    expect(prepared[1]?.raw).toContain("ADD COLUMN IF NOT EXISTS next_attempt_at");
+    expect(prepared[1]?.raw).toContain("DROP INDEX IF EXISTS");
+    expect(prepared[2]?.raw).toContain("CREATE OR REPLACE FUNCTION public.compare_and_set_installation_generated_secrets");
+    expect(prepared[3]?.raw).toContain("CREATE OR REPLACE FUNCTION public.claim_installation_operation");
+    expect(prepared[4]?.raw).toContain("CREATE OR REPLACE FUNCTION public.defer_installation_operation");
+
+    for (const migration of prepared.slice(5, 7)) {
+      expect(migration.raw).toMatch(/ALTER\s+DEFAULT\s+PRIVILEGES/i);
+      expect(migration.clean.sql).not.toMatch(/ALTER\s+DEFAULT\s+PRIVILEGES/i);
+      expect(migration.clean.removed.some((statement) => /ALTER DEFAULT PRIVILEGES/i.test(statement))).toBe(true);
+    }
+
+    expect(prepared[7]?.raw).toContain("A contenção deixou");
+    expect(prepared[8]?.raw).toContain("CREATE TABLE IF NOT EXISTS public.installation_operation_attempts");
+    expect(prepared[8]?.raw).toContain("UNIQUE (operation_id, fencing_token)");
+    expect(prepared[8]?.raw).toContain("ENABLE ROW LEVEL SECURITY");
+    expect(prepared[8]?.raw).toContain("GRANT EXECUTE ON FUNCTION public.finalize_installation_operation");
   });
 
   for (const objeto of [
@@ -254,6 +294,26 @@ describe("reexecução idempotente do baseline", () => {
       "CREATE TABLE x (id int);",
     );
     expect(bad.ok).toBe(false);
+  });
+
+  it("comprova a ausência da assinatura explícita antes de tolerar o DROP da migration 96", async () => {
+    const batches: string[] = [];
+    const result = await applyStatementByStatement(
+      {
+        query: async (batch) => {
+          batches.push(batch);
+          return { ok: true, rows: checkpointRows(batch, 1) };
+        },
+      },
+      "DROP FUNCTION public.heartbeat_installation_operation(uuid, text, integer);",
+    );
+
+    expect(result).toMatchObject({ ok: true, processed: 1, total: 1, complete: true });
+    const execution = batches.find((batch) => batch.includes("DO $unitos_guard$"));
+    expect(execution).toContain(
+      "IF to_regprocedure('public.heartbeat_installation_operation(uuid, text, integer)') IS NOT NULL THEN",
+    );
+    expect(execution).toContain("DROP FUNCTION public.heartbeat_installation_operation(uuid, text, integer);");
   });
 
   it("divide adaptativamente o lote em vez de enviar milhares de statements um a um", async () => {

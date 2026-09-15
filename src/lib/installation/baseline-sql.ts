@@ -12,7 +12,7 @@
  * privilégios explicitamente (GRANT por tabela/função) e todo projeto Supabase
  * novo já nasce com as ACLs default corretas. Portanto eles são REMOVIDOS aqui,
  * nunca "ignorados silenciosamente no meio do script" — a remoção é explícita,
- * auditável e testada.
+ * auditável e testada, inclusive quando o statement ocupa várias linhas.
  *
  * Nada além destes padrões é alterado: schema, RLS, policies, funções,
  * triggers, GRANTs e seeds seguem literais.
@@ -39,32 +39,29 @@ export type SanitizedBaseline = {
   removed: string[];
 };
 
+function statementWithoutLeadingComments(statement: string): string {
+  return statement.replace(/^\s*(?:(?:--[^\n]*(?:\n|$))|(?:\/\*[\s\S]*?\*\/)|\s)+/g, "").trim();
+}
+
 function isSuperuserOnly(statement: string): boolean {
-  const head = statement.replace(/^\s*(--[^\n]*\n|\s)+/g, "").trim();
-  return SUPERUSER_ONLY_PATTERNS.some((re) => re.test(head));
+  return SUPERUSER_ONLY_PATTERNS.some((re) => re.test(statementWithoutLeadingComments(statement)));
 }
 
 /**
  * Remove os comandos exclusivos de superusuário de um arquivo do baseline.
- * Implementação conservadora: só remove statements de UMA linha que casam com
- * os padrões acima (é exatamente a forma emitida pelo pg_dump).
+ * Implementação conservadora: divide o arquivo em statements completos e só
+ * remove os comandos que casam com a lista explícita acima.
  */
 export function sanitizeBaselineSqlForManagementApi(sql: string): SanitizedBaseline {
   const removed: string[] = [];
-  const out: string[] = [];
+  const stripped = stripPsqlMetaCommands(sql);
+  removed.push(...stripped.removed);
 
-  for (const line of sql.split("\n")) {
-    const trimmed = line.trim();
-    if (trimmed.endsWith(";") && isSuperuserOnly(trimmed)) {
-      removed.push(trimmed.slice(0, 120));
-      continue;
-    }
-    if (isPsqlMetaCommand(trimmed)) {
-      removed.push(trimmed.slice(0, 120));
-      continue;
-    }
-    out.push(line);
-  }
+  const out = splitSqlStatements(stripped.sql).filter((statement) => {
+    if (!isSuperuserOnly(statement)) return true;
+    removed.push(statementWithoutLeadingComments(statement).replace(/\s+/g, " ").slice(0, 120));
+    return false;
+  });
 
   return { sql: out.join("\n"), removed };
 }
@@ -275,4 +272,15 @@ export function splitSqlStatements(sql: string): string[] {
   const tail = buf.trim();
   if (tail) out.push(tail.endsWith(";") ? tail : `${tail};`);
   return out;
+}
+
+/**
+ * Retorna a assinatura totalmente explícita de um `DROP FUNCTION` simples.
+ * Não aceita CASCADE/RESTRICT, múltiplas assinaturas nem nome sem schema: a
+ * tolerância de ausência precisa ser estreita e comprovável via regprocedure.
+ */
+export function explicitDropFunctionSignature(statement: string): string | null {
+  const head = statement.replace(/^\s*(?:--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/\s*)*/g, "").trim();
+  const match = /^DROP\s+FUNCTION\s+(?!IF\s+EXISTS\b)((?:"[^"]+"|[a-z_][a-z0-9_]*)\.(?:"[^"]+"|[a-z_][a-z0-9_]*)\s*\([^;()]*\))\s*;?$/i.exec(head);
+  return match?.[1]?.replace(/\s+/g, " ").trim() ?? null;
 }
