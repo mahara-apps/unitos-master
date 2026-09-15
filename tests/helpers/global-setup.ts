@@ -1,4 +1,4 @@
-import { cleanupStaleTestIdentities } from "./fixtures";
+import { cleanupSharedTestUserPool, cleanupStaleTestIdentities } from "./fixtures";
 import { assertPrivilegedTestEnv } from "./test-env";
 
 export async function setup(): Promise<void> {
@@ -8,5 +8,5 @@ export async function setup(): Promise<void> {
 
 export async function teardown(): Promise<void> {
   assertPrivilegedTestEnv("INTEGRATION_TEST_SUITE");
-  await cleanupStaleTestIdentities();
+  await cleanupSharedTestUserPool();
 }

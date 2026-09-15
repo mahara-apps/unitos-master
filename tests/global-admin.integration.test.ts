@@ -9,7 +9,7 @@
  * my_access e can_access_client + RLS de brands/clients.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { admin, createUser, type TestUser } from "./helpers/fixtures";
+import { admin, cleanupTestResources, createUser, type TestUser } from "./helpers/fixtures";
 
 let profileAdmin: TestUser;
 let plainUser: TestUser;
@@ -46,12 +46,11 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await admin.from("clients").delete().eq("id", clientId);
-  await admin.from("brand_members").delete().eq("brand_id", brandId);
-  await admin.from("brands").delete().eq("id", brandId);
-  for (const u of [profileAdmin, plainUser, owner]) {
-    if (u) await admin.auth.admin.deleteUser(u.id).catch(() => {});
-  }
+  if (!brandId) return;
+  await cleanupTestResources(
+    [profileAdmin, plainUser, owner].filter(Boolean).map((user) => user.id),
+    [brandId],
+  );
 });
 
 describe("user_profiles.role = 'admin' não é autoridade global", () => {

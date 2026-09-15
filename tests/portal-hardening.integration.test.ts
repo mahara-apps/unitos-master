@@ -13,7 +13,14 @@
  * Requer SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY e SUPABASE_PUBLISHABLE_KEY.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { admin, anonClient, createUser, testTag, type TestUser } from "./helpers/fixtures";
+import {
+  admin,
+  anonClient,
+  cleanupTestResources,
+  createUser,
+  testTag,
+  type TestUser,
+} from "./helpers/fixtures";
 
 type Ctx = {
   brandId: string;
@@ -146,9 +153,7 @@ beforeAll(async () => {
 }, 90_000);
 
 afterAll(async () => {
-  // Limpeza só de dados criados por este teste (nunca histórico da aplicação).
-  for (const b of created.brands) await admin.from("brands").delete().eq("id", b);
-  for (const u of created.users) await admin.auth.admin.deleteUser(u);
+  await cleanupTestResources(created.users, created.brands);
 });
 
 describe("portal_resolve — superfície de dados", () => {
