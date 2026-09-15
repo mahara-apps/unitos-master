@@ -427,13 +427,11 @@ describe("reexecução idempotente do baseline", () => {
     expect(ledger).toBeGreaterThan(prerequisite);
   });
 
-  it("não envia consulta vazia ao preparar o ledger sem seeds", () => {
+  it("prepara somente a estrutura do ledger sem inventar evidências", () => {
     const source = readFileSync("src/lib/installation/automation.server.ts", "utf8");
-    const emptyGuard = source.indexOf("if (migrations.length === 0) return { ok: true }");
-    const ledgerInsert = source.indexOf("const written = await management.query(", emptyGuard);
-
-    expect(emptyGuard).toBeGreaterThan(-1);
-    expect(ledgerInsert).toBeGreaterThan(emptyGuard);
+    expect(source).toContain("if (migrations.length > 0)");
+    expect(source).toContain("backfill sem evidência verificável foi bloqueado");
+    expect(source).not.toContain("const written = await management.query(");
   });
 });
 
