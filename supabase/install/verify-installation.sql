@@ -621,6 +621,23 @@ WITH checks AS (
                     AND NOT has_function_privilege('anon', 'public.seal_installation_operation_baseline(uuid,text,bigint,text,text)', 'EXECUTE')
                     AND NOT has_function_privilege('authenticated', 'public.seal_installation_operation_baseline(uuid,text,bigint,text,text)', 'EXECUTE')
               THEN 'PASS' ELSE 'FAIL' END
+
+  UNION ALL
+  SELECT 87, 'operações: confirmação transacional de migrations',
+         CASE WHEN to_regclass('public.installation_operation_migrations') IS NULL THEN 'tabela ausente'
+              WHEN to_regprocedure('public.checkpoint_installation_migration(uuid,text,bigint,text,text,integer,integer,integer,boolean)') IS NULL THEN 'checkpoint ausente'
+              WHEN to_regprocedure('public.reconcile_installation_operation_migrations(uuid,text,bigint,jsonb)') IS NULL THEN 'reconciliação ausente'
+              WHEN to_regprocedure('public.merge_installation_operation_steps(jsonb,jsonb)') IS NULL THEN 'merge monotônico ausente'
+              ELSE 'registro canônico disponível' END,
+         CASE WHEN to_regclass('public.installation_operation_migrations') IS NOT NULL
+                    AND to_regprocedure('public.checkpoint_installation_migration(uuid,text,bigint,text,text,integer,integer,integer,boolean)') IS NOT NULL
+                    AND to_regprocedure('public.reconcile_installation_operation_migrations(uuid,text,bigint,jsonb)') IS NOT NULL
+                    AND to_regprocedure('public.merge_installation_operation_steps(jsonb,jsonb)') IS NOT NULL
+                    AND NOT has_table_privilege('anon', 'public.installation_operation_migrations', 'SELECT')
+                    AND NOT has_table_privilege('authenticated', 'public.installation_operation_migrations', 'INSERT')
+                    AND NOT has_function_privilege('anon', 'public.checkpoint_installation_migration(uuid,text,bigint,text,text,integer,integer,integer,boolean)', 'EXECUTE')
+                    AND NOT has_function_privilege('authenticated', 'public.checkpoint_installation_migration(uuid,text,bigint,text,text,integer,integer,integer,boolean)', 'EXECUTE')
+              THEN 'PASS' ELSE 'FAIL' END
 )
 
 SELECT status, check_name, observed
