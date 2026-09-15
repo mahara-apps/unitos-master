@@ -263,7 +263,10 @@ describe("resultado do fluxo automatizado", () => {
 function fakeClient(detail: Record<string, unknown> = {}) {
   const updates: Record<string, unknown>[] = [];
   const api = {
-    rpc: async () => ({ data: true, error: null }),
+    rpc: async (name: string) => ({
+      data: name === "reconcile_installation_operation_migrations" ? 0 : true,
+      error: null,
+    }),
     from: () => ({
       update: (patch: Record<string, unknown>) => {
         updates.push(patch);
