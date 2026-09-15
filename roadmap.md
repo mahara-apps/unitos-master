@@ -1,5 +1,16 @@
 # Roadmap
 
+## MASTER 1.4.0 — Workflow definitivo de instalações
+
+- [x] Mapear integralmente NEW/UPDATE, esperas, retries, timeouts e efeitos externos.
+- [x] Versionar explicitamente `start_durable_installation_operation` e validar seu contrato.
+- [x] Unificar NEW/UPDATE no executor durável, com evidência idempotente por etapa.
+- [x] Limitar retries/esperas e remover falhas silenciosas de persistência/finalização.
+- [x] Impedir conclusão/promoção sem migrations, validação, deploy e health comprovados.
+- [x] Regenerar pacote MASTER-first v1.4.0 e ampliar a verificação da instalação.
+- [x] Cobrir clean install, replay, retomada parcial, falhas externas e manifesto divergente.
+- [ ] Rodar lint, tipos, testes, build, `master:check` e revisar o diff final.
+
 ## Etapa 14 — Pacote e executor canônicos
 
 - [x] Incorporar o contrato aditivo e o hardening de `_unitos_applied_deltas` ao pacote local, sem backfill.

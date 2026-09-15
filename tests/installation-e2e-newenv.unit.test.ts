@@ -55,7 +55,17 @@ function fakeClient() {
     from: (table: string) => ({
       update: (patch: Record<string, unknown>) => {
         updates.push(patch);
-        return { eq: async () => ({ error: null }) };
+        const terminal = Promise.resolve({ data: { id: OP.id }, error: null });
+        const chain = {} as Record<string, unknown> & PromiseLike<unknown>;
+        Object.assign(chain, {
+          eq: () => chain,
+          is: () => chain,
+          in: () => chain,
+          select: () => chain,
+          maybeSingle: () => terminal,
+          then: terminal.then.bind(terminal),
+        });
+        return chain;
       },
       select: () => ({
         eq: () => ({

@@ -36,10 +36,11 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
 }> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const owner = `cron:${crypto.randomUUID()}`;
-  const { data: rows, error } = await supabaseAdmin.rpc(
-    "claim_stale_installation_operations",
-    { _owner: owner, _limit: limit, _lease_seconds: AUTOMATION_LEASE_SECONDS },
-  );
+  const { data: rows, error } = await supabaseAdmin.rpc("claim_stale_installation_operations", {
+    _owner: owner,
+    _limit: limit,
+    _lease_seconds: AUTOMATION_LEASE_SECONDS,
+  });
   if (error) throw error;
 
   const operations: string[] = [];
@@ -58,9 +59,14 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
       if (!installation) throw new Error("Instalação da operação não foi encontrada.");
 
       const row = installation as Record<string, unknown>;
-      const { runAutomatedProvision, runAutomatedUpdate, runAutomatedValidate, classifyAccessFailure } =
-        await import("./automation.server");
-      const { finalizeOperation, retryOperation, withOperationHeartbeat, yieldOperation } = await import("./runner.server");
+      const {
+        runAutomatedProvision,
+        runAutomatedUpdate,
+        runAutomatedValidate,
+        classifyAccessFailure,
+      } = await import("./automation.server");
+      const { finalizeOperation, retryOperation, withOperationHeartbeat, yieldOperation } =
+        await import("./runner.server");
       const kind = (op as { kind?: string }).kind ?? "provision";
       const { resolveInstallationEnv } = await import("./credentials.server");
       const { setRemoteInstallationServiceState } = await import("./service-state.server");
@@ -102,15 +108,19 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
           runAutomatedValidate(args),
         );
       } else {
-        await withOperationHeartbeat(supabaseAdmin as never, op as never, () =>
+        const outcome = await withOperationHeartbeat(supabaseAdmin as never, op as never, () =>
           runAutomatedProvision(args),
         );
+        if (outcome.result === "RUNNING") {
+          await yieldOperation(supabaseAdmin as never, op as never);
+        }
       }
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "falha inesperada na retomada";
       try {
         const { classifyAccessFailure } = await import("./automation.server");
-        const { deferOperation, finalizeOperation, retryOperation } = await import("./runner.server");
+        const { deferOperation, finalizeOperation, retryOperation } =
+          await import("./runner.server");
         const action = resumeFailureAction(cause, classifyAccessFailure(message));
         if (action === "defer") {
           if (!(cause instanceof InstallationReadError)) {
@@ -136,8 +146,16 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
           // conclusão definitiva confirmada pelo caminho de sucesso acima.
           await retryOperation(supabaseAdmin as never, op as never, "transient", message);
         }
-      } catch {
-        // Falha de uma operação não interrompe os demais claims deste lote.
+      } catch (persistenceError) {
+        // A falha continua visível nos logs do worker sem derrubar os demais
+        // claims. Nunca transformar erro de checkpoint/finalização em sucesso.
+        console.error("installation resume state persistence failed", {
+          operationId,
+          message:
+            persistenceError instanceof Error
+              ? persistenceError.message
+              : "falha desconhecida ao persistir estado",
+        });
       }
     }
     operations.push(operationId);

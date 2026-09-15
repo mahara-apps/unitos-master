@@ -20,6 +20,7 @@ import {
   isStepState,
   normalizeHealthChecks,
   operationStatusFromSteps,
+  stepsFor,
   statusAfterOperation,
   type CheckState,
   type HealthCheckId,
@@ -398,11 +399,16 @@ export async function finalizeOperation(
   if (progressError) throw progressError;
   if (!fresh) throw new Error("Operação não encontrada durante a finalização.");
   const persisted = readSteps(fresh.steps);
+  const expectedStepIds = new Set(stepsFor(kind).map((step) => step.id));
+  const persistedStepIds = new Set(persisted.map((step) => step.id));
+  const contractComplete =
+    expectedStepIds.size === persistedStepIds.size &&
+    [...expectedStepIds].every((stepId) => persistedStepIds.has(stepId));
   const steps = persisted.map((s) =>
     s.state === "running" ? { ...s, state: report.ok ? ("done" as const) : ("error" as const) } : s,
   );
   const incomplete = steps.filter((step) => step.state !== "done");
-  const acceptedSuccess = report.ok && steps.length > 0 && incomplete.length === 0;
+  const acceptedSuccess = report.ok && contractComplete && incomplete.length === 0;
   const finalSteps = steps;
 
   const summary = sanitize(report.summary) ?? op.summary;
@@ -447,7 +453,11 @@ export async function finalizeOperation(
     last_error: acceptedSuccess
       ? null
       : report.ok
-        ? `A operação tentou concluir sem evidência em todas as etapas: ${incomplete.map((step) => step.label).join(", ") || "etapas ausentes"}.`
+        ? `A operação tentou concluir sem evidência em todas as etapas: ${
+            !contractComplete
+              ? "contrato de etapas incompleto"
+              : incomplete.map((step) => step.label).join(", ") || "etapas ausentes"
+          }.`
         : (summary ?? "Falha registrada na operação."),
     ...(promotedVersion ? { current_version: promotedVersion } : {}),
     ...(kind !== "validate" && acceptedSuccess ? { last_provisioned_at: nowIso } : {}),
