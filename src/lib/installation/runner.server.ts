@@ -182,10 +182,7 @@ export function versionForCompletedOperation(input: {
   return input.version;
 }
 
-export async function heartbeatOperation(
-  client: AnyClient,
-  op: OperationRow,
-): Promise<boolean> {
+export async function heartbeatOperation(client: AnyClient, op: OperationRow): Promise<boolean> {
   const owner = op.lease_owner?.trim();
   if (!owner || typeof op.fencing_token !== "number") return false;
   const { data, error } = await client.rpc("heartbeat_installation_operation", {
@@ -277,7 +274,10 @@ export async function retryOperation(
 ): Promise<void> {
   const attempt = Math.max(op.attempt_count ?? 0, 0) + 1;
   const baseDelaySeconds = Math.min(750, 15 * 2 ** Math.min(attempt - 1, 6));
-  const delaySeconds = Math.min(900, baseDelaySeconds + Math.floor(Math.random() * Math.max(1, baseDelaySeconds * 0.2)));
+  const delaySeconds = Math.min(
+    900,
+    baseDelaySeconds + Math.floor(Math.random() * Math.max(1, baseDelaySeconds * 0.2)),
+  );
   const { data, error } = await client.rpc("retry_installation_operation", {
     _operation_id: op.id,
     _owner: op.lease_owner ?? "",
@@ -493,7 +493,10 @@ export async function finalizeOperation(
       status: acceptedSuccess ? "success" : "failed",
       summary,
       error_kind: acceptedSuccess ? null : (sanitize(report.errorKind) ?? "operation_failed"),
-      detail: { ...((fresh?.detail ?? op.detail ?? {}) as Record<string, unknown>), executed: true },
+      detail: {
+        ...((fresh?.detail ?? op.detail ?? {}) as Record<string, unknown>),
+        executed: true,
+      },
       finished_at: nowIso,
       last_report_at: nowIso,
     })

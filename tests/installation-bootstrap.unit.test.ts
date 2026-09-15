@@ -84,7 +84,9 @@ describe("cron aponta somente para a própria URL", () => {
   });
 
   it("ignora jobs SQL sem URL", () => {
-    expect(assertCronTargetsOwnOrigin(["SELECT public.reap_stuck_ai_jobs();"], origin).ok).toBe(true);
+    expect(assertCronTargetsOwnOrigin(["SELECT public.reap_stuck_ai_jobs();"], origin).ok).toBe(
+      true,
+    );
   });
 });
 
@@ -118,6 +120,7 @@ describe("contrato do baseline", () => {
 
   it("permite seeds somente de catálogo/configuração", () => {
     for (const table of ALLOWED_SEED_TABLES) expect(isAllowedSeedTable(table)).toBe(true);
-    for (const table of BUSINESS_TABLES_MUST_BE_EMPTY) expect(isAllowedSeedTable(table)).toBe(false);
+    for (const table of BUSINESS_TABLES_MUST_BE_EMPTY)
+      expect(isAllowedSeedTable(table)).toBe(false);
   });
 });

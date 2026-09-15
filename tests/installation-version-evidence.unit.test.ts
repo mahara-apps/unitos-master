@@ -8,7 +8,11 @@ describe("promoção de versão exige evidência completa", () => {
       versionForCompletedOperation({ kind: "update", acceptedSuccess: false, version: "1.3.97" }),
     ).toBeNull();
     expect(
-      versionForCompletedOperation({ kind: "provision", acceptedSuccess: false, version: "1.3.97" }),
+      versionForCompletedOperation({
+        kind: "provision",
+        acceptedSuccess: false,
+        version: "1.3.97",
+      }),
     ).toBeNull();
   });
 

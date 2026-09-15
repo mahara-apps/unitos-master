@@ -81,7 +81,10 @@ type OperationControlState = {
 type OperationControlClient = {
   from: (table: string) => {
     select: (columns: string) => {
-      eq: (column: string, value: string) => {
+      eq: (
+        column: string,
+        value: string,
+      ) => {
         maybeSingle: () => Promise<{ data?: OperationControlState | null; error?: unknown }>;
       };
     };
@@ -354,9 +357,17 @@ export async function applyStatementByStatement(
   const canonicalTotal = Number(checkpointRow["total_statements"]);
   const canonicalIndex = Number(checkpointRow["statement_index"]);
   if (!Number.isInteger(canonicalTotal) || canonicalTotal !== statements.length) {
-    return { ok: false, error: "Checkpoint canônico incompatível com o conteúdo da migration.", processed };
+    return {
+      ok: false,
+      error: "Checkpoint canônico incompatível com o conteúdo da migration.",
+      processed,
+    };
   }
-  if (!Number.isInteger(canonicalIndex) || canonicalIndex < 0 || canonicalIndex > statements.length) {
+  if (
+    !Number.isInteger(canonicalIndex) ||
+    canonicalIndex < 0 ||
+    canonicalIndex > statements.length
+  ) {
     return { ok: false, error: "Checkpoint canônico contém um índice inválido.", processed };
   }
   from = canonicalIndex;
@@ -388,7 +399,9 @@ export async function applyStatementByStatement(
       if (segment.kind === "enum") {
         for (const statement of segment.statements) {
           const nextIndex = segmentProcessed + 1;
-          const enumRes = await management.query(`BEGIN;\n${statement}\n${checkpointSql(nextIndex)};\nCOMMIT;`);
+          const enumRes = await management.query(
+            `BEGIN;\n${statement}\n${checkpointSql(nextIndex)};\nCOMMIT;`,
+          );
           if (
             !enumRes.ok &&
             !/already exists|duplicate|does not exist/i.test(enumRes.error ?? "")
@@ -397,7 +410,8 @@ export async function applyStatementByStatement(
           }
           if (!enumRes.ok) {
             const duplicateCheckpoint = await management.query(checkpointSql(nextIndex));
-            if (!duplicateCheckpoint.ok) return { ok: false, error: duplicateCheckpoint.error, processed };
+            if (!duplicateCheckpoint.ok)
+              return { ok: false, error: duplicateCheckpoint.error, processed };
           }
           segmentProcessed = nextIndex;
         }
@@ -542,9 +556,7 @@ export type ManagementClient = {
    * PATCH em `/config/auth`. Opcional no tipo porque testes usam dublês
    * simples — quem chama trata a ausência como "não aplicado".
    */
-  configureAuth?: (
-    patch: Record<string, unknown>,
-  ) => Promise<{ ok: boolean; error?: string }>;
+  configureAuth?: (patch: Record<string, unknown>) => Promise<{ ok: boolean; error?: string }>;
 };
 
 /**
@@ -567,7 +579,6 @@ export async function applyInstallationAuthDefaults(
     ? { applied: true, detail: "confirmação de e-mail desligada no destino" }
     : { applied: false, detail: res.error ?? "não foi possível ajustar a autenticação" };
 }
-
 
 function managementApiError(status: number, body: string, operation: "database" | "keys"): string {
   if (status === 401) {
@@ -780,7 +791,6 @@ export function createManagementClient(input: {
       return last;
     },
   };
-
 }
 
 export async function validateSupabaseProjectKeys(input: {
@@ -805,7 +815,8 @@ export async function validateSupabaseProjectKeys(input: {
       if (res.status === 401 || res.status === 403) {
         return `${label} recusada pelo projeto informado (HTTP ${res.status}).`;
       }
-      if (res.status >= 500) return `${label}: Supabase temporariamente indisponível (HTTP ${res.status}).`;
+      if (res.status >= 500)
+        return `${label}: Supabase temporariamente indisponível (HTTP ${res.status}).`;
       return null;
     } catch (cause) {
       return `${label}: ${cause instanceof Error && cause.name === "AbortError" ? "timeout" : "sem resposta"}.`;
@@ -1310,7 +1321,6 @@ export function createCodeClient(input: {
             );
           }
         } else if (repoRes.status === 404) {
-
           const isPersonal = login.toLowerCase() === input.owner.trim().toLowerCase();
           const ownerRes = isPersonal ? null : await api(`/orgs/${input.owner}`);
           const reaches = isPersonal || Boolean(ownerRes?.ok);
@@ -1693,13 +1703,23 @@ export function createCodeClient(input: {
         if (!versionFile.ok) return versionFile;
         if (!deltaFile.ok) return deltaFile;
         const version = /^\s*version\s*=\s*(\S+)\s*$/m.exec(versionFile.content)?.[1];
-        const declaredSha = /^\s*sha256\s*=\s*([0-9a-f]{64})\s*$/mi.exec(versionFile.content)?.[1]?.toLowerCase();
-        if (!version || !declaredSha) return { ok: false, error: "metadados do pacote autorizado estão incompletos" };
-        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(deltaFile.content));
-        const actualSha = Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
-        if (actualSha !== declaredSha) return { ok: false, error: "assinatura do pacote autorizado não confere" };
+        const declaredSha = /^\s*sha256\s*=\s*([0-9a-f]{64})\s*$/im
+          .exec(versionFile.content)?.[1]
+          ?.toLowerCase();
+        if (!version || !declaredSha)
+          return { ok: false, error: "metadados do pacote autorizado estão incompletos" };
+        const digest = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(deltaFile.content),
+        );
+        const actualSha = Array.from(new Uint8Array(digest))
+          .map((byte) => byte.toString(16).padStart(2, "0"))
+          .join("");
+        if (actualSha !== declaredSha)
+          return { ok: false, error: "assinatura do pacote autorizado não confere" };
         const total = splitDeltaMigrations(deltaFile.content).length;
-        if (total === 0) return { ok: false, error: "pacote autorizado não contém migrations válidas" };
+        if (total === 0)
+          return { ok: false, error: "pacote autorizado não contém migrations válidas" };
         return { ok: true, version, sha256: actualSha, total, sql: deltaFile.content };
       } catch (error) {
         return { ok: false, error: (error as Error).message };
@@ -2623,7 +2643,7 @@ export function createDeployClient(input: {
             id?: string;
             readyState?: string;
             state?: string;
-             createdAt?: number;
+            createdAt?: number;
             url?: string;
             source?: string;
             meta?: { githubCommitSha?: string };
@@ -2631,28 +2651,28 @@ export function createDeployClient(input: {
           }>;
         };
         const expected = commitSha.trim().toLowerCase();
-         const statePriority = (candidate: { readyState?: string; state?: string }) => {
-           const state = candidate.readyState ?? candidate.state ?? "";
-           if (state === "READY") return 0;
-           if (state === "BUILDING" || state === "QUEUED" || state === "INITIALIZING") return 1;
-           return 2;
-         };
-         const deployment = (body.deployments ?? [])
-           .filter((candidate) => {
-             const actual = (candidate.meta?.githubCommitSha ?? candidate.gitSource?.sha ?? "")
-               .trim()
-               .toLowerCase();
-              // Um deployment criado pela REST API também pode carregar o SHA
-              // do Git. A atualização deve acompanhar somente o deployment que
-              // a integração Git criou a partir do push; caso contrário uma
-              // tentativa REST bloqueada pode ser confundida com o build real.
-              return actual === expected && candidate.source?.toLowerCase() === "git";
-           })
-           .sort((left, right) => {
-             const byState = statePriority(left) - statePriority(right);
-             if (byState !== 0) return byState;
-             return (right.createdAt ?? 0) - (left.createdAt ?? 0);
-           })[0];
+        const statePriority = (candidate: { readyState?: string; state?: string }) => {
+          const state = candidate.readyState ?? candidate.state ?? "";
+          if (state === "READY") return 0;
+          if (state === "BUILDING" || state === "QUEUED" || state === "INITIALIZING") return 1;
+          return 2;
+        };
+        const deployment = (body.deployments ?? [])
+          .filter((candidate) => {
+            const actual = (candidate.meta?.githubCommitSha ?? candidate.gitSource?.sha ?? "")
+              .trim()
+              .toLowerCase();
+            // Um deployment criado pela REST API também pode carregar o SHA
+            // do Git. A atualização deve acompanhar somente o deployment que
+            // a integração Git criou a partir do push; caso contrário uma
+            // tentativa REST bloqueada pode ser confundida com o build real.
+            return actual === expected && candidate.source?.toLowerCase() === "git";
+          })
+          .sort((left, right) => {
+            const byState = statePriority(left) - statePriority(right);
+            if (byState !== 0) return byState;
+            return (right.createdAt ?? 0) - (left.createdAt ?? 0);
+          })[0];
         if (!deployment) return { ok: true };
         const deploymentId = deployment.uid ?? deployment.id;
         return {
@@ -2662,7 +2682,11 @@ export function createDeployClient(input: {
             ? { state: deployment.readyState ?? deployment.state }
             : {}),
           ...(deployment.url
-            ? { url: deployment.url.startsWith("http") ? deployment.url : `https://${deployment.url}` }
+            ? {
+                url: deployment.url.startsWith("http")
+                  ? deployment.url
+                  : `https://${deployment.url}`,
+              }
             : {}),
         };
       } catch (e) {
@@ -2783,7 +2807,11 @@ export const UPDATE_DATABASE_TIME_BUDGET_MS = 20_000;
 export const UPDATE_DATABASE_MIGRATIONS_PER_INVOCATION = 8;
 
 function operationUsesFencing(operation: OperationRow): boolean {
-  return !!operation.lease_owner && typeof operation.fencing_token === "number" && operation.fencing_token >= 0;
+  return (
+    !!operation.lease_owner &&
+    typeof operation.fencing_token === "number" &&
+    operation.fencing_token >= 0
+  );
 }
 
 /**
@@ -2801,29 +2829,34 @@ export async function readBaselineProgress(
         eq: (
           c: string,
           v: string,
-        ) => { maybeSingle: () => Promise<{ data?: { detail?: unknown } | null; error?: unknown }> };
+        ) => {
+          maybeSingle: () => Promise<{ data?: { detail?: unknown } | null; error?: unknown }>;
+        };
       };
     };
   };
   const { data, error } = await db
-      .from("installation_operations")
-      .select("detail")
-      .eq("id", operation.id)
-      .maybeSingle();
+    .from("installation_operations")
+    .select("detail")
+    .eq("id", operation.id)
+    .maybeSingle();
   if (error) throw error;
-  if (!data) throw new Error(`Operação da instalação ${installationId} não encontrada durante a leitura do baseline.`);
+  if (!data)
+    throw new Error(
+      `Operação da instalação ${installationId} não encontrada durante a leitura do baseline.`,
+    );
   const rows = [data];
   let merged: BaselineProgress = {};
   for (const row of rows) {
-      const raw = (row?.detail as { baselineProgress?: unknown } | null)?.baselineProgress;
-      if (raw && typeof raw === "object") {
-        const out: BaselineProgress = {};
-        for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-          if (typeof value === "number" && Number.isFinite(value)) out[key] = value;
-        }
-      merged = mergeBaselineProgress(merged, out);
+    const raw = (row?.detail as { baselineProgress?: unknown } | null)?.baselineProgress;
+    if (raw && typeof raw === "object") {
+      const out: BaselineProgress = {};
+      for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+        if (typeof value === "number" && Number.isFinite(value)) out[key] = value;
       }
+      merged = mergeBaselineProgress(merged, out);
     }
+  }
   return merged;
 }
 
@@ -2834,43 +2867,52 @@ export async function saveBaselineProgress(
   progress: BaselineProgress,
 ): Promise<void> {
   const { data: fresh, error: readError } = await (
-      client as never as {
-        from: (t: string) => {
-          select: (c: string) => {
-            eq: (
-              c: string,
-              v: string,
-            ) => { maybeSingle: () => Promise<{ data?: { detail?: unknown; steps?: unknown } | null; error?: unknown }> };
+    client as never as {
+      from: (t: string) => {
+        select: (c: string) => {
+          eq: (
+            c: string,
+            v: string,
+          ) => {
+            maybeSingle: () => Promise<{
+              data?: { detail?: unknown; steps?: unknown } | null;
+              error?: unknown;
+            }>;
           };
         };
-      }
-    )
-      .from("installation_operations")
-      .select("detail, steps")
-      .eq("id", operation.id)
-      .maybeSingle();
-    if (readError) throw readError;
-    if (!fresh) throw new Error("Operação não encontrada durante o checkpoint do baseline.");
-    const existing = ((fresh.detail as { baselineProgress?: BaselineProgress } | null)?.baselineProgress ?? {});
-    const monotonic = mergeBaselineProgress(existing, progress);
-    const rpc = client as never as {
-      rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
-    };
-    const { data: saved, error } = await rpc.rpc("checkpoint_installation_operation", {
-      _operation_id: operation.id,
-      _owner: operation.lease_owner ?? "",
-      _fencing_token: operation.fencing_token ?? -1,
-      // Nunca reenviar `operation.steps`: essa linha foi capturada no início da
-      // execução e já causou a regressão 88→86 ao sobrescrever progresso novo.
-      _steps: fresh.steps ?? [],
-      _detail: {
-        ...((fresh.detail ?? {}) as Record<string, unknown>),
-        baselineProgress: monotonic,
-      },
-      _current_step: null,
-      _summary: null,
-      _metrics: { lastCheckpointAt: new Date().toISOString() },
-    });
+      };
+    }
+  )
+    .from("installation_operations")
+    .select("detail, steps")
+    .eq("id", operation.id)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!fresh) throw new Error("Operação não encontrada durante o checkpoint do baseline.");
+  const existing =
+    (fresh.detail as { baselineProgress?: BaselineProgress } | null)?.baselineProgress ?? {};
+  const monotonic = mergeBaselineProgress(existing, progress);
+  const rpc = client as never as {
+    rpc: (
+      name: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
+  };
+  const { data: saved, error } = await rpc.rpc("checkpoint_installation_operation", {
+    _operation_id: operation.id,
+    _owner: operation.lease_owner ?? "",
+    _fencing_token: operation.fencing_token ?? -1,
+    // Nunca reenviar `operation.steps`: essa linha foi capturada no início da
+    // execução e já causou a regressão 88→86 ao sobrescrever progresso novo.
+    _steps: fresh.steps ?? [],
+    _detail: {
+      ...((fresh.detail ?? {}) as Record<string, unknown>),
+      baselineProgress: monotonic,
+    },
+    _current_step: null,
+    _summary: null,
+    _metrics: { lastCheckpointAt: new Date().toISOString() },
+  });
   if (error || saved !== true) throw new Error(error?.message ?? "lease da operação perdida");
 }
 
@@ -2910,21 +2952,23 @@ export async function readStageProgress(
   operation: OperationRow,
 ): Promise<StageProgress> {
   const { data, error } = await (
-      client as never as {
-        from: (t: string) => {
-          select: (c: string) => {
-            eq: (
-              c: string,
-              v: string,
-            ) => { maybeSingle: () => Promise<{ data?: { detail?: unknown } | null; error?: unknown }> };
+    client as never as {
+      from: (t: string) => {
+        select: (c: string) => {
+          eq: (
+            c: string,
+            v: string,
+          ) => {
+            maybeSingle: () => Promise<{ data?: { detail?: unknown } | null; error?: unknown }>;
           };
         };
-      }
-    )
-      .from("installation_operations")
-      .select("detail")
-      .eq("id", operation.id)
-      .maybeSingle();
+      };
+    }
+  )
+    .from("installation_operations")
+    .select("detail")
+    .eq("id", operation.id)
+    .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("Operação não encontrada durante a leitura de etapa.");
   const raw = (data.detail as { stageProgress?: unknown } | null | undefined)?.stageProgress;
@@ -2938,40 +2982,48 @@ export async function saveStageProgress(
   patch: StageProgress,
 ): Promise<void> {
   const { data: fresh, error: readError } = await (
-      client as never as {
-        from: (t: string) => {
-          select: (c: string) => {
-            eq: (
-              c: string,
-              v: string,
-            ) => { maybeSingle: () => Promise<{ data?: { detail?: unknown; steps?: unknown } | null; error?: unknown }> };
+    client as never as {
+      from: (t: string) => {
+        select: (c: string) => {
+          eq: (
+            c: string,
+            v: string,
+          ) => {
+            maybeSingle: () => Promise<{
+              data?: { detail?: unknown; steps?: unknown } | null;
+              error?: unknown;
+            }>;
           };
         };
-      }
-    )
-      .from("installation_operations")
-      .select("detail, steps")
-      .eq("id", operation.id)
-      .maybeSingle();
-    if (readError) throw readError;
-    if (!fresh) throw new Error("Operação não encontrada durante o checkpoint de etapa.");
-    const detail = (fresh.detail ?? {}) as Record<string, unknown>;
-    const rpc = client as never as {
-      rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
-    };
-    const { data: saved, error } = await rpc.rpc("checkpoint_installation_operation", {
-      _operation_id: operation.id,
-      _owner: operation.lease_owner ?? "",
-      _fencing_token: operation.fencing_token ?? -1,
-      _steps: fresh.steps ?? [],
-      _detail: {
-        ...detail,
-        stageProgress: { ...((detail.stageProgress ?? {}) as StageProgress), ...patch },
-      },
-      _current_step: null,
-      _summary: null,
-      _metrics: { lastCheckpointAt: new Date().toISOString() },
-    });
+      };
+    }
+  )
+    .from("installation_operations")
+    .select("detail, steps")
+    .eq("id", operation.id)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!fresh) throw new Error("Operação não encontrada durante o checkpoint de etapa.");
+  const detail = (fresh.detail ?? {}) as Record<string, unknown>;
+  const rpc = client as never as {
+    rpc: (
+      name: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
+  };
+  const { data: saved, error } = await rpc.rpc("checkpoint_installation_operation", {
+    _operation_id: operation.id,
+    _owner: operation.lease_owner ?? "",
+    _fencing_token: operation.fencing_token ?? -1,
+    _steps: fresh.steps ?? [],
+    _detail: {
+      ...detail,
+      stageProgress: { ...((detail.stageProgress ?? {}) as StageProgress), ...patch },
+    },
+    _current_step: null,
+    _summary: null,
+    _metrics: { lastCheckpointAt: new Date().toISOString() },
+  });
   if (error || saved !== true) throw new Error(error?.message ?? "lease da operação perdida");
 }
 
@@ -3035,7 +3087,6 @@ export function withRepoWriteHint(detail: string, repoSlug: string): string {
   return `${text} — o token do GitHub precisa de "Contents: Read and write" (e "Metadata: Read-only") com ${repoSlug} entre os repositórios autorizados. Gere/edite o token em github.com/settings/tokens e salve-o novamente nos acessos da instalação.`;
 }
 
-
 /**
  * Confere, na ordem em que serão usadas, se as três credenciais têm de fato as
  * permissões da operação. Falta de permissão devolve `terminal` (a operação é
@@ -3080,7 +3131,11 @@ export async function preflightAccess(input: {
       const supplied = input.suppliedKeys;
       const keys =
         supplied?.publishableKey && supplied.serviceRoleKey
-          ? { ok: true, publishableKey: supplied.publishableKey, serviceRoleKey: supplied.serviceRoleKey }
+          ? {
+              ok: true,
+              publishableKey: supplied.publishableKey,
+              serviceRoleKey: supplied.serviceRoleKey,
+            }
           : await input.management.keys();
       const ok = keys.ok && Boolean(keys.publishableKey) && Boolean(keys.serviceRoleKey);
       note(
@@ -3170,7 +3225,6 @@ export async function runAutomatedProvision(input: {
     }).catch(() => undefined);
     return { ...outcome, appUrl, urlSource: source, steps };
   };
-
 
   const mark = async (
     id: string,
@@ -3310,7 +3364,6 @@ export async function runAutomatedProvision(input: {
     "done",
     `projeto ${target.projectRef} acessível${authDefaults.applied ? " · confirmação de e-mail desligada" : ""}`,
   );
-
 
   /* 3. preflight dos acessos de publicação e repositório, antes de qualquer
    * escrita: negativa de permissão encerra aqui, dizendo o acesso exato que
@@ -3964,7 +4017,6 @@ export async function runAutomatedProvision(input: {
       else blocked.push(message);
     }
 
-
     await saveStageProgress(client, operation, {
       deployDone: true,
       appUrl: url.origin,
@@ -4059,7 +4111,9 @@ export async function readFirstAccessState(management: {
       detail: "primeiro acesso não verificado",
     };
   }
-  const row = res.rows[0] as { has_super_admin?: boolean | null; brand_count?: unknown } | undefined;
+  const row = res.rows[0] as
+    | { has_super_admin?: boolean | null; brand_count?: unknown }
+    | undefined;
   if (!row || !("has_super_admin" in row) || !("brand_count" in row)) {
     return {
       superAdmin: "pending",
@@ -4332,7 +4386,11 @@ export function splitDeltaMigrations(sql: string): DeltaMigration[] {
     const start = (match.index ?? 0) + match[0].length;
     const end = matches[index + 1]?.index ?? sql.length;
     const body = sql.slice(start, end).trim();
-    return { file: match[1] ?? `migration-${index}.sql`, sql: body, fingerprint: deltaFingerprint(body) };
+    return {
+      file: match[1] ?? `migration-${index}.sql`,
+      sql: body,
+      fingerprint: deltaFingerprint(body),
+    };
   });
 }
 
@@ -4372,7 +4430,10 @@ export function databaseMigrationsPercent(input: {
     input.currentTotal && input.currentTotal > 0
       ? Math.min(1, Math.max(0, (input.currentProcessed ?? 0) / input.currentTotal))
       : 0;
-  return Math.min(99, Math.max(0, Math.round(((input.completed + currentFraction) / input.total) * 100)));
+  return Math.min(
+    99,
+    Math.max(0, Math.round(((input.completed + currentFraction) / input.total) * 100)),
+  );
 }
 
 export type OperationPackageSnapshot = {
@@ -4393,7 +4454,10 @@ export function validateOperationPackageSnapshot(
 ): { ok: true } | { ok: false; error: string } {
   const actualTotal = splitDeltaMigrations(snapshot.sql).length;
   if (actualTotal !== snapshot.total) {
-    return { ok: false, error: `total do pacote incompatível: esperado ${snapshot.total}, recebido ${actualTotal}` };
+    return {
+      ok: false,
+      error: `total do pacote incompatível: esperado ${snapshot.total}, recebido ${actualTotal}`,
+    };
   }
   if (operation.baseline_id !== operationPackageIdentity(snapshot)) {
     return { ok: false, error: "identidade do pacote divergiu da autorização da operação" };
@@ -4461,21 +4525,32 @@ async function readCanonicalMigrationProgress(
   client: Client,
   operation: OperationRow,
 ): Promise<CanonicalMigrationProgress[]> {
-  const { data, error } = await (client as never as {
-    from: (table: string) => {
-      select: (columns: string) => {
-        eq: (column: string, value: string) => {
-          order: (column: string, options: { ascending: boolean }) => Promise<{ data?: unknown[] | null; error?: { message?: string } | null }>;
+  const { data, error } = await (
+    client as never as {
+      from: (table: string) => {
+        select: (columns: string) => {
+          eq: (
+            column: string,
+            value: string,
+          ) => {
+            order: (
+              column: string,
+              options: { ascending: boolean },
+            ) => Promise<{ data?: unknown[] | null; error?: { message?: string } | null }>;
+          };
         };
       };
-    };
-  })
+    }
+  )
     .from("installation_operation_migrations")
-    .select("migration_file, fingerprint, package_position, statement_index, total_statements, status")
+    .select(
+      "migration_file, fingerprint, package_position, statement_index, total_statements, status",
+    )
     .eq("operation_id", operation.id)
     .order("package_position", { ascending: true });
   if (error) throw new Error(error.message ?? "falha ao ler progresso canônico");
-  if (!Array.isArray(data)) throw new Error("Leitura do progresso canônico retornou resposta inválida.");
+  if (!Array.isArray(data))
+    throw new Error("Leitura do progresso canônico retornou resposta inválida.");
   return data.filter((row): row is CanonicalMigrationProgress => {
     if (!row || typeof row !== "object") return false;
     const value = row as Record<string, unknown>;
@@ -4493,7 +4568,10 @@ async function checkpointCanonicalMigration(
   completed: boolean,
 ): Promise<void> {
   const rpc = client as never as {
-    rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
+    rpc: (
+      name: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
   };
   const { data, error } = await rpc.rpc("checkpoint_installation_migration", {
     _operation_id: operation.id,
@@ -4506,7 +4584,8 @@ async function checkpointCanonicalMigration(
     _total_statements: totalStatements,
     _completed: completed,
   });
-  if (error || data !== true) throw new Error(error?.message ?? "lease da operação perdida no checkpoint canônico");
+  if (error || data !== true)
+    throw new Error(error?.message ?? "lease da operação perdida no checkpoint canônico");
 }
 
 async function reconcileCanonicalMigrations(
@@ -4519,7 +4598,9 @@ async function reconcileCanonicalMigrations(
     .map((migration, index) => ({ migration, index }))
     .filter(({ migration }) => appliedLabels.has(`${migration.file}:${migration.fingerprint}`))
     .map(({ migration, index }) => {
-      const totalStatements = splitSqlStatements(sanitizeBaselineSqlForManagementApi(migration.sql).sql).length;
+      const totalStatements = splitSqlStatements(
+        sanitizeBaselineSqlForManagementApi(migration.sql).sql,
+      ).length;
       return {
         file: migration.file,
         fingerprint: migration.fingerprint,
@@ -4530,7 +4611,10 @@ async function reconcileCanonicalMigrations(
       };
     });
   const rpc = client as never as {
-    rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
+    rpc: (
+      name: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
   };
   const { data, error } = await rpc.rpc("reconcile_installation_operation_migrations", {
     _operation_id: operation.id,
@@ -4538,7 +4622,8 @@ async function reconcileCanonicalMigrations(
     _fencing_token: operation.fencing_token ?? -1,
     _migrations: inventory,
   });
-  if (error || typeof data !== "number") throw new Error(error?.message ?? "reconciliação canônica não confirmada");
+  if (error || typeof data !== "number")
+    throw new Error(error?.message ?? "reconciliação canônica não confirmada");
 }
 
 /**
@@ -4579,7 +4664,9 @@ export async function applyDatabaseDelta(input: {
     fetchImpl: input.fetchImpl,
   });
 
-  const prerequisites = await management.query(INSTALLATION_OPERATIONS_INCREMENTAL_PREREQUISITES_SQL);
+  const prerequisites = await management.query(
+    INSTALLATION_OPERATIONS_INCREMENTAL_PREREQUISITES_SQL,
+  );
   if (!prerequisites.ok) {
     return {
       state: "error",
@@ -4595,7 +4682,11 @@ export async function applyDatabaseDelta(input: {
   if (!validatedSnapshot.ok) return { state: "blocked", detail: validatedSnapshot.error };
 
   const ledgerSetup = await seedDeltaLedger(management, []);
-  if (!ledgerSetup.ok) return { state: "error", detail: `banco da instalação inacessível: ${ledgerSetup.error ?? "falha"}` };
+  if (!ledgerSetup.ok)
+    return {
+      state: "error",
+      detail: `banco da instalação inacessível: ${ledgerSetup.error ?? "falha"}`,
+    };
   const ledger = await management.query(
     "select label, file, fingerprint from public._unitos_applied_deltas order by applied_at, label",
   );
@@ -4616,7 +4707,9 @@ export async function applyDatabaseDelta(input: {
     (row) =>
       !!row &&
       typeof row === "object" &&
-      String((row as Record<string, unknown>)["label"] ?? "").startsWith(`${UPDATE_DELTA_LABEL}:`) &&
+      String((row as Record<string, unknown>)["label"] ?? "").startsWith(
+        `${UPDATE_DELTA_LABEL}:`,
+      ) &&
       !(row as Record<string, unknown>)["file"],
   );
   if (hasLegacyBlob && appliedLabels.size === 0) {
@@ -4630,7 +4723,9 @@ export async function applyDatabaseDelta(input: {
   let canonicalProgress = await readCanonicalMigrationProgress(client, operation);
   let canonicalState = validateCanonicalMigrationProgress(canonicalProgress, migrations);
   const canonicalCompleted = canonicalState.completed;
-  let migration = migrations.find((item) => !canonicalCompleted.has(`${item.file}:${item.fingerprint}`));
+  let migration = migrations.find(
+    (item) => !canonicalCompleted.has(`${item.file}:${item.fingerprint}`),
+  );
   if (!migration) {
     return { state: "done", detail: "banco já está na versão do MASTER", percent: 100 };
   }
@@ -4638,16 +4733,21 @@ export async function applyDatabaseDelta(input: {
   const now = input.now ?? Date.now;
   const startedAt = now();
   const budgetMs = input.timeBudgetMs ?? UPDATE_DATABASE_TIME_BUDGET_MS;
-  const migrationLimit = input.maxMigrationsPerInvocation ?? UPDATE_DATABASE_MIGRATIONS_PER_INVOCATION;
+  const migrationLimit =
+    input.maxMigrationsPerInvocation ?? UPDATE_DATABASE_MIGRATIONS_PER_INVOCATION;
   let processedMigrations = 0;
 
   while (migration) {
     const ledgerLabel = `${migration.file}:${migration.fingerprint}`;
-    const migrationPosition = migrations.findIndex((item) => item.file === migration?.file && item.fingerprint === migration?.fingerprint) + 1;
-    const canonicalCurrent = canonicalState.current?.migration_file === migration.file &&
+    const migrationPosition =
+      migrations.findIndex(
+        (item) => item.file === migration?.file && item.fingerprint === migration?.fingerprint,
+      ) + 1;
+    const canonicalCurrent =
+      canonicalState.current?.migration_file === migration.file &&
       canonicalState.current.fingerprint === migration.fingerprint
-      ? canonicalState.current.statement_index
-      : 0;
+        ? canonicalState.current.statement_index
+        : 0;
     const alreadyApplied = canonicalCurrent;
     const prepared = sanitizeBaselineSqlForManagementApi(migration.sql);
     const applied = await applyStatementByStatement(management, prepared.sql, {
@@ -4697,7 +4797,10 @@ export async function applyDatabaseDelta(input: {
       `insert into public._unitos_applied_deltas (label, kind, file, fingerprint) values (${sqlLiteral(ledgerLabel)}, 'migration', ${sqlLiteral(migration.file)}, ${sqlLiteral(migration.fingerprint)}) on conflict do nothing`,
     );
     if (!mark.ok) {
-      return { state: "error", detail: `registro da versão do banco falhou: ${mark.error ?? "erro"}` };
+      return {
+        state: "error",
+        detail: `registro da versão do banco falhou: ${mark.error ?? "erro"}`,
+      };
     }
     await checkpointCanonicalMigration(
       client,
@@ -4715,7 +4818,11 @@ export async function applyDatabaseDelta(input: {
     const remaining = migrations.length - canonicalCompleted.size;
     if (remaining === 0) {
       await management.query("NOTIFY pgrst, 'reload schema';").catch(() => undefined);
-      return { state: "done", detail: `banco atualizado (${migrations.length} migrations registradas)`, percent: 100 };
+      return {
+        state: "done",
+        detail: `banco atualizado (${migrations.length} migrations registradas)`,
+        percent: 100,
+      };
     }
 
     const percent = databaseMigrationsPercent({
@@ -4737,7 +4844,11 @@ export async function applyDatabaseDelta(input: {
     );
   }
 
-  return { state: "done", detail: `banco atualizado (${migrations.length} migrations registradas)`, percent: 100 };
+  return {
+    state: "done",
+    detail: `banco atualizado (${migrations.length} migrations registradas)`,
+    percent: 100,
+  };
 }
 
 /* ----------------------------------------------------- atualização de código */
@@ -4795,8 +4906,6 @@ export async function runAutomatedUpdate(input: {
   });
   // Instalações antigas também passam a nascer/ficar sem confirmação de e-mail.
   await applyInstallationAuthDefaults(management).catch(() => undefined);
-
-
 
   const masterRepo = (env["UNITOS_MASTER_REPO"] ?? "").trim() || null;
   const repo = resolveInstallationRepo({
@@ -4857,17 +4966,26 @@ export async function runAutomatedUpdate(input: {
   };
   if (!operation.baseline_id && !operation.baseline_hash) {
     const rpc = client as never as {
-      rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
+      rpc: (
+        name: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
     };
-    const { data: sealed, error: sealError } = await rpc.rpc("seal_installation_operation_baseline", {
-      _operation_id: operation.id,
-      _owner: operation.lease_owner ?? "",
-      _fencing_token: operation.fencing_token ?? -1,
-      _baseline_id: operationPackageIdentity(snapshot),
-      _baseline_hash: snapshot.sha256,
-    });
+    const { data: sealed, error: sealError } = await rpc.rpc(
+      "seal_installation_operation_baseline",
+      {
+        _operation_id: operation.id,
+        _owner: operation.lease_owner ?? "",
+        _fencing_token: operation.fencing_token ?? -1,
+        _baseline_id: operationPackageIdentity(snapshot),
+        _baseline_hash: snapshot.sha256,
+      },
+    );
     if (sealError || sealed !== true) {
-      return fail("BLOCKED", sealError?.message ?? "não foi possível fixar o pacote autorizado da operação");
+      return fail(
+        "BLOCKED",
+        sealError?.message ?? "não foi possível fixar o pacote autorizado da operação",
+      );
     }
     operation.baseline_id = operationPackageIdentity(snapshot);
     operation.baseline_hash = snapshot.sha256;
@@ -4891,9 +5009,7 @@ export async function runAutomatedUpdate(input: {
       "BLOCKED",
       updatePreflight.terminal ??
         `${updatePreflight.transient ?? "serviço temporariamente indisponível"}. Tente novamente em alguns minutos.`,
-      updatePreflight.checks.find((check) => !check.ok)?.area === "database"
-        ? "database"
-        : "code",
+      updatePreflight.checks.find((check) => !check.ok)?.area === "database" ? "database" : "code",
     );
   }
 
@@ -4918,7 +5034,9 @@ export async function runAutomatedUpdate(input: {
 
   // Checkpoints antigos podem apontar para uma tentativa REST recusada. Só um
   // deployment associado ao commit de push Git pode ser retomado.
-  let deploymentId = checkpoint.updateGitPushCommit ? (checkpoint.updateDeploymentId ?? null) : null;
+  let deploymentId = checkpoint.updateGitPushCommit
+    ? (checkpoint.updateDeploymentId ?? null)
+    : null;
   let deploymentSource: "git" | "rebuild" | undefined = checkpoint.updateGitPushCommit
     ? "git"
     : undefined;
@@ -4936,7 +5054,9 @@ export async function runAutomatedUpdate(input: {
   // avança quando o MASTER é publicado; sem esta checagem a operação enviaria o
   // mesmo pacote de novo e ainda gravaria o número de versão novo na instalação.
   const { compareReleaseVersions, masterNotPublishedMessage } = await import("./manager-contract");
-  let publishedRelease = alreadyPublished ? (checkpoint.updateRelease ?? null) : packageSnapshot.version;
+  let publishedRelease = alreadyPublished
+    ? (checkpoint.updateRelease ?? null)
+    : packageSnapshot.version;
   if (!publishedRelease) {
     const repoRelease = await code.releaseAtCommit(targetSha);
     if (!repoRelease.ok || !repoRelease.version) {
@@ -5064,12 +5184,24 @@ export async function runAutomatedUpdate(input: {
     if (!deploymentId) {
       const located = await deploy.findProductionDeployment(pushedCommit);
       if (!located.ok) {
-        await report(client, operation, "build", "running", located.error ?? "aguardando a hospedagem");
+        await report(
+          client,
+          operation,
+          "build",
+          "running",
+          located.error ?? "aguardando a hospedagem",
+        );
         return { result: "PENDING", reasons: [located.error ?? "aguardando a hospedagem"] };
       }
       deploymentId = located.deploymentId ?? null;
       if (!deploymentId) {
-        await report(client, operation, "build", "running", "aguardando a hospedagem detectar o novo commit");
+        await report(
+          client,
+          operation,
+          "build",
+          "running",
+          "aguardando a hospedagem detectar o novo commit",
+        );
         return { result: "PENDING", reasons: ["aguardando a hospedagem detectar o novo commit"] };
       }
       await saveStageProgress(client, operation, { updateDeploymentId: deploymentId });
@@ -5077,7 +5209,8 @@ export async function runAutomatedUpdate(input: {
 
     await report(client, operation, "code", "done", "código publicado no repositório");
     await report(client, operation, "build", "running", `build disparado pelo Git (${cause})`);
-    const sleep = input.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+    const sleep =
+      input.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
     const deadline = Date.now() + (input.waitMs ?? 45_000);
     let pushState = "QUEUED";
     let pushUrl: string | null = null;
@@ -5121,10 +5254,22 @@ export async function runAutomatedUpdate(input: {
           "build",
         );
       }
-      await report(client, operation, "build", "running", `build disparado pelo Git em andamento (${pushState})`);
+      await report(
+        client,
+        operation,
+        "build",
+        "running",
+        `build disparado pelo Git em andamento (${pushState})`,
+      );
       return { result: "PENDING", reasons: [`build disparado pelo Git em ${pushState}`] };
     }
-    await report(client, operation, "build", "done", pushUrl ? `publicado em ${pushUrl}` : "publicado");
+    await report(
+      client,
+      operation,
+      "build",
+      "done",
+      pushUrl ? `publicado em ${pushUrl}` : "publicado",
+    );
     await report(client, operation, "validation", "running");
     await hardenHelperTables(management);
     const pushVerification = await management.query(prepareVerificationSql(verifySql).sql);
@@ -5143,13 +5288,7 @@ export async function runAutomatedUpdate(input: {
         "validation",
       );
     }
-    await report(
-      client,
-      operation,
-      "validation",
-      "done",
-      `${pushSummary.total} verificações PASS`,
-    );
+    await report(client, operation, "validation", "done", `${pushSummary.total} verificações PASS`);
     await report(
       client,
       operation,
@@ -5173,7 +5312,11 @@ export async function runAutomatedUpdate(input: {
         })
         .eq("id", installation.id);
       if (pinError) {
-        return fail("FAIL", `a publicação ficou pronta, mas a versão não pôde ser registrada: ${pinError.message ?? "falha no registro"}`, "version");
+        return fail(
+          "FAIL",
+          `a publicação ficou pronta, mas a versão não pôde ser registrada: ${pinError.message ?? "falha no registro"}`,
+          "version",
+        );
       }
     }
 
