@@ -2956,6 +2956,13 @@ export type StageProgress = {
   updateGitPushCommit?: string;
   /** Versão do pacote do MASTER já publicada nesta operação (registro da versão). */
   updateRelease?: string;
+  /** Release e commit imutáveis fixados para uma instalação nova. */
+  provisionRelease?: string;
+  /** Efeitos externos do NEW persistidos para consulta, nunca repetidos às cegas. */
+  provisionRepositoryLinked?: boolean;
+  provisionEnvApplied?: boolean;
+  provisionDeploymentId?: string;
+  provisionDeploymentCommit?: string;
   /** Maior quantidade de migrations confirmada para o snapshot desta operação. */
   updateCompletedMigrations?: number;
 };
@@ -3222,22 +3229,23 @@ export async function runAutomatedProvision(input: {
   const checks: Partial<Record<HealthCheckId, CheckState>> = {};
   const steps: AutomationRunResult["steps"] = [];
 
+  let provisionRelease: string | null = null;
   const finish = async (appUrl: string | null, source: "custom_domain" | "deploy" | null) => {
     const outcome = automationOutcome({ blocked, failures });
     const notes = pendingNotes.length ? ` Pendências: ${pendingNotes.join(" | ")}` : "";
     await finalizeOperation(client as never, operation as never, {
       ok: outcome.result === "PASS",
       warnings: outcome.result === "PASS" && (blocked.length > 0 || pendingNotes.length > 0),
-      // PASS => a instalação passa a rodar a versão do MASTER, e o status
-      // derivado vira "Atualizada" (operacional). Sem isso ficaria em "Atenção".
-      version: outcome.result === "PASS" ? MASTER_RELEASE_VERSION : null,
+      // A versão promovida é a que foi lida do commit efetivamente publicado,
+      // nunca a constante do processo por suposição.
+      version: outcome.result === "PASS" ? provisionRelease : null,
       summary:
         outcome.result === "PASS"
           ? `Provisionamento automático concluído${appUrl ? ` em ${appUrl}` : ""}.${notes}`
           : `${outcome.result}: ${outcome.reasons.join(" | ")}${notes}`,
       errorKind: outcome.result === "PASS" ? null : outcome.result.toLowerCase(),
       checks: checks as never,
-    }).catch(() => undefined);
+    });
     return { ...outcome, appUrl, urlSource: source, steps };
   };
 
@@ -3407,6 +3415,7 @@ export async function runAutomatedProvision(input: {
    * vem antes de conectar a Vercel, gravar variáveis e preparar o banco. */
   const codeStage = await readStageProgress(client, operation);
   let provisionCommitSha = codeStage.codeSourceSha ?? codeStage.codeSha ?? null;
+  provisionRelease = codeStage.provisionRelease ?? null;
   let provisionRepoSlug = codeStage.codeRepo ?? repo.slug;
   await mark("code", "running");
   if (codeStage.codeDone && codeStage.codeSha) {
@@ -3450,7 +3459,9 @@ export async function runAutomatedProvision(input: {
         return finish(null, null);
       }
     }
-    const masterHead = await code.masterHeadSha();
+    const masterHead = provisionCommitSha
+      ? { ok: true as const, sha: provisionCommitSha }
+      : await code.masterHeadSha();
     if (!masterHead.ok || !masterHead.sha) {
       blocked.push(
         `Commit do MASTER não lido para publicar no repositório da instalação: ${
@@ -3462,14 +3473,19 @@ export async function runAutomatedProvision(input: {
       return finish(null, null);
     }
     provisionCommitSha = masterHead.sha;
+    if (!codeStage.codeSourceSha) {
+      await saveStageProgress(client, operation, { codeSourceSha: masterHead.sha });
+    }
     const [sourceRelease, installedRelease] = await Promise.all([
-      code.releaseAtCommit(masterHead.sha),
+      provisionRelease
+        ? Promise.resolve({ ok: true as const, version: provisionRelease })
+        : code.releaseAtCommit(masterHead.sha),
       code.installedRelease(),
     ]);
     if (!sourceRelease.ok || !sourceRelease.version || !installedRelease.ok) {
       const reason =
         installedRelease.error ??
-        sourceRelease.error ??
+        ("error" in sourceRelease ? sourceRelease.error : undefined) ??
         "não foi possível ler a versão do código no repositório da instalação";
       blocked.push(
         ensured.created
@@ -3480,6 +3496,17 @@ export async function runAutomatedProvision(input: {
       checks.code = "error";
       return finish(null, null);
     }
+    const { compareReleaseVersions, masterNotPublishedMessage } =
+      await import("./manager-contract");
+    if (compareReleaseVersions(sourceRelease.version, MASTER_RELEASE_VERSION) < 0) {
+      const reason = masterNotPublishedMessage(sourceRelease.version, MASTER_RELEASE_VERSION);
+      blocked.push(reason);
+      await mark("code", "error", reason);
+      checks.code = "error";
+      return finish(null, null);
+    }
+    provisionRelease = sourceRelease.version;
+    await saveStageProgress(client, operation, { provisionRelease });
 
     // Cópia do template apenas DESATUALIZADA não é bloqueio: sincronizamos a
     // versão do MASTER no repositório da instalação, como na atualização.
@@ -3551,24 +3578,31 @@ export async function runAutomatedProvision(input: {
 
   /* 4. deploy conectado ao repositório da instalação, sem auto-deploy por Git */
   await mark("deploy_link", "running");
-  const linked = await deploy.linkRepository(provisionRepoSlug);
-  if (!linked.ok) {
-    blocked.push(
-      `Projeto de deploy não ligado a ${provisionRepoSlug}: ${linked.error ?? ""}`.trim(),
-    );
-    await mark("deploy_link", "error", linked.error ?? "vínculo do repositório falhou");
-    checks.configuration = "attention";
+  let repositoryLinked = codeStage.provisionRepositoryLinked === true;
+  if (!repositoryLinked) {
+    const linked = await deploy.linkRepository(provisionRepoSlug);
+    if (!linked.ok) {
+      blocked.push(
+        `Projeto de deploy não ligado a ${provisionRepoSlug}: ${linked.error ?? ""}`.trim(),
+      );
+      await mark("deploy_link", "error", linked.error ?? "vínculo do repositório falhou");
+      checks.configuration = "attention";
+      return finish(null, null);
+    }
+    await saveStageProgress(client, operation, { provisionRepositoryLinked: true });
+    repositoryLinked = true;
+  }
+  const autoDeployOn = await deploy.setAutoDeploy(true);
+  if (!autoDeployOn.ok) {
+    blocked.push(`Auto-deploy por Git não confirmado: ${autoDeployOn.error ?? "falha"}`);
+    await mark("deploy_link", "error", "auto-deploy por Git não confirmado");
+    checks.configuration = "error";
     return finish(null, null);
   }
-  // O build automático por Git fica LIGADO: é a rede de segurança quando a API
-  // da Vercel não consegue disparar o deployment. Não bloqueia o provisionamento.
-  const autoDeployOn = await deploy.setAutoDeploy(true);
   await mark(
     "deploy_link",
     "done",
-    autoDeployOn.ok
-      ? `projeto ligado a ${provisionRepoSlug} · auto-deploy por Git ligado`
-      : `projeto ligado a ${provisionRepoSlug} · auto-deploy por Git não confirmado (${autoDeployOn.error ?? "sem detalhe"})`,
+    `${repositoryLinked ? "projeto ligado" : "vínculo confirmado"} a ${provisionRepoSlug} · auto-deploy por Git ligado`,
   );
 
   /* 5. baseline do banco — roda DEPOIS de código, deploy conectado e variáveis:
@@ -3940,14 +3974,25 @@ export async function runAutomatedProvision(input: {
     }
     // O build automático por Git fica ligado: garante publicação mesmo quando a
     // API da Vercel não consegue disparar o deployment.
-    await deploy.setAutoDeploy(true);
-    const envResult = await deploy.setEnv(plan.entries);
+    const autoDeploy = await deploy.setAutoDeploy(true);
+    if (!autoDeploy.ok) {
+      blocked.push(`Auto-deploy por Git não confirmado: ${autoDeploy.error ?? "falha"}`);
+      await mark("deploy", "error", "auto-deploy por Git não confirmado");
+      checks.configuration = "error";
+      return finish(url.origin, url.source);
+    }
+    const envResult = stage.provisionEnvApplied
+      ? { ok: true, applied: plan.entries.length }
+      : await deploy.setEnv(plan.entries);
 
     if (!envResult.ok) {
       blocked.push(`Variáveis do deploy não configuradas: ${envResult.error ?? ""}`.trim());
       await mark("deploy", "error", "falha ao gravar variáveis do deploy");
       checks.configuration = "attention";
       return finish(url.origin, url.source);
+    }
+    if (!stage.provisionEnvApplied) {
+      await saveStageProgress(client, operation, { provisionEnvApplied: true });
     }
 
     const identity = await management.query(bindAppUrl(install010, url.origin));
@@ -3963,14 +4008,26 @@ export async function runAutomatedProvision(input: {
     // repositório DA INSTALAÇÃO — assim funciona também quando o projeto Vercel
     // ainda não tem NENHUM deployment (repositório publicado à mão, primeiro
     // build). Sem repositório ligado, cai para rebuild do último snapshot.
-    const redeployed = await deploy.deployLatestCode();
-    let publishNote = redeployed.ok ? "novo deployment disparado" : "";
+    const existingDeploymentId = stage.provisionDeploymentId ?? null;
+    const redeployed = existingDeploymentId
+      ? { ok: true, deploymentId: existingDeploymentId, source: "git" as const }
+      : await deploy.deployLatestCode({ sha: provisionCommitSha });
+    if (redeployed.ok && redeployed.deploymentId && !existingDeploymentId) {
+      await saveStageProgress(client, operation, {
+        provisionDeploymentId: redeployed.deploymentId,
+        provisionDeploymentCommit: provisionCommitSha ?? undefined,
+      });
+    }
+    let publishNote = redeployed.ok
+      ? existingDeploymentId
+        ? "deployment retomado por checkpoint"
+        : "novo deployment disparado"
+      : "";
     if (!redeployed.ok) {
       if (redeployed.quotaExceeded || redeployed.gitSourceUnavailable) {
         // Duas situações têm a MESMA saída: cota diária da API esgotada ou a
         // Vercel não resolvendo o repositório. Em ambas a publicação sai por
         // push no Git (auto-deploy ligado), sem invalidar o provisionamento.
-        const auto = await deploy.setAutoDeploy(true);
         const nudge = await code.nudgeDeploy(
           "chore(unitos): republicar com as variaveis da instalacao",
         );
@@ -3987,7 +4044,7 @@ export async function runAutomatedProvision(input: {
           failures.push(
             `Publicação pendente: ${cause}. Tentativa pelo Git também não funcionou: ${
               nudge.error ?? ""
-            }${auto.ok ? "" : ` · auto-deploy: ${auto.error ?? ""}`}`.trim(),
+            }`.trim(),
           );
           publishNote = "publicação pendente";
         }
@@ -4014,6 +4071,11 @@ export async function runAutomatedProvision(input: {
     }
 
     // Estado do frontend so vira "ok" com resposta HTTP real da URL operacional.
+    if (!redeployed.ok && failures.length === 0) {
+      await mark("deploy", "error", blocked.join(" | ") || "deployment não confirmado");
+      checks.frontend = "error";
+      return finish(url.origin, url.source);
+    }
     const probe = await probeOperationalUrl(url.origin, input.fetchImpl);
     checks.frontend = probe.ok ? "ok" : "attention";
     if (!probe.ok) {
@@ -4030,8 +4092,9 @@ export async function runAutomatedProvision(input: {
             ? " — aguardando a publicação/DNS concluir"
             : ""
       }`;
-      if (dnsPending) pendingNotes.push(message);
-      else if (pendingPublish) failures.push(message);
+      // Saúde HTTP é evidência obrigatória. DNS ou build pendente permanece
+      // retomável, mas nunca conclui/promove a instalação.
+      if (dnsPending || pendingPublish) failures.push(message);
       else blocked.push(message);
     }
 
@@ -4103,6 +4166,13 @@ export async function runAutomatedProvision(input: {
   checks.super_admin = firstAccess.superAdmin;
   checks.workspace = firstAccess.workspace;
   await mark("validation", "done", `${summary.total} verificações PASS · ${firstAccess.detail}`);
+
+  if (!provisionRelease) {
+    failures.push("release do commit publicado não foi comprovada");
+    await mark("version", "error", "release publicada ausente");
+    return finish(url.origin, url.source);
+  }
+  await mark("version", "done", provisionRelease);
 
   return finish(url.origin, url.source);
 }
@@ -4244,7 +4314,7 @@ export async function runAutomatedValidate(input: {
       ok: false,
       summary: `${result}: ${reason}`,
       errorKind: result.toLowerCase(),
-    }).catch(() => undefined);
+    });
     return { result, reasons: [reason], total: 0 };
   };
 
@@ -4971,7 +5041,7 @@ export async function runAutomatedUpdate(input: {
       ok: false,
       summary: `${result}: ${reason}`,
       errorKind: result.toLowerCase(),
-    }).catch(() => undefined);
+    });
     return { result, reasons: [reason] };
   };
 

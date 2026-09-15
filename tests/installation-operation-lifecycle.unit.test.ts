@@ -14,10 +14,17 @@ import deferSql from "../supabase/migrations/20260914003510_de477c51-5d2f-436b-a
 import canonicalAttemptsSql from "../supabase/migrations/20260914141212_3f236ac3-b474-429e-9cae-7bd7a2e303bb.sql?raw";
 import sealedPackageSql from "../supabase/migrations/20260914193902_b2da0b29-18e7-4dee-b276-428a57155c36.sql?raw";
 import sealedPackageStrictHashSql from "../supabase/migrations/20260914194505_2a76102f-5090-46e6-9269-f3c0f1bd057f.sql?raw";
+import durableStartSql from "../supabase/migrations/20260915095958_eb639764-7956-418c-8ed9-9b9fde0246a3.sql?raw";
 
 const NOW = Date.parse("2026-01-10T12:00:00.000Z");
 
-function op(overrides: Partial<{ status: "pending" | "running" | "retryable" | "success" | "failed"; startedAt: string; lastReportAt: string | null }>) {
+function op(
+  overrides: Partial<{
+    status: "pending" | "running" | "retryable" | "success" | "failed";
+    startedAt: string;
+    lastReportAt: string | null;
+  }>,
+) {
   return {
     status: "running" as const,
     startedAt: new Date(NOW - 60_000).toISOString(),
@@ -28,9 +35,9 @@ function op(overrides: Partial<{ status: "pending" | "running" | "retryable" | "
 
 describe("operação travada", () => {
   it("operação viva reportando há pouco NÃO é travada", () => {
-    expect(
-      isOperationStale(op({ lastReportAt: new Date(NOW - 10_000).toISOString() }), NOW),
-    ).toBe(false);
+    expect(isOperationStale(op({ lastReportAt: new Date(NOW - 10_000).toISOString() }), NOW)).toBe(
+      false,
+    );
   });
 
   it("operação viva sem report além do limite é travada", () => {
@@ -86,8 +93,12 @@ describe("reinício e nova tentativa", () => {
 
 describe("contagem de falhas consecutivas", () => {
   it("claim não consome o limite reservado para falhas reais", () => {
-    const claimStart = retryAccountingSql.indexOf("CREATE OR REPLACE FUNCTION public.claim_stale_installation_operations");
-    const claimEnd = retryAccountingSql.indexOf("CREATE OR REPLACE FUNCTION public.yield_installation_operation");
+    const claimStart = retryAccountingSql.indexOf(
+      "CREATE OR REPLACE FUNCTION public.claim_stale_installation_operations",
+    );
+    const claimEnd = retryAccountingSql.indexOf(
+      "CREATE OR REPLACE FUNCTION public.yield_installation_operation",
+    );
     const claimSql = retryAccountingSql.slice(claimStart, claimEnd);
 
     expect(claimSql).not.toMatch(/attempt_count\s*=\s*op\.attempt_count\s*\+\s*1/i);
@@ -95,8 +106,12 @@ describe("contagem de falhas consecutivas", () => {
   });
 
   it("yield fecha a fatia saudável e reinicia falhas consecutivas", () => {
-    const yieldStart = retryAccountingSql.indexOf("CREATE OR REPLACE FUNCTION public.yield_installation_operation");
-    const yieldEnd = retryAccountingSql.indexOf("CREATE OR REPLACE FUNCTION public.retry_installation_operation");
+    const yieldStart = retryAccountingSql.indexOf(
+      "CREATE OR REPLACE FUNCTION public.yield_installation_operation",
+    );
+    const yieldEnd = retryAccountingSql.indexOf(
+      "CREATE OR REPLACE FUNCTION public.retry_installation_operation",
+    );
     const yieldSql = retryAccountingSql.slice(yieldStart, yieldEnd);
 
     expect(yieldSql).toContain("attempt_count=0");
@@ -105,12 +120,16 @@ describe("contagem de falhas consecutivas", () => {
   });
 
   it("retry contabiliza uma única falha e fecha a execução correspondente", () => {
-    const retryStart = retryAccountingSql.indexOf("CREATE OR REPLACE FUNCTION public.retry_installation_operation");
+    const retryStart = retryAccountingSql.indexOf(
+      "CREATE OR REPLACE FUNCTION public.retry_installation_operation",
+    );
     const retrySql = retryAccountingSql.slice(retryStart);
 
     expect(retrySql.match(/attempt_count=attempt_count\+1/g)).toHaveLength(1);
     expect(retrySql).toContain("a.fencing_token=c.fencing_token");
-    expect(retrySql).toContain("status=CASE WHEN c.status='manual_review' THEN 'exhausted' ELSE 'retryable' END");
+    expect(retrySql).toContain(
+      "status=CASE WHEN c.status='manual_review' THEN 'exhausted' ELSE 'retryable' END",
+    );
   });
 
   it("cron permite que a fatia termine antes de considerar timeout", () => {
@@ -125,10 +144,14 @@ describe("contagem de falhas consecutivas", () => {
   });
 
   it("heartbeat, checkpoint e finalização mantêm a tentativa na mesma transação", () => {
-    expect(canonicalAttemptsSql).toContain("CREATE TABLE IF NOT EXISTS public.installation_operation_attempts");
+    expect(canonicalAttemptsSql).toContain(
+      "CREATE TABLE IF NOT EXISTS public.installation_operation_attempts",
+    );
     expect(canonicalAttemptsSql).toContain("status = 'orphaned'");
     expect(canonicalAttemptsSql).toContain("reconcile_orphan_installation_attempts");
-    expect(canonicalAttemptsSql.match(/UPDATE public\.installation_operation_attempts/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(
+      canonicalAttemptsSql.match(/UPDATE public\.installation_operation_attempts/g)?.length,
+    ).toBeGreaterThanOrEqual(4);
     expect(canonicalAttemptsSql).toContain("a.fencing_token = s.fencing_token");
     expect(canonicalAttemptsSql).toContain("fencing_token = _fencing_token");
   });
@@ -141,15 +164,30 @@ describe("contagem de falhas consecutivas", () => {
     expect(sealedPackageSql).toContain("lease_expires_at > now()");
     expect(sealedPackageSql).toContain("baseline_id IS NULL OR baseline_id = _baseline_id");
     expect(sealedPackageSql).toContain("baseline_hash IS NULL OR baseline_hash = _baseline_hash");
-    expect(sealedPackageSql).toContain("REVOKE ALL ON FUNCTION public.seal_installation_operation_baseline");
+    expect(sealedPackageSql).toContain(
+      "REVOKE ALL ON FUNCTION public.seal_installation_operation_baseline",
+    );
     expect(sealedPackageStrictHashSql).toContain('_baseline_hash COLLATE "C"');
+  });
+
+  it("abertura durável é versionada, atômica e restrita ao service_role", () => {
+    expect(durableStartSql).toContain(
+      "CREATE OR REPLACE FUNCTION public.start_durable_installation_operation",
+    );
+    expect(durableStartSql).toContain("FOR UPDATE");
+    expect(durableStartSql).toContain("installation_operation_steps");
+    expect(durableStartSql).not.toContain("installation_operation_outbox");
+    expect(durableStartSql).toContain(
+      "REVOKE ALL ON FUNCTION public.start_durable_installation_operation",
+    );
+    expect(durableStartSql).toContain("TO service_role");
   });
 });
 
 describe("progresso por etapa", () => {
-  it("provisionamento começa com 11 etapas pendentes", () => {
+  it("provisionamento começa com 12 etapas pendentes", () => {
     const steps = initialSteps("provision");
-    expect(steps).toHaveLength(11);
+    expect(steps).toHaveLength(12);
     expect(stepsProgress(steps).percent).toBe(0);
     expect(operationStatusFromSteps(steps)).toBe("pending");
   });

@@ -114,4 +114,11 @@ describe("sincronia MASTER-first", () => {
     );
     expect(faltando).toEqual([]);
   });
+
+  it("pacote e verificação incluem a abertura durável do workflow", () => {
+    expect(delta).toContain(
+      "CREATE OR REPLACE FUNCTION public.start_durable_installation_operation",
+    );
+    expect(verifySql).toContain("start_durable_installation_operation");
+  });
 });

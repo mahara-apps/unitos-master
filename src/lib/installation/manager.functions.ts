@@ -209,7 +209,10 @@ export function resolveOperationRowsRead<T>(result: { data?: T[] | null; error?:
   return result.data ?? [];
 }
 
-export function resolveRunningProvisionRead<T>(result: { data?: T[] | null; error?: unknown }): T | null {
+export function resolveRunningProvisionRead<T>(result: {
+  data?: T[] | null;
+  error?: unknown;
+}): T | null {
   const rows = resolveOperationRowsRead(result);
   return rows[0] ?? null;
 }
@@ -385,7 +388,8 @@ export async function reconcileStuckOperations(context: { supabase: unknown }): 
                 last_error:
                   status === null
                     ? "A referência apontava para uma operação inexistente."
-                    : (op as { summary?: string | null }).summary ?? "Falha registrada na operação.",
+                    : ((op as { summary?: string | null }).summary ??
+                      "Falha registrada na operação."),
               }),
         })
         .eq("id", row.id);
@@ -394,7 +398,6 @@ export async function reconcileStuckOperations(context: { supabase: unknown }): 
     // best-effort
   }
 }
-
 
 export const listInstallationsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -1089,7 +1092,7 @@ async function startAtomicInstallationOperation(input: {
       _run_token_hash: null,
       _run_token_expires_at: null,
       _detail: input.detail,
-      _workflow_version: 2,
+      _workflow_version: 3,
       _baseline_id: input.baselineId ?? null,
       _baseline_hash: input.baselineHash ?? null,
     },
@@ -1512,20 +1515,20 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
       baselineId: `${snapshot.version}:${targetSha}:${snapshot.total}`,
       baselineHash: snapshot.sha256,
       detail: {
-          releaseVersion: snapshot.version,
-          executed: true,
-          automated: true,
-          targetCommitSha: targetSha,
-          packageSnapshot: {
-            version: snapshot.version,
-            commitSha: targetSha,
-            sha256: snapshot.sha256,
-            totalMigrations: snapshot.total,
-          },
-          fromVersion: record.pinnedCommitSha
-            ? `${record.pinnedRelease ?? record.currentVersion ?? "?"} · ${record.pinnedCommitSha.slice(0, 7)}`
-            : (record.currentVersion ?? null),
-          toVersion: `${snapshot.version} · ${targetSha.slice(0, 7)}`,
+        releaseVersion: snapshot.version,
+        executed: true,
+        automated: true,
+        targetCommitSha: targetSha,
+        packageSnapshot: {
+          version: snapshot.version,
+          commitSha: targetSha,
+          sha256: snapshot.sha256,
+          totalMigrations: snapshot.total,
+        },
+        fromVersion: record.pinnedCommitSha
+          ? `${record.pinnedRelease ?? record.currentVersion ?? "?"} · ${record.pinnedCommitSha.slice(0, 7)}`
+          : (record.currentVersion ?? null),
+        toVersion: `${snapshot.version} · ${targetSha.slice(0, 7)}`,
       },
     });
     await supabase.from("installations").update({ pinned_by: context.userId }).eq("id", data.id);
@@ -1656,7 +1659,10 @@ export const saveInstallationCredentialsFn = createServerFn({ method: "POST" })
     if (Boolean(incomingPublishableKey) !== Boolean(incomingServiceRoleKey)) {
       throw new Error("Informe juntas a chave publicável e a chave de serviço do Supabase.");
     }
-    let installationIdentity: { supabase_project_ref?: string | null; supabase_url?: string | null } | null = null;
+    let installationIdentity: {
+      supabase_project_ref?: string | null;
+      supabase_url?: string | null;
+    } | null = null;
     if (incomingSupabaseToken || incomingPublishableKey) {
       const { data: installation, error: installationError } = await context.supabase
         .from("installations")
@@ -1730,9 +1736,7 @@ export type GithubTokenPropagationItem = {
  */
 export const propagateMasterGithubTokenFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
-    z.object({ confirmLabel: z.string().max(200) }).parse(input),
-  )
+  .inputValidator((input: unknown) => z.object({ confirmLabel: z.string().max(200) }).parse(input))
   .handler(async ({ data, context }) => {
     await guard(context);
     assertConfirmLabel(data.confirmLabel, PROPAGATE_GITHUB_TOKEN_CONFIRM_LABEL);

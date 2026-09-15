@@ -27,7 +27,7 @@ const githubResponse = (url: string): Response | null => {
   if (url.includes("/contents/supabase/baseline-snapshot/tools/delta_version.txt"))
     return Response.json({
       encoding: "base64",
-      content: Buffer.from("version=1.3.36\n", "utf8").toString("base64"),
+      content: Buffer.from("version=1.4.0\n", "utf8").toString("base64"),
     });
   if (url.includes("/git/trees")) return Response.json({ tree: [] });
   if (url.includes("/git/ref/heads/")) return Response.json({ object: { sha: "sha_dest" } });
@@ -288,7 +288,17 @@ function fakeClient(detail: Record<string, unknown> = {}) {
     from: (table: string) => ({
       update: (patch: Record<string, unknown>) => {
         updates.push(patch);
-        return { eq: async () => ({ error: null }) };
+        const terminal = Promise.resolve({ data: { id: OP.id }, error: null });
+        const chain = {} as Record<string, unknown> & PromiseLike<unknown>;
+        Object.assign(chain, {
+          eq: () => chain,
+          is: () => chain,
+          in: () => chain,
+          select: () => chain,
+          maybeSingle: () => terminal,
+          then: terminal.then.bind(terminal),
+        });
+        return chain;
       },
       select: () => ({
         eq: () => ({
@@ -619,7 +629,7 @@ describe("runAutomatedProvision", () => {
     expect(result.reasons.join(" ")).toContain("Frontend");
   });
 
-  it("domínio definitivo pendente gera aviso sem bloquear a instalação", async () => {
+  it("domínio definitivo pendente mantém a instalação incompleta", async () => {
     const { api } = fakeClient();
     const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
@@ -659,10 +669,10 @@ describe("runAutomatedProvision", () => {
       fetchImpl: fetchImpl as never,
     });
 
-    expect(result.result).toBe("PASS");
+    expect(result.result).toBe("FAIL");
     expect(result.appUrl).toBe("https://app.cliente.com.br");
     expect(result.urlSource).toBe("custom_domain");
-    expect(result.reasons).toEqual([]);
+    expect(result.reasons.join(" ")).toContain("Frontend");
   });
 
   it("BLOCKED quando o deploy não expõe URL e não há domínio", async () => {
@@ -796,6 +806,8 @@ describe("runAutomatedProvision", () => {
         frontendOk: true,
         codeDone: true,
         codeSha: "sha_master",
+        codeSourceSha: "sha_master",
+        provisionRelease: "1.4.0",
       },
     });
     const calls: string[] = [];

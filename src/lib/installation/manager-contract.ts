@@ -21,7 +21,7 @@ import { MASTER_FORBIDDEN_TOKENS } from "./bootstrap-contract";
  * Subir a cada correção de banco/código propagável: é o que habilita o botão
  * "Atualizar" (que agora também aplica o delta de banco na instalação).
  */
-export const MASTER_RELEASE_VERSION = "1.3.96";
+export const MASTER_RELEASE_VERSION = "1.4.0";
 
 /* ------------------------------------------------------------------ MASTER */
 
@@ -375,6 +375,7 @@ export const PROVISION_STEPS = [
     label: "Validação final",
     script: "supabase/install/verify-installation.sql",
   },
+  { id: "version", label: "Versão registrada", script: "installations.current_version" },
 ] as const;
 
 export const VALIDATE_STEPS = [
