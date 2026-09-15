@@ -105,7 +105,8 @@ describe("contrato do baseline", () => {
     const bootstrap = readFileSync("supabase/install/bootstrap.sh", "utf8");
     expect(bootstrap).not.toMatch(/apply_sql\s+["']007_delta_migrations/);
     expect(bootstrap).not.toMatch(/psql_run[^\n]+007_delta_migrations\.sql/);
-    expect(bootstrap).toContain("UNITOS_CANONICAL_DELTA_CONFIRMED");
+    expect(bootstrap).toContain("execução direta desativada");
+    expect(bootstrap).toContain("executor canônico do MASTER");
   });
 
   it("declara as contagens e buckets esperados", () => {

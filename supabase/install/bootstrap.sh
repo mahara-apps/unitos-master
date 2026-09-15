@@ -192,12 +192,10 @@ fi
 
 apply_sql "005_auth_trigger"    "$BASELINE/005_auth_trigger.sql"
 # O delta cumulativo não é seguro via `psql -f`: isso criaria um segundo
-# executor sem lease, fencing, checkpoint por migration ou evidência.
-if [ "${UNITOS_CANONICAL_DELTA_CONFIRMED:-0}" != "1" ]; then
-  fail "007_delta_migrations" "execute esta instalação pelo fluxo automático do MASTER; delta direto foi desativado"
-  die "executor canônico do MASTER não confirmou as migrations"
-fi
-pass "007_delta_migrations" "confirmado pelo executor canônico do MASTER"
+# executor sem lease, fencing, checkpoint por migration ou evidência. O único
+# caminho suportado para NEW/UPDATE é o fluxo automático do MASTER.
+fail "007_delta_migrations" "execução direta desativada; use Provisionar automaticamente no MASTER"
+die "migrations exigem o executor canônico do MASTER"
 report_step database done "schema aplicado"
 report_step storage running
 apply_sql "003_storage_buckets" "$BASELINE/003_storage_buckets.sql"

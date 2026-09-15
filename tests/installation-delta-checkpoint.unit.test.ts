@@ -61,6 +61,13 @@ select 2;`;
     expect(source).not.toContain("for (const item of historical) appliedLabels.add");
   });
 
+  it("NEW usa o mesmo executor canônico do UPDATE", () => {
+    const source = readFileSync("src/lib/installation/automation.server.ts", "utf8");
+    const provision = source.slice(source.indexOf("export async function runAutomatedProvision"));
+    expect(provision).toContain("const delta = await applyDatabaseDelta({");
+    expect(provision).not.toContain("seedDeltaLedger(management, splitDeltaMigrations(file.sql))");
+  });
+
   it("calcula progresso acumulado sem voltar a zero entre migrations", () => {
     expect(databaseMigrationsPercent({ total: 20, completed: 8 })).toBe(40);
     expect(
