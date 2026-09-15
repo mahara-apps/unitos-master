@@ -1,4 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
+import { chmodSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { assertPrivilegedTestEnv } from "./test-env";
 
@@ -25,13 +28,69 @@ export function anonClient(): SupabaseClient {
 
 export type TestUser = { id: string; email: string; client: SupabaseClient };
 
+type PooledUser = {
+  id: string;
+  email: string;
+  accessToken: string;
+};
+
+type AuthPool = {
+  users: Record<string, PooledUser>;
+  stats: { created: number; signedIn: number; reused: number };
+};
+
 const TAG = `t${Date.now().toString(36)}`;
 export const testTag = TAG;
+
+const projectRef =
+  process.env["SUPABASE_PROJECT_ID"] ?? new URL(url).hostname.split(".")[0] ?? "unknown";
+const poolPath = join(tmpdir(), `unitos-auth-pool-${projectRef}.json`);
+const poolStatsPath = join(tmpdir(), `unitos-auth-pool-${projectRef}-stats.json`);
+let poolQueue: Promise<void> = Promise.resolve();
 
 /** Usuários criados nesta execução — limpeza garantida no teardown global. */
 const createdUserIds = new Set<string>();
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+function emptyPool(): AuthPool {
+  return { users: {}, stats: { created: 0, signedIn: 0, reused: 0 } };
+}
+
+function readPool(): AuthPool {
+  try {
+    return JSON.parse(readFileSync(poolPath, "utf8")) as AuthPool;
+  } catch {
+    return emptyPool();
+  }
+}
+
+function writePool(pool: AuthPool): void {
+  const temporary = `${poolPath}.${process.pid}.${randomUUID()}`;
+  writeFileSync(temporary, JSON.stringify(pool), { mode: 0o600 });
+  chmodSync(temporary, 0o600);
+  renameSync(temporary, poolPath);
+}
+
+function withPoolLock<T>(operation: () => Promise<T>): Promise<T> {
+  const result = poolQueue.then(operation, operation);
+  poolQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+}
+
+function pooledClient(accessToken: string): SupabaseClient {
+  return createClient(url, publishable, {
+    ...authOpts,
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+  });
+}
+
+function pooledIds(): Set<string> {
+  return new Set(Object.values(readPool().users).map((user) => user.id));
+}
 
 function chunks<T>(items: T[], size: number): T[][] {
   const result: T[][] = [];
@@ -57,10 +116,12 @@ async function deleteTestUser(id: string): Promise<string | null> {
   return "falha desconhecida";
 }
 
-async function deleteTestUsers(ids: string[]): Promise<string[]> {
+async function deleteTestUsers(ids: string[], force = false): Promise<string[]> {
   const failures: string[] = [];
-  for (let offset = 0; offset < ids.length; offset += 2) {
-    const batch = ids.slice(offset, offset + 2);
+  const retained = force ? new Set<string>() : pooledIds();
+  const deletable = ids.filter((id) => !retained.has(id));
+  for (let offset = 0; offset < deletable.length; offset += 2) {
+    const batch = deletable.slice(offset, offset + 2);
     const results = await Promise.all(batch.map(deleteTestUser));
     results.forEach((reason, index) => {
       const id = batch[index];
@@ -120,7 +181,7 @@ export async function cleanupTestResources(userIds: string[], brandIds: string[]
   if (remaining.error) failures.push(`brands verify: ${remaining.error.message}`);
   else if (remaining.data.length)
     failures.push(`brands verify: ${remaining.data.length} workspace(s) permaneceram`);
-  failures.push(...(await deleteTestUsers(userIds)));
+  failures.push(...(await releaseTestUsers(userIds)));
   if (failures.length) throw new Error(`Falha no cleanup da fixture: ${failures.join("; ")}`);
 }
 
@@ -134,7 +195,7 @@ export function generateTestPassword(): string {
   return `Qa!${secret ? secret.slice(0, 8) : ""}${nonce}Aa1`;
 }
 
-export async function createUser(label: string): Promise<TestUser> {
+async function createFreshUser(label: string): Promise<TestUser & { accessToken: string }> {
   const email = `qa+${TAG}-${label}-${randomUUID().slice(0, 8)}@unitos-tests.dev`;
   const password = generateTestPassword();
   const { data, error } = await admin.auth.admin.createUser({
@@ -145,11 +206,50 @@ export async function createUser(label: string): Promise<TestUser> {
   });
   if (error) throw new Error(`createUser(${label}): ${error.message}`);
   if (!data.user) throw new Error(`createUser(${label}): usuário não retornado`);
-  createdUserIds.add(data.user.id);
   const client = anonClient();
   const signedIn = await client.auth.signInWithPassword({ email, password });
-  if (signedIn.error) throw new Error(`signIn(${label}): ${signedIn.error.message}`);
-  return { id: data.user.id, email, client };
+  if (signedIn.error || !signedIn.data.session?.access_token) {
+    await admin.auth.admin.deleteUser(data.user.id).catch(() => undefined);
+    throw new Error(`signIn(${label}): ${signedIn.error?.message ?? "sessão não retornada"}`);
+  }
+  createdUserIds.add(data.user.id);
+  return { id: data.user.id, email, client, accessToken: signedIn.data.session.access_token };
+}
+
+/** Identidade exclusiva: mantém criação/login reais para cenários ad hoc. */
+export async function createUser(label: string): Promise<TestUser> {
+  const { accessToken: _accessToken, ...user } = await createFreshUser(label);
+  await withPoolLock(async () => {
+    const pool = readPool();
+    pool.stats.created += 1;
+    pool.stats.signedIn += 1;
+    writePool(pool);
+  });
+  return user;
+}
+
+async function acquirePooledUser(slot: string): Promise<TestUser> {
+  return withPoolLock(async () => {
+    const pool = readPool();
+    const pooled = pool.users[slot];
+    if (pooled) {
+      pool.stats.reused += 1;
+      writePool(pool);
+      createdUserIds.add(pooled.id);
+      return { id: pooled.id, email: pooled.email, client: pooledClient(pooled.accessToken) };
+    }
+
+    const fresh = await createFreshUser(`pool-${slot}`);
+    pool.users[slot] = {
+      id: fresh.id,
+      email: fresh.email,
+      accessToken: fresh.accessToken,
+    };
+    pool.stats.created += 1;
+    pool.stats.signedIn += 1;
+    writePool(pool);
+    return { id: fresh.id, email: fresh.email, client: pooledClient(fresh.accessToken) };
+  });
 }
 
 /**
@@ -170,6 +270,22 @@ export async function createSuperAdminUser(label: string): Promise<TestUser> {
   return u;
 }
 
+/** Limpa estado relacional mutável, preservando as identidades/sessões do pool. */
+export async function releaseTestUsers(ids: string[]): Promise<string[]> {
+  if (!ids.length) return [];
+  const failures: string[] = [];
+  const [profiles, brands, clients] = await Promise.all([
+    admin.from("user_profiles").update({ is_super_admin: false, role: "user" }).in("id", ids),
+    admin.from("brand_members").delete().in("user_id", ids),
+    admin.from("client_members").delete().in("user_id", ids),
+  ]);
+  if (profiles.error) failures.push(`user_profiles: ${profiles.error.message}`);
+  if (brands.error) failures.push(`brand_members: ${brands.error.message}`);
+  if (clients.error) failures.push(`client_members: ${clients.error.message}`);
+  failures.push(...(await deleteTestUsers(ids)));
+  return failures;
+}
+
 /** Remove privilégio e apaga todas as identidades criadas nesta execução. */
 export async function cleanupTestIdentities(): Promise<void> {
   const ids = [...createdUserIds];
@@ -178,20 +294,7 @@ export async function cleanupTestIdentities(): Promise<void> {
   // brands.created_by é RESTRICT; remover o workspace primeiro também elimina
   // por cascata todos os dados produzidos pela fixture antes de apagar auth.users.
   failures.push(...(await deleteOwnedTestBrands(ids)));
-  const profileCleanup = await admin
-    .from("user_profiles")
-    .update({ is_super_admin: false })
-    .in("id", ids);
-  if (profileCleanup.error) failures.push(`user_profiles: ${profileCleanup.error.message}`);
-  // Remove vínculos em QUALQUER workspace (inclusive o workspace real da instalação),
-  // para que contas de teste nunca apareçam nas listas de equipe/menções.
-  const [brandCleanup, clientCleanup] = await Promise.all([
-    admin.from("brand_members").delete().in("user_id", ids),
-    admin.from("client_members").delete().in("user_id", ids),
-  ]);
-  if (brandCleanup.error) failures.push(`brand_members: ${brandCleanup.error.message}`);
-  if (clientCleanup.error) failures.push(`client_members: ${clientCleanup.error.message}`);
-  failures.push(...(await deleteTestUsers(ids)));
+  failures.push(...(await releaseTestUsers(ids)));
   if (failures.length)
     throw new Error(`Falha no cleanup de identidades QA: ${failures.join("; ")}`);
 }
@@ -210,7 +313,25 @@ export async function cleanupStaleTestIdentities(): Promise<void> {
     }
     if (users.length < 100) break;
   }
-  await cleanupTestIdentities();
+  const failures = await deleteOwnedTestBrands([...createdUserIds]);
+  failures.push(...(await deleteTestUsers([...createdUserIds], true)));
+  createdUserIds.clear();
+  rmSync(poolPath, { force: true });
+  if (failures.length) throw new Error(`Falha no cleanup QA inicial: ${failures.join("; ")}`);
+}
+
+/** Finaliza o pool global e grava apenas contadores não sensíveis para o relatório. */
+export async function cleanupSharedTestUserPool(): Promise<void> {
+  assertPrivilegedTestEnv("INTEGRATION_TEST_SUITE_CLEANUP");
+  const pool = readPool();
+  const ids = Object.values(pool.users).map((user) => user.id);
+  if (!ids.length) return;
+  const failures = await deleteOwnedTestBrands(ids);
+  failures.push(...(await releaseTestUsers(ids)));
+  failures.push(...(await deleteTestUsers(ids, true)));
+  writeFileSync(poolStatsPath, JSON.stringify(pool.stats), { mode: 0o600 });
+  rmSync(poolPath, { force: true });
+  if (failures.length) throw new Error(`Falha no cleanup do pool QA: ${failures.join("; ")}`);
 }
 
 export type Fixture = {
@@ -241,13 +362,13 @@ export type Fixture = {
 export async function seed(): Promise<Fixture> {
   // O trigger add_brand_owner força role='owner' para brands.created_by (NOT NULL).
   // Por isso o criador é um usuário dedicado, e A/B ficam como user puro.
-  const userOwner = await createUser("owner");
-  const userManager = await createUser("mgr");
-  const userA = await createUser("a");
-  const userB = await createUser("b");
-  const userNoLink = await createUser("nolink");
-  const userPortal = await createUser("portal");
-  const userOtherOwner = await createUser("owner2");
+  const userOwner = await acquirePooledUser("owner");
+  const userManager = await acquirePooledUser("manager");
+  const userA = await acquirePooledUser("user-a");
+  const userB = await acquirePooledUser("user-b");
+  const userNoLink = await acquirePooledUser("user-unassigned");
+  const userPortal = await acquirePooledUser("portal");
+  const userOtherOwner = await acquirePooledUser("other-owner");
   // Criador dedicado da segunda brand: o trigger add_brand_owner promove o
   // created_by a Owner, e a "outra brand" precisa ser um workspace em que
   // userOwner NÃO tem nenhum vínculo (cenário de cross-workspace).
@@ -365,7 +486,7 @@ export async function cleanup(fx: Fixture | null) {
   if (remaining.error) failures.push(`brands verify: ${remaining.error.message}`);
   else if (remaining.data.length)
     failures.push(`brands verify: ${remaining.data.length} workspace(s) da fixture permaneceram`);
-  failures.push(...(await deleteTestUsers(ids)));
+  failures.push(...(await releaseTestUsers(ids)));
   if (failures.length) throw new Error(`Falha ao remover identidades QA: ${failures.join("; ")}`);
 }
 
