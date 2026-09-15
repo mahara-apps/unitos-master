@@ -5,7 +5,10 @@
 - [x] Pausar imediatamente após regressão observada de 88 para 86/104.
 - [x] Remover lease, agendamento, tentativa em execução e itens vivos da fila, preservando evidências.
 - [x] Diagnosticar por que a reconciliação monotônica validada não protegeu o progresso exibido: `saveBaselineProgress` reenviava `operation.steps` obsoleto e sobrescrevia 88% com 86%.
-- [ ] Não retomar novamente sem causa confirmada, ensaio fiel e nova autorização explícita.
+- [x] Publicar o MASTER 1.3.95 e retomar a mesma operação após autorização explícita.
+- [x] Confirmar avanço monotônico de 86 para 95/104, sem regressão e sem consumir falhas.
+- [x] Interromper sem nova tentativa ao encontrar a falha inédita na migration 96/104: DROP de assinatura antiga ausente.
+- [ ] Corrigir no MASTER a migration 96/104 para aceitar ausência idempotente da assinatura legada, ensaiar com o estado real e solicitar nova autorização.
 
 ## MASTER 1.3.95 — Confirmação transacional de migrations
 
@@ -20,7 +23,7 @@
 - [x] Executar ensaio no PostgreSQL real: 25→34, não regressão, fencing, pacote divergente e fila legada sem crescimento.
 - [x] Desativar a fila legada, cancelar os 92 itens pendentes sem apagar evidências e impedir novas ativações.
 - [x] Confirmar `master:check` (49/49), matriz crítica (111/111), tipos, build e verificação final de segurança.
-- [ ] Publicar e retomar somente após nova autorização explícita.
+- [x] Publicar e retomar após autorização explícita; operação avançou até 95/104 e parou com segurança na migration 96/104.
 
 ## MASTER 1.3.94 — Snapshot imutável do pacote por operação
 
