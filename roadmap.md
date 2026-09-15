@@ -2,10 +2,10 @@
 
 ## Etapa 10 — Integração real no Supabase de testes
 
-- [ ] Confirmar conectividade e ref exato `limalqnfatlkczshqzgs`, bloqueando MASTER/Taveira.
-- [ ] Executar clean install, falha parcial + resume, replay e DROP FUNCTION inexistente.
-- [ ] Verificar ledger/evidência e promoção somente após validação completa.
-- [ ] Remover todos os artefatos exclusivos do ensaio e comprovar a limpeza.
+- [x] Confirmar conectividade e ref exato `limalqnfatlkczshqzgs`, bloqueando MASTER/Taveira.
+- [x] Executar os quatro cenários; três passaram e o clean install expôs ledger legado sem colunas de evidência.
+- [ ] Verificar ledger/evidência e promoção após validação completa — bloqueado por `_unitos_applied_deltas(label, applied_at)` sem `kind/file/fingerprint`.
+- [x] Remover todos os artefatos exclusivos do ensaio e comprovar a limpeza.
 
 ## P0 — Executor único NEW/UPDATE
 
