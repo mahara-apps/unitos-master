@@ -1,5 +1,13 @@
 # Roadmap
 
+## Etapa 14 — Pacote e executor canônicos
+
+- [ ] Incorporar o contrato aditivo e o hardening de `_unitos_applied_deltas` ao pacote local, sem backfill.
+- [ ] Remover do `bootstrap.sh` toda execução SQL direta e delegar ao executor durável NEW/UPDATE.
+- [ ] Validar em runtime ordem, quantidade e integridade do `delta_manifest.txt`.
+- [ ] Ampliar a verificação do ledger, índice parcial, RLS/grants e objetos críticos.
+- [ ] Atualizar guardiões e executar lint, tipos, testes e `master:check`, sem publicar ou promover versão.
+
 ## Etapa 10 — Integração real no Supabase de testes
 
 - [x] Confirmar conectividade e ref exato `limalqnfatlkczshqzgs`, bloqueando MASTER/Taveira.
