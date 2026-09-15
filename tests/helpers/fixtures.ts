@@ -164,6 +164,23 @@ export async function cleanupTestIdentities(): Promise<void> {
     throw new Error(`Falha no cleanup de identidades QA: ${failures.join("; ")}`);
 }
 
+/** Remove identidades QA órfãs de execuções interrompidas antes do gate remoto. */
+export async function cleanupStaleTestIdentities(): Promise<void> {
+  assertPrivilegedTestEnv("INTEGRATION_TEST_SUITE");
+  for (let page = 1; ; page += 1) {
+    const listed = await admin.auth.admin.listUsers({ page, perPage: 100 });
+    if (listed.error) throw new Error(`Falha ao listar identidades QA: ${listed.error.message}`);
+    const users = listed.data.users;
+    for (const user of users) {
+      const email = user.email?.toLowerCase() ?? "";
+      if (email.includes("unitos-tests.dev") || email.startsWith("qa+"))
+        createdUserIds.add(user.id);
+    }
+    if (users.length < 100) break;
+  }
+  await cleanupTestIdentities();
+}
+
 export type Fixture = {
   brandId: string;
   otherBrandId: string;
