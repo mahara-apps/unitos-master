@@ -338,7 +338,11 @@ const INSTALLATION = {
 };
 
 const runProvision = (input: Parameters<typeof runAutomatedProvision>[0]) =>
-  runAutomatedProvision({ ...input, maxStatementsPerInvocation: Number.POSITIVE_INFINITY });
+  runAutomatedProvision({
+    ...input,
+    maxStatementsPerInvocation: Number.POSITIVE_INFINITY,
+    maxMigrationsPerInvocation: Number.POSITIVE_INFINITY,
+  });
 
 function managementRows(
   body: string,

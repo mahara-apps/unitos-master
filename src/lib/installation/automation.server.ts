@@ -3208,6 +3208,8 @@ export async function runAutomatedProvision(input: {
   fetchImpl?: Fetcher;
   /** Sobrescrita exclusiva para testes determinísticos ponta a ponta. */
   maxStatementsPerInvocation?: number;
+  /** Sobrescrita exclusiva para testes determinísticos ponta a ponta. */
+  maxMigrationsPerInvocation?: number;
 }): Promise<AutomationRunResult> {
   const env = input.env ?? runtimeEnv();
   const { client, operation, installation } = input;
@@ -3702,6 +3704,9 @@ export async function runAutomatedProvision(input: {
           ...(input.fetchImpl ? { fetchImpl: input.fetchImpl } : {}),
           ...(input.maxStatementsPerInvocation !== undefined
             ? { maxStatementsPerInvocation: input.maxStatementsPerInvocation }
+            : {}),
+          ...(input.maxMigrationsPerInvocation !== undefined
+            ? { maxMigrationsPerInvocation: input.maxMigrationsPerInvocation }
             : {}),
         });
         if (delta.state === "pending") {
@@ -4525,6 +4530,31 @@ export function validateOperationPackageSnapshot(
   return { ok: true };
 }
 
+export async function validateCanonicalPackage(
+  operation: Pick<OperationRow, "baseline_id" | "baseline_hash">,
+  snapshot: OperationPackageSnapshot,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!/^\d+\.\d+\.\d+$/.test(snapshot.version)) {
+    return { ok: false, error: "versão do pacote canônico é inválida" };
+  }
+  if (!/^[0-9a-f]{64}$/.test(snapshot.sha256)) {
+    return { ok: false, error: "SHA-256 global do pacote é inválido" };
+  }
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(snapshot.sql));
+  const actualSha = Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  if (actualSha !== snapshot.sha256) {
+    return { ok: false, error: "SHA-256 global do pacote não confere" };
+  }
+  if (!snapshot.manifest) {
+    return { ok: false, error: "manifesto canônico do pacote está ausente" };
+  }
+  const manifestCheck = await validateDeltaManifest(snapshot.manifest, snapshot.sql);
+  if (!manifestCheck.ok) return manifestCheck;
+  return validateOperationPackageSnapshot(operation, snapshot);
+}
+
 export function reconcileConfirmedMigrationCount(confirmed: number, observed: number) {
   const safeConfirmed = Math.max(0, Math.floor(confirmed));
   const safeObserved = Math.max(0, Math.floor(observed));
@@ -4735,12 +4765,7 @@ export async function applyDatabaseDelta(input: {
   if (migrations.length === 0) {
     return { state: "error", detail: "pacote de migrations do MASTER está sem marcadores válidos" };
   }
-  if (!input.snapshot.manifest) {
-    return { state: "error", detail: "manifesto canônico do pacote está ausente" };
-  }
-  const manifestCheck = await validateDeltaManifest(input.snapshot.manifest, input.snapshot.sql);
-  if (!manifestCheck.ok) return { state: "error", detail: manifestCheck.error };
-  const validatedSnapshot = validateOperationPackageSnapshot(operation, input.snapshot);
+  const validatedSnapshot = await validateCanonicalPackage(operation, input.snapshot);
   if (!validatedSnapshot.ok) return { state: "blocked", detail: validatedSnapshot.error };
 
   const ledgerSetup = await seedDeltaLedger(management, []);

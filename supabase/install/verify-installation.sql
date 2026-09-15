@@ -560,7 +560,7 @@ WITH checks AS (
               ELSE 'schema, índice, RLS e grants verificados' END,
          CASE WHEN to_regclass('public._unitos_applied_deltas') IS NOT NULL
               AND NOT EXISTS (
-                SELECT 1 FROM unnest(ARRAY['kind','file','fingerprint']) AS required(column_name)
+                SELECT 1 FROM unnest(ARRAY['label','applied_at','kind','file','fingerprint']) AS required(column_name)
                 WHERE NOT EXISTS (
                   SELECT 1 FROM information_schema.columns actual
                   WHERE actual.table_schema='public'
@@ -572,7 +572,15 @@ WITH checks AS (
                 SELECT 1 FROM pg_indexes
                 WHERE schemaname='public' AND tablename='_unitos_applied_deltas'
                   AND indexname='_unitos_applied_deltas_file_fingerprint_key'
-                  AND indexdef ILIKE '%(file, fingerprint)%WHERE (kind = ''migration''%'
+                  AND indexdef ILIKE 'CREATE UNIQUE INDEX%'
+                  AND indexdef ILIKE '%(file, fingerprint)%'
+                  AND indexdef ILIKE '%WHERE (kind = ''migration''::text)%'
+              )
+              AND EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema='public' AND table_name='_unitos_applied_deltas'
+                  AND column_name='kind' AND is_nullable='NO'
+                  AND column_default LIKE '%blob%'
               )
               AND EXISTS (
                 SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -582,7 +590,9 @@ WITH checks AS (
                 SELECT 1 FROM information_schema.role_table_grants
                 WHERE table_schema='public' AND table_name='_unitos_applied_deltas'
                   AND grantee IN ('anon','authenticated')
-              ) THEN 'PASS' ELSE 'FAIL' END
+              )
+              AND has_table_privilege('service_role', 'public._unitos_applied_deltas', 'SELECT,INSERT,UPDATE,DELETE')
+              THEN 'PASS' ELSE 'FAIL' END
 
   UNION ALL
   SELECT 82, 'retomada: fila SQL isolada por execução',

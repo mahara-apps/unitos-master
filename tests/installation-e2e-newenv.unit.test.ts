@@ -219,6 +219,7 @@ function scenario(
       env,
       fetchImpl: fetchImpl as never,
       maxStatementsPerInvocation: Number.POSITIVE_INFINITY,
+      maxMigrationsPerInvocation: Number.POSITIVE_INFINITY,
     });
 
   return { run, calls, updates };

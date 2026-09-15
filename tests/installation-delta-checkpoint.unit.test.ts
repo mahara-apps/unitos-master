@@ -6,6 +6,7 @@ import {
   deltaProgressKey,
   INCREMENTAL_LEDGER_CUTOVER_FILE,
   splitDeltaMigrations,
+  validateCanonicalPackage,
   validateDeltaManifest,
   UPDATE_DELTA_LABEL,
 } from "@/lib/installation/automation.server";
@@ -101,6 +102,46 @@ select 1;`;
     ).resolves.toMatchObject({ ok: false });
     await expect(
       validateDeltaManifest(`20260901000000_first.sql\t${"a".repeat(64)}\n`, packageSql),
+    ).resolves.toMatchObject({ ok: false });
+  });
+
+  it("valida versão, SHA global, count e identidade fixada", async () => {
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(packageSql));
+    const packageSha = Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
+    const migrationDigest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode("select 1;\n"),
+    );
+    const migrationSha = Array.from(new Uint8Array(migrationDigest))
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
+    const snapshot = {
+      version: "1.2.3",
+      commitSha: "commit",
+      sha256: packageSha,
+      total: 1,
+      sql: packageSql,
+      manifest: `20260901000000_first.sql\t${migrationSha}\n`,
+    };
+    await expect(
+      validateCanonicalPackage(
+        { baseline_id: "1.2.3:commit:1", baseline_hash: packageSha },
+        snapshot,
+      ),
+    ).resolves.toEqual({ ok: true });
+    await expect(
+      validateCanonicalPackage(
+        { baseline_id: "1.2.3:commit:1", baseline_hash: packageSha },
+        { ...snapshot, sha256: "a".repeat(64) },
+      ),
+    ).resolves.toMatchObject({ ok: false });
+    await expect(
+      validateCanonicalPackage(
+        { baseline_id: "1.2.3:commit:1", baseline_hash: packageSha },
+        { ...snapshot, total: 2 },
+      ),
     ).resolves.toMatchObject({ ok: false });
   });
 });
