@@ -256,6 +256,26 @@ describe("reexecução idempotente do baseline", () => {
     expect(bad.ok).toBe(false);
   });
 
+  it("comprova a ausência da assinatura explícita antes de tolerar o DROP da migration 96", async () => {
+    const batches: string[] = [];
+    const result = await applyStatementByStatement(
+      {
+        query: async (batch) => {
+          batches.push(batch);
+          return { ok: true, rows: checkpointRows(batch, 1) };
+        },
+      },
+      "DROP FUNCTION public.heartbeat_installation_operation(uuid, text, integer);",
+    );
+
+    expect(result).toMatchObject({ ok: true, processed: 1, total: 1, complete: true });
+    const execution = batches.find((batch) => batch.includes("DO $unitos_guard$"));
+    expect(execution).toContain(
+      "IF to_regprocedure('public.heartbeat_installation_operation(uuid, text, integer)') IS NOT NULL THEN",
+    );
+    expect(execution).toContain("DROP FUNCTION public.heartbeat_installation_operation(uuid, text, integer);");
+  });
+
   it("divide adaptativamente o lote em vez de enviar milhares de statements um a um", async () => {
     let calls = 0;
     const progress: number[] = [];

@@ -34,6 +34,7 @@ import { runtimeEnv } from "@/lib/runtime-env.server";
 import { formatDateTimeBr } from "@/lib/timezone";
 
 import {
+  explicitDropFunctionSignature,
   prepareVerificationSql,
   sanitizeBaselineSqlForManagementApi,
   splitSqlStatements,
@@ -410,10 +411,18 @@ export async function applyStatementByStatement(
             suffix += segment.statements.length;
             tag = `$unitos_stmt_${suffix}$`;
           }
+          const droppedFunction = explicitDropFunctionSignature(statement);
+          const execution = droppedFunction
+            ? [
+                `  IF to_regprocedure(${sqlLiteral(droppedFunction)}) IS NOT NULL THEN`,
+                `    EXECUTE ${tag}${statement}${tag};`,
+                "  END IF;",
+              ]
+            : [`  EXECUTE ${tag}${statement}${tag};`];
           return [
             "DO $unitos_guard$",
             "BEGIN",
-            `  EXECUTE ${tag}${statement}${tag};`,
+            ...execution,
             "EXCEPTION",
             "  WHEN SQLSTATE '42710' OR SQLSTATE '42P07' OR SQLSTATE '42P06'",
             "    OR SQLSTATE '42701' OR SQLSTATE '42723' OR SQLSTATE '23505' THEN NULL;",

@@ -51,20 +51,14 @@ function isSuperuserOnly(statement: string): boolean {
  */
 export function sanitizeBaselineSqlForManagementApi(sql: string): SanitizedBaseline {
   const removed: string[] = [];
-  const out: string[] = [];
+  const stripped = stripPsqlMetaCommands(sql);
+  removed.push(...stripped.removed);
 
-  for (const line of sql.split("\n")) {
-    const trimmed = line.trim();
-    if (trimmed.endsWith(";") && isSuperuserOnly(trimmed)) {
-      removed.push(trimmed.slice(0, 120));
-      continue;
-    }
-    if (isPsqlMetaCommand(trimmed)) {
-      removed.push(trimmed.slice(0, 120));
-      continue;
-    }
-    out.push(line);
-  }
+  const out = splitSqlStatements(stripped.sql).filter((statement) => {
+    if (!isSuperuserOnly(statement)) return true;
+    removed.push(statement.replace(/\s+/g, " ").trim().slice(0, 120));
+    return false;
+  });
 
   return { sql: out.join("\n"), removed };
 }
@@ -275,4 +269,15 @@ export function splitSqlStatements(sql: string): string[] {
   const tail = buf.trim();
   if (tail) out.push(tail.endsWith(";") ? tail : `${tail};`);
   return out;
+}
+
+/**
+ * Retorna a assinatura totalmente explícita de um `DROP FUNCTION` simples.
+ * Não aceita CASCADE/RESTRICT, múltiplas assinaturas nem nome sem schema: a
+ * tolerância de ausência precisa ser estreita e comprovável via regprocedure.
+ */
+export function explicitDropFunctionSignature(statement: string): string | null {
+  const head = statement.replace(/^\s*(?:--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/\s*)*/g, "").trim();
+  const match = /^DROP\s+FUNCTION\s+(?!IF\s+EXISTS\b)((?:"[^"]+"|[a-z_][a-z0-9_]*)\.(?:"[^"]+"|[a-z_][a-z0-9_]*)\s*\([^;()]*\))\s*;?$/i.exec(head);
+  return match?.[1]?.replace(/\s+/g, " ").trim() ?? null;
 }

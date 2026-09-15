@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeBaselineSqlForManagementApi } from "@/lib/installation/baseline-sql";
+import {
+  explicitDropFunctionSignature,
+  sanitizeBaselineSqlForManagementApi,
+} from "@/lib/installation/baseline-sql";
 import baseline001 from "../supabase/baseline-snapshot/001_initial_schema.sql?raw";
 
 describe("sanitizeBaselineSqlForManagementApi", () => {
@@ -40,6 +43,34 @@ describe("sanitizeBaselineSqlForManagementApi", () => {
     // O schema em si permanece intacto.
     expect(result.sql).toContain("CREATE TABLE");
     expect(result.sql).toContain("ENABLE ROW LEVEL SECURITY");
+  });
+
+  it("remove ALTER DEFAULT PRIVILEGES multilinha como um statement completo", () => {
+    const result = sanitizeBaselineSqlForManagementApi(`
+      REVOKE TRUNCATE ON TABLE public.installation FROM anon;
+      ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+        REVOKE MAINTAIN, TRUNCATE, TRIGGER, REFERENCES ON TABLES FROM anon;
+      GRANT USAGE ON SCHEMA public TO anon;
+    `);
+
+    expect(result.sql).toContain("REVOKE TRUNCATE ON TABLE public.installation FROM anon;");
+    expect(result.sql).toContain("GRANT USAGE ON SCHEMA public TO anon;");
+    expect(result.sql).not.toMatch(/ALTER\s+DEFAULT\s+PRIVILEGES/i);
+    expect(result.removed).toHaveLength(1);
+    expect(result.removed[0]).toMatch(/ALTER DEFAULT PRIVILEGES/i);
+  });
+});
+
+describe("explicitDropFunctionSignature", () => {
+  it("aceita somente DROP FUNCTION com schema e assinatura explícitos", () => {
+    expect(
+      explicitDropFunctionSignature(
+        "DROP FUNCTION public.heartbeat_installation_operation(uuid, text, integer);",
+      ),
+    ).toBe("public.heartbeat_installation_operation(uuid, text, integer)");
+    expect(explicitDropFunctionSignature("DROP FUNCTION IF EXISTS public.f(uuid);")).toBeNull();
+    expect(explicitDropFunctionSignature("DROP FUNCTION public.f(uuid) CASCADE;")).toBeNull();
+    expect(explicitDropFunctionSignature("DROP FUNCTION f(uuid);")).toBeNull();
   });
 });
 
