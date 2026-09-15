@@ -21,6 +21,7 @@ export default defineConfig({
           testTimeout: 10_000,
           hookTimeout: 10_000,
           fileParallelism: true,
+          sequence: { groupOrder: 0 },
         },
       },
       {
@@ -31,6 +32,7 @@ export default defineConfig({
           testTimeout: 10_000,
           hookTimeout: 10_000,
           fileParallelism: true,
+          sequence: { groupOrder: 0 },
         },
       },
       {
@@ -42,6 +44,7 @@ export default defineConfig({
           hookTimeout: 120_000,
           fileParallelism: true,
           maxWorkers: 2,
+          sequence: { groupOrder: 1 },
           globalSetup: ["./tests/helpers/global-setup.ts"],
         },
       },
