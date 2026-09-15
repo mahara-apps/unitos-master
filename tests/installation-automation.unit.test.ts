@@ -262,11 +262,29 @@ describe("resultado do fluxo automatizado", () => {
 
 function fakeClient(detail: Record<string, unknown> = {}) {
   const updates: Record<string, unknown>[] = [];
+  const migrationProgress: Record<string, unknown>[] = [];
   const api = {
-    rpc: async (name: string) => ({
-      data: name === "reconcile_installation_operation_migrations" ? 0 : true,
-      error: null,
-    }),
+    rpc: async (name: string, args: Record<string, unknown>) => {
+      if (name === "reconcile_installation_operation_migrations") {
+        return { data: 0, error: null };
+      }
+      if (name === "checkpoint_installation_migration") {
+        const row = {
+          migration_file: args["_migration_file"],
+          fingerprint: args["_fingerprint"],
+          package_position: args["_package_position"],
+          statement_index: args["_statement_index"],
+          total_statements: args["_total_statements"],
+          status: args["_completed"] === true ? "completed" : "running",
+        };
+        const index = migrationProgress.findIndex(
+          (current) => current["migration_file"] === row.migration_file,
+        );
+        if (index >= 0) migrationProgress[index] = row;
+        else migrationProgress.push(row);
+      }
+      return { data: true, error: null };
+    },
     from: (table: string) => ({
       update: (patch: Record<string, unknown>) => {
         updates.push(patch);
@@ -275,7 +293,7 @@ function fakeClient(detail: Record<string, unknown> = {}) {
       select: () => ({
         eq: () => ({
           order: async () => ({
-            data: table === "installation_operation_migrations" ? [] : null,
+            data: table === "installation_operation_migrations" ? migrationProgress : null,
             error: null,
           }),
           maybeSingle: async () => ({
