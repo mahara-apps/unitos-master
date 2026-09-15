@@ -8,7 +8,8 @@
 - [x] Publicar o MASTER 1.3.95 e retomar a mesma operação após autorização explícita.
 - [x] Confirmar avanço monotônico de 86 para 95/104, sem regressão e sem consumir falhas.
 - [x] Interromper sem nova tentativa ao encontrar a falha inédita na migration 96/104: DROP de assinatura antiga ausente.
-- [ ] Corrigir no MASTER a migration 96/104 para aceitar ausência idempotente da assinatura legada, ensaiar com o estado real e solicitar nova autorização.
+- [x] Corrigir no MASTER a migration 96/104 por pós-condição exata, revisar 97–104, sanear `ALTER DEFAULT PRIVILEGES` multilinha e validar o MASTER 1.3.96.
+- [ ] Publicar o MASTER 1.3.96 após autorização explícita; depois solicitar autorização separada para retomar a Taveira em 96/104.
 
 ## MASTER 1.3.95 — Confirmação transacional de migrations
 

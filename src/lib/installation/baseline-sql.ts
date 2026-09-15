@@ -12,7 +12,7 @@
  * privilégios explicitamente (GRANT por tabela/função) e todo projeto Supabase
  * novo já nasce com as ACLs default corretas. Portanto eles são REMOVIDOS aqui,
  * nunca "ignorados silenciosamente no meio do script" — a remoção é explícita,
- * auditável e testada.
+ * auditável e testada, inclusive quando o statement ocupa várias linhas.
  *
  * Nada além destes padrões é alterado: schema, RLS, policies, funções,
  * triggers, GRANTs e seeds seguem literais.
@@ -49,8 +49,8 @@ function isSuperuserOnly(statement: string): boolean {
 
 /**
  * Remove os comandos exclusivos de superusuário de um arquivo do baseline.
- * Implementação conservadora: só remove statements de UMA linha que casam com
- * os padrões acima (é exatamente a forma emitida pelo pg_dump).
+ * Implementação conservadora: divide o arquivo em statements completos e só
+ * remove os comandos que casam com a lista explícita acima.
  */
 export function sanitizeBaselineSqlForManagementApi(sql: string): SanitizedBaseline {
   const removed: string[] = [];
