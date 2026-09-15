@@ -4551,7 +4551,6 @@ export async function applyDatabaseDelta(input: {
     return { state: "done", detail: "banco já está na versão do MASTER", percent: 100 };
   }
 
-  let progress = await readBaselineProgress(client, installation.id, operation);
   const now = input.now ?? Date.now;
   const startedAt = now();
   const budgetMs = input.timeBudgetMs ?? UPDATE_DATABASE_TIME_BUDGET_MS;
@@ -4561,15 +4560,11 @@ export async function applyDatabaseDelta(input: {
   while (migration) {
     const ledgerLabel = `${migration.file}:${migration.fingerprint}`;
     const migrationPosition = migrations.findIndex((item) => item.file === migration?.file && item.fingerprint === migration?.fingerprint) + 1;
-    const checkpointKey = `update:migration:${ledgerLabel}`;
     const canonicalCurrent = canonicalState.current?.migration_file === migration.file &&
       canonicalState.current.fingerprint === migration.fingerprint
       ? canonicalState.current.statement_index
       : 0;
-    const alreadyApplied = Math.max(
-      progress[checkpointKey] === DONE ? 0 : (progress[checkpointKey] ?? 0),
-      canonicalCurrent,
-    );
+    const alreadyApplied = canonicalCurrent;
     const prepared = sanitizeBaselineSqlForManagementApi(migration.sql);
     const applied = await applyStatementByStatement(management, prepared.sql, {
       runKey: `${operation.id}:${ledgerLabel}`,
@@ -4579,7 +4574,6 @@ export async function applyDatabaseDelta(input: {
     });
 
     if (!applied.ok) {
-      progress = { ...progress, [checkpointKey]: applied.processed ?? alreadyApplied };
       await checkpointCanonicalMigration(
         client,
         operation,
@@ -4589,13 +4583,11 @@ export async function applyDatabaseDelta(input: {
         applied.total ?? splitSqlStatements(prepared.sql).length,
         false,
       );
-      await saveBaselineProgress(client, operation, progress);
       return { state: "error", detail: `atualização do banco falhou: ${applied.error ?? "erro"}` };
     }
 
     const completedBefore = appliedLabels.size;
     if (!applied.complete) {
-      progress = { ...progress, [checkpointKey]: applied.processed };
       await checkpointCanonicalMigration(
         client,
         operation,
@@ -4605,7 +4597,6 @@ export async function applyDatabaseDelta(input: {
         applied.total,
         false,
       );
-      await saveBaselineProgress(client, operation, progress);
       const percent = databaseMigrationsPercent({
         total: migrations.length,
         completed: canonicalCompleted.size,
@@ -4625,7 +4616,6 @@ export async function applyDatabaseDelta(input: {
     if (!mark.ok) {
       return { state: "error", detail: `registro da versão do banco falhou: ${mark.error ?? "erro"}` };
     }
-    progress = { ...progress, [checkpointKey]: DONE };
     await checkpointCanonicalMigration(
       client,
       operation,
@@ -4635,7 +4625,6 @@ export async function applyDatabaseDelta(input: {
       applied.total,
       true,
     );
-    await saveBaselineProgress(client, operation, progress);
     appliedLabels.add(ledgerLabel);
     canonicalCompleted.add(ledgerLabel);
     processedMigrations += 1;

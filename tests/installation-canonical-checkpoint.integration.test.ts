@@ -151,6 +151,15 @@ describe("ensaio fiel 88/104 → 104/104", () => {
     expect(validateCanonicalMigrationProgress(completed, migrations).completed.size).toBe(104);
   });
 
+  it("usa somente o registro canônico para retomar um comando parcial", () => {
+    const migrations = [{ file: "001.sql", fingerprint: "sha-1", sql: "SELECT 1; SELECT 2;" }];
+    const state = validateCanonicalMigrationProgress([
+      { migration_file: "001.sql", fingerprint: "sha-1", package_position: 1, statement_index: 1, total_statements: 2, status: "running" },
+    ], migrations);
+    expect(state.current?.statement_index).toBe(1);
+    expect(state.completed.size).toBe(0);
+  });
+
   it("pausa em resposta parcial, concorrência fora de ordem e pacote divergente", () => {
     const migrations = [
       { file: "001.sql", fingerprint: "sha-1", sql: "SELECT 1;" },

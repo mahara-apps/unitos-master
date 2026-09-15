@@ -29,6 +29,16 @@ import install020 from "../supabase/install/020_cron.sql?raw";
 import verifySql from "../supabase/install/verify-installation.sql?raw";
 
 describe("delta do baseline", () => {
+  it("retomada não depende de fila órfã sem consumidor", () => {
+    const recentMigrations = fs
+      .readdirSync(path.join(process.cwd(), "supabase/migrations"))
+      .filter((file) => file.endsWith(".sql"))
+      .sort()
+      .slice(-3)
+      .map((file) => fs.readFileSync(path.join(process.cwd(), "supabase/migrations", file), "utf8"))
+      .join("\n");
+    expect(recentMigrations).not.toContain("INSERT INTO public.installation_operation_outbox");
+  });
   const objetos = [
     "briefing_import_runs",
     "briefing_import_steps",
