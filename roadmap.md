@@ -2,7 +2,7 @@
 
 ## MASTER 1.4.0 — Suíte global confiável
 
-- [ ] Autorizar o Master descartável por propósito e referência exatos, bloqueando qualquer outro alvo.
+- [x] Autorizar o Master descartável por propósito e referência exatos, bloqueando qualquer outro alvo.
 - [ ] Executar e fechar o gate global completo no próprio Master, sem NEW ou chamadas a instalações.
 - [x] Separar tempo de infraestrutura, testes locais e integrações remotas.
 - [x] Executar testes locais em paralelo sem carregar cleanup remoto.
