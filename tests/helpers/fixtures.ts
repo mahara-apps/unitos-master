@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { assertPrivilegedTestEnv } from "./test-env";
 
@@ -8,6 +8,7 @@ const url = process.env["SUPABASE_URL"];
 const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
 const publishable =
   process.env["SUPABASE_PUBLISHABLE_KEY"] ?? process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
+const jwtSecret = process.env["SUPABASE_JWT_SECRET"];
 
 if (!url || !serviceKey || !publishable) {
   throw new Error(
@@ -21,6 +22,40 @@ export const admin = createClient(url, serviceKey, authOpts);
 
 export function anonClient(): SupabaseClient {
   return createClient(url!, publishable!, authOpts);
+}
+
+function encodeJwtPart(value: unknown): string {
+  return Buffer.from(JSON.stringify(value)).toString("base64url");
+}
+
+function testUserToken(userId: string, email: string): string {
+  assertPrivilegedTestEnv("INTEGRATION_TEST_SESSION");
+  if (!jwtSecret) {
+    throw new Error(
+      "INTEGRATION_TEST_SESSION bloqueado: SUPABASE_JWT_SECRET ausente; não há fallback por login remoto.",
+    );
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const header = encodeJwtPart({ alg: "HS256", typ: "JWT" });
+  const payload = encodeJwtPart({
+    aud: "authenticated",
+    exp: now + 60 * 60,
+    email,
+    iat: now,
+    iss: `${url}/auth/v1`,
+    role: "authenticated",
+    sub: userId,
+  });
+  const signature = createHmac("sha256", jwtSecret).update(`${header}.${payload}`).digest("base64url");
+  return `${header}.${payload}.${signature}`;
+}
+
+function authenticatedClient(userId: string, email: string): SupabaseClient {
+  const token = testUserToken(userId, email);
+  return createClient(url!, publishable!, {
+    ...authOpts,
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
 }
 
 export type TestUser = { id: string; email: string; client: SupabaseClient };
@@ -146,14 +181,7 @@ export async function createUser(label: string): Promise<TestUser> {
   if (error) throw new Error(`createUser(${label}): ${error.message}`);
   if (!data.user) throw new Error(`createUser(${label}): usuário não retornado`);
   createdUserIds.add(data.user.id);
-  const client = anonClient();
-  const link = await admin.auth.admin.generateLink({ type: "magiclink", email });
-  if (link.error) throw new Error(`generateLink(${label}): ${link.error.message}`);
-  const tokenHash = link.data.properties?.hashed_token;
-  if (!tokenHash) throw new Error(`generateLink(${label}): token não retornado`);
-  const session = await client.auth.verifyOtp({ token_hash: tokenHash, type: "email" });
-  if (session.error) throw new Error(`verifyOtp(${label}): ${session.error.message}`);
-  return { id: data.user.id, email, client };
+  return { id: data.user.id, email, client: authenticatedClient(data.user.id, email) };
 }
 
 /**
