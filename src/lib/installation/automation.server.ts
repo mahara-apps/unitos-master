@@ -3220,6 +3220,8 @@ export async function runAutomatedProvision(input: {
   maxStatementsPerInvocation?: number;
   /** Sobrescrita exclusiva para testes determinísticos ponta a ponta. */
   maxMigrationsPerInvocation?: number;
+  /** Sobrescrita exclusiva para testes: preserva retries, sem espera de relógio. */
+  sleep?: (ms: number) => Promise<void>;
 }): Promise<AutomationRunResult> {
   const env = input.env ?? runtimeEnv();
   const { client, operation, installation } = input;
@@ -3315,6 +3317,7 @@ export async function runAutomatedProvision(input: {
     repo: repo.repo,
     masterRepo,
     fetchImpl: input.fetchImpl,
+    sleep: input.sleep,
   });
 
   const deploy = createDeployClient({

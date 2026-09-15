@@ -228,6 +228,7 @@ function scenario(
       installation: INSTALLATION,
       env,
       fetchImpl: fetchImpl as never,
+      sleep: async () => {},
       maxStatementsPerInvocation: Number.POSITIVE_INFINITY,
       maxMigrationsPerInvocation: Number.POSITIVE_INFINITY,
     });
