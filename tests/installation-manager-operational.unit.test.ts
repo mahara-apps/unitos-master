@@ -52,7 +52,11 @@ describe("etapas do provisionamento", () => {
   it("preserva progresso parcial quando uma etapa falha", () => {
     let steps = initialSteps("provision");
     steps = applyStepReport(steps, { step: "supabase", state: "done" });
-    steps = applyStepReport(steps, { step: "database", state: "error", detail: "baseline incompleto" });
+    steps = applyStepReport(steps, {
+      step: "database",
+      state: "error",
+      detail: "baseline incompleto",
+    });
     const progress = stepsProgress(steps);
     expect(progress.done).toBe(1);
     expect(progress.failed).toBe(1);
@@ -91,9 +95,7 @@ describe("saúde da instalação", () => {
         "frontend",
         "secrets",
         "configuration",
-      ].map(
-        (id) => [id, { state: "ok" }],
-      ),
+      ].map((id) => [id, { state: "ok" }]),
     );
     expect(healthFromChecks(all)).toBe("healthy");
   });
@@ -101,10 +103,13 @@ describe("saúde da instalação", () => {
 
 describe("alvo da operação", () => {
   it("exige identidade própria completa", () => {
-    expect(assertOperationTarget({ domain: "", supabaseUrl: "https://x.supabase.co" }).ok).toBe(false);
+    expect(assertOperationTarget({ domain: "", supabaseUrl: "https://x.supabase.co" }).ok).toBe(
+      false,
+    );
     expect(assertOperationTarget({ domain: "app.cliente.com", supabaseUrl: "" }).ok).toBe(false);
     expect(
-      assertOperationTarget({ domain: "app.cliente.com", supabaseUrl: "https://ref.supabase.co" }).ok,
+      assertOperationTarget({ domain: "app.cliente.com", supabaseUrl: "https://ref.supabase.co" })
+        .ok,
     ).toBe(true);
   });
 
@@ -134,7 +139,7 @@ describe("comando de execução e atualização", () => {
       appUrl: "app.cliente.com",
     });
     expect(cmd).toContain("supabase/install/bootstrap.sh");
-    expect(cmd).toContain("UNITOS_RUN_TOKEN=\"tok-1\"");
+    expect(cmd).toContain('UNITOS_RUN_TOKEN="tok-1"');
     expect(cmd).not.toContain("<SENHA>");
     expect(cmd).not.toContain("DATABASE_URL");
   });
