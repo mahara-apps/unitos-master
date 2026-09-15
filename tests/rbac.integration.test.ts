@@ -11,7 +11,7 @@
  * quando não estiver, os testes de super admin são marcados como skip.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { admin, cleanupTestResources, createSuperAdminUser, createUser } from "./helpers/fixtures";
 
 const url = process.env["SUPABASE_URL"];
