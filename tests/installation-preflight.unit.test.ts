@@ -73,13 +73,13 @@ describe("secrets nunca herdados do MASTER", () => {
     expect(isMasterEnvironment({ appUrl: "https://cliente.com" })).toBe(false);
   });
 
-  it("bootstrap falha quando o secret vem do ambiente sem declaração", () => {
+  it("bootstrap ignora secrets locais e exige somente a delegação autenticada", () => {
     const result = runBootstrap({
       PUBLIC_APP_URL: "https://instalacao-teste.example.com",
       SUPABASE_DB_URL: "postgresql://postgres:x@127.0.0.1:1/postgres",
       BRAND_CREDENTIALS_SECRET: "segredo-herdado-do-master-shell",
     });
-    expect(result.stdout).toContain("herança não permitida");
+    expect(result.stdout).toContain("UNITOS_MASTER_URL ausente");
     expect(result.stdout).not.toContain("RESULTADO: PASS");
     expect(result.code).not.toBe(0);
   });
@@ -88,8 +88,7 @@ describe("secrets nunca herdados do MASTER", () => {
 describe("relatório final do bootstrap", () => {
   it("abort de pré-condição resulta em BLOCKED e exit != 0", () => {
     const result = runBootstrap({ PUBLIC_APP_URL: "https://instalacao-teste.example.com" });
-    expect(result.stdout).toContain("BOOTSTRAP ABORTADO");
-    expect(result.stdout).toContain("RESULTADO: BLOCKED");
+    expect(result.stdout).toContain("BLOCKED: UNITOS_MASTER_URL ausente");
     expect(result.stdout).not.toContain("RESULTADO: PASS");
     expect(result.code).toBe(2);
   });
@@ -103,12 +102,12 @@ describe("relatório final do bootstrap", () => {
     expect(result.code).not.toBe(0);
   });
 
-  it("guard anti-MASTER continua ativo", () => {
+  it("não aceita execução local mesmo quando a URL fornecida é a do MASTER", () => {
     const result = runBootstrap({
       PUBLIC_APP_URL: "https://unitos-master.lovable.app",
       SUPABASE_DB_URL: "postgresql://postgres:x@127.0.0.1:1/postgres",
     });
-    expect(result.stdout).toContain("aponta para o MASTER");
+    expect(result.stdout).toContain("UNITOS_MASTER_URL ausente");
     expect(result.code).toBe(2);
   });
 

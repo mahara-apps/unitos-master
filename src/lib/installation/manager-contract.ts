@@ -497,7 +497,7 @@ export function applyStepReport(
       report.state === "done"
         ? 100
         : report.state === "pending"
-          ? s.percent ?? null
+          ? (s.percent ?? null)
           : reported === null
             ? (s.percent ?? (report.state === "running" ? 0 : null))
             : Math.max(s.percent ?? 0, reported);
@@ -691,16 +691,11 @@ export function buildRunCommand(input: {
     `export UNITOS_MASTER_URL="${master}"`,
     `export UNITOS_RUN_TOKEN="${input.runToken}"`,
     `export UNITOS_OPERATION_ID="${input.operationId}"`,
-    'export SUPABASE_DB_URL="postgresql://postgres:<SENHA>@db.<REF>.supabase.co:5432/postgres"',
   ];
   if (input.kind === "validate") {
     lines.push("bash supabase/install/validate.sh");
   } else {
-    const appUrl = (input.appUrl ?? "").trim();
-    lines.push(
-      `export PUBLIC_APP_URL="${appUrl ? (appUrl.startsWith("http") ? appUrl : `https://${appUrl}`) : "https://<DOMINIO>"}"`,
-      "bash supabase/install/bootstrap.sh",
-    );
+    lines.push("bash supabase/install/bootstrap.sh");
   }
   return lines.join("\n");
 }

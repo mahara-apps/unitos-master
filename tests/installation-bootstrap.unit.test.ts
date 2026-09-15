@@ -103,11 +103,13 @@ describe("contrato do baseline", () => {
     ]);
   });
 
-  it("nunca executa o delta cumulativo diretamente pelo bootstrap", () => {
+  it("delega NEW ao executor canônico sem executar SQL", () => {
     const bootstrap = readFileSync("supabase/install/bootstrap.sh", "utf8");
     expect(bootstrap).not.toMatch(/apply_sql\s+["']007_delta_migrations/);
     expect(bootstrap).not.toMatch(/psql_run[^\n]+007_delta_migrations\.sql/);
-    expect(bootstrap).toContain("execução direta desativada");
+    expect(bootstrap).not.toContain("psql");
+    expect(bootstrap).toContain("/api/public/installations/execute");
+    expect(bootstrap).toContain("UNITOS_OPERATION_ID");
     expect(bootstrap).toContain("executor canônico do MASTER");
   });
 

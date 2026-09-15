@@ -21,23 +21,48 @@ type Call = { url: string; method: string; body: string };
 
 function fakeClient() {
   const updates: Record<string, unknown>[] = [];
+  const migrationProgress: Record<string, unknown>[] = [];
   const api = {
-    rpc: async (name: string) => {
+    rpc: async (name: string, args: Record<string, unknown>) => {
+      if (name === "reconcile_installation_operation_migrations") {
+        return { data: 0, error: null };
+      }
+      if (name === "checkpoint_installation_migration") {
+        const row = {
+          migration_file: args["_migration_file"],
+          fingerprint: args["_fingerprint"],
+          package_position: args["_package_position"],
+          statement_index: args["_statement_index"],
+          total_statements: args["_total_statements"],
+          status: args["_completed"] === true ? "completed" : "running",
+        };
+        const index = migrationProgress.findIndex(
+          (current) => current["migration_file"] === row.migration_file,
+        );
+        if (index >= 0) migrationProgress[index] = row;
+        else migrationProgress.push(row);
+        return { data: true, error: null };
+      }
       if (
         name === "compare_and_set_installation_generated_secrets" ||
-        name === "checkpoint_installation_operation"
+        name === "checkpoint_installation_operation" ||
+        name === "seal_installation_operation_baseline"
       ) {
         return { data: true, error: null };
       }
       return { data: null, error: null };
     },
-    from: () => ({
+    from: (table: string) => ({
       update: (patch: Record<string, unknown>) => {
         updates.push(patch);
         return { eq: async () => ({ error: null }) };
       },
       select: () => ({
         eq: () => ({
+          order: async () => ({
+            data: table === "installation_operation_migrations" ? migrationProgress : null,
+            error: null,
+          }),
           maybeSingle: async () => ({ data: { status: "running", steps: [], detail: {} } }),
         }),
       }),
@@ -145,11 +170,13 @@ function scenario(
       }
       if (body.includes("select statement_index")) {
         const values = /values \('[^']*',\s*(\d+),\s*(\d+),\s*'running'\)/i.exec(body);
-        return Response.json([{
-          statement_index: Number(values?.[1] ?? 0),
-          total_statements: Number(values?.[2] ?? 0),
-          status: "running",
-        }]);
+        return Response.json([
+          {
+            statement_index: Number(values?.[1] ?? 0),
+            total_statements: Number(values?.[2] ?? 0),
+            status: "running",
+          },
+        ]);
       }
       return Response.json([{ schemas: 3, item: "ok", status: "PASS" }]);
     }

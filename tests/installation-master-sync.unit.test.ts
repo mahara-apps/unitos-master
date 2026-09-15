@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { MASTER_RELEASE_VERSION } from "@/lib/installation/manager-contract";
 import delta from "../supabase/baseline-snapshot/007_delta_migrations.sql?raw";
+import manifestRaw from "../supabase/baseline-snapshot/tools/delta_manifest.txt?raw";
 import versionRaw from "../supabase/baseline-snapshot/tools/delta_version.txt?raw";
 import verifySql from "../supabase/install/verify-installation.sql?raw";
 
@@ -67,7 +68,6 @@ function tabelasDoDelta(sql: string): string[] {
   return [...out].sort();
 }
 
-
 describe("sincronia MASTER-first", () => {
   const { version, sha256 } = parseVersionFile(versionRaw);
 
@@ -84,8 +84,20 @@ describe("sincronia MASTER-first", () => {
     expect(MASTER_RELEASE_VERSION).toBe(version);
   });
 
+  it("manifesto declara cada migration em ordem com SHA-256", () => {
+    const entries = manifestRaw.trim().split("\n");
+    const files = [...delta.matchAll(/^-- ([0-9]{14}_[A-Za-z0-9_-]+\.sql)$/gm)].map(
+      (match) => match[1],
+    );
+    expect(entries).toHaveLength(files.length);
+    expect(entries.map((entry) => entry.split(/\s+/)[0])).toEqual(files);
+    expect(entries.every((entry) => /^[^\s]+\.sql\s+[0-9a-f]{64}$/.test(entry))).toBe(true);
+  });
+
   it("relatorio de saude confere todas as tabelas do pacote", () => {
-    const faltando = tabelasDoDelta(delta).filter((t) => !verifySql.includes(`'${t}'`) && !verifySql.includes(`public.${t}`));
+    const faltando = tabelasDoDelta(delta).filter(
+      (t) => !verifySql.includes(`'${t}'`) && !verifySql.includes(`public.${t}`),
+    );
     expect(faltando).toEqual([]);
   });
 });

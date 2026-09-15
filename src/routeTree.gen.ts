@@ -107,6 +107,7 @@ import { Route as ApiPublicMetaDataDeletionRouteImport } from './routes/api/publ
 import { Route as ApiPublicMetaCallbackRouteImport } from './routes/api/public/meta/callback'
 import { Route as ApiPublicMediaPruneRouteImport } from './routes/api/public/media/prune'
 import { Route as ApiPublicInstallationsReportRouteImport } from './routes/api/public/installations/report'
+import { Route as ApiPublicInstallationsExecuteRouteImport } from './routes/api/public/installations/execute'
 import { Route as ApiPublicHooksSocialMetricsSyncRouteImport } from './routes/api/public/hooks/social-metrics-sync'
 import { Route as ApiPublicHooksResumePostContentRouteImport } from './routes/api/public/hooks/resume-post-content'
 import { Route as ApiPublicHooksBrainSynthesisRouteImport } from './routes/api/public/hooks/brain-synthesis'
@@ -655,6 +656,12 @@ const ApiPublicInstallationsReportRoute =
     path: '/api/public/installations/report',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicInstallationsExecuteRoute =
+  ApiPublicInstallationsExecuteRouteImport.update({
+    id: '/api/public/installations/execute',
+    path: '/api/public/installations/execute',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksSocialMetricsSyncRoute =
   ApiPublicHooksSocialMetricsSyncRouteImport.update({
     id: '/api/public/hooks/social-metrics-sync',
@@ -864,6 +871,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/brain-synthesis': typeof ApiPublicHooksBrainSynthesisRoute
   '/api/public/hooks/resume-post-content': typeof ApiPublicHooksResumePostContentRoute
   '/api/public/hooks/social-metrics-sync': typeof ApiPublicHooksSocialMetricsSyncRoute
+  '/api/public/installations/execute': typeof ApiPublicInstallationsExecuteRoute
   '/api/public/installations/report': typeof ApiPublicInstallationsReportRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
@@ -971,6 +979,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/brain-synthesis': typeof ApiPublicHooksBrainSynthesisRoute
   '/api/public/hooks/resume-post-content': typeof ApiPublicHooksResumePostContentRoute
   '/api/public/hooks/social-metrics-sync': typeof ApiPublicHooksSocialMetricsSyncRoute
+  '/api/public/installations/execute': typeof ApiPublicInstallationsExecuteRoute
   '/api/public/installations/report': typeof ApiPublicInstallationsReportRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
@@ -1090,6 +1099,7 @@ export interface FileRoutesById {
   '/api/public/hooks/brain-synthesis': typeof ApiPublicHooksBrainSynthesisRoute
   '/api/public/hooks/resume-post-content': typeof ApiPublicHooksResumePostContentRoute
   '/api/public/hooks/social-metrics-sync': typeof ApiPublicHooksSocialMetricsSyncRoute
+  '/api/public/installations/execute': typeof ApiPublicInstallationsExecuteRoute
   '/api/public/installations/report': typeof ApiPublicInstallationsReportRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
@@ -1208,6 +1218,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/brain-synthesis'
     | '/api/public/hooks/resume-post-content'
     | '/api/public/hooks/social-metrics-sync'
+    | '/api/public/installations/execute'
     | '/api/public/installations/report'
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
@@ -1315,6 +1326,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/brain-synthesis'
     | '/api/public/hooks/resume-post-content'
     | '/api/public/hooks/social-metrics-sync'
+    | '/api/public/installations/execute'
     | '/api/public/installations/report'
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
@@ -1433,6 +1445,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/brain-synthesis'
     | '/api/public/hooks/resume-post-content'
     | '/api/public/hooks/social-metrics-sync'
+    | '/api/public/installations/execute'
     | '/api/public/installations/report'
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
@@ -1478,6 +1491,7 @@ export interface RootRouteChildren {
   ApiPublicHooksBrainSynthesisRoute: typeof ApiPublicHooksBrainSynthesisRoute
   ApiPublicHooksResumePostContentRoute: typeof ApiPublicHooksResumePostContentRoute
   ApiPublicHooksSocialMetricsSyncRoute: typeof ApiPublicHooksSocialMetricsSyncRoute
+  ApiPublicInstallationsExecuteRoute: typeof ApiPublicInstallationsExecuteRoute
   ApiPublicInstallationsReportRoute: typeof ApiPublicInstallationsReportRoute
   ApiPublicMediaPruneRoute: typeof ApiPublicMediaPruneRoute
   ApiPublicMetaCallbackRoute: typeof ApiPublicMetaCallbackRoute
@@ -2180,6 +2194,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicInstallationsReportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/installations/execute': {
+      id: '/api/public/installations/execute'
+      path: '/api/public/installations/execute'
+      fullPath: '/api/public/installations/execute'
+      preLoaderRoute: typeof ApiPublicInstallationsExecuteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/social-metrics-sync': {
       id: '/api/public/hooks/social-metrics-sync'
       path: '/api/public/hooks/social-metrics-sync'
@@ -2645,6 +2666,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksBrainSynthesisRoute: ApiPublicHooksBrainSynthesisRoute,
   ApiPublicHooksResumePostContentRoute: ApiPublicHooksResumePostContentRoute,
   ApiPublicHooksSocialMetricsSyncRoute: ApiPublicHooksSocialMetricsSyncRoute,
+  ApiPublicInstallationsExecuteRoute: ApiPublicInstallationsExecuteRoute,
   ApiPublicInstallationsReportRoute: ApiPublicInstallationsReportRoute,
   ApiPublicMediaPruneRoute: ApiPublicMediaPruneRoute,
   ApiPublicMetaCallbackRoute: ApiPublicMetaCallbackRoute,

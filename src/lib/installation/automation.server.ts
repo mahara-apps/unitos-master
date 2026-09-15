@@ -22,6 +22,7 @@ import baseline000 from "../../../supabase/baseline-snapshot/000_extensions.sql?
 import baseline001 from "../../../supabase/baseline-snapshot/001_initial_schema.sql?raw";
 import baseline005 from "../../../supabase/baseline-snapshot/005_auth_trigger.sql?raw";
 import baseline007 from "../../../supabase/baseline-snapshot/007_delta_migrations.sql?raw";
+import deltaManifest from "../../../supabase/baseline-snapshot/tools/delta_manifest.txt?raw";
 import deltaVersion from "../../../supabase/baseline-snapshot/tools/delta_version.txt?raw";
 import baseline003 from "../../../supabase/baseline-snapshot/003_storage_buckets.sql?raw";
 import baseline006 from "../../../supabase/baseline-snapshot/006_storage_policies.sql?raw";
@@ -1035,6 +1036,7 @@ export type CodeClient = {
     sha256?: string;
     total?: number;
     sql?: string;
+    manifest?: string;
     error?: string;
   }>;
   /**
@@ -1696,12 +1698,14 @@ export function createCodeClient(input: {
 
     async releaseSnapshotAtCommit(sha) {
       try {
-        const [versionFile, deltaFile] = await Promise.all([
+        const [versionFile, deltaFile, manifestFile] = await Promise.all([
           readMasterFileAtCommit("supabase/baseline-snapshot/tools/delta_version.txt", sha),
           readMasterFileAtCommit("supabase/baseline-snapshot/007_delta_migrations.sql", sha),
+          readMasterFileAtCommit("supabase/baseline-snapshot/tools/delta_manifest.txt", sha),
         ]);
         if (!versionFile.ok) return versionFile;
         if (!deltaFile.ok) return deltaFile;
+        if (!manifestFile.ok) return manifestFile;
         const version = /^\s*version\s*=\s*(\S+)\s*$/m.exec(versionFile.content)?.[1];
         const declaredSha = /^\s*sha256\s*=\s*([0-9a-f]{64})\s*$/im
           .exec(versionFile.content)?.[1]
@@ -1720,7 +1724,16 @@ export function createCodeClient(input: {
         const total = splitDeltaMigrations(deltaFile.content).length;
         if (total === 0)
           return { ok: false, error: "pacote autorizado não contém migrations válidas" };
-        return { ok: true, version, sha256: actualSha, total, sql: deltaFile.content };
+        const manifestCheck = await validateDeltaManifest(manifestFile.content, deltaFile.content);
+        if (!manifestCheck.ok) return { ok: false, error: manifestCheck.error };
+        return {
+          ok: true,
+          version,
+          sha256: actualSha,
+          total,
+          sql: deltaFile.content,
+          manifest: manifestFile.content,
+        };
       } catch (error) {
         return { ok: false, error: (error as Error).message };
       }
@@ -4336,6 +4349,7 @@ function localDeltaPackage(commitSha: string): OperationPackageSnapshot {
     sha256,
     total: splitDeltaMigrations(baseline007).length,
     sql: baseline007,
+    manifest: deltaManifest,
   };
 }
 
@@ -4442,7 +4456,50 @@ export type OperationPackageSnapshot = {
   sha256: string;
   total: number;
   sql: string;
+  manifest?: string;
 };
+
+export async function validateDeltaManifest(
+  manifestRaw: string,
+  sql: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const migrations = splitDeltaMigrations(sql);
+  const entries = manifestRaw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [file = "", fingerprint = ""] = line.split(/\s+/);
+      return { file, fingerprint: fingerprint.toLowerCase() };
+    });
+  if (entries.length !== migrations.length) {
+    return {
+      ok: false,
+      error: `manifesto incompatível: esperado ${migrations.length}, recebido ${entries.length}`,
+    };
+  }
+  for (let index = 0; index < migrations.length; index += 1) {
+    const migration = migrations[index];
+    const entry = entries[index];
+    if (!migration || !entry || entry.file !== migration.file) {
+      return { ok: false, error: `manifesto fora de ordem na posição ${index + 1}` };
+    }
+    if (!/^[0-9a-f]{64}$/.test(entry.fingerprint)) {
+      return { ok: false, error: `manifesto sem SHA-256 válido para ${migration.file}` };
+    }
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(`${migration.sql.trim()}\n`),
+    );
+    const actual = Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
+    if (entry.fingerprint !== actual) {
+      return { ok: false, error: `integridade da migration não confere: ${migration.file}` };
+    }
+  }
+  return { ok: true };
+}
 
 export function operationPackageIdentity(snapshot: Omit<OperationPackageSnapshot, "sql">): string {
   return `${snapshot.version}:${snapshot.commitSha}:${snapshot.total}`;
@@ -4678,6 +4735,11 @@ export async function applyDatabaseDelta(input: {
   if (migrations.length === 0) {
     return { state: "error", detail: "pacote de migrations do MASTER está sem marcadores válidos" };
   }
+  if (!input.snapshot.manifest) {
+    return { state: "error", detail: "manifesto canônico do pacote está ausente" };
+  }
+  const manifestCheck = await validateDeltaManifest(input.snapshot.manifest, input.snapshot.sql);
+  if (!manifestCheck.ok) return { state: "error", detail: manifestCheck.error };
   const validatedSnapshot = validateOperationPackageSnapshot(operation, input.snapshot);
   if (!validatedSnapshot.ok) return { state: "blocked", detail: validatedSnapshot.error };
 
