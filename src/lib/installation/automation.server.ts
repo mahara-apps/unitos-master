@@ -22,6 +22,7 @@ import baseline000 from "../../../supabase/baseline-snapshot/000_extensions.sql?
 import baseline001 from "../../../supabase/baseline-snapshot/001_initial_schema.sql?raw";
 import baseline005 from "../../../supabase/baseline-snapshot/005_auth_trigger.sql?raw";
 import baseline007 from "../../../supabase/baseline-snapshot/007_delta_migrations.sql?raw";
+import deltaVersion from "../../../supabase/baseline-snapshot/tools/delta_version.txt?raw";
 import baseline003 from "../../../supabase/baseline-snapshot/003_storage_buckets.sql?raw";
 import baseline006 from "../../../supabase/baseline-snapshot/006_storage_policies.sql?raw";
 import baseline004 from "../../../supabase/baseline-snapshot/004_seeds.sql?raw";
@@ -4196,6 +4197,18 @@ export async function runAutomatedValidate(input: {
 /** Rótulo do arquivo de delta aplicado nas atualizações. */
 export const UPDATE_DELTA_LABEL = "007_delta_migrations";
 
+function localDeltaPackage(commitSha: string): OperationPackageSnapshot {
+  const version = /^version=(.+)$/m.exec(deltaVersion)?.[1]?.trim() ?? "";
+  const sha256 = /^sha256=([a-f0-9]{64})$/m.exec(deltaVersion)?.[1] ?? "";
+  return {
+    version,
+    commitSha,
+    sha256,
+    total: splitDeltaMigrations(baseline007).length,
+    sql: baseline007,
+  };
+}
+
 /** Assinatura do conteúdo do delta: muda sempre que novas migrations entram. */
 function deltaFingerprint(sql: string): string {
   let h1 = 0x811c9dc5;
@@ -4263,18 +4276,12 @@ async function seedDeltaLedger(
     ].join(";\n"),
   );
   if (!setup.ok) return { ok: false, error: setup.error };
-  // A atualização chama este helper sem itens apenas para garantir a estrutura
-  // do ledger antes de consultá-lo. A Management API rejeita `query: ""`,
-  // portanto não deve haver uma segunda chamada quando não existe seed.
-  if (migrations.length === 0) return { ok: true };
-  const written = await management.query(
-    migrations
-      .map((item) =>
-        `insert into public._unitos_applied_deltas (label, kind, file, fingerprint) values (${sqlLiteral(`${item.file}:${item.fingerprint}`)}, 'migration', ${sqlLiteral(item.file)}, ${sqlLiteral(item.fingerprint)}) on conflict do nothing`,
-      )
-      .join(";\n"),
-  );
-  return written.ok ? { ok: true } : { ok: false, error: written.error };
+  // Este helper cria somente a estrutura. Backfill por presunção é proibido:
+  // uma migration só entra no ledger após execução confirmada pelo executor.
+  if (migrations.length > 0) {
+    return { ok: false, error: "backfill sem evidência verificável foi bloqueado" };
+  }
+  return { ok: true };
 }
 
 /** Progresso acumulado entre todas as migrations, sem regredir na troca de arquivo. */
@@ -4537,19 +4544,11 @@ export async function applyDatabaseDelta(input: {
       !(row as Record<string, unknown>)["file"],
   );
   if (hasLegacyBlob && appliedLabels.size === 0) {
-    const historical = migrations.filter((item) => item.file <= INCREMENTAL_LEDGER_CUTOVER_FILE);
-    const transition = await management.query(
-      historical
-        .map(
-          (item) =>
-            `insert into public._unitos_applied_deltas (label, kind, file, fingerprint) values (${sqlLiteral(`${item.file}:${item.fingerprint}`)}, 'migration', ${sqlLiteral(item.file)}, ${sqlLiteral(item.fingerprint)}) on conflict do nothing`,
-        )
-        .join(";\n"),
-    );
-    if (!transition.ok) {
-      return { state: "error", detail: `transição do ledger legado falhou: ${transition.error ?? "erro"}` };
-    }
-    for (const item of historical) appliedLabels.add(`${item.file}:${item.fingerprint}`);
+    return {
+      state: "blocked",
+      detail:
+        "ledger legado sem evidência por migration; reconciliação verificável é obrigatória antes de continuar",
+    };
   }
   await reconcileCanonicalMigrations(client, operation, migrations, appliedLabels);
   let canonicalProgress = await readCanonicalMigrationProgress(client, operation);

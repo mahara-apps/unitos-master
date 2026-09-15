@@ -173,7 +173,6 @@ const DUPLICATE_SQLSTATES = [
   "42P06", // duplicate_schema
   "42701", // duplicate_column
   "42723", // duplicate_function
-  "23505", // unique_violation (seed já inserido)
 ] as const;
 
 /** True quando o erro é apenas "objeto já existe" (retry idempotente). */

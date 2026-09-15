@@ -172,6 +172,16 @@ export class InstallationLeaseLostError extends Error {
   }
 }
 
+/** Versão só pode ser promovida quando a operação inteira possui evidência. */
+export function versionForCompletedOperation(input: {
+  kind: InstallationOperationKind;
+  acceptedSuccess: boolean;
+  version: string | null;
+}): string | null {
+  if (input.kind === "validate" || !input.acceptedSuccess) return null;
+  return input.version;
+}
+
 export async function heartbeatOperation(
   client: AnyClient,
   op: OperationRow,
@@ -422,6 +432,11 @@ export async function finalizeOperation(
   const installedVersion =
     (installation?.pinned_release ?? installation?.current_version ?? "").trim() || null;
   const statusOutcome = kind === "validate" ? { ...outcome, version: installedVersion } : outcome;
+  const promotedVersion = versionForCompletedOperation({
+    kind,
+    acceptedSuccess,
+    version: outcome.version,
+  });
 
   const patch: Record<string, unknown> = {
     status: statusAfterOperation(kind, statusOutcome),
@@ -434,7 +449,7 @@ export async function finalizeOperation(
       : report.ok
         ? `A operação tentou concluir sem evidência em todas as etapas: ${incomplete.map((step) => step.label).join(", ") || "etapas ausentes"}.`
         : (summary ?? "Falha registrada na operação."),
-    ...(kind !== "validate" && outcome.version ? { current_version: outcome.version } : {}),
+    ...(promotedVersion ? { current_version: promotedVersion } : {}),
     ...(kind !== "validate" && acceptedSuccess ? { last_provisioned_at: nowIso } : {}),
     ...(kind === "validate" ? { last_validated_at: nowIso } : {}),
   };
@@ -460,7 +475,7 @@ export async function finalizeOperation(
       _installation_status: patch.status,
       _health: patch.health,
       _health_checks: checks,
-      _current_version: kind !== "validate" && outcome.version ? outcome.version : null,
+      _current_version: promotedVersion,
       _touch_provisioned: kind !== "validate" && acceptedSuccess,
       _touch_validated: kind === "validate",
     });

@@ -277,6 +277,7 @@ describe("reexecução idempotente do baseline", () => {
     expect(isDuplicateObjectError('ERROR: 42P16: multiple primary keys for table "activity_events" are not allowed')).toBe(true);
     expect(isDuplicateObjectError("ERROR: 42P16: cannot change name of input parameter")).toBe(false);
     expect(isDuplicateObjectError("ERROR: 42501: permission denied")).toBe(false);
+    expect(isDuplicateObjectError("ERROR: 23505: duplicate key value violates unique constraint")).toBe(false);
     expect(isDuplicateObjectError(null)).toBe(false);
   });
 

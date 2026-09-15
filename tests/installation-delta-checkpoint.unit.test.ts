@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 
 import {
   databaseMigrationsPercent,
@@ -52,6 +53,12 @@ select 2;`;
 
   it("mantém um corte explícito para converter instalações com ledger legado", () => {
     expect(INCREMENTAL_LEDGER_CUTOVER_FILE).toMatch(/^\d{14}_.+\.sql$/);
+  });
+
+  it("não transforma marcador cumulativo legado em evidência por migration", () => {
+    const source = readFileSync("src/lib/installation/automation.server.ts", "utf8");
+    expect(source).toContain("ledger legado sem evidência por migration");
+    expect(source).not.toContain("for (const item of historical) appliedLabels.add");
   });
 
   it("calcula progresso acumulado sem voltar a zero entre migrations", () => {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   ALLOWED_SEED_TABLES,
   BASELINE_EXPECTED_COUNTS,
@@ -98,6 +99,13 @@ describe("contrato do baseline", () => {
       "006_storage_policies.sql",
       "004_seeds.sql",
     ]);
+  });
+
+  it("nunca executa o delta cumulativo diretamente pelo bootstrap", () => {
+    const bootstrap = readFileSync("supabase/install/bootstrap.sh", "utf8");
+    expect(bootstrap).not.toMatch(/apply_sql\s+["']007_delta_migrations/);
+    expect(bootstrap).not.toMatch(/psql_run[^\n]+007_delta_migrations\.sql/);
+    expect(bootstrap).toContain("UNITOS_CANONICAL_DELTA_CONFIRMED");
   });
 
   it("declara as contagens e buckets esperados", () => {
