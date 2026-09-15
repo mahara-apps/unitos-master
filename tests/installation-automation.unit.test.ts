@@ -267,13 +267,17 @@ function fakeClient(detail: Record<string, unknown> = {}) {
       data: name === "reconcile_installation_operation_migrations" ? 0 : true,
       error: null,
     }),
-    from: () => ({
+    from: (table: string) => ({
       update: (patch: Record<string, unknown>) => {
         updates.push(patch);
         return { eq: async () => ({ error: null }) };
       },
       select: () => ({
         eq: () => ({
+          order: async () => ({
+            data: table === "installation_operation_migrations" ? [] : null,
+            error: null,
+          }),
           maybeSingle: async () => ({
             data: {
               status: "running",
