@@ -33,6 +33,27 @@ const createdUserIds = new Set<string>();
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+function isAuthRateLimit(message: string): boolean {
+  return /rate limit|too many requests/i.test(message);
+}
+
+async function signInTestUser(
+  client: SupabaseClient,
+  label: string,
+  email: string,
+  password: string,
+) {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const result = await client.auth.signInWithPassword({ email, password });
+    if (!result.error) return;
+    if (attempt < 3 && isAuthRateLimit(result.error.message)) {
+      await sleep(500 * 2 ** attempt);
+      continue;
+    }
+    throw new Error(`signIn(${label}): ${result.error.message}`);
+  }
+}
+
 function chunks<T>(items: T[], size: number): T[][] {
   const result: T[][] = [];
   for (let offset = 0; offset < items.length; offset += size) {
@@ -147,8 +168,7 @@ export async function createUser(label: string): Promise<TestUser> {
   if (!data.user) throw new Error(`createUser(${label}): usuário não retornado`);
   createdUserIds.add(data.user.id);
   const client = anonClient();
-  const signIn = await client.auth.signInWithPassword({ email, password });
-  if (signIn.error) throw new Error(`signIn(${label}): ${signIn.error.message}`);
+  await signInTestUser(client, label, email, password);
   return { id: data.user.id, email, client };
 }
 
