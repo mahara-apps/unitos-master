@@ -1,5 +1,13 @@
 # Roadmap
 
+## MASTER 1.4.0 — Deploy Vercel comprovado no NEW
+
+- [ ] Persistir deployment, commit esperado, estado observado e conclusão READY no checkpoint.
+- [ ] Retomar pelo deployment existente e validar READY + commit antes do probe HTTP.
+- [ ] Tornar fallback por commit idempotente, localizando o deployment correspondente antes de novo disparo.
+- [ ] Cobrir estados, timeout, retomada, falso HTTP 200 e ausência de duplicação.
+- [ ] Executar testes focados, instalação, suíte global, tipos, lint, build e `master:check`, sem executar NEW real.
+
 ## MASTER 1.4.0 — Suíte global confiável
 
 - [x] Autorizar o Master descartável por propósito e referência exatos, bloqueando qualquer outro alvo.
