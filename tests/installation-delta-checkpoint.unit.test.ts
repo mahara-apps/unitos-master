@@ -85,10 +85,7 @@ describe("manifesto canônico em runtime", () => {
 select 1;`;
 
   it("aceita ordem, quantidade e SHA-256 íntegros", async () => {
-    const digest = await crypto.subtle.digest(
-      "SHA-256",
-      new TextEncoder().encode("select 1;\n"),
-    );
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("select 1;\n"));
     const sha = Array.from(new Uint8Array(digest))
       .map((byte) => byte.toString(16).padStart(2, "0"))
       .join("");

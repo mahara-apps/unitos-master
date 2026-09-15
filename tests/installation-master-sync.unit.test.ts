@@ -68,7 +68,6 @@ function tabelasDoDelta(sql: string): string[] {
   return [...out].sort();
 }
 
-
 describe("sincronia MASTER-first", () => {
   const { version, sha256 } = parseVersionFile(versionRaw);
 
@@ -96,7 +95,9 @@ describe("sincronia MASTER-first", () => {
   });
 
   it("relatorio de saude confere todas as tabelas do pacote", () => {
-    const faltando = tabelasDoDelta(delta).filter((t) => !verifySql.includes(`'${t}'`) && !verifySql.includes(`public.${t}`));
+    const faltando = tabelasDoDelta(delta).filter(
+      (t) => !verifySql.includes(`'${t}'`) && !verifySql.includes(`public.${t}`),
+    );
     expect(faltando).toEqual([]);
   });
 });
