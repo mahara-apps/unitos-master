@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # bootstrap.sh — delega NEW ao mesmo executor durável usado por UPDATE.
-# Não executa SQL localmente e não possui caminho alternativo por psql.
+# Não executa SQL localmente nem possui caminho alternativo de banco.
 set -uo pipefail
 
 MASTER_URL="${UNITOS_MASTER_URL:-}"
