@@ -555,14 +555,33 @@ WITH checks AS (
          ) THEN 'PASS' ELSE 'FAIL' END
 
   UNION ALL
-  SELECT 81, 'retomada: ledger incremental disponível',
+  SELECT 81, 'retomada: ledger incremental completo e protegido',
+         CASE WHEN to_regclass('public._unitos_applied_deltas') IS NULL THEN 'ausente'
+              ELSE 'schema, índice, RLS e grants verificados' END,
          CASE WHEN to_regclass('public._unitos_applied_deltas') IS NOT NULL
-              THEN 'presente' ELSE 'ausente' END,
-         CASE WHEN to_regclass('public._unitos_applied_deltas') IS NOT NULL
+              AND NOT EXISTS (
+                SELECT 1 FROM unnest(ARRAY['kind','file','fingerprint']) AS required(column_name)
+                WHERE NOT EXISTS (
+                  SELECT 1 FROM information_schema.columns actual
+                  WHERE actual.table_schema='public'
+                    AND actual.table_name='_unitos_applied_deltas'
+                    AND actual.column_name=required.column_name
+                )
+              )
               AND EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_schema = 'public' AND table_name = '_unitos_applied_deltas'
-                  AND column_name = 'fingerprint'
+                SELECT 1 FROM pg_indexes
+                WHERE schemaname='public' AND tablename='_unitos_applied_deltas'
+                  AND indexname='_unitos_applied_deltas_file_fingerprint_key'
+                  AND indexdef ILIKE '%(file, fingerprint)%WHERE (kind = ''migration''%'
+              )
+              AND EXISTS (
+                SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                WHERE n.nspname='public' AND c.relname='_unitos_applied_deltas' AND c.relrowsecurity
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM information_schema.role_table_grants
+                WHERE table_schema='public' AND table_name='_unitos_applied_deltas'
+                  AND grantee IN ('anon','authenticated')
               ) THEN 'PASS' ELSE 'FAIL' END
 
   UNION ALL
@@ -598,10 +617,31 @@ WITH checks AS (
   SELECT 84, 'retomada: checkpoint canônico por migration',
          CASE WHEN to_regclass('public._unitos_migration_checkpoints') IS NULL THEN 'ausente'
               ELSE 'presente' END,
-         CASE WHEN to_regclass('public._unitos_migration_checkpoints') IS NOT NULL
+          CASE WHEN to_regclass('public._unitos_migration_checkpoints') IS NOT NULL
                    AND EXISTS (SELECT 1 FROM information_schema.columns
                                WHERE table_schema='public' AND table_name='_unitos_migration_checkpoints'
-                                 AND column_name='statement_index')
+                                  AND column_name='statement_index')
+                    AND EXISTS (
+                      SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                      WHERE n.nspname='public' AND c.relname='_unitos_migration_checkpoints' AND c.relrowsecurity)
+                    AND NOT EXISTS (
+                      SELECT 1 FROM information_schema.role_table_grants
+                      WHERE table_schema='public' AND table_name='_unitos_migration_checkpoints'
+                        AND grantee IN ('anon','authenticated'))
+              THEN 'PASS' ELSE 'FAIL' END
+
+  UNION ALL
+  SELECT 89, 'retomada: fila adiada protegida',
+         CASE WHEN to_regclass('public._unitos_deferred_sql') IS NULL THEN 'ausente'
+              ELSE 'presente, RLS e grants verificados' END,
+         CASE WHEN to_regclass('public._unitos_deferred_sql') IS NOT NULL
+                    AND EXISTS (
+                      SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                      WHERE n.nspname='public' AND c.relname='_unitos_deferred_sql' AND c.relrowsecurity)
+                    AND NOT EXISTS (
+                      SELECT 1 FROM information_schema.role_table_grants
+                      WHERE table_schema='public' AND table_name='_unitos_deferred_sql'
+                        AND grantee IN ('anon','authenticated'))
               THEN 'PASS' ELSE 'FAIL' END
 
   UNION ALL

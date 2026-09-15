@@ -6,6 +6,7 @@ import {
   deltaProgressKey,
   INCREMENTAL_LEDGER_CUTOVER_FILE,
   splitDeltaMigrations,
+  validateDeltaManifest,
   UPDATE_DELTA_LABEL,
 } from "@/lib/installation/automation.server";
 
@@ -74,5 +75,35 @@ select 2;`;
       databaseMigrationsPercent({ total: 20, completed: 8, currentProcessed: 5, currentTotal: 10 }),
     ).toBe(43);
     expect(databaseMigrationsPercent({ total: 20, completed: 9 })).toBeGreaterThan(40);
+  });
+});
+
+describe("manifesto canônico em runtime", () => {
+  const packageSql = `-- -----------------------------------------------------------------------------
+-- 20260901000000_first.sql
+-- -----------------------------------------------------------------------------
+select 1;`;
+
+  it("aceita ordem, quantidade e SHA-256 íntegros", async () => {
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode("select 1;\n"),
+    );
+    const sha = Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
+    await expect(
+      validateDeltaManifest(`20260901000000_first.sql\t${sha}\n`, packageSql),
+    ).resolves.toEqual({ ok: true });
+  });
+
+  it("falha fechado sem item, fora de ordem ou com conteúdo adulterado", async () => {
+    await expect(validateDeltaManifest("", packageSql)).resolves.toMatchObject({ ok: false });
+    await expect(
+      validateDeltaManifest(`20260901000000_other.sql\t${"a".repeat(64)}\n`, packageSql),
+    ).resolves.toMatchObject({ ok: false });
+    await expect(
+      validateDeltaManifest(`20260901000000_first.sql\t${"a".repeat(64)}\n`, packageSql),
+    ).resolves.toMatchObject({ ok: false });
   });
 });
