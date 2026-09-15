@@ -1,30 +1,35 @@
-# Etapa 14 — Unificação canônica de NEW e UPDATE
+# Solução definitiva — workflow de instalações v1.4.0
 
-## Objetivo
-Eliminar as cinco divergências da auditoria sem acessar bancos, reconciliar a Taveira, publicar ou alterar a versão 1.3.96 anunciada em produção.
+## Diagnóstico confirmado até aqui
+- O código local ainda anuncia `1.3.96`, embora o MASTER informado seja `1.4.0`; a implementação sincronizará a fonte versionada e o pacote sem tocar instalações legadas.
+- NEW e UPDATE compartilham o delta incremental, mas NEW ainda executa os arquivos fixos do baseline por um caminho próprio de statements/checkpoints.
+- `start_durable_installation_operation` é chamada para abrir NEW/UPDATE, porém sua criação precisa ser garantida explicitamente na cadeia versionada e validada no pacote.
+- NEW possui pontos que podem encerrar como falha em vez de `yield/resume`, efeitos externos sem comprovante persistido suficiente e esperas repetidas de Git/Vercel.
+- A conclusão já exige todas as etapas `done`, mas alguns erros de persistência/finalização são descartados com `.catch(() => undefined)`, podendo esconder divergência entre efeito externo e estado no MASTER.
 
-## Implementação
-1. Tornar a preparação aditiva do ledger parte explícita do pacote executável compartilhado: criar/adequar `public._unitos_applied_deltas`, adicionar `kind`, `file` e `fingerprint`, criar o índice único parcial e aplicar RLS/revogação, sem preencher evidência histórica.
-2. Transformar `bootstrap.sh` em um iniciador do fluxo canônico do MASTER: exigir token e URL do MASTER, solicitar/acompanhar a operação durável e remover toda aplicação SQL direta por `psql`; nenhum segundo executor será criado.
-3. Evoluir `delta_manifest.txt` para registrar cada migration em ordem com sua impressão digital; o carregamento do release verificará ordem, quantidade, SHA individual, SHA global e correspondência exata com os blocos de `007_delta_migrations.sql` antes de executar.
-4. Ampliar `verify-installation.sql` para conferir o contrato completo do ledger, índice parcial, RLS, ausência de privilégios para `anon`/`authenticated`, tabelas auxiliares e funções críticas do workflow.
-5. Atualizar os guardiões e testes de instalação para bloquear: manifesto fora de ordem/adulterado, ledger incompleto, bootstrap com SQL direto, promoção sem validação e divergência entre NEW/UPDATE.
-6. Executar lint, verificação de tipos, testes focados, suíte disponível e `master:check` em modo de conferência local.
+## Implementação P0
+1. Consolidar um contrato único de etapas duráveis para NEW/UPDATE: preflight, release fixada, código/template, vínculo de deploy, baseline/delta, secrets/env, deploy, health, cron/brain, validação e promoção.
+2. Persistir antes/depois de cada efeito externo uma chave idempotente e seu comprovante; retomadas consultam o comprovante e não repetem Git, Supabase ou Vercel quando o efeito já foi confirmado.
+3. Fazer NEW usar o mesmo executor incremental de migrations de UPDATE para todo SQL versionado; arquivos estruturais fixos continuam ordenados, mas passam pelo mesmo contrato de ledger/checkpoint/evidência.
+4. Tornar `start_durable_installation_operation` uma migration explícita, `SECURITY DEFINER`, com grants mínimos, trava de operação ativa, estado inicial e metadados do pacote na mesma transação.
+5. Fixar o pacote v1.4.0 na abertura de NEW, como já ocorre em UPDATE; validar versão, SHA global, quantidade, manifesto, ordem e fingerprints antes de qualquer alteração no destino.
+6. Trocar falhas transitórias por `retry/defer` limitado e persistido; manter falhas definitivas como `failed/blocked` na etapa exata. Nenhum loop poderá exceder orçamento ou quantidade definidos.
+7. Tornar a finalização obrigatória e observável: remover descartes silenciosos, só promover versão após migrations, validação, deployment READY e health check confirmados.
+8. Preservar UPDATE e registros existentes: sem backfill presumido, sem fallback paralelo e sem reconcile automático de instalações legadas.
 
-## Limites e compatibilidade
-- Nenhuma chamada ou alteração em Supabase, MASTER, Taveira ou produção.
-- Nenhuma reconciliação ou retomada de instalação.
-- Nenhuma publicação e nenhum aumento de versão/release nesta etapa.
-- Registros legados permanecem `kind='blob'`, com `file`/`fingerprint` nulos; nunca serão promovidos a evidência.
-- O resultado ficará como candidato local não publicado. Se a alteração modificar o delta, não será apresentada como release concluída até uma etapa posterior autorizada sincronizar versão e SHA conforme MASTER-first.
+## Testes e verificação
+- Clean NEW completo v1.4.0 na ordem exigida.
+- Falha em cada fronteira externa, retry limitado e etapa persistida correta.
+- Resume após falha parcial sem repetir efeitos comprovados.
+- Replay da mesma release como no-op verificável.
+- Manifesto/SHA/ordem divergentes falham antes de escrever.
+- DROP FUNCTION ausente segue somente a pós-condição específica.
+- Deploy verde sem validação/health nunca conclui nem promove versão.
+- Concorrência, lease/fencing e ausência de `start_durable_installation_operation` cobertos por guardiões.
+- Regenerar delta/manifesto, sincronizar `delta_version.txt` e `MASTER_RELEASE_VERSION` em `1.4.0`, ampliar `verify-installation.sql`, executar testes focados, suíte disponível, typecheck, build e `master:check`, e revisar o diff final.
 
-## Arquivos previstos
-- `src/lib/installation/automation.server.ts`
-- `src/lib/installation/runner.server.ts` e/ou entrada segura já existente do fluxo durável
-- `supabase/install/bootstrap.sh`
-- `supabase/install/report.sh`
-- `supabase/install/verify-installation.sql`
-- `supabase/baseline-snapshot/tools/build_delta.py`
-- `supabase/baseline-snapshot/tools/delta_manifest.txt`
-- Testes de instalação relacionados
-- `roadmap.md`
+## Limites
+- Não acessar, reconciliar ou alterar Taveira nem instalações legadas.
+- Não alterar produto fora do módulo de instalações.
+- A migration do workflow será aplicada somente ao MASTER, pelo fluxo oficial de migration, após a inspeção confirmar que não quebra o contrato atual.
+- Se a definição atual do banco exigir assinatura incompatível com consumidores existentes, a execução para antes da alteração e o bloqueio será reportado.
