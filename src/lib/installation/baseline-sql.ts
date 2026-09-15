@@ -39,9 +39,12 @@ export type SanitizedBaseline = {
   removed: string[];
 };
 
+function statementWithoutLeadingComments(statement: string): string {
+  return statement.replace(/^\s*(?:(?:--[^\n]*(?:\n|$))|(?:\/\*[\s\S]*?\*\/)|\s)+/g, "").trim();
+}
+
 function isSuperuserOnly(statement: string): boolean {
-  const head = statement.replace(/^\s*(--[^\n]*\n|\s)+/g, "").trim();
-  return SUPERUSER_ONLY_PATTERNS.some((re) => re.test(head));
+  return SUPERUSER_ONLY_PATTERNS.some((re) => re.test(statementWithoutLeadingComments(statement)));
 }
 
 /**
@@ -56,7 +59,7 @@ export function sanitizeBaselineSqlForManagementApi(sql: string): SanitizedBasel
 
   const out = splitSqlStatements(stripped.sql).filter((statement) => {
     if (!isSuperuserOnly(statement)) return true;
-    removed.push(statement.replace(/\s+/g, " ").trim().slice(0, 120));
+    removed.push(statementWithoutLeadingComments(statement).replace(/\s+/g, " ").slice(0, 120));
     return false;
   });
 
