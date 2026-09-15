@@ -79,6 +79,15 @@ describe("RLS de DELETE em brands", () => {
     if (throwaway.error) throw new Error(throwaway.error.message);
     const targetId = throwaway.data.id as string;
 
+    // O teste mede autoridade de exclusão. A proteção ortogonal contra apagar
+    // perfis de sistema é desarmada somente nos dados descartáveis deste alvo.
+    const prepared = await admin
+      .from("access_profiles")
+      .update({ is_system: false })
+      .eq("brand_id", targetId)
+      .eq("is_system", true);
+    if (prepared.error) throw new Error(prepared.error.message);
+
     const { error } = await fx!.userOwner.client.from("brands").delete().eq("id", targetId);
     expect(error).toBeNull();
     expect(await brandExists(targetId)).toBe(false);

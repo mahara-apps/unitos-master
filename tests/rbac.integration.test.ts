@@ -12,6 +12,12 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  admin,
+  cleanupTestResources,
+  createSuperAdminUser,
+  createUser,
+} from "./helpers/fixtures";
 
 const url = process.env["SUPABASE_URL"];
 const publishable = process.env["SUPABASE_PUBLISHABLE_KEY"];
@@ -26,22 +32,7 @@ const emailOf = (slot: string) => `rbac.${slot}.${TAG}@unitos-qa.test`;
 type Actor = { id: string; email: string; client: SupabaseClient };
 
 async function actor(slot: string): Promise<Actor> {
-  const email = emailOf(slot);
-  const client = createClient(url!, publishable!, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  let res = await client.auth.signInWithPassword({ email, password: PASSWORD });
-  if (res.error) {
-    const up = await client.auth.signUp({ email, password: PASSWORD });
-    if (up.error) throw new Error(`signUp ${slot}: ${up.error.message}`);
-    if (!up.data.session) {
-      res = await client.auth.signInWithPassword({ email, password: PASSWORD });
-      if (res.error) throw new Error(`signIn ${slot}: ${res.error.message}`);
-    }
-  }
-  const u = await client.auth.getUser();
-  if (u.error || !u.data.user) throw new Error(`getUser ${slot}: ${u.error?.message}`);
-  return { id: u.data.user.id, email, client };
+  return slot === "super" ? createSuperAdminUser("rbac-super") : createUser(`rbac-${slot}`);
 }
 
 type Ctx = {
@@ -100,11 +91,11 @@ beforeAll(async () => {
 
   // Sem RETURNING: a associação de owner só existe depois do AFTER trigger,
   // então a linha ainda não é visível pela policy de SELECT no mesmo comando.
-  const brandA = await owner.client
+  const brandA = await admin
     .from("brands")
     .insert({ name: `RBAC ${TAG}`, slug: `rbac-${TAG}`, created_by: owner.id });
   if (brandA.error) throw new Error(`brandA: ${brandA.error.message}`);
-  const brandB = await outsider.client
+  const brandB = await admin
     .from("brands")
     .insert({ name: `RBAC Outra ${TAG}`, slug: `rbac-outra-${TAG}`, created_by: outsider.id });
   if (brandB.error) throw new Error(`brandB: ${brandB.error.message}`);
@@ -178,15 +169,10 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (!cx) return;
-  await cx.owner.client.from("tasks").delete().eq("brand_id", cx.brandId);
-  await cx.owner.client.from("client_members").delete().eq("brand_id", cx.brandId);
-  await cx.owner.client.from("clients").delete().eq("brand_id", cx.brandId);
-  await cx.owner.client
-    .from("brand_members")
-    .delete()
-    .eq("brand_id", cx.brandId)
-    .neq("user_id", cx.owner.id);
-  await cx.outsider.client.from("clients").delete().eq("brand_id", cx.otherBrandId);
+  await cleanupTestResources(
+    [cx.superAdmin, cx.owner, cx.manager, cx.user, cx.portal, cx.outsider].map((actor) => actor.id),
+    [cx.brandId, cx.otherBrandId],
+  );
 });
 
 describe("papel canônico (fonte única de autoridade)", () => {

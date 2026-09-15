@@ -112,6 +112,18 @@ async function deleteTestBrands(brandIds: string[]): Promise<string[]> {
   return failures;
 }
 
+/** Limpa somente recursos cujos ids foram criados e registrados pelo teste chamador. */
+export async function cleanupTestResources(userIds: string[], brandIds: string[]): Promise<void> {
+  assertPrivilegedTestEnv("INTEGRATION_TEST_SUITE_CLEANUP");
+  const failures = await deleteTestBrands(brandIds);
+  const remaining = await admin.from("brands").select("id").in("id", brandIds);
+  if (remaining.error) failures.push(`brands verify: ${remaining.error.message}`);
+  else if (remaining.data.length)
+    failures.push(`brands verify: ${remaining.data.length} workspace(s) permaneceram`);
+  failures.push(...(await deleteTestUsers(userIds)));
+  if (failures.length) throw new Error(`Falha no cleanup da fixture: ${failures.join("; ")}`);
+}
+
 /**
  * Senha de teste NÃO derivável do e-mail: aleatória por conta (ou derivada de
  * um segredo exclusivo de teste + nonce aleatório). Nunca logada.
