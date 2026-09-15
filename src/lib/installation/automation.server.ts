@@ -3338,6 +3338,7 @@ export async function runAutomatedProvision(input: {
    * Sem código publicado o deploy não tem o que construir — por isso esta etapa
    * vem antes de conectar a Vercel, gravar variáveis e preparar o banco. */
   const codeStage = await readStageProgress(client, operation);
+  let provisionCommitSha = codeStage.codeSourceSha ?? codeStage.codeSha ?? null;
   let provisionRepoSlug = codeStage.codeRepo ?? repo.slug;
   await mark("code", "running");
   if (codeStage.codeDone && codeStage.codeSha) {
@@ -3392,6 +3393,7 @@ export async function runAutomatedProvision(input: {
       checks.code = "error";
       return finish(null, null);
     }
+    provisionCommitSha = masterHead.sha;
     const [sourceRelease, installedRelease] = await Promise.all([
       code.releaseAtCommit(masterHead.sha),
       code.installedRelease(),
@@ -3516,12 +3518,6 @@ export async function runAutomatedProvision(input: {
       { id: "database", label: "000_extensions", key: "000_extensions", sql: baseline000 },
       { id: "database", label: "001_initial_schema", key: "001_initial_schema", sql: baseline001 },
       { id: "database", label: "005_auth_trigger", key: "005_auth_trigger", sql: baseline005 },
-      {
-        id: "database",
-        label: UPDATE_DELTA_LABEL,
-        key: deltaProgressKey(baseline007),
-        sql: baseline007,
-      },
       { id: "storage", label: "003_storage_buckets", key: "003_storage_buckets", sql: baseline003 },
       {
         id: "storage",
@@ -3621,19 +3617,80 @@ export async function runAutomatedProvision(input: {
           steps,
         };
       }
-      if (file.label === UPDATE_DELTA_LABEL) {
-        const seeded = await seedDeltaLedger(management, splitDeltaMigrations(file.sql));
-        if (!seeded.ok) {
-          failures.push(`ledger do delta: ${seeded.error ?? "falha ao registrar"}`);
-          await mark(file.id, "error", "ledger do delta falhou");
-          checks.database = "error";
-          return finish(appUrl, urlSource);
-        }
-      }
       progress[file.key] = DONE;
       groupDone[file.id] = (groupDone[file.id] ?? 0) + 1;
       await saveBaselineProgress(client, operation, progress);
     }
+
+    // NEW e UPDATE compartilham o mesmo executor por migration. Um checkpoint
+    // cumulativo parcial antigo não é evidência e exige reconciliação explícita.
+    const legacyDeltaProgress = progress[deltaProgressKey(baseline007)];
+    if (typeof legacyDeltaProgress === "number" && legacyDeltaProgress > 0) {
+      failures.push("delta legado parcial sem evidência por migration; reconciliação é obrigatória");
+      await mark("database", "error", "delta legado parcial sem evidência por migration");
+      checks.database = "error";
+      return finish(appUrl, urlSource);
+    }
+    if (!provisionCommitSha) {
+      blocked.push("commit fixado do MASTER ausente para executar migrations");
+      await mark("database", "error", "pacote do MASTER não foi fixado");
+      checks.database = "error";
+      return finish(appUrl, urlSource);
+    }
+    const snapshot = localDeltaPackage(provisionCommitSha);
+    if (
+      !snapshot.version ||
+      snapshot.version !== MASTER_RELEASE_VERSION ||
+      !snapshot.sha256 ||
+      snapshot.total === 0
+    ) {
+      blocked.push("metadados locais do pacote de migrations estão incompletos ou divergentes");
+      await mark("database", "error", "manifesto do pacote inválido");
+      checks.database = "error";
+      return finish(appUrl, urlSource);
+    }
+    if (!operation.baseline_id && !operation.baseline_hash) {
+      const rpc = client as never as {
+        rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
+      };
+      const { data: sealed, error: sealError } = await rpc.rpc("seal_installation_operation_baseline", {
+        _operation_id: operation.id,
+        _owner: operation.lease_owner ?? "",
+        _fencing_token: operation.fencing_token ?? -1,
+        _baseline_id: operationPackageIdentity(snapshot),
+        _baseline_hash: snapshot.sha256,
+      });
+      if (sealError || sealed !== true) {
+        failures.push(sealError?.message ?? "não foi possível fixar o pacote da instalação nova");
+        await mark("database", "error", "selagem do pacote falhou");
+        checks.database = "error";
+        return finish(appUrl, urlSource);
+      }
+      operation.baseline_id = operationPackageIdentity(snapshot);
+      operation.baseline_hash = snapshot.sha256;
+    }
+    const delta = await applyDatabaseDelta({
+      client,
+      operation,
+      installation,
+      env,
+      snapshot,
+      ...(input.fetchImpl ? { fetchImpl: input.fetchImpl } : {}),
+      ...(input.maxStatementsPerInvocation !== undefined
+        ? { maxStatementsPerInvocation: input.maxStatementsPerInvocation }
+        : {}),
+    });
+    if (delta.state === "pending") {
+      await mark("database", "running", delta.detail, delta.percent);
+      return { result: "RUNNING", reasons: [], appUrl, urlSource, steps };
+    }
+    if (delta.state === "blocked" || delta.state === "error") {
+      failures.push(delta.detail);
+      await mark("database", "error", delta.detail);
+      checks.database = "error";
+      return finish(appUrl, urlSource);
+    }
+    await mark("database", "running", delta.detail, 99);
     // O PostgREST mantém um cache do schema. Sem recarregar, todas as tabelas e
     // funções recém-criadas respondem PGRST205/PGRST202 ("Could not find the
     // table ... in the schema cache") e a instalação sobe aparentemente vazia.

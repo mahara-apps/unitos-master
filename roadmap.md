@@ -6,7 +6,7 @@
 - [x] Bloquear backfill presumido do ledger e SQLSTATE 23505 como sucesso genérico.
 - [x] Impedir promoção de versão sem conclusão comprovada de todas as etapas.
 - [x] Fazer o provisionamento NEW aplicar o delta pelo mesmo núcleo canônico do UPDATE.
-- [ ] Validar instalação limpa, replay parcial, DROP FUNCTION ausente e ausência de evidência.
+- [x] Validar instalação limpa, replay parcial, DROP FUNCTION ausente e ausência de evidência.
 
 ## Incidente Taveira após retomada 1.3.94
 
