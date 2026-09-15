@@ -62,6 +62,41 @@ async function deleteTestUsers(ids: string[]): Promise<string[]> {
   return failures;
 }
 
+async function deleteOwnedTestBrands(ids: string[]): Promise<string[]> {
+  if (!ids.length) return [];
+  const failures: string[] = [];
+  const brands = await admin.from("brands").select("id").in("created_by", ids);
+  if (brands.error) failures.push(`brands lookup: ${brands.error.message}`);
+  else failures.push(...(await deleteTestBrands(brands.data.map((row) => row.id))));
+  const remaining = await admin.from("brands").select("id").in("created_by", ids);
+  if (remaining.error) failures.push(`brands verify: ${remaining.error.message}`);
+  else if (remaining.data.length)
+    failures.push(`brands verify: ${remaining.data.length} workspace(s) de teste permaneceram`);
+  return failures;
+}
+
+async function deleteTestBrands(brandIds: string[]): Promise<string[]> {
+  if (!brandIds.length) return [];
+  const failures: string[] = [];
+  const defaults = await admin
+    .from("content_pipelines")
+    .update({ is_default: false })
+    .in("brand_id", brandIds)
+    .eq("is_default", true);
+  if (defaults.error) failures.push(`content_pipelines defaults: ${defaults.error.message}`);
+  const pipelines = await admin.from("content_pipelines").delete().in("brand_id", brandIds);
+  if (pipelines.error) failures.push(`content_pipelines: ${pipelines.error.message}`);
+  const systemProfiles = await admin
+    .from("access_profiles")
+    .update({ is_system: false })
+    .in("brand_id", brandIds)
+    .eq("is_system", true);
+  if (systemProfiles.error) failures.push(`access_profiles: ${systemProfiles.error.message}`);
+  const removed = await admin.from("brands").delete().in("id", brandIds);
+  if (removed.error) failures.push(`brands: ${removed.error.message}`);
+  return failures;
+}
+
 /**
  * Senha de teste NÃO derivável do e-mail: aleatória por conta (ou derivada de
  * um segredo exclusivo de teste + nonce aleatório). Nunca logada.
@@ -113,6 +148,9 @@ export async function cleanupTestIdentities(): Promise<void> {
   const ids = [...createdUserIds];
   if (!ids.length) return;
   const failures: string[] = [];
+  // brands.created_by é RESTRICT; remover o workspace primeiro também elimina
+  // por cascata todos os dados produzidos pela fixture antes de apagar auth.users.
+  failures.push(...(await deleteOwnedTestBrands(ids)));
   const profileCleanup = await admin
     .from("user_profiles")
     .update({ is_super_admin: false })
@@ -129,6 +167,23 @@ export async function cleanupTestIdentities(): Promise<void> {
   failures.push(...(await deleteTestUsers(ids)));
   if (failures.length)
     throw new Error(`Falha no cleanup de identidades QA: ${failures.join("; ")}`);
+}
+
+/** Remove identidades QA órfãs de execuções interrompidas antes do gate remoto. */
+export async function cleanupStaleTestIdentities(): Promise<void> {
+  assertPrivilegedTestEnv("INTEGRATION_TEST_SUITE");
+  for (let page = 1; ; page += 1) {
+    const listed = await admin.auth.admin.listUsers({ page, perPage: 100 });
+    if (listed.error) throw new Error(`Falha ao listar identidades QA: ${listed.error.message}`);
+    const users = listed.data.users;
+    for (const user of users) {
+      const email = user.email?.toLowerCase() ?? "";
+      if (email.includes("unitos-tests.dev") || email.startsWith("qa+"))
+        createdUserIds.add(user.id);
+    }
+    if (users.length < 100) break;
+  }
+  await cleanupTestIdentities();
 }
 
 export type Fixture = {
@@ -262,14 +317,10 @@ export async function seed(): Promise<Fixture> {
 }
 
 export async function cleanup(fx: Fixture | null) {
-  if (!fx) return;
-  await admin.from("task_subtasks").delete().in("brand_id", [fx.brandId, fx.otherBrandId]);
-  await admin.from("tasks").delete().in("brand_id", [fx.brandId, fx.otherBrandId]);
-  await admin.from("projects").delete().in("brand_id", [fx.brandId, fx.otherBrandId]);
-  await admin.from("client_members").delete().in("brand_id", [fx.brandId, fx.otherBrandId]);
-  await admin.from("clients").delete().in("brand_id", [fx.brandId, fx.otherBrandId]);
-  await admin.from("brand_members").delete().in("brand_id", [fx.brandId, fx.otherBrandId]);
-  await admin.from("brands").delete().in("id", [fx.brandId, fx.otherBrandId]);
+  if (!fx) {
+    await cleanupTestIdentities();
+    return;
+  }
   const users = [
     fx.userOwner,
     fx.userManager,
@@ -279,7 +330,15 @@ export async function cleanup(fx: Fixture | null) {
     fx.userPortal,
     fx.userOtherOwner,
   ];
-  const failures = await deleteTestUsers(users.map((u) => u.id));
+  const ids = users.map((u) => u.id);
+  const brandIds = [fx.brandId, fx.otherBrandId];
+  const failures: string[] = [];
+  failures.push(...(await deleteTestBrands(brandIds)));
+  const remaining = await admin.from("brands").select("id").in("id", brandIds);
+  if (remaining.error) failures.push(`brands verify: ${remaining.error.message}`);
+  else if (remaining.data.length)
+    failures.push(`brands verify: ${remaining.data.length} workspace(s) da fixture permaneceram`);
+  failures.push(...(await deleteTestUsers(ids)));
   if (failures.length) throw new Error(`Falha ao remover identidades QA: ${failures.join("; ")}`);
 }
 
