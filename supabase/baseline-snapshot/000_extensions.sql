@@ -43,3 +43,24 @@ CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA public;
 
 -- pg_cron sempre em pg_catalog no Supabase.
 CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+-- Ledger canônico do executor compartilhado NEW/UPDATE. A evolução é aditiva:
+-- registros legados mantêm kind='blob' e file/fingerprint nulos, sem inventar
+-- evidência por migration.
+CREATE TABLE IF NOT EXISTS public._unitos_applied_deltas (
+  label text PRIMARY KEY,
+  applied_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT ALL ON public._unitos_applied_deltas TO service_role;
+ALTER TABLE public._unitos_applied_deltas
+  ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'blob';
+ALTER TABLE public._unitos_applied_deltas
+  ADD COLUMN IF NOT EXISTS file text;
+ALTER TABLE public._unitos_applied_deltas
+  ADD COLUMN IF NOT EXISTS fingerprint text;
+DROP INDEX IF EXISTS public._unitos_applied_deltas_file_key;
+CREATE UNIQUE INDEX IF NOT EXISTS _unitos_applied_deltas_file_fingerprint_key
+  ON public._unitos_applied_deltas (file, fingerprint)
+  WHERE kind = 'migration';
+ALTER TABLE public._unitos_applied_deltas ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public._unitos_applied_deltas FROM anon, authenticated;

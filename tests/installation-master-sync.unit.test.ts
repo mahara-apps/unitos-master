@@ -5,6 +5,7 @@ import delta from "../supabase/baseline-snapshot/007_delta_migrations.sql?raw";
 import manifestRaw from "../supabase/baseline-snapshot/tools/delta_manifest.txt?raw";
 import versionRaw from "../supabase/baseline-snapshot/tools/delta_version.txt?raw";
 import verifySql from "../supabase/install/verify-installation.sql?raw";
+import extensions from "../supabase/baseline-snapshot/000_extensions.sql?raw";
 
 /**
  * MASTER-first: nenhuma alteracao do sistema pode ficar fora do pacote que as
@@ -92,6 +93,19 @@ describe("sincronia MASTER-first", () => {
     expect(entries).toHaveLength(files.length);
     expect(entries.map((entry) => entry.split(/\s+/)[0])).toEqual(files);
     expect(entries.every((entry) => /^[^\s]+\.sql\s+[0-9a-f]{64}$/.test(entry))).toBe(true);
+  });
+
+  it("instalação limpa recebe o ledger canônico endurecido sem backfill", () => {
+    expect(extensions).toContain("CREATE TABLE IF NOT EXISTS public._unitos_applied_deltas");
+    expect(extensions).toContain("ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'blob'");
+    expect(extensions).toContain("ADD COLUMN IF NOT EXISTS file text");
+    expect(extensions).toContain("ADD COLUMN IF NOT EXISTS fingerprint text");
+    expect(extensions).toContain("_unitos_applied_deltas_file_fingerprint_key");
+    expect(extensions).toContain("ENABLE ROW LEVEL SECURITY");
+    expect(extensions).toContain(
+      "REVOKE ALL ON public._unitos_applied_deltas FROM anon, authenticated",
+    );
+    expect(extensions).not.toMatch(/UPDATE\s+public\._unitos_applied_deltas/i);
   });
 
   it("relatorio de saude confere todas as tabelas do pacote", () => {
