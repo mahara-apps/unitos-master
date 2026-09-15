@@ -78,9 +78,14 @@ async function deleteOwnedTestBrands(ids: string[]): Promise<string[]> {
 async function deleteTestBrands(brandIds: string[]): Promise<string[]> {
   if (!brandIds.length) return [];
   const failures: string[] = [];
+  const defaults = await admin
+    .from("content_pipelines")
+    .update({ is_default: false })
+    .in("brand_id", brandIds)
+    .eq("is_default", true);
+  if (defaults.error) failures.push(`content_pipelines defaults: ${defaults.error.message}`);
   const pipelines = await admin.from("content_pipelines").delete().in("brand_id", brandIds);
-  if (pipelines.error && !/cannot_delete_last_pipeline/i.test(pipelines.error.message))
-    failures.push(`content_pipelines: ${pipelines.error.message}`);
+  if (pipelines.error) failures.push(`content_pipelines: ${pipelines.error.message}`);
   const systemProfiles = await admin
     .from("access_profiles")
     .update({ is_system: false })
