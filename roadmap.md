@@ -1,5 +1,12 @@
 # Roadmap
 
+## Etapa 10 — Integração real no Supabase de testes
+
+- [ ] Confirmar conectividade e ref exato `limalqnfatlkczshqzgs`, bloqueando MASTER/Taveira.
+- [ ] Executar clean install, falha parcial + resume, replay e DROP FUNCTION inexistente.
+- [ ] Verificar ledger/evidência e promoção somente após validação completa.
+- [ ] Remover todos os artefatos exclusivos do ensaio e comprovar a limpeza.
+
 ## P0 — Executor único NEW/UPDATE
 
 - [x] Remover execução direta do delta no bootstrap e falhar fechado sem confirmação canônica.
