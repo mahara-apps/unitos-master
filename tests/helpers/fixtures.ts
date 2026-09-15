@@ -65,12 +65,30 @@ async function deleteTestUsers(ids: string[]): Promise<string[]> {
 async function deleteOwnedTestBrands(ids: string[]): Promise<string[]> {
   if (!ids.length) return [];
   const failures: string[] = [];
-  const removed = await admin.rpc("qa_cleanup_test_brands_by_creator", { _creator_ids: ids });
-  if (removed.error) failures.push(`qa_cleanup_test_brands_by_creator: ${removed.error.message}`);
+  const brands = await admin.from("brands").select("id").in("created_by", ids);
+  if (brands.error) failures.push(`brands lookup: ${brands.error.message}`);
+  else failures.push(...(await deleteTestBrands(brands.data.map((row) => row.id))));
   const remaining = await admin.from("brands").select("id").in("created_by", ids);
   if (remaining.error) failures.push(`brands verify: ${remaining.error.message}`);
   else if (remaining.data.length)
     failures.push(`brands verify: ${remaining.data.length} workspace(s) de teste permaneceram`);
+  return failures;
+}
+
+async function deleteTestBrands(brandIds: string[]): Promise<string[]> {
+  if (!brandIds.length) return [];
+  const failures: string[] = [];
+  const pipelines = await admin.from("content_pipelines").delete().in("brand_id", brandIds);
+  if (pipelines.error && !/cannot_delete_last_pipeline/i.test(pipelines.error.message))
+    failures.push(`content_pipelines: ${pipelines.error.message}`);
+  const systemProfiles = await admin
+    .from("access_profiles")
+    .update({ is_system: false })
+    .in("brand_id", brandIds)
+    .eq("is_system", true);
+  if (systemProfiles.error) failures.push(`access_profiles: ${systemProfiles.error.message}`);
+  const removed = await admin.from("brands").delete().in("id", brandIds);
+  if (removed.error) failures.push(`brands: ${removed.error.message}`);
   return failures;
 }
 
@@ -293,8 +311,7 @@ export async function cleanup(fx: Fixture | null) {
   const ids = users.map((u) => u.id);
   const brandIds = [fx.brandId, fx.otherBrandId];
   const failures: string[] = [];
-  const removed = await admin.rpc("qa_cleanup_test_brands_by_id", { _brand_ids: brandIds });
-  if (removed.error) failures.push(`qa_cleanup_test_brands_by_id: ${removed.error.message}`);
+  failures.push(...(await deleteTestBrands(brandIds)));
   const remaining = await admin.from("brands").select("id").in("id", brandIds);
   if (remaining.error) failures.push(`brands verify: ${remaining.error.message}`);
   else if (remaining.data.length)
