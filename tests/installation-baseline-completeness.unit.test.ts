@@ -74,7 +74,7 @@ describe("delta do baseline", () => {
     const manifest = new Set(
       manifestRaw
         .split("\n")
-        .map((l) => l.trim())
+        .map((l) => l.trim().split(/\s+/)[0] ?? "")
         .filter(Boolean),
     );
     const all = Object.keys(migrationFiles)
@@ -138,7 +138,7 @@ describe("delta do baseline", () => {
   it("pré-valida as migrations fixadas 96–104 sem bloqueios conhecidos", () => {
     const fixed = manifestRaw
       .split("\n")
-      .map((line) => line.trim())
+      .map((line) => line.trim().split(/\s+/)[0] ?? "")
       .filter(Boolean)
       .slice(95, 104);
     expect(fixed).toHaveLength(9);
