@@ -5,7 +5,8 @@
 - [x] Separar tempo de infraestrutura, testes locais e integrações remotas.
 - [x] Executar testes locais em paralelo sem carregar cleanup remoto.
 - [x] Limitar concorrência remota ao grupo de integração e tornar fixtures/cleanup determinísticos.
-- [ ] Executar grupos afetados, suíte global, tipos, lint, build, testes focados e `master:check`.
+- [ ] Executar a suíte remota completa; bloqueada corretamente porque o ambiente atual é o Master, não o projeto de teste declarado.
+- [x] Executar suíte local/runtime, tipos, lint dos alterados, build, testes focados e `master:check`.
 
 ## MASTER 1.4.0 — Workflow definitivo de instalações
 

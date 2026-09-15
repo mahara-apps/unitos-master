@@ -26,8 +26,18 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          name: "runtime",
+          include: ["tests/**/*.runtime.test.ts"],
+          testTimeout: 10_000,
+          hookTimeout: 10_000,
+          fileParallelism: true,
+        },
+      },
+      {
+        extends: true,
+        test: {
           name: "integration",
-          include: ["tests/**/*.integration.test.ts", "tests/**/*.runtime.test.ts"],
+          include: ["tests/**/*.integration.test.ts"],
           testTimeout: 60_000,
           hookTimeout: 120_000,
           fileParallelism: false,
