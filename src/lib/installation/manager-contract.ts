@@ -497,7 +497,7 @@ export function applyStepReport(
       report.state === "done"
         ? 100
         : report.state === "pending"
-          ? s.percent ?? null
+          ? (s.percent ?? null)
           : reported === null
             ? (s.percent ?? (report.state === "running" ? 0 : null))
             : Math.max(s.percent ?? 0, reported);

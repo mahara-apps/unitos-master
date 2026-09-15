@@ -153,11 +153,13 @@ function scenario(
       }
       if (body.includes("select statement_index")) {
         const values = /values \('[^']*',\s*(\d+),\s*(\d+),\s*'running'\)/i.exec(body);
-        return Response.json([{
-          statement_index: Number(values?.[1] ?? 0),
-          total_statements: Number(values?.[2] ?? 0),
-          status: "running",
-        }]);
+        return Response.json([
+          {
+            statement_index: Number(values?.[1] ?? 0),
+            total_statements: Number(values?.[2] ?? 0),
+            status: "running",
+          },
+        ]);
       }
       return Response.json([{ schemas: 3, item: "ok", status: "PASS" }]);
     }

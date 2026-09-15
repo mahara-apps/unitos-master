@@ -322,7 +322,10 @@ const INSTALLATION = {
 const runProvision = (input: Parameters<typeof runAutomatedProvision>[0]) =>
   runAutomatedProvision({ ...input, maxStatementsPerInvocation: Number.POSITIVE_INFINITY });
 
-function managementRows(body: string, fallback: Record<string, unknown> = { schemas: 3, item: "ok" }) {
+function managementRows(
+  body: string,
+  fallback: Record<string, unknown> = { schemas: 3, item: "ok" },
+) {
   const sql = (() => {
     try {
       const parsed = JSON.parse(body) as { query?: unknown };
@@ -333,11 +336,13 @@ function managementRows(body: string, fallback: Record<string, unknown> = { sche
   })();
   if (sql.includes("select statement_index")) {
     const values = /values \('[^']*',\s*(\d+),\s*(\d+),\s*'running'\)/i.exec(sql);
-    return [{
-      statement_index: Number(values?.[1] ?? 0),
-      total_statements: Number(values?.[2] ?? 0),
-      status: "running",
-    }];
+    return [
+      {
+        statement_index: Number(values?.[1] ?? 0),
+        total_statements: Number(values?.[2] ?? 0),
+        status: "running",
+      },
+    ];
   }
   return [fallback];
 }
@@ -520,7 +525,10 @@ describe("runAutomatedProvision", () => {
           { name: "service_role", api_key: "s" },
         ]);
       }
-      if (url.includes("/database/query")) return Response.json(managementRows(String(init?.body ?? ""), { schemas: 3, status: "PASS" }));
+      if (url.includes("/database/query"))
+        return Response.json(
+          managementRows(String(init?.body ?? ""), { schemas: 3, status: "PASS" }),
+        );
       if (url.includes("api.vercel.com/v9/projects")) {
         return Response.json({ name: "x", targets: { production: { url: "x-abc.vercel.app" } } });
       }
@@ -559,7 +567,10 @@ describe("runAutomatedProvision", () => {
           { name: "service_role", api_key: "s" },
         ]);
       }
-      if (url.includes("/database/query")) return Response.json(managementRows(String(init?.body ?? ""), { schemas: 3, status: "PASS" }));
+      if (url.includes("/database/query"))
+        return Response.json(
+          managementRows(String(init?.body ?? ""), { schemas: 3, status: "PASS" }),
+        );
       if (url.includes("api.vercel.com/v9/projects")) {
         return Response.json({ name: "x", targets: { production: { url: "x-abc.vercel.app" } } });
       }
@@ -597,7 +608,10 @@ describe("runAutomatedProvision", () => {
           { name: "service_role", api_key: "s" },
         ]);
       }
-      if (url.includes("/database/query")) return Response.json(managementRows(String(init?.body ?? ""), { schemas: 3, status: "PASS" }));
+      if (url.includes("/database/query"))
+        return Response.json(
+          managementRows(String(init?.body ?? ""), { schemas: 3, status: "PASS" }),
+        );
       if (url.includes("api.vercel.com/v9/projects")) {
         return Response.json({ name: "x", targets: { production: { url: "x-abc.vercel.app" } } });
       }
@@ -606,7 +620,8 @@ describe("runAutomatedProvision", () => {
         return Response.json({ deployments: [{ uid: "d", name: "x" }] });
       }
       if (url.includes("v13/deployments")) return Response.json({ id: "d2" });
-      if (url === "https://app.cliente.com.br") return new Response("dns pendente", { status: 530 });
+      if (url === "https://app.cliente.com.br")
+        return new Response("dns pendente", { status: 530 });
       return new Response("{}", { status: 200 });
     });
 
@@ -731,11 +746,14 @@ describe("runAutomatedProvision", () => {
         return {
           ok: true,
           rows: batch.includes("select statement_index")
-            ? [{
-                statement_index: batch.includes("values ('legacy:") && batch.includes(", 50, 57") ? 50 : 25,
-                total_statements: 57,
-                status: "running",
-              }]
+            ? [
+                {
+                  statement_index:
+                    batch.includes("values ('legacy:") && batch.includes(", 50, 57") ? 50 : 25,
+                  total_statements: 57,
+                  status: "running",
+                },
+              ]
             : [],
         };
       },
@@ -769,7 +787,8 @@ describe("runAutomatedProvision", () => {
           { name: "service_role", api_key: "sb_secret_x" },
         ]);
       }
-      if (url.includes("/database/query")) return Response.json(managementRows(String(init?.body ?? "")));
+      if (url.includes("/database/query"))
+        return Response.json(managementRows(String(init?.body ?? "")));
       return new Response("{}", { status: 200 });
     });
 
