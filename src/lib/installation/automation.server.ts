@@ -4586,7 +4586,6 @@ export async function applyDatabaseDelta(input: {
       return { state: "error", detail: `atualização do banco falhou: ${applied.error ?? "erro"}` };
     }
 
-    const completedBefore = appliedLabels.size;
     if (!applied.complete) {
       await checkpointCanonicalMigration(
         client,

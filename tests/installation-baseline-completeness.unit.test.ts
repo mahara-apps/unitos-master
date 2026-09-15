@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
 
 import {
   applyStatementByStatement,
@@ -30,12 +31,11 @@ import verifySql from "../supabase/install/verify-installation.sql?raw";
 
 describe("delta do baseline", () => {
   it("retomada não depende de fila órfã sem consumidor", () => {
-    const recentMigrations = fs
-      .readdirSync(path.join(process.cwd(), "supabase/migrations"))
+    const recentMigrations = readdirSync(path.join(process.cwd(), "supabase/migrations"))
       .filter((file) => file.endsWith(".sql"))
       .sort()
       .slice(-3)
-      .map((file) => fs.readFileSync(path.join(process.cwd(), "supabase/migrations", file), "utf8"))
+      .map((file) => readFileSync(path.join(process.cwd(), "supabase/migrations", file), "utf8"))
       .join("\n");
     expect(recentMigrations).not.toContain("INSERT INTO public.installation_operation_outbox");
   });
