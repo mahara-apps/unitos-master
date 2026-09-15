@@ -891,6 +891,7 @@ export type DeployClient = {
     ok: boolean;
     state?: string;
     url?: string;
+    commitSha?: string;
     error?: string;
     /**
      * Motivo textual quando a hospedagem RECUSA a publicação (ex.: política
@@ -963,6 +964,87 @@ export const DEFAULT_MASTER_REPO = "mahara-apps/unitos-master";
  * (foi o que deixou uma instalação presa em "build em andamento" por ~1h).
  */
 export const BUILD_MAX_MINUTES = 20;
+
+const DEPLOYMENT_POLL_INTERVAL_MS = 3_000;
+const PROVISION_DEPLOYMENT_WAIT_MS = 45_000;
+const FAILED_DEPLOYMENT_STATES = new Set(["ERROR", "CANCELED", "BLOCKED", "FAILED"]);
+
+export type DeploymentPollResult = {
+  state: string;
+  url: string | null;
+  commitSha: string | null;
+  reason: string | null;
+  refused: boolean;
+  timedOut: boolean;
+};
+
+export function validateReadyDeploymentCommit(
+  deployment: Pick<DeploymentPollResult, "state" | "commitSha">,
+  expectedCommit: string,
+): { ok: true } | { ok: false; reason: string } {
+  if (deployment.state !== "READY") {
+    return { ok: false, reason: `deployment ainda não está READY (${deployment.state})` };
+  }
+  const expected = expectedCommit.trim().toLowerCase();
+  const observed = deployment.commitSha?.trim().toLowerCase() ?? "";
+  if (!observed || observed !== expected) {
+    return {
+      ok: false,
+      reason: `deployment READY não corresponde ao commit autorizado (esperado ${expectedCommit.slice(0, 12)}, observado ${observed ? observed.slice(0, 12) : "ausente"})`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * Acompanha um deployment específico por uma janela curta e finita. O chamador
+ * decide se um timeout volta ao executor durável ou encerra a operação.
+ */
+export async function pollDeploymentUntilTerminal(input: {
+  deploy: Pick<DeployClient, "deploymentState">;
+  deploymentId: string;
+  waitMs?: number;
+  sleep?: (ms: number) => Promise<void>;
+  onObserved?: (observation: DeploymentPollResult) => Promise<void> | void;
+}): Promise<DeploymentPollResult> {
+  const waitMs = Math.max(0, input.waitMs ?? PROVISION_DEPLOYMENT_WAIT_MS);
+  const sleep =
+    input.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const attempts = Math.max(1, Math.ceil(waitMs / DEPLOYMENT_POLL_INTERVAL_MS));
+  let observed: DeploymentPollResult = {
+    state: "QUEUED",
+    url: null,
+    commitSha: null,
+    reason: null,
+    refused: false,
+    timedOut: false,
+  };
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const status = await input.deploy.deploymentState(input.deploymentId);
+    if (status.ok) {
+      observed = {
+        state: (status.state ?? observed.state).toUpperCase(),
+        url: status.url ?? observed.url,
+        commitSha: status.commitSha ?? observed.commitSha,
+        reason: status.reason ?? observed.reason,
+        refused: status.refused === true,
+        timedOut: false,
+      };
+      await input.onObserved?.(observed);
+      if (
+        observed.state === "READY" ||
+        observed.refused ||
+        FAILED_DEPLOYMENT_STATES.has(observed.state)
+      ) {
+        return observed;
+      }
+    }
+    if (attempt < attempts - 1) await sleep(DEPLOYMENT_POLL_INTERVAL_MS);
+  }
+
+  return { ...observed, timedOut: true };
+}
 
 /**
  * Reconhece as duas recusas da hospedagem que NÃO se resolvem esperando nem
@@ -2629,13 +2711,17 @@ export function createDeployClient(input: {
           url?: string;
           readyStateReason?: string;
           alwaysRefuseToBuild?: boolean;
+          meta?: { githubCommitSha?: string };
+          gitSource?: { sha?: string };
         };
         const state = body.readyState ?? undefined;
+        const commitSha = body.meta?.githubCommitSha ?? body.gitSource?.sha;
         const refused = state === "BLOCKED" || body.alwaysRefuseToBuild === true;
         return {
           ok: true,
           ...(state ? { state } : {}),
           ...(body.url ? { url: `https://${body.url}` } : {}),
+          ...(commitSha ? { commitSha } : {}),
           ...(body.readyStateReason ? { reason: body.readyStateReason } : {}),
           ...(refused ? { refused: true } : {}),
         };
@@ -2966,6 +3052,10 @@ export type StageProgress = {
   provisionEnvApplied?: boolean;
   provisionDeploymentId?: string;
   provisionDeploymentCommit?: string;
+  provisionDeploymentState?: string;
+  provisionDeploymentReadyAt?: string;
+  /** Commit vazio criado para acionar e identificar o fallback Git do NEW. */
+  provisionGitPushCommit?: string;
   /** Maior quantidade de migrations confirmada para o snapshot desta operação. */
   updateCompletedMigrations?: number;
 };
@@ -3222,6 +3312,8 @@ export async function runAutomatedProvision(input: {
   maxMigrationsPerInvocation?: number;
   /** Sobrescrita exclusiva para testes: preserva retries, sem espera de relógio. */
   sleep?: (ms: number) => Promise<void>;
+  /** Janela curta de polling do deployment por invocação. */
+  waitMs?: number;
 }): Promise<AutomationRunResult> {
   const env = input.env ?? runtimeEnv();
   const { client, operation, installation } = input;
@@ -3848,7 +3940,13 @@ export async function runAutomatedProvision(input: {
   const stage = await readStageProgress(client, operation);
   let url: { origin: string; source: "custom_domain" | "deploy" };
 
-  if (stage.deployDone && typeof stage.appUrl === "string" && stage.appUrl.length > 0) {
+  if (
+    stage.deployDone &&
+    stage.provisionDeploymentState === "READY" &&
+    typeof stage.provisionDeploymentReadyAt === "string" &&
+    typeof stage.appUrl === "string" &&
+    stage.appUrl.length > 0
+  ) {
     url = {
       origin: stage.appUrl,
       source: stage.urlSource === "custom_domain" ? "custom_domain" : "deploy",
@@ -4014,18 +4112,23 @@ export async function runAutomatedProvision(input: {
     // repositório DA INSTALAÇÃO — assim funciona também quando o projeto Vercel
     // ainda não tem NENHUM deployment (repositório publicado à mão, primeiro
     // build). Sem repositório ligado, cai para rebuild do último snapshot.
-    const existingDeploymentId = stage.provisionDeploymentId ?? null;
-    const redeployed = existingDeploymentId
-      ? { ok: true, deploymentId: existingDeploymentId, source: "git" as const }
+    let deploymentId = stage.provisionDeploymentId ?? null;
+    let expectedDeploymentCommit = stage.provisionDeploymentCommit ?? provisionCommitSha;
+    let deploymentSource: "api" | "git" = stage.provisionGitPushCommit ? "git" : "api";
+    let redeployed = deploymentId
+      ? { ok: true, deploymentId, source: "git" as const }
       : await deploy.deployLatestCode({ sha: provisionCommitSha });
-    if (redeployed.ok && redeployed.deploymentId && !existingDeploymentId) {
+    if (redeployed.ok && redeployed.deploymentId && !deploymentId) {
+      deploymentId = redeployed.deploymentId;
+      expectedDeploymentCommit = redeployed.ref ?? provisionCommitSha;
       await saveStageProgress(client, operation, {
-        provisionDeploymentId: redeployed.deploymentId,
-        provisionDeploymentCommit: provisionCommitSha ?? undefined,
+        provisionDeploymentId: deploymentId,
+        provisionDeploymentCommit: expectedDeploymentCommit ?? undefined,
+        provisionDeploymentState: "QUEUED",
       });
     }
     let publishNote = redeployed.ok
-      ? existingDeploymentId
+      ? stage.provisionDeploymentId
         ? "deployment retomado por checkpoint"
         : "novo deployment disparado"
       : "";
@@ -4034,9 +4137,50 @@ export async function runAutomatedProvision(input: {
         // Duas situações têm a MESMA saída: cota diária da API esgotada ou a
         // Vercel não resolvendo o repositório. Em ambas a publicação sai por
         // push no Git (auto-deploy ligado), sem invalidar o provisionamento.
-        const nudge = await code.nudgeDeploy(
-          "chore(unitos): republicar com as variaveis da instalacao",
-        );
+        let fallbackCommit = stage.provisionGitPushCommit ?? null;
+        if (!fallbackCommit && provisionCommitSha) {
+          const existingByCommit = await deploy.findProductionDeployment(provisionCommitSha);
+          if (!existingByCommit.ok) {
+            await saveStageProgress(client, operation, { provisionDeploymentState: "QUEUED" });
+            await mark("deploy", "running", existingByCommit.error ?? "aguardando a hospedagem");
+            return {
+              result: "RUNNING",
+              reasons: [],
+              appUrl: url.origin,
+              urlSource: url.source,
+              steps,
+            };
+          }
+          if (existingByCommit.deploymentId) {
+            deploymentId = existingByCommit.deploymentId;
+            expectedDeploymentCommit = provisionCommitSha;
+            deploymentSource = "git";
+            await saveStageProgress(client, operation, {
+              provisionDeploymentId: deploymentId,
+              provisionDeploymentCommit: provisionCommitSha,
+              provisionDeploymentState: existingByCommit.state ?? "QUEUED",
+            });
+          }
+        }
+        if (!deploymentId && !fallbackCommit) {
+          const nudge = await code.nudgeDeploy(
+            "chore(unitos): republicar com as variaveis da instalacao",
+          );
+          if (nudge.ok && nudge.commitSha) {
+            fallbackCommit = nudge.commitSha;
+            expectedDeploymentCommit = fallbackCommit;
+            deploymentSource = "git";
+            await saveStageProgress(client, operation, {
+              provisionGitPushCommit: fallbackCommit,
+              provisionDeploymentCommit: fallbackCommit,
+              provisionDeploymentState: "QUEUED",
+            });
+          } else {
+            failures.push(
+              `Publicação pendente: tentativa pelo Git não funcionou: ${nudge.error ?? "commit de publicação não retornado"}`,
+            );
+          }
+        }
         const cause = redeployed.quotaExceeded
           ? `cota de deployments por API esgotada${
               redeployed.resetAt
@@ -4044,14 +4188,53 @@ export async function runAutomatedProvision(input: {
                 : ""
             }`
           : "a Vercel não resolveu o repositório pela API";
-        if (nudge.ok) {
+        if (deploymentId) {
+          redeployed = {
+            ok: true,
+            deploymentId,
+            source: "git",
+            ref: expectedDeploymentCommit ?? undefined,
+          };
+          publishNote = `deployment Git existente reutilizado (${cause})`;
+        } else if (fallbackCommit) {
+          const located = await deploy.findProductionDeployment(fallbackCommit);
+          if (!located.ok) {
+            await saveStageProgress(client, operation, { provisionDeploymentState: "QUEUED" });
+            await mark("deploy", "running", located.error ?? "aguardando a hospedagem");
+            return {
+              result: "RUNNING",
+              reasons: [],
+              appUrl: url.origin,
+              urlSource: url.source,
+              steps,
+            };
+          }
+          deploymentId = located.deploymentId ?? null;
+          if (!deploymentId) {
+            await saveStageProgress(client, operation, {
+              provisionDeploymentState: located.state ?? "QUEUED",
+            });
+            await mark(
+              "deploy",
+              "running",
+              "aguardando a hospedagem detectar o commit de publicação",
+            );
+            return {
+              result: "RUNNING",
+              reasons: [],
+              appUrl: url.origin,
+              urlSource: url.source,
+              steps,
+            };
+          }
+          await saveStageProgress(client, operation, {
+            provisionDeploymentId: deploymentId,
+            provisionDeploymentCommit: fallbackCommit,
+            provisionDeploymentState: located.state ?? "QUEUED",
+          });
+          redeployed = { ok: true, deploymentId, source: "git", ref: fallbackCommit };
           publishNote = `publicação pelo Git (${cause})`;
         } else {
-          failures.push(
-            `Publicação pendente: ${cause}. Tentativa pelo Git também não funcionou: ${
-              nudge.error ?? ""
-            }`.trim(),
-          );
           publishNote = "publicação pendente";
         }
       } else {
@@ -4062,6 +4245,54 @@ export async function runAutomatedProvision(input: {
         );
       }
     }
+
+    if (!deploymentId || !expectedDeploymentCommit) {
+      blocked.push("deployment ou commit esperado não foi comprovado");
+      await mark("deploy", "error", "deployment ou commit esperado ausente");
+      checks.frontend = "error";
+      return finish(url.origin, url.source);
+    }
+
+    const deploymentResult = await pollDeploymentUntilTerminal({
+      deploy,
+      deploymentId,
+      waitMs: input.waitMs,
+      sleep: input.sleep,
+      onObserved: async (observed) => {
+        await saveStageProgress(client, operation, {
+          provisionDeploymentId: deploymentId,
+          provisionDeploymentCommit: expectedDeploymentCommit ?? undefined,
+          provisionDeploymentState: observed.state,
+        });
+      },
+    });
+    if (deploymentResult.refused || FAILED_DEPLOYMENT_STATES.has(deploymentResult.state)) {
+      const reason = deploymentResult.reason
+        ? `deployment ${deploymentResult.state}: ${deploymentResult.reason}`
+        : `deployment terminou em ${deploymentResult.state}`;
+      failures.push(reason);
+      await mark("deploy", "error", reason);
+      checks.frontend = "error";
+      return finish(url.origin, url.source);
+    }
+    if (deploymentResult.timedOut || deploymentResult.state !== "READY") {
+      await mark("deploy", "running", `deployment em andamento (${deploymentResult.state})`);
+      return { result: "RUNNING", reasons: [], appUrl: url.origin, urlSource: url.source, steps };
+    }
+    const readyProof = validateReadyDeploymentCommit(deploymentResult, expectedDeploymentCommit);
+    if (!readyProof.ok) {
+      failures.push(readyProof.reason);
+      await mark("deploy", "error", readyProof.reason);
+      checks.frontend = "error";
+      return finish(url.origin, url.source);
+    }
+    const deploymentReadyAt = new Date().toISOString();
+    await saveStageProgress(client, operation, {
+      provisionDeploymentId: deploymentId,
+      provisionDeploymentCommit: expectedDeploymentCommit,
+      provisionDeploymentState: "READY",
+      provisionDeploymentReadyAt: deploymentReadyAt,
+    });
 
     // Domínio definitivo precisa estar atribuído ao projeto de deploy — sem isso
     // a URL responde 404 mesmo com o app publicado.
@@ -4076,7 +4307,7 @@ export async function runAutomatedProvision(input: {
       }
     }
 
-    // Estado do frontend so vira "ok" com resposta HTTP real da URL operacional.
+    // O probe HTTP é complementar: só roda após READY + commit comprovado.
     if (!redeployed.ok && failures.length === 0) {
       await mark("deploy", "error", blocked.join(" | ") || "deployment não confirmado");
       checks.frontend = "error";
@@ -4102,6 +4333,16 @@ export async function runAutomatedProvision(input: {
       // retomável, mas nunca conclui/promove a instalação.
       if (dnsPending || pendingPublish) failures.push(message);
       else blocked.push(message);
+      await saveStageProgress(client, operation, {
+        deployDone: false,
+        appUrl: url.origin,
+        urlSource: url.source,
+        frontendOk: false,
+        provisionDeploymentState: "READY",
+        provisionDeploymentReadyAt: deploymentReadyAt,
+      });
+      await mark("deploy", "error", message);
+      return finish(url.origin, url.source);
     }
 
     await saveStageProgress(client, operation, {
@@ -4109,6 +4350,8 @@ export async function runAutomatedProvision(input: {
       appUrl: url.origin,
       urlSource: url.source,
       frontendOk: probe.ok,
+      provisionDeploymentState: "READY",
+      provisionDeploymentReadyAt: deploymentReadyAt,
     });
 
     await mark(
@@ -4116,7 +4359,7 @@ export async function runAutomatedProvision(input: {
       "done",
       `${envResult.applied} variáveis gravadas — URL operacional ${url.origin} (${
         url.source === "deploy" ? "temporária do deploy" : "domínio definitivo"
-      })${publishNote ? ` · ${publishNote}` : " · redeploy pendente"}${domainNote}${
+      })${publishNote ? ` · ${publishNote}` : " · redeploy pendente"} · deployment ${deploymentId} READY (${deploymentSource})${domainNote}${
         probe.ok ? " · frontend respondendo" : ` · frontend ${probe.detail}`
       }`,
     );
@@ -5372,26 +5615,19 @@ export async function runAutomatedUpdate(input: {
 
     await report(client, operation, "code", "done", "código publicado no repositório");
     await report(client, operation, "build", "running", `build disparado pelo Git (${cause})`);
-    const sleep =
-      input.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
-    const deadline = Date.now() + (input.waitMs ?? 45_000);
-    let pushState = "QUEUED";
-    let pushUrl: string | null = null;
-    let pushRefusedReason: string | null = null;
-    while (Date.now() < deadline) {
-      const status = await deploy.deploymentState(deploymentId);
-      if (status.ok) {
-        pushState = status.state ?? pushState;
-        pushUrl = status.url ?? pushUrl;
-        if (status.refused) {
-          pushRefusedReason = status.reason ?? `a hospedagem recusou a publicação (${pushState})`;
-        }
-        if (pushRefusedReason || pushState === "ERROR" || pushState === "CANCELED") break;
-        if (pushState === "READY") break;
-      }
-      await saveStageProgress(client, operation, { updateDeploymentId: deploymentId });
-      await sleep(3_000);
-    }
+    const polled = await pollDeploymentUntilTerminal({
+      deploy,
+      deploymentId,
+      waitMs: input.waitMs,
+      sleep: input.sleep,
+      onObserved: async () =>
+        saveStageProgress(client, operation, { updateDeploymentId: deploymentId }),
+    });
+    const pushState = polled.state;
+    const pushUrl = polled.url;
+    const pushRefusedReason = polled.refused
+      ? (polled.reason ?? `a hospedagem recusou a publicação (${pushState})`)
+      : null;
     if (pushRefusedReason) {
       return fail(
         "FAIL",
@@ -5399,7 +5635,7 @@ export async function runAutomatedUpdate(input: {
         "build",
       );
     }
-    if (pushState === "ERROR" || pushState === "CANCELED") {
+    if (FAILED_DEPLOYMENT_STATES.has(pushState)) {
       return fail("FAIL", `o build disparado pelo Git terminou em ${pushState}`, "build");
     }
     if (pushState !== "READY") {

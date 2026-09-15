@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
-import { createDeployClient } from "@/lib/installation/automation.server";
+import {
+  createDeployClient,
+  pollDeploymentUntilTerminal,
+  validateReadyDeploymentCommit,
+} from "@/lib/installation/automation.server";
 import { UPDATE_STEPS, stepsFor, statusAfterOperation } from "@/lib/installation/manager-contract";
 
 /** Fetch mínimo controlado — nenhuma chamada externa real. */
@@ -28,9 +32,17 @@ function fakeFetch(routes: Array<{ match: RegExp; status?: number; body: unknown
 describe("atualização de código da instalação", () => {
   it("a operação update tem etapas próprias", () => {
     expect(stepsFor("update")).toBe(UPDATE_STEPS);
-    expect(UPDATE_STEPS.map((s) => s.id)).toEqual(["database", "code", "build", "validation", "version"]);
+    expect(UPDATE_STEPS.map((s) => s.id)).toEqual([
+      "database",
+      "code",
+      "build",
+      "validation",
+      "version",
+    ]);
     expect(UPDATE_STEPS.find((step) => step.id === "code")?.script).toContain("github: push");
-    expect(UPDATE_STEPS.find((step) => step.id === "code")?.script).not.toContain("v13/deployments");
+    expect(UPDATE_STEPS.find((step) => step.id === "code")?.script).not.toContain(
+      "v13/deployments",
+    );
   });
 
   it("a atualização automatizada não cria deployment pela API", () => {
@@ -170,14 +182,76 @@ describe("atualização de código da instalação", () => {
 
   it("lê o estado do deployment", async () => {
     const { impl } = fakeFetch([
-      { match: /v13\/deployments\/dpl_1/, body: { readyState: "READY", url: "x.vercel.app" } },
+      {
+        match: /v13\/deployments\/dpl_1/,
+        body: {
+          readyState: "READY",
+          url: "x.vercel.app",
+          meta: { githubCommitSha: "abc123" },
+        },
+      },
     ]);
     const client = createDeployClient({ token: "t", project: "p", fetchImpl: impl });
     expect(await client.deploymentState("dpl_1")).toMatchObject({
       ok: true,
       state: "READY",
       url: "https://x.vercel.app",
+      commitSha: "abc123",
     });
+  });
+
+  it("continua consultando BUILDING até READY", async () => {
+    let calls = 0;
+    const result = await pollDeploymentUntilTerminal({
+      deploy: {
+        deploymentState: async () => {
+          calls += 1;
+          return calls === 1
+            ? { ok: true, state: "BUILDING", commitSha: "abc123" }
+            : { ok: true, state: "READY", commitSha: "abc123" };
+        },
+      },
+      deploymentId: "dpl_1",
+      waitMs: 6_000,
+      sleep: async () => {},
+    });
+    expect(calls).toBe(2);
+    expect(result).toMatchObject({ state: "READY", commitSha: "abc123", timedOut: false });
+  });
+
+  it("encerra imediatamente em ERROR", async () => {
+    const result = await pollDeploymentUntilTerminal({
+      deploy: { deploymentState: async () => ({ ok: true, state: "ERROR" }) },
+      deploymentId: "dpl_error",
+      waitMs: 45_000,
+      sleep: async () => {},
+    });
+    expect(result).toMatchObject({ state: "ERROR", timedOut: false });
+  });
+
+  it("termina a janela como timeout sem converter BUILDING em sucesso", async () => {
+    const observed: string[] = [];
+    const result = await pollDeploymentUntilTerminal({
+      deploy: { deploymentState: async () => ({ ok: true, state: "BUILDING" }) },
+      deploymentId: "dpl_building",
+      waitMs: 6_000,
+      sleep: async () => {},
+      onObserved: (state) => observed.push(state.state),
+    });
+    expect(observed).toEqual(["BUILDING", "BUILDING"]);
+    expect(result).toMatchObject({ state: "BUILDING", timedOut: true });
+  });
+
+  it("aceita READY somente com o SHA autorizado", () => {
+    expect(
+      validateReadyDeploymentCommit({ state: "READY", commitSha: "AbC123" }, "abc123"),
+    ).toEqual({ ok: true });
+    expect(
+      validateReadyDeploymentCommit({ state: "READY", commitSha: "outro" }, "abc123"),
+    ).toMatchObject({ ok: false, reason: expect.stringContaining("commit autorizado") });
+    expect(
+      validateReadyDeploymentCommit({ state: "BUILDING", commitSha: "abc123" }, "abc123"),
+    ).toMatchObject({ ok: false, reason: expect.stringContaining("não está READY") });
   });
 
   it("localiza o deployment de produção pelo commit exato do push", async () => {
@@ -186,7 +260,12 @@ describe("atualização de código da instalação", () => {
         match: /v6\/deployments/,
         body: {
           deployments: [
-            { uid: "dpl_old", source: "git", readyState: "READY", meta: { githubCommitSha: "old" } },
+            {
+              uid: "dpl_old",
+              source: "git",
+              readyState: "READY",
+              meta: { githubCommitSha: "old" },
+            },
             {
               uid: "dpl_git",
               source: "git",
@@ -213,7 +292,12 @@ describe("atualização de código da instalação", () => {
         match: /v6\/deployments/,
         body: {
           deployments: [
-            { uid: "dpl_old", source: "git", readyState: "READY", meta: { githubCommitSha: "old" } },
+            {
+              uid: "dpl_old",
+              source: "git",
+              readyState: "READY",
+              meta: { githubCommitSha: "old" },
+            },
           ],
         },
       },
@@ -224,23 +308,50 @@ describe("atualização de código da instalação", () => {
 
   it.each([
     [
-      { uid: "dpl_api", source: "api", readyState: "BLOCKED", createdAt: 20, meta: { githubCommitSha: "same" } },
-      { uid: "dpl_git", source: "git", readyState: "READY", createdAt: 10, meta: { githubCommitSha: "same" } },
+      {
+        uid: "dpl_api",
+        source: "api",
+        readyState: "BLOCKED",
+        createdAt: 20,
+        meta: { githubCommitSha: "same" },
+      },
+      {
+        uid: "dpl_git",
+        source: "git",
+        readyState: "READY",
+        createdAt: 10,
+        meta: { githubCommitSha: "same" },
+      },
     ],
     [
-      { uid: "dpl_git", source: "git", readyState: "READY", createdAt: 10, meta: { githubCommitSha: "same" } },
-      { uid: "dpl_api", source: "api", readyState: "BLOCKED", createdAt: 20, meta: { githubCommitSha: "same" } },
+      {
+        uid: "dpl_git",
+        source: "git",
+        readyState: "READY",
+        createdAt: 10,
+        meta: { githubCommitSha: "same" },
+      },
+      {
+        uid: "dpl_api",
+        source: "api",
+        readyState: "BLOCKED",
+        createdAt: 20,
+        meta: { githubCommitSha: "same" },
+      },
     ],
-  ])("prioriza o deployment READY quando o mesmo commit também tem um BLOCKED", async (...deployments) => {
-    const { impl } = fakeFetch([{ match: /v6\/deployments/, body: { deployments } }]);
-    const client = createDeployClient({ token: "t", project: "unitos-casa-8", fetchImpl: impl });
+  ])(
+    "prioriza o deployment READY quando o mesmo commit também tem um BLOCKED",
+    async (...deployments) => {
+      const { impl } = fakeFetch([{ match: /v6\/deployments/, body: { deployments } }]);
+      const client = createDeployClient({ token: "t", project: "unitos-casa-8", fetchImpl: impl });
 
-    await expect(client.findProductionDeployment("same")).resolves.toMatchObject({
-      ok: true,
-      deploymentId: "dpl_git",
-      state: "READY",
-    });
-  });
+      await expect(client.findProductionDeployment("same")).resolves.toMatchObject({
+        ok: true,
+        deploymentId: "dpl_git",
+        state: "READY",
+      });
+    },
+  );
 
   it("ignora tentativa REST bloqueada mesmo quando não existe build Git ainda", async () => {
     const { impl } = fakeFetch([
