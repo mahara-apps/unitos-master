@@ -14,8 +14,8 @@
 - [x] Tornar a escrita de etapas monotônica no próprio banco.
 - [x] Remover o snapshot obsoleto de etapas do checkpoint auxiliar.
 - [x] Reconciliar em lote o ledger comprovado do destino sem reduzir progresso.
-- [ ] Cobrir timeout pós-commit, replay, resposta parcial, concorrência e fencing com o modelo canônico.
-- [ ] Ensaiar o estado equivalente da Taveira de 88→104 e auditar efeitos.
+- [x] Cobrir timeout pós-commit, replay, resposta parcial, concorrência e fencing com o modelo canônico.
+- [x] Ensaiar o estado equivalente da Taveira de 88→104 e auditar efeitos.
 - [ ] Regenerar delta, sincronizar versão/SHA, verificar instalação e rodar `master:check`.
 - [ ] Publicar e retomar somente após nova autorização explícita.
 

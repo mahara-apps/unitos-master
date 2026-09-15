@@ -170,12 +170,14 @@ describe("ocorrência 3 — checkpoint persistido", () => {
   });
 
   it("resposta válida salva checkpoint de etapa", async () => {
-    const client = checkpointClient({ data: { detail: { stageProgress: {} } }, error: null });
+    const freshSteps = [{ id: "code", state: "running", percent: 72 }];
+    const client = checkpointClient({ data: { detail: { stageProgress: {} }, steps: freshSteps }, error: null });
     await expect(saveStageProgress(client as never, operation, { codeDone: true })).resolves.toBeUndefined();
     expect(client.rpc).toHaveBeenCalledWith(
       "checkpoint_installation_operation",
       expect.objectContaining({
         _detail: expect.objectContaining({ stageProgress: { codeDone: true } }),
+        _steps: freshSteps,
       }),
     );
   });

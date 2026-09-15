@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { applyStatementByStatement } from "@/lib/installation/automation.server";
+import {
+  applyStatementByStatement,
+  validateCanonicalMigrationProgress,
+} from "@/lib/installation/automation.server";
 
 function canonicalDestination(initialIndex: number, total: number) {
   let checkpoint = initialIndex;
@@ -111,5 +114,62 @@ describe("ensaio 81/104 → 104/104 com snapshot fixo", () => {
       }),
     ).resolves.toMatchObject({ ok: false, error: expect.stringContaining("incompatível") });
     expect(mismatch.executed.size).toBe(0);
+  });
+});
+
+describe("ensaio fiel 88/104 → 104/104", () => {
+  it("aceita somente confirmações contíguas do pacote e conclui sem regressão", () => {
+    const migrations = Array.from({ length: 104 }, (_, index) => ({
+      file: `${String(index + 1).padStart(3, "0")}.sql`,
+      fingerprint: `sha-${index + 1}`,
+      sql: `SELECT ${index + 1};`,
+    }));
+    const rows = migrations.slice(0, 88).map((migration, index) => ({
+      migration_file: migration.file,
+      fingerprint: migration.fingerprint,
+      package_position: index + 1,
+      statement_index: 1,
+      total_statements: 1,
+      status: "completed" as const,
+    }));
+    expect(validateCanonicalMigrationProgress(rows, migrations).completed.size).toBe(88);
+
+    const completed = [...rows];
+    for (let index = 88; index < migrations.length; index += 1) {
+      const migration = migrations[index];
+      if (!migration) throw new Error("migration ausente no ensaio");
+      completed.push({
+        migration_file: migration.file,
+        fingerprint: migration.fingerprint,
+        package_position: index + 1,
+        statement_index: 1,
+        total_statements: 1,
+        status: "completed",
+      });
+      expect(validateCanonicalMigrationProgress(completed, migrations).completed.size).toBe(index + 1);
+    }
+    expect(validateCanonicalMigrationProgress(completed, migrations).completed.size).toBe(104);
+  });
+
+  it("usa somente o registro canônico para retomar um comando parcial", () => {
+    const migrations = [{ file: "001.sql", fingerprint: "sha-1", sql: "SELECT 1; SELECT 2;" }];
+    const state = validateCanonicalMigrationProgress([
+      { migration_file: "001.sql", fingerprint: "sha-1", package_position: 1, statement_index: 1, total_statements: 2, status: "running" },
+    ], migrations);
+    expect(state.current?.statement_index).toBe(1);
+    expect(state.completed.size).toBe(0);
+  });
+
+  it("pausa em resposta parcial, concorrência fora de ordem e pacote divergente", () => {
+    const migrations = [
+      { file: "001.sql", fingerprint: "sha-1", sql: "SELECT 1;" },
+      { file: "002.sql", fingerprint: "sha-2", sql: "SELECT 2;" },
+    ];
+    expect(() => validateCanonicalMigrationProgress([
+      { migration_file: "002.sql", fingerprint: "sha-2", package_position: 2, statement_index: 1, total_statements: 1, status: "completed" },
+    ], migrations)).toThrow("parcial ou divergente");
+    expect(() => validateCanonicalMigrationProgress([
+      { migration_file: "001.sql", fingerprint: "errado", package_position: 1, statement_index: 1, total_statements: 1, status: "completed" },
+    ], migrations)).toThrow("parcial ou divergente");
   });
 });

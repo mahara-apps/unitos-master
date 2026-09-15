@@ -5,6 +5,7 @@ import {
   initialSteps,
   stepsProgress,
 } from "@/lib/installation/manager-contract";
+import { validateCanonicalMigrationProgress } from "@/lib/installation/automation.server";
 
 /** Cliente Supabase falso com uma única linha de installation_operations. */
 function fakeClient(initialSteps: unknown) {
@@ -24,7 +25,18 @@ function fakeClient(initialSteps: unknown) {
   const client = {
     rpc: async (name: string, args: Record<string, unknown>) => {
       if (name === "checkpoint_installation_operation" && "_steps" in args) {
-        row.steps = args["_steps"];
+        const incoming = args["_steps"] as Array<{ id: string; state?: string; percent?: number | null }>;
+        const current = row.steps as Array<{ id: string; state?: string; percent?: number | null }>;
+        row.steps = current.map((step) => {
+          const next = incoming.find((item) => item.id === step.id);
+          if (!next) return step;
+          return {
+            ...step,
+            ...next,
+            state: step.state === "done" || next.state === "done" ? "done" : next.state,
+            percent: Math.max(step.percent ?? 0, next.percent ?? 0),
+          };
+        });
       }
       return { data: true, error: null };
     },
@@ -132,5 +144,17 @@ describe("regressão 88→86", () => {
     await saveBaselineProgress(client as never, op, { migration: 25 });
 
     expect((row.steps as Array<{ id: string; percent?: number }>).find((step) => step.id === "database")?.percent).toBe(88);
+  });
+
+  it("rejeita leitura parcial e preserva a sequência confirmada", () => {
+    const migrations = [
+      { file: "001.sql", fingerprint: "a", sql: "SELECT 1" },
+      { file: "002.sql", fingerprint: "b", sql: "SELECT 2" },
+      { file: "003.sql", fingerprint: "c", sql: "SELECT 3" },
+    ];
+    expect(() => validateCanonicalMigrationProgress([
+      { migration_file: "001.sql", fingerprint: "a", package_position: 1, statement_index: 1, total_statements: 1, status: "completed" },
+      { migration_file: "003.sql", fingerprint: "c", package_position: 3, statement_index: 1, total_statements: 1, status: "completed" },
+    ], migrations)).toThrow("parcial ou divergente");
   });
 });
