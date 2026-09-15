@@ -15,7 +15,7 @@ const TEST_FUNCTION = "public._unitos_it_stage10_missing(uuid, text, integer)";
 const LEDGER_LABEL = "stage10:p0-real:release-1.3.96";
 
 const cleanupSql = [
-  `drop table if exists ${TEST_TABLE}`,
+  `drop table if exists ${TEST_TABLE};`,
   "DO $cleanup$",
   "BEGIN",
   "  IF to_regclass('public._unitos_migration_checkpoints') IS NOT NULL THEN",
