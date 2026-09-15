@@ -16,16 +16,18 @@ const LEDGER_LABEL = "stage10:p0-real:release-1.3.96";
 
 const cleanupSql = [
   `drop table if exists ${TEST_TABLE}`,
-  "DO $cleanup$ BEGIN",
+  "DO $cleanup$",
+  "BEGIN",
   "  IF to_regclass('public._unitos_migration_checkpoints') IS NOT NULL THEN",
   `    delete from public._unitos_migration_checkpoints where run_key like '${RUN_KEY}%';`,
   "  END IF;",
   "  IF to_regclass('public._unitos_deferred_sql') IS NOT NULL THEN",
   `    delete from public._unitos_deferred_sql where run_key like '${RUN_KEY}%';`,
   "  END IF;",
-  "END $cleanup$",
-  `delete from public._unitos_applied_deltas where label = '${LEDGER_LABEL}'`,
-].join(";\n");
+  "END",
+  "$cleanup$;",
+  `delete from public._unitos_applied_deltas where label = '${LEDGER_LABEL}';`,
+].join("\n");
 
 const enabled = process.env["UNITOS_REAL_TEST_PROJECT_REF"] === TARGET_REF;
 const suite = enabled ? describe.sequential : describe.skip;
