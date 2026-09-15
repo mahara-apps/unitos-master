@@ -110,6 +110,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  server.closeAllConnections?.();
   await new Promise<void>((resolve) => server.close(() => resolve()));
 });
 
@@ -233,7 +234,8 @@ function fakeSupabase(actorId: string, logs: Record<string, unknown>[] = []) {
           return true;
         }) as never;
       }
-      if (name === "evolution_instances") return instances.filter((i) => match(i as never)) as never;
+      if (name === "evolution_instances")
+        return instances.filter((i) => match(i as never)) as never;
       if (name === "brand_api_credentials") return []; // usa os defaults da instalação
       if (name === "clients") {
         return [
@@ -339,7 +341,14 @@ describe("1. instância (runtime contra servidor Evolution local)", () => {
     expect(event.instanceStatus).toBe("connected");
     expect(event.phoneNumber).toBe("5531988887777");
     // Payload persistido não carrega QR/base64.
-    expect(JSON.stringify(safeEventPayload({ event: "connection.update", data: { state: "open", base64: "x".repeat(64) } }))).not.toContain("base64");
+    expect(
+      JSON.stringify(
+        safeEventPayload({
+          event: "connection.update",
+          data: { state: "open", base64: "x".repeat(64) },
+        }),
+      ),
+    ).not.toContain("base64");
   });
 
   it("instância inexistente no provedor devolve not_found com mensagem clara", async () => {
