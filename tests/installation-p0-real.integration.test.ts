@@ -14,6 +14,19 @@ const TEST_TABLE = "public._unitos_it_stage10_p0";
 const TEST_FUNCTION = "public._unitos_it_stage10_missing(uuid, text, integer)";
 const LEDGER_LABEL = "stage10:p0-real:release-1.3.96";
 
+const cleanupSql = [
+  `drop table if exists ${TEST_TABLE}`,
+  "DO $cleanup$ BEGIN",
+  "  IF to_regclass('public._unitos_migration_checkpoints') IS NOT NULL THEN",
+  `    delete from public._unitos_migration_checkpoints where run_key like '${RUN_KEY}%';`,
+  "  END IF;",
+  "  IF to_regclass('public._unitos_deferred_sql') IS NOT NULL THEN",
+  `    delete from public._unitos_deferred_sql where run_key like '${RUN_KEY}%';`,
+  "  END IF;",
+  "END $cleanup$",
+  `delete from public._unitos_applied_deltas where label = '${LEDGER_LABEL}'`,
+].join(";\n");
+
 const enabled = process.env["UNITOS_REAL_TEST_PROJECT_REF"] === TARGET_REF;
 const suite = enabled ? describe.sequential : describe.skip;
 
@@ -56,22 +69,12 @@ suite("P0 real — executor canônico no Supabase testes", () => {
       throw new Error("ledger canônico ausente no projeto testes; ensaio interrompido sem criar estrutura paralela");
     }
 
-    await query([
-      `drop table if exists ${TEST_TABLE}`,
-      `delete from public._unitos_migration_checkpoints where run_key like '${RUN_KEY}%'`,
-      `delete from public._unitos_deferred_sql where run_key like '${RUN_KEY}%'`,
-      `delete from public._unitos_applied_deltas where label = '${LEDGER_LABEL}'`,
-    ].join(";\n"));
+    await query(cleanupSql);
   }, 30_000);
 
   afterAll(async () => {
     if (!management) return;
-    await query([
-      `drop table if exists ${TEST_TABLE}`,
-      `delete from public._unitos_migration_checkpoints where run_key like '${RUN_KEY}%'`,
-      `delete from public._unitos_deferred_sql where run_key like '${RUN_KEY}%'`,
-      `delete from public._unitos_applied_deltas where label = '${LEDGER_LABEL}'`,
-    ].join(";\n"));
+    await query(cleanupSql);
     const rows = await query([
       `select to_regclass('${TEST_TABLE}') is null as table_removed,`,
       `(select count(*) from public._unitos_migration_checkpoints where run_key like '${RUN_KEY}%') = 0 as checkpoints_removed,`,
