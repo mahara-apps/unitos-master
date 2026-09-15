@@ -2,10 +2,9 @@
 # =============================================================================
 # bootstrap.sh — padrão único de instalação do Unitos.
 #
-# Cria uma instalação NOVA e INDEPENDENTE do MASTER em um Supabase próprio,
-# sem replay das migrations históricas: aplica o baseline snapshot na ordem
-# correta, grava o segredo do cron no Vault, registra a URL da própria
-# instalação, inicializa brain_stats_mv e só então agenda os 14 crons.
+# Prepara uma instalação NOVA e INDEPENDENTE. O delta versionado nunca é
+# executado diretamente por este script: migrations pertencem ao executor
+# durável do MASTER, com checkpoint, evidência, retry e validação final.
 #
 # Propriedades:
 #   * idempotente (pode rodar várias vezes);
@@ -192,8 +191,11 @@ else
 fi
 
 apply_sql "005_auth_trigger"    "$BASELINE/005_auth_trigger.sql"
-# Delta pos-dump: tudo criado depois do corte de 001_initial_schema.sql.
-apply_sql "007_delta_migrations" "$BASELINE/007_delta_migrations.sql"
+# O delta cumulativo não é seguro via `psql -f`: isso criaria um segundo
+# executor sem lease, fencing, checkpoint por migration ou evidência. O único
+# caminho suportado para NEW/UPDATE é o fluxo automático do MASTER.
+fail "007_delta_migrations" "execução direta desativada; use Provisionar automaticamente no MASTER"
+die "migrations exigem o executor canônico do MASTER"
 report_step database done "schema aplicado"
 report_step storage running
 apply_sql "003_storage_buckets" "$BASELINE/003_storage_buckets.sql"

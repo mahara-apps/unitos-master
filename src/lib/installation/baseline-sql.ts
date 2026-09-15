@@ -173,7 +173,6 @@ const DUPLICATE_SQLSTATES = [
   "42P06", // duplicate_schema
   "42701", // duplicate_column
   "42723", // duplicate_function
-  "23505", // unique_violation (seed já inserido)
 ] as const;
 
 /** True quando o erro é apenas "objeto já existe" (retry idempotente). */
@@ -281,6 +280,9 @@ export function splitSqlStatements(sql: string): string[] {
  */
 export function explicitDropFunctionSignature(statement: string): string | null {
   const head = statement.replace(/^\s*(?:--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/\s*)*/g, "").trim();
-  const match = /^DROP\s+FUNCTION\s+(?!IF\s+EXISTS\b)((?:"[^"]+"|[a-z_][a-z0-9_]*)\.(?:"[^"]+"|[a-z_][a-z0-9_]*)\s*\([^;()]*\))\s*;?$/i.exec(head);
+  const match =
+    /^DROP\s+FUNCTION\s+(?!IF\s+EXISTS\b)((?:"[^"]+"|[a-z_][a-z0-9_]*)\.(?:"[^"]+"|[a-z_][a-z0-9_]*)\s*\([^;()]*\))\s*;?$/i.exec(
+      head,
+    );
   return match?.[1]?.replace(/\s+/g, " ").trim() ?? null;
 }

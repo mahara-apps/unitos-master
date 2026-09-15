@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   ALLOWED_SEED_TABLES,
   BASELINE_EXPECTED_COUNTS,
@@ -83,7 +84,9 @@ describe("cron aponta somente para a própria URL", () => {
   });
 
   it("ignora jobs SQL sem URL", () => {
-    expect(assertCronTargetsOwnOrigin(["SELECT public.reap_stuck_ai_jobs();"], origin).ok).toBe(true);
+    expect(assertCronTargetsOwnOrigin(["SELECT public.reap_stuck_ai_jobs();"], origin).ok).toBe(
+      true,
+    );
   });
 });
 
@@ -100,6 +103,14 @@ describe("contrato do baseline", () => {
     ]);
   });
 
+  it("nunca executa o delta cumulativo diretamente pelo bootstrap", () => {
+    const bootstrap = readFileSync("supabase/install/bootstrap.sh", "utf8");
+    expect(bootstrap).not.toMatch(/apply_sql\s+["']007_delta_migrations/);
+    expect(bootstrap).not.toMatch(/psql_run[^\n]+007_delta_migrations\.sql/);
+    expect(bootstrap).toContain("execução direta desativada");
+    expect(bootstrap).toContain("executor canônico do MASTER");
+  });
+
   it("declara as contagens e buckets esperados", () => {
     expect(BASELINE_EXPECTED_COUNTS.tables).toBe(89);
     expect(BASELINE_EXPECTED_COUNTS.cronJobs).toBe(14);
@@ -109,6 +120,7 @@ describe("contrato do baseline", () => {
 
   it("permite seeds somente de catálogo/configuração", () => {
     for (const table of ALLOWED_SEED_TABLES) expect(isAllowedSeedTable(table)).toBe(true);
-    for (const table of BUSINESS_TABLES_MUST_BE_EMPTY) expect(isAllowedSeedTable(table)).toBe(false);
+    for (const table of BUSINESS_TABLES_MUST_BE_EMPTY)
+      expect(isAllowedSeedTable(table)).toBe(false);
   });
 });

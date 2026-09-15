@@ -1,5 +1,13 @@
 # Roadmap
 
+## P0 — Executor único NEW/UPDATE
+
+- [x] Remover execução direta do delta no bootstrap e falhar fechado sem confirmação canônica.
+- [x] Bloquear backfill presumido do ledger e SQLSTATE 23505 como sucesso genérico.
+- [x] Impedir promoção de versão sem conclusão comprovada de todas as etapas.
+- [x] Fazer o provisionamento NEW aplicar o delta pelo mesmo núcleo canônico do UPDATE.
+- [x] Validar instalação limpa, replay parcial, DROP FUNCTION ausente e ausência de evidência.
+
 ## Incidente Taveira após retomada 1.3.94
 
 - [x] Pausar imediatamente após regressão observada de 88 para 86/104.
@@ -254,12 +262,14 @@
 - [x] Corrigir o vínculo com a Vercel após adoção do template: descobrir automaticamente a equipe dona do projeto e explicar acessos insuficientes.
 
 ## 1.3.37 — Casa 8: acessos conferidos antes de publicar
+
 - Cópia do template apenas desatualizada passa a ser sincronizada (antes bloqueava).
 - Preflight de publicação/repositório: 401/403/limite = interrompe com a permissão exata; 502/503/504 = temporário.
 - Operações sem resposta são encerradas automaticamente (nada fica "em andamento").
 - "Testar acesso" informa OK ou a lista exata do que falta.
 
 ## 1.3.40 — Instalador stage-gated e BYOK completo
+
 - [x] Aceitar chaves Supabase informadas manualmente quando o token não pode revelá-las.
 - [x] Validar Supabase, GitHub e Vercel antes de alterar banco ou publicar código.
 - [x] Abrir provisionamento, validação e atualização com lock atômico no banco.
@@ -268,6 +278,7 @@
 - [ ] Publicar o MASTER e executar novamente a Casa 8; bloqueado até autorização externa.
 
 ## 1.3.42 — Nome canônico do projeto de publicação
+
 - [x] Reconhecer somente equivalência exata e única entre o nome cadastrado e projetos visíveis na Vercel.
 - [x] Corrigir automaticamente `unitos-casa8` para o nome real `unitos-casa-8` após validar o acesso.
 - [x] Reutilizar o nome confirmado em todas as etapas seguintes de publicação.

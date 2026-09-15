@@ -88,9 +88,9 @@ describe("delta do baseline", () => {
     // Migrations exclusivas do MASTER (cron apontando para a URL do MASTER)
     // ficam de fora de propósito: a instalação recebe cron próprio em 020_cron.
     const masterOnly = posteriores.filter((n) =>
-      (migrationFiles[
-        Object.keys(migrationFiles).find((p) => p.endsWith(n))!
-      ] as string).includes("project--3f33732a-cb8b-43ae-84fb-01d9e367fb0c"),
+      (migrationFiles[Object.keys(migrationFiles).find((p) => p.endsWith(n))!] as string).includes(
+        "project--3f33732a-cb8b-43ae-84fb-01d9e367fb0c",
+      ),
     );
     const faltando = posteriores.filter((n) => !manifest.has(n) && !masterOnly.includes(n));
     expect(faltando).toEqual([]);
@@ -100,7 +100,14 @@ describe("delta do baseline", () => {
     const snapshot = readFileSync("supabase/baseline-snapshot/001_initial_schema.sql", "utf8");
     const tables = (sql: string, onlyUnguarded = false) =>
       new Set(
-        [...sql.matchAll(new RegExp(`CREATE\\s+TABLE\\s+${onlyUnguarded ? "" : "(?:IF\\s+NOT\\s+EXISTS\\s+)?"}public\\.([a-z0-9_]+)`, "gi"))]
+        [
+          ...sql.matchAll(
+            new RegExp(
+              `CREATE\\s+TABLE\\s+${onlyUnguarded ? "" : "(?:IF\\s+NOT\\s+EXISTS\\s+)?"}public\\.([a-z0-9_]+)`,
+              "gi",
+            ),
+          ),
+        ]
           .map((match) => match[1]?.toLowerCase())
           .filter((name): name is string => Boolean(name)),
       );
@@ -150,21 +157,33 @@ describe("delta do baseline", () => {
     );
     expect(prepared[1]?.raw).toContain("ADD COLUMN IF NOT EXISTS next_attempt_at");
     expect(prepared[1]?.raw).toContain("DROP INDEX IF EXISTS");
-    expect(prepared[2]?.raw).toContain("CREATE OR REPLACE FUNCTION public.compare_and_set_installation_generated_secrets");
-    expect(prepared[3]?.raw).toContain("CREATE OR REPLACE FUNCTION public.claim_installation_operation");
-    expect(prepared[4]?.raw).toContain("CREATE OR REPLACE FUNCTION public.defer_installation_operation");
+    expect(prepared[2]?.raw).toContain(
+      "CREATE OR REPLACE FUNCTION public.compare_and_set_installation_generated_secrets",
+    );
+    expect(prepared[3]?.raw).toContain(
+      "CREATE OR REPLACE FUNCTION public.claim_installation_operation",
+    );
+    expect(prepared[4]?.raw).toContain(
+      "CREATE OR REPLACE FUNCTION public.defer_installation_operation",
+    );
 
     for (const migration of prepared.slice(5, 7)) {
       expect(migration.raw).toMatch(/ALTER\s+DEFAULT\s+PRIVILEGES/i);
       expect(migration.clean.sql).not.toMatch(/ALTER\s+DEFAULT\s+PRIVILEGES/i);
-      expect(migration.clean.removed.some((statement) => /ALTER DEFAULT PRIVILEGES/i.test(statement))).toBe(true);
+      expect(
+        migration.clean.removed.some((statement) => /ALTER DEFAULT PRIVILEGES/i.test(statement)),
+      ).toBe(true);
     }
 
     expect(prepared[7]?.raw).toContain("A contenção deixou");
-    expect(prepared[8]?.raw).toContain("CREATE TABLE IF NOT EXISTS public.installation_operation_attempts");
+    expect(prepared[8]?.raw).toContain(
+      "CREATE TABLE IF NOT EXISTS public.installation_operation_attempts",
+    );
     expect(prepared[8]?.raw).toContain("UNIQUE (operation_id, fencing_token)");
     expect(prepared[8]?.raw).toContain("ENABLE ROW LEVEL SECURITY");
-    expect(prepared[8]?.raw).toContain("GRANT EXECUTE ON FUNCTION public.finalize_installation_operation");
+    expect(prepared[8]?.raw).toContain(
+      "GRANT EXECUTE ON FUNCTION public.finalize_installation_operation",
+    );
   });
 
   for (const objeto of [
@@ -194,7 +213,6 @@ describe("cron de retomada do gerenciador", () => {
     expect(verifySql).toContain("/api/public/cron/installation-resume");
   });
 });
-
 
 describe("stripPsqlMetaCommands", () => {
   it("remove \\set, \\pset e \\timing mantendo o SQL", () => {
@@ -273,10 +291,19 @@ describe("reexecução idempotente do baseline", () => {
 
   it("reconhece erros da classe 'já existe'", () => {
     expect(isDuplicateObjectError('ERROR: 42710: type "alert_severity" already exists')).toBe(true);
-    expect(isDuplicateObjectError("ERROR: 42P07: relation \"brands\" already exists")).toBe(true);
-    expect(isDuplicateObjectError('ERROR: 42P16: multiple primary keys for table "activity_events" are not allowed')).toBe(true);
-    expect(isDuplicateObjectError("ERROR: 42P16: cannot change name of input parameter")).toBe(false);
+    expect(isDuplicateObjectError('ERROR: 42P07: relation "brands" already exists')).toBe(true);
+    expect(
+      isDuplicateObjectError(
+        'ERROR: 42P16: multiple primary keys for table "activity_events" are not allowed',
+      ),
+    ).toBe(true);
+    expect(isDuplicateObjectError("ERROR: 42P16: cannot change name of input parameter")).toBe(
+      false,
+    );
     expect(isDuplicateObjectError("ERROR: 42501: permission denied")).toBe(false);
+    expect(
+      isDuplicateObjectError("ERROR: 23505: duplicate key value violates unique constraint"),
+    ).toBe(false);
     expect(isDuplicateObjectError(null)).toBe(false);
   });
 
@@ -313,7 +340,9 @@ describe("reexecução idempotente do baseline", () => {
     expect(execution).toContain(
       "IF to_regprocedure('public.heartbeat_installation_operation(uuid, text, integer)') IS NOT NULL THEN",
     );
-    expect(execution).toContain("DROP FUNCTION public.heartbeat_installation_operation(uuid, text, integer);");
+    expect(execution).toContain(
+      "DROP FUNCTION public.heartbeat_installation_operation(uuid, text, integer);",
+    );
   });
 
   it("divide adaptativamente o lote em vez de enviar milhares de statements um a um", async () => {
@@ -333,7 +362,6 @@ describe("reexecução idempotente do baseline", () => {
           expect(batch).toContain("multiple primary key");
           return { ok: true, rows: checkpointRows(batch, 256) };
         },
-
       },
       sql,
       { onProgress: (processed) => void progress.push(processed), maxStatements: 256 },
@@ -347,7 +375,6 @@ describe("reexecução idempotente do baseline", () => {
     });
     expect(calls).toBe(11);
     expect(progress.at(-1)).toBe(256);
-
   });
 
   it("interrompe a retomada quando a operação foi cancelada", async () => {
@@ -411,9 +438,7 @@ describe("reexecução idempotente do baseline", () => {
 
   it("prepara as colunas de lease antes de aplicar migrations incrementais", async () => {
     const source = readFileSync("src/lib/installation/automation.server.ts", "utf8");
-    const prerequisite = source.indexOf(
-      "management.query(INSTALLATION_OPERATIONS_INCREMENTAL_PREREQUISITES_SQL)",
-    );
+    const prerequisite = source.indexOf("INSTALLATION_OPERATIONS_INCREMENTAL_PREREQUISITES_SQL,");
     const ledger = source.indexOf("const ledger = await management.query(");
 
     expect(source).toContain(
@@ -426,13 +451,11 @@ describe("reexecução idempotente do baseline", () => {
     expect(ledger).toBeGreaterThan(prerequisite);
   });
 
-  it("não envia consulta vazia ao preparar o ledger sem seeds", () => {
+  it("prepara somente a estrutura do ledger sem inventar evidências", () => {
     const source = readFileSync("src/lib/installation/automation.server.ts", "utf8");
-    const emptyGuard = source.indexOf("if (migrations.length === 0) return { ok: true }");
-    const ledgerInsert = source.indexOf("const written = await management.query(", emptyGuard);
-
-    expect(emptyGuard).toBeGreaterThan(-1);
-    expect(ledgerInsert).toBeGreaterThan(emptyGuard);
+    expect(source).toContain("if (migrations.length > 0)");
+    expect(source).toContain("backfill sem evidência verificável foi bloqueado");
+    expect(source).not.toContain("const written = await management.query(");
   });
 });
 
@@ -453,7 +476,9 @@ describe("tabelas auxiliares da automação e RLS", () => {
       },
       "SELECT 1;",
     );
-    const prep = batches.find((b) => b.includes("create table if not exists public._unitos_deferred_sql"));
+    const prep = batches.find((b) =>
+      b.includes("create table if not exists public._unitos_deferred_sql"),
+    );
     expect(prep).toBeTruthy();
     expect(prep).toContain("enable row level security");
     expect(prep).toContain("revoke all on public._unitos_deferred_sql from anon, authenticated");
@@ -480,7 +505,11 @@ describe("tabelas auxiliares da automação e RLS", () => {
 
   it("reprova a verificação 15 mostrando os nomes das tabelas sem RLS", () => {
     const summary = summarizeVerificationRows([
-      { status: "FAIL", check_name: "RLS habilitado em todas as tabelas de public", observed: "_unitos_applied_deltas" },
+      {
+        status: "FAIL",
+        check_name: "RLS habilitado em todas as tabelas de public",
+        observed: "_unitos_applied_deltas",
+      },
       { status: "PASS", check_name: "trigger on_auth_user_created em auth.users", observed: "1" },
     ]);
     expect(summary.ok).toBe(false);
