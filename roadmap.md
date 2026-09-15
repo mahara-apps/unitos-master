@@ -1,5 +1,12 @@
 # Roadmap
 
+## Etapa 10 — Integração real no Supabase de testes
+
+- [x] Confirmar conectividade e ref exato `limalqnfatlkczshqzgs`, bloqueando MASTER/Taveira.
+- [x] Executar os quatro cenários; três passaram e o clean install expôs ledger legado sem colunas de evidência.
+- [ ] Verificar ledger/evidência e promoção após validação completa — bloqueado por `_unitos_applied_deltas(label, applied_at)` sem `kind/file/fingerprint`.
+- [x] Remover todos os artefatos exclusivos do ensaio e comprovar a limpeza.
+
 ## P0 — Executor único NEW/UPDATE
 
 - [x] Remover execução direta do delta no bootstrap e falhar fechado sem confirmação canônica.
