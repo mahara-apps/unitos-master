@@ -12,12 +12,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import {
-  admin,
-  cleanupTestResources,
-  createSuperAdminUser,
-  createUser,
-} from "./helpers/fixtures";
+import { admin, cleanupTestResources, createSuperAdminUser, createUser } from "./helpers/fixtures";
 
 const url = process.env["SUPABASE_URL"];
 const publishable = process.env["SUPABASE_PUBLISHABLE_KEY"];
@@ -211,7 +206,6 @@ describe("escopo de leitura (SELECT via RLS)", () => {
     expect(mgr).not.toContain(cx.clientFree);
   });
 
-
   it("USER limitado ao escopo (somente clientes vinculados)", async () => {
     const ids = await visibleClients(cx.user.client, cx.brandId);
     expect(ids).toContain(cx.clientOfUser);
@@ -332,7 +326,6 @@ describe("escrita: INSERT / UPDATE / DELETE via RLS", () => {
       .select("id");
     expect(o.data ?? []).toHaveLength(1);
   });
-
 
   it("MANAGER não promove ninguém a owner nem altera o owner", async () => {
     const promote = await cx.manager.client
