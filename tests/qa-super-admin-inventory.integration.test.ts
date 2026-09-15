@@ -14,7 +14,9 @@ describe("inventário do banco após a suíte de integração", () => {
       const user = await admin.auth.admin.getUserById(id);
       if (user.data.user?.email) emails.push(user.data.user.email.toLowerCase());
     }
-    expect(emails.filter((email) => email.includes("unitos-tests.dev") || email.startsWith("qa+"))).toEqual([]);
+    expect(
+      emails.filter((email) => email.includes("unitos-tests.dev") || email.startsWith("qa+")),
+    ).toEqual([]);
   });
 
   it("SUPER ADMIN legítimo preservado (pelo menos um, não-QA)", async () => {

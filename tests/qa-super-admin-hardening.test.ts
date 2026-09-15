@@ -81,4 +81,3 @@ describe("senhas de teste", () => {
     expect(src).toContain("generateTestPassword");
   });
 });
-

@@ -58,8 +58,7 @@ export function assertPrivilegedTestEnv(operation = "TEST_SUPER_ADMIN_CREATION")
   const v = privilegedTestEnv();
   if (v.allowed) return;
   const detail = {
-    not_declared_integration_suite:
-      "propósito não declarado como INTEGRATION_TEST_SUITE",
+    not_declared_integration_suite: "propósito não declarado como INTEGRATION_TEST_SUITE",
     target_not_authorized: "alvo não é o Master descartável explicitamente autorizado",
     target_mismatch: "SUPABASE_PROJECT_ID, SUPABASE_URL e alvo declarado não coincidem",
   }[v.reason];
