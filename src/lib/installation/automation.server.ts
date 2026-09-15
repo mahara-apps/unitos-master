@@ -4941,7 +4941,7 @@ export async function runAutomatedUpdate(input: {
 
   const checkpoint = await readStageProgress(client, operation);
   const alreadyPublished = checkpoint.codeDone === true && Boolean(checkpoint.codeSha);
-  let targetSha = alreadyPublished
+  const targetSha = alreadyPublished
     ? (checkpoint.codeSha ?? null)
     : (input.commitSha ?? "").trim() || null;
   if (!targetSha) {

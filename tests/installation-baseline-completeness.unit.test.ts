@@ -439,7 +439,7 @@ describe("reexecução idempotente do baseline", () => {
   it("prepara as colunas de lease antes de aplicar migrations incrementais", async () => {
     const source = readFileSync("src/lib/installation/automation.server.ts", "utf8");
     const prerequisite = source.indexOf(
-      "management.query(INSTALLATION_OPERATIONS_INCREMENTAL_PREREQUISITES_SQL)",
+      "INSTALLATION_OPERATIONS_INCREMENTAL_PREREQUISITES_SQL,",
     );
     const ledger = source.indexOf("const ledger = await management.query(");
 
