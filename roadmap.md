@@ -16,10 +16,10 @@
 - [x] Reconciliar em lote o ledger comprovado do destino sem reduzir progresso.
 - [x] Cobrir timeout pós-commit, replay, resposta parcial, concorrência e fencing com o modelo canônico.
 - [x] Ensaiar o estado equivalente da Taveira de 88→104 e auditar efeitos.
-- [x] Regenerar delta com 111 migrations e sincronizar versão/SHA (`becca1f09622fdf6c3097c787787d5b32e45e943fd9583a1052d08fd8291eeea`).
+- [x] Regenerar delta com 112 migrations e sincronizar versão/SHA (`699fc9989650a01338e00aa678b9fe1a0492674c3ba9f7358588eae6eddd9fbb`).
 - [x] Executar ensaio no PostgreSQL real: 25→34, não regressão, fencing, pacote divergente e fila legada sem crescimento.
 - [x] Desativar a fila legada, cancelar os 92 itens pendentes sem apagar evidências e impedir novas ativações.
-- [ ] Confirmar `master:check`, matriz crítica, tipos, build e verificação final da instalação.
+- [x] Confirmar `master:check` (49/49), matriz crítica (111/111), tipos, build e verificação final de segurança.
 - [ ] Publicar e retomar somente após nova autorização explícita.
 
 ## MASTER 1.3.94 — Snapshot imutável do pacote por operação
