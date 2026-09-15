@@ -19,7 +19,7 @@ import { PROVISION_STEPS } from "@/lib/installation/manager-contract";
 
 type Call = { url: string; method: string; body: string };
 
-function fakeClient() {
+function fakeClient(detail: Record<string, unknown> = {}) {
   const updates: Record<string, unknown>[] = [];
   const migrationProgress: Record<string, unknown>[] = [];
   const api = {
@@ -73,7 +73,7 @@ function fakeClient() {
             data: table === "installation_operation_migrations" ? migrationProgress : null,
             error: null,
           }),
-          maybeSingle: async () => ({ data: { status: "running", steps: [], detail: {} } }),
+          maybeSingle: async () => ({ data: { status: "running", steps: [], detail } }),
         }),
       }),
       upsert: async (patch: Record<string, unknown>) => {
@@ -121,9 +121,13 @@ function scenario(
     githubDestStatus?: number;
     verifyRows?: unknown[];
     suppliedKeys?: boolean;
+    deploymentStates?: string[];
+    deploymentCommit?: string;
+    stageProgress?: Record<string, unknown>;
   } = {},
 ) {
   const calls: Call[] = [];
+  let deploymentStateReads = 0;
   const fetchImpl = vi.fn(async (url: string | URL, init?: RequestInit) => {
     const u = String(url);
     const body = init?.body ? String(init.body) : "";
@@ -208,6 +212,16 @@ function scenario(
     if (u.includes("api.vercel.com/v6/deployments")) {
       return Response.json({ deployments: [{ uid: "dpl_prev", name: "unitos-novo" }] });
     }
+    if (u.includes("api.vercel.com/v13/deployments/dpl_new")) {
+      const states = overrides.deploymentStates ?? ["READY"];
+      const readyState = states[Math.min(deploymentStateReads, states.length - 1)];
+      deploymentStateReads += 1;
+      return Response.json({
+        readyState,
+        url: "unitos-novo-abc.vercel.app",
+        meta: { githubCommitSha: overrides.deploymentCommit ?? "sha_master" },
+      });
+    }
     if (u.includes("api.vercel.com/v13/deployments")) return Response.json({ id: "dpl_new" });
     return new Response("{}", { status: 200 });
   }) as unknown as typeof fetch;
@@ -220,7 +234,9 @@ function scenario(
       }
     : MASTER_ENV;
 
-  const { api, updates } = fakeClient();
+  const { api, updates } = fakeClient(
+    overrides.stageProgress ? { stageProgress: overrides.stageProgress } : undefined,
+  );
   const run = () =>
     runAutomatedProvision({
       client: api,
@@ -231,6 +247,7 @@ function scenario(
       sleep: async () => {},
       maxStatementsPerInvocation: Number.POSITIVE_INFINITY,
       maxMigrationsPerInvocation: Number.POSITIVE_INFINITY,
+      waitMs: 6_000,
     });
 
   return { run, calls, updates };
@@ -259,6 +276,57 @@ describe("instalação de ambiente novo — ponta a ponta", () => {
 
     // A validação final rodou de verdade contra o banco do destino.
     expect(calls.some((c) => c.body.includes(VERIFY_MARK))).toBe(true);
+  });
+
+  it("HTTP 200 não passa enquanto o deployment específico permanece BUILDING", async () => {
+    const { run, calls } = scenario({ deploymentStates: ["BUILDING"] });
+    const result = await run();
+
+    expect(result.result).toBe("RUNNING");
+    expect(calls.some((call) => call.url === "https://unitos-novo-abc.vercel.app")).toBe(false);
+  });
+
+  it("READY com SHA divergente falha antes do probe HTTP", async () => {
+    const { run, calls } = scenario({ deploymentCommit: "sha_incorreto" });
+    const result = await run();
+
+    expect(result.result).toBe("FAIL");
+    expect(result.reasons.join(" ")).toContain("commit autorizado");
+    expect(calls.some((call) => call.url === "https://unitos-novo-abc.vercel.app")).toBe(false);
+  });
+
+  it("ERROR no deployment específico falha antes do probe HTTP", async () => {
+    const { run, calls } = scenario({ deploymentStates: ["ERROR"] });
+    const result = await run();
+
+    expect(result.result).toBe("FAIL");
+    expect(result.reasons.join(" ")).toContain("ERROR");
+    expect(calls.some((call) => call.url === "https://unitos-novo-abc.vercel.app")).toBe(false);
+  });
+
+  it("retoma pelo deployment ID persistido sem criar outro", async () => {
+    const { run, calls } = scenario({
+      stageProgress: {
+        provisionDeploymentId: "dpl_new",
+        provisionDeploymentCommit: "sha_master",
+        provisionDeploymentState: "BUILDING",
+        codeDone: true,
+        codeSha: "sha_master",
+        codeSourceSha: "sha_master",
+        provisionRelease: "9.9.9",
+      },
+    });
+    const result = await run();
+
+    expect(result.result).toBe("PASS");
+    const deploymentCreates = calls.filter(
+      (call) =>
+        call.url.includes("api.vercel.com/v13/deployments") &&
+        call.method === "POST" &&
+        call.body.includes('"gitSource"'),
+    );
+    expect(deploymentCreates).toHaveLength(0);
+    expect(calls.some((call) => call.url.includes("/v13/deployments/dpl_new"))).toBe(true);
   });
 
   it("validação final reprovada nunca vira sucesso", async () => {

@@ -350,6 +350,8 @@ const INSTALLATION = {
 const runProvision = (input: Parameters<typeof runAutomatedProvision>[0]) =>
   runAutomatedProvision({
     ...input,
+    sleep: input.sleep ?? (async () => {}),
+    waitMs: input.waitMs ?? 3_000,
     maxStatementsPerInvocation: Number.POSITIVE_INFINITY,
     maxMigrationsPerInvocation: Number.POSITIVE_INFINITY,
   });
@@ -462,6 +464,9 @@ describe("runAutomatedProvision", () => {
         return Response.json({ deployments: [{ uid: "dpl_1", name: "unitos-pitada" }] });
       }
       if (url.includes("api.vercel.com/v13/deployments")) {
+        if (url.includes("/dpl_2")) {
+          return Response.json({ readyState: "READY", meta: { githubCommitSha: "sha_master" } });
+        }
         return Response.json({ id: "dpl_2" });
       }
       return new Response("{}", { status: 200 });
@@ -524,6 +529,9 @@ describe("runAutomatedProvision", () => {
       }
       if (url.includes("api.vercel.com/v6/deployments")) {
         return Response.json({ deployments: [{ uid: "dpl_1", name: "unitos-pitada" }] });
+      }
+      if (url.includes("api.vercel.com/v13/deployments/dpl_2")) {
+        return Response.json({ readyState: "READY", meta: { githubCommitSha: "sha_master" } });
       }
       if (url.includes("api.vercel.com/v13/deployments")) return Response.json({ id: "dpl_2" });
       return new Response("{}", { status: 200 });
@@ -611,6 +619,9 @@ describe("runAutomatedProvision", () => {
       if (url.includes("v6/deployments")) {
         return Response.json({ deployments: [{ uid: "d", name: "x" }] });
       }
+      if (url.includes("v13/deployments/d2")) {
+        return Response.json({ readyState: "READY", meta: { githubCommitSha: "sha_master" } });
+      }
       if (url.includes("v13/deployments")) return Response.json({ id: "d2" });
       if (url === "https://x-abc.vercel.app") return new Response("erro", { status: 502 });
       return new Response("{}", { status: 200 });
@@ -651,6 +662,9 @@ describe("runAutomatedProvision", () => {
       if (url.includes("/env")) return Response.json({ created: [] });
       if (url.includes("v6/deployments")) {
         return Response.json({ deployments: [{ uid: "d", name: "x" }] });
+      }
+      if (url.includes("v13/deployments/d2")) {
+        return Response.json({ readyState: "READY", meta: { githubCommitSha: "sha_master" } });
       }
       if (url.includes("v13/deployments")) return Response.json({ id: "d2" });
       if (url === "https://app.cliente.com.br")
@@ -805,6 +819,10 @@ describe("runAutomatedProvision", () => {
         appUrl: "https://unitos-pitada-abc.vercel.app",
         urlSource: "deploy",
         frontendOk: true,
+        provisionDeploymentId: "dpl_done",
+        provisionDeploymentCommit: "sha_master",
+        provisionDeploymentState: "READY",
+        provisionDeploymentReadyAt: "2026-09-15T14:00:00.000Z",
         codeDone: true,
         codeSha: "sha_master",
         codeSourceSha: "sha_master",
