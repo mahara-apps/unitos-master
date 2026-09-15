@@ -23,21 +23,29 @@ function fakeClient() {
   const updates: Record<string, unknown>[] = [];
   const api = {
     rpc: async (name: string) => {
+      if (name === "reconcile_installation_operation_migrations") {
+        return { data: 0, error: null };
+      }
       if (
         name === "compare_and_set_installation_generated_secrets" ||
-        name === "checkpoint_installation_operation"
+        name === "checkpoint_installation_operation" ||
+        name === "seal_installation_operation_baseline"
       ) {
         return { data: true, error: null };
       }
       return { data: null, error: null };
     },
-    from: () => ({
+    from: (table: string) => ({
       update: (patch: Record<string, unknown>) => {
         updates.push(patch);
         return { eq: async () => ({ error: null }) };
       },
       select: () => ({
         eq: () => ({
+          order: async () => ({
+            data: table === "installation_operation_migrations" ? [] : null,
+            error: null,
+          }),
           maybeSingle: async () => ({ data: { status: "running", steps: [], detail: {} } }),
         }),
       }),
