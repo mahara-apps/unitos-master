@@ -22,6 +22,7 @@ import baseline000 from "../../../supabase/baseline-snapshot/000_extensions.sql?
 import baseline001 from "../../../supabase/baseline-snapshot/001_initial_schema.sql?raw";
 import baseline005 from "../../../supabase/baseline-snapshot/005_auth_trigger.sql?raw";
 import baseline007 from "../../../supabase/baseline-snapshot/007_delta_migrations.sql?raw";
+import deltaManifest from "../../../supabase/baseline-snapshot/tools/delta_manifest.txt?raw";
 import deltaVersion from "../../../supabase/baseline-snapshot/tools/delta_version.txt?raw";
 import baseline003 from "../../../supabase/baseline-snapshot/003_storage_buckets.sql?raw";
 import baseline006 from "../../../supabase/baseline-snapshot/006_storage_policies.sql?raw";
@@ -1035,6 +1036,7 @@ export type CodeClient = {
     sha256?: string;
     total?: number;
     sql?: string;
+    manifest?: string;
     error?: string;
   }>;
   /**
@@ -1696,12 +1698,14 @@ export function createCodeClient(input: {
 
     async releaseSnapshotAtCommit(sha) {
       try {
-        const [versionFile, deltaFile] = await Promise.all([
+        const [versionFile, deltaFile, manifestFile] = await Promise.all([
           readMasterFileAtCommit("supabase/baseline-snapshot/tools/delta_version.txt", sha),
           readMasterFileAtCommit("supabase/baseline-snapshot/007_delta_migrations.sql", sha),
+          readMasterFileAtCommit("supabase/baseline-snapshot/tools/delta_manifest.txt", sha),
         ]);
         if (!versionFile.ok) return versionFile;
         if (!deltaFile.ok) return deltaFile;
+        if (!manifestFile.ok) return manifestFile;
         const version = /^\s*version\s*=\s*(\S+)\s*$/m.exec(versionFile.content)?.[1];
         const declaredSha = /^\s*sha256\s*=\s*([0-9a-f]{64})\s*$/im
           .exec(versionFile.content)?.[1]
@@ -1720,7 +1724,16 @@ export function createCodeClient(input: {
         const total = splitDeltaMigrations(deltaFile.content).length;
         if (total === 0)
           return { ok: false, error: "pacote autorizado não contém migrations válidas" };
-        return { ok: true, version, sha256: actualSha, total, sql: deltaFile.content };
+        const manifestCheck = await validateDeltaManifest(manifestFile.content, deltaFile.content);
+        if (!manifestCheck.ok) return { ok: false, error: manifestCheck.error };
+        return {
+          ok: true,
+          version,
+          sha256: actualSha,
+          total,
+          sql: deltaFile.content,
+          manifest: manifestFile.content,
+        };
       } catch (error) {
         return { ok: false, error: (error as Error).message };
       }

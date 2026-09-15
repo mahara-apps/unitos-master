@@ -134,8 +134,14 @@ def main() -> None:
 
     with open(OUT, "w", encoding="utf-8") as fh:
         fh.write("".join(parts))
+    manifest_entries = []
+    for path in selected:
+        with open(path, encoding="utf-8") as migration:
+            body = migration.read().strip()
+        fingerprint = hashlib.sha256((body + "\n").encode()).hexdigest()
+        manifest_entries.append(f"{os.path.basename(path)}\t{fingerprint}")
     with open(MANIFEST, "w", encoding="utf-8") as fh:
-        fh.write("\n".join(os.path.basename(p) for p in selected) + "\n")
+        fh.write("\n".join(manifest_entries) + "\n")
 
     sha = hashlib.sha256(open(OUT, "rb").read()).hexdigest()
     print(f"{len(selected)} migrations -> {OUT}")
