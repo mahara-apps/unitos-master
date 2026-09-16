@@ -53,7 +53,7 @@ HEAD = """-- ===================================================================
 
 """
 
-VALID_DESTINATIONS = {"control-plane", "client", "split", "unknown"}
+VALID_DESTINATIONS = {"control-plane", "client", "split", "excluded"}
 
 
 def _load_destinations(files: list[str]) -> dict[str, str]:
@@ -76,14 +76,8 @@ def _load_destinations(files: list[str]) -> dict[str, str]:
             raise SystemExit(f"migration duplicada ou invalida no mapa: {name}")
         mapped[name] = destination
     names = [os.path.basename(path) for path in files]
-    explicitly_excluded = document.get("excludedBeforeManifest", [])
-    excluded = {
-        entry.get("file")
-        for entry in explicitly_excluded
-        if isinstance(entry, dict) and entry.get("destination") == "control-plane"
-    }
-    if set(mapped) | excluded != set(names) or set(mapped) & excluded:
-        missing = sorted(set(names) - set(mapped) - excluded)
+    if set(mapped) != set(names):
+        missing = sorted(set(names) - set(mapped))
         stale = sorted(set(mapped) - set(names))
         raise SystemExit(f"mapa de destinos divergente; ausentes={missing}; obsoletas={stale}")
     return mapped
