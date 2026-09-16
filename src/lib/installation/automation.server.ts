@@ -3982,16 +3982,18 @@ export async function runAutomatedProvision(input: {
       checks.configuration = "attention";
       return finish(null, null);
     }
-    const confirmed = await deploy.ensureProject(provisionRepoSlug, {
-      projectId: ensuredProject.projectId,
-      teamId: ensuredProject.teamId,
-    });
-    if (!confirmed.ok || confirmed.repositoryLinked !== true) {
-      const reason = confirmed.error ?? "vínculo GitHub/branch main não foi confirmado pela Vercel";
-      blocked.push(`Projeto de deploy não confirmado: ${reason}`);
-      await mark("deploy_link", "error", reason);
-      checks.configuration = "error";
-      return finish(null, null);
+    if (ensuredProject.teamId !== "personal") {
+      const confirmed = await deploy.ensureProject(provisionRepoSlug, {
+        projectId: ensuredProject.projectId,
+        teamId: ensuredProject.teamId,
+      });
+      if (!confirmed.ok || confirmed.repositoryLinked !== true) {
+        const reason = confirmed.error ?? "vínculo GitHub/branch main não foi confirmado pela Vercel";
+        blocked.push(`Projeto de deploy não confirmado: ${reason}`);
+        await mark("deploy_link", "error", reason);
+        checks.configuration = "error";
+        return finish(null, null);
+      }
     }
     await saveStageProgress(client, operation, { provisionRepositoryLinked: true });
     repositoryLinked = true;

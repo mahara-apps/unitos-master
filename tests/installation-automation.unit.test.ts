@@ -718,7 +718,7 @@ describe("runAutomatedProvision", () => {
       fetchImpl: fetchImpl as never,
     });
     expect(result.result).toBe("BLOCKED");
-    expect(result.reasons.join(" ")).toContain("não ligado");
+    expect(result.reasons.join(" ")).toContain("UNITOS_VERCEL_TEAM_ID");
   });
 
   it("FAIL quando o baseline falha no destino", async () => {
