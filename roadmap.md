@@ -3,9 +3,9 @@
 ## MASTER — correção da convergência pgvector
 
 - [x] Renomear somente a variável local conflitante do wrapper para `detected_schema`.
-- [ ] Cobrir ausência, relocação, estado canônico, pós-condição, reexecução e rollback em PostgreSQL local.
-- [ ] Regenerar e versionar o pacote MASTER-first sem publicar ou executar NEW.
-- [ ] Executar testes focados, suíte global, tipos, lint, build e `master:check`.
+- [x] Cobrir ausência, relocação, estado canônico, pós-condição, reexecução e rollback em PostgreSQL local.
+- [x] Regenerar e versionar o pacote MASTER-first sem publicar ou executar NEW.
+- [x] Executar testes focados, suíte global local/runtime, tipos, lint focado, build e `master:check`; lint global permanece bloqueado por erros preexistentes fora do escopo.
 
 ## MASTER — confirmação do vínculo GitHub na Vercel
 
