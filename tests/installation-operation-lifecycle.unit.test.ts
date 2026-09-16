@@ -15,6 +15,7 @@ import canonicalAttemptsSql from "../supabase/migrations/20260914141212_3f236ac3
 import sealedPackageSql from "../supabase/migrations/20260914193902_b2da0b29-18e7-4dee-b276-428a57155c36.sql?raw";
 import sealedPackageStrictHashSql from "../supabase/migrations/20260914194505_2a76102f-5090-46e6-9269-f3c0f1bd057f.sql?raw";
 import durableStartSql from "../supabase/migrations/20260915095958_eb639764-7956-418c-8ed9-9b9fde0246a3.sql?raw";
+import failedProvisionRetrySql from "../supabase/migrations/20260916140000_retry_failed_provision.sql?raw";
 
 const NOW = Date.parse("2026-01-10T12:00:00.000Z");
 
@@ -181,6 +182,28 @@ describe("contagem de falhas consecutivas", () => {
       "REVOKE ALL ON FUNCTION public.start_durable_installation_operation",
     );
     expect(durableStartSql).toContain("TO service_role");
+  });
+
+  it("retry terminal cria nova operação e preserva a failed anterior", () => {
+    expect(failedProvisionRetrySql).toContain("_retry_of_operation_id uuid DEFAULT NULL");
+    expect(failedProvisionRetrySql).toContain("id uuid PRIMARY KEY DEFAULT gen_random_uuid()");
+    expect(failedProvisionRetrySql).toContain("_retry_operation.status <> 'failed'");
+    expect(failedProvisionRetrySql).toContain("_retry_operation.kind <> 'provision'");
+    expect(failedProvisionRetrySql).toContain("_installation.last_provisioned_at IS NOT NULL");
+    expect(failedProvisionRetrySql).toContain("status = 'success'");
+    expect(failedProvisionRetrySql).toContain("'retryOfOperationId', _retry_of_operation_id");
+    expect(failedProvisionRetrySql).not.toMatch(
+      /UPDATE\s+public\.installation_operations\s+SET[\s\S]*WHERE\s+id\s*=\s*_retry_of_operation_id/i,
+    );
+  });
+
+  it("retry terminal mantém lock atômico e não altera UPDATE, lease ou fencing", () => {
+    expect(failedProvisionRetrySql).toContain("FOR UPDATE");
+    expect(failedProvisionRetrySql).toContain("status IN ('pending', 'running', 'retryable')");
+    expect(failedProvisionRetrySql).toContain("USING ERRCODE = '55P03'");
+    expect(failedProvisionRetrySql).toContain("WHEN 'update' THEN 'updating'");
+    expect(failedProvisionRetrySql).not.toMatch(/lease_owner\s*=/i);
+    expect(failedProvisionRetrySql).not.toMatch(/fencing_token\s*=/i);
   });
 });
 

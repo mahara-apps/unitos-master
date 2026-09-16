@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   MASTER_RELEASE_VERSION,
+  canRetryFailedProvision,
   canStartOperation,
   findSensitiveInput,
   healthAfterOperation,
@@ -106,6 +107,60 @@ describe("estados do provisionamento", () => {
   it("permite atualizar após validação falhar por schema antigo", () => {
     expect(canStartOperation("update", "error")).toBe(true);
     expect(canStartOperation("update", "updating")).toBe(false);
+  });
+
+  it("retry terminal aceita error ou update_available somente sem provision concluído/ativo", () => {
+    const failed = { id: "failed-op", kind: "provision" as const, status: "failed" as const };
+    expect(
+      canRetryFailedProvision({
+        installationStatus: "update_available",
+        lastProvisionOperation: failed,
+      }),
+    ).toBe(true);
+    expect(
+      canRetryFailedProvision({ installationStatus: "error", lastProvisionOperation: failed }),
+    ).toBe(true);
+    expect(
+      canRetryFailedProvision({
+        installationStatus: "update_available",
+        lastProvisionOperation: failed,
+        activeOperationId: "live-op",
+      }),
+    ).toBe(false);
+    expect(
+      canRetryFailedProvision({
+        installationStatus: "update_available",
+        lastProvisionOperation: failed,
+        lastProvisionedAt: "2026-09-16T12:00:00.000Z",
+      }),
+    ).toBe(false);
+    expect(
+      canRetryFailedProvision({
+        installationStatus: "update_available",
+        lastProvisionOperation: failed,
+        hasSuccessfulProvision: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("update_available sem provision failed continua bloqueado para provision", () => {
+    expect(canStartOperation("provision", "update_available")).toBe(false);
+    expect(
+      canRetryFailedProvision({
+        installationStatus: "update_available",
+        lastProvisionOperation: {
+          id: "update-op",
+          kind: "update",
+          status: "failed",
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it("UPDATE preserva os estados elegíveis anteriores", () => {
+    expect(canStartOperation("update", "update_available")).toBe(true);
+    expect(canStartOperation("update", "error")).toBe(true);
+    expect(canStartOperation("update", "preparing")).toBe(false);
   });
 
   it("estado em execução por tipo de operação", () => {

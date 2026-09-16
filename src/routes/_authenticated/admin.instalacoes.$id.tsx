@@ -1310,7 +1310,9 @@ function InstallationDetailPage() {
                   variant={failedProvision ? "default" : "outline"}
                   disabled={
                     autoProvision.isPending ||
-                    (!canStartOperation("provision", inst.status) && !retryFailedProvisionAllowed)
+                    (failedProvision
+                      ? !retryFailedProvisionAllowed
+                      : !canStartOperation("provision", inst.status))
                   }
                   onClick={() =>
                     askCritical(
