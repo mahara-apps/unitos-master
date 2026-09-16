@@ -46,6 +46,7 @@ import {
   INFRA_HEALTH_CHECK_IDS,
   INSTALLATION_HEALTH_LABEL,
   OPERATION_KIND_LABEL,
+  canRetryFailedProvision,
   canStartOperation,
   isOperationStale,
   updateSummary,
@@ -308,8 +309,14 @@ function InstallationDetailPage() {
   });
 
   const autoProvision = useMutation({
-    mutationFn: (input: { confirmLabel: string }) =>
-      autoFn({ data: { id, confirmLabel: input.confirmLabel } }),
+    mutationFn: (input: { confirmLabel: string; retryOfOperationId?: string | null }) =>
+      autoFn({
+        data: {
+          id,
+          confirmLabel: input.confirmLabel,
+          retryOfOperationId: input.retryOfOperationId ?? null,
+        },
+      }),
     onSuccess: (result) => {
       if (result.result === "STARTED") {
         toast.success("Provisionamento iniciado. Acompanhe o progresso por etapa abaixo.");
@@ -514,11 +521,22 @@ function InstallationDetailPage() {
     (op) => op.status === "pending" || op.status === "running" || op.status === "retryable",
   );
   const lastProvision = operations.find((op) => op.kind === "provision" || op.kind === "update");
+  const lastProvisionOperation = operations.find((op) => op.kind === "provision") ?? null;
   const lastValidate = operations.find((op) => op.kind === "validate");
   const shownProvision =
     activeOp?.kind === "validate" ? lastProvision : (activeOp ?? lastProvision);
   const staleActive = !!activeOp && isOperationStale(activeOp);
-  const failedProvision = lastProvision && lastProvision.status === "failed" ? lastProvision : null;
+  const failedProvision =
+    lastProvisionOperation?.status === "failed" ? lastProvisionOperation : null;
+  const retryFailedProvisionAllowed = canRetryFailedProvision({
+    installationStatus: inst.status,
+    lastProvisionedAt: inst.lastProvisionedAt,
+    activeOperationId: inst.activeOperationId,
+    lastProvisionOperation,
+    hasSuccessfulProvision: operations.some(
+      (op) => op.kind === "provision" && op.status === "success",
+    ),
+  });
 
   // Estado definitivo: o núcleo decide READY; integrações opcionais nunca
   // bloqueiam. O MASTER só afirma "configurado" no que a instalação reportou.
@@ -1290,10 +1308,20 @@ function InstallationDetailPage() {
                 <Button
                   size="sm"
                   variant={failedProvision ? "default" : "outline"}
-                  disabled={autoProvision.isPending || !canStartOperation("provision", inst.status)}
+                  disabled={
+                    autoProvision.isPending ||
+                    (!canStartOperation("provision", inst.status) && !retryFailedProvisionAllowed)
+                  }
                   onClick={() =>
-                    askCritical("installation.provision", (confirmLabel) =>
-                      autoProvision.mutate({ confirmLabel }),
+                    askCritical(
+                      failedProvision
+                        ? "installation.retry_provision"
+                        : "installation.provision",
+                      (confirmLabel) =>
+                        autoProvision.mutate({
+                          confirmLabel,
+                          retryOfOperationId: failedProvision?.id ?? null,
+                        }),
                     )
                   }
                 >
