@@ -1,5 +1,13 @@
 # Roadmap
 
+## MASTER 1.4.0 — NEW limpa com pgvector canônico
+
+- [ ] Garantir `vector` em `public` quando ausente, instalada em `extensions` ou já em `public`, sem remoção indiscriminada.
+- [ ] Exigir `public.vector` e `public.vector_cosine_ops` antes de concluir/checkpointar `000_extensions`.
+- [ ] Cobrir os três estados iniciais e a recusa de checkpoint sem pós-condição.
+- [ ] Validar `000 → 001` em Supabase realmente descartável quando houver credencial própria disponível.
+- [ ] Executar testes focados/de instalação/globais, tipos, lint, build e `master:check`, sem NEW real e sem tocar instalações existentes.
+
 ## MASTER 1.4.0 — Deploy Vercel comprovado no NEW
 
 - [ ] Persistir deployment, commit esperado, estado observado e conclusão READY no checkpoint.
