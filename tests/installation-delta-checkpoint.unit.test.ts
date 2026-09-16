@@ -70,6 +70,13 @@ select 2;`;
     expect(provision).not.toContain("seedDeltaLedger(management, splitDeltaMigrations(file.sql))");
   });
 
+  it("versiona o checkpoint de 000_extensions pelo conteúdo", () => {
+    const source = readFileSync("src/lib/installation/automation.server.ts", "utf8");
+    const provision = source.slice(source.indexOf("export async function runAutomatedProvision"));
+    expect(provision).toContain("key: `000_extensions:${deltaFingerprint(baseline000)}`");
+    expect(provision).not.toMatch(/label: "000_extensions", key: "000_extensions"/);
+  });
+
   it("calcula progresso acumulado sem voltar a zero entre migrations", () => {
     expect(databaseMigrationsPercent({ total: 20, completed: 8 })).toBe(40);
     expect(

@@ -3749,7 +3749,14 @@ export async function runAutomatedProvision(input: {
     // aplicado" fazia a versão nova ser PULADA e a validação final acusava
     // colunas/tabelas ausentes. Os arquivos de baseline fixo seguem por label.
     const baseline: { id: string; label: string; key: string; sql: string }[] = [
-      { id: "database", label: "000_extensions", key: "000_extensions", sql: baseline000 },
+      {
+        id: "database",
+        label: "000_extensions",
+        // O conteúdo do 000 também evolui. Um checkpoint legado não pode pular
+        // a convergência/pós-condição nova apenas porque usava a label estática.
+        key: `000_extensions:${deltaFingerprint(baseline000)}`,
+        sql: baseline000,
+      },
       { id: "database", label: "001_initial_schema", key: "001_initial_schema", sql: baseline001 },
       { id: "database", label: "005_auth_trigger", key: "005_auth_trigger", sql: baseline005 },
       {
