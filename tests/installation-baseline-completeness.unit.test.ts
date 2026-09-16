@@ -6,6 +6,8 @@ import {
   applyStatementByStatement,
   HELPER_TABLES,
   hardenHelperTables,
+  VECTOR_EXTENSION_POSTCONDITION,
+  verifyVectorExtensionPostcondition,
 } from "@/lib/installation/automation.server";
 import {
   isDuplicateObjectError,
@@ -321,6 +323,67 @@ describe("reexecução idempotente do baseline", () => {
       "CREATE TABLE x (id int);",
     );
     expect(bad.ok).toBe(false);
+  });
+
+  it("só conclui o checkpoint após a pós-condição do pgvector na mesma transação", async () => {
+    const batches: string[] = [];
+    const result = await applyStatementByStatement(
+      {
+        query: async (batch) => {
+          batches.push(batch);
+          return { ok: true, rows: checkpointRows(batch, 1) };
+        },
+      },
+      "SELECT 1;",
+      { completionPostcondition: VECTOR_EXTENSION_POSTCONDITION },
+    );
+
+    expect(result).toMatchObject({ ok: true, complete: true });
+    const completion = batches.find((batch) => batch.includes("DO $unitos_drain$"));
+    expect(completion).toContain("to_regtype('public.vector') IS NOT NULL");
+    expect(completion).toContain("oc.opcname = 'vector_cosine_ops'");
+    expect(completion?.indexOf("IF NOT (")).toBeLessThan(completion?.indexOf("'completed'") ?? -1);
+  });
+
+  it("não conclui quando a pós-condição do pgvector falha", async () => {
+    const result = await applyStatementByStatement(
+      {
+        query: async (batch) => {
+          if (batch.includes("DO $unitos_drain$")) {
+            return {
+              ok: false,
+              rows: [],
+              error: VECTOR_EXTENSION_POSTCONDITION.errorMessage,
+            };
+          }
+          return { ok: true, rows: checkpointRows(batch, 1) };
+        },
+      },
+      "SELECT 1;",
+      { completionPostcondition: VECTOR_EXTENSION_POSTCONDITION },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: VECTOR_EXTENSION_POSTCONDITION.errorMessage,
+      processed: 1,
+    });
+  });
+
+  it("comprova public.vector e public.vector_cosine_ops sem aceitar resposta vazia", async () => {
+    await expect(
+      verifyVectorExtensionPostcondition({
+        query: async () => ({ ok: true, rows: [{ vector_ready: true }] }),
+      }),
+    ).resolves.toEqual({ ok: true });
+    await expect(
+      verifyVectorExtensionPostcondition({ query: async () => ({ ok: true, rows: [] }) }),
+    ).resolves.toEqual({ ok: false, error: VECTOR_EXTENSION_POSTCONDITION.errorMessage });
+    await expect(
+      verifyVectorExtensionPostcondition({
+        query: async () => ({ ok: false, rows: [], error: "consulta indisponível" }),
+      }),
+    ).resolves.toEqual({ ok: false, error: "consulta indisponível" });
   });
 
   it("comprova a ausência da assinatura explícita antes de tolerar o DROP da migration 96", async () => {

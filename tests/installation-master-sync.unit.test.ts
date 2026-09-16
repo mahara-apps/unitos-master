@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 
 import { MASTER_RELEASE_VERSION } from "@/lib/installation/manager-contract";
 import delta from "../supabase/baseline-snapshot/007_delta_migrations.sql?raw";
@@ -108,11 +109,51 @@ describe("sincronia MASTER-first", () => {
     expect(extensions).not.toMatch(/UPDATE\s+public\._unitos_applied_deltas/i);
   });
 
+  it("converge pgvector para public sem remover a extensão ou seus objetos", () => {
+    expect(extensions).toContain("WHERE e.extname = 'vector'");
+    expect(extensions).toContain("CREATE EXTENSION vector WITH SCHEMA public");
+    expect(extensions).toContain("ALTER EXTENSION vector SET SCHEMA public");
+    expect(extensions).not.toMatch(/DROP\s+EXTENSION(?:\s+IF\s+EXISTS)?\s+vector/i);
+    expect(extensions).toContain("to_regtype('public.vector') IS NULL");
+    expect(extensions).toContain("oc.opcname = 'vector_cosine_ops'");
+  });
+
+  it.each([
+    ["ausente", "current_schema IS NULL", "CREATE EXTENSION vector WITH SCHEMA public"],
+    ["em extensions", "current_schema <> 'public'", "ALTER EXTENSION vector SET SCHEMA public"],
+    ["em public", "ELSIF current_schema <> 'public'", "END IF"],
+  ])("cobre vector %s no bootstrap descartável", (_state, branch, action) => {
+    expect(extensions).toContain(branch);
+    expect(extensions).toContain(action);
+  });
+
+  it("ensaio descartável executa os três estados e depois 001_initial_schema", () => {
+    const script = readFileSync(
+      "supabase/baseline-snapshot/tools/verify_on_disposable_project.sh",
+      "utf8",
+    );
+    expect(script).toContain("DROP EXTENSION IF EXISTS vector");
+    expect(script).toContain("ALTER EXTENSION vector SET SCHEMA extensions");
+    expect(script.match(/000_extensions\.sql/g)).toHaveLength(3);
+    expect(script.indexOf("000_extensions.sql")).toBeLessThan(
+      script.indexOf("001_initial_schema.sql"),
+    );
+    expect(script).toContain("to_regtype('public.vector') IS NULL");
+    expect(script).toContain("oc.opcname = 'vector_cosine_ops'");
+  });
+
   it("relatorio de saude confere todas as tabelas do pacote", () => {
     const faltando = tabelasDoDelta(delta).filter(
       (t) => !verifySql.includes(`'${t}'`) && !verifySql.includes(`public.${t}`),
     );
     expect(faltando).toEqual([]);
+  });
+
+  it("relatório exige tipo e operator class do pgvector no schema public", () => {
+    expect(verifySql).toContain("pgvector canônico (public.vector + public.vector_cosine_ops)");
+    expect(verifySql).toContain("to_regtype('public.vector') IS NOT NULL");
+    expect(verifySql).toContain("oc.opcname = 'vector_cosine_ops'");
+    expect(verifySql).toContain("n.nspname = 'public'");
   });
 
   it("pacote e verificação incluem a abertura durável do workflow", () => {

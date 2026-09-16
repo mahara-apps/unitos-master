@@ -294,6 +294,8 @@ export async function applyStatementByStatement(
     maxStatements?: number;
     /** Namespace estável: operação + arquivo + fingerprint. */
     runKey?: string;
+    /** Predicado executado na mesma transação, antes do checkpoint completed. */
+    completionPostcondition?: { predicateSql: string; errorMessage: string };
   },
 ): Promise<
   | { ok: true; skipped: number; processed: number; total: number; complete: boolean }
@@ -528,6 +530,13 @@ export async function applyStatementByStatement(
         "    RAISE EXCEPTION 'statements com dependência não resolvida: %', pend;",
         "  END IF;",
         `  DELETE FROM public._unitos_deferred_sql WHERE run_key = ${runKeySql};`,
+        ...(options?.completionPostcondition
+          ? [
+              `  IF NOT (${options.completionPostcondition.predicateSql}) THEN`,
+              `    RAISE EXCEPTION ${sqlLiteral(options.completionPostcondition.errorMessage)};`,
+              "  END IF;",
+            ]
+          : []),
         `  ${checkpointSql(statements.length, "completed")};`,
         "END",
         "$unitos_drain$;",
@@ -2888,6 +2897,31 @@ export type AutomationRunResult = Omit<AutomationOutcome, "result"> & {
 /** Marcador de arquivo integralmente aplicado. */
 export const DONE = -1;
 
+export const VECTOR_EXTENSION_POSTCONDITION = {
+  predicateSql:
+    "to_regtype('public.vector') IS NOT NULL AND EXISTS (SELECT 1 FROM pg_opclass oc JOIN pg_namespace n ON n.oid = oc.opcnamespace WHERE n.nspname = 'public' AND oc.opcname = 'vector_cosine_ops')",
+  errorMessage:
+    "000_extensions incompleto: public.vector ou public.vector_cosine_ops não foi confirmado",
+} as const;
+
+export async function verifyVectorExtensionPostcondition(management: {
+  query: (sql: string) => Promise<{ ok: boolean; rows: unknown[]; error?: string }>;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const result = await management.query(
+    `SELECT (${VECTOR_EXTENSION_POSTCONDITION.predicateSql}) AS vector_ready`,
+  );
+  if (!result.ok) {
+    return { ok: false, error: result.error ?? VECTOR_EXTENSION_POSTCONDITION.errorMessage };
+  }
+  const row = result.rows.find(
+    (value): value is Record<string, unknown> => !!value && typeof value === "object",
+  );
+  if (row?.["vector_ready"] !== true) {
+    return { ok: false, error: VECTOR_EXTENSION_POSTCONDITION.errorMessage };
+  }
+  return { ok: true };
+}
+
 export type BaselineProgress = Record<string, number>;
 
 export function mergeBaselineProgress(
@@ -3715,7 +3749,14 @@ export async function runAutomatedProvision(input: {
     // aplicado" fazia a versão nova ser PULADA e a validação final acusava
     // colunas/tabelas ausentes. Os arquivos de baseline fixo seguem por label.
     const baseline: { id: string; label: string; key: string; sql: string }[] = [
-      { id: "database", label: "000_extensions", key: "000_extensions", sql: baseline000 },
+      {
+        id: "database",
+        label: "000_extensions",
+        // O conteúdo do 000 também evolui. Um checkpoint legado não pode pular
+        // a convergência/pós-condição nova apenas porque usava a label estática.
+        key: `000_extensions:${deltaFingerprint(baseline000)}`,
+        sql: baseline000,
+      },
       { id: "database", label: "001_initial_schema", key: "001_initial_schema", sql: baseline001 },
       { id: "database", label: "005_auth_trigger", key: "005_auth_trigger", sql: baseline005 },
       {
@@ -3761,6 +3802,15 @@ export async function runAutomatedProvision(input: {
         await mark(file.id, "running", null, groupPercent(file.id, 0));
       }
       if (progress[file.key] === DONE) {
+        if (file.key === "000_extensions") {
+          const vectorReady = await verifyVectorExtensionPostcondition(management);
+          if (!vectorReady.ok) {
+            failures.push(vectorReady.error);
+            await mark(file.id, "error", vectorReady.error);
+            checks.database = "error";
+            return finish(appUrl, urlSource);
+          }
+        }
         groupDone[file.id] = (groupDone[file.id] ?? 0) + 1;
         await mark(
           file.id,
@@ -3871,6 +3921,9 @@ export async function runAutomatedProvision(input: {
         maxStatements: BASELINE_STATEMENTS_PER_INVOCATION,
         ...(input.maxStatementsPerInvocation !== undefined
           ? { maxStatements: input.maxStatementsPerInvocation }
+          : {}),
+        ...(file.key === "000_extensions"
+          ? { completionPostcondition: VECTOR_EXTENSION_POSTCONDITION }
           : {}),
         onProgress: async (processed, total) => {
           progress[file.key] = processed;

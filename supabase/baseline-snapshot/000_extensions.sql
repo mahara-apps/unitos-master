@@ -32,9 +32,26 @@ CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA extensions;
 -- Vault: necessario para o segredo do cron (public.cron_secret()).
 CREATE EXTENSION IF NOT EXISTS supabase_vault WITH SCHEMA vault;
 
--- pgvector instalado em public no banco de origem: o 001 referencia
--- public.vector e public.vector_cosine_ops, logo o schema NAO pode mudar.
-CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
+-- O Supabase pode provisionar pgvector previamente no schema `extensions`.
+-- `CREATE EXTENSION IF NOT EXISTS ... WITH SCHEMA public` não reloca uma
+-- extensão existente: converge explicitamente sem apagar seus objetos/dados.
+DO $unitos_vector_schema$
+DECLARE
+  current_schema text;
+BEGIN
+  SELECT n.nspname
+    INTO current_schema
+    FROM pg_extension e
+    JOIN pg_namespace n ON n.oid = e.extnamespace
+   WHERE e.extname = 'vector';
+
+  IF current_schema IS NULL THEN
+    EXECUTE 'CREATE EXTENSION vector WITH SCHEMA public';
+  ELSIF current_schema <> 'public' THEN
+    EXECUTE 'ALTER EXTENSION vector SET SCHEMA public';
+  END IF;
+END
+$unitos_vector_schema$;
 
 -- pg_net registrado com schema public no banco de origem, mas a propria extensao
 -- cria o schema "net": as funcoes ficam em net.http_post/net.http_get, usadas
@@ -64,3 +81,22 @@ CREATE UNIQUE INDEX IF NOT EXISTS _unitos_applied_deltas_file_fingerprint_key
   WHERE kind = 'migration';
 ALTER TABLE public._unitos_applied_deltas ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public._unitos_applied_deltas FROM anon, authenticated;
+
+-- Pós-condição obrigatória do arquivo: 001_initial_schema usa ambos os objetos
+-- com schema qualificado. Falhar aqui impede checkpoint falso de conclusão.
+DO $unitos_vector_postcondition$
+BEGIN
+  IF to_regtype('public.vector') IS NULL THEN
+    RAISE EXCEPTION '000_extensions: tipo public.vector ausente após convergência do pgvector';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1
+      FROM pg_opclass oc
+      JOIN pg_namespace n ON n.oid = oc.opcnamespace
+     WHERE n.nspname = 'public'
+       AND oc.opcname = 'vector_cosine_ops'
+  ) THEN
+    RAISE EXCEPTION '000_extensions: operator class public.vector_cosine_ops ausente após convergência do pgvector';
+  END IF;
+END
+$unitos_vector_postcondition$;
