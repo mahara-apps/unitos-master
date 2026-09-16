@@ -2527,7 +2527,7 @@ export function createDeployClient(input: {
             resolvedProjectId = projectId;
             resolvedProjectName = (body.name ?? input.project).trim();
             const linkConfirmation = await confirmProjectRepository(body, projectId, expectedRepo);
-            if (!linkConfirmation.confirmed) {
+            if (!linkConfirmation.confirmed && linkConfirmation.present) {
               return {
                 ok: false,
                 error: `o projeto Vercel ${body.name ?? input.project} não confirmou o vínculo esperado: ${linkConfirmation.reason ?? "vínculo inválido"}`,
@@ -2643,7 +2643,7 @@ export function createDeployClient(input: {
         resolvedProjectId = projectId;
         resolvedProjectName = (body.name ?? input.project).trim();
         const linkConfirmation = await confirmProjectRepository(body, projectId, expectedRepo);
-        if (!linkConfirmation.confirmed && !created) {
+        if (!linkConfirmation.confirmed && linkConfirmation.present && !created) {
           return {
             ok: false,
             error: `o projeto Vercel ${body.name ?? input.project} não confirmou o vínculo esperado: ${linkConfirmation.reason ?? "vínculo inválido"}`,
@@ -2901,8 +2901,8 @@ export function createDeployClient(input: {
         // O projeto precisa apontar para o repositório DA INSTALAÇÃO (o código
         // do MASTER é publicado nele). Se estiver ligado a outro repositório,
         // religa — é o que faz a atualização realmente trazer código novo.
-        const current = `${body.link?.org ?? ""}/${body.link?.repo ?? ""}`.toLowerCase();
-        if (current !== targetRepo.toLowerCase()) {
+        const linkConfirmation = confirmVercelGithubLink(body, targetRepo);
+        if (!linkConfirmation.confirmed) {
           // Religar pode falhar sem culpa da atualização (integração do GitHub
           // não instalada na conta). Não abortamos: a publicação ainda funciona
           // apontando a origem Git direto na chamada.
