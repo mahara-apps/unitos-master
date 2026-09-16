@@ -977,6 +977,73 @@ export type DeployClient = {
   }>;
 };
 
+type VercelGitLink = {
+  type?: string;
+  repo?: string;
+  org?: string;
+  productionBranch?: string;
+  sourceless?: boolean;
+};
+
+type VercelProjectLinkBody = {
+  link?: VercelGitLink;
+  gitRepository?: VercelGitLink;
+};
+
+export function confirmVercelGithubLink(
+  body: VercelProjectLinkBody | VercelGitLink | null | undefined,
+  expectedRepo: string,
+  expectedBranch = "main",
+): { confirmed: boolean; present: boolean; repo: string; branch: string; reason?: string } {
+  const container = body && ("link" in body || "gitRepository" in body) ? body : null;
+  const link = (container?.gitRepository ?? container?.link ?? body ?? {}) as VercelGitLink;
+  const repo = (
+    link.repo?.includes("/")
+      ? link.repo
+      : `${link.org ?? ""}/${link.repo ?? ""}`.replace(/^\//, "")
+  )
+    .trim()
+    .toLowerCase();
+  const branch = (link.productionBranch ?? "").trim();
+  const type = (link.type ?? "").trim().toLowerCase();
+  const present = Boolean(type || repo || branch);
+  const expected = expectedRepo.trim().toLowerCase();
+
+  if (!present) {
+    return { confirmed: false, present: false, repo, branch, reason: "vínculo GitHub ausente" };
+  }
+  if (type !== "github") {
+    return {
+      confirmed: false,
+      present: true,
+      repo,
+      branch,
+      reason: `tipo de vínculo ${type || "ausente"}, esperado github`,
+    };
+  }
+  if (repo !== expected) {
+    return {
+      confirmed: false,
+      present: true,
+      repo,
+      branch,
+      reason: `repositório ${repo || "ausente"}, esperado ${expectedRepo}`,
+    };
+  }
+  if (branch !== expectedBranch) {
+    return {
+      confirmed: false,
+      present: true,
+      repo,
+      branch,
+      reason: `branch ${branch || "ausente"}, esperada ${expectedBranch}`,
+    };
+  }
+  // `sourceless` é apenas metadado da Vercel. Tipo, slug e branch canônicos
+  // constituem a prova do vínculo, inclusive quando a API devolve true aqui.
+  return { confirmed: true, present: true, repo, branch };
+}
+
 /**
  * Reconhece o limite de deployments por dia dos planos gratuitos da Vercel
  * (`api-deployments-free-per-day`, HTTP 402). Não é erro de configuração: o
@@ -2371,14 +2438,8 @@ export function createDeployClient(input: {
       id?: string;
       name?: string;
       accountId?: string;
-      link?: {
-        type?: string;
-        repo?: string;
-        org?: string;
-        productionBranch?: string;
-        sourceless?: boolean;
-      };
-      gitRepository?: { type?: string; repo?: string; productionBranch?: string };
+      link?: VercelGitLink;
+      gitRepository?: VercelGitLink;
     };
 
   const linkedRepo = (body: Awaited<ReturnType<typeof readProjectBody>>) =>
@@ -2388,6 +2449,28 @@ export function createDeployClient(input: {
     )
       .trim()
       .toLowerCase();
+
+  const confirmProjectRepository = async (
+    body: Awaited<ReturnType<typeof readProjectBody>>,
+    projectId: string,
+    expectedRepo: string,
+  ) => {
+    const projectResult = confirmVercelGithubLink(body, expectedRepo);
+    if (projectResult.present) return projectResult;
+
+    const linkResponse = await doFetch(
+      `https://api.vercel.com/v10/projects/${encodeURIComponent(projectId)}/link?${qs()}`.replace(
+        /\?$/,
+        "",
+      ),
+      { headers },
+    ).catch(() => null);
+    if (!linkResponse?.ok) return projectResult;
+    const linkBody = (await linkResponse.json().catch(() => ({}))) as
+      | VercelGitLink
+      | VercelProjectLinkBody;
+    return confirmVercelGithubLink(linkBody, expectedRepo);
+  };
 
   const resolveCreationTeam = async (checkpointTeam?: string | null) => {
     const expected = (checkpointTeam ?? resolvedTeamId ?? "").trim();
@@ -2443,17 +2526,20 @@ export function createDeployClient(input: {
             }
             resolvedProjectId = projectId;
             resolvedProjectName = (body.name ?? input.project).trim();
+            const linkConfirmation = await confirmProjectRepository(body, projectId, expectedRepo);
+            if (!linkConfirmation.confirmed) {
+              return {
+                ok: false,
+                error: `o projeto Vercel ${body.name ?? input.project} não confirmou o vínculo esperado: ${linkConfirmation.reason ?? "vínculo inválido"}`,
+              };
+            }
             return {
               ok: true,
               projectId,
               teamId: accountId,
               projectName: resolvedProjectName,
               created: false,
-              repositoryLinked:
-                currentRepo === expectedRepo &&
-                (body.gitRepository?.productionBranch ?? body.link?.productionBranch ?? "main") ===
-                  "main" &&
-                body.link?.sourceless !== true,
+              repositoryLinked: true,
             };
           }
           if (existing.status !== 404) {
@@ -2556,17 +2642,20 @@ export function createDeployClient(input: {
         }
         resolvedProjectId = projectId;
         resolvedProjectName = (body.name ?? input.project).trim();
+        const linkConfirmation = await confirmProjectRepository(body, projectId, expectedRepo);
+        if (!linkConfirmation.confirmed && !created) {
+          return {
+            ok: false,
+            error: `o projeto Vercel ${body.name ?? input.project} não confirmou o vínculo esperado: ${linkConfirmation.reason ?? "vínculo inválido"}`,
+          };
+        }
         return {
           ok: true,
           projectId,
           teamId: expectedTeamId,
           projectName: resolvedProjectName,
           created,
-          repositoryLinked:
-            currentRepo === expectedRepo &&
-            (body.gitRepository?.productionBranch ?? body.link?.productionBranch ?? "main") ===
-              "main" &&
-            body.link?.sourceless !== true,
+          repositoryLinked: linkConfirmation.confirmed,
         };
       } catch (error) {
         return { ok: false, error: error instanceof Error ? error.message : "falha na Vercel" };
@@ -2691,19 +2780,12 @@ export function createDeployClient(input: {
         }
         const body = (await res.json().catch(() => ({}))) as {
           id?: string;
-          link?: {
-            repo?: string;
-            org?: string;
-            sourceless?: boolean;
-            productionBranch?: string;
-          };
+          link?: VercelGitLink;
+          gitRepository?: VercelGitLink;
         };
         const id = encodeURIComponent(body.id ?? input.project);
-        const current = `${body.link?.org ?? ""}/${body.link?.repo ?? ""}`.toLowerCase();
-        // `force` religa mesmo quando o slug já é o correto: é o caso do vínculo
-        // "sourceless", em que o repositório aparece ligado sem disparar builds.
-        const branch = body.link?.productionBranch ?? "main";
-        if (current === slug.toLowerCase() && branch === "main" && !options?.force) {
+        const confirmation = await confirmProjectRepository(body, body.id ?? input.project, slug);
+        if (confirmation.confirmed && !options?.force) {
           return { ok: true };
         }
 
@@ -2819,10 +2901,8 @@ export function createDeployClient(input: {
         // O projeto precisa apontar para o repositório DA INSTALAÇÃO (o código
         // do MASTER é publicado nele). Se estiver ligado a outro repositório,
         // religa — é o que faz a atualização realmente trazer código novo.
-        // Vínculo "sourceless" também é religado: sem fonte, nenhum push publica
-        // e a política "apenas Git em produção" tranca a atualização.
         const current = `${body.link?.org ?? ""}/${body.link?.repo ?? ""}`.toLowerCase();
-        if (current !== targetRepo.toLowerCase() || body.link?.sourceless === true) {
+        if (current !== targetRepo.toLowerCase()) {
           // Religar pode falhar sem culpa da atualização (integração do GitHub
           // não instalada na conta). Não abortamos: a publicação ainda funciona
           // apontando a origem Git direto na chamada.
