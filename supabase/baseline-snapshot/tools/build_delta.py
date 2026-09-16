@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import glob
 import hashlib
+import json
 import os
 import re
 
@@ -21,6 +22,8 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 MIGRATIONS = os.path.join(ROOT, "migrations")
 OUT = os.path.join(ROOT, "baseline-snapshot", "007_delta_migrations.sql")
 MANIFEST = os.path.join(ROOT, "baseline-snapshot", "tools", "delta_manifest.txt")
+DESTINATIONS = os.path.join(ROOT, "baseline-snapshot", "tools", "migration-destinations.json")
+SPLITS = os.path.join(ROOT, "baseline-snapshot", "tools", "splits")
 
 # Ultima migration incorporada ao dump e primeira que deve entrar no delta.
 #
@@ -50,18 +53,45 @@ HEAD = """-- ===================================================================
 
 """
 
-# Migrations exclusivas do MASTER: agendam cron apontando para a URL do projeto
-# MASTER. Uma instalacao nova recebe suas proprias rotinas por
-# supabase/install/020_cron.sql, com a URL e o CRON_SECRET dela.
-MASTER_ONLY_MARKERS = (
-    "project--3f33732a-cb8b-43ae-84fb-01d9e367fb0c",
-)
+VALID_DESTINATIONS = {"control-plane", "client", "split", "unknown"}
 
 
-def _is_master_only(path: str) -> bool:
-    with open(path, encoding="utf-8") as fh:
-        sql = fh.read()
-    return any(marker in sql for marker in MASTER_ONLY_MARKERS)
+def _load_destinations(files: list[str]) -> dict[str, str]:
+    with open(DESTINATIONS, encoding="utf-8") as fh:
+        document = json.load(fh)
+    if document.get("schemaVersion") != 1:
+        raise SystemExit("versao do mapa de destinos nao suportada")
+    entries = document.get("migrations")
+    if not isinstance(entries, list):
+        raise SystemExit("mapa de destinos sem migrations")
+    mapped: dict[str, str] = {}
+    for expected_position, entry in enumerate(entries, 1):
+        if not isinstance(entry, dict):
+            raise SystemExit("entrada invalida no mapa de destinos")
+        name = entry.get("file")
+        destination = entry.get("destination")
+        if entry.get("position") != expected_position or destination not in VALID_DESTINATIONS:
+            raise SystemExit(f"destino/posicao invalido para {name}")
+        if not isinstance(name, str) or name in mapped:
+            raise SystemExit(f"migration duplicada ou invalida no mapa: {name}")
+        mapped[name] = destination
+    names = [os.path.basename(path) for path in files]
+    if set(mapped) != set(names):
+        missing = sorted(set(names) - set(mapped))
+        stale = sorted(set(mapped) - set(names))
+        raise SystemExit(f"mapa de destinos divergente; ausentes={missing}; obsoletas={stale}")
+    return mapped
+
+
+def _client_source(path: str, destination: str) -> str | None:
+    if destination == "client":
+        return path
+    if destination == "split":
+        fragment = os.path.join(SPLITS, os.path.basename(path).replace(".sql", ".client.sql"))
+        if not os.path.isfile(fragment):
+            raise SystemExit(f"fragmento Client ausente para migration split: {os.path.basename(path)}")
+        return fragment
+    return None
 
 
 
@@ -77,7 +107,7 @@ def _created_tables(sql: str, *, unguarded_only: bool = False) -> set[str]:
     }
 
 
-def _validate_cutover(files: list[str], selected: list[str]) -> None:
+def _validate_cutover(files: list[str], selected: list[tuple[str, str]], destinations: dict[str, str]) -> None:
     names = [os.path.basename(path) for path in files]
     if names != sorted(names) or len(names) != len(set(names)):
         raise SystemExit("nomes de migrations duplicados ou fora de ordem")
@@ -88,7 +118,7 @@ def _validate_cutover(files: list[str], selected: list[str]) -> None:
         (
             name
             for name in names[cutover_index + 1 :]
-            if not _is_master_only(os.path.join(MIGRATIONS, name))
+            if destinations[name] in {"client", "split"}
         ),
         None,
     )
@@ -101,8 +131,8 @@ def _validate_cutover(files: list[str], selected: list[str]) -> None:
     with open(snapshot_path, encoding="utf-8") as fh:
         snapshot = fh.read()
     delta_parts = []
-    for path in selected:
-        with open(path, encoding="utf-8") as fh:
+    for _, source in selected:
+        with open(source, encoding="utf-8") as fh:
             delta_parts.append(fh.read())
     delta_sql = "\n".join(delta_parts)
     overlap = sorted(_created_tables(snapshot) & _created_tables(delta_sql, unguarded_only=True))
@@ -112,31 +142,34 @@ def _validate_cutover(files: list[str], selected: list[str]) -> None:
 
 def main() -> None:
     files = sorted(glob.glob(os.path.join(MIGRATIONS, "*.sql")))
+    destinations = _load_destinations(files)
     start = os.path.join(MIGRATIONS, START_MIGRATION)
     if start not in files:
         raise SystemExit(f"START_MIGRATION ausente: {START_MIGRATION}")
-    selected = [
-        p for p in files[files.index(start):] if not _is_master_only(p)
-    ]
-    _validate_cutover(files, selected)
+    selected: list[tuple[str, str]] = []
+    for path in files[files.index(start):]:
+        source = _client_source(path, destinations[os.path.basename(path)])
+        if source is not None:
+            selected.append((path, source))
+    _validate_cutover(files, selected, destinations)
 
 
     parts = [HEAD]
-    for path in selected:
+    for path, source in selected:
         name = os.path.basename(path)
         parts.append(
             "\n-- ---------------------------------------------------------------------------\n"
             f"-- {name}\n"
             "-- ---------------------------------------------------------------------------\n"
         )
-        with open(path, encoding="utf-8") as fh:
+        with open(source, encoding="utf-8") as fh:
             parts.append(fh.read().rstrip() + "\n")
 
     with open(OUT, "w", encoding="utf-8") as fh:
         fh.write("".join(parts))
     manifest_entries = []
-    for path in selected:
-        with open(path, encoding="utf-8") as migration:
+    for path, source in selected:
+        with open(source, encoding="utf-8") as migration:
             body = migration.read().strip()
         fingerprint = hashlib.sha256((body + "\n").encode()).hexdigest()
         manifest_entries.append(f"{os.path.basename(path)}\t{fingerprint}")

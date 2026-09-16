@@ -30,7 +30,7 @@ import baseline004 from "../../../supabase/baseline-snapshot/004_seeds.sql?raw";
 import install010 from "../../../supabase/install/010_installation_identity.sql?raw";
 import install011 from "../../../supabase/install/011_brain_stats_init.sql?raw";
 import install020 from "../../../supabase/install/020_cron.sql?raw";
-import verifySql from "../../../supabase/install/verify-installation.sql?raw";
+import verifySql from "../../../supabase/install/verify-installation-client.sql?raw";
 
 import { runtimeEnv } from "@/lib/runtime-env.server";
 import { formatDateTimeBr } from "@/lib/timezone";
@@ -5144,12 +5144,6 @@ export const INCREMENTAL_LEDGER_CUTOVER_FILE =
  * antes do ledger e permite que a primeira migration incremental crie seus
  * índices e funções sem depender de uma migration corretiva posterior.
  */
-export const INSTALLATION_OPERATIONS_INCREMENTAL_PREREQUISITES_SQL = [
-  "alter table public.installation_operations add column if not exists lease_owner text",
-  "alter table public.installation_operations add column if not exists lease_expires_at timestamptz",
-  "alter table public.installation_operations add column if not exists attempt_count integer not null default 0",
-].join(";\n");
-
 /** Divide o pacote pelos marcadores emitidos pelo gerador MASTER-first. */
 export function splitDeltaMigrations(sql: string): DeltaMigration[] {
   const marker = /^-- -+\n-- ([0-9]{14}_[A-Za-z0-9_-]+\.sql)\n-- -+\n/gm;
@@ -5503,16 +5497,6 @@ export async function applyDatabaseDelta(input: {
     projectRef: target.projectRef,
     fetchImpl: input.fetchImpl,
   });
-
-  const prerequisites = await management.query(
-    INSTALLATION_OPERATIONS_INCREMENTAL_PREREQUISITES_SQL,
-  );
-  if (!prerequisites.ok) {
-    return {
-      state: "error",
-      detail: `preparação do banco para migrations incrementais falhou: ${prerequisites.error ?? "erro"}`,
-    };
-  }
 
   const migrations = splitDeltaMigrations(input.snapshot.sql);
   if (migrations.length === 0) {
