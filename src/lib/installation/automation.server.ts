@@ -388,12 +388,19 @@ export async function applyStatementByStatement(
     // `ALTER TYPE ... ADD VALUE` não pode rodar dentro de bloco/função: o
     // Postgres recusa com 25001/0A000. Esses statements saem do bloco protegido
     // e vão isolados, na mesma ordem, tolerando "já existe".
-    const segments: Array<{ kind: "guarded" | "enum"; statements: string[] }> = [];
+    const segments: Array<{ kind: "guarded" | "enum" | "procedural"; statements: string[] }> = [];
     for (const statement of batch) {
       const isEnumAdd = /^\s*alter\s+type\b[\s\S]*\badd\s+value\b/i.test(statement);
+      // Um bloco DO já possui sua própria fronteira PL/pgSQL. Envolvê-lo no
+      // catcher genérico faz um SQLSTATE lançado no interior parecer a
+      // duplicidade do statement externo (incidente real do pgvector/42710).
+      // Execute-o diretamente: qualquer erro interno precisa abortar a mesma
+      // transação e impedir o avanço do checkpoint.
+      const isProcedural = /^\s*(?:(?:--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/\s*)*)DO\b/i.test(statement);
+      const kind = isEnumAdd ? "enum" : isProcedural ? "procedural" : "guarded";
       const last = segments[segments.length - 1];
-      if (last && (last.kind === "enum") === isEnumAdd) last.statements.push(statement);
-      else segments.push({ kind: isEnumAdd ? "enum" : "guarded", statements: [statement] });
+      if (last?.kind === kind) last.statements.push(statement);
+      else segments.push({ kind, statements: [statement] });
     }
 
     let segmentProcessed = start;
@@ -415,6 +422,20 @@ export async function applyStatementByStatement(
             const duplicateCheckpoint = await management.query(checkpointSql(nextIndex));
             if (!duplicateCheckpoint.ok)
               return { ok: false, error: duplicateCheckpoint.error, processed };
+          }
+          segmentProcessed = nextIndex;
+        }
+        continue;
+      }
+
+      if (segment.kind === "procedural") {
+        for (const statement of segment.statements) {
+          const nextIndex = segmentProcessed + 1;
+          const proceduralRes = await management.query(
+            `BEGIN;\n${statement}\n${checkpointSql(nextIndex)};\nCOMMIT;`,
+          );
+          if (!proceduralRes.ok) {
+            return { ok: false, error: proceduralRes.error, processed };
           }
           segmentProcessed = nextIndex;
         }
@@ -3141,9 +3162,9 @@ export const DONE = -1;
 
 export const VECTOR_EXTENSION_POSTCONDITION = {
   predicateSql:
-    "to_regtype('public.vector') IS NOT NULL AND EXISTS (SELECT 1 FROM pg_opclass oc JOIN pg_namespace n ON n.oid = oc.opcnamespace WHERE n.nspname = 'public' AND oc.opcname = 'vector_cosine_ops')",
+    "EXISTS (SELECT 1 FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace WHERE e.extname = 'vector' AND n.nspname = 'public') AND to_regtype('public.vector') IS NOT NULL AND EXISTS (SELECT 1 FROM pg_opclass oc JOIN pg_namespace n ON n.oid = oc.opcnamespace WHERE n.nspname = 'public' AND oc.opcname = 'vector_cosine_ops')",
   errorMessage:
-    "000_extensions incompleto: public.vector ou public.vector_cosine_ops não foi confirmado",
+    "000_extensions incompleto: pg_extension.vector, public.vector ou public.vector_cosine_ops não foi confirmado",
 } as const;
 
 export async function verifyVectorExtensionPostcondition(management: {
