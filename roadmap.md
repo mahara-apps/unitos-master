@@ -1,5 +1,13 @@
 # Roadmap
 
+## MASTER — criação automática do projeto Vercel no NEW
+
+- [ ] Auditar o lookup atual e comprovar equipe/permissões do token Vercel sem criar recursos reais.
+- [ ] Criar ou reutilizar o projeto no team autorizado, bloqueando conflitos de ownership e repositório.
+- [ ] Persistir project ID/team ID/vínculo e retomar sem duplicar projeto ou deployment.
+- [ ] Preservar READY + SHA autorizado + probe HTTP como condição obrigatória do deployment.
+- [ ] Cobrir os nove cenários obrigatórios e executar instalação, suíte global, tipos, lint, build e `master:check`, sem NEW real.
+
 ## MASTER 1.4.0 — NEW limpa com pgvector canônico
 
 - [x] Garantir `vector` em `public` quando ausente, instalada em `extensions` ou já em `public`, sem remoção indiscriminada.
