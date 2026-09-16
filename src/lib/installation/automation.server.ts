@@ -2670,7 +2670,12 @@ export function createDeployClient(input: {
         }
         const body = (await res.json().catch(() => ({}))) as {
           id?: string;
-          link?: { repo?: string; org?: string; sourceless?: boolean };
+          link?: {
+            repo?: string;
+            org?: string;
+            sourceless?: boolean;
+            productionBranch?: string;
+          };
         };
         const id = encodeURIComponent(body.id ?? input.project);
         const current = `${body.link?.org ?? ""}/${body.link?.repo ?? ""}`.toLowerCase();
@@ -3988,7 +3993,8 @@ export async function runAutomatedProvision(input: {
         teamId: ensuredProject.teamId,
       });
       if (!confirmed.ok || confirmed.repositoryLinked !== true) {
-        const reason = confirmed.error ?? "vínculo GitHub/branch main não foi confirmado pela Vercel";
+        const reason =
+          confirmed.error ?? "vínculo GitHub/branch main não foi confirmado pela Vercel";
         blocked.push(`Projeto de deploy não confirmado: ${reason}`);
         await mark("deploy_link", "error", reason);
         checks.configuration = "error";

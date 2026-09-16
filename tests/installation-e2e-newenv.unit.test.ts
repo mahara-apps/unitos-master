@@ -207,10 +207,7 @@ function scenario(
     if (u.includes("api.vercel.com/v2/teams")) {
       return Response.json({ teams: [{ id: "team_unitos" }, { id: "team_other" }] });
     }
-    if (
-      u.includes("api.vercel.com/v9/projects/unitos-novo") &&
-      u.includes("teamId=team_other")
-    ) {
+    if (u.includes("api.vercel.com/v9/projects/unitos-novo") && u.includes("teamId=team_other")) {
       return new Response("not found", { status: 404 });
     }
     if (u.includes("api.vercel.com/v11/projects")) {
@@ -360,7 +357,9 @@ describe("instalação de ambiente novo — ponta a ponta", () => {
     const result = await run();
     expect(result.result).toBe("BLOCKED");
     expect(result.reasons.join(" ")).toContain("não ao repositório esperado");
-    expect(calls.some((call) => call.method === "DELETE" && call.url.includes("/link"))).toBe(false);
+    expect(calls.some((call) => call.method === "DELETE" && call.url.includes("/link"))).toBe(
+      false,
+    );
   });
 
   it("ownership em outro team bloqueia o projeto existente", async () => {
