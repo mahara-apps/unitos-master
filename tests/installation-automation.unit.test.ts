@@ -27,7 +27,7 @@ const githubResponse = (url: string): Response | null => {
   if (url.includes("/contents/supabase/baseline-snapshot/tools/delta_version.txt"))
     return Response.json({
       encoding: "base64",
-      content: Buffer.from("version=1.4.0\n", "utf8").toString("base64"),
+      content: Buffer.from("version=1.4.1\n", "utf8").toString("base64"),
     });
   if (url.includes("/git/trees")) return Response.json({ tree: [] });
   if (url.includes("/git/ref/heads/")) return Response.json({ object: { sha: "sha_dest" } });
@@ -347,6 +347,20 @@ const INSTALLATION = {
   gitRepoUrl: "https://github.com/acme/unitos-pitada",
 };
 
+const vercelProjectBody = (name = "unitos-pitada", url = "unitos-pitada-abc.vercel.app") => ({
+  id: "prj_unitos_pitada",
+  name,
+  accountId: "personal",
+  link: {
+    type: "github",
+    org: "acme",
+    repo: "unitos-pitada",
+    repoId: 101,
+    productionBranch: "main",
+  },
+  targets: { production: { url } },
+});
+
 const runProvision = (input: Parameters<typeof runAutomatedProvision>[0]) =>
   runAutomatedProvision({
     ...input,
@@ -455,10 +469,7 @@ describe("runAutomatedProvision", () => {
         return Response.json(managementRows(String(init?.body ?? "")));
       }
       if (url.includes("api.vercel.com/v9/projects")) {
-        return Response.json({
-          name: "unitos-pitada",
-          targets: { production: { url: "unitos-pitada-abc.vercel.app" } },
-        });
+        return Response.json(vercelProjectBody());
       }
       if (url.includes("/env")) return Response.json({ created: [] });
       if (url.includes("api.vercel.com/v6/deployments")) {
@@ -519,10 +530,7 @@ describe("runAutomatedProvision", () => {
         return Response.json(managementRows(body));
       }
       if (url.includes("api.vercel.com/v9/projects")) {
-        return Response.json({
-          name: "unitos-pitada",
-          targets: { production: { url: "unitos-pitada-abc.vercel.app" } },
-        });
+        return Response.json(vercelProjectBody());
       }
       if (url.includes("/env")) {
         order.push("env");
@@ -572,7 +580,7 @@ describe("runAutomatedProvision", () => {
           managementRows(String(init?.body ?? ""), { schemas: 3, status: "PASS" }),
         );
       if (url.includes("api.vercel.com/v9/projects")) {
-        return Response.json({ name: "x", targets: { production: { url: "x-abc.vercel.app" } } });
+        return Response.json(vercelProjectBody("x", "x-abc.vercel.app"));
       }
       if (url.includes("/env")) return Response.json({ created: [] });
       if (url.includes("v6/deployments")) return Response.json({ deployments: [] });
@@ -614,7 +622,7 @@ describe("runAutomatedProvision", () => {
           managementRows(String(init?.body ?? ""), { schemas: 3, status: "PASS" }),
         );
       if (url.includes("api.vercel.com/v9/projects")) {
-        return Response.json({ name: "x", targets: { production: { url: "x-abc.vercel.app" } } });
+        return Response.json(vercelProjectBody("x", "x-abc.vercel.app"));
       }
       if (url.includes("/env")) return Response.json({ created: [] });
       if (url.includes("v6/deployments")) {
@@ -658,7 +666,7 @@ describe("runAutomatedProvision", () => {
           managementRows(String(init?.body ?? ""), { schemas: 3, status: "PASS" }),
         );
       if (url.includes("api.vercel.com/v9/projects")) {
-        return Response.json({ name: "x", targets: { production: { url: "x-abc.vercel.app" } } });
+        return Response.json(vercelProjectBody("x", "x-abc.vercel.app"));
       }
       if (url.includes("/env")) return Response.json({ created: [] });
       if (url.includes("v6/deployments")) {
@@ -737,6 +745,9 @@ describe("runAutomatedProvision", () => {
         queries += 1;
         if (queries === 1) return Response.json([{ schemas: 3 }]);
         return new Response("erro de sintaxe", { status: 400 });
+      }
+      if (url.includes("api.vercel.com/v9/projects")) {
+        return Response.json(vercelProjectBody());
       }
       return Response.json({});
     });
@@ -827,7 +838,7 @@ describe("runAutomatedProvision", () => {
         codeDone: true,
         codeSha: "sha_master",
         codeSourceSha: "sha_master",
-        provisionRelease: "1.4.0",
+        provisionRelease: "1.4.1",
       },
     });
     const calls: string[] = [];
@@ -843,6 +854,9 @@ describe("runAutomatedProvision", () => {
       }
       if (url.includes("/database/query"))
         return Response.json(managementRows(String(init?.body ?? "")));
+      if (url.includes("api.vercel.com/v9/projects")) {
+        return Response.json(vercelProjectBody());
+      }
       return new Response("{}", { status: 200 });
     });
 

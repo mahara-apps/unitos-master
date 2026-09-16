@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
 import {
+  confirmVercelGithubLink,
   createDeployClient,
   pollDeploymentUntilTerminal,
   validateReadyDeploymentCommit,
@@ -394,6 +395,66 @@ describe("atualização de código da instalação", () => {
 });
 
 describe("projeto Vercel da instalação nova", () => {
+  it.each([true, false])(
+    "confirma GitHub/repo/main quando sourceless=%s",
+    (sourceless) => {
+      expect(
+        confirmVercelGithubLink(
+          {
+            link: {
+              type: "github",
+              org: "mahara-apps",
+              repo: "unitos-novo",
+              productionBranch: "main",
+              sourceless,
+            },
+          },
+          "mahara-apps/unitos-novo",
+        ),
+      ).toMatchObject({ confirmed: true, present: true });
+    },
+  );
+
+  it.each([
+    ["repositório divergente", { type: "github", org: "mahara-apps", repo: "outro", productionBranch: "main" }],
+    ["branch divergente", { type: "github", org: "mahara-apps", repo: "unitos-novo", productionBranch: "develop" }],
+    ["vínculo ausente", {}],
+    ["tipo não GitHub", { type: "gitlab", org: "mahara-apps", repo: "unitos-novo", productionBranch: "main" }],
+  ])("bloqueia %s", (_label, link) => {
+    expect(confirmVercelGithubLink(link, "mahara-apps/unitos-novo").confirmed).toBe(false);
+  });
+
+  it("confirma pelo endpoint /link quando o projeto omite o vínculo", async () => {
+    const { impl, calls } = fakeFetch([
+      {
+        match: /v9\/projects\/unitos-novo\?teamId=team_1/,
+        body: { id: "prj_1", name: "unitos-novo", accountId: "team_1" },
+      },
+      {
+        match: /v10\/projects\/prj_1\/link\?teamId=team_1/,
+        body: {
+          type: "github",
+          org: "mahara-apps",
+          repo: "unitos-novo",
+          productionBranch: "main",
+          sourceless: true,
+        },
+      },
+    ]);
+    const client = createDeployClient({
+      token: "t",
+      project: "unitos-novo",
+      teamId: "team_1",
+      fetchImpl: impl,
+    });
+    await expect(client.ensureProject("mahara-apps/unitos-novo")).resolves.toMatchObject({
+      ok: true,
+      repositoryLinked: true,
+    });
+    expect(calls.some((call) => call.method === "GET" && /v10\/projects\/prj_1\/link/.test(call.url))).toBe(true);
+    expect(calls.some((call) => call.method !== "GET")).toBe(false);
+  });
+
   it("reutiliza projeto existente no team correto sem criar duplicado", async () => {
     const { impl, calls } = fakeFetch([
       {
@@ -407,6 +468,7 @@ describe("projeto Vercel da instalação nova", () => {
             org: "mahara-apps",
             repo: "unitos-novo",
             productionBranch: "main",
+            sourceless: true,
           },
         },
       },
@@ -425,6 +487,7 @@ describe("projeto Vercel da instalação nova", () => {
       repositoryLinked: true,
     });
     expect(calls.some((call) => call.url.includes("/v11/projects"))).toBe(false);
+    expect(calls.every((call) => call.method === "GET")).toBe(true);
   });
 
   it("token sem Create Project informa a permissão necessária", async () => {

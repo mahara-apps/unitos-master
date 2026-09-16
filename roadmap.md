@@ -2,9 +2,9 @@
 
 ## MASTER — confirmação do vínculo GitHub na Vercel
 
-- [ ] Consolidar a leitura do vínculo entre o projeto e `GET /v10/projects/{id}/link`.
-- [ ] Confirmar por team, tipo GitHub, repositório e branch, tratando `sourceless` apenas como metadado.
-- [ ] Preservar bloqueios para team, repositório, branch ou vínculo incompatíveis e a idempotência do RESUME.
+- [x] Consolidar a leitura do vínculo entre o projeto e `GET /v10/projects/{id}/link`.
+- [x] Confirmar por team, tipo GitHub, repositório e branch, tratando `sourceless` apenas como metadado.
+- [x] Preservar bloqueios para team, repositório, branch ou vínculo incompatíveis e a idempotência do RESUME.
 - [ ] Cobrir os cenários A–F e executar testes focados/de instalação, tipos, lint, build e `master:check`, sem executar NEW ou alterar recursos externos.
 
 ## MASTER — criação automática do projeto Vercel no NEW
