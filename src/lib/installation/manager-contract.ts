@@ -135,6 +135,30 @@ export function canStartOperation(
   return ALLOWED_START[kind].includes(status);
 }
 
+export type FailedProvisionRetryContext = {
+  installationStatus: InstallationStatus;
+  lastProvisionedAt?: string | null;
+  activeOperationId?: string | null;
+  lastProvisionOperation?: {
+    id: string;
+    kind: InstallationOperationKind;
+    status: InstallationOperationStatus;
+  } | null;
+  hasSuccessfulProvision?: boolean;
+};
+
+/** Exceção estreita para uma NOVA operação após um provision terminal. */
+export function canRetryFailedProvision(input: FailedProvisionRetryContext): boolean {
+  return (
+    (input.installationStatus === "error" || input.installationStatus === "update_available") &&
+    !input.lastProvisionedAt &&
+    !input.activeOperationId &&
+    input.hasSuccessfulProvision !== true &&
+    input.lastProvisionOperation?.kind === "provision" &&
+    input.lastProvisionOperation.status === "failed"
+  );
+}
+
 /** Status enquanto a operação está em execução. */
 export function runningStatusFor(kind: InstallationOperationKind): InstallationStatus {
   if (kind === "validate") return "validating";
