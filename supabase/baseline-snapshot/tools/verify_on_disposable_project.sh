@@ -10,10 +10,10 @@ PSQL=(psql "$SUPABASE_DISPOSABLE_DB_URL" -v ON_ERROR_STOP=1 -X)
 # previamente instalada em `extensions` e já canônica em `public`.
 "${PSQL[@]}" -c "DROP EXTENSION IF EXISTS vector;"
 "${PSQL[@]}" -f "$ROOT/supabase/baseline-snapshot/000_extensions.sql"
-"${PSQL[@]}" -c "DO \$verify_vector\$ BEGIN IF to_regtype('public.vector') IS NULL OR NOT EXISTS (SELECT 1 FROM pg_opclass oc JOIN pg_namespace n ON n.oid = oc.opcnamespace WHERE n.nspname = 'public' AND oc.opcname = 'vector_cosine_ops') THEN RAISE EXCEPTION 'public.vector pós-condição ausente'; END IF; END \$verify_vector\$;"
+"${PSQL[@]}" -c "DO \$verify_vector\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace WHERE e.extname = 'vector' AND n.nspname = 'public') OR to_regtype('public.vector') IS NULL OR NOT EXISTS (SELECT 1 FROM pg_opclass oc JOIN pg_namespace n ON n.oid = oc.opcnamespace WHERE n.nspname = 'public' AND oc.opcname = 'vector_cosine_ops') THEN RAISE EXCEPTION 'pgvector pós-condição ausente'; END IF; END \$verify_vector\$;"
 "${PSQL[@]}" -c "ALTER EXTENSION vector SET SCHEMA extensions;"
 "${PSQL[@]}" -f "$ROOT/supabase/baseline-snapshot/000_extensions.sql"
-"${PSQL[@]}" -c "DO \$verify_vector\$ BEGIN IF to_regtype('public.vector') IS NULL OR NOT EXISTS (SELECT 1 FROM pg_opclass oc JOIN pg_namespace n ON n.oid = oc.opcnamespace WHERE n.nspname = 'public' AND oc.opcname = 'vector_cosine_ops') THEN RAISE EXCEPTION 'public.vector pós-condição ausente'; END IF; END \$verify_vector\$;"
+"${PSQL[@]}" -c "DO \$verify_vector\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace WHERE e.extname = 'vector' AND n.nspname = 'public') OR to_regtype('public.vector') IS NULL OR NOT EXISTS (SELECT 1 FROM pg_opclass oc JOIN pg_namespace n ON n.oid = oc.opcnamespace WHERE n.nspname = 'public' AND oc.opcname = 'vector_cosine_ops') THEN RAISE EXCEPTION 'pgvector pós-condição ausente'; END IF; END \$verify_vector\$;"
 "${PSQL[@]}" -f "$ROOT/supabase/baseline-snapshot/000_extensions.sql"
 
 for file in \

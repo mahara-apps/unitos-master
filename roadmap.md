@@ -13,8 +13,10 @@
 - [x] Garantir `vector` em `public` quando ausente, instalada em `extensions` ou já em `public`, sem remoção indiscriminada.
 - [x] Exigir `public.vector` e `public.vector_cosine_ops` antes de concluir/checkpointar `000_extensions`.
 - [x] Cobrir os três estados iniciais e a recusa de checkpoint sem pós-condição.
-- [ ] Validar `000 → 001` em Supabase realmente descartável quando houver credencial própria disponível.
-- [ ] Executar testes focados/de instalação/globais, tipos, lint, build e `master:check`, sem NEW real e sem tocar instalações existentes.
+- [x] Propagar erros internos de blocos `DO`, inclusive SQLSTATE 42710, sem avanço de checkpoint.
+- [x] Exigir também `pg_extension.vector` em `public` na pós-condição transacional.
+- [x] Validar os estados ausente/`extensions`/`public` em PostgreSQL descartável com pgvector 0.8.2, sem banco externo.
+- [x] Executar testes focados/de instalação/globais, tipos, lint focado, build e `master:check`, sem NEW real e sem tocar instalações existentes.
 
 ## MASTER 1.4.0 — Deploy Vercel comprovado no NEW
 

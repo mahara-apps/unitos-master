@@ -86,6 +86,15 @@ REVOKE ALL ON public._unitos_applied_deltas FROM anon, authenticated;
 -- com schema qualificado. Falhar aqui impede checkpoint falso de conclusão.
 DO $unitos_vector_postcondition$
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+      FROM pg_extension e
+      JOIN pg_namespace n ON n.oid = e.extnamespace
+     WHERE e.extname = 'vector'
+       AND n.nspname = 'public'
+  ) THEN
+    RAISE EXCEPTION '000_extensions: pg_extension não confirmou vector no schema public';
+  END IF;
   IF to_regtype('public.vector') IS NULL THEN
     RAISE EXCEPTION '000_extensions: tipo public.vector ausente após convergência do pgvector';
   END IF;

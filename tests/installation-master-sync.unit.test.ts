@@ -114,6 +114,7 @@ describe("sincronia MASTER-first", () => {
     expect(extensions).toContain("CREATE EXTENSION vector WITH SCHEMA public");
     expect(extensions).toContain("ALTER EXTENSION vector SET SCHEMA public");
     expect(extensions).not.toMatch(/DROP\s+EXTENSION(?:\s+IF\s+EXISTS)?\s+vector/i);
+    expect(extensions).toContain("pg_extension não confirmou vector no schema public");
     expect(extensions).toContain("to_regtype('public.vector') IS NULL");
     expect(extensions).toContain("oc.opcname = 'vector_cosine_ops'");
   });

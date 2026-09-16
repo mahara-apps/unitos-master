@@ -340,6 +340,8 @@ describe("reexecução idempotente do baseline", () => {
 
     expect(result).toMatchObject({ ok: true, complete: true });
     const completion = batches.find((batch) => batch.includes("DO $unitos_drain$"));
+    expect(completion).toContain("FROM pg_extension e");
+    expect(completion).toContain("e.extname = 'vector'");
     expect(completion).toContain("to_regtype('public.vector') IS NOT NULL");
     expect(completion).toContain("oc.opcname = 'vector_cosine_ops'");
     expect(completion?.indexOf("IF NOT (")).toBeLessThan(completion?.indexOf("'completed'") ?? -1);
@@ -370,6 +372,37 @@ describe("reexecução idempotente do baseline", () => {
     });
   });
 
+  it("propaga 42710 interno de bloco DO e não avança seu checkpoint", async () => {
+    const batches: string[] = [];
+    const result = await applyStatementByStatement(
+      {
+        query: async (batch) => {
+          batches.push(batch);
+          if (batch.includes("DO $unitos_vector_schema$")) {
+            return {
+              ok: false,
+              rows: [],
+              error: '42710: extension "vector" already exists',
+            };
+          }
+          return { ok: true, rows: checkpointRows(batch, 1) };
+        },
+      },
+      "DO $unitos_vector_schema$ BEGIN RAISE EXCEPTION USING ERRCODE = '42710'; END $unitos_vector_schema$;",
+      { completionPostcondition: VECTOR_EXTENSION_POSTCONDITION },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: '42710: extension "vector" already exists',
+      processed: 0,
+    });
+    const execution = batches.find((batch) => batch.includes("DO $unitos_vector_schema$"));
+    expect(execution).not.toContain("DO $unitos_guard$");
+    expect(execution).not.toContain("WHEN SQLSTATE '42710'");
+    expect(batches.some((batch) => batch.includes("DO $unitos_drain$"))).toBe(false);
+  });
+
   it("comprova public.vector e public.vector_cosine_ops sem aceitar resposta vazia", async () => {
     await expect(
       verifyVectorExtensionPostcondition({
@@ -385,6 +418,27 @@ describe("reexecução idempotente do baseline", () => {
       }),
     ).resolves.toEqual({ ok: false, error: "consulta indisponível" });
   });
+
+  it("exige pg_extension.vector além do tipo e da operator class", () => {
+    expect(VECTOR_EXTENSION_POSTCONDITION.predicateSql).toContain("FROM pg_extension e");
+    expect(VECTOR_EXTENSION_POSTCONDITION.predicateSql).toContain("e.extname = 'vector'");
+    expect(VECTOR_EXTENSION_POSTCONDITION.predicateSql).toContain("n.nspname = 'public'");
+  });
+
+  it.each([
+    ["A: vector inexistente", false, false, false, false],
+    ["B: vector ainda em extensions", true, false, false, false],
+    ["C: vector canônico em public", true, true, true, true],
+  ])(
+    "%s só satisfaz a pós-condição quando extensão, tipo e operator class estão em public",
+    (_state, extensionInPublic, publicType, publicOpclass, expected) => {
+      const vectorReady = extensionInPublic && publicType && publicOpclass;
+      expect(vectorReady).toBe(expected);
+      if (!vectorReady) {
+        expect(VECTOR_EXTENSION_POSTCONDITION.errorMessage).toContain("pg_extension.vector");
+      }
+    },
+  );
 
   it("comprova a ausência da assinatura explícita antes de tolerar o DROP da migration 96", async () => {
     const batches: string[] = [];
