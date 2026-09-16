@@ -1166,6 +1166,7 @@ async function openAutomatedProvision(
     kind: InstallationOperationKind;
     status: InstallationOperationStatus;
   } | null = null;
+  let retrySourceId: string | null = null;
   let hasSuccessfulProvision = false;
   if (retryOfOperationId) {
     const [latestResult, successfulResult] = await Promise.all([
@@ -1187,7 +1188,14 @@ async function openAutomatedProvision(
     ]);
     if (latestResult.error) throw latestResult.error;
     if (successfulResult.error) throw successfulResult.error;
-    retrySource = latestResult.data as typeof retrySource;
+    if (latestResult.data) {
+      retrySource = {
+        id: String(latestResult.data.id),
+        kind: latestResult.data.kind as InstallationOperationKind,
+        status: latestResult.data.status as InstallationOperationStatus,
+      };
+      retrySourceId = retrySource.id;
+    }
     hasSuccessfulProvision = (successfulResult.data ?? []).length > 0;
   }
   const retryAllowed = retryOfOperationId
@@ -1197,7 +1205,7 @@ async function openAutomatedProvision(
         activeOperationId: record.activeOperationId,
         lastProvisionOperation: retrySource,
         hasSuccessfulProvision,
-      }) && retrySource?.id === retryOfOperationId
+      }) && retrySourceId === retryOfOperationId
     : false;
   if (!canStartOperation("provision", record.status) && !retryAllowed) {
     throw new Error(

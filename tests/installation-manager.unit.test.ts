@@ -16,9 +16,9 @@ import {
 
 describe("Installation Manager — disponível somente no MASTER", () => {
   it("reconhece o MASTER pelo Supabase/domínio", () => {
-    expect(
-      isMasterInstallation({ supabaseUrl: "https://tkjbhttylouamqxnbfgv.supabase.co" }),
-    ).toBe(true);
+    expect(isMasterInstallation({ supabaseUrl: "https://tkjbhttylouamqxnbfgv.supabase.co" })).toBe(
+      true,
+    );
     expect(isMasterInstallation({ appUrl: "https://unitos-master.lovable.app" })).toBe(true);
   });
 
@@ -176,7 +176,11 @@ describe("estados do provisionamento", () => {
 
   it("sucesso com ressalvas vira atenção", () => {
     expect(
-      statusAfterOperation("validate", { ok: true, warnings: true, version: MASTER_RELEASE_VERSION }),
+      statusAfterOperation("validate", {
+        ok: true,
+        warnings: true,
+        version: MASTER_RELEASE_VERSION,
+      }),
     ).toBe("attention");
     expect(healthAfterOperation({ ok: true, warnings: true })).toBe("degraded");
   });

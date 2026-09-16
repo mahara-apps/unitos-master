@@ -29,6 +29,12 @@ describe("reconciliação de versão da instalação", () => {
     expect(automation).toContain("async installedRelease()");
   });
 
+  it("explica a divergência conhecida entre falha terminal e update_available", () => {
+    const sync = manager.slice(manager.indexOf("export const syncInstallationVersionFn"));
+    expect(sync).toContain("status: isUpdateAvailable(installed.version, MASTER_RELEASE_VERSION)");
+    expect(sync).not.toContain('eq("status", "failed")');
+  });
+
   it("a tela oferece sincronizar versão", () => {
     expect(detail).toContain("Sincronizar versão");
     expect(detail).toContain("syncVersion.mutate(");

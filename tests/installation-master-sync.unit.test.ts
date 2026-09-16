@@ -179,5 +179,8 @@ describe("sincronia MASTER-first", () => {
       "CREATE OR REPLACE FUNCTION public.start_durable_installation_operation",
     );
     expect(verifySql).toContain("start_durable_installation_operation");
+    expect(delta).toContain("_retry_of_operation_id uuid DEFAULT NULL");
+    expect(delta).toContain("'retryOfOperationId', _retry_of_operation_id");
+    expect(verifySql).toContain("retry terminal de provision protegido");
   });
 });
