@@ -704,6 +704,16 @@ WITH checks AS (
                     AND NOT has_function_privilege('anon', 'public.checkpoint_installation_migration(uuid,text,bigint,text,text,integer,integer,integer,boolean)', 'EXECUTE')
                     AND NOT has_function_privilege('authenticated', 'public.checkpoint_installation_migration(uuid,text,bigint,text,text,integer,integer,integer,boolean)', 'EXECUTE')
               THEN 'PASS' ELSE 'FAIL' END
+
+  UNION ALL
+  SELECT 90, 'operações: retry terminal de provision protegido',
+         CASE WHEN to_regprocedure('public.start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamp with time zone,uuid)') IS NULL
+              THEN 'assinatura ausente' ELSE 'assinatura disponível' END,
+         CASE WHEN to_regprocedure('public.start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamp with time zone,uuid)') IS NOT NULL
+                    AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='installation_operations' AND column_name='retry_of_operation_id')
+                    AND NOT has_function_privilege('anon', 'public.start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamp with time zone,uuid)', 'EXECUTE')
+                    AND NOT has_function_privilege('authenticated', 'public.start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamp with time zone,uuid)', 'EXECUTE')
+              THEN 'PASS' ELSE 'FAIL' END
 )
 
 SELECT status, check_name, observed

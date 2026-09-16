@@ -5747,6 +5747,7 @@ export type Database = {
           next_attempt_at: string | null
           next_command: string | null
           reconciled_at: string | null
+          retry_of_operation_id: string | null
           run_token_expires_at: string | null
           run_token_hash: string | null
           started_at: string
@@ -5781,6 +5782,7 @@ export type Database = {
           next_attempt_at?: string | null
           next_command?: string | null
           reconciled_at?: string | null
+          retry_of_operation_id?: string | null
           run_token_expires_at?: string | null
           run_token_hash?: string | null
           started_at?: string
@@ -5815,6 +5817,7 @@ export type Database = {
           next_attempt_at?: string | null
           next_command?: string | null
           reconciled_at?: string | null
+          retry_of_operation_id?: string | null
           run_token_expires_at?: string | null
           run_token_hash?: string | null
           started_at?: string
@@ -5829,6 +5832,13 @@ export type Database = {
             columns: ["installation_id"]
             isOneToOne: false
             referencedRelation: "installations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installation_operations_retry_of_operation_id_fkey"
+            columns: ["retry_of_operation_id"]
+            isOneToOne: false
+            referencedRelation: "installation_operations"
             referencedColumns: ["id"]
           },
         ]
@@ -9218,6 +9228,7 @@ export type Database = {
           next_attempt_at: string | null
           next_command: string | null
           reconciled_at: string | null
+          retry_of_operation_id: string | null
           run_token_expires_at: string | null
           run_token_hash: string | null
           started_at: string
@@ -9277,6 +9288,7 @@ export type Database = {
           next_attempt_at: string | null
           next_command: string | null
           reconciled_at: string | null
+          retry_of_operation_id: string | null
           run_token_expires_at: string | null
           run_token_hash: string | null
           started_at: string
@@ -9709,6 +9721,7 @@ export type Database = {
           _detail: Json
           _installation_id: string
           _kind: string
+          _retry_of_operation_id?: string
           _run_token_expires_at?: string
           _run_token_hash?: string
           _steps: Json
@@ -9741,6 +9754,7 @@ export type Database = {
           next_attempt_at: string | null
           next_command: string | null
           reconciled_at: string | null
+          retry_of_operation_id: string | null
           run_token_expires_at: string | null
           run_token_hash: string | null
           started_at: string
@@ -9792,6 +9806,7 @@ export type Database = {
           next_attempt_at: string | null
           next_command: string | null
           reconciled_at: string | null
+          retry_of_operation_id: string | null
           run_token_expires_at: string | null
           run_token_hash: string | null
           started_at: string

@@ -385,7 +385,6 @@ function InstallationDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-
   const complete = useMutation({
     mutationFn: (input: {
       operationId: string;
@@ -1316,9 +1315,7 @@ function InstallationDetailPage() {
                   }
                   onClick={() =>
                     askCritical(
-                      failedProvision
-                        ? "installation.retry_provision"
-                        : "installation.provision",
+                      failedProvision ? "installation.retry_provision" : "installation.provision",
                       (confirmLabel) =>
                         autoProvision.mutate({
                           confirmLabel,
@@ -1424,7 +1421,9 @@ function InstallationDetailPage() {
                   {op.errorKind && (
                     <p className="mt-1 text-xs text-destructive">Motivo: {op.errorKind}</p>
                   )}
-                  {(op.status === "pending" || op.status === "running" || op.status === "retryable") && (
+                  {(op.status === "pending" ||
+                    op.status === "running" ||
+                    op.status === "retryable") && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {/* Operação automatizada reporta o próprio resultado: nada de registro manual. */}
                       {!op.detail.automated && (

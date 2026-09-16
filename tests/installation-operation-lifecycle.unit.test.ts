@@ -15,7 +15,7 @@ import canonicalAttemptsSql from "../supabase/migrations/20260914141212_3f236ac3
 import sealedPackageSql from "../supabase/migrations/20260914193902_b2da0b29-18e7-4dee-b276-428a57155c36.sql?raw";
 import sealedPackageStrictHashSql from "../supabase/migrations/20260914194505_2a76102f-5090-46e6-9269-f3c0f1bd057f.sql?raw";
 import durableStartSql from "../supabase/migrations/20260915095958_eb639764-7956-418c-8ed9-9b9fde0246a3.sql?raw";
-import failedProvisionRetrySql from "../supabase/migrations/20260916140000_retry_failed_provision.sql?raw";
+import failedProvisionRetrySql from "../supabase/migrations/20260916140310_b0a7973f-0881-4ef0-9b48-a19202063e8d.sql?raw";
 
 const NOW = Date.parse("2026-01-10T12:00:00.000Z");
 
@@ -186,7 +186,7 @@ describe("contagem de falhas consecutivas", () => {
 
   it("retry terminal cria nova operação e preserva a failed anterior", () => {
     expect(failedProvisionRetrySql).toContain("_retry_of_operation_id uuid DEFAULT NULL");
-    expect(failedProvisionRetrySql).toContain("id uuid PRIMARY KEY DEFAULT gen_random_uuid()");
+    expect(failedProvisionRetrySql).toContain("RETURNING * INTO _operation");
     expect(failedProvisionRetrySql).toContain("_retry_operation.status <> 'failed'");
     expect(failedProvisionRetrySql).toContain("_retry_operation.kind <> 'provision'");
     expect(failedProvisionRetrySql).toContain("_installation.last_provisioned_at IS NOT NULL");

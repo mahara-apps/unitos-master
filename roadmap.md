@@ -2,10 +2,10 @@
 
 ## MASTER — retry seguro de provision terminal
 
-- [ ] Permitir retry contextual de `provision failed` em `update_available` sem ampliar o provisionamento normal.
-- [ ] Criar nova operação durável vinculada à anterior, preservando histórico, lock, lease e fencing.
-- [ ] Cobrir elegibilidade, concorrência, imutabilidade, adoção e regressão de UPDATE.
-- [ ] Regenerar/versionar o pacote e executar testes, tipos, lint, build e `master:check`, sem NEW real ou publicação.
+- [x] Permitir retry contextual de `provision failed` em `update_available` sem ampliar o provisionamento normal.
+- [x] Criar nova operação durável vinculada à anterior, preservando histórico, lock, lease e fencing.
+- [x] Cobrir elegibilidade, concorrência, imutabilidade, adoção e regressão de UPDATE.
+- [x] Regenerar/versionar o pacote e executar testes, tipos, lint, build e `master:check`, sem NEW real ou publicação.
 
 ## MASTER — correção da convergência pgvector
 
