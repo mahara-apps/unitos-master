@@ -108,11 +108,27 @@ describe("sincronia MASTER-first", () => {
     expect(extensions).not.toMatch(/UPDATE\s+public\._unitos_applied_deltas/i);
   });
 
+  it("converge pgvector para public sem remover a extensão ou seus objetos", () => {
+    expect(extensions).toContain("WHERE e.extname = 'vector'");
+    expect(extensions).toContain("CREATE EXTENSION vector WITH SCHEMA public");
+    expect(extensions).toContain("ALTER EXTENSION vector SET SCHEMA public");
+    expect(extensions).not.toMatch(/DROP\s+EXTENSION(?:\s+IF\s+EXISTS)?\s+vector/i);
+    expect(extensions).toContain("to_regtype('public.vector') IS NULL");
+    expect(extensions).toContain("oc.opcname = 'vector_cosine_ops'");
+  });
+
   it("relatorio de saude confere todas as tabelas do pacote", () => {
     const faltando = tabelasDoDelta(delta).filter(
       (t) => !verifySql.includes(`'${t}'`) && !verifySql.includes(`public.${t}`),
     );
     expect(faltando).toEqual([]);
+  });
+
+  it("relatório exige tipo e operator class do pgvector no schema public", () => {
+    expect(verifySql).toContain("pgvector canônico (public.vector + public.vector_cosine_ops)");
+    expect(verifySql).toContain("to_regtype('public.vector') IS NOT NULL");
+    expect(verifySql).toContain("oc.opcname = 'vector_cosine_ops'");
+    expect(verifySql).toContain("n.nspname = 'public'");
   });
 
   it("pacote e verificação incluem a abertura durável do workflow", () => {

@@ -180,6 +180,22 @@ WITH checks AS (
                     WHERE extname IN ('pgcrypto','uuid-ossp','vector','pg_net','pg_cron','supabase_vault')) = 6
               THEN 'PASS' ELSE 'FAIL' END
 
+  UNION ALL
+  SELECT 21, 'pgvector canônico (public.vector + public.vector_cosine_ops)',
+         coalesce(
+           (SELECT n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace
+             WHERE e.extname = 'vector'),
+           'ausente'
+         ) || ' / tipo=' || coalesce(to_regtype('public.vector')::text, 'ausente') ||
+         ' / opclass=' || CASE WHEN EXISTS (
+           SELECT 1 FROM pg_opclass oc JOIN pg_namespace n ON n.oid = oc.opcnamespace
+            WHERE n.nspname = 'public' AND oc.opcname = 'vector_cosine_ops'
+         ) THEN 'presente' ELSE 'ausente' END,
+         CASE WHEN to_regtype('public.vector') IS NOT NULL AND EXISTS (
+           SELECT 1 FROM pg_opclass oc JOIN pg_namespace n ON n.oid = oc.opcnamespace
+            WHERE n.nspname = 'public' AND oc.opcname = 'vector_cosine_ops'
+         ) THEN 'PASS' ELSE 'FAIL' END
+
   -- --------------------------------------------------------------------- storage
   UNION ALL
   SELECT 30, 'storage: 5 buckets privados esperados',

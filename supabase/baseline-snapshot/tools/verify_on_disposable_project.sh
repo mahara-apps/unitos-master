@@ -6,13 +6,22 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 PSQL=(psql "$SUPABASE_DISPOSABLE_DB_URL" -v ON_ERROR_STOP=1 -X)
 
+# Exercita os três estados reais de entrada antes do baseline: ausente,
+# previamente instalada em `extensions` e já canônica em `public`.
+"${PSQL[@]}" -c "DROP EXTENSION IF EXISTS vector;"
+"${PSQL[@]}" -f "$ROOT/supabase/baseline-snapshot/000_extensions.sql"
+"${PSQL[@]}" -c "SELECT CASE WHEN to_regtype('public.vector') IS NOT NULL AND EXISTS (SELECT 1 FROM pg_opclass oc JOIN pg_namespace n ON n.oid = oc.opcnamespace WHERE n.nspname = 'public' AND oc.opcname = 'vector_cosine_ops') THEN true ELSE false END AS vector_ready \gset" -c "SELECT :'vector_ready'::boolean;"
+"${PSQL[@]}" -c "ALTER EXTENSION vector SET SCHEMA extensions;"
+"${PSQL[@]}" -f "$ROOT/supabase/baseline-snapshot/000_extensions.sql"
+"${PSQL[@]}" -c "SELECT CASE WHEN to_regtype('public.vector') IS NOT NULL AND EXISTS (SELECT 1 FROM pg_opclass oc JOIN pg_namespace n ON n.oid = oc.opcnamespace WHERE n.nspname = 'public' AND oc.opcname = 'vector_cosine_ops') THEN true ELSE false END AS vector_ready \gset" -c "SELECT :'vector_ready'::boolean;"
+"${PSQL[@]}" -f "$ROOT/supabase/baseline-snapshot/000_extensions.sql"
+
 for file in \
-  000_extensions.sql \
   001_initial_schema.sql \
   005_auth_trigger.sql \
   007_delta_migrations.sql \
-  003_storage_policies.sql \
-  006_storage_seed.sql \
+  003_storage_buckets.sql \
+  006_storage_policies.sql \
   004_seeds.sql
 do
   "${PSQL[@]}" -f "$ROOT/supabase/baseline-snapshot/$file"
