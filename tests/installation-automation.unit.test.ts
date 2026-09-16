@@ -378,6 +378,7 @@ function managementRows(
       },
     ];
   }
+  if (sql.includes("AS vector_ready")) return [{ vector_ready: true }];
   return [fallback];
 }
 

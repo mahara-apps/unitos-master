@@ -192,6 +192,7 @@ function scenario(
           },
         ]);
       }
+      if (body.includes("AS vector_ready")) return Response.json([{ vector_ready: true }]);
       return Response.json([{ schemas: 3, item: "ok", status: "PASS" }]);
     }
 
