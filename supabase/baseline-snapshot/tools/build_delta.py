@@ -142,12 +142,13 @@ def _validate_cutover(files: list[str], selected: list[tuple[str, str]], destina
 
 def main() -> None:
     files = sorted(glob.glob(os.path.join(MIGRATIONS, "*.sql")))
-    destinations = _load_destinations(files)
     start = os.path.join(MIGRATIONS, START_MIGRATION)
     if start not in files:
         raise SystemExit(f"START_MIGRATION ausente: {START_MIGRATION}")
+    package_files = files[files.index(start):]
+    destinations = _load_destinations(package_files)
     selected: list[tuple[str, str]] = []
-    for path in files[files.index(start):]:
+    for path in package_files:
         source = _client_source(path, destinations[os.path.basename(path)])
         if source is not None:
             selected.append((path, source))
