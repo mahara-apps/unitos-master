@@ -2400,6 +2400,45 @@ export function createDeployClient(input: {
         return { ok: false, error: "repositório GitHub inválido para criar o projeto Vercel" };
       }
       try {
+        // Compatibilidade com projetos existentes cadastrados antes de o team
+        // virar checkpoint obrigatório. Eles podem ser adotados somente quando
+        // a própria Vercel os devolve no escopo atual; criação nova continua a
+        // exigir um team explícito/default verificável.
+        if (!checkpoint?.teamId && !resolvedTeamId) {
+          const existing = await doFetch(
+            `https://api.vercel.com/v9/projects/${encodeURIComponent(checkpoint?.projectId ?? input.project)}`,
+            { headers },
+          );
+          if (existing.ok) {
+            const body = await readProjectBody(existing);
+            const projectId = (body.id ?? input.project).trim();
+            const accountId = (body.accountId ?? "personal").trim();
+            const currentRepo = linkedRepo(body);
+            if (currentRepo && currentRepo !== expectedRepo) {
+              return {
+                ok: false,
+                error: `o projeto Vercel ${body.name ?? input.project} está ligado a ${currentRepo}, não ao repositório esperado ${repo}`,
+              };
+            }
+            resolvedProjectId = projectId;
+            resolvedProjectName = (body.name ?? input.project).trim();
+            return {
+              ok: true,
+              projectId,
+              teamId: accountId,
+              projectName: resolvedProjectName,
+              created: false,
+              repositoryLinked:
+                currentRepo === expectedRepo &&
+                (body.gitRepository?.productionBranch ?? body.link?.productionBranch ?? "main") ===
+                  "main" &&
+                body.link?.sourceless !== true,
+            };
+          }
+          if (existing.status !== 404) {
+            return { ok: false, error: await projectAccessError(existing) };
+          }
+        }
         const team = await resolveCreationTeam(checkpoint?.teamId);
         if (!team.ok) return team;
         const expectedTeamId = team.teamId;

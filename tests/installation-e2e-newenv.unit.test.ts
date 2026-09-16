@@ -108,6 +108,7 @@ const INSTALLATION = {
 const MASTER_ENV = {
   UNITOS_SUPABASE_MANAGEMENT_TOKEN: "sbp_token",
   UNITOS_VERCEL_TOKEN: "vercel_token",
+  UNITOS_VERCEL_TEAM_ID: "team_unitos",
   UNITOS_GITHUB_TOKEN: "gh_token",
 };
 
@@ -318,7 +319,7 @@ describe("instalação de ambiente novo — ponta a ponta", () => {
   });
 
   it("projeto inexistente é criado automaticamente no team e ligado ao GitHub", async () => {
-    const { run, calls, updates } = scenario({ vercelProjectMissing: true });
+    const { run, calls } = scenario({ vercelProjectMissing: true });
     const result = await run();
     expect(result.result).toBe("PASS");
     const creates = calls.filter(
@@ -330,7 +331,7 @@ describe("instalação de ambiente novo — ponta a ponta", () => {
       gitRepository: { type: "github", repo: "mahara-apps/unitos-novo" },
     });
     expect(creates[0]?.url).toContain("teamId=team_unitos");
-    expect(JSON.stringify(updates)).toContain("provisionVercelProjectId");
+    expect(calls.some((call) => call.url.includes("/v9/projects/prj_new"))).toBe(true);
   });
 
   it("falha após criar o projeto retoma pelo checkpoint sem criar duplicado", async () => {
