@@ -342,9 +342,7 @@ describe("reexecução idempotente do baseline", () => {
     const completion = batches.find((batch) => batch.includes("DO $unitos_drain$"));
     expect(completion).toContain("to_regtype('public.vector') IS NOT NULL");
     expect(completion).toContain("oc.opcname = 'vector_cosine_ops'");
-    expect(completion?.indexOf("IF NOT (")).toBeLessThan(
-      completion?.indexOf("'completed'") ?? -1,
-    );
+    expect(completion?.indexOf("IF NOT (")).toBeLessThan(completion?.indexOf("'completed'") ?? -1);
   });
 
   it("não conclui quando a pós-condição do pgvector falha", async () => {
