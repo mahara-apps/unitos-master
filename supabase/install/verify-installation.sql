@@ -1,10 +1,10 @@
 -- =============================================================================
--- verify-installation.sql — VALIDAÇÃO READ-ONLY de uma instalação do Unitos.
+-- verify-installation-client.sql — VALIDAÇÃO READ-ONLY do banco Client do Unitos.
 --
 -- Somente SELECT. Não cria, não altera e não remove nada. Pode rodar em
 -- produção e quantas vezes quiser.
 --
---   psql "$SUPABASE_DB_URL" -f supabase/install/verify-installation.sql
+--   psql "$SUPABASE_DB_URL" -f supabase/install/verify-installation-client.sql
 --
 -- Saída: uma linha por verificação com status PASS/FAIL e o valor observado.
 -- =============================================================================
@@ -142,27 +142,6 @@ WITH checks AS (
          coalesce((SELECT string_agg(tablename, ', ' ORDER BY tablename) FROM pg_tables
                    WHERE schemaname = 'public' AND NOT rowsecurity), '0'),
          CASE WHEN (SELECT count(*) FROM pg_tables WHERE schemaname = 'public' AND NOT rowsecurity) = 0
-              THEN 'PASS' ELSE 'FAIL' END
-
-  UNION ALL
-  SELECT 87, 'instalações: progresso canônico transacional de migrations',
-         CASE WHEN to_regclass('public.installation_operation_migrations') IS NULL THEN 'tabela ausente'
-              ELSE 'tabela presente / funções=' ||
-                (SELECT count(*)::text FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-                 WHERE n.nspname = 'public' AND p.proname IN (
-                   'checkpoint_installation_migration',
-                   'reconcile_installation_operation_migrations',
-                   'merge_installation_operation_steps'
-                 )) END,
-         CASE WHEN to_regclass('public.installation_operation_migrations') IS NOT NULL
-                   AND (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-                        WHERE n.nspname = 'public' AND p.proname IN (
-                          'checkpoint_installation_migration',
-                          'reconcile_installation_operation_migrations',
-                          'merge_installation_operation_steps'
-                        )) = 3
-                   AND NOT has_table_privilege('anon', 'public.installation_operation_migrations', 'SELECT')
-                   AND NOT has_table_privilege('authenticated', 'public.installation_operation_migrations', 'INSERT')
               THEN 'PASS' ELSE 'FAIL' END
 
   UNION ALL
@@ -342,35 +321,6 @@ WITH checks AS (
               THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
 
-  SELECT 52, 'Instalações: acesso próprio do Supabase (BYOK) registrado',
-         CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns
-                            WHERE table_schema = 'public'
-                              AND table_name = 'installations'
-                              AND column_name = 'requires_own_supabase_token')
-                   AND EXISTS (SELECT 1 FROM information_schema.columns
-                                WHERE table_schema = 'public'
-                                  AND table_name = 'installation_credentials'
-                                  AND column_name = 'supabase_publishable_key_ciphertext')
-                   AND EXISTS (SELECT 1 FROM information_schema.columns
-                                WHERE table_schema = 'public'
-                                  AND table_name = 'installation_credentials'
-                                  AND column_name = 'supabase_service_role_key_ciphertext')
-              THEN 'token e chaves cifradas presentes' ELSE 'estrutura BYOK incompleta' END,
-         CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns
-                            WHERE table_schema = 'public'
-                              AND table_name = 'installations'
-                              AND column_name = 'requires_own_supabase_token')
-                   AND EXISTS (SELECT 1 FROM information_schema.columns
-                                WHERE table_schema = 'public'
-                                  AND table_name = 'installation_credentials'
-                                  AND column_name = 'supabase_publishable_key_ciphertext')
-                   AND EXISTS (SELECT 1 FROM information_schema.columns
-                                WHERE table_schema = 'public'
-                                  AND table_name = 'installation_credentials'
-                                  AND column_name = 'supabase_service_role_key_ciphertext')
-              THEN 'PASS' ELSE 'FAIL' END
-  UNION ALL
-
 
 
 
@@ -398,30 +348,6 @@ WITH checks AS (
                 (SELECT count(*) FROM public.brand_api_credentials),
                 (SELECT count(*) FROM public.installation_meta_app)),
          'INFO'
-
-  UNION ALL
-  SELECT 56, 'Instalações: execução exclusiva com lease e heartbeat',
-         (SELECT count(*)::text FROM information_schema.columns
-           WHERE table_schema = 'public' AND table_name = 'installation_operations'
-             AND column_name IN ('lease_owner','lease_expires_at','attempt_count'))
-         || ' colunas / funções=' ||
-         (SELECT count(*)::text FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-           WHERE n.nspname = 'public'
-              AND p.proname IN ('start_durable_installation_operation','claim_installation_operation','claim_stale_installation_operations','heartbeat_installation_operation','checkpoint_installation_operation','yield_installation_operation','retry_installation_operation','defer_installation_operation','finalize_installation_operation')),
-         CASE WHEN (SELECT count(*) FROM information_schema.columns
-                         WHERE table_schema = 'public' AND table_name = 'installation_operations'
-                            AND column_name IN ('lease_owner','lease_expires_at','attempt_count','max_attempts','fencing_token','current_step','next_attempt_at','idempotency_key','error_detail','metrics')) = 10
-                    AND (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-                          WHERE n.nspname = 'public'
-                              AND p.proname IN ('start_durable_installation_operation','claim_installation_operation','claim_stale_installation_operations','heartbeat_installation_operation','checkpoint_installation_operation','yield_installation_operation','retry_installation_operation','defer_installation_operation','finalize_installation_operation')) = 9
-                    AND NOT EXISTS (
-                      SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-                      WHERE n.nspname = 'public'
-                        AND p.proname IN ('start_durable_installation_operation','claim_installation_operation','claim_stale_installation_operations','heartbeat_installation_operation','checkpoint_installation_operation','yield_installation_operation','retry_installation_operation','defer_installation_operation','finalize_installation_operation')
-                        AND (has_function_privilege('anon', p.oid, 'EXECUTE')
-                             OR has_function_privilege('authenticated', p.oid, 'EXECUTE'))
-                    )
-              THEN 'PASS' ELSE 'FAIL' END
 
   UNION ALL
   SELECT 57, 'Jobs: numeração, status e timer direto instalados',
@@ -511,20 +437,6 @@ WITH checks AS (
                            WHERE jobname = 'purge-deleted-content-30d'
                              AND command LIKE '%purge_deleted_content%')
               THEN 'PASS' ELSE 'FAIL' END
-  UNION ALL
-  SELECT 66, 'cron: retomada do gerenciador usa a URL registrada',
-         CASE WHEN NOT EXISTS (SELECT 1 FROM public.installations)
-              THEN 'não se aplica nesta instalação'
-              ELSE coalesce((SELECT command FROM cron.job
-                             WHERE jobname = 'installation-provision-resume' LIMIT 1), 'ausente') END,
-         CASE WHEN NOT EXISTS (SELECT 1 FROM public.installations) THEN 'INFO'
-              WHEN EXISTS (
-                SELECT 1 FROM cron.job
-                WHERE jobname = 'installation-provision-resume'
-                  AND command LIKE '%' || rtrim((SELECT app_url FROM public.installation LIMIT 1), '/') || '/api/public/cron/installation-resume%'
-                  AND command LIKE '%x-cron-secret%'
-              ) THEN 'PASS' ELSE 'FAIL' END
-
   -- ---------------------------------------------------------------- brain_stats_mv
   UNION ALL
   SELECT 70, 'brain_stats_mv existe e está populada',
@@ -544,7 +456,7 @@ WITH checks AS (
                'ad_insights_daily','brain_events','briefing_import_changes',
                'briefing_import_runs','briefing_import_steps','client_portal_access',
                'client_request_events','client_requests','installation',
-                 'installation_meta_app','installation_operation_attempts','message_thread_participants','message_threads',
+                 'installation_meta_app','message_thread_participants','message_threads',
                'messages','portal_notification_prefs','post_client_comments','post_copy_queue_state',
                'client_ad_accounts','project_participants','user_login_events','work_comments',
                 'work_links','work_statuses','client_automation_attempts',
@@ -560,7 +472,7 @@ WITH checks AS (
              'ad_insights_daily','brain_events','briefing_import_changes',
              'briefing_import_runs','briefing_import_steps','client_portal_access',
              'client_request_events','client_requests','installation',
-              'installation_meta_app','installation_operation_attempts','message_thread_participants','message_threads',
+              'installation_meta_app','message_thread_participants','message_threads',
              'messages','portal_notification_prefs','post_client_comments','post_copy_queue_state',
              'client_ad_accounts','project_participants','user_login_events','work_comments',
               'work_links','work_statuses','client_automation_attempts',
@@ -669,57 +581,3 @@ WITH checks AS (
                       WHERE table_schema='public' AND table_name='_unitos_deferred_sql'
                         AND grantee IN ('anon','authenticated'))
               THEN 'PASS' ELSE 'FAIL' END
-
-  UNION ALL
-  SELECT 85, 'operações: tentativas duráveis e reconciliação de órfãs',
-         CASE WHEN to_regclass('public.installation_operation_attempts') IS NULL THEN 'tabela ausente'
-              WHEN to_regprocedure('public.reconcile_orphan_installation_attempts(integer)') IS NULL THEN 'função ausente'
-              ELSE 'presentes' END,
-         CASE WHEN to_regclass('public.installation_operation_attempts') IS NOT NULL
-                   AND to_regprocedure('public.reconcile_orphan_installation_attempts(integer)') IS NOT NULL
-              THEN 'PASS' ELSE 'FAIL' END
-
-  UNION ALL
-  SELECT 86, 'operações: pacote de atualização fixado por operação',
-         CASE WHEN to_regprocedure('public.seal_installation_operation_baseline(uuid,text,bigint,text,text)') IS NULL
-              THEN 'função ausente' ELSE 'selagem disponível' END,
-         CASE WHEN to_regprocedure('public.seal_installation_operation_baseline(uuid,text,bigint,text,text)') IS NOT NULL
-                    AND NOT has_function_privilege('anon', 'public.seal_installation_operation_baseline(uuid,text,bigint,text,text)', 'EXECUTE')
-                    AND NOT has_function_privilege('authenticated', 'public.seal_installation_operation_baseline(uuid,text,bigint,text,text)', 'EXECUTE')
-              THEN 'PASS' ELSE 'FAIL' END
-
-  UNION ALL
-  SELECT 87, 'operações: confirmação transacional de migrations',
-         CASE WHEN to_regclass('public.installation_operation_migrations') IS NULL THEN 'tabela ausente'
-              WHEN to_regprocedure('public.checkpoint_installation_migration(uuid,text,bigint,text,text,integer,integer,integer,boolean)') IS NULL THEN 'checkpoint ausente'
-              WHEN to_regprocedure('public.reconcile_installation_operation_migrations(uuid,text,bigint,jsonb)') IS NULL THEN 'reconciliação ausente'
-              WHEN to_regprocedure('public.merge_installation_operation_steps(jsonb,jsonb)') IS NULL THEN 'merge monotônico ausente'
-              ELSE 'registro canônico disponível' END,
-         CASE WHEN to_regclass('public.installation_operation_migrations') IS NOT NULL
-                    AND to_regprocedure('public.checkpoint_installation_migration(uuid,text,bigint,text,text,integer,integer,integer,boolean)') IS NOT NULL
-                    AND to_regprocedure('public.reconcile_installation_operation_migrations(uuid,text,bigint,jsonb)') IS NOT NULL
-                    AND to_regprocedure('public.merge_installation_operation_steps(jsonb,jsonb)') IS NOT NULL
-                    AND NOT has_table_privilege('anon', 'public.installation_operation_migrations', 'SELECT')
-                    AND NOT has_table_privilege('authenticated', 'public.installation_operation_migrations', 'INSERT')
-                    AND NOT has_function_privilege('anon', 'public.checkpoint_installation_migration(uuid,text,bigint,text,text,integer,integer,integer,boolean)', 'EXECUTE')
-                    AND NOT has_function_privilege('authenticated', 'public.checkpoint_installation_migration(uuid,text,bigint,text,text,integer,integer,integer,boolean)', 'EXECUTE')
-              THEN 'PASS' ELSE 'FAIL' END
-
-  UNION ALL
-  SELECT 90, 'operações: retry terminal de provision protegido',
-         CASE WHEN to_regprocedure('public.start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamp with time zone,uuid)') IS NULL
-              THEN 'assinatura ausente' ELSE 'assinatura disponível' END,
-         CASE WHEN to_regprocedure('public.start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamp with time zone,uuid)') IS NOT NULL
-                    AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='installation_operations' AND column_name='retry_of_operation_id')
-                    AND NOT has_function_privilege('anon', 'public.start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamp with time zone,uuid)', 'EXECUTE')
-                    AND NOT has_function_privilege('authenticated', 'public.start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamp with time zone,uuid)', 'EXECUTE')
-              THEN 'PASS' ELSE 'FAIL' END
-)
-
-SELECT status, check_name, observed
-FROM checks
-ORDER BY ord;
-
--- Resumo final
-SELECT 'RESUMO' AS scope,
-       'verifique acima: qualquer FAIL bloqueia a liberação da instalação' AS note;
