@@ -153,7 +153,7 @@ describe("sincronia MASTER-first", () => {
     expect(script).toContain("000_extensions.sql");
     expect(script).toContain("CREATE EXTENSION vector WITH SCHEMA extensions");
     expect(script).toContain("ALTER EXTENSION vector SET SCHEMA public");
-    expect(script.match(/cat "$WRAPPER"/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(script.split('cat "$WRAPPER"').length - 1).toBeGreaterThanOrEqual(4);
     expect(script).toContain("to_regtype('public.vector') IS NULL");
     expect(script).toContain("oc.opcname = 'vector_cosine_ops'");
     expect(script.match(/ROLLBACK;/g)?.length).toBe(3);
