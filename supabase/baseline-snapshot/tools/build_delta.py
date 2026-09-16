@@ -76,8 +76,14 @@ def _load_destinations(files: list[str]) -> dict[str, str]:
             raise SystemExit(f"migration duplicada ou invalida no mapa: {name}")
         mapped[name] = destination
     names = [os.path.basename(path) for path in files]
-    if set(mapped) != set(names):
-        missing = sorted(set(names) - set(mapped))
+    explicitly_excluded = document.get("excludedBeforeManifest", [])
+    excluded = {
+        entry.get("file")
+        for entry in explicitly_excluded
+        if isinstance(entry, dict) and entry.get("destination") == "control-plane"
+    }
+    if set(mapped) | excluded != set(names) or set(mapped) & excluded:
+        missing = sorted(set(names) - set(mapped) - excluded)
         stale = sorted(set(mapped) - set(names))
         raise SystemExit(f"mapa de destinos divergente; ausentes={missing}; obsoletas={stale}")
     return mapped
@@ -118,7 +124,7 @@ def _validate_cutover(files: list[str], selected: list[tuple[str, str]], destina
         (
             name
             for name in names[cutover_index + 1 :]
-            if destinations[name] in {"client", "split"}
+            if destinations.get(name) in {"client", "split"}
         ),
         None,
     )
@@ -149,7 +155,8 @@ def main() -> None:
     destinations = _load_destinations(package_files)
     selected: list[tuple[str, str]] = []
     for path in package_files:
-        source = _client_source(path, destinations[os.path.basename(path)])
+        destination = destinations.get(os.path.basename(path), "control-plane")
+        source = _client_source(path, destination)
         if source is not None:
             selected.append((path, source))
     _validate_cutover(files, selected, destinations)
