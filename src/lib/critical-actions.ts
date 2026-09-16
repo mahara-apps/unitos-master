@@ -14,6 +14,7 @@
 export const CRITICAL_ACTION_KEYS = [
   // Instalações
   "installation.provision",
+  "installation.retry_provision",
   "installation.reprovision",
   "installation.update",
   "installation.validate",
@@ -72,6 +73,14 @@ export const CRITICAL_ACTIONS: Record<CriticalActionKey, CriticalActionDefinitio
       "Cria e reconfigura a infraestrutura do ambiente (repositório, hospedagem, chaves e banco). Pode substituir configurações já aplicadas.",
     irreversible: false,
     targetType: "installation",
+  },
+  "installation.retry_provision": {
+    key: "installation.retry_provision",
+    title: "Tentar novamente o provisionamento",
+    impact:
+      "Abre uma nova operação durável para continuar uma instalação que falhou, reutilizando os recursos existentes quando forem válidos.",
+    irreversible: false,
+    targetType: "installation_operation",
   },
   "installation.reprovision": {
     key: "installation.reprovision",
