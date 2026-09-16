@@ -138,7 +138,7 @@ describe("sincronia MASTER-first", () => {
     expect(script.indexOf("000_extensions.sql")).toBeLessThan(
       script.indexOf("001_initial_schema.sql"),
     );
-    expect(script).toContain("to_regtype('public.vector') IS NOT NULL");
+    expect(script).toContain("to_regtype('public.vector') IS NULL");
     expect(script).toContain("oc.opcname = 'vector_cosine_ops'");
   });
 
