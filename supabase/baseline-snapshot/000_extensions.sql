@@ -37,17 +37,17 @@ CREATE EXTENSION IF NOT EXISTS supabase_vault WITH SCHEMA vault;
 -- extensão existente: converge explicitamente sem apagar seus objetos/dados.
 DO $unitos_vector_schema$
 DECLARE
-  current_schema text;
+  detected_schema text;
 BEGIN
   SELECT n.nspname
-    INTO current_schema
+    INTO detected_schema
     FROM pg_extension e
     JOIN pg_namespace n ON n.oid = e.extnamespace
    WHERE e.extname = 'vector';
 
-  IF current_schema IS NULL THEN
+  IF detected_schema IS NULL THEN
     EXECUTE 'CREATE EXTENSION vector WITH SCHEMA public';
-  ELSIF current_schema <> 'public' THEN
+  ELSIF detected_schema <> 'public' THEN
     EXECUTE 'ALTER EXTENSION vector SET SCHEMA public';
   END IF;
 END

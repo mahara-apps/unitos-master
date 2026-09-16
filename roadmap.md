@@ -1,5 +1,12 @@
 # Roadmap
 
+## MASTER — correção da convergência pgvector
+
+- [x] Renomear somente a variável local conflitante do wrapper para `detected_schema`.
+- [x] Cobrir ausência, relocação, estado canônico, pós-condição, reexecução e rollback em PostgreSQL local.
+- [x] Regenerar e versionar o pacote MASTER-first sem publicar ou executar NEW.
+- [x] Executar testes focados, suíte global local/runtime, tipos, lint focado, build e `master:check`; lint global permanece bloqueado por erros preexistentes fora do escopo.
+
 ## MASTER — confirmação do vínculo GitHub na Vercel
 
 - [x] Consolidar a leitura do vínculo entre o projeto e `GET /v10/projects/{id}/link`.

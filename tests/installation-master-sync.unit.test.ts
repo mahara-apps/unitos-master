@@ -110,6 +110,8 @@ describe("sincronia MASTER-first", () => {
   });
 
   it("converge pgvector para public sem remover a extensão ou seus objetos", () => {
+    expect(extensions).toContain("detected_schema text");
+    expect(extensions).not.toMatch(/\bcurrent_schema\s+text\b/i);
     expect(extensions).toContain("WHERE e.extname = 'vector'");
     expect(extensions).toContain("CREATE EXTENSION vector WITH SCHEMA public");
     expect(extensions).toContain("ALTER EXTENSION vector SET SCHEMA public");
@@ -120,9 +122,9 @@ describe("sincronia MASTER-first", () => {
   });
 
   it.each([
-    ["ausente", "current_schema IS NULL", "CREATE EXTENSION vector WITH SCHEMA public"],
-    ["em extensions", "current_schema <> 'public'", "ALTER EXTENSION vector SET SCHEMA public"],
-    ["em public", "ELSIF current_schema <> 'public'", "END IF"],
+    ["ausente", "detected_schema IS NULL", "CREATE EXTENSION vector WITH SCHEMA public"],
+    ["em extensions", "detected_schema <> 'public'", "ALTER EXTENSION vector SET SCHEMA public"],
+    ["em public", "ELSIF detected_schema <> 'public'", "END IF"],
   ])("cobre vector %s no bootstrap descartável", (_state, branch, action) => {
     expect(extensions).toContain(branch);
     expect(extensions).toContain(action);
@@ -141,6 +143,21 @@ describe("sincronia MASTER-first", () => {
     );
     expect(script).toContain("to_regtype('public.vector') IS NULL");
     expect(script).toContain("oc.opcname = 'vector_cosine_ops'");
+  });
+
+  it("ensaio PostgreSQL local cobre CREATE, ALTER, reexecução, pós-condição e rollback", () => {
+    const script = readFileSync(
+      "supabase/baseline-snapshot/tools/test_pgvector_wrapper_local.sh",
+      "utf8",
+    );
+    expect(script).toContain("000_extensions.sql");
+    expect(script).toContain("CREATE EXTENSION vector WITH SCHEMA extensions");
+    expect(script).toContain("ALTER EXTENSION vector SET SCHEMA public");
+    expect(script.split('cat "$WRAPPER"').length - 1).toBeGreaterThanOrEqual(4);
+    expect(script).toContain("to_regtype('public.vector') IS NULL");
+    expect(script).toContain("oc.opcname = 'vector_cosine_ops'");
+    expect(script.match(/ROLLBACK;/g)?.length).toBe(3);
+    expect(script).toContain("vector_oid_before");
   });
 
   it("relatorio de saude confere todas as tabelas do pacote", () => {
