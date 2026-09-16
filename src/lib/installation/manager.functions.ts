@@ -13,6 +13,7 @@ import {
   VALIDATE_STEPS,
   assertOperationTarget,
   buildRunCommand,
+  canRetryFailedProvision,
   canStartOperation,
   healthAfterOperation,
   initialSteps,
@@ -82,6 +83,9 @@ export type InstallationRecord = {
 
 export type OperationDetail = {
   releaseVersion?: string;
+  /** Operação terminal de provisionamento que originou esta nova tentativa. */
+  retryOfOperationId?: string;
+  retryReason?: "failed_provision";
   /** Commit do MASTER autorizado para esta atualização. */
   targetCommitSha?: string;
   /** Versão publicada antes desta atualização. */
@@ -1077,6 +1081,7 @@ async function startAtomicInstallationOperation(input: {
   detail: Record<string, unknown>;
   baselineId?: string | null;
   baselineHash?: string | null;
+  retryOfOperationId?: string | null;
 }) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { callRpc } = await import("@/lib/supabase-rpc");
@@ -1095,6 +1100,7 @@ async function startAtomicInstallationOperation(input: {
       _workflow_version: 3,
       _baseline_id: input.baselineId ?? null,
       _baseline_hash: input.baselineHash ?? null,
+      _retry_of_operation_id: input.retryOfOperationId ?? null,
     },
   );
   if (error || !data || typeof data["id"] !== "string") {
@@ -1115,6 +1121,7 @@ async function startAtomicInstallationOperation(input: {
 async function openAutomatedProvision(
   context: { supabase: unknown; userId: string },
   installationId: string,
+  retryOfOperationId?: string | null,
 ): Promise<AutomatedProvisionStart> {
   const supabase = context.supabase as never as {
     from: (table: string) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -1154,10 +1161,51 @@ async function openAutomatedProvision(
       urlSource: null,
     };
   }
-  if (!canStartOperation("provision", record.status)) {
+  let retrySource: {
+    id: string;
+    kind: InstallationOperationKind;
+    status: InstallationOperationStatus;
+  } | null = null;
+  let hasSuccessfulProvision = false;
+  if (retryOfOperationId) {
+    const [latestResult, successfulResult] = await Promise.all([
+      supabase
+        .from("installation_operations")
+        .select("id,kind,status")
+        .eq("installation_id", installationId)
+        .eq("kind", "provision")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("installation_operations")
+        .select("id")
+        .eq("installation_id", installationId)
+        .eq("kind", "provision")
+        .eq("status", "success")
+        .limit(1),
+    ]);
+    if (latestResult.error) throw latestResult.error;
+    if (successfulResult.error) throw successfulResult.error;
+    retrySource = latestResult.data as typeof retrySource;
+    hasSuccessfulProvision = (successfulResult.data ?? []).length > 0;
+  }
+  const retryAllowed = retryOfOperationId
+    ? canRetryFailedProvision({
+        installationStatus: record.status,
+        lastProvisionedAt: record.lastProvisionedAt,
+        activeOperationId: record.activeOperationId,
+        lastProvisionOperation: retrySource,
+        hasSuccessfulProvision,
+      }) && retrySource?.id === retryOfOperationId
+    : false;
+  if (!canStartOperation("provision", record.status) && !retryAllowed) {
     throw new Error(
       `A instalação está em “${INSTALLATION_STATUS_LABEL[record.status]}” e não aceita esta operação agora.`,
     );
+  }
+  if (retryOfOperationId && !retryAllowed) {
+    throw new Error("A operação informada não é elegível para nova tentativa de provisionamento.");
   }
 
   // Teste efetivo antes de criar a operação: token revogado, projeto incorreto
@@ -1176,7 +1224,15 @@ async function openAutomatedProvision(
     kind: "provision",
     summary: "Provisionamento automático em execução pelo MASTER.",
     steps: initialSteps("provision"),
-    detail: { releaseVersion: MASTER_RELEASE_VERSION, executed: true, automated: true },
+    detail: {
+      releaseVersion: MASTER_RELEASE_VERSION,
+      executed: true,
+      automated: true,
+      ...(retryOfOperationId
+        ? { retryOfOperationId, retryReason: "failed_provision" as const }
+        : {}),
+    },
+    retryOfOperationId: retryOfOperationId ?? null,
   });
 
   return {
@@ -1197,7 +1253,13 @@ async function openAutomatedProvision(
 export const runAutomatedProvisionFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ id: z.string().uuid(), confirmLabel: z.string().min(1) }).parse(input),
+    z
+      .object({
+        id: z.string().uuid(),
+        confirmLabel: z.string().min(1),
+        retryOfOperationId: z.string().uuid().nullable().optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     await guard(context);
@@ -1205,9 +1267,10 @@ export const runAutomatedProvisionFn = createServerFn({ method: "POST" })
       context,
       data.id,
       data.confirmLabel,
-      "installation.provision",
+      data.retryOfOperationId ? "installation.retry_provision" : "installation.provision",
+      data.retryOfOperationId ? { retryOfOperationId: data.retryOfOperationId } : {},
     );
-    return openAutomatedProvision(context, data.id);
+    return openAutomatedProvision(context, data.id, data.retryOfOperationId ?? null);
   });
 
 /**
