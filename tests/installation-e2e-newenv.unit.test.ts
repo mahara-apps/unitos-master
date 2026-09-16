@@ -108,6 +108,7 @@ const INSTALLATION = {
 const MASTER_ENV = {
   UNITOS_SUPABASE_MANAGEMENT_TOKEN: "sbp_token",
   UNITOS_VERCEL_TOKEN: "vercel_token",
+  UNITOS_VERCEL_TEAM_ID: "team_unitos",
   UNITOS_GITHUB_TOKEN: "gh_token",
 };
 
@@ -124,6 +125,10 @@ function scenario(
     deploymentStates?: string[];
     deploymentCommit?: string;
     stageProgress?: Record<string, unknown>;
+    vercelProjectMissing?: boolean;
+    vercelProjectRepo?: string;
+    vercelProjectTeam?: string;
+    failEnv?: boolean;
   } = {},
 ) {
   const calls: Call[] = [];
@@ -196,20 +201,51 @@ function scenario(
       return Response.json([{ schemas: 3, item: "ok", status: "PASS" }]);
     }
 
-    if (u.includes("api.vercel.com/v9/projects")) {
+    if (u.includes("api.vercel.com/v2/user")) {
+      return Response.json({ user: { defaultTeamId: "team_unitos" } });
+    }
+    if (u.includes("api.vercel.com/v2/teams")) {
+      return Response.json({ teams: [{ id: "team_unitos" }, { id: "team_other" }] });
+    }
+    if (u.includes("api.vercel.com/v9/projects/unitos-novo") && u.includes("teamId=team_other")) {
+      return new Response("not found", { status: 404 });
+    }
+    if (u.includes("api.vercel.com/v11/projects")) {
       return Response.json({
+        id: "prj_new",
         name: "unitos-novo",
+        accountId: "team_unitos",
         link: {
           type: "github",
           org: "mahara-apps",
           repo: "unitos-novo",
+          productionBranch: "main",
+        },
+      });
+    }
+    if (u.includes("api.vercel.com/v9/projects")) {
+      if (overrides.vercelProjectMissing && !u.includes("prj_new")) {
+        return new Response("not found", { status: 404 });
+      }
+      return Response.json({
+        id: "prj_new",
+        name: "unitos-novo",
+        accountId: overrides.vercelProjectTeam ?? "team_unitos",
+        link: {
+          type: "github",
+          org: "mahara-apps",
+          repo: overrides.vercelProjectRepo ?? "unitos-novo",
           repoId: 101,
           productionBranch: "main",
         },
         targets: { production: { url: "unitos-novo-abc.vercel.app" } },
       });
     }
-    if (u.includes("/env")) return Response.json({ created: [] });
+    if (u.includes("/env")) {
+      return overrides.failEnv
+        ? new Response('{"error":"env failed"}', { status: 500 })
+        : Response.json({ created: [] });
+    }
     if (u.includes("api.vercel.com/v6/deployments")) {
       return Response.json({ deployments: [{ uid: "dpl_prev", name: "unitos-novo" }] });
     }
@@ -277,6 +313,60 @@ describe("instalação de ambiente novo — ponta a ponta", () => {
 
     // A validação final rodou de verdade contra o banco do destino.
     expect(calls.some((c) => c.body.includes(VERIFY_MARK))).toBe(true);
+  });
+
+  it("projeto inexistente é criado automaticamente no team e ligado ao GitHub", async () => {
+    const { run, calls } = scenario({ vercelProjectMissing: true });
+    const result = await run();
+    expect(result.result).toBe("PASS");
+    const creates = calls.filter(
+      (call) => call.method === "POST" && call.url.includes("api.vercel.com/v11/projects"),
+    );
+    expect(creates).toHaveLength(1);
+    expect(JSON.parse(creates[0]?.body ?? "{}")).toMatchObject({
+      name: "unitos-novo",
+      gitRepository: { type: "github", repo: "mahara-apps/unitos-novo" },
+    });
+    expect(creates[0]?.url).toContain("teamId=team_unitos");
+    expect(calls.some((call) => call.url.includes("/v9/projects/prj_new"))).toBe(true);
+  });
+
+  it("falha após criar o projeto retoma pelo checkpoint sem criar duplicado", async () => {
+    const first = scenario({ vercelProjectMissing: true, failEnv: true });
+    expect((await first.run()).result).not.toBe("PASS");
+    expect(first.calls.filter((call) => call.url.includes("/v11/projects"))).toHaveLength(1);
+
+    const resumed = scenario({
+      stageProgress: {
+        provisionVercelProjectReady: true,
+        provisionVercelProjectId: "prj_new",
+        provisionVercelTeamId: "team_unitos",
+        codeDone: true,
+        codeSha: "sha_master",
+        codeSourceSha: "sha_master",
+        provisionRelease: "9.9.9",
+      },
+    });
+    expect((await resumed.run()).result).toBe("PASS");
+    expect(resumed.calls.some((call) => call.url.includes("/v11/projects"))).toBe(false);
+    expect(resumed.calls.some((call) => call.url.includes("/v9/projects/prj_new"))).toBe(true);
+  });
+
+  it("projeto existente ligado a outro repositório bloqueia sem religar", async () => {
+    const { run, calls } = scenario({ vercelProjectRepo: "mahara-apps/outro" });
+    const result = await run();
+    expect(result.result).toBe("BLOCKED");
+    expect(result.reasons.join(" ")).toContain("não ao repositório esperado");
+    expect(calls.some((call) => call.method === "DELETE" && call.url.includes("/link"))).toBe(
+      false,
+    );
+  });
+
+  it("ownership em outro team bloqueia o projeto existente", async () => {
+    const { run } = scenario({ vercelProjectTeam: "team_other" });
+    const result = await run();
+    expect(result.result).toBe("BLOCKED");
+    expect(result.reasons.join(" ")).toContain("ownership");
   });
 
   it("HTTP 200 não passa enquanto o deployment específico permanece BUILDING", async () => {

@@ -393,6 +393,59 @@ describe("atualização de código da instalação", () => {
   });
 });
 
+describe("projeto Vercel da instalação nova", () => {
+  it("reutiliza projeto existente no team correto sem criar duplicado", async () => {
+    const { impl, calls } = fakeFetch([
+      {
+        match: /v9\/projects\/unitos-novo\?teamId=team_1/,
+        body: {
+          id: "prj_1",
+          name: "unitos-novo",
+          accountId: "team_1",
+          link: {
+            type: "github",
+            org: "mahara-apps",
+            repo: "unitos-novo",
+            productionBranch: "main",
+          },
+        },
+      },
+    ]);
+    const client = createDeployClient({
+      token: "t",
+      project: "unitos-novo",
+      teamId: "team_1",
+      fetchImpl: impl,
+    });
+    await expect(client.ensureProject("mahara-apps/unitos-novo")).resolves.toMatchObject({
+      ok: true,
+      created: false,
+      projectId: "prj_1",
+      teamId: "team_1",
+      repositoryLinked: true,
+    });
+    expect(calls.some((call) => call.url.includes("/v11/projects"))).toBe(false);
+  });
+
+  it("token sem Create Project informa a permissão necessária", async () => {
+    const { impl } = fakeFetch([
+      { match: /v9\/projects\//, status: 404, body: {} },
+      { match: /v2\/teams/, body: { teams: [{ id: "team_1" }] } },
+      { match: /v11\/projects/, status: 403, body: { error: "forbidden" } },
+    ]);
+    const client = createDeployClient({
+      token: "t",
+      project: "unitos-novo",
+      teamId: "team_1",
+      fetchImpl: impl,
+    });
+    const result = await client.ensureProject("mahara-apps/unitos-novo");
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("Create Project");
+    expect(result.error).toContain("team_1");
+  });
+});
+
 describe("quando a Vercel não encontra o repositório", () => {
   it("tenta owner/repo e sinaliza gitSourceUnavailable para publicar pelo Git", async () => {
     const { impl, calls } = fakeFetch([

@@ -844,6 +844,19 @@ export async function validateSupabaseProjectKeys(input: {
 /* ------------------------------------------------------------- Vercel API */
 
 export type DeployClient = {
+  /** Localiza ou cria, no team autorizado, o projeto usado por uma NEW. */
+  ensureProject: (
+    repo: string,
+    checkpoint?: { projectId?: string | null; teamId?: string | null },
+  ) => Promise<{
+    ok: boolean;
+    projectId?: string;
+    teamId?: string;
+    projectName?: string;
+    created?: boolean;
+    repositoryLinked?: boolean;
+    error?: string;
+  }>;
   deploymentUrl: () => Promise<{
     ok: boolean;
     url?: string;
@@ -2236,6 +2249,7 @@ export function createDeployClient(input: {
 }): DeployClient {
   const doFetch = input.fetchImpl ?? fetch;
   let resolvedTeamId = (input.teamId ?? "").trim() || null;
+  let resolvedProjectId: string | null = null;
   const qs = (extra?: string) =>
     [resolvedTeamId ? `teamId=${encodeURIComponent(resolvedTeamId)}` : "", extra]
       .filter(Boolean)
@@ -2245,7 +2259,7 @@ export function createDeployClient(input: {
     "content-type": "application/json",
   };
   let resolvedProjectName = input.project;
-  const projectPath = () => encodeURIComponent(resolvedProjectName);
+  const projectPath = () => encodeURIComponent(resolvedProjectId ?? resolvedProjectName);
   const masterRepo = (input.masterRepo ?? "").trim() || DEFAULT_MASTER_REPO;
   const targetRepo = (input.repo ?? "").trim() || masterRepo;
 
@@ -2331,7 +2345,212 @@ export function createDeployClient(input: {
     return `HTTP ${res.status} ao consultar o projeto de deploy — ${hint}${detail ? ` (${detail})` : ""}`;
   };
 
+  const readProjectBody = async (res: Response) =>
+    (await res.json().catch(() => ({}))) as {
+      id?: string;
+      name?: string;
+      accountId?: string;
+      link?: {
+        type?: string;
+        repo?: string;
+        org?: string;
+        productionBranch?: string;
+        sourceless?: boolean;
+      };
+      gitRepository?: { type?: string; repo?: string; productionBranch?: string };
+    };
+
+  const linkedRepo = (body: Awaited<ReturnType<typeof readProjectBody>>) =>
+    (
+      body.gitRepository?.repo ??
+      `${body.link?.org ?? ""}/${body.link?.repo ?? ""}`.replace(/^\//, "")
+    )
+      .trim()
+      .toLowerCase();
+
+  const resolveCreationTeam = async (checkpointTeam?: string | null) => {
+    const expected = (checkpointTeam ?? resolvedTeamId ?? "").trim();
+    if (expected) return { ok: true as const, teamId: expected };
+    const user = await doFetch("https://api.vercel.com/v2/user", { headers }).catch(() => null);
+    if (!user?.ok) {
+      return {
+        ok: false as const,
+        error:
+          "não foi possível determinar o team da Vercel; configure UNITOS_VERCEL_TEAM_ID com o Team ID autorizado",
+      };
+    }
+    const payload = (await user.json().catch(() => ({}))) as {
+      user?: { defaultTeamId?: string };
+    };
+    const teamId = (payload.user?.defaultTeamId ?? "").trim();
+    if (!teamId) {
+      return {
+        ok: false as const,
+        error:
+          "o token não possui team padrão; configure UNITOS_VERCEL_TEAM_ID com o Team ID autorizado",
+      };
+    }
+    return { ok: true as const, teamId };
+  };
+
   const client: DeployClient = {
+    async ensureProject(repo, checkpoint) {
+      const expectedRepo = repo.trim().toLowerCase();
+      if (!expectedRepo || !expectedRepo.includes("/")) {
+        return { ok: false, error: "repositório GitHub inválido para criar o projeto Vercel" };
+      }
+      try {
+        // Compatibilidade com projetos existentes cadastrados antes de o team
+        // virar checkpoint obrigatório. Eles podem ser adotados somente quando
+        // a própria Vercel os devolve no escopo atual; criação nova continua a
+        // exigir um team explícito/default verificável.
+        if (!checkpoint?.teamId && !resolvedTeamId) {
+          const existing = await doFetch(
+            `https://api.vercel.com/v9/projects/${encodeURIComponent(checkpoint?.projectId ?? input.project)}`,
+            { headers },
+          );
+          if (existing.ok) {
+            const body = await readProjectBody(existing);
+            const projectId = (body.id ?? input.project).trim();
+            const accountId = (body.accountId ?? "personal").trim();
+            const currentRepo = linkedRepo(body);
+            if (currentRepo && currentRepo !== expectedRepo) {
+              return {
+                ok: false,
+                error: `o projeto Vercel ${body.name ?? input.project} está ligado a ${currentRepo}, não ao repositório esperado ${repo}`,
+              };
+            }
+            resolvedProjectId = projectId;
+            resolvedProjectName = (body.name ?? input.project).trim();
+            return {
+              ok: true,
+              projectId,
+              teamId: accountId,
+              projectName: resolvedProjectName,
+              created: false,
+              repositoryLinked:
+                currentRepo === expectedRepo &&
+                (body.gitRepository?.productionBranch ?? body.link?.productionBranch ?? "main") ===
+                  "main" &&
+                body.link?.sourceless !== true,
+            };
+          }
+          if (existing.status !== 404) {
+            return { ok: false, error: await projectAccessError(existing) };
+          }
+        }
+        const team = await resolveCreationTeam(checkpoint?.teamId);
+        if (!team.ok) return team;
+        const expectedTeamId = team.teamId;
+        resolvedTeamId = expectedTeamId;
+        const requestedProject = (checkpoint?.projectId ?? input.project).trim();
+        const scopedPath = encodeURIComponent(requestedProject);
+        const scoped = await doFetch(
+          `https://api.vercel.com/v9/projects/${scopedPath}?teamId=${encodeURIComponent(expectedTeamId)}`,
+          { headers },
+        );
+
+        let created = false;
+        let response = scoped;
+        if (!scoped.ok && scoped.status !== 404) {
+          return { ok: false, error: await projectAccessError(scoped) };
+        }
+
+        if (scoped.status === 404) {
+          // Um nome igual em outro team não pode ser adotado nem recriado às
+          // cegas. Verificamos somente escopos visíveis e bloqueamos o conflito.
+          const teams = await doFetch("https://api.vercel.com/v2/teams?limit=100", { headers });
+          if (!teams.ok) {
+            return {
+              ok: false,
+              error: `HTTP ${teams.status} ao confirmar o team autorizado para criar o projeto`,
+            };
+          }
+          const teamsBody = (await teams.json().catch(() => ({}))) as {
+            teams?: Array<{ id?: string }>;
+          };
+          const visibleTeamIds = (teamsBody.teams ?? [])
+            .map((candidate) => (candidate.id ?? "").trim())
+            .filter(Boolean);
+          if (!visibleTeamIds.includes(expectedTeamId)) {
+            return {
+              ok: false,
+              error: `o token Vercel não acessa o team configurado ${expectedTeamId}; use um token com escopo desse team e permissão Create Project`,
+            };
+          }
+          for (const otherTeamId of visibleTeamIds) {
+            if (otherTeamId === expectedTeamId) continue;
+            const conflict = await doFetch(
+              `https://api.vercel.com/v9/projects/${encodeURIComponent(input.project)}?teamId=${encodeURIComponent(otherTeamId)}`,
+              { headers },
+            );
+            if (conflict.ok) {
+              return {
+                ok: false,
+                error: `o projeto ${input.project} já existe em outro team Vercel; a NEW não pode adotá-lo nem criar duplicado`,
+              };
+            }
+          }
+
+          response = await doFetch(
+            `https://api.vercel.com/v11/projects?teamId=${encodeURIComponent(expectedTeamId)}`,
+            {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                name: input.project,
+                gitRepository: { type: "github", repo },
+              }),
+            },
+          );
+          if (!response.ok) {
+            const detail = (await response.text().catch(() => "")).slice(0, 300);
+            const permission = response.status === 401 || response.status === 403;
+            return {
+              ok: false,
+              error: permission
+                ? `HTTP ${response.status} ao criar o projeto Vercel — o token precisa ter escopo do team ${expectedTeamId} e permissão Create Project (${detail})`
+                : `HTTP ${response.status} ao criar o projeto Vercel (${detail})`,
+            };
+          }
+          created = true;
+        }
+
+        const body = await readProjectBody(response);
+        const projectId = (body.id ?? "").trim();
+        const accountId = (body.accountId ?? "").trim();
+        if (!projectId) return { ok: false, error: "a Vercel não retornou o ID do projeto" };
+        if (!accountId || accountId !== expectedTeamId) {
+          return {
+            ok: false,
+            error: `ownership do projeto Vercel não confere com o team autorizado ${expectedTeamId}`,
+          };
+        }
+        const currentRepo = linkedRepo(body);
+        if (currentRepo && currentRepo !== expectedRepo) {
+          return {
+            ok: false,
+            error: `o projeto Vercel ${body.name ?? input.project} está ligado a ${currentRepo}, não ao repositório esperado ${repo}`,
+          };
+        }
+        resolvedProjectId = projectId;
+        resolvedProjectName = (body.name ?? input.project).trim();
+        return {
+          ok: true,
+          projectId,
+          teamId: expectedTeamId,
+          projectName: resolvedProjectName,
+          created,
+          repositoryLinked:
+            currentRepo === expectedRepo &&
+            (body.gitRepository?.productionBranch ?? body.link?.productionBranch ?? "main") ===
+              "main" &&
+            body.link?.sourceless !== true,
+        };
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : "falha na Vercel" };
+      }
+    },
     async deploymentUrl() {
       try {
         const res = await fetchProject();
@@ -2451,13 +2670,21 @@ export function createDeployClient(input: {
         }
         const body = (await res.json().catch(() => ({}))) as {
           id?: string;
-          link?: { repo?: string; org?: string; sourceless?: boolean };
+          link?: {
+            repo?: string;
+            org?: string;
+            sourceless?: boolean;
+            productionBranch?: string;
+          };
         };
         const id = encodeURIComponent(body.id ?? input.project);
         const current = `${body.link?.org ?? ""}/${body.link?.repo ?? ""}`.toLowerCase();
         // `force` religa mesmo quando o slug já é o correto: é o caso do vínculo
         // "sourceless", em que o repositório aparece ligado sem disparar builds.
-        if (current === slug.toLowerCase() && !options?.force) return { ok: true };
+        const branch = body.link?.productionBranch ?? "main";
+        if (current === slug.toLowerCase() && branch === "main" && !options?.force) {
+          return { ok: true };
+        }
 
         if (body.link?.repo) {
           await doFetch(
@@ -2481,6 +2708,21 @@ export function createDeployClient(input: {
           return {
             ok: false,
             error: `HTTP ${linked.status} ao ligar o projeto ao repositório ${slug} (${text.slice(0, 200)})`,
+          };
+        }
+        const branchUpdate = await doFetch(
+          `https://api.vercel.com/v9/projects/${id}?${qs()}`.replace(/\?$/, ""),
+          {
+            method: "PATCH",
+            headers,
+            body: JSON.stringify({ gitRepository: { productionBranch: "main" } }),
+          },
+        );
+        if (!branchUpdate.ok) {
+          const text = await branchUpdate.text().catch(() => "");
+          return {
+            ok: false,
+            error: `HTTP ${branchUpdate.status} ao configurar a branch main (${text.slice(0, 200)})`,
           };
         }
         return { ok: true };
@@ -3082,6 +3324,9 @@ export type StageProgress = {
   /** Release e commit imutáveis fixados para uma instalação nova. */
   provisionRelease?: string;
   /** Efeitos externos do NEW persistidos para consulta, nunca repetidos às cegas. */
+  provisionVercelProjectReady?: boolean;
+  provisionVercelProjectId?: string;
+  provisionVercelTeamId?: string;
   provisionRepositoryLinked?: boolean;
   provisionEnvApplied?: boolean;
   provisionDeploymentId?: string;
@@ -3710,7 +3955,28 @@ export async function runAutomatedProvision(input: {
 
   /* 4. deploy conectado ao repositório da instalação, sem auto-deploy por Git */
   await mark("deploy_link", "running");
-  let repositoryLinked = codeStage.provisionRepositoryLinked === true;
+  const ensuredProject = await deploy.ensureProject(provisionRepoSlug, {
+    projectId: codeStage.provisionVercelProjectId,
+    teamId: codeStage.provisionVercelTeamId,
+  });
+  if (
+    !ensuredProject.ok ||
+    !ensuredProject.projectId ||
+    !ensuredProject.teamId ||
+    !ensuredProject.projectName
+  ) {
+    const reason = ensuredProject.error ?? "projeto Vercel não pôde ser criado ou localizado";
+    blocked.push(`Projeto Vercel indisponível: ${reason}`);
+    await mark("deploy_link", "error", reason);
+    checks.configuration = "error";
+    return finish(null, null);
+  }
+  await saveStageProgress(client, operation, {
+    provisionVercelProjectReady: true,
+    provisionVercelProjectId: ensuredProject.projectId,
+    provisionVercelTeamId: ensuredProject.teamId,
+  });
+  let repositoryLinked = ensuredProject.repositoryLinked === true;
   if (!repositoryLinked) {
     const linked = await deploy.linkRepository(provisionRepoSlug);
     if (!linked.ok) {
@@ -3720,6 +3986,20 @@ export async function runAutomatedProvision(input: {
       await mark("deploy_link", "error", linked.error ?? "vínculo do repositório falhou");
       checks.configuration = "attention";
       return finish(null, null);
+    }
+    if (ensuredProject.teamId !== "personal") {
+      const confirmed = await deploy.ensureProject(provisionRepoSlug, {
+        projectId: ensuredProject.projectId,
+        teamId: ensuredProject.teamId,
+      });
+      if (!confirmed.ok || confirmed.repositoryLinked !== true) {
+        const reason =
+          confirmed.error ?? "vínculo GitHub/branch main não foi confirmado pela Vercel";
+        blocked.push(`Projeto de deploy não confirmado: ${reason}`);
+        await mark("deploy_link", "error", reason);
+        checks.configuration = "error";
+        return finish(null, null);
+      }
     }
     await saveStageProgress(client, operation, { provisionRepositoryLinked: true });
     repositoryLinked = true;
