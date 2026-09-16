@@ -572,5 +572,12 @@
       "file": "20260916140310_b0a7973f-0881-4ef0-9b48-a19202063e8d.sql",
       "destination": "control-plane"
     }
+  ],
+  "excludedBeforeManifest": [
+    {
+      "file": "20260903174522_3f135370-92b7-47f6-8fa0-b712211a809d.sql",
+      "destination": "control-plane",
+      "reason": "legacy MASTER URL cron excluded before the 114-entry canonical manifest"
+    }
   ]
 }
