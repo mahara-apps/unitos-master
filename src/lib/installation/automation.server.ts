@@ -3131,12 +3131,7 @@ export function createDeployClient(input: {
             if (byState !== 0) return byState;
             return (right.createdAt ?? 0) - (left.createdAt ?? 0);
           })[0];
-        if (!deployment) {
-          return {
-            ok: true,
-            error: `nenhum deployment Git de produção corresponde ao commit ${commitSha.slice(0, 12)} no projeto Vercel`,
-          };
-        }
+        if (!deployment) return { ok: true };
         const deploymentId = deployment.uid ?? deployment.id;
         return {
           ok: true,

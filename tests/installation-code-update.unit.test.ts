@@ -342,10 +342,7 @@ describe("atualização de código da instalação", () => {
     const { impl, calls } = fakeFetch([{ match: /v6\/deployments/, body: { deployments: [] } }]);
     const client = createDeployClient({ token: "t", project: "unitos-casa-8", fetchImpl: impl });
 
-    await expect(client.findProductionDeployment("abc123")).resolves.toMatchObject({
-      ok: true,
-      error: expect.stringContaining("abc123"),
-    });
+    await expect(client.findProductionDeployment("abc123")).resolves.toEqual({ ok: true });
     const lookup = calls.find((call) => /v6\/deployments/.test(call.url));
     expect(lookup?.url).toContain("app=unitos-casa-8");
     expect(lookup?.url).not.toContain("projectId=");
