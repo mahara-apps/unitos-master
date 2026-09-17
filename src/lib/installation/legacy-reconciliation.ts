@@ -231,9 +231,6 @@ export function legacyEvidenceBlockReason(results: LegacyEvidenceResult[]): stri
   );
   if (external.length)
     return `reconciliação legada sem evidência histórica suficiente: checkpoint externo obrigatório ${external.map((item) => item.position).join(", ")}`;
-  const partial = results.filter((item) => item.classification === "partial_compatibility");
-  if (partial.length)
-    return `reconciliação legada sem evidência histórica suficiente: compatibilidade parcial ${partial.map((item) => item.position).join(", ")}`;
   return null;
 }
 
