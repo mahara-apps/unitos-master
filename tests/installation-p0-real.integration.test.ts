@@ -39,7 +39,9 @@ const enabled =
 const suite = enabled ? describe.sequential : describe.skip;
 
 function rowValue(rows: unknown[], key: string): unknown {
-  const row = rows.find((item): item is Record<string, unknown> => !!item && typeof item === "object");
+  const row = rows.find(
+    (item): item is Record<string, unknown> => !!item && typeof item === "object",
+  );
   return row?.[key];
 }
 
@@ -84,7 +86,9 @@ suite("P0 real — executor canônico no Supabase testes", () => {
       "select to_regclass('public._unitos_applied_deltas') is not null as has_ledger",
     );
     if (rowValue(prerequisites, "has_ledger") !== true) {
-      throw new Error("ledger canônico ausente no projeto testes; ensaio interrompido sem criar estrutura paralela");
+      throw new Error(
+        "ledger canônico ausente no projeto testes; ensaio interrompido sem criar estrutura paralela",
+      );
     }
 
     await query(cleanupSql);
@@ -93,12 +97,14 @@ suite("P0 real — executor canônico no Supabase testes", () => {
   afterAll(async () => {
     if (!management) return;
     await query(cleanupSql);
-    const rows = await query([
-      `select to_regclass('${TEST_TABLE}') is null as table_removed,`,
-      `(select count(*) from public._unitos_migration_checkpoints where run_key like '${RUN_KEY}%') = 0 as checkpoints_removed,`,
-      `(select count(*) from public._unitos_deferred_sql where run_key like '${RUN_KEY}%') = 0 as deferred_removed,`,
-      `(select count(*) from public._unitos_applied_deltas where label = '${LEDGER_LABEL}') = 0 as ledger_removed`,
-    ].join("\n"));
+    const rows = await query(
+      [
+        `select to_regclass('${TEST_TABLE}') is null as table_removed,`,
+        `(select count(*) from public._unitos_migration_checkpoints where run_key like '${RUN_KEY}%') = 0 as checkpoints_removed,`,
+        `(select count(*) from public._unitos_deferred_sql where run_key like '${RUN_KEY}%') = 0 as deferred_removed,`,
+        `(select count(*) from public._unitos_applied_deltas where label = '${LEDGER_LABEL}') = 0 as ledger_removed`,
+      ].join("\n"),
+    );
     expect(rowValue(rows, "table_removed")).toBe(true);
     expect(rowValue(rows, "checkpoints_removed")).toBe(true);
     expect(rowValue(rows, "deferred_removed")).toBe(true);
@@ -116,7 +122,9 @@ suite("P0 real — executor canônico no Supabase testes", () => {
     });
     expect(result).toMatchObject({ ok: true, complete: true, processed: 2, total: 2 });
 
-    const verified = await query(`select count(*)::int as count from ${TEST_TABLE} where id = 1 and value = 'clean'`);
+    const verified = await query(
+      `select count(*)::int as count from ${TEST_TABLE} where id = 1 and value = 'clean'`,
+    );
     expect(rowValue(verified, "count")).toBe(1);
     await query(
       `insert into public._unitos_applied_deltas (label, kind, file, fingerprint) values ('${LEDGER_LABEL}', 'migration', 'stage10-clean.sql', 'stage10-sha')`,
@@ -144,7 +152,9 @@ suite("P0 real — executor canônico no Supabase testes", () => {
       maxStatements: 25,
     });
     expect(resumed).toMatchObject({ ok: true, complete: true, processed: 3, total: 3 });
-    const rows = await query(`select count(*)::int as count from ${TEST_TABLE} where id between 2 and 4`);
+    const rows = await query(
+      `select count(*)::int as count from ${TEST_TABLE} where id between 2 and 4`,
+    );
     expect(rowValue(rows, "count")).toBe(3);
   }, 30_000);
 
@@ -166,7 +176,9 @@ suite("P0 real — executor canônico no Supabase testes", () => {
       { runKey: `${RUN_KEY}:resume`, startIndex: 0, maxStatements: 25 },
     );
     expect(canonicalReplay).toMatchObject({ ok: true, complete: true, processed: 3, total: 3 });
-    const rows = await query(`select count(*)::int as count from ${TEST_TABLE} where id between 2 and 4`);
+    const rows = await query(
+      `select count(*)::int as count from ${TEST_TABLE} where id between 2 and 4`,
+    );
     expect(rowValue(rows, "count")).toBe(3);
   }, 30_000);
 

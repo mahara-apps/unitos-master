@@ -67,8 +67,8 @@ export function assertPrivilegedTestEnv(operation = "TEST_SUPER_ADMIN_CREATION")
   if (v.allowed) return;
   const detail = {
     not_declared_integration_suite: "propósito não declarado como INTEGRATION_TEST_SUITE",
-      target_not_authorized:
-        "alvo não é o Master descartável (que permanece proibido) nem o ambiente descartável autorizado",
+    target_not_authorized:
+      "alvo não é o Master descartável (que permanece proibido) nem o ambiente descartável autorizado",
     target_mismatch: "SUPABASE_PROJECT_ID, SUPABASE_URL e alvo declarado não coincidem",
   }[v.reason];
   throw new Error(`${operation} bloqueado: ${detail}. Nenhum fallback é permitido.`);
