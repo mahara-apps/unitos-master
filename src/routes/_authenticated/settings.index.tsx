@@ -109,7 +109,10 @@ const WORKSPACE_SETTINGS: SettingsDestination[] = [
 function SettingsCard({ item }: { item: SettingsDestination }) {
   const Icon = item.icon;
   return (
-    <Link to={item.to} className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+    <Link
+      to={item.to}
+      className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    >
       <Card interactive className="flex min-h-36 h-full items-start gap-4 p-5 sm:p-6">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border bg-muted/55 text-muted-foreground transition-colors group-hover:text-foreground">
           <Icon className="h-5 w-5" aria-hidden />
@@ -118,7 +121,10 @@ function SettingsCard({ item }: { item: SettingsDestination }) {
           <h3 className="text-base font-semibold leading-snug text-foreground">{item.title}</h3>
           <p className="text-sm leading-6 text-muted-foreground">{item.description}</p>
         </div>
-        <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-muted-foreground/65 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" aria-hidden />
+        <ChevronRight
+          className="mt-2 h-4 w-4 shrink-0 text-muted-foreground/65 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground"
+          aria-hidden
+        />
       </Card>
     </Link>
   );
