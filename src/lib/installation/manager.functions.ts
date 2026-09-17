@@ -113,6 +113,11 @@ export type InstallationOperationRecord = {
   steps: OperationStep[];
   progress: StepProgress;
   errorKind: string | null;
+  currentStep: string | null;
+  migrationFile: string | null;
+  migrationPosition: number | null;
+  migrationStatement: number | null;
+  migrationStatementsTotal: number | null;
   startedAt: string;
   finishedAt: string | null;
   lastReportAt: string | null;
@@ -166,11 +171,19 @@ function readSteps(raw: unknown): OperationStep[] {
       state:
         s.state === "running" || s.state === "done" || s.state === "error" ? s.state : "pending",
       detail: typeof s.detail === "string" ? s.detail : null,
+      percent: typeof s.percent === "number" ? s.percent : null,
     }))
     .filter((s) => s.id);
 }
 
-function mapOperation(row: any): InstallationOperationRecord {
+type MigrationEvidence = {
+  migration_file?: string | null;
+  package_position?: number | null;
+  statement_index?: number | null;
+  total_statements?: number | null;
+};
+
+function mapOperation(row: any, migration?: MigrationEvidence): InstallationOperationRecord {
   const steps = readSteps(row.steps);
   return {
     id: row.id,
@@ -181,6 +194,11 @@ function mapOperation(row: any): InstallationOperationRecord {
     steps,
     progress: stepsProgress(steps),
     errorKind: row.error_kind ?? null,
+    currentStep: row.current_step ?? null,
+    migrationFile: migration?.migration_file ?? null,
+    migrationPosition: migration?.package_position ?? null,
+    migrationStatement: migration?.statement_index ?? null,
+    migrationStatementsTotal: migration?.total_statements ?? null,
     startedAt: row.started_at,
     finishedAt: row.finished_at ?? null,
     lastReportAt: row.last_report_at ?? null,
@@ -333,7 +351,6 @@ export async function reconcileStuckOperations(context: { supabase: unknown }): 
     const rows = resolveOperationRowsRead(result).filter(
       (row) => !((row as { detail?: { automated?: boolean } }).detail?.automated ?? false),
     );
-    if (!rows.length) return;
     const [{ isOperationStale }, { finalizeOperation }] = await Promise.all([
       import("./manager-contract"),
       import("./runner.server"),
@@ -631,6 +648,7 @@ export const getInstallationFn = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     await guard(context);
+    await reconcileStuckOperations(context);
     const [{ data: row, error }, ops] = await Promise.all([
       context.supabase.from("installations").select("*").eq("id", data.id).maybeSingle(),
       context.supabase
@@ -643,9 +661,30 @@ export const getInstallationFn = createServerFn({ method: "POST" })
     if (error) throw error;
     if (!row) throw new Error("Instalação não encontrada.");
     if (ops.error) throw ops.error;
+    const operationRows = ops.data ?? [];
+    const operationIds = operationRows.map((operation) => operation.id);
+    const migrations = operationIds.length
+      ? await context.supabase
+          .from("installation_operation_migrations")
+          .select(
+            "operation_id,migration_file,package_position,statement_index,total_statements,status,updated_at",
+          )
+          .in("operation_id", operationIds)
+          .order("package_position", { ascending: false })
+          .order("updated_at", { ascending: false })
+      : { data: [], error: null };
+    if (migrations.error) throw migrations.error;
+    const latestMigration = new Map<string, MigrationEvidence>();
+    for (const migration of migrations.data ?? []) {
+      if (!latestMigration.has(migration.operation_id)) {
+        latestMigration.set(migration.operation_id, migration);
+      }
+    }
     return {
       installation: mapInstallation(row),
-      operations: (ops.data ?? []).map(mapOperation),
+      operations: operationRows.map((operation) =>
+        mapOperation(operation, latestMigration.get(operation.id)),
+      ),
       provisionSteps: PROVISION_STEPS,
       validateSteps: VALIDATE_STEPS,
     };

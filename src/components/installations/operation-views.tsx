@@ -4,6 +4,9 @@ import {
   OPERATION_KIND_LABEL,
   OPERATION_STATUS_LABEL,
   STEP_STATE_LABEL,
+  formatOperationElapsed,
+  operationRuntimeState,
+  type InstallationOperationStatus,
   type OperationStep,
   type StepState,
 } from "@/lib/installation/manager-contract";
@@ -72,27 +75,60 @@ export function StepList({ steps }: { steps: OperationStep[] }) {
 
 /** Faixa fina de progresso — visível em qualquer aba enquanto algo executa. */
 export function LiveOperationBar({
+  status,
   kind,
   percent,
   done,
   total,
   steps,
+  startedAt,
+  finishedAt,
+  lastReportAt,
+  errorKind,
+  currentStep,
+  migrationFile,
+  migrationPosition,
+  migrationStatement,
+  migrationStatementsTotal,
+  summary,
   children,
 }: {
+  status: InstallationOperationStatus;
   kind: keyof typeof OPERATION_KIND_LABEL;
   percent: number;
   done: number;
   total: number;
   steps: OperationStep[];
+  startedAt: string;
+  finishedAt: string | null;
+  lastReportAt: string | null;
+  errorKind: string | null;
+  currentStep: string | null;
+  migrationFile: string | null;
+  migrationPosition: number | null;
+  migrationStatement: number | null;
+  migrationStatementsTotal: number | null;
+  summary: string | null;
   children?: React.ReactNode;
 }) {
+  const runtimeState = operationRuntimeState({ status, startedAt, lastReportAt, errorKind });
+  const isRunning = runtimeState === "active";
+  const stateLabel =
+    runtimeState === "stale"
+      ? "Aguardando retomada"
+      : runtimeState === "scheduled"
+        ? OPERATION_STATUS_LABEL.retryable
+        : OPERATION_STATUS_LABEL[status];
+  const migration = migrationFile
+    ? `${migrationFile}${migrationPosition ? ` · migration ${migrationPosition}` : ""}${migrationStatementsTotal !== null ? ` · comando ${migrationStatement ?? 0}/${migrationStatementsTotal}` : ""}`
+    : null;
   return (
     <div className="space-y-2 rounded-xl border border-primary/40 bg-primary/5 px-4 py-3">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
+          {isRunning && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />}
           <span className="truncate text-xs font-medium">
-            {OPERATION_KIND_LABEL[kind]} em andamento
+            {OPERATION_KIND_LABEL[kind]} · {stateLabel}
           </span>
           <Badge variant="outline" className="shrink-0 text-[10px] text-primary">
             {done}/{total} · {percent}%
@@ -101,7 +137,18 @@ export function LiveOperationBar({
         <div className="flex shrink-0 items-center gap-1.5">{children}</div>
       </div>
       <Progress value={percent} className="h-1.5" />
-      <p className="truncate text-[11px] text-muted-foreground">{currentStepLabel(steps)}</p>
+      <div className="grid gap-1 text-[11px] text-muted-foreground sm:grid-cols-2">
+        <p className="truncate">Etapa: {currentStep ?? currentStepLabel(steps)}</p>
+        <p className="sm:text-right">
+          Tempo decorrido: {formatOperationElapsed(startedAt, finishedAt)}
+        </p>
+        {migration && <p className="truncate sm:col-span-2">Arquivo: {migration}</p>}
+        {(summary || errorKind) && (
+          <p className="truncate text-destructive sm:col-span-2">
+            Último erro: {summary ?? errorKind}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -114,7 +161,7 @@ export function OperationStatusBadge({ status }: { status: keyof typeof OPERATIO
         ? "border-destructive/40 text-destructive"
         : status === "manual_review"
           ? "border-warning/40 text-warning"
-        : "border-severity-info/40 text-severity-info";
+          : "border-severity-info/40 text-severity-info";
   return (
     <Badge variant="outline" className={cn("text-[10px]", tone)}>
       {OPERATION_STATUS_LABEL[status]}

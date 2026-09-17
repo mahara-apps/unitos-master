@@ -38,19 +38,9 @@ export const reportEventSchema = z.object({
   done: z.boolean().optional(),
   ok: z.boolean().optional(),
   warnings: z.boolean().optional(),
-  version: z
-    .string()
-    .max(40)
-    .regex(/^[0-9A-Za-z._-]*$/)
-    .nullable()
-    .optional(),
+  version: z.string().max(200).nullable().optional(),
   summary: z.string().max(2000).nullable().optional(),
-  errorKind: z
-    .string()
-    .max(60)
-    .regex(/^[a-z0-9_]*$/i)
-    .nullable()
-    .optional(),
+  errorKind: z.string().max(200).nullable().optional(),
   checks: z.record(z.string(), z.enum(["ok", "attention", "error", "pending"])).optional(),
 });
 
@@ -107,13 +97,29 @@ export function parseReportEvent(payload: unknown): ParsedReport {
     if (typeof event.ok !== "boolean") {
       return { ok: false, status: 400, reason: "missing_ok" };
     }
+    const validVersion =
+      typeof event.version === "string" && /^[0-9A-Za-z._-]*$/.test(event.version)
+        ? event.version
+        : null;
+    if (event.ok && event.version && !validVersion) {
+      return { ok: false, status: 400, reason: "invalid_version" };
+    }
+    const normalizedErrorKind = event.errorKind
+      ? event.errorKind
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/gi, "_")
+          .replace(/^_+|_+$/g, "")
+          .slice(0, 60) || "reported_failure"
+      : null;
     return {
       ok: true,
       kind: "final",
       event: {
         ...event,
+        version: validVersion,
         summary: redactReportText(event.summary ?? null),
-        errorKind: event.errorKind ?? null,
+        errorKind: normalizedErrorKind,
       },
     };
   }

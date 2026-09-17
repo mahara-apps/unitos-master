@@ -211,6 +211,33 @@ describe("canal de progresso", () => {
     expect(parsed.ok && parsed.kind).toBe("final");
   });
 
+  it("falha final HTTP 400 é normalizada e continua finalizável", () => {
+    const parsed = parseReportEvent({
+      token: "t".repeat(40),
+      done: true,
+      ok: false,
+      version: "valor inválido vindo da falha",
+      errorKind: "HTTP 400 / 42P01: tabela ausente",
+      summary: "a validação falhou",
+    });
+    expect(parsed.ok && parsed.kind).toBe("final");
+    if (parsed.ok && parsed.kind === "final") {
+      expect(parsed.event.version).toBeNull();
+      expect(parsed.event.errorKind).toBe("HTTP_400_42P01_tabela_ausente");
+    }
+  });
+
+  it("sucesso continua bloqueado quando a versão é inválida", () => {
+    expect(
+      parseReportEvent({
+        token: "t".repeat(40),
+        done: true,
+        ok: true,
+        version: "versão inválida",
+      }),
+    ).toMatchObject({ ok: false, reason: "invalid_version" });
+  });
+
   it("nunca propaga credenciais no texto livre", () => {
     const redacted = redactReportText(
       "falhou em postgresql://postgres:senha@db.x.supabase.co:5432/postgres com CRON_SECRET=abc123 e Bearer eyJabcdefghij.klmno.pqrst",
