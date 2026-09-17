@@ -11,7 +11,7 @@ MIGRATIONS = ROOT / "migrations"
 MAP = ROOT / "baseline-snapshot" / "tools" / "migration-destinations.json"
 VERSION = ROOT / "baseline-snapshot" / "tools" / "delta_version.txt"
 CONVERGENCE = ROOT / "master" / "001_control_plane_convergence_v1_4_3.sql"
-RECONCILIATION = ROOT / "master" / "002_legacy_migration_reconciliation.sql"
+RECONCILIATION = ROOT / "migrations" / "20260917184500_legacy_migration_reconciliation.sql"
 OUT = ROOT / "master" / "bootstrap-control-plane.sql"
 METADATA = ROOT / "master" / "bootstrap-control-plane.json"
 INSERT_BEFORE = "20260913230055_f50b7d0b-e5e5-4cc8-9ad0-ddcfd8104005.sql"
@@ -33,14 +33,13 @@ def build() -> tuple[str, str]:
     if not release_version:
         raise SystemExit("versão Master ausente em delta_version.txt")
     files = [entry["file"] for entry in document["migrations"] if entry["destination"] == "control-plane"]
-    if len(files) != 28 or INSERT_BEFORE not in files:
+    if len(files) != 29 or INSERT_BEFORE not in files or RECONCILIATION.name not in files:
         raise SystemExit("mapa Control-plane divergente do contrato auditado")
     parts = [HEADER]
     inserted = False
     for name in files:
         if name == INSERT_BEFORE:
             parts.extend(["-- MASTER CONVERGENCE\n", CONVERGENCE.read_text(encoding="utf-8").rstrip() + "\n\n"])
-            parts.extend(["-- MASTER LEGACY RECONCILIATION\n", RECONCILIATION.read_text(encoding="utf-8").rstrip() + "\n\n"])
             inserted = True
         parts.extend([f"-- MIGRATION {name}\n", (MIGRATIONS / name).read_text(encoding="utf-8").rstrip() + "\n\n"])
     if not inserted:
@@ -78,7 +77,7 @@ def main() -> None:
         return
     OUT.write_text(bootstrap, encoding="utf-8")
     METADATA.write_text(metadata, encoding="utf-8")
-    print(f"28 control-plane migrations + convergence -> {OUT}")
+    print(f"29 control-plane migrations + convergence -> {OUT}")
 
 if __name__ == "__main__":
     main()

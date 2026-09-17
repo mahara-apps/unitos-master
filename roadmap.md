@@ -1,5 +1,11 @@
 # Roadmap
 
+# MASTER 1.4.10 — promoção da RPC de evidências legadas
+
+- [x] Promover a definição canônica de `read_installation_migration_reconciliation_evidence(uuid,text)` pela trilha oficial Control-plane.
+- [x] Preservar acesso exclusivo de `service_role` e bloquear `PUBLIC`, `anon` e `authenticated`.
+- [x] Cobrir ausência, assinatura divergente e exclusão integral do pacote Client.
+
 # MASTER 1.4.9 — correção do pseudo-role PUBLIC
 
 - [x] Auditar GRANT, REVOKE e verificações de privilégios em migrations, pacotes e executores.
