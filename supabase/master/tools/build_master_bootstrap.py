@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 MIGRATIONS = ROOT / "migrations"
 MAP = ROOT / "baseline-snapshot" / "tools" / "migration-destinations.json"
+VERSION = ROOT / "baseline-snapshot" / "tools" / "delta_version.txt"
 CONVERGENCE = ROOT / "master" / "001_control_plane_convergence_v1_4_3.sql"
 OUT = ROOT / "master" / "bootstrap-control-plane.sql"
 METADATA = ROOT / "master" / "bootstrap-control-plane.json"
@@ -22,6 +23,14 @@ def sha256(data: bytes) -> str:
 
 def build() -> tuple[str, str]:
     document = json.loads(MAP.read_text(encoding="utf-8"))
+    version_values = dict(
+        line.split("=", 1)
+        for line in VERSION.read_text(encoding="utf-8").splitlines()
+        if "=" in line
+    )
+    release_version = version_values.get("version", "").strip()
+    if not release_version:
+        raise SystemExit("versão Master ausente em delta_version.txt")
     files = [entry["file"] for entry in document["migrations"] if entry["destination"] == "control-plane"]
     if len(files) != 28 or INSERT_BEFORE not in files:
         raise SystemExit("mapa Control-plane divergente do contrato auditado")
@@ -38,7 +47,7 @@ def build() -> tuple[str, str]:
     metadata = json.dumps(
         {
             "schemaVersion": 1,
-            "releaseVersion": "1.4.3",
+            "releaseVersion": release_version,
             "controlPlaneMigrations": len(files),
             "convergenceFile": CONVERGENCE.name,
             "convergenceSha256": sha256(CONVERGENCE.read_bytes()),
