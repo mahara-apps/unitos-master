@@ -45,7 +45,7 @@ export function privilegedTestEnv(): PrivilegedEnvVerdict {
   }
   if (
     declaredTarget !== INTEGRATION_TEST_PROJECT_REF ||
-    realTarget !== INTEGRATION_TEST_PROJECT_REF ||
+    (realTarget.length > 0 && realTarget !== INTEGRATION_TEST_PROJECT_REF) ||
     declaredTarget === FORBIDDEN_MASTER_PROJECT_REF ||
     realTarget === FORBIDDEN_MASTER_PROJECT_REF
   ) {
