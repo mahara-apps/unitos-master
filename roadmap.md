@@ -2,9 +2,9 @@
 
 ## MASTER 1.4.5 — validação das filas de retomada
 
-- [ ] Preservar e convergir `_unitos_deferred_sql` antes da validação final.
-- [ ] Cobrir fila ausente, legado sem `run_key`, fila vazia e reparo idempotente.
-- [ ] Regenerar contratos MASTER-first e executar todos os gates locais.
+- [x] Preservar e convergir `_unitos_deferred_sql` antes da validação final.
+- [x] Cobrir fila ausente, legado sem `run_key`, fila vazia e reparo idempotente.
+- [x] Regenerar contratos MASTER-first e executar todos os gates locais.
 - [ ] Publicar o Master e orientar a retomada oficial sem SQL manual ou novo retry.
 
 ## MASTER 1.4.4 — retomada do deployment Vercel
