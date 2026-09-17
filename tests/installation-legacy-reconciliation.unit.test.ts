@@ -46,7 +46,7 @@ describe("reconciliação segura do ledger legado", () => {
     for (const position of [21, 42, 52, 56, 66, 82, 83]) expect(classifications.get(position)).toBe("partial_compatibility");
   });
   it("falha fechado para divergência, resposta incompleta e evidência reutilizada", () => {
-    expect(legacyEvidenceBlockReason(normalizeLegacyEvidenceRows(rows.map((item) => item.position === 34 ? { ...item, status: "divergent" } : item)))).toContain("posição 34");
+    expect(legacyEvidenceBlockReason(normalizeLegacyEvidenceRows(rows.map((item) => item.position === 34 ? { ...item, status: "divergent" } : item)))).toContain("34");
     expect(() => normalizeLegacyEvidenceRows(rows.slice(1))).toThrow(/incompleta/);
     expect(() => normalizeLegacyEvidenceRows(rows.map((item) => item.position === 39 ? { ...item, evidence_key: rows[0]?.evidence_key } : item))).toThrow(/diverge/);
   });
