@@ -569,6 +569,19 @@ describe("tabelas auxiliares da automação e RLS", () => {
     );
   });
 
+  it("separa cada DDL antes do ALTER para evitar SQLSTATE 42601", async () => {
+    const management = {
+      query: async (sql: string) => {
+        const ddlWithoutTerminator = /\)\s*\nalter table/i.test(sql);
+        return ddlWithoutTerminator
+          ? { ok: false, rows: [], error: '42601: syntax error at or near "alter"' }
+          : { ok: true, rows: [] };
+      },
+    };
+
+    await expect(hardenHelperTables(management)).resolves.toEqual({ ok: true });
+  });
+
   it("hardenHelperTables atualiza fila legada sem run_key", async () => {
     const seen: string[] = [];
     await hardenHelperTables({

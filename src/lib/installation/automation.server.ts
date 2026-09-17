@@ -256,12 +256,14 @@ export const HELPER_TABLES = [
 export async function hardenHelperTables(management: {
   query: (sql: string) => Promise<{ ok: boolean; rows: unknown[]; error?: string }>;
 }): Promise<{ ok: boolean; error?: string }> {
-  const sql = [
+  const schemaRepairSql = [
     "create table if not exists public._unitos_deferred_sql (id bigserial primary key, stmt text not null, run_key text not null default 'legacy')",
     "alter table public._unitos_deferred_sql add column if not exists run_key text not null default 'legacy'",
     "alter table public._unitos_deferred_sql add column if not exists sqlstate text",
     "alter table public._unitos_deferred_sql add column if not exists error_message text",
     "create index if not exists _unitos_deferred_sql_run_key_idx on public._unitos_deferred_sql (run_key, id)",
+  ].join(";\n");
+  const hardeningSql = [
     "DO $unitos_harden$",
     "DECLARE t text;",
     "BEGIN",
@@ -274,6 +276,10 @@ export async function hardenHelperTables(management: {
     "END",
     "$unitos_harden$;",
   ].join("\n");
+  // A Management API recebe um único texto SQL. Cada DDL precisa terminar em
+  // `;` antes do próximo comando; apenas uma quebra de linha faz o PostgreSQL
+  // interpretar o ALTER como continuação inválida do CREATE (SQLSTATE 42601).
+  const sql = `${schemaRepairSql};\n${hardeningSql}`;
   const res = await management.query(sql);
   return res.ok ? { ok: true } : { ok: false, error: res.error };
 }

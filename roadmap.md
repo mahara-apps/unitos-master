@@ -3,6 +3,7 @@
 ## MASTER 1.4.5 — validação das filas de retomada
 
 - [x] Preservar e convergir `_unitos_deferred_sql` antes da validação final.
+- [x] Corrigir a separação dos comandos DDL do reparo para impedir SQLSTATE 42601.
 - [x] Cobrir fila ausente, legado sem `run_key`, fila vazia e reparo idempotente.
 - [x] Regenerar contratos MASTER-first e executar todos os gates locais.
 - [ ] Publicar o Master e orientar a retomada oficial sem SQL manual ou novo retry.
