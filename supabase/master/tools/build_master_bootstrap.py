@@ -77,7 +77,7 @@ def main() -> None:
         return
     OUT.write_text(bootstrap, encoding="utf-8")
     METADATA.write_text(metadata, encoding="utf-8")
-    print(f"{len(json.loads(MAP.read_text(encoding='utf-8'))['migrations'])} mapped migrations -> {OUT}")
+    print(f"29 control-plane migrations + convergence -> {OUT}")
 
 if __name__ == "__main__":
     main()
