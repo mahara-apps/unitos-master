@@ -576,6 +576,11 @@
       "position": 115,
       "file": "20260916140310_b0a7973f-0881-4ef0-9b48-a19202063e8d.sql",
       "destination": "control-plane"
+    },
+    {
+      "position": 116,
+      "file": "20260917184500_legacy_migration_reconciliation.sql",
+      "destination": "control-plane"
     }
   ]
 }

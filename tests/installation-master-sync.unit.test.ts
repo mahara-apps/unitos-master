@@ -9,7 +9,7 @@ import verifySql from "../supabase/install/verify-installation-client.sql?raw";
 import verifyMasterSql from "../supabase/install/verify-installation-master.sql?raw";
 import masterBootstrap from "../supabase/master/bootstrap-control-plane.sql?raw";
 import convergence from "../supabase/master/001_control_plane_convergence_v1_4_3.sql?raw";
-import reconciliation from "../supabase/master/002_legacy_migration_reconciliation.sql?raw";
+import reconciliation from "../supabase/migrations/20260917184500_legacy_migration_reconciliation.sql?raw";
 import extensions from "../supabase/baseline-snapshot/000_extensions.sql?raw";
 
 /**
@@ -216,6 +216,24 @@ describe("sincronia MASTER-first", () => {
     expect(delta).not.toContain("installation_migration_reconciliation_evidence");
   });
 
+  it("promove a RPC de leitura legada com a assinatura canônica no Control-plane", () => {
+    const signature =
+      "read_installation_migration_reconciliation_evidence(uuid,text)";
+    expect(convergence).toContain(
+      "\\ir ../migrations/20260917184500_legacy_migration_reconciliation.sql",
+    );
+    expect(reconciliation).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.read_installation_migration_reconciliation_evidence\(_installation_id uuid,_package_hash text\)/,
+    );
+    expect(verifyMasterSql).toContain(`('${signature}')`);
+    expect(reconciliation).toContain(
+      `REVOKE ALL ON FUNCTION public.${signature} FROM PUBLIC,anon,authenticated;`,
+    );
+    expect(reconciliation).toContain(
+      `GRANT EXECUTE ON FUNCTION public.${signature} TO service_role;`,
+    );
+  });
+
   it("promoção Master é executável, selada e bloqueada fora do fluxo explícito", async () => {
     const metadata = JSON.parse(
       readFileSync("supabase/master/bootstrap-control-plane.json", "utf8"),
@@ -231,10 +249,12 @@ describe("sincronia MASTER-first", () => {
     const packageJson = readFileSync("package.json", "utf8");
 
     expect(metadata.releaseVersion).toBe(MASTER_RELEASE_VERSION);
-    expect(metadata.controlPlaneMigrations).toBe(28);
+    expect(metadata.controlPlaneMigrations).toBe(29);
     expect(metadata.convergenceSha256).toBe(await sha256Hex(convergence));
     expect(metadata.bootstrapSha256).toBe(await sha256Hex(masterBootstrap));
-    expect(metadata.reconciliationFile).toBe("002_legacy_migration_reconciliation.sql");
+    expect(metadata.reconciliationFile).toBe(
+      "20260917184500_legacy_migration_reconciliation.sql",
+    );
     expect(metadata.reconciliationSha256).toBe(await sha256Hex(reconciliation));
     expect(promotion).toContain("UNITOS_MASTER_PROMOTION:-");
     expect(promotion).toContain("MASTER_DATABASE_URL:-");
