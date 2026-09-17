@@ -1,5 +1,12 @@
 # Roadmap
 
+## MASTER 1.4.4 — retomada do deployment Vercel
+
+- [x] Corrigir a listagem de deployments para usar `projectId` após resolver o projeto Vercel.
+- [x] Preservar a busca por nome antes da resolução e a exigência de Production + Git + SHA exato.
+- [x] Tornar o motivo da espera identificável sem expor credenciais ou aceitar outro deployment.
+- [ ] Regenerar contratos MASTER-first, executar gates, publicar o Master e acompanhar a operação existente.
+
 ## MASTER 1.4.3 — separação Control-plane e pacote Client
 
 - [x] Materializar o bootstrap/convergência Master fora do pacote Client.

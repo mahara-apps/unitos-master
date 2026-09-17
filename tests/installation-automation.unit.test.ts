@@ -27,7 +27,7 @@ const githubResponse = (url: string): Response | null => {
   if (url.includes("/contents/supabase/baseline-snapshot/tools/delta_version.txt"))
     return Response.json({
       encoding: "base64",
-      content: Buffer.from("version=1.4.3\n", "utf8").toString("base64"),
+      content: Buffer.from("version=1.4.4\n", "utf8").toString("base64"),
     });
   if (url.includes("/git/trees")) return Response.json({ tree: [] });
   if (url.includes("/git/ref/heads/")) return Response.json({ object: { sha: "sha_dest" } });
@@ -838,7 +838,7 @@ describe("runAutomatedProvision", () => {
         codeDone: true,
         codeSha: "sha_master",
         codeSourceSha: "sha_master",
-        provisionRelease: "1.4.3",
+        provisionRelease: "1.4.4",
       },
     });
     const calls: string[] = [];

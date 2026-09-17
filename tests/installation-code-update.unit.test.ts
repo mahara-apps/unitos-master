@@ -287,6 +287,67 @@ describe("atualização de código da instalação", () => {
     });
   });
 
+  it("usa projectId ao localizar o deployment depois de resolver um projeto existente", async () => {
+    const { impl, calls } = fakeFetch([
+      {
+        match: /v9\/projects\/unitos-casa-8\?teamId=team_1/,
+        body: {
+          id: "prj_existing",
+          name: "unitos-casa-8",
+          accountId: "team_1",
+          link: {
+            type: "github",
+            org: "mahara-apps",
+            repo: "unitos-casa-8",
+            productionBranch: "main",
+          },
+        },
+      },
+      {
+        match: /v6\/deployments/,
+        body: {
+          deployments: [
+            {
+              uid: "dpl_ready",
+              source: "git",
+              readyState: "READY",
+              meta: { githubCommitSha: "abc123" },
+            },
+          ],
+        },
+      },
+    ]);
+    const client = createDeployClient({
+      token: "t",
+      project: "unitos-casa-8",
+      teamId: "team_1",
+      fetchImpl: impl,
+    });
+
+    await expect(client.ensureProject("mahara-apps/unitos-casa-8")).resolves.toMatchObject({
+      ok: true,
+      projectId: "prj_existing",
+    });
+    await expect(client.findProductionDeployment("abc123")).resolves.toMatchObject({
+      ok: true,
+      deploymentId: "dpl_ready",
+      state: "READY",
+    });
+    const lookup = calls.find((call) => /v6\/deployments/.test(call.url));
+    expect(lookup?.url).toContain("projectId=prj_existing");
+    expect(lookup?.url).not.toContain("app=prj_existing");
+  });
+
+  it("mantém o filtro por nome antes de o projeto ter um ID resolvido", async () => {
+    const { impl, calls } = fakeFetch([{ match: /v6\/deployments/, body: { deployments: [] } }]);
+    const client = createDeployClient({ token: "t", project: "unitos-casa-8", fetchImpl: impl });
+
+    await expect(client.findProductionDeployment("abc123")).resolves.toEqual({ ok: true });
+    const lookup = calls.find((call) => /v6\/deployments/.test(call.url));
+    expect(lookup?.url).toContain("app=unitos-casa-8");
+    expect(lookup?.url).not.toContain("projectId=");
+  });
+
   it("não confunde outro deployment com o commit recém-enviado", async () => {
     const { impl } = fakeFetch([
       {
@@ -395,31 +456,37 @@ describe("atualização de código da instalação", () => {
 });
 
 describe("projeto Vercel da instalação nova", () => {
-  it.each([true, false])(
-    "confirma GitHub/repo/main quando sourceless=%s",
-    (sourceless) => {
-      expect(
-        confirmVercelGithubLink(
-          {
-            link: {
-              type: "github",
-              org: "mahara-apps",
-              repo: "unitos-novo",
-              productionBranch: "main",
-              sourceless,
-            },
+  it.each([true, false])("confirma GitHub/repo/main quando sourceless=%s", (sourceless) => {
+    expect(
+      confirmVercelGithubLink(
+        {
+          link: {
+            type: "github",
+            org: "mahara-apps",
+            repo: "unitos-novo",
+            productionBranch: "main",
+            sourceless,
           },
-          "mahara-apps/unitos-novo",
-        ),
-      ).toMatchObject({ confirmed: true, present: true });
-    },
-  );
+        },
+        "mahara-apps/unitos-novo",
+      ),
+    ).toMatchObject({ confirmed: true, present: true });
+  });
 
   it.each([
-    ["repositório divergente", { type: "github", org: "mahara-apps", repo: "outro", productionBranch: "main" }],
-    ["branch divergente", { type: "github", org: "mahara-apps", repo: "unitos-novo", productionBranch: "develop" }],
+    [
+      "repositório divergente",
+      { type: "github", org: "mahara-apps", repo: "outro", productionBranch: "main" },
+    ],
+    [
+      "branch divergente",
+      { type: "github", org: "mahara-apps", repo: "unitos-novo", productionBranch: "develop" },
+    ],
     ["vínculo ausente", {}],
-    ["tipo não GitHub", { type: "gitlab", org: "mahara-apps", repo: "unitos-novo", productionBranch: "main" }],
+    [
+      "tipo não GitHub",
+      { type: "gitlab", org: "mahara-apps", repo: "unitos-novo", productionBranch: "main" },
+    ],
   ])("bloqueia %s", (_label, link) => {
     expect(confirmVercelGithubLink(link, "mahara-apps/unitos-novo").confirmed).toBe(false);
   });
@@ -451,7 +518,9 @@ describe("projeto Vercel da instalação nova", () => {
       ok: true,
       repositoryLinked: true,
     });
-    expect(calls.some((call) => call.method === "GET" && /v10\/projects\/prj_1\/link/.test(call.url))).toBe(true);
+    expect(
+      calls.some((call) => call.method === "GET" && /v10\/projects\/prj_1\/link/.test(call.url)),
+    ).toBe(true);
     expect(calls.some((call) => call.method !== "GET")).toBe(false);
   });
 
