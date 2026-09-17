@@ -250,16 +250,20 @@ export const HELPER_TABLES = [
 ] as const;
 
 /**
- * Auto-reparo idempotente antes da validação final: liga RLS e revoga grants em
- * qualquer tabela auxiliar remanescente de execuções anteriores e descarta a
- * fila de statements adiados quando ela já está vazia.
+ * Auto-reparo idempotente antes da validação final: converge a fila de SQL
+ * adiado para o contrato canônico e protege todas as tabelas auxiliares.
  */
 export async function hardenHelperTables(management: {
   query: (sql: string) => Promise<{ ok: boolean; rows: unknown[]; error?: string }>;
 }): Promise<{ ok: boolean; error?: string }> {
   const sql = [
+    "create table if not exists public._unitos_deferred_sql (id bigserial primary key, stmt text not null, run_key text not null default 'legacy')",
+    "alter table public._unitos_deferred_sql add column if not exists run_key text not null default 'legacy'",
+    "alter table public._unitos_deferred_sql add column if not exists sqlstate text",
+    "alter table public._unitos_deferred_sql add column if not exists error_message text",
+    "create index if not exists _unitos_deferred_sql_run_key_idx on public._unitos_deferred_sql (run_key, id)",
     "DO $unitos_harden$",
-    "DECLARE t text; leftover int;",
+    "DECLARE t text;",
     "BEGIN",
     `  FOREACH t IN ARRAY ARRAY[${HELPER_TABLES.map((n) => `'${n}'`).join(", ")}] LOOP`,
     "    IF to_regclass(t) IS NOT NULL THEN",
@@ -267,10 +271,6 @@ export async function hardenHelperTables(management: {
     "      EXECUTE format('revoke all on %s from anon, authenticated', t);",
     "    END IF;",
     "  END LOOP;",
-    "  IF to_regclass('public._unitos_deferred_sql') IS NOT NULL THEN",
-    "    EXECUTE 'SELECT count(*) FROM public._unitos_deferred_sql WHERE stmt NOT LIKE ''-- __unitos%''' INTO leftover;",
-    "    IF leftover = 0 THEN DROP TABLE IF EXISTS public._unitos_deferred_sql; END IF;",
-    "  END IF;",
     "END",
     "$unitos_harden$;",
   ].join("\n");
@@ -4831,7 +4831,12 @@ export async function runAutomatedProvision(input: {
 
   /* 8. verificação final READ-ONLY */
   await mark("validation", "running");
-  await hardenHelperTables(management);
+  const hardened = await hardenHelperTables(management);
+  if (!hardened.ok) {
+    failures.push(`verify-installation: reparo das filas falhou: ${hardened.error ?? "falha"}`);
+    await mark("validation", "error", "reparo das filas falhou");
+    return finish(url.origin, url.source);
+  }
   const verify = await management.query(prepareVerificationSql(verifySql).sql);
 
   if (!verify.ok) {
