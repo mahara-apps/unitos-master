@@ -9,6 +9,7 @@ import verifySql from "../supabase/install/verify-installation-client.sql?raw";
 import verifyMasterSql from "../supabase/install/verify-installation-master.sql?raw";
 import masterBootstrap from "../supabase/master/bootstrap-control-plane.sql?raw";
 import convergence from "../supabase/master/001_control_plane_convergence_v1_4_3.sql?raw";
+import convergenceEntry from "../supabase/master/convergence-control-plane.sql?raw";
 import reconciliation from "../supabase/migrations/20260917184500_legacy_migration_reconciliation.sql?raw";
 import extensions from "../supabase/baseline-snapshot/000_extensions.sql?raw";
 
@@ -227,7 +228,7 @@ describe("sincronia MASTER-first", () => {
 
   it("reprova assinatura divergente e preserva os grants mínimos da RPC", () => {
     const signature = "read_installation_migration_reconciliation_evidence(uuid,text)";
-    expect(convergence).toContain(
+    expect(convergenceEntry).toContain(
       "\\ir ../migrations/20260917184500_legacy_migration_reconciliation.sql",
     );
     expect(reconciliation).toMatch(
