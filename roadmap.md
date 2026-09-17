@@ -4,7 +4,7 @@
 
 - [x] Auditar GRANT, REVOKE e verificações de privilégios em migrations, pacotes e executores.
 - [x] Substituir a resolução inválida de `PUBLIC` como role nomeada pela inspeção da ACL pública (`grantee = 0`).
-- [ ] Regenerar contratos MASTER-first e concluir todos os gates locais sem publicação ou operação externa.
+- [x] Regenerar contratos MASTER-first e concluir todos os gates locais sem publicação ou operação externa.
 
 # MASTER 1.4.8 — sincronização do estado das operações
 
