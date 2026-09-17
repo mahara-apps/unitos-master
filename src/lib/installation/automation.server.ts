@@ -69,6 +69,11 @@ import {
   type CheckState,
   type HealthCheckId,
 } from "./manager-contract";
+import {
+  buildLegacyReconciliationInspectionSql,
+  legacyEvidenceBlockReason,
+  normalizeLegacyEvidenceRows,
+} from "./legacy-reconciliation";
 
 /* --------------------------------------------------------------- utilidades */
 

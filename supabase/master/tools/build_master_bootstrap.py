@@ -11,6 +11,7 @@ MIGRATIONS = ROOT / "migrations"
 MAP = ROOT / "baseline-snapshot" / "tools" / "migration-destinations.json"
 VERSION = ROOT / "baseline-snapshot" / "tools" / "delta_version.txt"
 CONVERGENCE = ROOT / "master" / "001_control_plane_convergence_v1_4_3.sql"
+RECONCILIATION = ROOT / "master" / "002_legacy_migration_reconciliation.sql"
 OUT = ROOT / "master" / "bootstrap-control-plane.sql"
 METADATA = ROOT / "master" / "bootstrap-control-plane.json"
 INSERT_BEFORE = "20260913230055_f50b7d0b-e5e5-4cc8-9ad0-ddcfd8104005.sql"
@@ -39,6 +40,7 @@ def build() -> tuple[str, str]:
     for name in files:
         if name == INSERT_BEFORE:
             parts.extend(["-- MASTER CONVERGENCE\n", CONVERGENCE.read_text(encoding="utf-8").rstrip() + "\n\n"])
+            parts.extend(["-- MASTER LEGACY RECONCILIATION\n", RECONCILIATION.read_text(encoding="utf-8").rstrip() + "\n\n"])
             inserted = True
         parts.extend([f"-- MIGRATION {name}\n", (MIGRATIONS / name).read_text(encoding="utf-8").rstrip() + "\n\n"])
     if not inserted:
@@ -51,6 +53,8 @@ def build() -> tuple[str, str]:
             "controlPlaneMigrations": len(files),
             "convergenceFile": CONVERGENCE.name,
             "convergenceSha256": sha256(CONVERGENCE.read_bytes()),
+            "reconciliationFile": RECONCILIATION.name,
+            "reconciliationSha256": sha256(RECONCILIATION.read_bytes()),
             "bootstrapFile": OUT.name,
             "bootstrapSha256": sha256(bootstrap.encode()),
         },
