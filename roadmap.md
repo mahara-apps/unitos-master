@@ -1,5 +1,14 @@
 # Roadmap
 
+# MASTER 1.4.11 — P0 de atualização legada
+
+- [ ] Promover somente evidências legadas integrais ao progresso canônico com pacote, posição, fingerprint, statements, lease e fencing validados.
+- [ ] Rejeitar reconciliação em massa parcial ou divergente de forma transacional.
+- [ ] Normalizar leases e tentativas históricas sem executar migrations nem reabrir `manual_review`.
+- [ ] Aplicar a matriz fail-closed de manifesto, pacote, ledger, checkpoints e evidências externas.
+- [ ] Preservar 85 blocos Client e executar ensaios reais exclusivamente no projeto allowlisted `testes`.
+- [ ] Executar todos os gates MASTER-first sem publicar nem atualizar instalações reais.
+
 # MASTER 1.4.10 — promoção da RPC de evidências legadas
 
 - [x] Promover a definição canônica de `read_installation_migration_reconciliation_evidence(uuid,text)` pela trilha oficial Control-plane.

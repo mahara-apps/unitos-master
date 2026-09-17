@@ -13,6 +13,11 @@ export type LegacyEvidenceResult = {
 };
 
 type Migration = { file: string; sql: string; fingerprint: string };
+export type LegacyPromotion = {
+  file: string;
+  fingerprint: string;
+  position: number;
+};
 const CONTRACT = [
   [21, "partial_compatibility"],
   [34, "canonical_state"],
@@ -243,4 +248,24 @@ export function reconciledLegacyPositions(results: LegacyEvidenceResult[]): Set<
       )
       .map((item) => item.position),
   );
+}
+
+/** Produz somente identidades integralmente comprovadas pelo contrato fixado. */
+export function buildLegacyPromotionInventory(
+  results: LegacyEvidenceResult[],
+  migrations: Migration[],
+): LegacyPromotion[] {
+  const blockReason = legacyEvidenceBlockReason(results);
+  if (blockReason) throw new Error(blockReason);
+  const positions = reconciledLegacyPositions(results);
+  return [...positions]
+    .sort((a, b) => a - b)
+    .map((position) => {
+      const migration = migrations[position - 1];
+      const evidence = results.find((item) => item.position === position);
+      if (!migration || !evidence || evidence.migration_file !== migration.file) {
+        throw new Error(`Evidência legada diverge do pacote fixado na posição ${position}.`);
+      }
+      return { file: migration.file, fingerprint: migration.fingerprint, position };
+    });
 }

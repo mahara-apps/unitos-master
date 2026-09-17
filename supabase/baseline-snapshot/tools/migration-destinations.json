@@ -581,6 +581,11 @@
       "position": 116,
       "file": "20260917184500_legacy_migration_reconciliation.sql",
       "destination": "control-plane"
+    },
+    {
+      "position": 117,
+      "file": "20260917191500_legacy_update_p0_hardening.sql",
+      "destination": "control-plane"
     }
   ]
 }
