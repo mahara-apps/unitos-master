@@ -247,6 +247,39 @@ describe("sincronia MASTER-first", () => {
     );
   });
 
+  it("reconciliação P0 valida inventário, lease/fencing e rejeita persistência parcial", () => {
+    const reconcileSignature =
+      "reconcile_installation_operation_migrations(uuid,text,bigint,jsonb)";
+    expect(p0Hardening).toContain(
+      "CREATE OR REPLACE FUNCTION public.reconcile_installation_operation_migrations",
+    );
+    expect(p0Hardening).toContain("AND fencing_token = _fencing_token");
+    expect(p0Hardening).toContain("AND lease_expires_at > now()");
+    expect(p0Hardening).toContain("IF _saved <> _expected THEN");
+    expect(p0Hardening).toContain("Reconciliação parcial rejeitada");
+    expect(p0Hardening).toContain(
+      `REVOKE ALL ON FUNCTION public.${reconcileSignature} FROM PUBLIC, anon, authenticated;`,
+    );
+    expect(p0Hardening).toContain(
+      `GRANT EXECUTE ON FUNCTION public.${reconcileSignature} TO service_role;`,
+    );
+  });
+
+  it("normalização histórica não executa migrations e preserva attempt_count", () => {
+    const normalizeSignature = "normalize_legacy_installation_operations(integer)";
+    expect(p0Hardening).toContain(
+      "CREATE OR REPLACE FUNCTION public.normalize_legacy_installation_operations",
+    );
+    expect(p0Hardening).toContain("'migrationsExecuted', 0");
+    expect(p0Hardening).not.toMatch(/SET[\s\S]{0,160}attempt_count\s*=/i);
+    expect(p0Hardening).toContain("SET status = 'manual_review'");
+    expect(p0Hardening).toContain("SET status = 'orphaned'");
+    expect(p0Hardening).toContain(
+      `REVOKE ALL ON FUNCTION public.${normalizeSignature} FROM PUBLIC, anon, authenticated;`,
+    );
+    expect(verifyMasterSql).toContain(`('${normalizeSignature}')`);
+  });
+
   it("promoção Master é executável, selada e bloqueada fora do fluxo explícito", async () => {
     const metadata = JSON.parse(
       readFileSync("supabase/master/bootstrap-control-plane.json", "utf8"),
