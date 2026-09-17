@@ -456,31 +456,37 @@ describe("atualização de código da instalação", () => {
 });
 
 describe("projeto Vercel da instalação nova", () => {
-  it.each([true, false])(
-    "confirma GitHub/repo/main quando sourceless=%s",
-    (sourceless) => {
-      expect(
-        confirmVercelGithubLink(
-          {
-            link: {
-              type: "github",
-              org: "mahara-apps",
-              repo: "unitos-novo",
-              productionBranch: "main",
-              sourceless,
-            },
+  it.each([true, false])("confirma GitHub/repo/main quando sourceless=%s", (sourceless) => {
+    expect(
+      confirmVercelGithubLink(
+        {
+          link: {
+            type: "github",
+            org: "mahara-apps",
+            repo: "unitos-novo",
+            productionBranch: "main",
+            sourceless,
           },
-          "mahara-apps/unitos-novo",
-        ),
-      ).toMatchObject({ confirmed: true, present: true });
-    },
-  );
+        },
+        "mahara-apps/unitos-novo",
+      ),
+    ).toMatchObject({ confirmed: true, present: true });
+  });
 
   it.each([
-    ["repositório divergente", { type: "github", org: "mahara-apps", repo: "outro", productionBranch: "main" }],
-    ["branch divergente", { type: "github", org: "mahara-apps", repo: "unitos-novo", productionBranch: "develop" }],
+    [
+      "repositório divergente",
+      { type: "github", org: "mahara-apps", repo: "outro", productionBranch: "main" },
+    ],
+    [
+      "branch divergente",
+      { type: "github", org: "mahara-apps", repo: "unitos-novo", productionBranch: "develop" },
+    ],
     ["vínculo ausente", {}],
-    ["tipo não GitHub", { type: "gitlab", org: "mahara-apps", repo: "unitos-novo", productionBranch: "main" }],
+    [
+      "tipo não GitHub",
+      { type: "gitlab", org: "mahara-apps", repo: "unitos-novo", productionBranch: "main" },
+    ],
   ])("bloqueia %s", (_label, link) => {
     expect(confirmVercelGithubLink(link, "mahara-apps/unitos-novo").confirmed).toBe(false);
   });
@@ -512,7 +518,9 @@ describe("projeto Vercel da instalação nova", () => {
       ok: true,
       repositoryLinked: true,
     });
-    expect(calls.some((call) => call.method === "GET" && /v10\/projects\/prj_1\/link/.test(call.url))).toBe(true);
+    expect(
+      calls.some((call) => call.method === "GET" && /v10\/projects\/prj_1\/link/.test(call.url)),
+    ).toBe(true);
     expect(calls.some((call) => call.method !== "GET")).toBe(false);
   });
 
