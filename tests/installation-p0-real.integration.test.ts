@@ -7,7 +7,8 @@ import {
 } from "@/lib/installation/automation.server";
 import { versionForCompletedOperation } from "@/lib/installation/runner.server";
 
-const TARGET_REF = "limalqnfatlkczshqzgs";
+const TARGET_REF = "xemwzgbzpokslnpatqsk";
+const TARGET_NAME = "descartável2";
 const FORBIDDEN_REFS = new Set(["tkjbhttylouamqxnbfgv"]);
 const RUN_KEY = "stage10:p0-real:20260915";
 const TEST_TABLE = "public._unitos_it_stage10_p0";
@@ -29,7 +30,12 @@ const cleanupSql = [
   `delete from public._unitos_applied_deltas where label = '${LEDGER_LABEL}';`,
 ].join("\n");
 
-const enabled = process.env["UNITOS_REAL_TEST_PROJECT_REF"] === TARGET_REF;
+const enabled =
+  process.env["UNITOS_TEST_ENV"] === "INTEGRATION_TEST_SUITE" &&
+  process.env["UNITOS_REAL_TEST_PROJECT_REF"] === TARGET_REF &&
+  process.env["UNITOS_INTEGRATION_TEST_PROJECT_REF"] === TARGET_REF &&
+  process.env["SUPABASE_PROJECT_ID"] === TARGET_REF &&
+  process.env["SUPABASE_URL"] === `https://${TARGET_REF}.supabase.co`;
 const suite = enabled ? describe.sequential : describe.skip;
 
 function rowValue(rows: unknown[], key: string): unknown {
@@ -49,9 +55,19 @@ suite("P0 real — executor canônico no Supabase testes", () => {
   beforeAll(async () => {
     const token = process.env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"]?.trim();
     const requestedRef = process.env["UNITOS_REAL_TEST_PROJECT_REF"]?.trim();
+    const integrationRef = process.env["UNITOS_INTEGRATION_TEST_PROJECT_REF"]?.trim();
+    const supabaseProjectRef = process.env["SUPABASE_PROJECT_ID"]?.trim();
+    const supabaseUrl = process.env["SUPABASE_URL"]?.trim();
     if (!token) throw new Error("UNITOS_SUPABASE_MANAGEMENT_TOKEN ausente");
     if (requestedRef !== TARGET_REF || FORBIDDEN_REFS.has(requestedRef)) {
       throw new Error(`ref não autorizado para ensaio real: ${requestedRef || "ausente"}`);
+    }
+    if (
+      integrationRef !== TARGET_REF ||
+      supabaseProjectRef !== TARGET_REF ||
+      supabaseUrl !== `https://${TARGET_REF}.supabase.co`
+    ) {
+      throw new Error("configuração divergente do projeto descartável P0 autorizado");
     }
 
     const metadata = await fetch(`https://api.supabase.com/v1/projects/${requestedRef}`, {
@@ -59,7 +75,7 @@ suite("P0 real — executor canônico no Supabase testes", () => {
     });
     if (!metadata.ok) throw new Error(`projeto de teste inacessível: HTTP ${metadata.status}`);
     const project = (await metadata.json()) as { ref?: string; name?: string; status?: string };
-    if (project.ref !== TARGET_REF || project.name !== "testes") {
+    if (project.ref !== TARGET_REF || project.name !== TARGET_NAME) {
       throw new Error(`identidade inesperada do projeto: ${project.ref ?? "sem ref"}`);
     }
 

@@ -6,7 +6,7 @@
 - [x] Rejeitar reconciliação em massa parcial ou divergente de forma transacional.
 - [x] Normalizar leases e tentativas históricas sem executar migrations nem reabrir `manual_review`.
 - [x] Aplicar a matriz fail-closed de manifesto, pacote, ledger, checkpoints e evidências externas.
-- [ ] Executar o ensaio P0 real exclusivamente no projeto allowlisted `testes` — bloqueado: a API de gestão respondeu HTTP 404 ao token disponível.
+- [ ] Executar o ensaio P0 real exclusivamente no projeto substituto autorizado `descartável2` (`xemwzgbzpokslnpatqsk`); o Master `tkjbhttylouamqxnbfgv` permanece proibido. Antes do ensaio, concluir somente a validação read-only de identidade, workspace e conectividade.
 - [x] Preservar 85 blocos Client e concluir focados, `master:check`, suíte local, integração geral, typecheck, lint focado e build.
 - [ ] Executar a suíte global oficial após liberar o ensaio P0 real; não publicar nem atualizar instalações reais antes disso.
 
