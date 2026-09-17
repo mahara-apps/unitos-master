@@ -9575,6 +9575,10 @@ export type Database = {
       message_unread_total: { Args: { _brand_id: string }; Returns: number }
       module_level_rank: { Args: { _level: string }; Returns: number }
       my_access: { Args: { _brand_id?: string }; Returns: Json }
+      normalize_legacy_installation_operations: {
+        Args: { _max_idle_seconds?: number }
+        Returns: Json
+      }
       notification_pref_for_kind: { Args: { _kind: string }; Returns: string }
       notification_prefs_allows: {
         Args: { _kind: string; _user_id: string }

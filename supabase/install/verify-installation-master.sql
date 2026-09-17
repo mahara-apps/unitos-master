@@ -28,6 +28,7 @@ WITH expected_tables(name) AS (VALUES
   ('reconcile_installation_operation_migrations(uuid,text,bigint,jsonb)'),
   ('record_installation_migration_reconciliation_evidence(uuid,text,bigint,text,jsonb)'),
   ('read_installation_migration_reconciliation_evidence(uuid,text)'),
+  ('normalize_legacy_installation_operations(integer)'),
   ('seal_installation_operation_baseline(uuid,text,bigint,text,text)'),
   ('finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'),
   ('compare_and_set_installation_generated_secrets(uuid,timestamp with time zone,text,uuid)')
@@ -87,7 +88,7 @@ WITH expected_tables(name) AS (VALUES
     'installations_touch_updated_at','update_installation_credentials_updated_at',
     'installation_operation_steps_touch_updated_at','installation_operation_outbox_disable_legacy')
   UNION ALL
-  SELECT 10, 'Master: RPCs durable restritas ao serviço', count(*)::text || '/14', CASE WHEN count(*)=14 THEN 'PASS' ELSE 'FAIL' END
+  SELECT 10, 'Master: RPCs durable restritas ao serviço', count(*)::text || '/15', CASE WHEN count(*)=15 THEN 'PASS' ELSE 'FAIL' END
   FROM expected_functions e JOIN pg_proc p ON p.oid=to_regprocedure('public.'||e.signature)
   WHERE p.prosecdef AND position('public' in pg_get_functiondef(p.oid))>0
     AND has_function_privilege('service_role',p.oid,'EXECUTE')

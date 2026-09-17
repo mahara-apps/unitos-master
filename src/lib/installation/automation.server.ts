@@ -70,6 +70,7 @@ import {
   type HealthCheckId,
 } from "./manager-contract";
 import {
+  buildLegacyPromotionInventory,
   buildLegacyReconciliationInspectionSql,
   legacyEvidenceBlockReason,
   normalizeLegacyEvidenceRows,
@@ -5395,12 +5396,14 @@ export function validateCanonicalMigrationProgress(
   migrations: DeltaMigration[],
 ): { completed: Set<string>; current: CanonicalMigrationProgress | null } {
   const completed = new Set<string>();
+  const positions = new Set<number>();
   let current: CanonicalMigrationProgress | null = null;
-  let expectedPosition = 1;
+  let previousPosition = 0;
   for (const row of rows) {
     const migration = migrations[row.package_position - 1];
     if (
-      row.package_position !== expectedPosition ||
+      row.package_position <= previousPosition ||
+      positions.has(row.package_position) ||
       !migration ||
       migration.file !== row.migration_file ||
       migration.fingerprint !== row.fingerprint ||
@@ -5420,7 +5423,8 @@ export function validateCanonicalMigrationProgress(
       if (current) throw new Error("Progresso canônico contém mais de uma migration em execução.");
       current = row;
     }
-    expectedPosition += 1;
+    positions.add(row.package_position);
+    previousPosition = row.package_position;
   }
   return { completed, current };
 }
@@ -5526,7 +5530,7 @@ async function reconcileCanonicalMigrations(
     _fencing_token: operation.fencing_token ?? -1,
     _migrations: inventory,
   });
-  if (error || typeof data !== "number")
+  if (error || typeof data !== "number" || data !== inventory.length)
     throw new Error(error?.message ?? "reconciliação canônica não confirmada");
 }
 
@@ -5536,9 +5540,13 @@ async function reconcileLegacyMigrationMarker(
   operation: OperationRow,
   migrations: DeltaMigration[],
   packageHash: string,
-): Promise<string | null> {
+): Promise<
+  | { ok: false; detail: string }
+  | { ok: true; promotions: Array<{ file: string; fingerprint: string; position: number }> }
+> {
   const inspection = await management.query(buildLegacyReconciliationInspectionSql(migrations));
-  if (!inspection.ok) throw new Error(inspection.error ?? "inspeção legada falhou");
+  if (!inspection.ok)
+    return { ok: false, detail: `inspeção legada falhou: ${inspection.error ?? "erro"}` };
   const inspected = normalizeLegacyEvidenceRows(inspection.rows);
   const rpc = client as never as {
     rpc: (
@@ -5551,9 +5559,10 @@ async function reconcileLegacyMigrationMarker(
     _package_hash: packageHash,
   });
   if (storedResponse.error)
-    throw new Error(
-      `Falha ao ler evidências legadas: ${storedResponse.error.message ?? "erro desconhecido"}`,
-    );
+    return {
+      ok: false,
+      detail: `RPC Control-plane de evidências indisponível ou incompatível: ${storedResponse.error.message ?? "erro desconhecido"}`,
+    };
   const stored = Array.isArray(storedResponse.data) ? storedResponse.data : [];
   const storedByPosition = new Map(
     stored
@@ -5588,10 +5597,13 @@ async function reconcileLegacyMigrationMarker(
     _evidence: evidence,
   });
   if (recorded.error)
-    throw new Error(
-      `Falha ao registrar evidências legadas: ${recorded.error.message ?? "erro desconhecido"}`,
-    );
-  return legacyEvidenceBlockReason(evidence);
+    return {
+      ok: false,
+      detail: `Falha ao registrar evidências legadas: ${recorded.error.message ?? "erro desconhecido"}`,
+    };
+  const blockReason = legacyEvidenceBlockReason(evidence);
+  if (blockReason) return { ok: false, detail: blockReason };
+  return { ok: true, promotions: buildLegacyPromotionInventory(evidence, migrations) };
 }
 
 /**
@@ -5671,14 +5683,27 @@ export async function applyDatabaseDelta(input: {
       !(row as Record<string, unknown>)["file"],
   );
   if (hasLegacyBlob && appliedLabels.size === 0) {
-    const detail = await reconcileLegacyMigrationMarker(
+    const legacy = await reconcileLegacyMigrationMarker(
       management,
       client,
       operation,
       migrations,
       input.snapshot.sha256,
     );
-    if (detail) return { state: "blocked", detail };
+    if (!legacy.ok) return { state: "blocked", detail: legacy.detail };
+    for (const promotion of legacy.promotions) {
+      const ledgerLabel = `${promotion.file}:${promotion.fingerprint}`;
+      const mark = await management.query(
+        `insert into public._unitos_applied_deltas (label, kind, file, fingerprint) values (${sqlLiteral(ledgerLabel)}, 'migration', ${sqlLiteral(promotion.file)}, ${sqlLiteral(promotion.fingerprint)}) on conflict do nothing`,
+      );
+      if (!mark.ok) {
+        return {
+          state: "error",
+          detail: `registro da reconciliação legada falhou na posição ${promotion.position}: ${mark.error ?? "erro"}`,
+        };
+      }
+      appliedLabels.add(ledgerLabel);
+    }
   }
   await reconcileCanonicalMigrations(client, operation, migrations, appliedLabels);
   let canonicalProgress = await readCanonicalMigrationProgress(client, operation);

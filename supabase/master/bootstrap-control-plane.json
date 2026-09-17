@@ -1,11 +1,13 @@
 {
   "bootstrapFile": "bootstrap-control-plane.sql",
-  "bootstrapSha256": "bc11b66b42153c63851aa0204a76471fcee8fd42673fe7f64afd766194092435",
-  "controlPlaneMigrations": 29,
+  "bootstrapSha256": "3dc2be1daeb379b639aa4cdc3dc7884d8b37557d0fadd8235589e034b91a73fb",
+  "controlPlaneMigrations": 30,
   "convergenceFile": "001_control_plane_convergence_v1_4_3.sql",
   "convergenceSha256": "37b309fb3618095388b361e319df95b8f93487a064009f34b07e071459044286",
+  "p0HardeningFile": "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql",
+  "p0HardeningSha256": "3a610faebe50d7a2b67c3e781331fab2a5c02de4a4a0668ad1124f1e47fef68d",
   "reconciliationFile": "20260917184500_legacy_migration_reconciliation.sql",
   "reconciliationSha256": "7a9dd018e24796b71b62a9bb8abf36da9c7acd358e8d8b1bb16066d141556627",
-  "releaseVersion": "1.4.10",
+  "releaseVersion": "1.4.11",
   "schemaVersion": 1
 }

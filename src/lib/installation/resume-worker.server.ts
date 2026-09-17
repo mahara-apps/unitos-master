@@ -36,6 +36,11 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
 }> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const owner = `cron:${crypto.randomUUID()}`;
+  const { error: normalizationError } = await supabaseAdmin.rpc(
+    "normalize_legacy_installation_operations",
+    { _max_idle_seconds: 240 },
+  );
+  if (normalizationError) throw normalizationError;
   const { data: rows, error } = await supabaseAdmin.rpc("claim_stale_installation_operations", {
     _owner: owner,
     _limit: limit,

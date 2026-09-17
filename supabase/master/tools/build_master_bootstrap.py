@@ -12,6 +12,7 @@ MAP = ROOT / "baseline-snapshot" / "tools" / "migration-destinations.json"
 VERSION = ROOT / "baseline-snapshot" / "tools" / "delta_version.txt"
 CONVERGENCE = ROOT / "master" / "001_control_plane_convergence_v1_4_3.sql"
 RECONCILIATION = ROOT / "migrations" / "20260917184500_legacy_migration_reconciliation.sql"
+P0_HARDENING = ROOT / "migrations" / "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql"
 OUT = ROOT / "master" / "bootstrap-control-plane.sql"
 METADATA = ROOT / "master" / "bootstrap-control-plane.json"
 INSERT_BEFORE = "20260913230055_f50b7d0b-e5e5-4cc8-9ad0-ddcfd8104005.sql"
@@ -33,7 +34,12 @@ def build() -> tuple[str, str]:
     if not release_version:
         raise SystemExit("versão Master ausente em delta_version.txt")
     files = [entry["file"] for entry in document["migrations"] if entry["destination"] == "control-plane"]
-    if len(files) != 29 or INSERT_BEFORE not in files or RECONCILIATION.name not in files:
+    if (
+        len(files) != 30
+        or INSERT_BEFORE not in files
+        or RECONCILIATION.name not in files
+        or P0_HARDENING.name not in files
+    ):
         raise SystemExit("mapa Control-plane divergente do contrato auditado")
     parts = [HEADER]
     inserted = False
@@ -54,6 +60,8 @@ def build() -> tuple[str, str]:
             "convergenceSha256": sha256(CONVERGENCE.read_bytes()),
             "reconciliationFile": RECONCILIATION.name,
             "reconciliationSha256": sha256(RECONCILIATION.read_bytes()),
+            "p0HardeningFile": P0_HARDENING.name,
+            "p0HardeningSha256": sha256(P0_HARDENING.read_bytes()),
             "bootstrapFile": OUT.name,
             "bootstrapSha256": sha256(bootstrap.encode()),
         },
@@ -77,7 +85,7 @@ def main() -> None:
         return
     OUT.write_text(bootstrap, encoding="utf-8")
     METADATA.write_text(metadata, encoding="utf-8")
-    print(f"29 control-plane migrations + convergence -> {OUT}")
+    print(f"30 control-plane migrations + convergence -> {OUT}")
 
 if __name__ == "__main__":
     main()

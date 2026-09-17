@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import canonicalSql from "../supabase/baseline-snapshot/007_delta_migrations.sql?raw";
 import {
+  buildLegacyPromotionInventory,
   buildLegacyReconciliationInspectionSql,
   legacyEvidenceBlockReason,
   normalizeLegacyEvidenceRows,
@@ -66,6 +67,9 @@ describe("reconciliação segura do ledger legado", () => {
     );
     for (const position of [21, 42, 52, 56, 66, 82, 83])
       expect(reconciledLegacyPositions(normalized).has(position)).toBe(false);
+    expect(
+      buildLegacyPromotionInventory(normalized, migrations).map((item) => item.position),
+    ).toEqual([34, 39, 55, 61, 64, 70, 71, 72, 74, 84, 85]);
   });
   it("respeita SECURITY DEFINER final de start_job_timer", () => {
     const sql = buildLegacyReconciliationInspectionSql(migrations);
@@ -99,5 +103,25 @@ describe("reconciliação segura do ledger legado", () => {
       buildLegacyReconciliationInspectionSql(migrations),
     );
     expect(normalizeLegacyEvidenceRows(rows)).toEqual(normalizeLegacyEvidenceRows(rows));
+  });
+  it("não promove evidência parcial nem identidade divergente", () => {
+    const approved = normalizeLegacyEvidenceRows(
+      rows.map((item) =>
+        item.classification === "external_checkpoint_required"
+          ? { ...item, status: "compatible" }
+          : item,
+      ),
+    );
+    expect(
+      buildLegacyPromotionInventory(approved, migrations).some((item) => item.position === 21),
+    ).toBe(false);
+    expect(() =>
+      buildLegacyPromotionInventory(
+        approved.map((item) =>
+          item.position === 34 ? { ...item, migration_file: "arquivo-divergente.sql" } : item,
+        ),
+        migrations,
+      ),
+    ).toThrow(/pacote fixado/);
   });
 });

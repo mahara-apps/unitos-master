@@ -11,6 +11,7 @@ import masterBootstrap from "../supabase/master/bootstrap-control-plane.sql?raw"
 import convergence from "../supabase/master/001_control_plane_convergence_v1_4_3.sql?raw";
 import convergenceEntry from "../supabase/master/convergence-control-plane.sql?raw";
 import reconciliation from "../supabase/migrations/20260917184500_legacy_migration_reconciliation.sql?raw";
+import p0Hardening from "../supabase/migrations/20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql?raw";
 import extensions from "../supabase/baseline-snapshot/000_extensions.sql?raw";
 
 /**
@@ -231,6 +232,9 @@ describe("sincronia MASTER-first", () => {
     expect(convergenceEntry).toContain(
       "\\ir ../migrations/20260917184500_legacy_migration_reconciliation.sql",
     );
+    expect(convergenceEntry).toContain(
+      "\\ir ../migrations/20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql",
+    );
     expect(reconciliation).toMatch(
       /CREATE OR REPLACE FUNCTION public\.read_installation_migration_reconciliation_evidence\(_installation_id uuid,_package_hash text\)/,
     );
@@ -253,16 +257,22 @@ describe("sincronia MASTER-first", () => {
       bootstrapSha256: string;
       reconciliationFile: string;
       reconciliationSha256: string;
+      p0HardeningFile: string;
+      p0HardeningSha256: string;
     };
     const promotion = readFileSync("supabase/master/tools/promote_master_control_plane.sh", "utf8");
     const packageJson = readFileSync("package.json", "utf8");
 
     expect(metadata.releaseVersion).toBe(MASTER_RELEASE_VERSION);
-    expect(metadata.controlPlaneMigrations).toBe(29);
+    expect(metadata.controlPlaneMigrations).toBe(30);
     expect(metadata.convergenceSha256).toBe(await sha256Hex(convergence));
     expect(metadata.bootstrapSha256).toBe(await sha256Hex(masterBootstrap));
     expect(metadata.reconciliationFile).toBe("20260917184500_legacy_migration_reconciliation.sql");
     expect(metadata.reconciliationSha256).toBe(await sha256Hex(reconciliation));
+    expect(metadata.p0HardeningFile).toBe(
+      "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql",
+    );
+    expect(metadata.p0HardeningSha256).toBe(await sha256Hex(p0Hardening));
     expect(promotion).toContain("UNITOS_MASTER_PROMOTION:-");
     expect(promotion).toContain("MASTER_DATABASE_URL:-");
     expect(promotion).toContain("--single-transaction");
