@@ -7,9 +7,15 @@ export const Route = createFileRoute("/_authenticated/settings/access-log")({
   head: () => ({
     meta: [
       { title: "Acessos | Configurações | Unitos" },
-      { name: "description", content: "Consulte o histórico de acessos da equipe e dos clientes do portal." },
+      {
+        name: "description",
+        content: "Consulte o histórico de acessos da equipe e dos clientes do portal.",
+      },
       { property: "og:title", content: "Acessos | Configurações | Unitos" },
-      { property: "og:description", content: "Consulte o histórico de acessos da equipe e dos clientes do portal." },
+      {
+        property: "og:description",
+        content: "Consulte o histórico de acessos da equipe e dos clientes do portal.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],

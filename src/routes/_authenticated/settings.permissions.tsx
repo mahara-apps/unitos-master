@@ -38,9 +38,15 @@ export const Route = createFileRoute("/_authenticated/settings/permissions")({
   head: () => ({
     meta: [
       { title: "Permissões | Configurações | Unitos" },
-      { name: "description", content: "Consulte usuários, perfis de acesso e papéis do workspace." },
+      {
+        name: "description",
+        content: "Consulte usuários, perfis de acesso e papéis do workspace.",
+      },
       { property: "og:title", content: "Permissões | Configurações | Unitos" },
-      { property: "og:description", content: "Consulte usuários, perfis de acesso e papéis do workspace." },
+      {
+        property: "og:description",
+        content: "Consulte usuários, perfis de acesso e papéis do workspace.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
