@@ -351,7 +351,6 @@ export async function reconcileStuckOperations(context: { supabase: unknown }): 
     const rows = resolveOperationRowsRead(result).filter(
       (row) => !((row as { detail?: { automated?: boolean } }).detail?.automated ?? false),
     );
-    if (!rows.length) return;
     const [{ isOperationStale }, { finalizeOperation }] = await Promise.all([
       import("./manager-contract"),
       import("./runner.server"),

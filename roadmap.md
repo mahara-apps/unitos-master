@@ -6,7 +6,7 @@
 - [x] Reconciliar o detalhe antes da leitura e limpar referências terminais órfãs.
 - [x] Distinguir execução, retomada agendada, stale, falha e cancelamento na interface.
 - [x] Exibir etapa, migration/arquivo, tempo decorrido e último erro persistidos.
-- [ ] Regenerar contratos MASTER-first e concluir todos os gates locais sem tocar no Apex.
+- [x] Regenerar contratos MASTER-first e concluir todos os gates locais sem tocar no Apex.
 
 # MASTER 1.4.7 — auditoria funcional de Configurações
 
