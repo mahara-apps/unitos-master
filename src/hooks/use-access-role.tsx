@@ -70,7 +70,7 @@ export function useAccessRole(): Result {
       canManageIntegrations: canManageIntegrations(authorityRole),
       canAccessClientAdmin: canAccessClientAdmin(authorityRole),
       isReady: !q.isLoading && !!a,
-      isError: q.isError,
+      isError: q.isError || (!q.isLoading && !a),
       retry,
     };
   }, [q.data, q.isError, q.isLoading, retry]);

@@ -35,6 +35,16 @@ import { ROLE_SHORT, memberInitials, toAssignableRole } from "@/components/setti
 import { hasCustomOverrides, profileLabel } from "@/lib/module-permissions";
 
 export const Route = createFileRoute("/_authenticated/settings/permissions")({
+  head: () => ({
+    meta: [
+      { title: "Permissões | Configurações | Unitos" },
+      { name: "description", content: "Consulte usuários, perfis de acesso e papéis do workspace." },
+      { property: "og:title", content: "Permissões | Configurações | Unitos" },
+      { property: "og:description", content: "Consulte usuários, perfis de acesso e papéis do workspace." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: PermissionsPage,
 });
 

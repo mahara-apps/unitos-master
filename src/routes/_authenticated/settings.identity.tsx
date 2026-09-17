@@ -49,6 +49,16 @@ import {
 } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/settings/identity")({
+  head: () => ({
+    meta: [
+      { title: "Agência | Configurações | Unitos" },
+      { name: "description", content: "Gerencie os dados cadastrais do workspace no Unitos." },
+      { property: "og:title", content: "Agência | Configurações | Unitos" },
+      { property: "og:description", content: "Gerencie os dados cadastrais do workspace no Unitos." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: IdentityPage,
 });
 

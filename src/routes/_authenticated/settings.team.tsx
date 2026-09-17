@@ -79,6 +79,16 @@ import {
 } from "@/components/settings/team-shared";
 
 export const Route = createFileRoute("/_authenticated/settings/team")({
+  head: () => ({
+    meta: [
+      { title: "Equipe e acesso | Configurações | Unitos" },
+      { name: "description", content: "Gerencie membros, papéis, convites e acessos do workspace." },
+      { property: "og:title", content: "Equipe e acesso | Configurações | Unitos" },
+      { property: "og:description", content: "Gerencie membros, papéis, convites e acessos do workspace." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: TeamSettingsPage,
 });
 

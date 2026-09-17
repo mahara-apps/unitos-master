@@ -32,6 +32,16 @@ import {
 } from "@/lib/notification-prefs";
 
 export const Route = createFileRoute("/_authenticated/settings/notifications")({
+  head: () => ({
+    meta: [
+      { title: "Notificações | Configurações | Unitos" },
+      { name: "description", content: "Escolha quais eventos geram notificações no Unitos." },
+      { property: "og:title", content: "Notificações | Configurações | Unitos" },
+      { property: "og:description", content: "Escolha quais eventos geram notificações no Unitos." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: NotificationsPage,
 });
 

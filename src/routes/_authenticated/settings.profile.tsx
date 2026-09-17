@@ -46,6 +46,16 @@ import { AvatarUploader } from "@/components/settings/avatar-uploader";
 import { SettingsPageState } from "@/components/settings/settings-page-state";
 
 export const Route = createFileRoute("/_authenticated/settings/profile")({
+  head: () => ({
+    meta: [
+      { title: "Perfil | Configurações | Unitos" },
+      { name: "description", content: "Atualize suas informações pessoais e preferências no Unitos." },
+      { property: "og:title", content: "Perfil | Configurações | Unitos" },
+      { property: "og:description", content: "Atualize suas informações pessoais e preferências no Unitos." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: ProfilePage,
 });
 
