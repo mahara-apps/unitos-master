@@ -1,5 +1,12 @@
 # Roadmap
 
+# MASTER 1.4.7 — auditoria funcional de Configurações
+
+- Corrigida a navegação responsiva e a indicação ativa da página inicial de Configurações.
+- Adicionados estados explícitos de carregamento, vazio e erro com repetição segura nas telas de Configurações.
+- Preservadas integralmente as regras existentes de autenticação, RBAC e escopo de workspace.
+- Adicionada cobertura de regressão para cards, rotas, permissões e navegação móvel.
+
 ## MASTER 1.4.6 — manifesto canônico em instalações legadas
 
 - [x] Preservar o manifesto validado no fluxo moderno de UPDATE.

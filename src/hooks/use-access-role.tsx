@@ -46,9 +46,10 @@ export function useAccessRole(): Result {
     staleTime: 60_000,
     retry: false,
   });
+  const { refetch } = q;
   const retry = useCallback(() => {
-    void q.refetch();
-  }, [q.refetch]);
+    void refetch();
+  }, [refetch]);
 
   return useMemo<Result>(() => {
     const a = q.data;
