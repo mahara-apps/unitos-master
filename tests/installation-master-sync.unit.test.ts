@@ -210,4 +210,29 @@ describe("sincronia MASTER-first", () => {
       "CREATE TABLE IF NOT EXISTS public.installation_migration_ledger",
     );
   });
+
+  it("promoção Master é executável, selada e bloqueada fora do fluxo explícito", async () => {
+    const metadata = JSON.parse(
+      readFileSync("supabase/master/bootstrap-control-plane.json", "utf8"),
+    ) as {
+      releaseVersion: string;
+      controlPlaneMigrations: number;
+      convergenceSha256: string;
+      bootstrapSha256: string;
+    };
+    const promotion = readFileSync("supabase/master/tools/promote_master_control_plane.sh", "utf8");
+    const packageJson = readFileSync("package.json", "utf8");
+
+    expect(metadata.releaseVersion).toBe(MASTER_RELEASE_VERSION);
+    expect(metadata.controlPlaneMigrations).toBe(28);
+    expect(metadata.convergenceSha256).toBe(await sha256Hex(convergence));
+    expect(metadata.bootstrapSha256).toBe(await sha256Hex(masterBootstrap));
+    expect(promotion).toContain("UNITOS_MASTER_PROMOTION:-");
+    expect(promotion).toContain("MASTER_DATABASE_URL:-");
+    expect(promotion).toContain("--single-transaction");
+    expect(promotion).toContain("verify-installation-master.sql");
+    expect(promotion).toContain('build_master_bootstrap.py" --check');
+    expect(packageJson).toContain("master:promote:convergence");
+    expect(packageJson).toContain("master:promote:bootstrap");
+  });
 });

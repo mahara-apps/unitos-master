@@ -1,0 +1,9 @@
+{
+  "bootstrapFile": "bootstrap-control-plane.sql",
+  "bootstrapSha256": "4983f8b3ce0dfc9d7d3310148aef797e401a3bebc3ef30551894fb10cc38ac73",
+  "controlPlaneMigrations": 28,
+  "convergenceFile": "001_control_plane_convergence_v1_4_3.sql",
+  "convergenceSha256": "37b309fb3618095388b361e319df95b8f93487a064009f34b07e071459044286",
+  "releaseVersion": "1.4.3",
+  "schemaVersion": 1
+}
