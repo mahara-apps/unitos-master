@@ -555,7 +555,53 @@ describe("tabelas auxiliares da automação e RLS", () => {
     expect(prep).toContain("add column if not exists error_message text");
   });
 
-  it("hardenHelperTables é idempotente e cobre todas as tabelas auxiliares", async () => {
+  it("hardenHelperTables recria a fila ausente com o contrato canônico", async () => {
+    const seen: string[] = [];
+    const management = {
+      query: async (sql: string) => {
+        seen.push(sql);
+        return { ok: true, rows: [] };
+      },
+    };
+    expect(await hardenHelperTables(management)).toEqual({ ok: true });
+    expect(seen[0]).toContain(
+      "create table if not exists public._unitos_deferred_sql (id bigserial primary key, stmt text not null, run_key text not null default 'legacy')",
+    );
+  });
+
+  it("hardenHelperTables atualiza fila legada sem run_key", async () => {
+    const seen: string[] = [];
+    await hardenHelperTables({
+      query: async (sql) => {
+        seen.push(sql);
+        return { ok: true, rows: [] };
+      },
+    });
+    expect(seen[0]).toContain(
+      "alter table public._unitos_deferred_sql add column if not exists run_key text not null default 'legacy'",
+    );
+    expect(seen[0]).toContain("add column if not exists sqlstate text");
+    expect(seen[0]).toContain("add column if not exists error_message text");
+    expect(seen[0]).toContain(
+      "create index if not exists _unitos_deferred_sql_run_key_idx on public._unitos_deferred_sql (run_key, id)",
+    );
+  });
+
+  it("hardenHelperTables preserva a fila vazia e aplica as proteções", async () => {
+    const seen: string[] = [];
+    await hardenHelperTables({
+      query: async (sql) => {
+        seen.push(sql);
+        return { ok: true, rows: [] };
+      },
+    });
+    expect(seen[0]).not.toMatch(/drop table/i);
+    expect(seen[0]).toContain("enable row level security");
+    expect(seen[0]).toContain("revoke all on %s from anon, authenticated");
+    for (const table of HELPER_TABLES) expect(seen[0]).toContain(table);
+  });
+
+  it("hardenHelperTables é idempotente", async () => {
     const seen: string[] = [];
     const management = {
       query: async (sql: string) => {
@@ -567,9 +613,6 @@ describe("tabelas auxiliares da automação e RLS", () => {
     expect(await hardenHelperTables(management)).toEqual({ ok: true });
     expect(seen).toHaveLength(2);
     expect(seen[0]).toBe(seen[1]);
-    for (const table of HELPER_TABLES) expect(seen[0]).toContain(table);
-    expect(seen[0]).toContain("enable row level security");
-    expect(seen[0]).toContain("DROP TABLE IF EXISTS public._unitos_deferred_sql");
   });
 
   it("reprova a verificação 15 mostrando os nomes das tabelas sem RLS", () => {
