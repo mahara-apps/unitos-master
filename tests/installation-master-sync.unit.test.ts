@@ -5,7 +5,10 @@ import { MASTER_RELEASE_VERSION } from "@/lib/installation/manager-contract";
 import delta from "../supabase/baseline-snapshot/007_delta_migrations.sql?raw";
 import manifestRaw from "../supabase/baseline-snapshot/tools/delta_manifest.txt?raw";
 import versionRaw from "../supabase/baseline-snapshot/tools/delta_version.txt?raw";
-import verifySql from "../supabase/install/verify-installation.sql?raw";
+import verifySql from "../supabase/install/verify-installation-client.sql?raw";
+import verifyMasterSql from "../supabase/install/verify-installation-master.sql?raw";
+import masterBootstrap from "../supabase/master/bootstrap-control-plane.sql?raw";
+import convergence from "../supabase/master/001_control_plane_convergence_v1_4_3.sql?raw";
 import extensions from "../supabase/baseline-snapshot/000_extensions.sql?raw";
 
 /**
@@ -35,14 +38,6 @@ async function sha256Hex(text: string): Promise<string> {
     .join("");
 }
 
-// Tabelas do delta que NAO sao replicadas/verificadas na instalacao:
-// helpers internos do provisionamento e registro exclusivo do MASTER.
-const NAO_VERIFICADAS = new Set([
-  "installations",
-  "installation_operations",
-  "installation_credentials",
-]);
-
 function tabelasDoDelta(sql: string): string[] {
   // Tabelas criadas apenas como passo intermediario e renomeadas no mesmo
   // pacote (ex.: brain_events_new -> brain_events) nunca existem no destino:
@@ -64,7 +59,6 @@ function tabelasDoDelta(sql: string): string[] {
       nome = renomeadas.get(nome)!;
     }
     if (nome.startsWith("_unitos_")) continue;
-    if (NAO_VERIFICADAS.has(nome)) continue;
     out.add(nome);
   }
   return [...out].sort();
@@ -174,13 +168,28 @@ describe("sincronia MASTER-first", () => {
     expect(verifySql).toContain("n.nspname = 'public'");
   });
 
-  it("pacote e verificação incluem a abertura durável do workflow", () => {
-    expect(delta).toContain(
-      "CREATE OR REPLACE FUNCTION public.start_durable_installation_operation",
+  it("bootstrap e verificação Master incluem o workflow durável fora do Client", () => {
+    expect(masterBootstrap).toContain("CREATE OR REPLACE FUNCTION public.start_durable_installation_operation");
+    expect(masterBootstrap).toContain("_retry_of_operation_id uuid DEFAULT NULL");
+    expect(masterBootstrap).toContain("'retryOfOperationId', _retry_of_operation_id");
+    expect(verifyMasterSql).toContain("start_durable_installation_operation");
+    expect(delta).not.toContain("start_durable_installation_operation");
+    expect(verifySql).not.toContain("installation-provision-resume");
+  });
+
+  it("convergência Master antecede o primeiro produtor que usa outbox e lease", () => {
+    expect(masterBootstrap.indexOf("-- MASTER CONVERGENCE")).toBeGreaterThan(-1);
+    expect(masterBootstrap.indexOf("-- MASTER CONVERGENCE")).toBeLessThan(
+      masterBootstrap.indexOf("-- MIGRATION 20260913230055_f50b7d0b-e5e5-4cc8-9ad0-ddcfd8104005.sql"),
     );
-    expect(verifySql).toContain("start_durable_installation_operation");
-    expect(delta).toContain("_retry_of_operation_id uuid DEFAULT NULL");
-    expect(delta).toContain("'retryOfOperationId', _retry_of_operation_id");
-    expect(verifySql).toContain("retry terminal de provision protegido");
+    for (const column of ["workflow_version", "baseline_id", "baseline_hash", "heartbeat_at", "blocked_reason", "reconciled_at", "next_command"]) {
+      expect(convergence).toContain(`ADD COLUMN IF NOT EXISTS ${column}`);
+    }
+    expect(convergence).toContain("CREATE TABLE IF NOT EXISTS public.installation_operation_steps");
+    expect(convergence).toContain("CREATE TABLE IF NOT EXISTS public.installation_operation_outbox");
+    expect(convergence).toContain("installation_operation_outbox_disable_legacy");
+    expect(convergence).toContain("installation_operations_reconcile_idx");
+    expect(convergence).not.toContain("CREATE TABLE IF NOT EXISTS public.installation_operation_effects");
+    expect(convergence).not.toContain("CREATE TABLE IF NOT EXISTS public.installation_migration_ledger");
   });
 });

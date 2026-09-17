@@ -397,7 +397,7 @@ export const PROVISION_STEPS = [
   {
     id: "validation",
     label: "Validação final",
-    script: "supabase/install/verify-installation.sql",
+    script: "supabase/install/verify-installation-client.sql",
   },
   { id: "version", label: "Versão registrada", script: "installations.current_version" },
 ] as const;
@@ -406,30 +406,30 @@ export const VALIDATE_STEPS = [
   {
     id: "isolation",
     label: "Isolamento do Supabase",
-    script: "supabase/install/verify-installation.sql",
+    script: "supabase/install/verify-installation-client.sql",
   },
   {
     id: "database",
     label: "Contagens do baseline",
-    script: "supabase/install/verify-installation.sql",
+    script: "supabase/install/verify-installation-client.sql",
   },
   {
     id: "schema",
     label: "Estrutura funcional",
-    script: "supabase/install/verify-installation.sql",
+    script: "supabase/install/verify-installation-client.sql",
   },
   {
     id: "rls",
     label: "RLS, funções e triggers",
-    script: "supabase/install/verify-installation.sql",
+    script: "supabase/install/verify-installation-client.sql",
   },
   {
     id: "storage",
     label: "Buckets e policies",
-    script: "supabase/install/verify-installation.sql",
+    script: "supabase/install/verify-installation-client.sql",
   },
-  { id: "seeds", label: "Catálogos e padrões", script: "supabase/install/verify-installation.sql" },
-  { id: "cron", label: "Cron e URL própria", script: "supabase/install/verify-installation.sql" },
+  { id: "seeds", label: "Catálogos e padrões", script: "supabase/install/verify-installation-client.sql" },
+  { id: "cron", label: "Cron e URL própria", script: "supabase/install/verify-installation-client.sql" },
 ] as const;
 
 /**
@@ -451,7 +451,7 @@ export const UPDATE_STEPS = [
   {
     id: "validation",
     label: "Validação final",
-    script: "supabase/install/verify-installation.sql",
+    script: "supabase/install/verify-installation-client.sql",
   },
   { id: "version", label: "Versão registrada", script: "installations.current_version" },
 ] as const;

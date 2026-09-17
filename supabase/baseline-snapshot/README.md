@@ -168,7 +168,7 @@ Ao criar novas migrations, a sequencia obrigatoria e:
 1. `python3 supabase/baseline-snapshot/tools/build_delta.py` (regenera o delta e
    o manifesto);
 2. conferir/ajustar os limites de contagem e as checagens especificas em
-   `supabase/install/verify-installation.sql`;
+   `supabase/install/verify-installation-client.sql`;
 3. elevar `MASTER_RELEASE_VERSION` em `src/lib/installation/manager-contract.ts`
    (as instalacoes so mostram "atualizacao disponivel" quando a versao sobe);
 4. rodar **Atualizar** em cada instalacao (a etapa de banco aplica o delta novo,
@@ -183,5 +183,5 @@ bloco `DO`. Mantenha o `IF NOT EXISTS` nesses comandos.
 `007_delta_migrations.sql` passou a 53 migrations, incluindo
 `20260906231507` (colunas `interview`/`strategy`/`plan_version` em
 `media_plans`, campos de execução em `media_plan_items` e seed do agente
-`media_planner_paid`). `verify-installation.sql` ganhou as verificações 44 e 45
+`media_planner_paid`). `verify-installation-client.sql` ganhou as verificações 44 e 45
 para garantir o agente e as 14 colunas novas em instalações derivadas.

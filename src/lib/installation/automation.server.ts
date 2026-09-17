@@ -30,7 +30,7 @@ import baseline004 from "../../../supabase/baseline-snapshot/004_seeds.sql?raw";
 import install010 from "../../../supabase/install/010_installation_identity.sql?raw";
 import install011 from "../../../supabase/install/011_brain_stats_init.sql?raw";
 import install020 from "../../../supabase/install/020_cron.sql?raw";
-import verifySql from "../../../supabase/install/verify-installation.sql?raw";
+import verifySql from "../../../supabase/install/verify-installation-client.sql?raw";
 
 import { runtimeEnv } from "@/lib/runtime-env.server";
 import { formatDateTimeBr } from "@/lib/timezone";
@@ -232,7 +232,7 @@ export async function probeOperationalUrl(
 /**
  * Tabelas auxiliares da automação (`_unitos_*`) vivem em `public` mas NÃO fazem
  * parte do produto: sem RLS elas reprovavam a verificação 15 do
- * `verify-installation.sql` ("RLS habilitado em todas as tabelas de public").
+ * `verify-installation-client.sql` ("RLS habilitado em todas as tabelas de public").
  * Sem policies e sem grants, ficam invisíveis pela Data API e acessíveis apenas
  * pela Management API / service role.
  */
@@ -4978,7 +4978,7 @@ function normalizeVerificationRows(rows: readonly unknown[]): VerificationRow[] 
 /**
  * Validação READ-ONLY executada pelo próprio MASTER via Management API, com as
  * credenciais de gestão do MASTER. Nada é criado ou alterado no destino — é o
- * mesmo `verify-installation.sql` do fallback manual, sem pedir Bash.
+ * mesmo `verify-installation-client.sql` do fallback manual, sem pedir Bash.
  */
 export async function runAutomatedValidate(input: {
   client: Client;

@@ -1283,7 +1283,7 @@ export const runAutomatedProvisionFn = createServerFn({ method: "POST" })
 
 /**
  * Validação automática (READ-ONLY) executada pelo próprio MASTER: roda o mesmo
- * `verify-installation.sql` do fallback manual via Management API, sem pedir
+ * `verify-installation-client.sql` do fallback manual via Management API, sem pedir
  * Bash na instalação de destino. Sem credenciais de gestão devolve BLOCKED e a
  * tela volta a oferecer o comando manual.
  */

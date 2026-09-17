@@ -22,7 +22,7 @@ describe("exclusão completa de clientes", () => {
   });
 
   it("a instalação verifica a correção e as permissões da função", () => {
-    const verify = read("supabase/install/verify-installation.sql");
+    const verify = read("supabase/install/verify-installation-client.sql");
     expect(verify).toContain("clientes: cascata pode remover o último pipeline");
     expect(verify).toContain("NOT has_function_privilege('authenticated'");
   });

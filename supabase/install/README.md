@@ -16,7 +16,8 @@ snapshot em `supabase/baseline-snapshot/`.
 | `010_installation_identity.sql` | grava `installation.app_url` da própria instalação (guard anti-MASTER) |
 | `011_brain_stats_init.sql` | primeiro refresh de `brain_stats_mv` |
 | `020_cron.sql` | agenda os 14 crons e recusa qualquer URL fora da própria origem |
-| `verify-installation.sql` | validação **READ-ONLY** completa (pode rodar em produção) |
+| `verify-installation-client.sql` | validação **READ-ONLY** completa do banco Client |
+| `verify-installation-master.sql` | validação **READ-ONLY** exclusiva do Control-plane Master |
 | `src/lib/installation/bootstrap-contract.ts` | regras puras do contrato (testadas em `tests/installation-bootstrap.unit.test.ts`) |
 
 ## Execução
@@ -32,7 +33,7 @@ bash supabase/install/bootstrap.sh
 
 Ordem aplicada: `000 → 001 → 005 → 003 → 006 → 004`, depois
 `set_cron_secret` → `installation.app_url` → `brain_stats_mv` → probe HTTP da
-própria URL → `020_cron.sql` → `verify-installation.sql`.
+própria URL → `020_cron.sql` → `verify-installation-client.sql`.
 
 `SKIP_URL_PROBE=1` roda tudo menos o cron (útil antes do frontend estar
 publicado); rode o script novamente depois do deploy para agendar os jobs.
@@ -54,7 +55,7 @@ publicado); rode o script novamente depois do deploy para agendar os jobs.
 ## Verificação isolada
 
 ```bash
-psql "$SUPABASE_DB_URL" -f supabase/install/verify-installation.sql
+psql "$SUPABASE_DB_URL" -f supabase/install/verify-installation-client.sql
 ```
 
 Cobre isolamento, buckets/policies, RLS, funções/triggers, extensões, seeds,

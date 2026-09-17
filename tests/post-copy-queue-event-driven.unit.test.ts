@@ -14,7 +14,7 @@ describe("fila de legendas acionada por evento", () => {
   });
 
   it("o relatório de saúde valida trigger e retomada sob demanda", () => {
-    const sql = readFileSync("supabase/install/verify-installation.sql", "utf8");
+    const sql = readFileSync("supabase/install/verify-installation-client.sql", "utf8");
     expect(sql).toContain("trg_post_copy_queue_notify");
     expect(sql).toContain("public.post_copy_queue_drain_on()");
     expect(sql).toContain("public.post_copy_queue_drain_off()");

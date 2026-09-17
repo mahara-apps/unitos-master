@@ -76,6 +76,6 @@ describe("cobertura no servidor (confirmação revalidada)", () => {
   });
 
   it("a validação da instalação cobre a tabela de auditoria", () => {
-    expect(read("supabase/install/verify-installation.sql")).toContain("critical_action_events");
+    expect(read("supabase/install/verify-installation-client.sql")).toContain("critical_action_events");
   });
 });
