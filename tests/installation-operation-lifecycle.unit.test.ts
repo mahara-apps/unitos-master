@@ -6,6 +6,9 @@ import {
   isOperationStale,
   lastSignalAt,
   operationStatusFromSteps,
+  operationPollInterval,
+  operationRuntimeState,
+  formatOperationElapsed,
   initialSteps,
   stepsProgress,
 } from "@/lib/installation/manager-contract";
@@ -75,6 +78,38 @@ describe("operação travada", () => {
     const started = new Date(NOW - 300_000).toISOString();
     const report = new Date(NOW - 5_000).toISOString();
     expect(lastSignalAt(op({ startedAt: started, lastReportAt: report }))).toBe(Date.parse(report));
+  });
+
+  it("distingue execução, agendamento, stale, falha e cancelamento", () => {
+    expect(operationRuntimeState(op({}), NOW)).toBe("active");
+    expect(operationRuntimeState(op({ status: "retryable" }), NOW)).toBe("scheduled");
+    expect(
+      operationRuntimeState(
+        op({ startedAt: new Date(NOW - STALE_OPERATION_MS - 1).toISOString() }),
+        NOW,
+      ),
+    ).toBe("stale");
+    expect(operationRuntimeState({ ...op({ status: "failed" }), errorKind: "fail" }, NOW)).toBe(
+      "failed",
+    );
+    expect(
+      operationRuntimeState({ ...op({ status: "failed" }), errorKind: "cancelada" }, NOW),
+    ).toBe("cancelled");
+  });
+
+  it("encerra polling terminal e desacelera retomada sem chamá-la de execução", () => {
+    expect(operationPollInterval([op({})], NOW)).toBe(2_500);
+    expect(operationPollInterval([op({ status: "retryable" })], NOW)).toBe(10_000);
+    expect(operationPollInterval([op({ status: "failed" })], NOW)).toBe(false);
+  });
+
+  it("formata o tempo decorrido sem depender do fuso", () => {
+    expect(
+      formatOperationElapsed(
+        "2026-01-10T10:00:00.000Z",
+        "2026-01-10T11:02:03.000Z",
+      ),
+    ).toBe("1h 2min");
   });
 });
 

@@ -117,6 +117,56 @@ export const OPERATION_STATUS_LABEL: Record<InstallationOperationStatus, string>
   failed: "Falhou",
 };
 
+export type OperationRuntimeState =
+  | "active"
+  | "scheduled"
+  | "stale"
+  | "failed"
+  | "cancelled"
+  | "terminal";
+
+/** Estado operacional exibido sem alterar o estado canônico persistido. */
+export function operationRuntimeState(
+  op: LiveOperationLike & { errorKind?: string | null },
+  nowMs: number = Date.now(),
+): OperationRuntimeState {
+  if (op.errorKind === "cancelada") return "cancelled";
+  if (op.status === "failed" || op.status === "blocked" || op.status === "manual_review") {
+    return "failed";
+  }
+  if (op.status === "success") return "terminal";
+  if (isOperationStale(op, nowMs)) return "stale";
+  if (op.status === "retryable") return "scheduled";
+  return "active";
+}
+
+export function operationPollInterval(
+  operations: Array<LiveOperationLike & { errorKind?: string | null }>,
+  nowMs: number = Date.now(),
+): number | false {
+  const states = operations.map((op) => operationRuntimeState(op, nowMs));
+  if (states.includes("active")) return 2_500;
+  if (states.includes("scheduled") || states.includes("stale")) return 10_000;
+  return false;
+}
+
+export function formatOperationElapsed(
+  startedAt: string,
+  finishedAt: string | null,
+  nowMs: number = Date.now(),
+): string {
+  const start = Date.parse(startedAt);
+  const end = finishedAt ? Date.parse(finishedAt) : nowMs;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return "tempo indisponível";
+  const totalSeconds = Math.floor((end - start) / 1_000);
+  const hours = Math.floor(totalSeconds / 3_600);
+  const minutes = Math.floor((totalSeconds % 3_600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}h ${minutes}min`;
+  if (minutes > 0) return `${minutes}min ${seconds}s`;
+  return `${seconds}s`;
+}
+
 /** Status que aceita iniciar cada operação. Fora disso, a ação é recusada. */
 const ALLOWED_START: Record<InstallationOperationKind, readonly InstallationStatus[]> = {
   register: ["preparing"],

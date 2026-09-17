@@ -49,6 +49,8 @@ import {
   canRetryFailedProvision,
   canStartOperation,
   isOperationStale,
+  operationPollInterval,
+  operationRuntimeState,
   updateSummary,
   type InstallationHealth,
   type InstallationOperationKind,
@@ -247,12 +249,7 @@ function InstallationDetailPage() {
     queryFn: () => getFn({ data: { id } }),
     retry: false,
     // Progresso REAL: só faz polling enquanto existe operação viva.
-    refetchInterval: (query) =>
-      query.state.data?.operations.some(
-        (op) => op.status === "pending" || op.status === "running" || op.status === "retryable",
-      )
-        ? 2500
-        : false,
+    refetchInterval: (query) => operationPollInterval(query.state.data?.operations ?? []),
   });
 
   // Provisionamento automático: o MASTER usa as próprias credenciais de gestão.
@@ -525,6 +522,7 @@ function InstallationDetailPage() {
   const shownProvision =
     activeOp?.kind === "validate" ? lastProvision : (activeOp ?? lastProvision);
   const staleActive = !!activeOp && isOperationStale(activeOp);
+  const activeRuntimeState = activeOp ? operationRuntimeState(activeOp) : null;
   const failedProvision =
     lastProvisionOperation?.status === "failed" ? lastProvisionOperation : null;
   const retryFailedProvisionAllowed = canRetryFailedProvision({
@@ -709,7 +707,13 @@ function InstallationDetailPage() {
               ) : (
                 <PrimaryIcon className="mr-1.5 h-3.5 w-3.5" />
               )}
-              {activeOp ? "Em execução…" : primary.label}
+              {activeRuntimeState === "scheduled"
+                ? "Nova tentativa agendada"
+                : activeRuntimeState === "stale"
+                  ? "Aguardando retomada"
+                  : activeOp
+                    ? "Em execução…"
+                    : primary.label}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -799,11 +803,22 @@ function InstallationDetailPage() {
       {/* PROGRESSO SEMPRE VISÍVEL */}
       {activeOp && (
         <LiveOperationBar
+          status={activeOp.status}
           kind={activeOp.kind}
           percent={activeOp.progress.percent}
           done={activeOp.progress.done}
           total={activeOp.progress.total}
           steps={activeOp.steps}
+          startedAt={activeOp.startedAt}
+          finishedAt={activeOp.finishedAt}
+          lastReportAt={activeOp.lastReportAt}
+          errorKind={activeOp.errorKind}
+          currentStep={activeOp.currentStep}
+          migrationFile={activeOp.migrationFile}
+          migrationPosition={activeOp.migrationPosition}
+          migrationStatement={activeOp.migrationStatement}
+          migrationStatementsTotal={activeOp.migrationStatementsTotal}
+          summary={activeOp.summary}
         >
           <Button
             size="sm"

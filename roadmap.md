@@ -1,5 +1,13 @@
 # Roadmap
 
+# MASTER 1.4.8 — sincronização do estado das operações
+
+- [x] Normalizar falhas finais reportadas sem deixar HTTP 400 manter a operação viva.
+- [x] Reconciliar o detalhe antes da leitura e limpar referências terminais órfãs.
+- [x] Distinguir execução, retomada agendada, stale, falha e cancelamento na interface.
+- [x] Exibir etapa, migration/arquivo, tempo decorrido e último erro persistidos.
+- [ ] Regenerar contratos MASTER-first e concluir todos os gates locais sem tocar no Apex.
+
 # MASTER 1.4.7 — auditoria funcional de Configurações
 
 - Corrigida a navegação responsiva e a indicação ativa da página inicial de Configurações.
