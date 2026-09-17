@@ -24,6 +24,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
+import { SettingsPageState } from "@/components/settings/settings-page-state";
 import {
   DEFAULT_NOTIFICATION_PREFS,
   NOTIFICATION_PREF_KEYS,
@@ -78,10 +79,11 @@ function NotificationsPage() {
   const fetchProfile = useServerFn(getMyProfile);
   const savePrefs = useServerFn(updateNotificationPrefs);
 
-  const { data, isLoading } = useQuery({
+  const profileQ = useQuery({
     queryKey: ["me", "profile"],
     queryFn: () => fetchProfile(),
   });
+  const { data, isLoading } = profileQ;
 
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
 
@@ -125,6 +127,24 @@ function NotificationsPage() {
     return (
       <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (profileQ.isError) {
+    return (
+      <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
+        <SettingsPageState
+          kind="error"
+          title="Não foi possível carregar suas preferências"
+          description={
+            profileQ.error instanceof Error
+              ? profileQ.error.message
+              : "Tente novamente para consultar suas notificações."
+          }
+          actionLabel="Tentar novamente"
+          onAction={() => void profileQ.refetch()}
+        />
       </div>
     );
   }

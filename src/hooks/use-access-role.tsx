@@ -21,6 +21,8 @@ type Result = {
   /** Administração do Cliente (Recursos/Identidade/Ambiente): só super_admin. */
   canAccessClientAdmin: boolean;
   isReady: boolean;
+  isError: boolean;
+  retry: () => void;
 };
 
 /**
@@ -65,6 +67,10 @@ export function useAccessRole(): Result {
       canManageIntegrations: canManageIntegrations(authorityRole),
       canAccessClientAdmin: canAccessClientAdmin(authorityRole),
       isReady: !q.isLoading && !!a,
+      isError: q.isError,
+      retry: () => {
+        void q.refetch();
+      },
     };
-  }, [q.data, q.isLoading]);
+  }, [q.data, q.isError, q.isLoading, q.refetch]);
 }

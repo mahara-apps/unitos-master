@@ -16,6 +16,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { usePageHeader } from "@/hooks/use-page-header";
+import { SettingsPageState } from "@/components/settings/settings-page-state";
 
 export const Route = createFileRoute("/_authenticated/settings/")({
   head: () => ({
@@ -108,9 +109,11 @@ const WORKSPACE_SETTINGS: SettingsDestination[] = [
 
 function SettingsCard({ item }: { item: SettingsDestination }) {
   const Icon = item.icon;
+  const descriptionId = `settings-card-${item.to.split("/").pop()}-description`;
   return (
     <Link
       to={item.to}
+      aria-describedby={descriptionId}
       className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
       <Card interactive className="flex min-h-36 h-full items-start gap-4 p-5 sm:p-6">
@@ -119,7 +122,9 @@ function SettingsCard({ item }: { item: SettingsDestination }) {
         </div>
         <div className="min-w-0 flex-1 space-y-1.5">
           <h3 className="text-base font-semibold leading-snug text-foreground">{item.title}</h3>
-          <p className="text-sm leading-6 text-muted-foreground">{item.description}</p>
+          <p id={descriptionId} className="text-sm leading-6 text-muted-foreground">
+            {item.description}
+          </p>
         </div>
         <ChevronRight
           className="mt-2 h-4 w-4 shrink-0 text-muted-foreground/65 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground"
@@ -160,7 +165,7 @@ function SettingsSection({
 }
 
 function SettingsHomePage() {
-  const { role, isReady } = useAccessRole();
+  const { role, isReady, isError, retry } = useAccessRole();
   const isAdmin = role === "admin";
 
   usePageHeader({ title: "Configurações" }, []);
@@ -181,7 +186,15 @@ function SettingsHomePage() {
           items={ACCOUNT_SETTINGS}
         />
 
-        {!isReady ? (
+        {isError ? (
+          <SettingsPageState
+            kind="error"
+            title="Não foi possível carregar as configurações do workspace"
+            description="As configurações pessoais continuam disponíveis. Tente consultar seu acesso novamente."
+            actionLabel="Tentar novamente"
+            onAction={retry}
+          />
+        ) : !isReady ? (
           <section aria-label="Carregando configurações do workspace">
             <div className="mb-4 h-12 w-72 animate-pulse rounded-md bg-muted" />
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

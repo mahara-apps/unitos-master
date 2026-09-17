@@ -1,6 +1,7 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import {
   Bell,
+  Grid2X2,
   History,
   KeyRound,
   ListChecks,
@@ -15,6 +16,7 @@ import {
 import { useAccessRole } from "@/hooks/use-access-role";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { SettingsPageState } from "@/components/settings/settings-page-state";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsLayout,
@@ -37,6 +39,10 @@ type TabGroup = { label: string; tabs: TabDef[] };
  * - IA: governança de consumo (provedores/modelos vivem em Integrações → IA).
  */
 const GROUPS: TabGroup[] = [
+  {
+    label: "Visão geral",
+    tabs: [{ to: "/settings", label: "Início", icon: Grid2X2, admin: false }],
+  },
   {
     label: "Minha conta",
     tabs: [
@@ -64,27 +70,35 @@ const GROUPS: TabGroup[] = [
 
 const ALL_TABS = GROUPS.flatMap((g) => g.tabs);
 
+function isTabActive(pathname: string, to: string) {
+  if (to === "/settings") return pathname === to;
+  return pathname === to || pathname.startsWith(to + "/");
+}
+
 function SettingsLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { role, isReady } = useAccessRole();
+  const { role, isReady, isError, retry } = useAccessRole();
   const isAdmin = role === "admin";
 
-  const currentTab = ALL_TABS.find((t) => pathname === t.to || pathname.startsWith(t.to + "/"));
+  const currentTab = ALL_TABS.find((t) => isTabActive(pathname, t.to));
   const blocked = !!currentTab?.admin && isReady && !isAdmin;
 
   return (
     <div className="flex min-h-full flex-col">
-      <nav className="sticky top-14 z-20 flex flex-wrap items-center gap-x-1 gap-y-1 overflow-x-auto border-b border-border/60 bg-background/95 px-4 py-2 backdrop-blur">
+      <nav
+        aria-label="Navegação das configurações"
+        className="sticky top-14 z-20 flex flex-nowrap items-center gap-1 overflow-x-auto border-b border-border/60 bg-background/95 px-4 py-2 backdrop-blur"
+      >
         {GROUPS.map((group) => {
           const tabs = group.tabs.filter((t) => !t.admin || isAdmin);
           if (tabs.length === 0) return null;
           return (
-            <div key={group.label} className="flex items-center gap-1">
+            <div key={group.label} className="flex shrink-0 items-center gap-1">
               <span className="px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                 {group.label}
               </span>
               {tabs.map((t) => {
-                const active = pathname === t.to || pathname.startsWith(t.to + "/");
+                const active = isTabActive(pathname, t.to);
                 return (
                   <Link
                     key={t.to}
@@ -105,7 +119,17 @@ function SettingsLayout() {
         })}
       </nav>
 
-      {!isReady && currentTab?.admin ? (
+      {isError && currentTab?.admin ? (
+        <div className="mx-auto w-full max-w-2xl p-6">
+          <SettingsPageState
+            kind="error"
+            title="Não foi possível verificar seu acesso"
+            description="Tente novamente antes de abrir esta configuração. Nenhuma permissão foi alterada."
+            actionLabel="Tentar novamente"
+            onAction={retry}
+          />
+        </div>
+      ) : !isReady && currentTab?.admin ? (
         <div className="flex h-64 items-center justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
@@ -117,8 +141,8 @@ function SettingsLayout() {
               <div className="space-y-1">
                 <p className="text-sm font-semibold">Acesso restrito</p>
                 <p className="text-sm text-muted-foreground">
-                  Esta configuração é administrada por owners e managers da marca. Fale com quem
-                  administra o workspace se precisar de acesso.
+                  Esta configuração é administrada pelos responsáveis do workspace. Fale com quem
+                  administra a agência se precisar de acesso.
                 </p>
               </div>
               <Button asChild size="sm" variant="outline">

@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import { AccessProfilesManager } from "@/components/settings/access-profiles-manager";
 import { AddUserDialog } from "@/components/settings/add-user-dialog";
+import { SettingsPageState } from "@/components/settings/settings-page-state";
 import {
   MemberPermissionsModal,
   type PermissionMemberInput,
@@ -158,6 +159,37 @@ function PermissionsPage() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<PermissionMemberInput | null>(null);
+
+  if (!brandId) {
+    return (
+      <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
+        <SettingsPageState
+          title="Nenhum workspace selecionado"
+          description="Selecione um workspace para consultar usuários, perfis e papéis."
+        />
+      </div>
+    );
+  }
+
+  if (teamQ.isError || profilesQ.isError) {
+    const error = teamQ.error ?? profilesQ.error;
+    return (
+      <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
+        <SettingsPageState
+          kind="error"
+          title="Não foi possível carregar as permissões"
+          description={
+            error instanceof Error ? error.message : "Tente novamente para consultar os acessos."
+          }
+          actionLabel="Tentar novamente"
+          onAction={() => {
+            void teamQ.refetch();
+            void profilesQ.refetch();
+          }}
+        />
+      </div>
+    );
+  }
 
   const counts = useMemo(() => {
     const byRole = (roles: string[]) =>

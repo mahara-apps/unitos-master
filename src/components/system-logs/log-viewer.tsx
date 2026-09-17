@@ -33,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toggle } from "@/components/ui/toggle";
+import { SettingsPageState } from "@/components/settings/settings-page-state";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -234,6 +235,18 @@ export function LogViewer({
             <div className="flex h-64 items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
+          ) : q.isError ? (
+            <SettingsPageState
+              kind="error"
+              title="Não foi possível carregar os registros"
+              description={
+                q.error instanceof Error
+                  ? q.error.message
+                  : "Tente novamente para consultar a auditoria."
+              }
+              actionLabel="Tentar novamente"
+              onAction={() => void q.refetch()}
+            />
           ) : entries.length === 0 ? (
             <div className="flex h-64 flex-col items-center justify-center gap-2 rounded-lg border border-dashed">
               <Info className="h-6 w-6 text-muted-foreground" />
