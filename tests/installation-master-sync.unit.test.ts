@@ -169,7 +169,9 @@ describe("sincronia MASTER-first", () => {
   });
 
   it("bootstrap e verificação Master incluem o workflow durável fora do Client", () => {
-    expect(masterBootstrap).toContain("CREATE OR REPLACE FUNCTION public.start_durable_installation_operation");
+    expect(masterBootstrap).toContain(
+      "CREATE OR REPLACE FUNCTION public.start_durable_installation_operation",
+    );
     expect(masterBootstrap).toContain("_retry_of_operation_id uuid DEFAULT NULL");
     expect(masterBootstrap).toContain("'retryOfOperationId', _retry_of_operation_id");
     expect(verifyMasterSql).toContain("start_durable_installation_operation");
@@ -180,16 +182,32 @@ describe("sincronia MASTER-first", () => {
   it("convergência Master antecede o primeiro produtor que usa outbox e lease", () => {
     expect(masterBootstrap.indexOf("-- MASTER CONVERGENCE")).toBeGreaterThan(-1);
     expect(masterBootstrap.indexOf("-- MASTER CONVERGENCE")).toBeLessThan(
-      masterBootstrap.indexOf("-- MIGRATION 20260913230055_f50b7d0b-e5e5-4cc8-9ad0-ddcfd8104005.sql"),
+      masterBootstrap.indexOf(
+        "-- MIGRATION 20260913230055_f50b7d0b-e5e5-4cc8-9ad0-ddcfd8104005.sql",
+      ),
     );
-    for (const column of ["workflow_version", "baseline_id", "baseline_hash", "heartbeat_at", "blocked_reason", "reconciled_at", "next_command"]) {
+    for (const column of [
+      "workflow_version",
+      "baseline_id",
+      "baseline_hash",
+      "heartbeat_at",
+      "blocked_reason",
+      "reconciled_at",
+      "next_command",
+    ]) {
       expect(convergence).toContain(`ADD COLUMN IF NOT EXISTS ${column}`);
     }
     expect(convergence).toContain("CREATE TABLE IF NOT EXISTS public.installation_operation_steps");
-    expect(convergence).toContain("CREATE TABLE IF NOT EXISTS public.installation_operation_outbox");
+    expect(convergence).toContain(
+      "CREATE TABLE IF NOT EXISTS public.installation_operation_outbox",
+    );
     expect(convergence).toContain("installation_operation_outbox_disable_legacy");
     expect(convergence).toContain("installation_operations_reconcile_idx");
-    expect(convergence).not.toContain("CREATE TABLE IF NOT EXISTS public.installation_operation_effects");
-    expect(convergence).not.toContain("CREATE TABLE IF NOT EXISTS public.installation_migration_ledger");
+    expect(convergence).not.toContain(
+      "CREATE TABLE IF NOT EXISTS public.installation_operation_effects",
+    );
+    expect(convergence).not.toContain(
+      "CREATE TABLE IF NOT EXISTS public.installation_migration_ledger",
+    );
   });
 });

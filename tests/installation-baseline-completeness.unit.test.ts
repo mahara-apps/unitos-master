@@ -92,7 +92,9 @@ describe("delta do baseline", () => {
     };
     const foraDoClient = new Set(
       destinations.migrations
-        .filter((entry) => entry.destination === "control-plane" || entry.destination === "excluded")
+        .filter(
+          (entry) => entry.destination === "control-plane" || entry.destination === "excluded",
+        )
         .map((entry) => entry.file),
     );
     const faltando = posteriores.filter((n) => !manifest.has(n) && !foraDoClient.has(n));

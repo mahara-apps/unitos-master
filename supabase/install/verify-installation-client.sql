@@ -581,3 +581,6 @@ WITH checks AS (
                       WHERE table_schema='public' AND table_name='_unitos_deferred_sql'
                         AND grantee IN ('anon','authenticated'))
               THEN 'PASS' ELSE 'FAIL' END
+
+)
+SELECT ord, check_name, observed, status FROM checks ORDER BY ord;

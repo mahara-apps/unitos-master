@@ -71,7 +71,10 @@ describe("BYOK: cada instalação usa o Supabase Access Token do próprio client
 
   it("testa o token efetivamente antes de criar uma operação", () => {
     const prevalidation = manager.indexOf("await prevalidateSupabaseOperation");
-    const operation = manager.indexOf("const op = await startAtomicInstallationOperation", prevalidation);
+    const operation = manager.indexOf(
+      "const op = await startAtomicInstallationOperation",
+      prevalidation,
+    );
     expect(prevalidation).toBeGreaterThan(0);
     expect(operation).toBeGreaterThan(prevalidation);
   });

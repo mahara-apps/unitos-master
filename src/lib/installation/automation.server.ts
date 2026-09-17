@@ -998,9 +998,7 @@ export function confirmVercelGithubLink(
   const container = body && ("link" in body || "gitRepository" in body) ? body : null;
   const link = (container?.gitRepository ?? container?.link ?? body ?? {}) as VercelGitLink;
   const repo = (
-    link.repo?.includes("/")
-      ? link.repo
-      : `${link.org ?? ""}/${link.repo ?? ""}`.replace(/^\//, "")
+    link.repo?.includes("/") ? link.repo : `${link.org ?? ""}/${link.repo ?? ""}`.replace(/^\//, "")
   )
     .trim()
     .toLowerCase();
