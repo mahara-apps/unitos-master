@@ -584,7 +584,7 @@
     },
     {
       "position": 117,
-      "file": "20260917191500_legacy_update_p0_hardening.sql",
+      "file": "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql",
       "destination": "control-plane"
     }
   ]

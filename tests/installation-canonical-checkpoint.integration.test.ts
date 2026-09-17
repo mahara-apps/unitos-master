@@ -11,9 +11,14 @@ function canonicalDestination(initialIndex: number, total: number) {
   let failAfterCommit = false;
   const query = vi.fn(async (sql: string) => {
     if (sql.includes("select statement_index")) {
-      return { ok: true, rows: [{ statement_index: checkpoint, total_statements: total, status: "running" }] };
+      return {
+        ok: true,
+        rows: [{ statement_index: checkpoint, total_statements: total, status: "running" }],
+      };
     }
-    const selects = [...sql.matchAll(/EXECUTE \$unitos_stmt_\d+\$SELECT (\d+);/g)].map((match) => Number(match[1]));
+    const selects = [...sql.matchAll(/EXECUTE \$unitos_stmt_\d+\$SELECT (\d+);/g)].map((match) =>
+      Number(match[1]),
+    );
     if (selects.length > 0) {
       const next = /values \('[^']*',\s*(\d+),\s*\d+,\s*'running'/i.exec(sql);
       for (const index of selects) executed.add(index);
@@ -25,7 +30,14 @@ function canonicalDestination(initialIndex: number, total: number) {
     }
     return { ok: true, rows: [] };
   });
-  return { query, executed, checkpoint: () => checkpoint, crashNext: () => { failAfterCommit = true; } };
+  return {
+    query,
+    executed,
+    checkpoint: () => checkpoint,
+    crashNext: () => {
+      failAfterCommit = true;
+    },
+  };
 }
 
 describe("ensaio 81/103 → 103/103 com checkpoint canônico", () => {
@@ -52,12 +64,16 @@ describe("ensaio 81/103 → 103/103 com checkpoint canônico", () => {
     expect([...destination.executed].sort((a, b) => a - b)).toEqual(
       Array.from({ length: 22 }, (_, index) => index + 82),
     );
-    expect(destination.query.mock.calls.some(([sqlText]) => String(sqlText).includes("SELECT 81;"))).toBe(false);
+    expect(
+      destination.query.mock.calls.some(([sqlText]) => String(sqlText).includes("SELECT 81;")),
+    ).toBe(false);
   });
 
   it("resposta vazia e checkpoint incompatível falham fechados", async () => {
     const empty = { query: vi.fn(async () => ({ ok: true, rows: [] })) };
-    await expect(applyStatementByStatement(empty, "SELECT 1;", { startIndex: 1 })).resolves.toMatchObject({
+    await expect(
+      applyStatementByStatement(empty, "SELECT 1;", { startIndex: 1 }),
+    ).resolves.toMatchObject({
       ok: false,
       error: expect.stringContaining("resposta vazia"),
     });
@@ -69,7 +85,9 @@ describe("ensaio 81/103 → 103/103 com checkpoint canônico", () => {
           : [],
       })),
     };
-    await expect(applyStatementByStatement(mismatch, "SELECT 1;", { startIndex: 1 })).resolves.toMatchObject({
+    await expect(
+      applyStatementByStatement(mismatch, "SELECT 1;", { startIndex: 1 }),
+    ).resolves.toMatchObject({
       ok: false,
       error: expect.stringContaining("incompatível"),
     });
@@ -146,30 +164,89 @@ describe("ensaio fiel 88/104 → 104/104", () => {
         total_statements: 1,
         status: "completed",
       });
-      expect(validateCanonicalMigrationProgress(completed, migrations).completed.size).toBe(index + 1);
+      expect(validateCanonicalMigrationProgress(completed, migrations).completed.size).toBe(
+        index + 1,
+      );
     }
     expect(validateCanonicalMigrationProgress(completed, migrations).completed.size).toBe(104);
   });
 
   it("usa somente o registro canônico para retomar um comando parcial", () => {
     const migrations = [{ file: "001.sql", fingerprint: "sha-1", sql: "SELECT 1; SELECT 2;" }];
-    const state = validateCanonicalMigrationProgress([
-      { migration_file: "001.sql", fingerprint: "sha-1", package_position: 1, statement_index: 1, total_statements: 2, status: "running" },
-    ], migrations);
+    const state = validateCanonicalMigrationProgress(
+      [
+        {
+          migration_file: "001.sql",
+          fingerprint: "sha-1",
+          package_position: 1,
+          statement_index: 1,
+          total_statements: 2,
+          status: "running",
+        },
+      ],
+      migrations,
+    );
     expect(state.current?.statement_index).toBe(1);
     expect(state.completed.size).toBe(0);
   });
 
-  it("pausa em resposta parcial, concorrência fora de ordem e pacote divergente", () => {
+  it("aceita conclusões esparsas comprovadas, mas rejeita ordem e pacote divergentes", () => {
     const migrations = [
       { file: "001.sql", fingerprint: "sha-1", sql: "SELECT 1;" },
       { file: "002.sql", fingerprint: "sha-2", sql: "SELECT 2;" },
     ];
-    expect(() => validateCanonicalMigrationProgress([
-      { migration_file: "002.sql", fingerprint: "sha-2", package_position: 2, statement_index: 1, total_statements: 1, status: "completed" },
-    ], migrations)).toThrow("parcial ou divergente");
-    expect(() => validateCanonicalMigrationProgress([
-      { migration_file: "001.sql", fingerprint: "errado", package_position: 1, statement_index: 1, total_statements: 1, status: "completed" },
-    ], migrations)).toThrow("parcial ou divergente");
+    expect(
+      validateCanonicalMigrationProgress(
+        [
+          {
+            migration_file: "002.sql",
+            fingerprint: "sha-2",
+            package_position: 2,
+            statement_index: 1,
+            total_statements: 1,
+            status: "completed",
+          },
+        ],
+        migrations,
+      ).completed,
+    ).toEqual(new Set(["002.sql:sha-2"]));
+    expect(() =>
+      validateCanonicalMigrationProgress(
+        [
+          {
+            migration_file: "002.sql",
+            fingerprint: "sha-2",
+            package_position: 2,
+            statement_index: 1,
+            total_statements: 1,
+            status: "completed",
+          },
+          {
+            migration_file: "001.sql",
+            fingerprint: "sha-1",
+            package_position: 1,
+            statement_index: 1,
+            total_statements: 1,
+            status: "completed",
+          },
+        ],
+        migrations,
+      ),
+    ).toThrow("parcial ou divergente");
+    expect(() =>
+      validateCanonicalMigrationProgress(
+        [
+          {
+            migration_file: "001.sql",
+            fingerprint: "errado",
+            package_position: 1,
+            statement_index: 1,
+            total_statements: 1,
+            status: "completed",
+          },
+        ],
+        migrations,
+      ),
+    ).toThrow("parcial ou divergente");
   });
 });
