@@ -2346,6 +2346,12 @@ export function createDeployClient(input: {
   };
   let resolvedProjectName = input.project;
   const projectPath = () => encodeURIComponent(resolvedProjectId ?? resolvedProjectName);
+  // A listagem de deployments usa filtros diferentes para nome e ID. Enviar
+  // `prj_*` em `app` produz uma lista vazia mesmo quando o deployment existe.
+  const deploymentListScope = () =>
+    resolvedProjectId
+      ? `projectId=${encodeURIComponent(resolvedProjectId)}`
+      : `app=${encodeURIComponent(resolvedProjectName)}`;
   const masterRepo = (input.masterRepo ?? "").trim() || DEFAULT_MASTER_REPO;
   const targetRepo = (input.repo ?? "").trim() || masterRepo;
 
@@ -2691,7 +2697,7 @@ export function createDeployClient(input: {
     async redeploy() {
       try {
         const list = await doFetch(
-          `https://api.vercel.com/v6/deployments?${qs(`app=${projectPath()}&target=production&limit=1`)}`,
+          `https://api.vercel.com/v6/deployments?${qs(`${deploymentListScope()}&target=production&limit=1`)}`,
           { headers },
         );
         if (!list.ok) {
@@ -3083,7 +3089,7 @@ export function createDeployClient(input: {
     async findProductionDeployment(commitSha) {
       try {
         const res = await doFetch(
-          `https://api.vercel.com/v6/deployments?${qs(`app=${projectPath()}&target=production&limit=20`)}`,
+          `https://api.vercel.com/v6/deployments?${qs(`${deploymentListScope()}&target=production&limit=20`)}`,
           { headers },
         );
         if (!res.ok) {
@@ -3125,7 +3131,12 @@ export function createDeployClient(input: {
             if (byState !== 0) return byState;
             return (right.createdAt ?? 0) - (left.createdAt ?? 0);
           })[0];
-        if (!deployment) return { ok: true };
+        if (!deployment) {
+          return {
+            ok: true,
+            error: `nenhum deployment Git de produção corresponde ao commit ${commitSha.slice(0, 12)} no projeto Vercel`,
+          };
+        }
         const deploymentId = deployment.uid ?? deployment.id;
         return {
           ok: true,
@@ -4649,7 +4660,7 @@ export async function runAutomatedProvision(input: {
             await mark(
               "deploy",
               "running",
-              "aguardando a hospedagem detectar o commit de publicação",
+              located.error ?? "aguardando a hospedagem detectar o commit de publicação",
             );
             return {
               result: "RUNNING",
@@ -6022,9 +6033,12 @@ export async function runAutomatedUpdate(input: {
           operation,
           "build",
           "running",
-          "aguardando a hospedagem detectar o novo commit",
+          located.error ?? "aguardando a hospedagem detectar o novo commit",
         );
-        return { result: "PENDING", reasons: ["aguardando a hospedagem detectar o novo commit"] };
+        return {
+          result: "PENDING",
+          reasons: [located.error ?? "aguardando a hospedagem detectar o novo commit"],
+        };
       }
       await saveStageProgress(client, operation, { updateDeploymentId: deploymentId });
     }
