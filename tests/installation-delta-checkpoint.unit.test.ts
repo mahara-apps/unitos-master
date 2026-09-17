@@ -4,12 +4,17 @@ import { readFileSync } from "node:fs";
 import {
   databaseMigrationsPercent,
   deltaProgressKey,
+  generateDeltaManifest,
   INCREMENTAL_LEDGER_CUTOVER_FILE,
+  recoverLegacyCanonicalManifest,
   splitDeltaMigrations,
   validateCanonicalPackage,
   validateDeltaManifest,
   UPDATE_DELTA_LABEL,
 } from "@/lib/installation/automation.server";
+import canonicalSql from "../supabase/baseline-snapshot/007_delta_migrations.sql?raw";
+import canonicalManifest from "../supabase/baseline-snapshot/tools/delta_manifest.txt?raw";
+import canonicalVersion from "../supabase/baseline-snapshot/tools/delta_version.txt?raw";
 
 /**
  * Regressão: um provisionamento antigo marcava "007_delta_migrations" como
@@ -150,5 +155,60 @@ select 1;`;
         { ...snapshot, total: 2 },
       ),
     ).resolves.toMatchObject({ ok: false });
+  });
+
+  it("mantém o manifesto válido de uma instalação moderna", async () => {
+    const snapshot = {
+      version: "1.2.3",
+      commitSha: "commit",
+      sha256: "a".repeat(64),
+      total: 1,
+      sql: packageSql,
+      manifest: "manifesto-moderno\n",
+    };
+    await expect(recoverLegacyCanonicalManifest(snapshot)).resolves.toEqual({
+      ok: true,
+      manifest: snapshot.manifest,
+    });
+  });
+
+  it("recupera deterministicamente os 85 blocos do pacote oficial quando o manifesto está ausente", async () => {
+    const version = /^version=(.+)$/m.exec(canonicalVersion)?.[1] ?? "";
+    const sha256 = /^sha256=([a-f0-9]{64})$/m.exec(canonicalVersion)?.[1] ?? "";
+    const snapshot = { version, commitSha: "commit-legado", sha256, total: 85, sql: canonicalSql };
+    const recovered = await recoverLegacyCanonicalManifest(snapshot);
+    expect(recovered).toEqual({ ok: true, manifest: canonicalManifest });
+    await expect(generateDeltaManifest(canonicalSql)).resolves.toBe(canonicalManifest);
+    await expect(
+      validateCanonicalPackage(
+        { baseline_id: `${version}:commit-legado:85`, baseline_hash: sha256 },
+        snapshot,
+      ),
+    ).resolves.toEqual({ ok: true });
+  });
+
+  it("bloqueia recuperação com hash divergente ou pacote incompatível", async () => {
+    const version = /^version=(.+)$/m.exec(canonicalVersion)?.[1] ?? "";
+    const sha256 = /^sha256=([a-f0-9]{64})$/m.exec(canonicalVersion)?.[1] ?? "";
+    const base = { version, commitSha: "legacy", sha256, total: 85, sql: canonicalSql };
+    await expect(
+      recoverLegacyCanonicalManifest({ ...base, sha256: "a".repeat(64) }),
+    ).resolves.toMatchObject({ ok: false });
+    await expect(
+      recoverLegacyCanonicalManifest({ ...base, sql: `${canonicalSql}\nselect 1;` }),
+    ).resolves.toMatchObject({ ok: false });
+    await expect(recoverLegacyCanonicalManifest({ ...base, total: 84 })).resolves.toMatchObject({
+      ok: false,
+    });
+  });
+
+  it("recupera o mesmo manifesto em reexecuções sem alterar a identidade do pacote", async () => {
+    const version = /^version=(.+)$/m.exec(canonicalVersion)?.[1] ?? "";
+    const sha256 = /^sha256=([a-f0-9]{64})$/m.exec(canonicalVersion)?.[1] ?? "";
+    const snapshot = { version, commitSha: "legacy", sha256, total: 85, sql: canonicalSql };
+    const first = await recoverLegacyCanonicalManifest(snapshot);
+    const second = await recoverLegacyCanonicalManifest(snapshot);
+    expect(second).toEqual(first);
+    expect(snapshot).not.toHaveProperty("manifest");
   });
 });

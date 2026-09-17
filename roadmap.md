@@ -1,5 +1,12 @@
 # Roadmap
 
+## MASTER 1.4.6 — manifesto canônico em instalações legadas
+
+- [x] Preservar o manifesto validado no fluxo moderno de UPDATE.
+- [x] Recuperar deterministicamente o manifesto ausente somente para o pacote Client oficial de 85 blocos.
+- [x] Bloquear hash, total, conteúdo, identidade ou manifesto divergentes sem alterar checkpoints.
+- [ ] Regenerar contratos, executar todos os gates locais e publicar o Master.
+
 ## MASTER 1.4.5 — validação das filas de retomada
 
 - [x] Preservar e convergir `_unitos_deferred_sql` antes da validação final.
