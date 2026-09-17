@@ -4,6 +4,6 @@
   "controlPlaneMigrations": 28,
   "convergenceFile": "001_control_plane_convergence_v1_4_3.sql",
   "convergenceSha256": "37b309fb3618095388b361e319df95b8f93487a064009f34b07e071459044286",
-  "releaseVersion": "1.4.3",
+  "releaseVersion": "1.4.4",
   "schemaVersion": 1
 }
