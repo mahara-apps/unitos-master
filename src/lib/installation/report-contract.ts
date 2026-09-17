@@ -38,11 +38,7 @@ export const reportEventSchema = z.object({
   done: z.boolean().optional(),
   ok: z.boolean().optional(),
   warnings: z.boolean().optional(),
-  version: z
-    .string()
-    .max(200)
-    .nullable()
-    .optional(),
+  version: z.string().max(200).nullable().optional(),
   summary: z.string().max(2000).nullable().optional(),
   errorKind: z.string().max(200).nullable().optional(),
   checks: z.record(z.string(), z.enum(["ok", "attention", "error", "pending"])).optional(),

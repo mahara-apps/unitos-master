@@ -139,7 +139,9 @@ export function LiveOperationBar({
       <Progress value={percent} className="h-1.5" />
       <div className="grid gap-1 text-[11px] text-muted-foreground sm:grid-cols-2">
         <p className="truncate">Etapa: {currentStep ?? currentStepLabel(steps)}</p>
-        <p className="sm:text-right">Tempo decorrido: {formatOperationElapsed(startedAt, finishedAt)}</p>
+        <p className="sm:text-right">
+          Tempo decorrido: {formatOperationElapsed(startedAt, finishedAt)}
+        </p>
         {migration && <p className="truncate sm:col-span-2">Arquivo: {migration}</p>}
         {(summary || errorKind) && (
           <p className="truncate text-destructive sm:col-span-2">
@@ -159,7 +161,7 @@ export function OperationStatusBadge({ status }: { status: keyof typeof OPERATIO
         ? "border-destructive/40 text-destructive"
         : status === "manual_review"
           ? "border-warning/40 text-warning"
-        : "border-severity-info/40 text-severity-info";
+          : "border-severity-info/40 text-severity-info";
   return (
     <Badge variant="outline" className={cn("text-[10px]", tone)}>
       {OPERATION_STATUS_LABEL[status]}

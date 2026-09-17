@@ -104,12 +104,9 @@ describe("operação travada", () => {
   });
 
   it("formata o tempo decorrido sem depender do fuso", () => {
-    expect(
-      formatOperationElapsed(
-        "2026-01-10T10:00:00.000Z",
-        "2026-01-10T11:02:03.000Z",
-      ),
-    ).toBe("1h 2min");
+    expect(formatOperationElapsed("2026-01-10T10:00:00.000Z", "2026-01-10T11:02:03.000Z")).toBe(
+      "1h 2min",
+    );
   });
 });
 
