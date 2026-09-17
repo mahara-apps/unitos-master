@@ -160,6 +160,18 @@ function PermissionsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<PermissionMemberInput | null>(null);
 
+  const counts = useMemo(() => {
+    const byRole = (roles: string[]) =>
+      members.filter((m) => roles.includes((m.role ?? "").toLowerCase())).length;
+    return {
+      total: members.length,
+      admins: byRole(["owner", "admin"]),
+      managers: byRole(["manager"]),
+      collaborators: byRole(["user"]),
+      profiles: profiles.length,
+    };
+  }, [members, profiles.length]);
+
   if (!brandId) {
     return (
       <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
@@ -190,18 +202,6 @@ function PermissionsPage() {
       </div>
     );
   }
-
-  const counts = useMemo(() => {
-    const byRole = (roles: string[]) =>
-      members.filter((m) => roles.includes((m.role ?? "").toLowerCase())).length;
-    return {
-      total: members.length,
-      admins: byRole(["owner", "admin"]),
-      managers: byRole(["manager"]),
-      collaborators: byRole(["user"]),
-      profiles: profiles.length,
-    };
-  }, [members, profiles.length]);
 
   return (
     <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">

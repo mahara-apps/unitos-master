@@ -20,9 +20,9 @@ describe("Configurações — regressões funcionais", () => {
     ];
 
     for (const destination of destinations) {
-      expect(landing).toContain(`\"/settings/${destination}\"`);
+      expect(landing).toContain(`"/settings/${destination}"`);
       expect(read(`src/routes/_authenticated/settings.${destination}.tsx`)).toContain(
-        `createFileRoute(\"/_authenticated/settings/${destination}\")`,
+        `createFileRoute("/_authenticated/settings/${destination}")`,
       );
     }
   });
@@ -36,8 +36,8 @@ describe("Configurações — regressões funcionais", () => {
       "access-log",
       "logs",
     ]) {
-      expect(landing).toContain(`to: \"/settings/${destination}\"`);
-      expect(layout).toContain(`to: \"/settings/${destination}\"`);
+      expect(landing).toContain(`to: "/settings/${destination}"`);
+      expect(layout).toContain(`to: "/settings/${destination}"`);
     }
   });
 

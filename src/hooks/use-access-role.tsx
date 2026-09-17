@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyAccessFn } from "@/lib/access.functions";
@@ -46,6 +46,9 @@ export function useAccessRole(): Result {
     staleTime: 60_000,
     retry: false,
   });
+  const retry = useCallback(() => {
+    void q.refetch();
+  }, [q.refetch]);
 
   return useMemo<Result>(() => {
     const a = q.data;
@@ -68,9 +71,7 @@ export function useAccessRole(): Result {
       canAccessClientAdmin: canAccessClientAdmin(authorityRole),
       isReady: !q.isLoading && !!a,
       isError: q.isError,
-      retry: () => {
-        void q.refetch();
-      },
+      retry,
     };
-  }, [q.data, q.isError, q.isLoading, q.refetch]);
+  }, [q.data, q.isError, q.isLoading, retry]);
 }
