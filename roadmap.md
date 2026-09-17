@@ -2,12 +2,13 @@
 
 # MASTER 1.4.11 — P0 de atualização legada
 
-- [ ] Promover somente evidências legadas integrais ao progresso canônico com pacote, posição, fingerprint, statements, lease e fencing validados.
-- [ ] Rejeitar reconciliação em massa parcial ou divergente de forma transacional.
-- [ ] Normalizar leases e tentativas históricas sem executar migrations nem reabrir `manual_review`.
-- [ ] Aplicar a matriz fail-closed de manifesto, pacote, ledger, checkpoints e evidências externas.
-- [ ] Preservar 85 blocos Client e executar ensaios reais exclusivamente no projeto allowlisted `testes`.
-- [ ] Executar todos os gates MASTER-first sem publicar nem atualizar instalações reais.
+- [x] Promover somente evidências legadas integrais ao progresso canônico com pacote, posição, fingerprint, statements, lease e fencing validados.
+- [x] Rejeitar reconciliação em massa parcial ou divergente de forma transacional.
+- [x] Normalizar leases e tentativas históricas sem executar migrations nem reabrir `manual_review`.
+- [x] Aplicar a matriz fail-closed de manifesto, pacote, ledger, checkpoints e evidências externas.
+- [ ] Executar o ensaio P0 real exclusivamente no projeto allowlisted `testes` — bloqueado: a API de gestão respondeu HTTP 404 ao token disponível.
+- [x] Preservar 85 blocos Client e concluir focados, `master:check`, suíte local, integração geral, typecheck, lint focado e build.
+- [ ] Executar a suíte global oficial após liberar o ensaio P0 real; não publicar nem atualizar instalações reais antes disso.
 
 # MASTER 1.4.10 — promoção da RPC de evidências legadas
 
