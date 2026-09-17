@@ -5531,31 +5531,66 @@ async function reconcileCanonicalMigrations(
 }
 
 async function reconcileLegacyMigrationMarker(
-  management: ReturnType<typeof createManagementClient>, client: Client, operation: OperationRow,
-  migrations: DeltaMigration[], packageHash: string,
+  management: ReturnType<typeof createManagementClient>,
+  client: Client,
+  operation: OperationRow,
+  migrations: DeltaMigration[],
+  packageHash: string,
 ): Promise<string | null> {
   const inspection = await management.query(buildLegacyReconciliationInspectionSql(migrations));
   if (!inspection.ok) throw new Error(inspection.error ?? "inspeção legada falhou");
   const inspected = normalizeLegacyEvidenceRows(inspection.rows);
-  const rpc = client as never as { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } | null }> };
+  const rpc = client as never as {
+    rpc: (
+      name: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
+  };
   const storedResponse = await rpc.rpc("read_installation_migration_reconciliation_evidence", {
-    _installation_id: operation.installation_id, _package_hash: packageHash,
+    _installation_id: operation.installation_id,
+    _package_hash: packageHash,
   });
-  if (storedResponse.error) throw new Error(`Falha ao ler evidências legadas: ${storedResponse.error.message ?? "erro desconhecido"}`);
+  if (storedResponse.error)
+    throw new Error(
+      `Falha ao ler evidências legadas: ${storedResponse.error.message ?? "erro desconhecido"}`,
+    );
   const stored = Array.isArray(storedResponse.data) ? storedResponse.data : [];
-  const storedByPosition = new Map(stored.filter((item): item is Record<string, unknown> => !!item && typeof item === "object").map((item) => [Number(item["position"]), item]));
+  const storedByPosition = new Map(
+    stored
+      .filter((item): item is Record<string, unknown> => !!item && typeof item === "object")
+      .map((item) => [Number(item["position"]), item]),
+  );
   const evidence = inspected.map((item) => {
     const saved = storedByPosition.get(item.position);
     const migration = migrations[item.position - 1];
-    const approved = item.classification === "external_checkpoint_required" && saved?.["status"] === "compatible"
-      && saved["migration_file"] === item.migration_file && saved["fingerprint"] === migration?.fingerprint && saved["evidence_key"] === item.evidence_key;
-    return { ...item, fingerprint: migration?.fingerprint ?? "", ...(approved ? { status: "compatible" as const, observed: String(saved["observed"] ?? "checkpoint externo aprovado") } : {}) };
+    const approved =
+      item.classification === "external_checkpoint_required" &&
+      saved?.["status"] === "compatible" &&
+      saved["migration_file"] === item.migration_file &&
+      saved["fingerprint"] === migration?.fingerprint &&
+      saved["evidence_key"] === item.evidence_key;
+    return {
+      ...item,
+      fingerprint: migration?.fingerprint ?? "",
+      ...(approved
+        ? {
+            status: "compatible" as const,
+            observed: String(saved["observed"] ?? "checkpoint externo aprovado"),
+          }
+        : {}),
+    };
   });
   const recorded = await rpc.rpc("record_installation_migration_reconciliation_evidence", {
-    _operation_id: operation.id, _owner: operation.lease_owner ?? "", _fencing_token: operation.fencing_token ?? -1,
-    _package_hash: packageHash, _evidence: evidence,
+    _operation_id: operation.id,
+    _owner: operation.lease_owner ?? "",
+    _fencing_token: operation.fencing_token ?? -1,
+    _package_hash: packageHash,
+    _evidence: evidence,
   });
-  if (recorded.error) throw new Error(`Falha ao registrar evidências legadas: ${recorded.error.message ?? "erro desconhecido"}`);
+  if (recorded.error)
+    throw new Error(
+      `Falha ao registrar evidências legadas: ${recorded.error.message ?? "erro desconhecido"}`,
+    );
   return legacyEvidenceBlockReason(evidence);
 }
 
@@ -5636,7 +5671,13 @@ export async function applyDatabaseDelta(input: {
       !(row as Record<string, unknown>)["file"],
   );
   if (hasLegacyBlob && appliedLabels.size === 0) {
-    const detail = await reconcileLegacyMigrationMarker(management, client, operation, migrations, input.snapshot.sha256);
+    const detail = await reconcileLegacyMigrationMarker(
+      management,
+      client,
+      operation,
+      migrations,
+      input.snapshot.sha256,
+    );
     if (detail) return { state: "blocked", detail };
   }
   await reconcileCanonicalMigrations(client, operation, migrations, appliedLabels);
