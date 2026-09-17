@@ -57,10 +57,11 @@ function functionCondition(input: {
   securityDefiner?: boolean;
 }): string {
   const oid = `to_regprocedure(${literal(`public.${input.signature}`)})`;
+  const publicExecuteRevoked = `NOT EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a WHERE p.oid=${oid} AND a.grantee=0 AND a.privilege_type='EXECUTE')`;
   const clauses = [
     `${oid} IS NOT NULL`,
     `(SELECT regexp_replace(lower(prosrc), '\\s+', '', 'g') = ${literal(finalFunctionBody(input.packageSql, input.name))} FROM pg_proc WHERE oid=${oid})`,
-    `NOT has_function_privilege('PUBLIC', ${oid}, 'EXECUTE')`,
+    publicExecuteRevoked,
     `NOT has_function_privilege('anon', ${oid}, 'EXECUTE')`,
     `NOT has_function_privilege('authenticated', ${oid}, 'EXECUTE')`,
   ];

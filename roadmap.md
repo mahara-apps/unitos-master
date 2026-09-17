@@ -1,5 +1,11 @@
 # Roadmap
 
+# MASTER 1.4.9 — correção do pseudo-role PUBLIC
+
+- [x] Auditar GRANT, REVOKE e verificações de privilégios em migrations, pacotes e executores.
+- [x] Substituir a resolução inválida de `PUBLIC` como role nomeada pela inspeção da ACL pública (`grantee = 0`).
+- [x] Regenerar contratos MASTER-first e concluir todos os gates locais sem publicação ou operação externa.
+
 # MASTER 1.4.8 — sincronização do estado das operações
 
 - [x] Normalizar falhas finais reportadas sem deixar HTTP 400 manter a operação viva.

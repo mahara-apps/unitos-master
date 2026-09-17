@@ -30,6 +30,12 @@ describe("reconciliação segura do ledger legado", () => {
     expect(sql).not.toMatch(/^\s*(insert|update|delete|alter|create|drop|grant|revoke)\b/im);
     expect(sql).toContain("regexp_replace(lower(prosrc)");
   });
+  it("inspeciona o pseudo-role PUBLIC pela ACL sem resolvê-lo como role nomeada", () => {
+    const sql = buildLegacyReconciliationInspectionSql(migrations);
+    expect(sql).not.toContain("has_function_privilege('PUBLIC'");
+    expect(sql).toContain("aclexplode(coalesce(p.proacl, acldefault('f', p.proowner)))");
+    expect(sql).toContain("a.grantee=0 AND a.privilege_type='EXECUTE'");
+  });
   it("mantém compatibilidade parcial distinta de execução histórica", () => {
     const normalized = normalizeLegacyEvidenceRows(rows);
     expect(normalized.filter((item) => item.classification === "canonical_state")).toHaveLength(8);
