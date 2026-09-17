@@ -36,6 +36,7 @@ import { usePageHeader } from "@/hooks/use-page-header";
 import { canAccessVisualIdentity } from "@/lib/workspace-admin";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { SettingsPageState } from "@/components/settings/settings-page-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -48,6 +49,19 @@ import {
 } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/settings/identity")({
+  head: () => ({
+    meta: [
+      { title: "Agência | Configurações | Unitos" },
+      { name: "description", content: "Gerencie os dados cadastrais do workspace no Unitos." },
+      { property: "og:title", content: "Agência | Configurações | Unitos" },
+      {
+        property: "og:description",
+        content: "Gerencie os dados cadastrais do workspace no Unitos.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: IdentityPage,
 });
 
@@ -248,6 +262,25 @@ function CompanyPanel({ brandId }: { brandId: string }) {
   });
 
   if (!company) {
+    if (companyQ.isError) {
+      return (
+        <Card>
+          <CardContent className="pt-6">
+            <SettingsPageState
+              kind="error"
+              title="Não foi possível carregar os dados da agência"
+              description={
+                companyQ.error instanceof Error
+                  ? companyQ.error.message
+                  : "Tente novamente para consultar os dados cadastrais."
+              }
+              actionLabel="Tentar novamente"
+              onAction={() => void companyQ.refetch()}
+            />
+          </CardContent>
+        </Card>
+      );
+    }
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-12">

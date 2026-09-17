@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyAccessFn } from "@/lib/access.functions";
@@ -21,6 +21,8 @@ type Result = {
   /** Administração do Cliente (Recursos/Identidade/Ambiente): só super_admin. */
   canAccessClientAdmin: boolean;
   isReady: boolean;
+  isError: boolean;
+  retry: () => void;
 };
 
 /**
@@ -44,6 +46,10 @@ export function useAccessRole(): Result {
     staleTime: 60_000,
     retry: false,
   });
+  const { refetch } = q;
+  const retry = useCallback(() => {
+    void refetch();
+  }, [refetch]);
 
   return useMemo<Result>(() => {
     const a = q.data;
@@ -65,6 +71,8 @@ export function useAccessRole(): Result {
       canManageIntegrations: canManageIntegrations(authorityRole),
       canAccessClientAdmin: canAccessClientAdmin(authorityRole),
       isReady: !q.isLoading && !!a,
+      isError: q.isError || (!q.isLoading && !a),
+      retry,
     };
-  }, [q.data, q.isLoading]);
+  }, [q.data, q.isError, q.isLoading, retry]);
 }

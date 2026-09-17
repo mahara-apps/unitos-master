@@ -43,8 +43,25 @@ import {
   settingsSegmentedTriggerClass,
 } from "@/components/settings/settings-form-ui";
 import { AvatarUploader } from "@/components/settings/avatar-uploader";
+import { SettingsPageState } from "@/components/settings/settings-page-state";
 
 export const Route = createFileRoute("/_authenticated/settings/profile")({
+  head: () => ({
+    meta: [
+      { title: "Perfil | Configurações | Unitos" },
+      {
+        name: "description",
+        content: "Atualize suas informações pessoais e preferências no Unitos.",
+      },
+      { property: "og:title", content: "Perfil | Configurações | Unitos" },
+      {
+        property: "og:description",
+        content: "Atualize suas informações pessoais e preferências no Unitos.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: ProfilePage,
 });
 
@@ -112,10 +129,11 @@ function ProfilePage() {
   const saveProfile = useServerFn(updateMyProfile);
   const changePassword = useServerFn(changeMyPassword);
 
-  const { data, isLoading } = useQuery({
+  const profileQ = useQuery({
     queryKey: ["me", "profile"],
     queryFn: () => fetchProfile(),
   });
+  const { data, isLoading } = profileQ;
 
   const [form, setForm] = useState<FormState | null>(null);
   const [pw, setPw] = useState({ next: "", confirm: "" });
@@ -196,6 +214,24 @@ function ProfilePage() {
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Falha ao alterar senha"),
   });
+
+  if (profileQ.isError) {
+    return (
+      <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-10">
+        <SettingsPageState
+          kind="error"
+          title="Não foi possível carregar seu perfil"
+          description={
+            profileQ.error instanceof Error
+              ? profileQ.error.message
+              : "Tente novamente para consultar suas informações."
+          }
+          actionLabel="Tentar novamente"
+          onAction={() => void profileQ.refetch()}
+        />
+      </div>
+    );
+  }
 
   if (isLoading || !form) {
     return (

@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
+import { SettingsPageState, SettingsLoadingState } from "@/components/settings/settings-page-state";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
@@ -181,7 +182,20 @@ function ScopeSection({ brandId, scope }: { brandId: string; scope: WorkStatusSc
         </Button>
       </div>
 
-      {statuses.length === 0 ? (
+      {q.isLoading ? (
+        <SettingsLoadingState label={`Carregando status de ${SCOPE_LABEL[scope].toLowerCase()}`} />
+      ) : q.isError ? (
+        <SettingsPageState
+          kind="error"
+          title={`Não foi possível carregar os status de ${SCOPE_LABEL[scope].toLowerCase()}`}
+          description={
+            q.error instanceof Error ? q.error.message : "Tente novamente para consultar os status."
+          }
+          actionLabel="Tentar novamente"
+          onAction={() => void q.refetch()}
+          className="m-4"
+        />
+      ) : statuses.length === 0 ? (
         <PanelEmptyState
           icon={<ListChecks className="h-4 w-4" />}
           text={`Nenhum status cadastrado para ${SCOPE_LABEL[scope].toLowerCase()}. Sem cadastro, o seletor oferece o atalho para configurar.`}
@@ -299,7 +313,16 @@ function WorkStatusesPage() {
     [],
   );
 
-  if (!brandId) return null;
+  if (!brandId) {
+    return (
+      <DashboardPageShell>
+        <SettingsPageState
+          title="Nenhum workspace selecionado"
+          description="Selecione um workspace para configurar os status de trabalho."
+        />
+      </DashboardPageShell>
+    );
+  }
 
   return (
     <DashboardPageShell>

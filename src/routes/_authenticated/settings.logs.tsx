@@ -4,6 +4,19 @@ import { usePageHeader } from "@/hooks/use-page-header";
 import { LogViewer } from "@/components/system-logs/log-viewer";
 
 export const Route = createFileRoute("/_authenticated/settings/logs")({
+  head: () => ({
+    meta: [
+      { title: "Auditoria | Configurações | Unitos" },
+      { name: "description", content: "Consulte o histórico de ações realizadas no workspace." },
+      { property: "og:title", content: "Auditoria | Configurações | Unitos" },
+      {
+        property: "og:description",
+        content: "Consulte o histórico de ações realizadas no workspace.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: LogsPage,
 });
 

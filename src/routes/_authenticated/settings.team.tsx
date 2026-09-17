@@ -67,6 +67,7 @@ import { AddMemberDrawer } from "@/components/settings/add-member-drawer";
 import { MemberEditModal } from "@/components/settings/member-edit-modal";
 import { PortalAccessManager } from "@/components/settings/portal-access-manager";
 import { HourlyCostsCard } from "@/components/settings/hourly-costs-card";
+import { SettingsPageState } from "@/components/settings/settings-page-state";
 
 import {
   ROLE_ACCESS,
@@ -78,6 +79,22 @@ import {
 } from "@/components/settings/team-shared";
 
 export const Route = createFileRoute("/_authenticated/settings/team")({
+  head: () => ({
+    meta: [
+      { title: "Equipe e acesso | Configurações | Unitos" },
+      {
+        name: "description",
+        content: "Gerencie membros, papéis, convites e acessos do workspace.",
+      },
+      { property: "og:title", content: "Equipe e acesso | Configurações | Unitos" },
+      {
+        property: "og:description",
+        content: "Gerencie membros, papéis, convites e acessos do workspace.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: TeamSettingsPage,
 });
 
@@ -134,9 +151,28 @@ function TeamSettingsPage() {
   if (!brandId) {
     return (
       <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
-        <p className="text-sm text-muted-foreground">
-          Selecione uma marca no menu lateral para gerenciar a equipe.
-        </p>
+        <SettingsPageState
+          title="Nenhum workspace selecionado"
+          description="Selecione um workspace para gerenciar a equipe."
+        />
+      </div>
+    );
+  }
+
+  if (teamQ.isError) {
+    return (
+      <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
+        <SettingsPageState
+          kind="error"
+          title="Não foi possível carregar os acessos da equipe"
+          description={
+            teamQ.error instanceof Error
+              ? teamQ.error.message
+              : "Tente novamente para consultar convites e acessos do portal."
+          }
+          actionLabel="Tentar novamente"
+          onAction={() => void teamQ.refetch()}
+        />
       </div>
     );
   }
@@ -456,7 +492,9 @@ function InviteRow({
   });
   const resendMut = useMutation({
     mutationFn: (nextEmail?: string) =>
-      resend({ data: { brandId, inviteId: invite.id, ...(nextEmail ? { email: nextEmail } : {}) } }),
+      resend({
+        data: { brandId, inviteId: invite.id, ...(nextEmail ? { email: nextEmail } : {}) },
+      }),
     onSuccess: () => {
       setEditOpen(false);
       toast.success("Convite reenviado com um novo link.");

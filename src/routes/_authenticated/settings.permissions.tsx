@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import { AccessProfilesManager } from "@/components/settings/access-profiles-manager";
 import { AddUserDialog } from "@/components/settings/add-user-dialog";
+import { SettingsPageState } from "@/components/settings/settings-page-state";
 import {
   MemberPermissionsModal,
   type PermissionMemberInput,
@@ -34,6 +35,22 @@ import { ROLE_SHORT, memberInitials, toAssignableRole } from "@/components/setti
 import { hasCustomOverrides, profileLabel } from "@/lib/module-permissions";
 
 export const Route = createFileRoute("/_authenticated/settings/permissions")({
+  head: () => ({
+    meta: [
+      { title: "Permissões | Configurações | Unitos" },
+      {
+        name: "description",
+        content: "Consulte usuários, perfis de acesso e papéis do workspace.",
+      },
+      { property: "og:title", content: "Permissões | Configurações | Unitos" },
+      {
+        property: "og:description",
+        content: "Consulte usuários, perfis de acesso e papéis do workspace.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: PermissionsPage,
 });
 
@@ -170,6 +187,37 @@ function PermissionsPage() {
       profiles: profiles.length,
     };
   }, [members, profiles.length]);
+
+  if (!brandId) {
+    return (
+      <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
+        <SettingsPageState
+          title="Nenhum workspace selecionado"
+          description="Selecione um workspace para consultar usuários, perfis e papéis."
+        />
+      </div>
+    );
+  }
+
+  if (teamQ.isError || profilesQ.isError) {
+    const error = teamQ.error ?? profilesQ.error;
+    return (
+      <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
+        <SettingsPageState
+          kind="error"
+          title="Não foi possível carregar as permissões"
+          description={
+            error instanceof Error ? error.message : "Tente novamente para consultar os acessos."
+          }
+          actionLabel="Tentar novamente"
+          onAction={() => {
+            void teamQ.refetch();
+            void profilesQ.refetch();
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">
