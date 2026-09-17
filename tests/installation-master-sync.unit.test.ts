@@ -216,7 +216,16 @@ describe("sincronia MASTER-first", () => {
     expect(delta).not.toContain("installation_migration_reconciliation_evidence");
   });
 
-  it("promove a RPC de leitura legada com a assinatura canônica no Control-plane", () => {
+  it("reprova o contrato quando a RPC de leitura legada está ausente", () => {
+    expect(masterBootstrap).toContain(
+      "CREATE OR REPLACE FUNCTION public.read_installation_migration_reconciliation_evidence",
+    );
+    expect(verifyMasterSql).toContain(
+      "('read_installation_migration_reconciliation_evidence(uuid,text)')",
+    );
+  });
+
+  it("reprova assinatura divergente e preserva os grants mínimos da RPC", () => {
     const signature = "read_installation_migration_reconciliation_evidence(uuid,text)";
     expect(convergence).toContain(
       "\\ir ../migrations/20260917184500_legacy_migration_reconciliation.sql",
