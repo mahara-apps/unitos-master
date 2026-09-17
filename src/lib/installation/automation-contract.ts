@@ -456,7 +456,7 @@ export const AUTOMATED_PROVISION_PLAN = [
   { id: "deploy", label: "Variáveis + publicação", detail: "Variáveis e URL operacional" },
   { id: "brain", label: "Brain stats", detail: "Materialized view inicializada" },
   { id: "cron", label: "Cron na própria origem", detail: "Agendado na URL operacional" },
-  { id: "validation", label: "Validação final", detail: "verify-installation.sql" },
+  { id: "validation", label: "Validação final", detail: "verify-installation-client.sql" },
 ] as const;
 
 export type AutomatedStepId = (typeof AUTOMATED_PROVISION_PLAN)[number]["id"];

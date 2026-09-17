@@ -91,7 +91,7 @@ export function stripPsqlMetaCommands(sql: string): SanitizedBaseline {
 }
 
 /**
- * Prepara `verify-installation.sql` para a Management API.
+ * Prepara `verify-installation-client.sql` para a Management API.
  *
  * A API retorna SOMENTE as linhas do ULTIMO statement. O script termina com um
  * SELECT de resumo cujo texto contem a palavra "FAIL", o que produzia um FAIL

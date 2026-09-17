@@ -43,7 +43,7 @@ describe("criação de conversas", () => {
   });
 
   it("a verificação de instalação cobre a nova função", () => {
-    const verify = readFileSync(join(root, "supabase/install/verify-installation.sql"), "utf8");
+    const verify = readFileSync(join(root, "supabase/install/verify-installation-client.sql"), "utf8");
     expect(verify).toContain("create_message_thread");
   });
 });

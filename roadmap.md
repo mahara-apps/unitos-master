@@ -1,5 +1,13 @@
 # Roadmap
 
+## MASTER 1.4.3 — separação Control-plane e pacote Client
+
+- [x] Materializar o bootstrap/convergência Master fora do pacote Client.
+- [x] Separar verificadores read-only Client e Master.
+- [x] Remover pré-requisitos Control-plane do executor do banco Client.
+- [x] Preservar mapa 115 (82 Client, 28 Control-plane, 3 Split, 2 Excluded) e pacote de 85 blocos.
+- [x] Sincronizar SHA 1.4.3 e executar todos os gates locais sem NEW, retry real ou publicação.
+
 ## MASTER — retry seguro de provision terminal
 
 - [x] Permitir retry contextual de `provision failed` em `update_available` sem ampliar o provisionamento normal.

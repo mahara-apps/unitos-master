@@ -28,4 +28,4 @@ do
 done
 
 "${PSQL[@]}" -f "$ROOT/supabase/install/020_cron.sql"
-"${PSQL[@]}" -f "$ROOT/supabase/install/verify-installation.sql"
+"${PSQL[@]}" -f "$ROOT/supabase/install/verify-installation-client.sql"

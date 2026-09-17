@@ -3,7 +3,7 @@
 # validate.sh — validação READ-ONLY de uma instalação, com report ao MASTER.
 #
 # NÃO substitui nem duplica nada: apenas executa o
-# supabase/install/verify-installation.sql existente e traduz o resultado em
+# supabase/install/verify-installation-client.sql existente e traduz o resultado em
 # etapas para o módulo MASTER de Instalações (quando configurado).
 #
 # Uso:
@@ -29,7 +29,7 @@ command -v psql >/dev/null 2>&1 || { echo "psql não encontrado"; exit 1; }
 STEPS=(isolation database rls storage cron)
 for s in "${STEPS[@]}"; do report_step "$s" running; done
 
-OUT="$(psql "$SUPABASE_DB_URL" -f "$HERE/verify-installation.sql" 2>&1)"
+OUT="$(psql "$SUPABASE_DB_URL" -f "$HERE/verify-installation-client.sql" 2>&1)"
 RC=$?
 printf '%s\n' "$OUT"
 
@@ -37,7 +37,7 @@ PASSED="$(printf '%s' "$OUT" | grep -c 'PASS' || true)"
 FAILED="$(printf '%s' "$OUT" | grep -c 'FAIL' || true)"
 
 if [ "$RC" -ne 0 ]; then
-  for s in "${STEPS[@]}"; do report_step "$s" error "verify-installation.sql não executou"; done
+  for s in "${STEPS[@]}"; do report_step "$s" error "verify-installation-client.sql não executou"; done
   report_done false "" "Validação não executou (verifique SUPABASE_DB_URL)." false '{}'
   exit 1
 fi

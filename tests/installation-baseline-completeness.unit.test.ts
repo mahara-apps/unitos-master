@@ -19,6 +19,7 @@ import {
 } from "@/lib/installation/baseline-sql";
 import delta from "../supabase/baseline-snapshot/007_delta_migrations.sql?raw";
 import manifestRaw from "../supabase/baseline-snapshot/tools/delta_manifest.txt?raw";
+import destinationsRaw from "../supabase/baseline-snapshot/tools/migration-destinations.json?raw";
 
 // Todas as migrations do repositório, para garantir que o delta não fique defasado.
 const migrationFiles = import.meta.glob("../supabase/migrations/*.sql", {
@@ -30,7 +31,7 @@ const migrationFiles = import.meta.glob("../supabase/migrations/*.sql", {
 import install010 from "../supabase/install/010_installation_identity.sql?raw";
 import install011 from "../supabase/install/011_brain_stats_init.sql?raw";
 import install020 from "../supabase/install/020_cron.sql?raw";
-import verifySql from "../supabase/install/verify-installation.sql?raw";
+import verifySql from "../supabase/install/verify-installation-client.sql?raw";
 
 describe("delta do baseline", () => {
   it("retomada não depende de fila órfã sem consumidor", () => {
@@ -47,7 +48,6 @@ describe("delta do baseline", () => {
     "briefing_import_steps",
     "briefing_import_changes",
     "installation_meta_app",
-    "installation_operations",
     "briefing_import_claim_lease",
     "briefing_import_heartbeat",
     "briefing_import_reap",
@@ -87,14 +87,17 @@ describe("delta do baseline", () => {
     // congelado nele, e reaplicá-las derrubava a tabela com CASCADE.
     const start = "20260829192349_ff418028-7401-404c-92d9-be9b0e29e2bd.sql";
     const posteriores = all.filter((n) => n >= start);
-    // Migrations exclusivas do MASTER (cron apontando para a URL do MASTER)
-    // ficam de fora de propósito: a instalação recebe cron próprio em 020_cron.
-    const masterOnly = posteriores.filter((n) =>
-      (migrationFiles[Object.keys(migrationFiles).find((p) => p.endsWith(n))!] as string).includes(
-        "project--3f33732a-cb8b-43ae-84fb-01d9e367fb0c",
-      ),
+    const destinations = JSON.parse(destinationsRaw) as {
+      migrations: Array<{ file: string; destination: string }>;
+    };
+    const foraDoClient = new Set(
+      destinations.migrations
+        .filter(
+          (entry) => entry.destination === "control-plane" || entry.destination === "excluded",
+        )
+        .map((entry) => entry.file),
     );
-    const faltando = posteriores.filter((n) => !manifest.has(n) && !masterOnly.includes(n));
+    const faltando = posteriores.filter((n) => !manifest.has(n) && !foraDoClient.has(n));
     expect(faltando).toEqual([]);
   });
 
@@ -137,55 +140,19 @@ describe("delta do baseline", () => {
     }
   });
 
-  it("pré-valida as migrations fixadas 96–104 sem bloqueios conhecidos", () => {
-    const fixed = manifestRaw
-      .split("\n")
-      .map((line) => line.trim().split(/\s+/)[0] ?? "")
-      .filter(Boolean)
-      .slice(95, 104);
-    expect(fixed).toHaveLength(9);
-
-    const sqlByFile = new Map(
-      Object.entries(migrationFiles).map(([filePath, sql]) => [filePath.split("/").pop(), sql]),
-    );
-    const prepared = fixed.map((file) => {
-      const raw = sqlByFile.get(file);
-      expect(raw, `migration ausente: ${file}`).toBeTypeOf("string");
-      return { file, raw: raw ?? "", clean: sanitizeBaselineSqlForManagementApi(raw ?? "") };
-    });
-
-    expect(prepared[0]?.raw.trim()).toBe(
-      "DROP FUNCTION public.heartbeat_installation_operation(uuid, text, integer);",
-    );
-    expect(prepared[1]?.raw).toContain("ADD COLUMN IF NOT EXISTS next_attempt_at");
-    expect(prepared[1]?.raw).toContain("DROP INDEX IF EXISTS");
-    expect(prepared[2]?.raw).toContain(
-      "CREATE OR REPLACE FUNCTION public.compare_and_set_installation_generated_secrets",
-    );
-    expect(prepared[3]?.raw).toContain(
-      "CREATE OR REPLACE FUNCTION public.claim_installation_operation",
-    );
-    expect(prepared[4]?.raw).toContain(
-      "CREATE OR REPLACE FUNCTION public.defer_installation_operation",
-    );
-
-    for (const migration of prepared.slice(5, 7)) {
-      expect(migration.raw).toMatch(/ALTER\s+DEFAULT\s+PRIVILEGES/i);
-      expect(migration.clean.sql).not.toMatch(/ALTER\s+DEFAULT\s+PRIVILEGES/i);
-      expect(
-        migration.clean.removed.some((statement) => /ALTER DEFAULT PRIVILEGES/i.test(statement)),
-      ).toBe(true);
+  it("não envia estruturas ou RPCs Control-plane no pacote Client", () => {
+    for (const marker of [
+      "public.installations",
+      "public.installation_operations",
+      "public.installation_credentials",
+      "public.installation_operation_steps",
+      "public.installation_operation_outbox",
+      "public.installation_operation_migrations",
+      "start_durable_installation_operation",
+      "claim_stale_installation_operations",
+    ]) {
+      expect(delta).not.toContain(marker);
     }
-
-    expect(prepared[7]?.raw).toContain("A contenção deixou");
-    expect(prepared[8]?.raw).toContain(
-      "CREATE TABLE IF NOT EXISTS public.installation_operation_attempts",
-    );
-    expect(prepared[8]?.raw).toContain("UNIQUE (operation_id, fencing_token)");
-    expect(prepared[8]?.raw).toContain("ENABLE ROW LEVEL SECURITY");
-    expect(prepared[8]?.raw).toContain(
-      "GRANT EXECUTE ON FUNCTION public.finalize_installation_operation",
-    );
   });
 
   for (const objeto of [
@@ -206,14 +173,6 @@ describe("delta do baseline", () => {
       expect(bloco).toContain(campo!);
     });
   }
-});
-
-describe("cron de retomada do gerenciador", () => {
-  it("é coberto pela validação read-only", () => {
-    expect(verifySql).toContain("cron: retomada do gerenciador usa a URL registrada");
-    expect(verifySql).toContain("installation-provision-resume");
-    expect(verifySql).toContain("/api/public/cron/installation-resume");
-  });
 });
 
 describe("stripPsqlMetaCommands", () => {
@@ -553,19 +512,12 @@ describe("reexecução idempotente do baseline", () => {
     expect(batches.some((batch) => batch.includes("coalesce(sqlstate, 'unknown')"))).toBe(true);
   });
 
-  it("prepara as colunas de lease antes de aplicar migrations incrementais", async () => {
+  it("não prepara estruturas Control-plane antes de aplicar migrations Client", () => {
     const source = readFileSync("src/lib/installation/automation.server.ts", "utf8");
-    const prerequisite = source.indexOf("INSTALLATION_OPERATIONS_INCREMENTAL_PREREQUISITES_SQL,");
-    const ledger = source.indexOf("const ledger = await management.query(");
-
-    expect(source).toContain(
-      '"alter table public.installation_operations add column if not exists lease_expires_at timestamptz"',
-    );
-    expect(source).toContain(
-      '"alter table public.installation_operations add column if not exists lease_owner text"',
-    );
-    expect(prerequisite).toBeGreaterThan(-1);
-    expect(ledger).toBeGreaterThan(prerequisite);
+    const applyDelta = source.slice(source.indexOf("export async function applyDatabaseDelta"));
+    expect(source).not.toContain("INSTALLATION_OPERATIONS_INCREMENTAL_PREREQUISITES_SQL");
+    expect(applyDelta).not.toMatch(/alter table public\.installation_operations/i);
+    expect(applyDelta).not.toMatch(/create table public\.installation_operation_/i);
   });
 
   it("prepara somente a estrutura do ledger sem inventar evidências", () => {

@@ -42,5 +42,5 @@ Proximo passo (NAO aplicar em producao):
   2. psql "<URL_DESCARTAVEL>" -f 001_initial_schema.sql
   3. executar supabase/install/bootstrap.sh com SKIP_URL_PROBE=1
   4. executar novamente para comprovar idempotencia
-  5. executar supabase/install/verify-installation.sql e relatar divergencias
+  5. executar supabase/install/verify-installation-client.sql e relatar divergencias
 NEXT

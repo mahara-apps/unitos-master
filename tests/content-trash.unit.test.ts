@@ -6,7 +6,7 @@ const migration = readFileSync(
   "supabase/migrations/20260908183506_bb896577-81d3-4d45-b00b-958db59f4482.sql",
   "utf8",
 );
-const verify = readFileSync("supabase/install/verify-installation.sql", "utf8");
+const verify = readFileSync("supabase/install/verify-installation-client.sql", "utf8");
 
 describe("Lixeira de Conteúdo", () => {
   it("restringe exclusão e restauração a Owner, Admin ou Super Admin", () => {

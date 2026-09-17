@@ -33,7 +33,7 @@ export const BASELINE_ORDER = [
   "004_seeds.sql",
 ] as const;
 
-/** Contagens esperadas do baseline (usadas por verify-installation.sql). */
+/** Contagens esperadas do baseline (usadas por verify-installation-client.sql). */
 export const BASELINE_EXPECTED_COUNTS = {
   tables: 89,
   enums: 10,

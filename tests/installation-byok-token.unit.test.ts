@@ -12,7 +12,7 @@ const credentials = readFileSync("src/lib/installation/credentials.server.ts", "
 const crypto = readFileSync("src/lib/credentials-crypto.server.ts", "utf8");
 const card = readFileSync("src/components/installations/installation-credentials-card.tsx", "utf8");
 const form = readFileSync("src/routes/_authenticated/admin.instalacoes.index.tsx", "utf8");
-const verify = readFileSync("supabase/install/verify-installation.sql", "utf8");
+const verifyMaster = readFileSync("supabase/install/verify-installation-master.sql", "utf8");
 
 describe("BYOK: cada instalação usa o Supabase Access Token do próprio cliente", () => {
   it("cadastro exige o token e marca a instalação como BYOK", () => {
@@ -46,10 +46,10 @@ describe("BYOK: cada instalação usa o Supabase Access Token do próprio client
     expect(capability.supabase.available).toBe(true);
   });
 
-  it("formulário pede o token de forma segura e o pacote MASTER valida a coluna", () => {
+  it("formulário pede o token de forma segura e o verificador MASTER cobre instalações", () => {
     expect(form).toContain("PasswordInput");
     expect(form).toContain("supabaseManagementToken");
-    expect(verify).toContain("requires_own_supabase_token");
+    expect(verifyMaster).toContain("installations");
   });
 
   it("valida banco e leitura de chaves antes de guardar um novo token", () => {
@@ -71,7 +71,10 @@ describe("BYOK: cada instalação usa o Supabase Access Token do próprio client
 
   it("testa o token efetivamente antes de criar uma operação", () => {
     const prevalidation = manager.indexOf("await prevalidateSupabaseOperation");
-    const operation = manager.indexOf("const op = await startAtomicInstallationOperation", prevalidation);
+    const operation = manager.indexOf(
+      "const op = await startAtomicInstallationOperation",
+      prevalidation,
+    );
     expect(prevalidation).toBeGreaterThan(0);
     expect(operation).toBeGreaterThan(prevalidation);
   });
