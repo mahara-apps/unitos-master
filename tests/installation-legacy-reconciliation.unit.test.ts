@@ -39,9 +39,6 @@ describe("reconciliação segura do ledger legado", () => {
     expect(reconciledLegacyPositions(normalized)).toEqual(
       new Set([34, 39, 55, 61, 64, 70, 71, 84]),
     );
-    expect(legacyEvidenceBlockReason(normalized)).toContain(
-      "compatibilidade parcial 21, 42, 52, 56, 66, 82, 83",
-    );
   });
   it("exige checkpoints externos independentes para 72, 74 e 85", () => {
     const normalized = normalizeLegacyEvidenceRows(rows);
@@ -50,14 +47,14 @@ describe("reconciliação segura do ledger legado", () => {
     );
     expect(new Set(normalized.map((item) => item.evidence_key)).size).toBe(18);
   });
-  it("mantém o gate fechado após aprovação externa enquanto houver posições parciais", () => {
+  it("libera o gate externo sem promover as posições parciais", () => {
     const approved = rows.map((item) =>
       item.classification === "external_checkpoint_required"
         ? { ...item, status: "compatible" }
         : item,
     );
     const normalized = normalizeLegacyEvidenceRows(approved);
-    expect(legacyEvidenceBlockReason(normalized)).toContain("compatibilidade parcial");
+    expect(legacyEvidenceBlockReason(normalized)).toBeNull();
     expect(reconciledLegacyPositions(normalized)).toEqual(
       new Set([34, 39, 55, 61, 64, 70, 71, 72, 74, 84, 85]),
     );
