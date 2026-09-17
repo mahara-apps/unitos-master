@@ -217,8 +217,7 @@ describe("sincronia MASTER-first", () => {
   });
 
   it("promove a RPC de leitura legada com a assinatura canônica no Control-plane", () => {
-    const signature =
-      "read_installation_migration_reconciliation_evidence(uuid,text)";
+    const signature = "read_installation_migration_reconciliation_evidence(uuid,text)";
     expect(convergence).toContain(
       "\\ir ../migrations/20260917184500_legacy_migration_reconciliation.sql",
     );
@@ -252,9 +251,7 @@ describe("sincronia MASTER-first", () => {
     expect(metadata.controlPlaneMigrations).toBe(29);
     expect(metadata.convergenceSha256).toBe(await sha256Hex(convergence));
     expect(metadata.bootstrapSha256).toBe(await sha256Hex(masterBootstrap));
-    expect(metadata.reconciliationFile).toBe(
-      "20260917184500_legacy_migration_reconciliation.sql",
-    );
+    expect(metadata.reconciliationFile).toBe("20260917184500_legacy_migration_reconciliation.sql");
     expect(metadata.reconciliationSha256).toBe(await sha256Hex(reconciliation));
     expect(promotion).toContain("UNITOS_MASTER_PROMOTION:-");
     expect(promotion).toContain("MASTER_DATABASE_URL:-");
