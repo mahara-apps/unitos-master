@@ -49,7 +49,9 @@ describe("promoção local do Control-plane Master", () => {
     expect(result.code).toBe(0);
     expect(result.calls).toContain("--single-transaction");
     expect(result.calls).toContain("001_control_plane_convergence_v1_4_3.sql");
-    expect(result.calls).not.toContain("--file /dev-server/supabase/master/bootstrap-control-plane.sql");
+    expect(result.calls).not.toContain(
+      "--file /dev-server/supabase/master/bootstrap-control-plane.sql",
+    );
     expect(result.calls).toContain("verify-installation-master.sql");
   });
 
