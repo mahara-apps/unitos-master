@@ -5268,6 +5268,57 @@ export async function validateDeltaManifest(
   return { ok: true };
 }
 
+export async function generateDeltaManifest(sql: string): Promise<string> {
+  const entries = await Promise.all(
+    splitDeltaMigrations(sql).map(async (migration) => {
+      const digest = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(`${migration.sql.trim()}\n`),
+      );
+      const fingerprint = Array.from(new Uint8Array(digest))
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("");
+      return `${migration.file}\t${fingerprint}`;
+    }),
+  );
+  return entries.length > 0 ? `${entries.join("\n")}\n` : "";
+}
+
+/**
+ * Compatibilidade fechada para operações legadas que não transportavam o
+ * manifesto. A recuperação só é permitida quando o snapshot inteiro coincide
+ * com o pacote Client oficial embarcado no MASTER atual.
+ */
+export async function recoverLegacyCanonicalManifest(
+  snapshot: OperationPackageSnapshot,
+): Promise<{ ok: true; manifest: string } | { ok: false; error: string }> {
+  if (snapshot.manifest) return { ok: true, manifest: snapshot.manifest };
+
+  const officialVersion = /^version=(.+)$/m.exec(deltaVersion)?.[1]?.trim() ?? "";
+  const officialSha = /^sha256=([a-f0-9]{64})$/m.exec(deltaVersion)?.[1] ?? "";
+  const officialTotal = splitDeltaMigrations(baseline007).length;
+  if (
+    snapshot.version !== officialVersion ||
+    snapshot.sha256 !== officialSha ||
+    snapshot.total !== officialTotal ||
+    officialTotal !== 85 ||
+    snapshot.sql !== baseline007
+  ) {
+    return {
+      ok: false,
+      error: "manifesto canônico ausente e pacote legado diverge do contrato oficial do MASTER",
+    };
+  }
+
+  const generated = await generateDeltaManifest(snapshot.sql);
+  const generatedCheck = await validateDeltaManifest(generated, snapshot.sql);
+  if (!generatedCheck.ok) return generatedCheck;
+  if (generated !== deltaManifest) {
+    return { ok: false, error: "manifesto recuperado diverge do manifesto oficial do MASTER" };
+  }
+  return { ok: true, manifest: generated };
+}
+
 export function operationPackageIdentity(snapshot: Omit<OperationPackageSnapshot, "sql">): string {
   return `${snapshot.version}:${snapshot.commitSha}:${snapshot.total}`;
 }
@@ -5309,10 +5360,9 @@ export async function validateCanonicalPackage(
   if (actualSha !== snapshot.sha256) {
     return { ok: false, error: "SHA-256 global do pacote não confere" };
   }
-  if (!snapshot.manifest) {
-    return { ok: false, error: "manifesto canônico do pacote está ausente" };
-  }
-  const manifestCheck = await validateDeltaManifest(snapshot.manifest, snapshot.sql);
+  const recoveredManifest = await recoverLegacyCanonicalManifest(snapshot);
+  if (!recoveredManifest.ok) return recoveredManifest;
+  const manifestCheck = await validateDeltaManifest(recoveredManifest.manifest, snapshot.sql);
   if (!manifestCheck.ok) return manifestCheck;
   return validateOperationPackageSnapshot(operation, snapshot);
 }
@@ -5802,6 +5852,7 @@ export async function runAutomatedUpdate(input: {
     sha256: packageSnapshot.sha256,
     total: packageSnapshot.total,
     sql: packageSnapshot.sql,
+    manifest: packageSnapshot.manifest,
   };
   if (!operation.baseline_id && !operation.baseline_hash) {
     const rpc = client as never as {

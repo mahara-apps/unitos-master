@@ -53,6 +53,13 @@ describe("atualização de código da instalação", () => {
     expect(updateBody).toContain('return finishByGitPush("atualização enviada ao repositório")');
   });
 
+  it("transporta o manifesto validado do commit até o executor canônico", () => {
+    const source = readFileSync("src/lib/installation/automation.server.ts", "utf8");
+    const updateBody = source.slice(source.indexOf("export async function runAutomatedUpdate"));
+    expect(updateBody).toContain("manifest: packageSnapshot.manifest");
+    expect(updateBody).toContain("snapshot,");
+  });
+
   it("update bem-sucedido com a versão do MASTER deixa a instalação atualizada", () => {
     expect(statusAfterOperation("update", { ok: true, version: "1.0.0" }, "1.0.0")).toBe(
       "up_to_date",
