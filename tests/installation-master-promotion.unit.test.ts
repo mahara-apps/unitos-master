@@ -48,7 +48,7 @@ describe("promoção local do Control-plane Master", () => {
     const result = runPromotion("--converge-existing", "1,controle,ok,PASS");
     expect(result.code).toBe(0);
     expect(result.calls).toContain("--single-transaction");
-    expect(result.calls).toContain("001_control_plane_convergence_v1_4_3.sql");
+    expect(result.calls).toContain("convergence-control-plane.sql");
     expect(result.calls).not.toContain(
       "--file /dev-server/supabase/master/bootstrap-control-plane.sql",
     );

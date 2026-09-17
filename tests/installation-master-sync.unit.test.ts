@@ -9,6 +9,7 @@ import verifySql from "../supabase/install/verify-installation-client.sql?raw";
 import verifyMasterSql from "../supabase/install/verify-installation-master.sql?raw";
 import masterBootstrap from "../supabase/master/bootstrap-control-plane.sql?raw";
 import convergence from "../supabase/master/001_control_plane_convergence_v1_4_3.sql?raw";
+import reconciliation from "../supabase/master/002_legacy_migration_reconciliation.sql?raw";
 import extensions from "../supabase/baseline-snapshot/000_extensions.sql?raw";
 
 /**
@@ -209,6 +210,10 @@ describe("sincronia MASTER-first", () => {
     expect(convergence).not.toContain(
       "CREATE TABLE IF NOT EXISTS public.installation_migration_ledger",
     );
+    expect(masterBootstrap).toContain("installation_migration_reconciliation_evidence");
+    expect(masterBootstrap).toContain("record_installation_migration_reconciliation_evidence");
+    expect(masterBootstrap).toContain("read_installation_migration_reconciliation_evidence");
+    expect(delta).not.toContain("installation_migration_reconciliation_evidence");
   });
 
   it("promoção Master é executável, selada e bloqueada fora do fluxo explícito", async () => {
@@ -219,6 +224,8 @@ describe("sincronia MASTER-first", () => {
       controlPlaneMigrations: number;
       convergenceSha256: string;
       bootstrapSha256: string;
+      reconciliationFile: string;
+      reconciliationSha256: string;
     };
     const promotion = readFileSync("supabase/master/tools/promote_master_control_plane.sh", "utf8");
     const packageJson = readFileSync("package.json", "utf8");
@@ -227,6 +234,8 @@ describe("sincronia MASTER-first", () => {
     expect(metadata.controlPlaneMigrations).toBe(28);
     expect(metadata.convergenceSha256).toBe(await sha256Hex(convergence));
     expect(metadata.bootstrapSha256).toBe(await sha256Hex(masterBootstrap));
+    expect(metadata.reconciliationFile).toBe("002_legacy_migration_reconciliation.sql");
+    expect(metadata.reconciliationSha256).toBe(await sha256Hex(reconciliation));
     expect(promotion).toContain("UNITOS_MASTER_PROMOTION:-");
     expect(promotion).toContain("MASTER_DATABASE_URL:-");
     expect(promotion).toContain("--single-transaction");

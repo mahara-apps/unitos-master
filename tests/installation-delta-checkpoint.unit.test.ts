@@ -62,9 +62,10 @@ select 2;`;
     expect(INCREMENTAL_LEDGER_CUTOVER_FILE).toMatch(/^\d{14}_.+\.sql$/);
   });
 
-  it("não transforma marcador cumulativo legado em evidência por migration", () => {
+  it("não transforma marcador cumulativo legado diretamente em evidência por migration", () => {
     const source = readFileSync("src/lib/installation/automation.server.ts", "utf8");
-    expect(source).toContain("ledger legado sem evidência por migration");
+    expect(source).toContain("reconcileLegacyMigrationMarker");
+    expect(source).toContain("buildLegacyReconciliationInspectionSql");
     expect(source).not.toContain("for (const item of historical) appliedLabels.add");
   });
 

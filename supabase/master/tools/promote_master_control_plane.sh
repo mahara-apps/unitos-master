@@ -22,7 +22,7 @@ python3 "$ROOT/supabase/master/tools/build_master_bootstrap.py" --check
 if [[ "$MODE" == "--bootstrap-clean" ]]; then
   SQL="$ROOT/supabase/master/bootstrap-control-plane.sql"
 else
-  SQL="$ROOT/supabase/master/001_control_plane_convergence_v1_4_3.sql"
+  SQL="$ROOT/supabase/master/convergence-control-plane.sql"
 fi
 
 psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --single-transaction --file "$SQL"
