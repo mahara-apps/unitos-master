@@ -106,6 +106,14 @@
 - [x] Ampliar a verificação do ledger, índice parcial, RLS/grants e objetos críticos.
 - [x] Atualizar guardiões e executar lint, tipos, testes e `master:check`, sem publicar ou promover versão.
 
+## MASTER 1.4.6 — Reconciliação segura de instalações legadas
+
+- [x] Inspecionar as 18 migrations ambíguas por contrato SELECT-only e evidência exclusiva.
+- [x] Separar estado canônico, compatibilidade parcial e checkpoint externo sem presumir execução histórica.
+- [x] Persistir evidências idempotentes no Control-plane com lease/fencing e manter divergências bloqueantes.
+- [x] Preservar o pacote Client de 85 blocos sem SQL Control-plane.
+- [ ] Publicar somente após revisão do diff e aprovação explícita.
+
 ## Etapa 10 — Integração real no Supabase de testes
 
 - [x] Confirmar conectividade e ref exato `limalqnfatlkczshqzgs`, bloqueando MASTER/Taveira.

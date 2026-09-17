@@ -5,7 +5,8 @@
 WITH expected_tables(name) AS (VALUES
   ('installations'), ('installation_credentials'), ('installation_operations'),
   ('installation_operation_attempts'), ('installation_operation_steps'),
-  ('installation_operation_outbox'), ('installation_operation_migrations')
+  ('installation_operation_outbox'), ('installation_operation_migrations'),
+  ('installation_migration_reconciliation_evidence')
 ), expected_columns(table_name, column_name) AS (VALUES
   ('installation_operations','workflow_version'), ('installation_operations','baseline_id'),
   ('installation_operations','baseline_hash'), ('installation_operations','heartbeat_at'),
@@ -25,6 +26,8 @@ WITH expected_tables(name) AS (VALUES
   ('checkpoint_installation_operation(uuid,text,bigint,jsonb,jsonb,text,text,jsonb)'),
   ('checkpoint_installation_migration(uuid,text,bigint,text,text,integer,integer,integer,boolean)'),
   ('reconcile_installation_operation_migrations(uuid,text,bigint,jsonb)'),
+  ('record_installation_migration_reconciliation_evidence(uuid,text,bigint,text,jsonb)'),
+  ('read_installation_migration_reconciliation_evidence(uuid,text)'),
   ('seal_installation_operation_baseline(uuid,text,bigint,text,text)'),
   ('finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'),
   ('compare_and_set_installation_generated_secrets(uuid,timestamp with time zone,text,uuid)')
@@ -46,29 +49,32 @@ WITH expected_tables(name) AS (VALUES
   FROM expected_columns
   UNION ALL
   SELECT 4, 'Master: FKs e constraints críticas',
-    count(*)::text || '/7', CASE WHEN count(*)=7 THEN 'PASS' ELSE 'FAIL' END
+    count(*)::text || '/9', CASE WHEN count(*)=9 THEN 'PASS' ELSE 'FAIL' END
   FROM pg_constraint WHERE conname IN (
     'installation_operations_installation_id_fkey','installation_operation_steps_operation_id_fkey',
     'installation_operation_outbox_operation_id_fkey','installation_operation_attempts_operation_id_fkey',
+    'installation_migration_reconciliation_evidence_installation_id_fkey','installation_migration_reconciliation_evidence_operation_id_fkey',
     'installation_operation_migrations_operation_id_fkey','installation_operation_steps_operation_id_step_key_key',
     'installation_operation_outbox_deduplication_key_key')
   UNION ALL
-  SELECT 5, 'Master: índices durable críticos', count(*)::text || '/7', CASE WHEN count(*)=7 THEN 'PASS' ELSE 'FAIL' END
+  SELECT 5, 'Master: índices durable críticos', count(*)::text || '/8', CASE WHEN count(*)=8 THEN 'PASS' ELSE 'FAIL' END
   FROM pg_indexes WHERE schemaname='public' AND indexname IN (
     'installation_operations_reconcile_idx','installation_operations_resume_idx','installation_operations_one_active',
     'installation_operation_attempts_active_idx','installation_operation_steps_state_idx',
-    'installation_operation_outbox_ready_idx','installation_operation_migrations_operation_status_idx')
+    'installation_operation_outbox_ready_idx','installation_operation_migrations_operation_status_idx',
+    'installation_migration_reconciliation_evidence_operation_idx')
   UNION ALL
   SELECT 6, 'Master: RLS nas tabelas Control-plane',
     coalesce(string_agg(e.name, ', ' ORDER BY e.name) FILTER (WHERE NOT c.relrowsecurity), 'todas protegidas'),
     CASE WHEN bool_and(c.relrowsecurity) THEN 'PASS' ELSE 'FAIL' END
   FROM expected_tables e JOIN pg_class c ON c.oid=to_regclass('public.' || e.name)
   UNION ALL
-  SELECT 7, 'Master: policies Super Admin', count(*)::text || '/7', CASE WHEN count(*)=7 THEN 'PASS' ELSE 'FAIL' END
+  SELECT 7, 'Master: policies Super Admin', count(*)::text || '/8', CASE WHEN count(*)=8 THEN 'PASS' ELSE 'FAIL' END
   FROM pg_policies WHERE schemaname='public' AND policyname IN (
     'installations_super_admin_all','installation_credentials_super_admin_all','installation_operations_super_admin_all',
     'installation_operation_attempts_super_admin_read','installation_operation_steps_super_admin_read',
-    'installation_operation_outbox_super_admin_read','installation_operation_migrations_super_admin_read')
+    'installation_operation_outbox_super_admin_read','installation_operation_migrations_super_admin_read',
+    'installation_migration_reconciliation_evidence_super_admin_read')
   UNION ALL
   SELECT 8, 'Master: grants mínimos das tabelas durable',
     CASE WHEN bool_and(has_table_privilege('service_role','public.'||name,'SELECT,INSERT,UPDATE,DELETE')) THEN 'service_role ok' ELSE 'service_role incompleto' END,
@@ -81,7 +87,7 @@ WITH expected_tables(name) AS (VALUES
     'installations_touch_updated_at','update_installation_credentials_updated_at',
     'installation_operation_steps_touch_updated_at','installation_operation_outbox_disable_legacy')
   UNION ALL
-  SELECT 10, 'Master: RPCs durable restritas ao serviço', count(*)::text || '/12', CASE WHEN count(*)=12 THEN 'PASS' ELSE 'FAIL' END
+  SELECT 10, 'Master: RPCs durable restritas ao serviço', count(*)::text || '/14', CASE WHEN count(*)=14 THEN 'PASS' ELSE 'FAIL' END
   FROM expected_functions e JOIN pg_proc p ON p.oid=to_regprocedure('public.'||e.signature)
   WHERE p.prosecdef AND position('public' in pg_get_functiondef(p.oid))>0
     AND has_function_privilege('service_role',p.oid,'EXECUTE')
