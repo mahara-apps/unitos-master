@@ -225,15 +225,15 @@ export function legacyEvidenceBlockReason(results: LegacyEvidenceResult[]): stri
   );
   if (automaticMissing.length)
     return `reconciliação legada sem estado canônico suficiente nas posições ${automaticMissing.map((item) => item.position).join(", ")}`;
-  const partial = results.filter((item) => item.classification === "partial_compatibility");
-  if (partial.length)
-    return `reconciliação legada sem evidência histórica suficiente: compatibilidade parcial ${partial.map((item) => item.position).join(", ")}`;
   const external = results.filter(
     (item) =>
       item.classification === "external_checkpoint_required" && item.status !== "compatible",
   );
   if (external.length)
     return `reconciliação legada sem evidência histórica suficiente: checkpoint externo obrigatório ${external.map((item) => item.position).join(", ")}`;
+  const partial = results.filter((item) => item.classification === "partial_compatibility");
+  if (partial.length)
+    return `reconciliação legada sem evidência histórica suficiente: compatibilidade parcial ${partial.map((item) => item.position).join(", ")}`;
   return null;
 }
 
