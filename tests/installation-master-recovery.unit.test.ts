@@ -113,14 +113,12 @@ describe("recuperação local da lacuna 1.4.10", () => {
   });
 
   it("possui ensaio PostgreSQL isolado para assinaturas e atomicidade", () => {
-    const script = readFileSync(
-      "supabase/master/tools/test_master_recovery_local.sh",
-      "utf8",
-    );
+    const script = readFileSync("supabase/master/tools/test_master_recovery_local.sh", "utf8");
     expect(script).toContain("pg_get_function_identity_arguments");
     expect(script).toContain("assert_check_status 7");
     expect(script).toContain("argument name mismatch");
     expect(script).toContain("argument type mismatch");
+    expect(script).toContain("argument order mismatch");
     expect(script).toContain("argument count mismatch");
     expect(script).toContain("unexpected overload");
     expect(script).toContain("ROLLBACK");

@@ -137,6 +137,13 @@ GRANT EXECUTE ON FUNCTION public.reconcile_installation_operation_migrations(uui
 
 exercise_mismatch "
 DROP FUNCTION public.reconcile_installation_operation_migrations(uuid,text,bigint,jsonb);
+CREATE FUNCTION public.reconcile_installation_operation_migrations(_owner uuid, _operation_id text, _fencing_token bigint, _migrations jsonb)
+RETURNS integer LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=public AS \$\$BEGIN RETURN 0; END\$\$;
+REVOKE ALL ON FUNCTION public.reconcile_installation_operation_migrations(uuid,text,bigint,jsonb) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.reconcile_installation_operation_migrations(uuid,text,bigint,jsonb) TO service_role;" "argument order mismatch"
+
+exercise_mismatch "
+DROP FUNCTION public.reconcile_installation_operation_migrations(uuid,text,bigint,jsonb);
 CREATE FUNCTION public.reconcile_installation_operation_migrations(_operation_id uuid, _owner text, _fencing_token bigint)
 RETURNS integer LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=public AS \$\$BEGIN RETURN 0; END\$\$;
 REVOKE ALL ON FUNCTION public.reconcile_installation_operation_migrations(uuid,text,bigint) FROM PUBLIC,anon,authenticated;
