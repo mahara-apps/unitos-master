@@ -28,6 +28,8 @@ if [[ "$*" == *"recovery-control-plane-preflight.sql"* ]]; then
   printf '%s\n' '${options.preflight ?? verification}'
 elif [[ "$*" == *"verify-installation-master.sql"* ]]; then
   printf '%s\\n' '${verification}'
+elif [[ "$*" == *"SELECT concat_ws"* ]]; then
+  printf '%s\\n' '0,1,1'
 fi
 `,
     { mode: 0o755 },
