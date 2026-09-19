@@ -91,12 +91,18 @@ CREATE POLICY installation_migration_reconciliation_evidence_super_admin_read
   FOR SELECT TO authenticated USING (public.is_super_admin(auth.uid()));
 CREATE INDEX installation_migration_reconciliation_evidence_operation_idx
   ON public.installation_migration_reconciliation_evidence(operation_id, package_position);
+CREATE TRIGGER installation_operations_freeze_guard
+  BEFORE INSERT OR UPDATE OR DELETE ON public.installation_migration_reconciliation_evidence
+  FOR EACH STATEMENT EXECUTE FUNCTION public.guard_installation_operations_freeze();
 
 CREATE FUNCTION public.record_installation_migration_reconciliation_evidence(
   _operation_id uuid, _owner text, _fencing_token bigint, _package_hash text, _evidence jsonb
 ) RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE _installation_id uuid; _saved integer := 0;
 BEGIN
+  IF NOT coalesce((SELECT frozen FROM public.installation_operations_freeze WHERE singleton IS TRUE), false) THEN
+    RAISE EXCEPTION 'Installation Manager não está congelado' USING ERRCODE='55000';
+  END IF;
   IF jsonb_typeof(_evidence)<>'array' OR coalesce(_package_hash,'')='' THEN RAISE EXCEPTION 'Contrato de evidências inválido' USING ERRCODE='22023'; END IF;
   SELECT installation_id INTO _installation_id FROM public.installation_operations
    WHERE id=_operation_id AND status='running' AND lease_owner=_owner AND fencing_token=_fencing_token AND lease_expires_at>now() FOR UPDATE;

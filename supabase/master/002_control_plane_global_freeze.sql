@@ -11,7 +11,7 @@ CREATE TABLE public.installation_operations_freeze (
   CHECK ((frozen AND nullif(btrim(reason), '') IS NOT NULL) OR NOT frozen)
 );
 GRANT SELECT ON public.installation_operations_freeze TO authenticated;
-GRANT ALL ON public.installation_operations_freeze TO service_role;
+GRANT SELECT ON public.installation_operations_freeze TO service_role;
 ALTER TABLE public.installation_operations_freeze ENABLE ROW LEVEL SECURITY;
 CREATE POLICY installation_operations_freeze_super_admin_read
   ON public.installation_operations_freeze FOR SELECT TO authenticated
@@ -27,7 +27,7 @@ CREATE TABLE public.installation_operations_freeze_events (
   UNIQUE (generation)
 );
 GRANT SELECT ON public.installation_operations_freeze_events TO authenticated;
-GRANT ALL ON public.installation_operations_freeze_events TO service_role;
+GRANT SELECT ON public.installation_operations_freeze_events TO service_role;
 ALTER TABLE public.installation_operations_freeze_events ENABLE ROW LEVEL SECURITY;
 CREATE POLICY installation_operations_freeze_events_super_admin_read
   ON public.installation_operations_freeze_events FOR SELECT TO authenticated
