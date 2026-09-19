@@ -100,9 +100,6 @@ CREATE FUNCTION public.record_installation_migration_reconciliation_evidence(
 ) RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE _installation_id uuid; _saved integer := 0;
 BEGIN
-  IF NOT coalesce((SELECT frozen FROM public.installation_operations_freeze WHERE singleton IS TRUE), false) THEN
-    RAISE EXCEPTION 'Installation Manager não está congelado' USING ERRCODE='55000';
-  END IF;
   IF jsonb_typeof(_evidence)<>'array' OR coalesce(_package_hash,'')='' THEN RAISE EXCEPTION 'Contrato de evidências inválido' USING ERRCODE='22023'; END IF;
   SELECT installation_id INTO _installation_id FROM public.installation_operations
    WHERE id=_operation_id AND status='running' AND lease_owner=_owner AND fencing_token=_fencing_token AND lease_expires_at>now() FOR UPDATE;

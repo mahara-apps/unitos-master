@@ -40,6 +40,9 @@ CREATE FUNCTION public.read_installation_operations_freeze()
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public AS $$
 DECLARE _row public.installation_operations_freeze%ROWTYPE;
 BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.is_super_admin(auth.uid()) THEN
+    RAISE EXCEPTION 'Acesso negado ao estado do congelamento global' USING ERRCODE='42501';
+  END IF;
   SELECT * INTO STRICT _row FROM public.installation_operations_freeze WHERE singleton IS TRUE;
   RETURN jsonb_build_object('frozen',_row.frozen,'generation',_row.generation,
     'reason',_row.reason,'changedBy',_row.changed_by,'changedAt',_row.changed_at);
