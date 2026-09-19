@@ -308,6 +308,20 @@ function AdminInstallationsPage() {
             </Card>
           ))}
         </div>
+      ) : list.isError ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
+            <AlertTriangle className="h-8 w-8 text-destructive" />
+            <p className="text-sm font-medium">Não foi possível carregar as instalações</p>
+            <p className="max-w-sm text-xs text-muted-foreground">
+              A leitura falhou. Nenhum dado foi alterado; tente novamente para consultar o estado
+              atual.
+            </p>
+            <Button size="sm" variant="outline" onClick={() => void list.refetch()}>
+              <RefreshCw className="mr-2 h-4 w-4" /> Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
       ) : installations.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
