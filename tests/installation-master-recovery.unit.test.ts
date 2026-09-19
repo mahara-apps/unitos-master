@@ -63,14 +63,25 @@ describe("recuperação local da lacuna 1.4.10", () => {
     expect(sha256(recovery)).not.toBe(sha256(original1411));
   });
 
-  it("mantém 1.4.10 ausente e registra somente a recuperação após pós-condições", () => {
+  it("mantém o ledger fora do SQL e delega o registro da recuperação ao executor oficial", () => {
     expect(recovery).not.toContain("VALUES ('20260917184500'");
-    const postcondition = recovery.indexOf("$unitos_recovery_postcondition$");
-    const ledgerInsert = recovery.lastIndexOf("INSERT INTO supabase_migrations.schema_migrations");
-    expect(postcondition).toBeGreaterThan(0);
-    expect(ledgerInsert).toBeGreaterThan(postcondition);
-    expect(recovery).toContain("VALUES ('20260919143000'");
+    expect(recovery).not.toContain("INSERT INTO supabase_migrations.schema_migrations");
+    expect(recovery).toContain("O executor oficial de migrations registra 20260919143000");
+    expect(recovery).toContain("BEGIN;");
+    expect(recovery).toContain("COMMIT;");
     expect(recovery).not.toContain("migration repair");
+  });
+
+  it("valida integralmente o contrato publicado da 1.4.11", () => {
+    expect(preflight).toContain("pg_get_functiondef");
+    expect(preflight).toContain("expected_signature");
+    expect(preflight).toContain("pg_get_function_result");
+    expect(preflight).toContain("pg_get_userbyid(p.proowner)");
+    expect(preflight).toContain("aclexplode");
+    expect(preflight).toContain("p.prosecdef");
+    expect(preflight).toContain("search_path=public");
+    expect(preflight).toContain("reconcile_overloads FROM overloads) = 1");
+    expect(preflight).toContain("dependências estruturais da 1.4.11 presentes");
   });
 
   it("permanece fora do pacote Client e dos caminhos normais do Master", () => {
