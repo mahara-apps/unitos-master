@@ -49,7 +49,7 @@ PY
   trap 'rm -f "$PREFLIGHT" "$DRY_RUN"; rm -rf "$STAGE"' EXIT
   psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --csv \
     --file "$ROOT/supabase/master/recovery-control-plane-preflight.sql" > "$PREFLIGHT"
-  if grep -q ',FAIL$' "$PREFLIGHT" || [[ "$(grep -c ',PASS$' "$PREFLIGHT")" -ne 20 ]]; then
+  if grep -q ',FAIL$' "$PREFLIGHT" || [[ "$(grep -c ',PASS$' "$PREFLIGHT")" -ne 16 ]]; then
     echo "Bloqueado: preflight da recuperação encontrou divergências" >&2
     exit 1
   fi
