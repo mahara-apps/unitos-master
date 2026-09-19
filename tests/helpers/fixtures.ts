@@ -8,7 +8,8 @@ import { assertPrivilegedTestEnv } from "./test-env";
 export { assertPrivilegedTestEnv, privilegedTestEnv, privilegedTestEnvAllowed } from "./test-env";
 
 const url = process.env["SUPABASE_URL"];
-const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+const serviceKey =
+  process.env["UNITOS_TEST_SERVICE_ROLE_KEY"] ?? process.env["SUPABASE_SERVICE_ROLE_KEY"];
 const publishable =
   process.env["SUPABASE_PUBLISHABLE_KEY"] ?? process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
 

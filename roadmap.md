@@ -1,5 +1,13 @@
 # Roadmap
 
+# MASTER 1.4.13 — setup reproduzível da suíte global
+
+- [x] Identificar que o setup global apenas limpava fixtures e pressupunha o schema Client.
+- [x] Preparar banco descartável vazio somente com o baseline versionado e o executor oficial do Master.
+- [x] Bloquear Master, alvo divergente, schema parcial e qualquer dado de negócio existente.
+- [x] Validar o schema Client antes de liberar fixtures, sem NEW, UPDATE, retry ou P0.
+- [ ] Executar testes locais, tipos, lint focado e `master:check`; suíte remota e P0 permanecem sem autorização.
+
 # MASTER 1.4.12 — endurecimento do UPDATE legado
 
 - [x] Validar integralmente arquivo, observação e chave determinística das evidências antes de qualquer promoção.
