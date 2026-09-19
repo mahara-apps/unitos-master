@@ -44,20 +44,7 @@ export async function readInstallationOperationsFreeze(
 ): Promise<InstallationOperationsFreeze> {
   const { data, error } = await queryInstallationOperationsFreeze(client);
   if (error) throw new Error("Estado do congelamento global indisponível; operação bloqueada.");
-  if (!data || typeof data !== "object" || !("frozen" in data) || !("generation" in data)) {
-    throw new Error("Estado do congelamento global inválido; operação bloqueada.");
-  }
-  const row = data as Record<string, unknown>;
-  if (typeof row["frozen"] !== "boolean" || typeof row["generation"] !== "number") {
-    throw new Error("Estado do congelamento global inválido; operação bloqueada.");
-  }
-  return {
-    frozen: row["frozen"],
-    generation: row["generation"],
-    reason: typeof row["reason"] === "string" ? row["reason"] : null,
-    changedBy: typeof row["changedBy"] === "string" ? row["changedBy"] : null,
-    changedAt: typeof row["changedAt"] === "string" ? row["changedAt"] : null,
-  };
+  return parseInstallationOperationsFreeze(data);
 }
 
 export async function readInstallationOperationsFreezeForListing(
