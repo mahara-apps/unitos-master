@@ -1,5 +1,16 @@
 # Roadmap
 
+# MASTER 1.4.12 — endurecimento do UPDATE legado
+
+- [x] Validar integralmente arquivo, observação e chave determinística das evidências antes de qualquer promoção.
+- [x] Vincular cada promoção ao SHA-256 canônico e ao total de statements do pacote autorizado, preservando o fingerprint legado apenas para leitura compatível.
+- [x] Reconciliar ledger misto sempre que existir marcador cumulativo legado, sem reaplicar migrations comprovadas.
+- [x] Bloquear progresso concluído no Master quando não houver confirmação correspondente no ledger Client.
+- [x] Preservar o executor compartilhado do NEW, o pacote Client de 85 blocos, RBAC/RLS/auth, leases e fencing existentes.
+- [x] Concluir testes focados, typecheck e lint sem SQL remoto, UPDATE, retry, NEW ou publicação.
+- [ ] Executar integração PostgreSQL real somente após os gates administrativos do ambiente descartável autorizado.
+- [ ] Executar `master:check`, suíte global e build antes de qualquer publicação explicitamente autorizada.
+
 # MASTER 1.4.11 — P0 de atualização legada
 
 - [x] Promover somente evidências legadas integrais ao progresso canônico com pacote, posição, fingerprint, statements, lease e fencing validados.
