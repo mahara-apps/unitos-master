@@ -7,7 +7,11 @@ import { describe, expect, it } from "vitest";
 
 const SCRIPT = "supabase/master/tools/promote_master_control_plane.sh";
 
-function runPromotion(mode: "--converge-existing" | "--bootstrap-clean", verification: string) {
+function runPromotion(
+  mode: "--converge-existing" | "--bootstrap-clean" | "--recover-missing-1.4.10",
+  verification: string,
+  options: { recoveryConfirmation?: string; projectRef?: string } = {},
+) {
   const directory = mkdtempSync(join(tmpdir(), "unitos-master-promotion-"));
   const calls = join(directory, "calls.txt");
   const fakePsql = join(directory, "psql");
@@ -15,7 +19,7 @@ function runPromotion(mode: "--converge-existing" | "--bootstrap-clean", verific
     fakePsql,
     `#!/usr/bin/env bash
 printf '%s\\n' "$*" >> "${calls}"
-if [[ "$*" == *"verify-installation-master.sql"* ]]; then
+if [[ "$*" == *"recovery-control-plane-preflight.sql"* || "$*" == *"verify-installation-master.sql"* ]]; then
   printf '%s\\n' '${verification}'
 fi
 `,
@@ -28,6 +32,8 @@ fi
         PATH: `${directory}:${process.env["PATH"] ?? ""}`,
         UNITOS_MASTER_PROMOTION: "I_UNDERSTAND_MASTER_ONLY",
         MASTER_DATABASE_URL: "postgresql://master.invalid/postgres",
+        UNITOS_MASTER_RECOVERY: options.recoveryConfirmation ?? "",
+        MASTER_PROJECT_REF: options.projectRef ?? "",
       },
       encoding: "utf8",
       timeout: 10_000,
@@ -67,5 +73,11 @@ describe("promoção local do Control-plane Master", () => {
     const result = runPromotion("--converge-existing", "1,controle,divergente,FAIL");
     expect(result.code).toBe(1);
     expect(result.stdout).toContain("verificador Master encontrou divergências");
+  });
+
+  it("bloqueia recuperação sem confirmação e identidade específicas", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS");
+    expect(result.code).toBe(2);
+    expect(result.calls).toBe("");
   });
 });

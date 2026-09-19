@@ -13,6 +13,7 @@ VERSION = ROOT / "baseline-snapshot" / "tools" / "delta_version.txt"
 CONVERGENCE = ROOT / "master" / "001_control_plane_convergence_v1_4_3.sql"
 RECONCILIATION = ROOT / "migrations" / "20260917184500_legacy_migration_reconciliation.sql"
 P0_HARDENING = ROOT / "migrations" / "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql"
+RECOVERY_BUILDER = ROOT / "master" / "tools" / "build_master_recovery.py"
 OUT = ROOT / "master" / "bootstrap-control-plane.sql"
 METADATA = ROOT / "master" / "bootstrap-control-plane.json"
 INSERT_BEFORE = "20260913230055_f50b7d0b-e5e5-4cc8-9ad0-ddcfd8104005.sql"
@@ -33,6 +34,8 @@ def build() -> tuple[str, str]:
     release_version = version_values.get("version", "").strip()
     if not release_version:
         raise SystemExit("versão Master ausente em delta_version.txt")
+    if not RECOVERY_BUILDER.is_file():
+        raise SystemExit("gerador do manifesto de recuperação ausente")
     files = [entry["file"] for entry in document["migrations"] if entry["destination"] == "control-plane"]
     if (
         len(files) != 30
