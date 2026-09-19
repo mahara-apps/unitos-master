@@ -450,3 +450,11 @@
 - [x] Impedir tela de erro quando o contador de mensagens roda durante perda ou renovação da sessão; sincronizar no MASTER 1.3.70.
 - [x] Eliminar bloqueios falsos de token nas instalações, unificar a leitura do cofre no runtime e distinguir acesso ausente de ilegível; sincronizar no MASTER 1.3.71.
 - [ ] Tornar criação, atualização, retomada e validação de ambientes resistentes a concorrência e diagnóstico incorreto; implementação e validação automatizada do MASTER 1.3.72 concluídas (297 testes de instalação + 41 guardiões), pendentes apenas publicação autorizada, ensaio descartável real e recuperação/revalidação da Apex.
+\n## UPDATE legado robusto (Master 1.4.12)
+- [ ] Contratos, fixtures e testes fail-closed
+- [ ] SHA-256 canônico com dual-read legado
+- [ ] Ledger misto e promoção cross-store retomável
+- [ ] RPCs Control-plane, bootstrap e verificadores
+- [ ] Pacote/versionamento MASTER-first
+- [ ] Testes focados, master:check, suítes, typecheck, lint e build
+- [ ] Ensaio PostgreSQL real (bloqueado até gates administrativos; não executar automaticamente)
