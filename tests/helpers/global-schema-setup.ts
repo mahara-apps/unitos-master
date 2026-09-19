@@ -71,7 +71,11 @@ function numberField(row: unknown, field: string): number {
   return Number((row as Record<string, unknown>)[field]);
 }
 
-async function requireQuery(management: Management, sql: string, label: string): Promise<unknown[]> {
+async function requireQuery(
+  management: Management,
+  sql: string,
+  label: string,
+): Promise<unknown[]> {
   const result = await management.query(sql);
   if (!result.ok) throw new Error(`${label}: ${result.error ?? "consulta recusada"}`);
   return result.rows;
@@ -106,7 +110,8 @@ export async function ensureGlobalTestSchema(options?: {
     throw new Error("GLOBAL_TEST_SCHEMA_SETUP bloqueado: credencial de gestão descartável ausente");
   }
   const management =
-    options?.management ?? createManagementClient({ token, projectRef: INTEGRATION_TEST_PROJECT_REF });
+    options?.management ??
+    createManagementClient({ token, projectRef: INTEGRATION_TEST_PROJECT_REF });
   const inspected = await requireQuery(management, INSPECT_SCHEMA_SQL, "inspeção do schema");
   const publicTables = numberField(inspected[0], "public_tables");
   const criticalTables = numberField(inspected[0], "critical_tables");
@@ -123,7 +128,9 @@ export async function ensureGlobalTestSchema(options?: {
     return "ready";
   }
   if (publicTables !== 0 || criticalTables !== 0) {
-    throw new Error("setup recusado: schema parcial ou desconhecido; nenhuma correção automática foi feita");
+    throw new Error(
+      "setup recusado: schema parcial ou desconhecido; nenhuma correção automática foi feita",
+    );
   }
 
   const applyFile =
@@ -138,7 +145,9 @@ export async function ensureGlobalTestSchema(options?: {
           : {}),
       });
       if (!applied.ok || !applied.complete) {
-        throw new Error(`${name}: ${applied.ok ? "aplicação incompleta" : applied.error ?? "falha"}`);
+        throw new Error(
+          `${name}: ${applied.ok ? "aplicação incompleta" : (applied.error ?? "falha")}`,
+        );
       }
     });
   for (const name of BASELINE_ORDER) await applyFile(management, name, BASELINE_SQL[name]);

@@ -1,13 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  GLOBAL_TEST_BASELINE_ORDER,
-  ensureGlobalTestSchema,
-} from "./helpers/global-schema-setup";
-import {
-  INTEGRATION_TEST_PROJECT_REF,
-  INTEGRATION_TEST_SUITE,
-} from "./helpers/test-env";
+import { GLOBAL_TEST_BASELINE_ORDER, ensureGlobalTestSchema } from "./helpers/global-schema-setup";
+import { INTEGRATION_TEST_PROJECT_REF, INTEGRATION_TEST_SUITE } from "./helpers/test-env";
 
 const ORIGINAL = { ...process.env };
 
@@ -95,8 +89,6 @@ describe("setup do schema da suíte global", () => {
         { check_name: "RLS habilitado em todas as tabelas de public", status: "FAIL" },
       ],
     ]);
-    await expect(ensureGlobalTestSchema({ management: target })).rejects.toThrow(
-      /RLS habilitado/,
-    );
+    await expect(ensureGlobalTestSchema({ management: target })).rejects.toThrow(/RLS habilitado/);
   });
 });
