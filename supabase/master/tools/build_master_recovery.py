@@ -27,8 +27,12 @@ def build() -> str:
     present = [marker for marker in forbidden_markers if marker in recovery]
     if present:
         raise SystemExit(f"recuperação contém SQL exclusivo da 1.4.11: {present}")
+    if "INSERT INTO supabase_migrations.schema_migrations" in recovery:
+        raise SystemExit("recuperação não pode escrever diretamente no ledger da Supabase")
+    if "BEGIN;" not in recovery or "COMMIT;" not in recovery:
+        raise SystemExit("recuperação deve preservar uma transação explícita")
     document = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "releaseVersion": "1.4.14",
         "targetProjectRef": "tkjbhttylouamqxnbfgv",
         "recoveryVersion": "20260919143000",

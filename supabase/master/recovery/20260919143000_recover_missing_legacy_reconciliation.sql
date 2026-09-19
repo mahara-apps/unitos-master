@@ -3,6 +3,8 @@
 -- Repaired source SHA-256: 7a9dd018e24796b71b62a9bb8abf36da9c7acd358e8d8b1bb16066d141556627
 -- Recovery-only: nunca incluir no pacote Client nem reaplicar a migration 1.4.11.
 
+BEGIN;
+
 SELECT pg_advisory_xact_lock(hashtextextended('unitos:master:control-plane-promotion', 0));
 
 DO $unitos_recovery_precondition$
@@ -157,6 +159,6 @@ BEGIN
 END
 $unitos_recovery_postcondition$;
 
--- O ledger registra somente esta recuperação, depois de todas as pós-condições.
-INSERT INTO supabase_migrations.schema_migrations(version, statements, name)
-VALUES ('20260919143000', ARRAY['recovery artifact verified locally'], 'recover_missing_legacy_reconciliation');
+-- O executor oficial de migrations registra 20260919143000 somente após este COMMIT.
+-- Este artefato nunca escreve diretamente em supabase_migrations.schema_migrations.
+COMMIT;

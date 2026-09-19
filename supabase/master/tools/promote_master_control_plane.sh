@@ -29,22 +29,54 @@ if [[ "$MODE" == "--recover-missing-1.4.10" ]]; then
     exit 2
   fi
   python3 "$ROOT/supabase/master/tools/build_master_recovery.py" --check
+  if ! command -v supabase >/dev/null 2>&1; then
+    echo "Bloqueado: Supabase CLI oficial ausente" >&2
+    exit 2
+  fi
   PREFLIGHT="$(mktemp)"
-  trap 'rm -f "$PREFLIGHT"' EXIT
+  DRY_RUN="$(mktemp)"
+  STAGE="$(mktemp -d)"
+  trap 'rm -f "$PREFLIGHT" "$DRY_RUN"; rm -rf "$STAGE"' EXIT
   psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --csv \
     --file "$ROOT/supabase/master/recovery-control-plane-preflight.sql" > "$PREFLIGHT"
   if grep -q ',FAIL$' "$PREFLIGHT"; then
     echo "Bloqueado: preflight da recuperação encontrou divergências" >&2
     exit 1
   fi
-  SQL="$ROOT/supabase/master/recovery/20260919143000_recover_missing_legacy_reconciliation.sql"
+  mkdir -p "$STAGE/supabase/migrations"
+  printf 'project_id = "%s"\n' "$MASTER_PROJECT_REF" > "$STAGE/supabase/config.toml"
+  cp "$ROOT/supabase/master/recovery/20260919143000_recover_missing_legacy_reconciliation.sql" "$STAGE/supabase/migrations/"
+  if [[ "$(find "$STAGE/supabase/migrations" -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ')" != "1" ]]; then
+    echo "Bloqueado: fila de recuperação deve conter exatamente uma migration" >&2
+    exit 1
+  fi
+  supabase db push --db-url "$MASTER_DATABASE_URL" --workdir "$STAGE" --dry-run > "$DRY_RUN" 2>&1
+  mapfile -t SELECTED < <(grep -Eo '[0-9]{14}[^[:space:]]*\.sql' "$DRY_RUN" | sort -u)
+  if [[ "${#SELECTED[@]}" -ne 1 || "${SELECTED[0]}" != "20260919143000_recover_missing_legacy_reconciliation.sql" ]]; then
+    echo "Bloqueado: executor oficial não selecionou exclusivamente 20260919143000" >&2
+    cat "$DRY_RUN" >&2
+    exit 1
+  fi
+  if grep -Eq '20260917184500|20260917190721' "$DRY_RUN"; then
+    echo "Bloqueado: executor tentou selecionar 1.4.10 ou reaplicar 1.4.11" >&2
+    exit 1
+  fi
+  supabase db push --db-url "$MASTER_DATABASE_URL" --workdir "$STAGE"
+  LEDGER_STATE="$(psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --tuples-only --no-align --command "SELECT concat_ws(',', count(*) FILTER (WHERE version='20260917184500'), count(*) FILTER (WHERE version='20260917190721'), count(*) FILTER (WHERE version='20260919143000')) FROM supabase_migrations.schema_migrations;")"
+  if [[ "$LEDGER_STATE" != "0,1,1" ]]; then
+    echo "Falha: executor oficial não preservou o ledger esperado (1.4.10=0, 1.4.11=1, recuperação=1)" >&2
+    exit 1
+  fi
+  SQL=""
 elif [[ "$MODE" == "--bootstrap-clean" ]]; then
   SQL="$ROOT/supabase/master/bootstrap-control-plane.sql"
 else
   SQL="$ROOT/supabase/master/convergence-control-plane.sql"
 fi
 
-psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --single-transaction --file "$SQL"
+if [[ -n "$SQL" ]]; then
+  psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --single-transaction --file "$SQL"
+fi
 
 REPORT="$(mktemp)"
 trap 'rm -f "$REPORT" "${PREFLIGHT:-}"' EXIT
