@@ -17,7 +17,9 @@ describe("congelamento global fail-closed do Control-plane", () => {
     expect(freezeSql).toContain("PRIMARY KEY DEFAULT true CHECK (singleton)");
     expect(freezeSql).toContain("CREATE TABLE public.installation_operations_freeze_events (");
     expect(freezeSql.indexOf("GRANT SELECT ON public.installation_operations_freeze")).toBeLessThan(
-      freezeSql.indexOf("ALTER TABLE public.installation_operations_freeze ENABLE ROW LEVEL SECURITY"),
+      freezeSql.indexOf(
+        "ALTER TABLE public.installation_operations_freeze ENABLE ROW LEVEL SECURITY",
+      ),
     );
     expect(freezeSql).toContain("installation_operations_freeze_super_admin_read");
     expect(freezeSql).toContain("installation_operations_freeze_events_super_admin_read");
@@ -55,8 +57,12 @@ describe("congelamento global fail-closed do Control-plane", () => {
       "REVOKE ALL ON FUNCTION public.set_installation_operations_freeze(boolean,text,text,bigint)",
     );
     expect(freezeSql).toContain("TO service_role");
-    expect(freezeSql).toContain("GRANT SELECT ON public.installation_operations_freeze TO service_role");
-    expect(freezeSql).not.toContain("GRANT ALL ON public.installation_operations_freeze TO service_role");
+    expect(freezeSql).toContain(
+      "GRANT SELECT ON public.installation_operations_freeze TO service_role",
+    );
+    expect(freezeSql).not.toContain(
+      "GRANT ALL ON public.installation_operations_freeze TO service_role",
+    );
   });
 
   it("obriga preflight e recovery a confirmarem freeze ativo", () => {

@@ -246,7 +246,7 @@ describe("promoção local do Control-plane Master", () => {
   it("bloqueia saída incompleta do preflight", () => {
     const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
       ...recoveryOptions,
-        preflight: Array.from({ length: 16 }, (_, index) => `${index + 1},preflight,ok,PASS`).join(
+      preflight: Array.from({ length: 16 }, (_, index) => `${index + 1},preflight,ok,PASS`).join(
         "\n",
       ),
     });
