@@ -3,6 +3,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 MODE="${1:-}"
+SUPABASE_CLI_VERSION="2.117.0"
+SUPABASE_CLI="${UNITOS_SUPABASE_CLI:-$ROOT/node_modules/.bin/supabase}"
 
 if [[ "$MODE" != "--converge-existing" && "$MODE" != "--bootstrap-clean" && "$MODE" != "--recover-missing-1.4.10" ]]; then
   echo "Uso: $0 --converge-existing|--bootstrap-clean|--recover-missing-1.4.10" >&2
@@ -39,14 +41,21 @@ if host != f"db.{ref}.supabase.co" and not (host.endswith(".pooler.supabase.com"
     raise SystemExit("Bloqueado: conexão não identifica exatamente o projeto Master")
 PY
   python3 "$ROOT/supabase/master/tools/build_master_recovery.py" --check
-  if ! command -v supabase >/dev/null 2>&1; then
-    echo "Bloqueado: Supabase CLI oficial ausente" >&2
+  python3 "$ROOT/supabase/master/tools/verify_master_recovery_stage.py" --root "$ROOT/supabase"
+  if [[ ! -x "$SUPABASE_CLI" ]]; then
+    echo "Bloqueado: Supabase CLI oficial fixada ausente" >&2
+    exit 2
+  fi
+  if [[ "$($SUPABASE_CLI --version)" != "$SUPABASE_CLI_VERSION" ]]; then
+    echo "Bloqueado: Supabase CLI deve ser exatamente $SUPABASE_CLI_VERSION" >&2
     exit 2
   fi
   PREFLIGHT="$(mktemp)"
   DRY_RUN="$(mktemp)"
+  LEDGER_SNAPSHOT="$(mktemp)"
+  LEDGER_CURRENT="$(mktemp)"
   STAGE="$(mktemp -d)"
-  trap 'rm -f "$PREFLIGHT" "$DRY_RUN"; rm -rf "$STAGE"' EXIT
+  trap 'rm -f "$PREFLIGHT" "$DRY_RUN" "$LEDGER_SNAPSHOT" "$LEDGER_CURRENT"; rm -rf "$STAGE"' EXIT
   psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --csv \
     --file "$ROOT/supabase/master/recovery-control-plane-preflight.sql" > "$PREFLIGHT"
   if grep -q ',FAIL$' "$PREFLIGHT" || [[ "$(grep -c ',PASS$' "$PREFLIGHT")" -ne 16 ]]; then
@@ -55,7 +64,12 @@ PY
   fi
   mkdir -p "$STAGE/supabase/migrations"
   printf 'project_id = "%s"\n' "$MASTER_PROJECT_REF" > "$STAGE/supabase/config.toml"
-  REMOTE_VERSIONS="$(psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --tuples-only --no-align --command "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;")"
+  read_ledger() {
+    psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --tuples-only --no-align \
+      --command "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;"
+  }
+  read_ledger > "$LEDGER_SNAPSHOT"
+  REMOTE_VERSIONS="$(cat "$LEDGER_SNAPSHOT")"
   while IFS= read -r version; do
     [[ -z "$version" ]] && continue
     if [[ "$version" == "20260917184500" || "$version" == "20260919143000" ]]; then
@@ -78,6 +92,8 @@ PY
     echo "Bloqueado: fila temporária contém migration proibida" >&2
     exit 1
   fi
+  python3 "$ROOT/supabase/master/tools/verify_master_recovery_stage.py" \
+    --root "$ROOT/supabase" --stage "$STAGE" --ledger "$LEDGER_SNAPSHOT"
   stage_sha256() {
     python3 - "$STAGE" <<'PY'
 import hashlib
@@ -97,8 +113,14 @@ print(digest.hexdigest())
 PY
   }
   STAGE_SHA256="$(stage_sha256)"
-  supabase db push --db-url "$MASTER_DATABASE_URL" --workdir "$STAGE" --dry-run > "$DRY_RUN" 2>&1
-  mapfile -t SELECTED < <(grep -Eo '[0-9]{14}[^[:space:]]*\.sql' "$DRY_RUN" | sort -u)
+  "$SUPABASE_CLI" db push --db-url "$MASTER_DATABASE_URL" --workdir "$STAGE" --dry-run > "$DRY_RUN" 2>&1
+  if [[ "$(grep -Fxc 'DRY RUN: migrations will *not* be pushed to the database.' "$DRY_RUN")" -ne 1 ]] \
+    || [[ "$(grep -Fxc 'Finished supabase db push.' "$DRY_RUN")" -ne 1 ]]; then
+    echo "Bloqueado: formato do dry-run diverge da Supabase CLI $SUPABASE_CLI_VERSION" >&2
+    cat "$DRY_RUN" >&2
+    exit 1
+  fi
+  mapfile -t SELECTED < <(sed -n 's/^Would push migration \([0-9]\{14\}[^[:space:]]*\.sql\)\.\.\.$/\1/p' "$DRY_RUN")
   if [[ "${#SELECTED[@]}" -ne 1 || "${SELECTED[0]}" != "20260919143000_recover_missing_legacy_reconciliation.sql" ]]; then
     echo "Bloqueado: executor oficial não selecionou exclusivamente 20260919143000" >&2
     cat "$DRY_RUN" >&2
@@ -108,11 +130,23 @@ PY
     echo "Bloqueado: executor tentou selecionar 1.4.10 ou reaplicar 1.4.11" >&2
     exit 1
   fi
+  read_ledger > "$LEDGER_CURRENT"
+  if ! cmp -s "$LEDGER_SNAPSHOT" "$LEDGER_CURRENT"; then
+    echo "Bloqueado: ledger foi alterado concorrentemente após o dry-run" >&2
+    exit 1
+  fi
+  python3 "$ROOT/supabase/master/tools/verify_master_recovery_stage.py" \
+    --root "$ROOT/supabase" --stage "$STAGE" --ledger "$LEDGER_SNAPSHOT"
   if [[ "$(stage_sha256)" != "$STAGE_SHA256" ]]; then
     echo "Bloqueado: staging foi alterado entre o selo e a execução" >&2
     exit 1
   fi
-  supabase db push --db-url "$MASTER_DATABASE_URL" --workdir "$STAGE"
+  read_ledger > "$LEDGER_CURRENT"
+  if ! cmp -s "$LEDGER_SNAPSHOT" "$LEDGER_CURRENT"; then
+    echo "Bloqueado: ledger foi alterado concorrentemente antes da execução" >&2
+    exit 1
+  fi
+  "$SUPABASE_CLI" db push --db-url "$MASTER_DATABASE_URL" --workdir "$STAGE"
   LEDGER_STATE="$(psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --tuples-only --no-align --command "SELECT concat_ws(',', count(*) FILTER (WHERE version='20260917184500'), count(*) FILTER (WHERE version='20260917190721'), count(*) FILTER (WHERE version='20260919143000')) FROM supabase_migrations.schema_migrations;")"
   if [[ "$LEDGER_STATE" != "0,1,1" ]]; then
     echo "Falha: executor oficial não preservou o ledger esperado (1.4.10=0, 1.4.11=1, recuperação=1)" >&2
@@ -130,7 +164,7 @@ if [[ -n "$SQL" ]]; then
 fi
 
 REPORT="$(mktemp)"
-trap 'rm -f "$REPORT" "${PREFLIGHT:-}"' EXIT
+trap 'rm -f "$REPORT" "${PREFLIGHT:-}" "${DRY_RUN:-}" "${LEDGER_SNAPSHOT:-}" "${LEDGER_CURRENT:-}"; [[ -z "${STAGE:-}" ]] || rm -rf "$STAGE"' EXIT
 psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --csv \
   --file "$ROOT/supabase/install/verify-installation-master.sql" > "$REPORT"
 if grep -q ',FAIL$' "$REPORT"; then

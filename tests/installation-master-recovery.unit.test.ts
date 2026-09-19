@@ -26,6 +26,13 @@ describe("recuperação local da lacuna 1.4.10", () => {
   it("sela origem, dependência, preflight e recuperação com hashes canônicos", () => {
     expect(manifest["releaseVersion"]).toBe("1.4.14");
     expect(manifest["targetProjectRef"]).toBe("tkjbhttylouamqxnbfgv");
+    expect(manifest["schemaVersion"]).toBe(3);
+    expect(manifest["supabaseCliVersion"]).toBe("2.117.0");
+    expect(manifest["dryRunHeader"]).toBe(
+      "DRY RUN: migrations will *not* be pushed to the database.",
+    );
+    expect(manifest["dryRunMigrationPrefix"]).toBe("Would push migration ");
+    expect(manifest["dryRunFooter"]).toBe("Finished supabase db push.");
     expect(manifest["repairsSha256"]).toBe(sha256(original1410));
     expect(manifest["requiresSha256"]).toBe(sha256(original1411));
     expect(manifest["recoverySha256"]).toBe(sha256(recovery));
