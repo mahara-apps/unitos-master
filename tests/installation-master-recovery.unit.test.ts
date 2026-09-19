@@ -43,9 +43,15 @@ describe("recuperação local da lacuna 1.4.10", () => {
   });
 
   it("cria somente os objetos da 1.4.10 e não contém SQL da 1.4.11", () => {
-    expect(recovery).toContain("CREATE TABLE public.installation_migration_reconciliation_evidence");
-    expect(recovery).toContain("CREATE FUNCTION public.record_installation_migration_reconciliation_evidence");
-    expect(recovery).toContain("CREATE FUNCTION public.read_installation_migration_reconciliation_evidence");
+    expect(recovery).toContain(
+      "CREATE TABLE public.installation_migration_reconciliation_evidence",
+    );
+    expect(recovery).toContain(
+      "CREATE FUNCTION public.record_installation_migration_reconciliation_evidence",
+    );
+    expect(recovery).toContain(
+      "CREATE FUNCTION public.read_installation_migration_reconciliation_evidence",
+    );
     expect(recovery).not.toContain(
       "CREATE OR REPLACE FUNCTION public.reconcile_installation_operation_migrations",
     );
