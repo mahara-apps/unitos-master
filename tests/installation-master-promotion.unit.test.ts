@@ -1,11 +1,17 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 const SCRIPT = "supabase/master/tools/promote_master_control_plane.sh";
+const STAGE_CHECK = "supabase/master/tools/verify_master_recovery_stage.py";
+const validDryRun = [
+  "DRY RUN: migrations will *not* be pushed to the database.",
+  "Would push migration 20260919143000_recover_missing_legacy_reconciliation.sql...",
+  "Finished supabase db push.",
+].join("\n");
 const passingPreflight = Array.from(
   { length: 16 },
   (_, index) => `${index + 1},preflight,ok,PASS`,
@@ -19,7 +25,9 @@ interface PromotionOptions {
   remoteVersions?: string;
   ledgerState?: string;
   dryRun?: string;
-  mutateStageAfterDryRun?: boolean;
+  cliVersion?: string;
+  mutateStageAfterDryRun?: "config" | "duplicate" | "historical" | "recovery";
+  concurrentLedger?: string;
 }
 
 function runPromotion(
@@ -31,6 +39,7 @@ function runPromotion(
   const calls = join(directory, "calls.txt");
   const fakePsql = join(directory, "psql");
   const fakeSupabase = join(directory, "supabase");
+  const ledgerReads = join(directory, "ledger-reads.txt");
   writeFileSync(
     fakePsql,
     `#!/usr/bin/env bash
@@ -43,7 +52,15 @@ elif [[ "$*" == *"verify-installation-master.sql"* ]]; then
 elif [[ "$*" == *"SELECT concat_ws"* ]]; then
   printf '%s\\n' '${options.ledgerState ?? "0,1,1"}'
 elif [[ "$*" == *"SELECT version FROM"* ]]; then
-  printf '%s\\n' '${options.remoteVersions ?? "20260917190721"}'
+  count=0
+  [[ -f "${ledgerReads}" ]] && count="$(cat "${ledgerReads}")"
+  count=$((count + 1))
+  printf '%s' "$count" > "${ledgerReads}"
+  if [[ "$count" -gt 1 && -n '${options.concurrentLedger ?? ""}' ]]; then
+    printf '%s\\n' '${options.concurrentLedger ?? ""}'
+  else
+    printf '%s\\n' '${options.remoteVersions ?? "20260917190721"}'
+  fi
 fi
 `,
     { mode: 0o755 },
@@ -52,9 +69,24 @@ fi
     fakeSupabase,
     `#!/usr/bin/env bash
 printf 'supabase %s\\n' "$*" >> "${calls}"
+if [[ "$*" == "--version" ]]; then
+  printf '%s\\n' '${options.cliVersion ?? "2.117.0"}'
+  exit 0
+fi
 if [[ "$*" == *"--dry-run"* ]]; then
-  printf '%s\\n' '${options.dryRun ?? "20260919143000_recover_missing_legacy_reconciliation.sql"}'
-  ${options.mutateStageAfterDryRun ? `while [[ "$#" -gt 0 ]]; do if [[ "$1" == "--workdir" ]]; then printf '\\n# altered\\n' >> "$2/supabase/config.toml"; break; fi; shift; done` : ""}
+  printf '%s\\n' '${options.dryRun ?? validDryRun}'
+  ${options.mutateStageAfterDryRun ? `while [[ "$#" -gt 0 ]]; do
+    if [[ "$1" == "--workdir" ]]; then
+      case '${options.mutateStageAfterDryRun}' in
+        config) printf '\\n# altered\\n' >> "$2/supabase/config.toml" ;;
+        duplicate) cp "$2/supabase/migrations/20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql" "$2/supabase/migrations/20260917190721_duplicate.sql" ;;
+        historical) printf '\\n-- altered\\n' >> "$2/supabase/migrations/20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql" ;;
+        recovery) printf '\\n-- altered\\n' >> "$2/supabase/migrations/20260919143000_recover_missing_legacy_reconciliation.sql" ;;
+      esac
+      break
+    fi
+    shift
+  done` : ""}
 fi
 `,
     { mode: 0o755 },
@@ -69,6 +101,7 @@ fi
           "postgresql://postgres:secret@db.tkjbhttylouamqxnbfgv.supabase.co:5432/postgres",
         UNITOS_MASTER_RECOVERY: options.recoveryConfirmation ?? "",
         MASTER_PROJECT_REF: options.projectRef ?? "",
+        UNITOS_SUPABASE_CLI: fakeSupabase,
       },
       encoding: "utf8",
       timeout: 10_000,
