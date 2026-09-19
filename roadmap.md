@@ -2,6 +2,8 @@
 
 # MASTER 1.4.15 — congelamento global fail-closed do Control-plane
 
+- [x] Manter a listagem somente leitura compatível quando os objetos do freeze ainda não existem, sem liberar reconciliação ou mutações.
+- [x] Diferenciar freeze ativo/inativo, objetos ausentes e falhas reais; exibir falhas reais sem convertê-las em zero instalações.
 - [x] Criar estado singleton auditável, RPCs restritas e bloqueio transacional das mutações operacionais.
 - [x] Cobrir interface, rotas públicas, cron, worker e chamadas diretas com bloqueio antecipado e autoridade final no banco.
 - [x] Exigir congelamento ativo no preflight e na recovery 1.4.14.

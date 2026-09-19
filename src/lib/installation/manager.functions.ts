@@ -432,9 +432,11 @@ export const listInstallationsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await guard(context);
-    const { readInstallationOperationsFreeze } = await import("./freeze.server");
-    const freeze = await readInstallationOperationsFreeze(context.supabase as never);
-    if (!freeze.frozen) await reconcileStuckOperations(context);
+    const { readInstallationOperationsFreezeForListing } = await import("./freeze.server");
+    const freeze = await readInstallationOperationsFreezeForListing(context.supabase as never);
+    // Compatibilidade de leitura durante a promoção 1.4.15: sem os objetos do
+    // freeze, listar é seguro, mas a reconciliação (que pode escrever) não é.
+    if (freeze.status === "inactive") await reconcileStuckOperations(context);
     const { data, error } = await context.supabase
       .from("installations")
       .select("*")

@@ -10,6 +10,11 @@ const recovery = readFileSync(
 const preflight = readFileSync("supabase/master/recovery-control-plane-preflight.sql", "utf8");
 const promotion = readFileSync("supabase/master/tools/promote_master_control_plane.sh", "utf8");
 const operator = readFileSync("supabase/master/tools/control_plane_freeze.sh", "utf8");
+const managerFunctions = readFileSync("src/lib/installation/manager.functions.ts", "utf8");
+const installationsScreen = readFileSync(
+  "src/routes/_authenticated/admin.instalacoes.index.tsx",
+  "utf8",
+);
 
 describe("congelamento global fail-closed do Control-plane", () => {
   it("mantém estado singleton e histórico auditável com grants antes do RLS", () => {
@@ -82,5 +87,18 @@ describe("congelamento global fail-closed do Control-plane", () => {
     expect(operator).toContain("UNITOS_FREEZE_ACTOR");
     expect(operator).not.toContain("recover-missing-1.4.10");
     expect(operator).not.toContain("UPDATE");
+  });
+
+  it("mantém a compatibilidade restrita à listagem somente leitura", () => {
+    const listStart = managerFunctions.indexOf("export const listInstallationsFn");
+    const listEnd = managerFunctions.indexOf("const UpsertInput", listStart);
+    const listBlock = managerFunctions.slice(listStart, listEnd);
+    expect(listBlock).toContain("readInstallationOperationsFreezeForListing");
+    expect(listBlock).toContain('freeze.status === "inactive"');
+    expect(listBlock.indexOf('from("installations")')).toBeGreaterThan(
+      listBlock.indexOf("readInstallationOperationsFreezeForListing"),
+    );
+    expect(installationsScreen).toContain("list.isError");
+    expect(installationsScreen).toContain("Não foi possível carregar as instalações");
   });
 });
