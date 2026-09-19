@@ -429,8 +429,10 @@ export async function reconcileStuckOperations(context: { supabase: unknown }): 
 export const listInstallationsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await mutationGuard(context);
-    await reconcileStuckOperations(context);
+    await guard(context);
+    const { readInstallationOperationsFreeze } = await import("./freeze.server");
+    const freeze = await readInstallationOperationsFreeze(context.supabase as never);
+    if (!freeze.frozen) await reconcileStuckOperations(context);
     const { data, error } = await context.supabase
       .from("installations")
       .select("*")
@@ -524,7 +526,7 @@ export const createInstallationFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => CreateInput.parse(input))
   .handler(async ({ data, context }) => {
-    await guard(context);
+    await mutationGuard(context);
 
     const validation = validateInstallationInput(data);
     if (!validation.ok) throw new Error(validation.error);
@@ -1032,7 +1034,7 @@ export const refreshInstallationHealthFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    await guard(context);
+    await mutationGuard(context);
     const { data: row, error } = await context.supabase
       .from("installations")
       .select("*")
@@ -1664,7 +1666,7 @@ export const syncInstallationVersionFn = createServerFn({ method: "POST" })
     z.object({ id: z.string().uuid(), confirmLabel: z.string().min(1) }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    await guard(context);
+    await mutationGuard(context);
     await assertCriticalInstallationConfirm(
       context,
       data.id,
@@ -1768,7 +1770,7 @@ export const saveInstallationCredentialsFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    await guard(context);
+    await mutationGuard(context);
     const incomingSupabaseToken = data.supabaseManagementToken?.trim();
     const incomingPublishableKey = data.supabasePublishableKey?.trim();
     const incomingServiceRoleKey = data.supabaseServiceRoleKey?.trim();
@@ -1854,7 +1856,7 @@ export const propagateMasterGithubTokenFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ confirmLabel: z.string().max(200) }).parse(input))
   .handler(async ({ data, context }) => {
-    await guard(context);
+    await mutationGuard(context);
     assertConfirmLabel(data.confirmLabel, PROPAGATE_GITHUB_TOKEN_CONFIRM_LABEL);
 
     const githubToken = (process.env["UNITOS_GITHUB_TOKEN"] ?? "").trim();
@@ -1933,7 +1935,7 @@ export const rotateInstallationSecretFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    await guard(context);
+    await mutationGuard(context);
     await assertCriticalInstallationConfirm(
       context,
       data.id,
@@ -1972,7 +1974,7 @@ export const clearInstallationCredentialsFn = createServerFn({ method: "POST" })
     z.object({ id: z.string().uuid(), confirmLabel: z.string().min(1) }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    await guard(context);
+    await mutationGuard(context);
     await assertCriticalInstallationConfirm(
       context,
       data.id,
@@ -2205,7 +2207,7 @@ export const adoptInstallationRepositoryFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    await guard(context);
+    await mutationGuard(context);
 
     const { data: current, error } = await context.supabase
       .from("installations")
