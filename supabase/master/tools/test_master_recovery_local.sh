@@ -79,8 +79,8 @@ run_preflight() {
 
 assert_check_status() {
   local ord="$1" fragment="$2" expected="$3" output="$4"
-  awk -F, -v ord="$ord" -v fragment="$fragment" -v expected="$expected" '
-    $1 == ord && index($2, fragment) && $3 == expected { found=1 }
+  awk -v prefix="$ord," -v fragment="$fragment" -v expected=",$expected" '
+    index($0, prefix) == 1 && index($0, fragment) && substr($0, length($0) - length(expected) + 1) == expected { found=1 }
     END { exit(found ? 0 : 1) }
   ' <<< "$output" || { printf 'check %s (%s) não retornou %s\n%s\n' "$ord" "$fragment" "$expected" "$output" >&2; exit 1; }
 }
