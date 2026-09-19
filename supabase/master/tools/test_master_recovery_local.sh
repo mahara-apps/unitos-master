@@ -109,6 +109,8 @@ exercise_mismatch() {
 BEGIN;
 $mutation
 \o $TMP_ROOT/mismatch.out
+\pset format csv
+\t on
 \i $PREFLIGHT
 \o
 ROLLBACK;
@@ -145,6 +147,8 @@ BEGIN;
 CREATE FUNCTION public.reconcile_installation_operation_migrations(_operation_id uuid)
 RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS \$\$BEGIN RETURN 0; END\$\$;
 \o $TMP_ROOT/overload.out
+\pset format csv
+\t on
 \i $PREFLIGHT
 \o
 ROLLBACK;
