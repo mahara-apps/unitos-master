@@ -5472,8 +5472,7 @@ export function assertCompletedProgressBackedByClientLedger(
 ): void {
   const orphaned = rows.find(
     (row) =>
-      row.status === "completed" &&
-      !appliedLabels.has(`${row.migration_file}:${row.fingerprint}`),
+      row.status === "completed" && !appliedLabels.has(`${row.migration_file}:${row.fingerprint}`),
   );
   if (orphaned) {
     throw new Error(
