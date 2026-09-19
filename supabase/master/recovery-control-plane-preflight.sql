@@ -75,21 +75,26 @@ WITH facts AS (
     CASE WHEN owner_name = 'postgres' THEN 'PASS' ELSE 'FAIL' END
   FROM fn_detail
 
-  -- 1.4.11: ACL expandida via aclexplode: apenas service_role com EXECUTE
+  -- 1.4.11: ACL expandida via aclexplode: grantee=0 é PUBLIC; apenas service_role recebe EXECUTE
   UNION ALL SELECT 10, '1.4.11 ' || fn || ': ACL restrita ao service_role via aclexplode',
     CASE WHEN oid IS NOT NULL
-      AND has_function_privilege('service_role', oid, 'EXECUTE')
-      AND NOT has_function_privilege('anon', oid, 'EXECUTE')
-      AND NOT has_function_privilege('authenticated', oid, 'EXECUTE')
-      AND NOT has_function_privilege('public', oid, 'EXECUTE')
-      AND (
-        SELECT count(*) FROM aclexplode(coalesce(proacl, acldefault('f', proowner))) g
-        WHERE g.privilege_type = 'EXECUTE' AND (g.grantee <> proowner OR g.grantor <> proowner)
-      ) = 1
       AND EXISTS (
         SELECT 1 FROM aclexplode(coalesce(proacl, acldefault('f', proowner))) g
         WHERE g.privilege_type = 'EXECUTE' AND g.grantee = 'service_role'::regrole::oid
       )
+      AND NOT EXISTS (
+        SELECT 1 FROM aclexplode(coalesce(proacl, acldefault('f', proowner))) g
+        WHERE g.privilege_type = 'EXECUTE' AND g.grantee = 0
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM aclexplode(coalesce(proacl, acldefault('f', proowner))) g
+        WHERE g.privilege_type = 'EXECUTE'
+          AND g.grantee IN ('anon'::regrole::oid, 'authenticated'::regrole::oid)
+      )
+      AND (
+        SELECT count(*) FROM aclexplode(coalesce(proacl, acldefault('f', proowner))) g
+        WHERE g.privilege_type = 'EXECUTE' AND g.grantee <> proowner
+      ) = 1
     THEN 'PASS' ELSE 'FAIL' END
   FROM fn_detail
 

@@ -1,7 +1,7 @@
 {
   "forbiddenMigration": "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql",
   "preflightFile": "recovery-control-plane-preflight.sql",
-  "preflightSha256": "ec0d5fa3324148c371c4790974279ba1786f2de22e1f5e2cd663a4a42ad98bde",
+  "preflightSha256": "e890d545ad472da9b31f54fc0898971c404f15f448630230a3fb46e190a4b3cf",
   "recoveryFile": "20260919143000_recover_missing_legacy_reconciliation.sql",
   "recoverySha256": "cd11b97d82765563a5fcd0161982baf89b37d2bbff019832df4a9a9c443fc058",
   "recoveryVersion": "20260919143000",

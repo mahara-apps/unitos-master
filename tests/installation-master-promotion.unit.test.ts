@@ -6,15 +6,26 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const SCRIPT = "supabase/master/tools/promote_master_control_plane.sh";
+const passingPreflight = Array.from(
+  { length: 16 },
+  (_, index) => `${index + 1},preflight,ok,PASS`,
+).join("\n");
+
+interface PromotionOptions {
+  recoveryConfirmation?: string;
+  projectRef?: string;
+  preflight?: string;
+  preflightError?: string;
+  remoteVersions?: string;
+  ledgerState?: string;
+  dryRun?: string;
+  mutateStageAfterDryRun?: boolean;
+}
 
 function runPromotion(
   mode: "--converge-existing" | "--bootstrap-clean" | "--recover-missing-1.4.10",
   verification: string,
-  options: {
-    recoveryConfirmation?: string;
-    projectRef?: string;
-    preflight?: string;
-  } = {},
+  options: PromotionOptions = {},
 ) {
   const directory = mkdtempSync(join(tmpdir(), "unitos-master-promotion-"));
   const calls = join(directory, "calls.txt");
@@ -25,13 +36,14 @@ function runPromotion(
     `#!/usr/bin/env bash
 printf '%s\\n' "$*" >> "${calls}"
 if [[ "$*" == *"recovery-control-plane-preflight.sql"* ]]; then
-  printf '%s\n' '${options.preflight ?? Array.from({ length: 16 }, (_, index) => `${index + 1},preflight,ok,PASS`).join("\\n")}'
+  ${options.preflightError ? `printf '%s\\n' '${options.preflightError}' >&2; exit 1` : ""}
+  printf '%s\\n' '${options.preflight ?? passingPreflight}'
 elif [[ "$*" == *"verify-installation-master.sql"* ]]; then
   printf '%s\\n' '${verification}'
 elif [[ "$*" == *"SELECT concat_ws"* ]]; then
-  printf '%s\\n' '0,1,1'
+  printf '%s\\n' '${options.ledgerState ?? "0,1,1"}'
 elif [[ "$*" == *"SELECT version FROM"* ]]; then
-  printf '%s\\n' '20260917190721'
+  printf '%s\\n' '${options.remoteVersions ?? "20260917190721"}'
 fi
 `,
     { mode: 0o755 },
@@ -41,7 +53,8 @@ fi
     `#!/usr/bin/env bash
 printf 'supabase %s\\n' "$*" >> "${calls}"
 if [[ "$*" == *"--dry-run"* ]]; then
-  printf '%s\\n' '${options.preflight?.includes("OTHER_MIGRATION") ? "20260920120000_other.sql" : "20260919143000_recover_missing_legacy_reconciliation.sql"}'
+  printf '%s\\n' '${options.dryRun ?? "20260919143000_recover_missing_legacy_reconciliation.sql"}'
+  ${options.mutateStageAfterDryRun ? `while [[ "$#" -gt 0 ]]; do if [[ "$1" == "--workdir" ]]; then printf '\\n# altered\\n' >> "$2/supabase/config.toml"; break; fi; shift; done` : ""}
 fi
 `,
     { mode: 0o755 },
@@ -52,7 +65,8 @@ fi
       env: {
         PATH: `${directory}:${process.env["PATH"] ?? ""}`,
         UNITOS_MASTER_PROMOTION: "I_UNDERSTAND_MASTER_ONLY",
-        MASTER_DATABASE_URL: `postgresql://postgres:secret@db.tkjbhttylouamqxnbfgv.supabase.co:5432/postgres`,
+        MASTER_DATABASE_URL:
+          "postgresql://postgres:secret@db.tkjbhttylouamqxnbfgv.supabase.co:5432/postgres",
         UNITOS_MASTER_RECOVERY: options.recoveryConfirmation ?? "",
         MASTER_PROJECT_REF: options.projectRef ?? "",
       },
@@ -69,6 +83,11 @@ fi
     };
   }
 }
+
+const recoveryOptions: PromotionOptions = {
+  recoveryConfirmation: "RECOVER_MISSING_1_4_10_ONLY",
+  projectRef: "tkjbhttylouamqxnbfgv",
+};
 
 describe("promoção local do Control-plane Master", () => {
   it("Master existente aplica apenas a convergência em transação e verifica", () => {
@@ -104,15 +123,12 @@ describe("promoção local do Control-plane Master", () => {
 
   it("recupera somente o artefato dedicado após preflight e verifica", () => {
     const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
-      recoveryConfirmation: "RECOVER_MISSING_1_4_10_ONLY",
-      projectRef: "tkjbhttylouamqxnbfgv",
-      preflight: Array.from({ length: 16 }, (_, index) => `${index + 1},preflight,ok,PASS`).join(
-        "\n",
-      ),
+      ...recoveryOptions,
+      preflight: passingPreflight,
     });
     expect(result.code).toBe(0);
     expect(result.calls).toContain("recovery-control-plane-preflight.sql");
-    expect(result.calls).toContain("supabase db push");
+    expect(result.calls.match(/supabase db push/g)).toHaveLength(2);
     expect(result.calls).toContain("--dry-run");
     expect(result.calls).toContain("verify-installation-master.sql");
     expect(result.calls).not.toContain("convergence-control-plane.sql");
@@ -121,11 +137,8 @@ describe("promoção local do Control-plane Master", () => {
 
   it("bloqueia quando o executor oficial seleciona qualquer outra migration", () => {
     const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
-      recoveryConfirmation: "RECOVER_MISSING_1_4_10_ONLY",
-      projectRef: "tkjbhttylouamqxnbfgv",
-      preflight:
-        Array.from({ length: 16 }, (_, index) => `${index + 1},preflight,ok,PASS`).join("\n") +
-        "\nOTHER_MIGRATION",
+      ...recoveryOptions,
+      dryRun: "20260920120000_other.sql",
     });
     expect(result.code).toBe(1);
     expect(result.stdout).toContain("não selecionou exclusivamente 20260919143000");
@@ -134,12 +147,95 @@ describe("promoção local do Control-plane Master", () => {
 
   it("não aplica recuperação quando o preflight falha", () => {
     const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
-      recoveryConfirmation: "RECOVER_MISSING_1_4_10_ONLY",
-      projectRef: "tkjbhttylouamqxnbfgv",
+      ...recoveryOptions,
       preflight: "1,preflight,divergente,FAIL",
     });
     expect(result.code).toBe(1);
     expect(result.stdout).toContain("preflight da recuperação encontrou divergências");
-    expect(result.calls).not.toContain("20260919143000_recover_missing_legacy_reconciliation.sql");
+    expect(result.calls).not.toContain("supabase db push");
+  });
+
+  it("bloqueia seleção da migration histórica 1.4.10", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      ...recoveryOptions,
+      dryRun: "20260917184500_legacy_migration_reconciliation.sql",
+    });
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain("não selecionou exclusivamente 20260919143000");
+    expect(result.calls.match(/supabase db push/g)).toHaveLength(1);
+  });
+
+  it("bloqueia reaplicação da migration histórica 1.4.11", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      ...recoveryOptions,
+      dryRun: "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql",
+    });
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain("não selecionou exclusivamente 20260919143000");
+    expect(result.calls.match(/supabase db push/g)).toHaveLength(1);
+  });
+
+  it("bloqueia ledger remoto contendo a 1.4.10", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      ...recoveryOptions,
+      remoteVersions: "20260917184500\n20260917190721",
+    });
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain("ledger remoto contradiz a fila exclusiva de recuperação");
+    expect(result.calls).not.toContain("supabase db push");
+  });
+
+  it("bloqueia ledger remoto contendo a própria recovery", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      ...recoveryOptions,
+      remoteVersions: "20260917190721\n20260919143000",
+    });
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain("ledger remoto contradiz a fila exclusiva de recuperação");
+    expect(result.calls).not.toContain("supabase db push");
+  });
+
+  it("bloqueia saída incompleta do preflight", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      ...recoveryOptions,
+      preflight: Array.from({ length: 15 }, (_, index) => `${index + 1},preflight,ok,PASS`).join(
+        "\n",
+      ),
+    });
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain("preflight da recuperação encontrou divergências");
+    expect(result.calls).not.toContain("supabase db push");
+  });
+
+  it("propaga o erro real da pseudo-role PUBLIC e não chega ao executor", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      ...recoveryOptions,
+      preflightError: 'ERROR: role "public" does not exist',
+    });
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain('role "public" does not exist');
+    expect(result.calls).not.toContain("supabase db push");
+  });
+
+  it("bloqueia dry-run que menciona migration histórica proibida", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      ...recoveryOptions,
+      dryRun:
+        "20260919143000_recover_missing_legacy_reconciliation.sql\nremote ledger mentions 20260917184500",
+    });
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain("executor tentou selecionar 1.4.10 ou reaplicar 1.4.11");
+    expect(result.calls.match(/supabase db push/g)).toHaveLength(1);
+  });
+
+  it("bloqueia alteração do staging entre dry-run e execução", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      ...recoveryOptions,
+      mutateStageAfterDryRun: true,
+    });
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain("staging foi alterado entre o selo e a execução");
+    expect(result.calls.match(/supabase db push/g)).toHaveLength(1);
+    expect(result.calls).not.toContain("SELECT concat_ws");
   });
 });
