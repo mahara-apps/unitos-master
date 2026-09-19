@@ -31,6 +31,7 @@ PSQL=(psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U lovable postgres
 CREATE ROLE anon NOLOGIN;
 CREATE ROLE authenticated NOLOGIN;
 CREATE ROLE service_role NOLOGIN;
+CREATE ROLE postgres NOLOGIN;
 CREATE SCHEMA auth;
 CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS 'SELECT NULL::uuid';
 CREATE SCHEMA supabase_migrations;
@@ -67,6 +68,10 @@ CREATE FUNCTION public.is_super_admin(uuid) RETURNS boolean LANGUAGE sql STABLE 
 SQL
 
 "${PSQL[@]}" --file "$MIGRATION_1411" >/dev/null
+"${PSQL[@]}" >/dev/null <<'SQL'
+ALTER FUNCTION public.reconcile_installation_operation_migrations(uuid,text,bigint,jsonb) OWNER TO postgres;
+ALTER FUNCTION public.normalize_legacy_installation_operations(integer) OWNER TO postgres;
+SQL
 
 run_preflight() {
   "${PSQL[@]}" --csv --tuples-only --file "$PREFLIGHT"
