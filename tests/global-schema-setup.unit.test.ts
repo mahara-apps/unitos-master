@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GLOBAL_TEST_BASELINE_ORDER, ensureGlobalTestSchema } from "./helpers/global-schema-setup";
@@ -23,6 +24,15 @@ function management(rows: unknown[][]) {
 }
 
 describe("setup do schema da suíte global", () => {
+  it("o comando global exclui explicitamente o projeto P0", () => {
+    const scripts = JSON.parse(readFileSync("package.json", "utf8")) as {
+      scripts: Record<string, string>;
+    };
+    const command = scripts.scripts["test:global:master"] ?? "";
+    expect(command).toContain("--project integration-audit");
+    expect(command).not.toContain("--project real-installation");
+  });
+
   it("não altera um schema pronto, vazio e aprovado pela verificação Client", async () => {
     const target = management([
       [{ public_tables: 100, critical_tables: 5 }],
