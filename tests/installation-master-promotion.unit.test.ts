@@ -10,7 +10,11 @@ const SCRIPT = "supabase/master/tools/promote_master_control_plane.sh";
 function runPromotion(
   mode: "--converge-existing" | "--bootstrap-clean" | "--recover-missing-1.4.10",
   verification: string,
-  options: { recoveryConfirmation?: string; projectRef?: string } = {},
+  options: {
+    recoveryConfirmation?: string;
+    projectRef?: string;
+    preflight?: string;
+  } = {},
 ) {
   const directory = mkdtempSync(join(tmpdir(), "unitos-master-promotion-"));
   const calls = join(directory, "calls.txt");
@@ -19,7 +23,9 @@ function runPromotion(
     fakePsql,
     `#!/usr/bin/env bash
 printf '%s\\n' "$*" >> "${calls}"
-if [[ "$*" == *"recovery-control-plane-preflight.sql"* || "$*" == *"verify-installation-master.sql"* ]]; then
+if [[ "$*" == *"recovery-control-plane-preflight.sql"* ]]; then
+  printf '%s\n' '${options.preflight ?? verification}'
+elif [[ "$*" == *"verify-installation-master.sql"* ]]; then
   printf '%s\\n' '${verification}'
 fi
 `,
@@ -31,7 +37,7 @@ fi
       env: {
         PATH: `${directory}:${process.env["PATH"] ?? ""}`,
         UNITOS_MASTER_PROMOTION: "I_UNDERSTAND_MASTER_ONLY",
-        MASTER_DATABASE_URL: "postgresql://master.invalid/postgres",
+        MASTER_DATABASE_URL: `postgresql://tkjbhttylouamqxnbfgv.master.invalid/postgres`,
         UNITOS_MASTER_RECOVERY: options.recoveryConfirmation ?? "",
         MASTER_PROJECT_REF: options.projectRef ?? "",
       },
@@ -79,5 +85,31 @@ describe("promoção local do Control-plane Master", () => {
     const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS");
     expect(result.code).toBe(2);
     expect(result.calls).toBe("");
+  });
+
+  it("recupera somente o artefato dedicado após preflight e verifica", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      recoveryConfirmation: "RECOVER_MISSING_1_4_10_ONLY",
+      projectRef: "tkjbhttylouamqxnbfgv",
+      preflight: "1,preflight,ok,PASS",
+    });
+    expect(result.code).toBe(0);
+    expect(result.calls).toContain("recovery-control-plane-preflight.sql");
+    expect(result.calls).toContain("20260919143000_recover_missing_legacy_reconciliation.sql");
+    expect(result.calls).toContain("--single-transaction");
+    expect(result.calls).toContain("verify-installation-master.sql");
+    expect(result.calls).not.toContain("convergence-control-plane.sql");
+    expect(result.calls).not.toContain("bootstrap-control-plane.sql");
+  });
+
+  it("não aplica recuperação quando o preflight falha", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      recoveryConfirmation: "RECOVER_MISSING_1_4_10_ONLY",
+      projectRef: "tkjbhttylouamqxnbfgv",
+      preflight: "1,preflight,divergente,FAIL",
+    });
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain("preflight da recuperação encontrou divergências");
+    expect(result.calls).not.toContain("20260919143000_recover_missing_legacy_reconciliation.sql");
   });
 });

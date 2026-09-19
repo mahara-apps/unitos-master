@@ -66,4 +66,16 @@ describe("recuperação local da lacuna 1.4.10", () => {
     expect(recovery).toContain("VALUES ('20260919143000'");
     expect(recovery).not.toContain("migration repair");
   });
+
+  it("permanece fora do pacote Client e dos caminhos normais do Master", () => {
+    const destinations = readFileSync(
+      "supabase/baseline-snapshot/tools/migration-destinations.json",
+      "utf8",
+    );
+    const convergence = readFileSync("supabase/master/convergence-control-plane.sql", "utf8");
+    const bootstrap = readFileSync("supabase/master/bootstrap-control-plane.sql", "utf8");
+    expect(destinations).not.toContain("20260919143000_recover_missing_legacy_reconciliation.sql");
+    expect(convergence).not.toContain("20260919143000_recover_missing_legacy_reconciliation.sql");
+    expect(bootstrap).not.toContain("20260919143000_recover_missing_legacy_reconciliation.sql");
+  });
 });
