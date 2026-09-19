@@ -5466,6 +5466,22 @@ export function validateCanonicalMigrationProgress(
   return { completed, current };
 }
 
+export function assertCompletedProgressBackedByClientLedger(
+  rows: CanonicalMigrationProgress[],
+  appliedLabels: Set<string>,
+): void {
+  const orphaned = rows.find(
+    (row) =>
+      row.status === "completed" &&
+      !appliedLabels.has(`${row.migration_file}:${row.fingerprint}`),
+  );
+  if (orphaned) {
+    throw new Error(
+      `Progresso Master sem confirmação no ledger Client na posição ${orphaned.package_position}.`,
+    );
+  }
+}
+
 async function readCanonicalMigrationProgress(
   client: Client,
   operation: OperationRow,
@@ -5766,6 +5782,7 @@ export async function applyDatabaseDelta(input: {
   }
   await reconcileCanonicalMigrations(client, operation, migrations, appliedLabels);
   let canonicalProgress = await readCanonicalMigrationProgress(client, operation);
+  assertCompletedProgressBackedByClientLedger(canonicalProgress, appliedLabels);
   let canonicalState = validateCanonicalMigrationProgress(canonicalProgress, migrations);
   const canonicalCompleted = canonicalState.completed;
   let migration = migrations.find(
@@ -5883,6 +5900,7 @@ export async function applyDatabaseDelta(input: {
       };
     }
     canonicalProgress = await readCanonicalMigrationProgress(client, operation);
+    assertCompletedProgressBackedByClientLedger(canonicalProgress, appliedLabels);
     canonicalState = validateCanonicalMigrationProgress(canonicalProgress, migrations);
     migration = migrations.find(
       (item) => !canonicalState.completed.has(`${item.file}:${item.fingerprint}`),

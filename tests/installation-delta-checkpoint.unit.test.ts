@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 
 import {
   attachCanonicalMigrationIdentity,
+  assertCompletedProgressBackedByClientLedger,
   databaseMigrationsPercent,
   deltaProgressKey,
   generateDeltaManifest,
@@ -85,6 +86,28 @@ select 2;`;
     expect(source).toContain("reconcileLegacyMigrationMarker");
     expect(source).toContain("buildLegacyReconciliationInspectionSql");
     expect(source).not.toContain("for (const item of historical) appliedLabels.add");
+    expect(source).toContain("if (hasLegacyBlob) {");
+    expect(source).not.toContain("hasLegacyBlob && appliedLabels.size === 0");
+  });
+
+  it("bloqueia progresso Master concluído sem confirmação equivalente no ledger Client", () => {
+    const row = {
+      migration_file: "20260901000000_first.sql",
+      fingerprint: "legacy-fingerprint",
+      package_position: 1,
+      statement_index: 1,
+      total_statements: 1,
+      status: "completed" as const,
+    };
+    expect(() => assertCompletedProgressBackedByClientLedger([row], new Set())).toThrow(
+      /ledger Client.*posição 1/,
+    );
+    expect(() =>
+      assertCompletedProgressBackedByClientLedger(
+        [row],
+        new Set([`${row.migration_file}:${row.fingerprint}`]),
+      ),
+    ).not.toThrow();
   });
 
   it("NEW usa o mesmo executor canônico do UPDATE", () => {
