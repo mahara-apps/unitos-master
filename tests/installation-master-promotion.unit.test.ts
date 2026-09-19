@@ -25,11 +25,13 @@ function runPromotion(
     `#!/usr/bin/env bash
 printf '%s\\n' "$*" >> "${calls}"
 if [[ "$*" == *"recovery-control-plane-preflight.sql"* ]]; then
-  printf '%s\n' '${options.preflight ?? verification}'
+  printf '%s\n' '${options.preflight ?? Array.from({ length: 20 }, (_, index) => `${index + 1},preflight,ok,PASS`).join("\\n")}'
 elif [[ "$*" == *"verify-installation-master.sql"* ]]; then
   printf '%s\\n' '${verification}'
 elif [[ "$*" == *"SELECT concat_ws"* ]]; then
   printf '%s\\n' '0,1,1'
+elif [[ "$*" == *"SELECT version FROM"* ]]; then
+  printf '%s\\n' '20260917190721'
 fi
 `,
     { mode: 0o755 },
@@ -50,7 +52,7 @@ fi
       env: {
         PATH: `${directory}:${process.env["PATH"] ?? ""}`,
         UNITOS_MASTER_PROMOTION: "I_UNDERSTAND_MASTER_ONLY",
-        MASTER_DATABASE_URL: `postgresql://tkjbhttylouamqxnbfgv.master.invalid/postgres`,
+        MASTER_DATABASE_URL: `postgresql://postgres:secret@db.tkjbhttylouamqxnbfgv.supabase.co:5432/postgres`,
         UNITOS_MASTER_RECOVERY: options.recoveryConfirmation ?? "",
         MASTER_PROJECT_REF: options.projectRef ?? "",
       },
@@ -104,7 +106,7 @@ describe("promoção local do Control-plane Master", () => {
     const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
       recoveryConfirmation: "RECOVER_MISSING_1_4_10_ONLY",
       projectRef: "tkjbhttylouamqxnbfgv",
-      preflight: "1,preflight,ok,PASS",
+      preflight: Array.from({ length: 20 }, (_, index) => `${index + 1},preflight,ok,PASS`).join("\n"),
     });
     expect(result.code).toBe(0);
     expect(result.calls).toContain("recovery-control-plane-preflight.sql");
@@ -120,7 +122,7 @@ describe("promoção local do Control-plane Master", () => {
     const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
       recoveryConfirmation: "RECOVER_MISSING_1_4_10_ONLY",
       projectRef: "tkjbhttylouamqxnbfgv",
-      preflight: "OTHER_MIGRATION",
+      preflight: Array.from({ length: 20 }, (_, index) => `${index + 1},preflight,ok,PASS`).join("\n") + "\nOTHER_MIGRATION",
     });
     expect(result.code).toBe(1);
     expect(result.stdout).toContain("não selecionou exclusivamente 20260919143000");
