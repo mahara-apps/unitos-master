@@ -6,7 +6,7 @@
 - [x] Cobrir interface, rotas públicas, cron, worker e chamadas diretas com bloqueio antecipado e autoridade final no banco.
 - [x] Exigir congelamento ativo no preflight e na recovery 1.4.14.
 - [x] Criar ferramenta operacional de status/freeze/unfreeze com identidade Master, quiescência e confirmação explícita.
-- [ ] Regenerar artefatos MASTER-first sem alterar o pacote Client e concluir testes locais, ensaio PostgreSQL, tipos, lint e build.
+- [x] Regenerar artefatos MASTER-first sem alterar o pacote Client e concluir testes locais, ensaio PostgreSQL, tipos, lint e build.
 - [ ] Não aplicar migration, freeze, recovery, UPDATE, NEW, retry, P0, publicação ou deploy sem autorização remota específica.
 
 # MASTER 1.4.14 — recuperação local da lacuna Control-plane 1.4.10
