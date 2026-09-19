@@ -10,6 +10,7 @@ LOG="$TMP_ROOT/postgres.log"
 PREFLIGHT="$ROOT/supabase/master/recovery-control-plane-preflight.sql"
 RECOVERY="$ROOT/supabase/master/recovery/20260919143000_recover_missing_legacy_reconciliation.sql"
 MIGRATION_1411="$ROOT/supabase/migrations/20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql"
+GLOBAL_FREEZE="$ROOT/supabase/master/002_control_plane_global_freeze.sql"
 
 cleanup() {
   if test -f "$PGDATA/postmaster.pid"; then
@@ -65,12 +66,17 @@ CREATE TABLE public.installation_operation_attempts (
   heartbeat_at timestamptz DEFAULT now(), finished_at timestamptz, updated_at timestamptz DEFAULT now()
 );
 CREATE FUNCTION public.is_super_admin(uuid) RETURNS boolean LANGUAGE sql STABLE AS 'SELECT false';
+CREATE TABLE public.installation_credentials (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
+CREATE TABLE public.installation_operation_steps (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
+CREATE TABLE public.installation_operation_outbox (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
 SQL
 
 "${PSQL[@]}" --file "$MIGRATION_1411" >/dev/null
+"${PSQL[@]}" --file "$GLOBAL_FREEZE" >/dev/null
 "${PSQL[@]}" >/dev/null <<'SQL'
 ALTER FUNCTION public.reconcile_installation_operation_migrations(uuid,text,bigint,jsonb) OWNER TO postgres;
 ALTER FUNCTION public.normalize_legacy_installation_operations(integer) OWNER TO postgres;
+SELECT public.set_installation_operations_freeze(true,'ensaio local da recovery','teste isolado',0);
 SQL
 
 run_preflight() {
@@ -164,6 +170,12 @@ assert_check_status 5 "assinaturas exatas sem overload" FAIL "$(cat "$TMP_ROOT/o
   printf 'unexpected overload não foi bloqueado\n' >&2
   exit 1
 }
+
+# O freeze bloqueia mutações operacionais diretas, inclusive service_role.
+if "${PSQL[@]}" -c "INSERT INTO public.installation_operations(installation_id,status) VALUES (gen_random_uuid(),'pending')" >/dev/null 2>&1; then
+  echo "trigger fail-closed deveria bloquear escrita operacional" >&2
+  exit 1
+fi
 
 # Falha após DDL dentro da transação deve remover integralmente os objetos.
 {

@@ -6,7 +6,8 @@ WITH expected_tables(name) AS (VALUES
   ('installations'), ('installation_credentials'), ('installation_operations'),
   ('installation_operation_attempts'), ('installation_operation_steps'),
   ('installation_operation_outbox'), ('installation_operation_migrations'),
-  ('installation_migration_reconciliation_evidence')
+  ('installation_migration_reconciliation_evidence'),
+  ('installation_operations_freeze'), ('installation_operations_freeze_events')
 ), expected_columns(table_name, column_name) AS (VALUES
   ('installation_operations','workflow_version'), ('installation_operations','baseline_id'),
   ('installation_operations','baseline_hash'), ('installation_operations','heartbeat_at'),
@@ -32,6 +33,9 @@ WITH expected_tables(name) AS (VALUES
   ('seal_installation_operation_baseline(uuid,text,bigint,text,text)'),
   ('finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'),
   ('compare_and_set_installation_generated_secrets(uuid,timestamp with time zone,text,uuid)')
+  ,('read_installation_operations_freeze()')
+  ,('set_installation_operations_freeze(boolean,text,text,bigint)')
+  ,('guard_installation_operations_freeze()')
 ), checks AS (
   SELECT 1 AS ord, 'Master: tabelas Control-plane ativas' AS check_name,
     coalesce(string_agg(name, ', ' ORDER BY name) FILTER (WHERE to_regclass('public.' || name) IS NULL), 'todas presentes') AS observed,
@@ -75,25 +79,45 @@ WITH expected_tables(name) AS (VALUES
     'installations_super_admin_all','installation_credentials_super_admin_all','installation_operations_super_admin_all',
     'installation_operation_attempts_super_admin_read','installation_operation_steps_super_admin_read',
     'installation_operation_outbox_super_admin_read','installation_operation_migrations_super_admin_read',
-    'installation_migration_reconciliation_evidence_super_admin_read')
+    'installation_migration_reconciliation_evidence_super_admin_read',
+    'installation_operations_freeze_super_admin_read','installation_operations_freeze_events_super_admin_read')
   UNION ALL
   SELECT 8, 'Master: grants mínimos das tabelas durable',
-    CASE WHEN bool_and(has_table_privilege('service_role','public.'||name,'SELECT,INSERT,UPDATE,DELETE')) THEN 'service_role ok' ELSE 'service_role incompleto' END,
-    CASE WHEN bool_and(has_table_privilege('service_role','public.'||name,'SELECT,INSERT,UPDATE,DELETE'))
+    CASE WHEN bool_and(CASE WHEN name IN ('installation_operations_freeze','installation_operations_freeze_events')
+      THEN has_table_privilege('service_role','public.'||name,'SELECT')
+      ELSE has_table_privilege('service_role','public.'||name,'SELECT,INSERT,UPDATE,DELETE') END) THEN 'service_role ok' ELSE 'service_role incompleto' END,
+    CASE WHEN bool_and(CASE WHEN name IN ('installation_operations_freeze','installation_operations_freeze_events')
+      THEN has_table_privilege('service_role','public.'||name,'SELECT')
+      ELSE has_table_privilege('service_role','public.'||name,'SELECT,INSERT,UPDATE,DELETE') END)
            AND bool_and(NOT has_table_privilege('anon','public.'||name,'SELECT,INSERT,UPDATE,DELETE')) THEN 'PASS' ELSE 'FAIL' END
   FROM expected_tables
   UNION ALL
-  SELECT 9, 'Master: triggers obrigatórios', count(*)::text || '/4', CASE WHEN count(*)=4 THEN 'PASS' ELSE 'FAIL' END
+  SELECT 9, 'Master: triggers obrigatórios', count(*)::text || '/12', CASE WHEN count(*)=12 THEN 'PASS' ELSE 'FAIL' END
   FROM pg_trigger WHERE NOT tgisinternal AND tgname IN (
     'installations_touch_updated_at','update_installation_credentials_updated_at',
-    'installation_operation_steps_touch_updated_at','installation_operation_outbox_disable_legacy')
+    'installation_operation_steps_touch_updated_at','installation_operation_outbox_disable_legacy',
+    'installation_operations_freeze_guard')
   UNION ALL
-  SELECT 10, 'Master: RPCs durable restritas ao serviço', count(*)::text || '/15', CASE WHEN count(*)=15 THEN 'PASS' ELSE 'FAIL' END
+  SELECT 10, 'Master: RPCs durable restritas', count(*)::text || '/18', CASE WHEN count(*)=18 THEN 'PASS' ELSE 'FAIL' END
   FROM expected_functions e JOIN pg_proc p ON p.oid=to_regprocedure('public.'||e.signature)
   WHERE p.prosecdef AND position('public' in pg_get_functiondef(p.oid))>0
     AND has_function_privilege('service_role',p.oid,'EXECUTE')
     AND NOT has_function_privilege('anon',p.oid,'EXECUTE')
-    AND NOT has_function_privilege('authenticated',p.oid,'EXECUTE')
+    AND (e.signature='read_installation_operations_freeze()'
+      OR NOT has_function_privilege('authenticated',p.oid,'EXECUTE'))
+  UNION ALL
+  SELECT 12, 'Master: singleton do congelamento íntegro',
+    count(*)::text || ' linha; geração ' || coalesce(max(generation)::text,'ausente'),
+    CASE WHEN count(*)=1 AND bool_and(singleton) AND min(generation)>=0 THEN 'PASS' ELSE 'FAIL' END
+  FROM public.installation_operations_freeze
+  UNION ALL
+  SELECT 13, 'Master: triggers fail-closed nas tabelas operacionais', count(*)::text || '/8',
+    CASE WHEN count(*)=8 THEN 'PASS' ELSE 'FAIL' END
+  FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+  WHERE NOT t.tgisinternal AND t.tgname='installation_operations_freeze_guard' AND n.nspname='public'
+    AND c.relname IN ('installations','installation_credentials','installation_operations',
+      'installation_operation_attempts','installation_operation_steps','installation_operation_outbox',
+      'installation_operation_migrations','installation_migration_reconciliation_evidence')
   UNION ALL
   SELECT 11, 'Master: cron installation-provision-resume', coalesce((SELECT schedule FROM cron.job WHERE jobname='installation-provision-resume' LIMIT 1),'ausente'),
     CASE WHEN EXISTS (SELECT 1 FROM cron.job WHERE jobname='installation-provision-resume' AND command LIKE '%/api/public/cron/installation-resume%' AND command LIKE '%x-cron-secret%') THEN 'PASS' ELSE 'FAIL' END

@@ -15,7 +15,11 @@
     "master:check": "python3 supabase/baseline-snapshot/tools/build_delta.py && python3 supabase/master/tools/build_master_bootstrap.py --check && python3 supabase/master/tools/build_master_recovery.py --check && vitest run tests/installation-master-sync.unit.test.ts tests/installation-master-promotion.unit.test.ts tests/installation-master-recovery.unit.test.ts tests/installation-baseline-completeness.unit.test.ts",
     "master:promote:convergence": "bash supabase/master/tools/promote_master_control_plane.sh --converge-existing",
     "master:promote:bootstrap": "bash supabase/master/tools/promote_master_control_plane.sh --bootstrap-clean",
+    "master:install:freeze": "bash supabase/master/tools/promote_master_control_plane.sh --install-global-freeze",
     "master:recover:missing-1.4.10": "bash supabase/master/tools/promote_master_control_plane.sh --recover-missing-1.4.10",
+    "master:freeze:status": "bash supabase/master/tools/control_plane_freeze.sh status",
+    "master:freeze:on": "bash supabase/master/tools/control_plane_freeze.sh freeze",
+    "master:freeze:off": "bash supabase/master/tools/control_plane_freeze.sh unfreeze",
     "verify:disposable": "bash supabase/baseline-snapshot/tools/verify_on_disposable_project.sh"
   },
   "dependencies": {

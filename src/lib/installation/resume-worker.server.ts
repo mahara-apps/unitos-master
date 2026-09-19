@@ -35,6 +35,8 @@ export async function resumeStaleAutomatedProvisions(limit = 3): Promise<{
   operations: string[];
 }> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { assertInstallationOperationsWritable } = await import("./freeze.server");
+  await assertInstallationOperationsWritable(supabaseAdmin as never);
   const owner = `cron:${crypto.randomUUID()}`;
   const { error: normalizationError } = await supabaseAdmin.rpc(
     "normalize_legacy_installation_operations",
