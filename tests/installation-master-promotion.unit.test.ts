@@ -163,6 +163,7 @@ describe("promoção local do Control-plane Master", () => {
     expect(result.calls).toContain("recovery-control-plane-preflight.sql");
     expect(result.calls.match(/supabase db push/g)).toHaveLength(2);
     expect(result.calls).toContain("--dry-run");
+    expect(result.calls).toContain("supabase --version");
     expect(result.calls).toContain("verify-installation-master.sql");
     expect(result.calls).not.toContain("convergence-control-plane.sql");
     expect(result.calls).not.toContain("bootstrap-control-plane.sql");
@@ -171,7 +172,10 @@ describe("promoção local do Control-plane Master", () => {
   it("bloqueia quando o executor oficial seleciona qualquer outra migration", () => {
     const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
       ...recoveryOptions,
-      dryRun: "20260920120000_other.sql",
+      dryRun: validDryRun.replace(
+        "20260919143000_recover_missing_legacy_reconciliation.sql",
+        "20260920120000_other.sql",
+      ),
     });
     expect(result.code).toBe(1);
     expect(result.stdout).toContain("não selecionou exclusivamente 20260919143000");
@@ -191,7 +195,10 @@ describe("promoção local do Control-plane Master", () => {
   it("bloqueia seleção da migration histórica 1.4.10", () => {
     const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
       ...recoveryOptions,
-      dryRun: "20260917184500_legacy_migration_reconciliation.sql",
+      dryRun: validDryRun.replace(
+        "20260919143000_recover_missing_legacy_reconciliation.sql",
+        "20260917184500_legacy_migration_reconciliation.sql",
+      ),
     });
     expect(result.code).toBe(1);
     expect(result.stdout).toContain("não selecionou exclusivamente 20260919143000");
@@ -201,7 +208,10 @@ describe("promoção local do Control-plane Master", () => {
   it("bloqueia reaplicação da migration histórica 1.4.11", () => {
     const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
       ...recoveryOptions,
-      dryRun: "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql",
+      dryRun: validDryRun.replace(
+        "20260919143000_recover_missing_legacy_reconciliation.sql",
+        "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql",
+      ),
     });
     expect(result.code).toBe(1);
     expect(result.stdout).toContain("não selecionou exclusivamente 20260919143000");
@@ -254,7 +264,7 @@ describe("promoção local do Control-plane Master", () => {
     const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
       ...recoveryOptions,
       dryRun:
-        "20260919143000_recover_missing_legacy_reconciliation.sql\nremote ledger mentions 20260917184500",
+        `${validDryRun}\nremote ledger mentions 20260917184500`,
     });
     expect(result.code).toBe(1);
     expect(result.stdout).toContain("executor tentou selecionar 1.4.10 ou reaplicar 1.4.11");
@@ -264,11 +274,89 @@ describe("promoção local do Control-plane Master", () => {
   it("bloqueia alteração do staging entre dry-run e execução", () => {
     const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
       ...recoveryOptions,
-      mutateStageAfterDryRun: true,
+      mutateStageAfterDryRun: "config",
     });
     expect(result.code).toBe(1);
     expect(result.stdout).toContain("staging foi alterado entre o selo e a execução");
     expect(result.calls.match(/supabase db push/g)).toHaveLength(1);
     expect(result.calls).not.toContain("SELECT concat_ws");
+  });
+
+  it("bloqueia versão diferente da Supabase CLI fixada", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      ...recoveryOptions,
+      cliVersion: "2.116.0",
+    });
+    expect(result.code).toBe(2);
+    expect(result.stdout).toContain("Supabase CLI deve ser exatamente 2.117.0");
+    expect(result.calls).not.toContain("--dry-run");
+  });
+
+  it("bloqueia dry-run sem o contrato textual completo da CLI fixada", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      ...recoveryOptions,
+      dryRun: "Would push migration 20260919143000_recover_missing_legacy_reconciliation.sql...",
+    });
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain("formato do dry-run diverge");
+    expect(result.calls.match(/supabase db push/g)).toHaveLength(1);
+  });
+
+  it("bloqueia arquivos duplicados por versão no staging", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      ...recoveryOptions,
+      mutateStageAfterDryRun: "duplicate",
+    });
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain("arquivos duplicados para a versão 20260917190721");
+    expect(result.calls.match(/supabase db push/g)).toHaveLength(1);
+  });
+
+  it("bloqueia hash divergente de migration histórica no staging", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      ...recoveryOptions,
+      mutateStageAfterDryRun: "historical",
+    });
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain("hash da migration histórica");
+    expect(result.calls.match(/supabase db push/g)).toHaveLength(1);
+  });
+
+  it("bloqueia divergência entre manifesto, fonte e recovery no staging", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      ...recoveryOptions,
+      mutateStageAfterDryRun: "recovery",
+    });
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain("manifesto, arquivo-fonte e staging da recovery estão divergentes");
+    expect(result.calls.match(/supabase db push/g)).toHaveLength(1);
+  });
+
+  it("bloqueia alteração concorrente do ledger após o dry-run", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      ...recoveryOptions,
+      concurrentLedger: "20260917190721\n20260919120000",
+    });
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain("ledger foi alterado concorrentemente após o dry-run");
+    expect(result.calls.match(/supabase db push/g)).toHaveLength(1);
+  });
+
+  it("bloqueia manifesto divergente do arquivo-fonte antes do staging", () => {
+    const root = mkdtempSync(join(tmpdir(), "unitos-recovery-manifest-"));
+    mkdirSync(join(root, "master", "recovery"), { recursive: true });
+    mkdirSync(join(root, "migrations"), { recursive: true });
+    cpSync("supabase/master/recovery-control-plane.json", join(root, "master", "recovery-control-plane.json"));
+    cpSync("supabase/master/recovery-control-plane-preflight.sql", join(root, "master", "recovery-control-plane-preflight.sql"));
+    cpSync("supabase/master/recovery/20260919143000_recover_missing_legacy_reconciliation.sql", join(root, "master", "recovery", "20260919143000_recover_missing_legacy_reconciliation.sql"));
+    cpSync("supabase/migrations/20260917184500_legacy_migration_reconciliation.sql", join(root, "migrations", "20260917184500_legacy_migration_reconciliation.sql"));
+    cpSync("supabase/migrations/20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql", join(root, "migrations", "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql"));
+    writeFileSync(
+      join(root, "master", "recovery", "20260919143000_recover_missing_legacy_reconciliation.sql"),
+      "-- divergent\n",
+    );
+    expect(() => execFileSync("python3", [STAGE_CHECK, "--root", root])).toThrow(
+      /manifesto diverge do arquivo-fonte/,
+    );
   });
 });

@@ -11,6 +11,10 @@
 - [x] Tratar PUBLIC exclusivamente por `aclexplode` com `grantee = 0`, sem resolver a pseudo-role como role nomeada.
 - [x] Selar o staging por SHA-256 e revalidá-lo imediatamente antes da execução oficial.
 - [x] Cobrir separadamente ledger, seleção, preflight incompleto, pseudo-role PUBLIC e adulteração do staging.
+- [x] Fixar Supabase CLI 2.117.0 e validar fail-closed o contrato textual do dry-run.
+- [x] Conferir hashes de manifesto, fontes, migrations históricas e staging; rejeitar duplicidades e arquivos extras.
+- [x] Revalidar o snapshot integral do ledger após o dry-run e imediatamente antes da execução.
+- [x] Documentar as janelas residuais entre preflight, dry-run, validações finais e transação da CLI.
 - [x] Manter o pacote Client em 85 blocos e SHA canônico inalterado.
 - [x] Concluir testes locais, `master:check`, typecheck, lint focado e build.
 - [ ] Aplicar no Control-plane remoto somente após autorização específica; depois executar diagnóstico read-only da Apex antes de qualquer UPDATE.
