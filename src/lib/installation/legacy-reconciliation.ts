@@ -206,9 +206,7 @@ export function normalizeLegacyEvidenceRows(rows: unknown[]): LegacyEvidenceResu
     const evidenceKey = String(row["evidence_key"] ?? "");
     const migrationFile = String(row["migration_file"] ?? "");
     const observed = String(row["observed"] ?? "");
-    const expectedEvidenceKey = expected
-      ? `${position}:${migrationFile}:${expected[1]}`
-      : "";
+    const expectedEvidenceKey = expected ? `${position}:${migrationFile}:${expected[1]}` : "";
     if (
       !expected ||
       seenPositions.has(position) ||

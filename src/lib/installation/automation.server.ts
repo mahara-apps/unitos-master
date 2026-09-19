@@ -5315,19 +5315,14 @@ export function attachCanonicalMigrationIdentity(
   }
   return migrations.map((migration, index) => {
     const entry = entries[index];
-    if (
-      !entry ||
-      entry.file !== migration.file ||
-      !/^[0-9a-f]{64}$/.test(entry.canonicalSha256)
-    ) {
+    if (!entry || entry.file !== migration.file || !/^[0-9a-f]{64}$/.test(entry.canonicalSha256)) {
       throw new Error(`Identidade canônica inválida na posição ${index + 1}.`);
     }
     return {
       ...migration,
       canonicalSha256: entry.canonicalSha256,
-      totalStatements: splitSqlStatements(
-        sanitizeBaselineSqlForManagementApi(migration.sql).sql,
-      ).length,
+      totalStatements: splitSqlStatements(sanitizeBaselineSqlForManagementApi(migration.sql).sql)
+        .length,
     };
   });
 }
@@ -5582,10 +5577,7 @@ async function reconcileLegacyMigrationMarker(
   operation: OperationRow,
   migrations: DeltaMigration[],
   packageHash: string,
-): Promise<
-  | { ok: false; detail: string }
-  | { ok: true; promotions: LegacyPromotion[] }
-> {
+): Promise<{ ok: false; detail: string } | { ok: true; promotions: LegacyPromotion[] }> {
   const inspection = await management.query(buildLegacyReconciliationInspectionSql(migrations));
   if (!inspection.ok)
     return { ok: false, detail: `inspeção legada falhou: ${inspection.error ?? "erro"}` };
@@ -5610,18 +5602,14 @@ async function reconcileLegacyMigrationMarker(
   }
   let stored: ReturnType<typeof normalizeLegacyEvidenceRows>;
   try {
-    stored = storedResponse.data.length
-      ? normalizeLegacyEvidenceRows(storedResponse.data)
-      : [];
+    stored = storedResponse.data.length ? normalizeLegacyEvidenceRows(storedResponse.data) : [];
   } catch (cause) {
     return {
       ok: false,
       detail: cause instanceof Error ? cause.message : "Evidências persistidas inválidas",
     };
   }
-  const storedByPosition = new Map(
-    stored.map((item) => [item.position, item]),
-  );
+  const storedByPosition = new Map(stored.map((item) => [item.position, item]));
   const evidence = inspected.map((item) => {
     const saved = storedByPosition.get(item.position);
     const migration = migrations[item.position - 1];
