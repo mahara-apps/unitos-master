@@ -32,8 +32,12 @@ def build() -> str:
     if "BEGIN;" not in recovery or "COMMIT;" not in recovery:
         raise SystemExit("recuperação deve preservar uma transação explícita")
     document = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "releaseVersion": "1.4.14",
+        "supabaseCliVersion": "2.117.0",
+        "dryRunHeader": "DRY RUN: migrations will *not* be pushed to the database.",
+        "dryRunMigrationPrefix": "Would push migration ",
+        "dryRunFooter": "Finished supabase db push.",
         "targetProjectRef": "tkjbhttylouamqxnbfgv",
         "recoveryVersion": "20260919143000",
         "recoveryFile": RECOVERY.name,
