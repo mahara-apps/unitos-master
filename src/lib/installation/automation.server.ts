@@ -73,6 +73,7 @@ import {
   buildLegacyPromotionInventory,
   buildLegacyReconciliationInspectionSql,
   legacyEvidenceBlockReason,
+  type LegacyPromotion,
   normalizeLegacyEvidenceRows,
 } from "./legacy-reconciliation";
 
