@@ -7,6 +7,8 @@ Este diretório é exclusivo do banco MASTER e nunca integra o pacote Client.
 - `bootstrap-control-plane.json`: manifesto selado com versão e SHA-256 do bootstrap e da convergência.
 - `tools/build_master_bootstrap.py`: gerador determinístico do artefato.
 - `tools/promote_master_control_plane.sh`: promoção transacional explícita para Master existente ou Master limpo, seguida do verificador read-only.
+- `002_control_plane_global_freeze.sql`: proteção MASTER-only que serializa e bloqueia todas as mutações do Installation Manager.
+- `tools/control_plane_freeze.sh`: ferramenta separada para consultar, ativar e desativar o congelamento com identidade, motivo, responsável e geração esperada.
 - `recovery/20260919143000_recover_missing_legacy_reconciliation.sql`: recuperação excepcional e transacional da lacuna 1.4.10 quando 1.4.11 já está aplicada; fica fora do pacote Client e do bootstrap limpo.
 - `recovery-control-plane-preflight.sql` e `recovery-control-plane.json`: preflight read-only e manifesto selado da recuperação.
 - `../install/verify-installation-master.sql`: auditoria read-only do estado final Master.
@@ -34,3 +36,9 @@ O executor usa exclusivamente a Supabase CLI local fixada em `2.117.0`. O contra
 Antes e depois da cópia, o executor compara o SHA-256 da recovery com o manifesto; cada migration histórica copiada é comparada individualmente com sua única origem local. O staging rejeita versões duplicadas, nomes inesperados, arquivos extras e divergência entre manifesto, origem e cópia. O snapshot ordenado do ledger é refeito após o dry-run e imediatamente antes da execução; qualquer alteração concorrente aborta. Todo o staging também é selado por SHA-256 e revalidado imediatamente antes do push. A Supabase CLI executa e registra somente `20260919143000`; o SQL não escreve no ledger, nunca repara ou inventa `20260917184500` e não contém SQL da 1.4.11.
 
 Janelas residuais inevitáveis: o preflight e o dry-run usam conexões independentes; uma alteração de banco pode ocorrer entre o último snapshot do ledger e a transação interna da CLI. Também há uma janela mínima entre a última leitura dos hashes e a abertura dos arquivos pela CLI. Por isso, o ensaio exige ambiente Supabase isolado, sem outros escritores, snapshot descartável e versão local fixada da CLI.
+
+## Congelamento operacional
+
+A instalação do mecanismo, sua ativação, a recovery e o UPDATE são quatro autorizações independentes. `master:install:freeze` instala somente a proteção no Control-plane; `master:freeze:status` é leitura; `master:freeze:on` e `master:freeze:off` exigem confirmação, motivo e responsável. Ativar falha se houver operação ou tentativa ativa e usa a mesma advisory lock das triggers, impedindo que uma nova mutação entre entre a verificação de quiescência e o commit. Estado ausente, duplicado ou ilegível bloqueia as mutações.
+
+Enquanto ativo, triggers `BEFORE ... FOR EACH STATEMENT` bloqueiam INSERT, UPDATE e DELETE em instalações, credenciais, operações, tentativas, etapas, outbox, checkpoints de migration e evidências. Rotas públicas, cron, worker e funções da interface também consultam o estado para falhar cedo; as triggers continuam sendo a autoridade contra chamadas diretas com `service_role`. A recovery 1.4.14 exige o freeze ativo e adquire a mesma lock. Descongelar não cria nem autoriza UPDATE.

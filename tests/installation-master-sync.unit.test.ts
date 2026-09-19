@@ -292,6 +292,8 @@ describe("sincronia MASTER-first", () => {
       reconciliationSha256: string;
       p0HardeningFile: string;
       p0HardeningSha256: string;
+      globalFreezeFile: string;
+      globalFreezeSha256: string;
     };
     const promotion = readFileSync("supabase/master/tools/promote_master_control_plane.sh", "utf8");
     const packageJson = readFileSync("package.json", "utf8");
@@ -306,6 +308,11 @@ describe("sincronia MASTER-first", () => {
       "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql",
     );
     expect(metadata.p0HardeningSha256).toBe(await sha256Hex(p0Hardening));
+    const globalFreeze = readFileSync("supabase/master/002_control_plane_global_freeze.sql", "utf8");
+    expect(metadata.globalFreezeFile).toBe("002_control_plane_global_freeze.sql");
+    expect(metadata.globalFreezeSha256).toBe(await sha256Hex(globalFreeze));
+    expect(masterBootstrap).toContain("-- MASTER GLOBAL FREEZE");
+    expect(delta).not.toContain("installation_operations_freeze");
     expect(promotion).toContain("UNITOS_MASTER_PROMOTION:-");
     expect(promotion).toContain("MASTER_DATABASE_URL:-");
     expect(promotion).toContain("--single-transaction");

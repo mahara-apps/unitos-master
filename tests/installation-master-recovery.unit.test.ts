@@ -47,6 +47,8 @@ describe("recuperação local da lacuna 1.4.10", () => {
     expect(recovery).toContain("estrutura 1.4.10 parcial ou divergente");
     expect(recovery).toContain("existe operação ativa ou retomável");
     expect(recovery).toContain("pg_advisory_xact_lock");
+    expect(preflight).toContain("congelamento global instalado e ativo");
+    expect(recovery).toContain("congelamento global não está ativo");
   });
 
   it("cria somente os objetos da 1.4.10 e não contém SQL da 1.4.11", () => {
@@ -123,6 +125,7 @@ describe("recuperação local da lacuna 1.4.10", () => {
     expect(script).toContain("unexpected overload");
     expect(script).toContain("ROLLBACK");
     expect(script).toContain("20260919143000");
+    expect(script).toContain("trigger fail-closed deveria bloquear escrita operacional");
   });
 
   it("trata PUBLIC exclusivamente como grantee zero na ACL expandida", () => {
