@@ -21,20 +21,21 @@ WITH facts AS (
 ), fn_normalize AS (
   SELECT p.* FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
   WHERE n.nspname = 'public' AND p.proname = 'normalize_legacy_installation_operations'
-), fn_811_specs(fn, expected_signature, expected_args, expected_result, expected_volatility) AS (VALUES
+), fn_811_specs(fn, expected_signature, expected_args, expected_result, expected_volatility, expected_body_md5) AS (VALUES
   ('reconcile', 'reconcile_installation_operation_migrations(uuid,text,bigint,jsonb)',
-    '_operation_id uuid, _owner text, _fencing_token bigint, _migrations jsonb', 'integer', 'v'),
+    '_operation_id uuid, _owner text, _fencing_token bigint, _migrations jsonb', 'integer', 'v', 'abd43a4ec03634e6c9552eced6b7efe4'),
   ('normalize', 'normalize_legacy_installation_operations(integer)',
-    '_max_idle_seconds integer DEFAULT 240', 'jsonb', 'v')
+    '_max_idle_seconds integer DEFAULT 240', 'jsonb', 'v', '29f2435ed1a84f4a6f34cff166d4cd7d')
 ), fn_811 AS (
-  SELECT s.fn, s.expected_signature, s.expected_args, s.expected_result, s.expected_volatility,
+  SELECT s.fn, s.expected_signature, s.expected_args, s.expected_result, s.expected_volatility, s.expected_body_md5,
     (CASE WHEN s.fn = 'reconcile' THEN (SELECT count(*) FROM fn_reconcile) ELSE (SELECT count(*) FROM fn_normalize) END) AS overload_count,
     (CASE WHEN s.fn = 'reconcile' THEN (SELECT oid FROM fn_reconcile LIMIT 1) ELSE (SELECT oid FROM fn_normalize LIMIT 1) END) AS oid,
     to_regprocedure('public.' || s.expected_signature) AS resolved_oid
   FROM fn_811_specs s
 ), fn_detail AS (
   SELECT f.*,
-    p.prolang, p.provolatile, p.prosecdef, p.proconfig, p.proowner, p.proacl,
+    p.prolang, p.prokind, p.provolatile, p.proisstrict, p.proleakproof, p.proparallel,
+    p.pronargdefaults, p.prosecdef, p.proconfig, p.proowner, p.proacl, p.prosrc,
     pg_get_function_arguments(p.oid) AS actual_args,
     pg_get_function_result(p.oid) AS actual_result,
     pg_get_functiondef(p.oid) AS functiondef,
@@ -53,30 +54,18 @@ WITH facts AS (
     CASE WHEN overload_count = 1 AND oid IS NOT NULL AND resolved_oid IS NOT NULL AND resolved_oid = oid THEN 'PASS' ELSE 'FAIL' END
   FROM fn_811
 
-  -- 1.4.11: pg_get_functiondef íntegro (não truncado) com cláusulas críticas de segurança preservadas
-  UNION ALL SELECT 6, '1.4.11 ' || fn || ': pg_get_functiondef íntegro e cláusulas críticas',
-    CASE
-      WHEN functiondef IS NULL OR length(functiondef) < 200 THEN 'FAIL'
-      WHEN fn = 'reconcile' AND (
-        position('FOR UPDATE' in functiondef) = 0
-        OR position('fencing_token = _fencing_token' in functiondef) = 0
-        OR position('lease_expires_at > now()' in functiondef) = 0
-        OR position('ON CONFLICT (operation_id, migration_file, fingerprint)' in functiondef) = 0
-        OR position('Lease perdido durante a reconciliação' in functiondef) = 0
-      ) THEN 'FAIL'
-      WHEN fn = 'normalize' AND (
-        position('make_interval(secs => _max_idle_seconds)' in functiondef) = 0
-        OR position('''manual_review''' in functiondef) = 0
-        OR position('''orphaned''' in functiondef) = 0
-        OR position('_max_idle_seconds < 30 OR _max_idle_seconds > 86400' in functiondef) = 0
-      ) THEN 'FAIL'
-      ELSE 'PASS'
-    END
+  -- 1.4.11: definição completa disponível e corpo canônico integral, normalizado apenas por whitespace
+  UNION ALL SELECT 6, '1.4.11 ' || fn || ': pg_get_functiondef e corpo canônico íntegros',
+    CASE WHEN functiondef IS NOT NULL AND length(functiondef) >= 200
+      AND md5(btrim(regexp_replace(prosrc, '\s+', ' ', 'g'))) = expected_body_md5
+      THEN 'PASS' ELSE 'FAIL' END
   FROM fn_detail
 
   -- 1.4.11: linguagem, retorno, volatilidade e argumentos (nomes, tipos e defaults) exatos
   UNION ALL SELECT 7, '1.4.11 ' || fn || ': linguagem/retorno/volatilidade/argumentos exatos',
-    CASE WHEN lanname = 'plpgsql' AND actual_result = expected_result AND provolatile = expected_volatility
+    CASE WHEN lanname = 'plpgsql' AND prokind = 'f' AND actual_result = expected_result
+      AND provolatile = expected_volatility AND proisstrict IS FALSE AND proleakproof IS FALSE
+      AND proparallel = 'u' AND pronargdefaults = CASE WHEN fn='normalize' THEN 1 ELSE 0 END
       AND actual_args = expected_args THEN 'PASS' ELSE 'FAIL' END
   FROM fn_detail
 
@@ -86,9 +75,9 @@ WITH facts AS (
       AND array_length(proconfig, 1) = 1 AND proconfig[1] = 'search_path=public' THEN 'PASS' ELSE 'FAIL' END
   FROM fn_detail
 
-  -- 1.4.11: owner igual ao das demais RPCs do control-plane (mesma origem de migration)
-  UNION ALL SELECT 9, '1.4.11 ' || fn || ': owner alinhado ao control-plane',
-    CASE WHEN proowner IS NOT NULL AND proowner = (SELECT proowner FROM pg_proc WHERE oid = to_regprocedure('public.is_super_admin(uuid)')) THEN 'PASS' ELSE 'FAIL' END
+  -- 1.4.11: owner canônico criado pelo executor de migrations da Supabase
+  UNION ALL SELECT 9, '1.4.11 ' || fn || ': owner canônico postgres',
+    CASE WHEN pg_get_userbyid(proowner) = 'postgres' THEN 'PASS' ELSE 'FAIL' END
   FROM fn_detail
 
   -- 1.4.11: ACL expandida: apenas service_role com EXECUTE, PUBLIC/anon/authenticated sem acesso
@@ -100,7 +89,7 @@ WITH facts AS (
       AND NOT has_function_privilege('public', oid, 'EXECUTE')
       AND (
         SELECT count(*) FROM aclexplode(coalesce(proacl, acldefault('f', proowner))) g
-        WHERE g.privilege_type = 'EXECUTE' AND g.grantee <> proowner
+        WHERE g.privilege_type = 'EXECUTE' AND (g.grantee <> proowner OR g.grantor <> proowner)
       ) = 1
       AND EXISTS (
         SELECT 1 FROM aclexplode(coalesce(proacl, acldefault('f', proowner))) g
