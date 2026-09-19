@@ -24,10 +24,20 @@ if [[ "$MODE" == "--recover-missing-1.4.10" ]]; then
     echo "Bloqueado: recuperação exige confirmação específica" >&2
     exit 2
   fi
-  if [[ "${MASTER_PROJECT_REF:-}" != "tkjbhttylouamqxnbfgv" || "$MASTER_DATABASE_URL" != *"tkjbhttylouamqxnbfgv"* ]]; then
+  if [[ "${MASTER_PROJECT_REF:-}" != "tkjbhttylouamqxnbfgv" ]]; then
     echo "Bloqueado: identidade do Master não coincide com o manifesto" >&2
     exit 2
   fi
+  python3 - "$MASTER_DATABASE_URL" "$MASTER_PROJECT_REF" <<'PY'
+import sys
+from urllib.parse import urlparse
+parsed = urlparse(sys.argv[1])
+ref = sys.argv[2]
+host = parsed.hostname or ""
+user = parsed.username or ""
+if host != f"db.{ref}.supabase.co" and not (host.endswith(".pooler.supabase.com") and user.endswith(f".{ref}")):
+    raise SystemExit("Bloqueado: conexão não identifica exatamente o projeto Master")
+PY
   python3 "$ROOT/supabase/master/tools/build_master_recovery.py" --check
   if ! command -v supabase >/dev/null 2>&1; then
     echo "Bloqueado: Supabase CLI oficial ausente" >&2
@@ -39,15 +49,33 @@ if [[ "$MODE" == "--recover-missing-1.4.10" ]]; then
   trap 'rm -f "$PREFLIGHT" "$DRY_RUN"; rm -rf "$STAGE"' EXIT
   psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --csv \
     --file "$ROOT/supabase/master/recovery-control-plane-preflight.sql" > "$PREFLIGHT"
-  if grep -q ',FAIL$' "$PREFLIGHT"; then
+  if grep -q ',FAIL$' "$PREFLIGHT" || [[ "$(grep -c ',PASS$' "$PREFLIGHT")" -ne 20 ]]; then
     echo "Bloqueado: preflight da recuperação encontrou divergências" >&2
     exit 1
   fi
   mkdir -p "$STAGE/supabase/migrations"
   printf 'project_id = "%s"\n' "$MASTER_PROJECT_REF" > "$STAGE/supabase/config.toml"
+  REMOTE_VERSIONS="$(psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --tuples-only --no-align --command "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;")"
+  while IFS= read -r version; do
+    [[ -z "$version" ]] && continue
+    if [[ "$version" == "20260917184500" || "$version" == "20260919143000" ]]; then
+      echo "Bloqueado: ledger remoto contradiz a fila exclusiva de recuperação" >&2
+      exit 1
+    fi
+    mapfile -t matches < <(find "$ROOT/supabase/migrations" -maxdepth 1 -type f -name "${version}_*.sql" | sort)
+    if [[ "${#matches[@]}" -ne 1 ]]; then
+      echo "Bloqueado: versão remota $version não possui exatamente um arquivo histórico local" >&2
+      exit 1
+    fi
+    cp "${matches[0]}" "$STAGE/supabase/migrations/"
+  done <<< "$REMOTE_VERSIONS"
+  if [[ ! -f "$STAGE/supabase/migrations/20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql" ]]; then
+    echo "Bloqueado: histórico temporário não contém a 1.4.11 já aplicada" >&2
+    exit 1
+  fi
   cp "$ROOT/supabase/master/recovery/20260919143000_recover_missing_legacy_reconciliation.sql" "$STAGE/supabase/migrations/"
-  if [[ "$(find "$STAGE/supabase/migrations" -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ')" != "1" ]]; then
-    echo "Bloqueado: fila de recuperação deve conter exatamente uma migration" >&2
+  if find "$STAGE/supabase/migrations" -maxdepth 1 -type f \( -name '20260917184500_*.sql' -o -name '20260919143000_*.sql' ! -name '20260919143000_recover_missing_legacy_reconciliation.sql' \) | grep -q .; then
+    echo "Bloqueado: fila temporária contém migration proibida" >&2
     exit 1
   fi
   supabase db push --db-url "$MASTER_DATABASE_URL" --workdir "$STAGE" --dry-run > "$DRY_RUN" 2>&1
