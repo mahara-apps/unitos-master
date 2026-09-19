@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -50,7 +50,7 @@ fi
     return {
       code: failure.status ?? 1,
       stdout: `${failure.stdout ?? ""}${failure.stderr ?? ""}`,
-      calls: readFileSync(calls, "utf8"),
+      calls: existsSync(calls) ? readFileSync(calls, "utf8") : "",
     };
   }
 }
