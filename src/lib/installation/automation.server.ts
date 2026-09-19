@@ -5154,7 +5154,15 @@ export function deltaProgressKey(sql: string): string {
   return `${UPDATE_DELTA_LABEL}:${deltaFingerprint(sql)}`;
 }
 
-export type DeltaMigration = { file: string; sql: string; fingerprint: string };
+export type DeltaMigration = {
+  file: string;
+  sql: string;
+  /** Fingerprint operacional legado, aceito somente para dual-read. */
+  fingerprint: string;
+  /** Identidade canônica do manifesto autorizado. */
+  canonicalSha256?: string;
+  totalStatements?: number;
+};
 export const INCREMENTAL_LEDGER_CUTOVER_FILE =
   "20260913124118_9f453a5e-8c5e-4504-9f99-3a8ecfd59eb2.sql";
 
@@ -5288,6 +5296,40 @@ export async function generateDeltaManifest(sql: string): Promise<string> {
     }),
   );
   return entries.length > 0 ? `${entries.join("\n")}\n` : "";
+}
+
+export function attachCanonicalMigrationIdentity(
+  migrations: DeltaMigration[],
+  manifestRaw: string,
+): DeltaMigration[] {
+  const entries = manifestRaw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [file = "", canonicalSha256 = ""] = line.split(/\s+/);
+      return { file, canonicalSha256: canonicalSha256.toLowerCase() };
+    });
+  if (entries.length !== migrations.length) {
+    throw new Error("Manifesto canônico não cobre o inventário integral de migrations.");
+  }
+  return migrations.map((migration, index) => {
+    const entry = entries[index];
+    if (
+      !entry ||
+      entry.file !== migration.file ||
+      !/^[0-9a-f]{64}$/.test(entry.canonicalSha256)
+    ) {
+      throw new Error(`Identidade canônica inválida na posição ${index + 1}.`);
+    }
+    return {
+      ...migration,
+      canonicalSha256: entry.canonicalSha256,
+      totalStatements: splitSqlStatements(
+        sanitizeBaselineSqlForManagementApi(migration.sql).sql,
+      ).length,
+    };
+  });
 }
 
 /**
@@ -5534,6 +5576,42 @@ async function reconcileCanonicalMigrations(
     throw new Error(error?.message ?? "reconciliação canônica não confirmada");
 }
 
+async function checkpointLegacyPromotion(
+  client: Client,
+  operation: OperationRow,
+  packageHash: string,
+  promotion: {
+    file: string;
+    fingerprint: string;
+    canonicalSha256: string;
+    position: number;
+    totalStatements: number;
+  },
+  state: "client_ledger_confirmed" | "master_progress_confirmed" | "ready_to_apply",
+): Promise<void> {
+  const rpc = client as never as {
+    rpc: (
+      name: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
+  };
+  const { data, error } = await rpc.rpc("checkpoint_installation_migration_promotion", {
+    _operation_id: operation.id,
+    _owner: operation.lease_owner ?? "",
+    _fencing_token: operation.fencing_token ?? -1,
+    _package_hash: packageHash,
+    _package_position: promotion.position,
+    _migration_file: promotion.file,
+    _legacy_fingerprint: promotion.fingerprint,
+    _canonical_sha256: promotion.canonicalSha256,
+    _total_statements: promotion.totalStatements,
+    _target_state: state,
+  });
+  if (error || data !== true) {
+    throw new Error(error?.message ?? `promoção legada não confirmou ${state}`);
+  }
+}
+
 async function reconcileLegacyMigrationMarker(
   management: ReturnType<typeof createManagementClient>,
   client: Client,
@@ -5563,28 +5641,38 @@ async function reconcileLegacyMigrationMarker(
       ok: false,
       detail: `RPC Control-plane de evidências indisponível ou incompatível: ${storedResponse.error.message ?? "erro desconhecido"}`,
     };
-  const stored = Array.isArray(storedResponse.data) ? storedResponse.data : [];
+  if (!Array.isArray(storedResponse.data)) {
+    return { ok: false, detail: "RPC Control-plane de evidências retornou contrato inválido" };
+  }
+  let stored: ReturnType<typeof normalizeLegacyEvidenceRows>;
+  try {
+    stored = storedResponse.data.length
+      ? normalizeLegacyEvidenceRows(storedResponse.data)
+      : [];
+  } catch (cause) {
+    return {
+      ok: false,
+      detail: cause instanceof Error ? cause.message : "Evidências persistidas inválidas",
+    };
+  }
   const storedByPosition = new Map(
-    stored
-      .filter((item): item is Record<string, unknown> => !!item && typeof item === "object")
-      .map((item) => [Number(item["position"]), item]),
+    stored.map((item) => [item.position, item]),
   );
   const evidence = inspected.map((item) => {
     const saved = storedByPosition.get(item.position);
     const migration = migrations[item.position - 1];
     const approved =
       item.classification === "external_checkpoint_required" &&
-      saved?.["status"] === "compatible" &&
-      saved["migration_file"] === item.migration_file &&
-      saved["fingerprint"] === migration?.fingerprint &&
-      saved["evidence_key"] === item.evidence_key;
+      saved?.status === "compatible" &&
+      saved.migration_file === item.migration_file &&
+      saved.evidence_key === item.evidence_key;
     return {
       ...item,
       fingerprint: migration?.fingerprint ?? "",
       ...(approved
         ? {
             status: "compatible" as const,
-            observed: String(saved["observed"] ?? "checkpoint externo aprovado"),
+            observed: saved.observed,
           }
         : {}),
     };
@@ -5644,12 +5732,22 @@ export async function applyDatabaseDelta(input: {
     fetchImpl: input.fetchImpl,
   });
 
-  const migrations = splitDeltaMigrations(input.snapshot.sql);
+  let migrations = splitDeltaMigrations(input.snapshot.sql);
   if (migrations.length === 0) {
     return { state: "error", detail: "pacote de migrations do MASTER está sem marcadores válidos" };
   }
   const validatedSnapshot = await validateCanonicalPackage(operation, input.snapshot);
   if (!validatedSnapshot.ok) return { state: "blocked", detail: validatedSnapshot.error };
+  const recoveredManifest = await recoverLegacyCanonicalManifest(input.snapshot);
+  if (!recoveredManifest.ok) return { state: "blocked", detail: recoveredManifest.error };
+  try {
+    migrations = attachCanonicalMigrationIdentity(migrations, recoveredManifest.manifest);
+  } catch (cause) {
+    return {
+      state: "blocked",
+      detail: cause instanceof Error ? cause.message : "inventário canônico inválido",
+    };
+  }
 
   const ledgerSetup = await seedDeltaLedger(management, []);
   if (!ledgerSetup.ok)
@@ -5682,7 +5780,7 @@ export async function applyDatabaseDelta(input: {
       ) &&
       !(row as Record<string, unknown>)["file"],
   );
-  if (hasLegacyBlob && appliedLabels.size === 0) {
+  if (hasLegacyBlob) {
     const legacy = await reconcileLegacyMigrationMarker(
       management,
       client,
@@ -5694,7 +5792,7 @@ export async function applyDatabaseDelta(input: {
     for (const promotion of legacy.promotions) {
       const ledgerLabel = `${promotion.file}:${promotion.fingerprint}`;
       const mark = await management.query(
-        `insert into public._unitos_applied_deltas (label, kind, file, fingerprint) values (${sqlLiteral(ledgerLabel)}, 'migration', ${sqlLiteral(promotion.file)}, ${sqlLiteral(promotion.fingerprint)}) on conflict do nothing`,
+        `insert into public._unitos_applied_deltas (label, kind, file, fingerprint, canonical_sha256) values (${sqlLiteral(ledgerLabel)}, 'migration', ${sqlLiteral(promotion.file)}, ${sqlLiteral(promotion.fingerprint)}, ${sqlLiteral(promotion.canonicalSha256)}) on conflict do nothing`,
       );
       if (!mark.ok) {
         return {
@@ -5702,10 +5800,57 @@ export async function applyDatabaseDelta(input: {
           detail: `registro da reconciliação legada falhou na posição ${promotion.position}: ${mark.error ?? "erro"}`,
         };
       }
+      const confirmed = await management.query(
+        `select file, fingerprint, canonical_sha256 from public._unitos_applied_deltas where kind='migration' and file=${sqlLiteral(promotion.file)} and fingerprint=${sqlLiteral(promotion.fingerprint)} and canonical_sha256=${sqlLiteral(promotion.canonicalSha256)}`,
+      );
+      if (!confirmed.ok || confirmed.rows.length !== 1) {
+        return {
+          state: "error",
+          detail: `ledger Client não confirmou a promoção legada na posição ${promotion.position}`,
+        };
+      }
+      await checkpointLegacyPromotion(
+        client,
+        operation,
+        input.snapshot.sha256,
+        promotion,
+        "client_ledger_confirmed",
+      );
       appliedLabels.add(ledgerLabel);
     }
   }
   await reconcileCanonicalMigrations(client, operation, migrations, appliedLabels);
+  if (hasLegacyBlob) {
+    const promoted = buildLegacyPromotionInventory(
+      normalizeLegacyEvidenceRows(
+        (
+          await (client as never as {
+            rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown }>;
+          }).rpc("read_installation_migration_reconciliation_evidence", {
+            _installation_id: operation.installation_id,
+            _package_hash: input.snapshot.sha256,
+          })
+        ).data as unknown[],
+      ),
+      migrations,
+    );
+    for (const promotion of promoted) {
+      await checkpointLegacyPromotion(
+        client,
+        operation,
+        input.snapshot.sha256,
+        promotion,
+        "master_progress_confirmed",
+      );
+      await checkpointLegacyPromotion(
+        client,
+        operation,
+        input.snapshot.sha256,
+        promotion,
+        "ready_to_apply",
+      );
+    }
+  }
   let canonicalProgress = await readCanonicalMigrationProgress(client, operation);
   let canonicalState = validateCanonicalMigrationProgress(canonicalProgress, migrations);
   const canonicalCompleted = canonicalState.completed;
