@@ -28,6 +28,7 @@ interface PromotionOptions {
   cliVersion?: string;
   mutateStageAfterDryRun?: "config" | "duplicate" | "historical" | "recovery";
   concurrentLedger?: string;
+  concurrentLedgerAtRead?: number;
 }
 
 function runPromotion(
@@ -56,7 +57,7 @@ elif [[ "$*" == *"SELECT version FROM"* ]]; then
   [[ -f "${ledgerReads}" ]] && count="$(cat "${ledgerReads}")"
   count=$((count + 1))
   printf '%s' "$count" > "${ledgerReads}"
-  if [[ "$count" -gt 1 && -n '${options.concurrentLedger ?? ""}' ]]; then
+  if [[ "$count" -ge '${options.concurrentLedgerAtRead ?? 2}' && -n '${options.concurrentLedger ?? ""}' ]]; then
     printf '%s\\n' '${options.concurrentLedger ?? ""}'
   else
     printf '%s\\n' '${options.remoteVersions ?? "20260917190721"}'
@@ -339,6 +340,17 @@ describe("promoção local do Control-plane Master", () => {
     });
     expect(result.code).toBe(1);
     expect(result.stdout).toContain("ledger foi alterado concorrentemente após o dry-run");
+    expect(result.calls.match(/supabase db push/g)).toHaveLength(1);
+  });
+
+  it("bloqueia alteração concorrente do ledger imediatamente antes da execução", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      ...recoveryOptions,
+      concurrentLedger: "20260917190721\n20260919120000",
+      concurrentLedgerAtRead: 3,
+    });
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain("ledger foi alterado concorrentemente antes da execução");
     expect(result.calls.match(/supabase db push/g)).toHaveLength(1);
   });
 
