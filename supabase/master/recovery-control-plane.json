@@ -1,4 +1,7 @@
 {
+  "dryRunFooter": "Finished supabase db push.",
+  "dryRunHeader": "DRY RUN: migrations will *not* be pushed to the database.",
+  "dryRunMigrationPrefix": "Would push migration ",
   "forbiddenMigration": "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql",
   "preflightFile": "recovery-control-plane-preflight.sql",
   "preflightSha256": "e890d545ad472da9b31f54fc0898971c404f15f448630230a3fb46e190a4b3cf",
@@ -12,6 +15,7 @@
   "requiresFile": "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql",
   "requiresSha256": "3a610faebe50d7a2b67c3e781331fab2a5c02de4a4a0668ad1124f1e47fef68d",
   "requiresVersion": "20260917190721",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
+  "supabaseCliVersion": "2.117.0",
   "targetProjectRef": "tkjbhttylouamqxnbfgv"
 }
