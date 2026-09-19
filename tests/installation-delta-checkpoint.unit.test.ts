@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
 import {
+  attachCanonicalMigrationIdentity,
   databaseMigrationsPercent,
   deltaProgressKey,
   generateDeltaManifest,
@@ -52,6 +53,23 @@ select 2;`;
     ]);
     expect(migrations[0]?.sql).toBe("select 1;");
     expect(migrations[0]?.fingerprint).toBe(splitDeltaMigrations(packageSql)[0]?.fingerprint);
+  });
+
+  it("anexa SHA-256 e total de statements somente com manifesto integral e ordenado", () => {
+    const parsed = splitDeltaMigrations(packageSql);
+    const manifest = parsed.map((item) => `${item.file}\t${"a".repeat(64)}`).join("\n");
+    const identified = attachCanonicalMigrationIdentity(parsed, manifest);
+    expect(identified.map((item) => item.canonicalSha256)).toEqual([
+      "a".repeat(64),
+      "a".repeat(64),
+    ]);
+    expect(identified.map((item) => item.totalStatements)).toEqual([1, 1]);
+    expect(() => attachCanonicalMigrationIdentity(parsed, manifest.split("\n")[0] ?? "")).toThrow(
+      /integral/,
+    );
+    expect(() =>
+      attachCanonicalMigrationIdentity(parsed, manifest.replace("first.sql", "other.sql")),
+    ).toThrow(/posição 1/);
   });
 
   it("não interpreta pacote sem marcador como migration válida", () => {

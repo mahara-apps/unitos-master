@@ -73,7 +73,6 @@ import {
   buildLegacyPromotionInventory,
   buildLegacyReconciliationInspectionSql,
   legacyEvidenceBlockReason,
-  type LegacyPromotion,
   normalizeLegacyEvidenceRows,
 } from "./legacy-reconciliation";
 
@@ -5200,7 +5199,6 @@ async function seedDeltaLedger(
       "alter table public._unitos_applied_deltas add column if not exists kind text not null default 'blob'",
       "alter table public._unitos_applied_deltas add column if not exists file text",
       "alter table public._unitos_applied_deltas add column if not exists fingerprint text",
-      "alter table public._unitos_applied_deltas add column if not exists canonical_sha256 text",
       "drop index if exists public._unitos_applied_deltas_file_key",
       "create unique index if not exists _unitos_applied_deltas_file_fingerprint_key on public._unitos_applied_deltas (file, fingerprint) where kind = 'migration'",
       HELPER_TABLE_HARDENING_SQL("public._unitos_applied_deltas"),
@@ -5578,42 +5576,6 @@ async function reconcileCanonicalMigrations(
     throw new Error(error?.message ?? "reconciliação canônica não confirmada");
 }
 
-async function checkpointLegacyPromotion(
-  client: Client,
-  operation: OperationRow,
-  packageHash: string,
-  promotion: {
-    file: string;
-    fingerprint: string;
-    canonicalSha256: string;
-    position: number;
-    totalStatements: number;
-  },
-  state: "client_ledger_confirmed" | "master_progress_confirmed" | "ready_to_apply",
-): Promise<void> {
-  const rpc = client as never as {
-    rpc: (
-      name: string,
-      args: Record<string, unknown>,
-    ) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
-  };
-  const { data, error } = await rpc.rpc("checkpoint_installation_migration_promotion", {
-    _operation_id: operation.id,
-    _owner: operation.lease_owner ?? "",
-    _fencing_token: operation.fencing_token ?? -1,
-    _package_hash: packageHash,
-    _package_position: promotion.position,
-    _migration_file: promotion.file,
-    _legacy_fingerprint: promotion.fingerprint,
-    _canonical_sha256: promotion.canonicalSha256,
-    _total_statements: promotion.totalStatements,
-    _target_state: state,
-  });
-  if (error || data !== true) {
-    throw new Error(error?.message ?? `promoção legada não confirmou ${state}`);
-  }
-}
-
 async function reconcileLegacyMigrationMarker(
   management: ReturnType<typeof createManagementClient>,
   client: Client,
@@ -5782,7 +5744,6 @@ export async function applyDatabaseDelta(input: {
       ) &&
       !(row as Record<string, unknown>)["file"],
   );
-  let legacyPromotions: LegacyPromotion[] = [];
   if (hasLegacyBlob) {
     const legacy = await reconcileLegacyMigrationMarker(
       management,
@@ -5792,11 +5753,10 @@ export async function applyDatabaseDelta(input: {
       input.snapshot.sha256,
     );
     if (!legacy.ok) return { state: "blocked", detail: legacy.detail };
-    legacyPromotions = legacy.promotions;
     for (const promotion of legacy.promotions) {
       const ledgerLabel = `${promotion.file}:${promotion.fingerprint}`;
       const mark = await management.query(
-        `insert into public._unitos_applied_deltas (label, kind, file, fingerprint, canonical_sha256) values (${sqlLiteral(ledgerLabel)}, 'migration', ${sqlLiteral(promotion.file)}, ${sqlLiteral(promotion.fingerprint)}, ${sqlLiteral(promotion.canonicalSha256)}) on conflict do nothing`,
+        `insert into public._unitos_applied_deltas (label, kind, file, fingerprint) values (${sqlLiteral(ledgerLabel)}, 'migration', ${sqlLiteral(promotion.file)}, ${sqlLiteral(promotion.fingerprint)}) on conflict do nothing`,
       );
       if (!mark.ok) {
         return {
@@ -5805,7 +5765,7 @@ export async function applyDatabaseDelta(input: {
         };
       }
       const confirmed = await management.query(
-        `select file, fingerprint, canonical_sha256 from public._unitos_applied_deltas where kind='migration' and file=${sqlLiteral(promotion.file)} and fingerprint=${sqlLiteral(promotion.fingerprint)} and canonical_sha256=${sqlLiteral(promotion.canonicalSha256)}`,
+        `select file, fingerprint from public._unitos_applied_deltas where kind='migration' and file=${sqlLiteral(promotion.file)} and fingerprint=${sqlLiteral(promotion.fingerprint)}`,
       );
       if (!confirmed.ok || confirmed.rows.length !== 1) {
         return {
@@ -5813,35 +5773,10 @@ export async function applyDatabaseDelta(input: {
           detail: `ledger Client não confirmou a promoção legada na posição ${promotion.position}`,
         };
       }
-      await checkpointLegacyPromotion(
-        client,
-        operation,
-        input.snapshot.sha256,
-        promotion,
-        "client_ledger_confirmed",
-      );
       appliedLabels.add(ledgerLabel);
     }
   }
   await reconcileCanonicalMigrations(client, operation, migrations, appliedLabels);
-  if (legacyPromotions.length > 0) {
-    for (const promotion of legacyPromotions) {
-      await checkpointLegacyPromotion(
-        client,
-        operation,
-        input.snapshot.sha256,
-        promotion,
-        "master_progress_confirmed",
-      );
-      await checkpointLegacyPromotion(
-        client,
-        operation,
-        input.snapshot.sha256,
-        promotion,
-        "ready_to_apply",
-      );
-    }
-  }
   let canonicalProgress = await readCanonicalMigrationProgress(client, operation);
   let canonicalState = validateCanonicalMigrationProgress(canonicalProgress, migrations);
   const canonicalCompleted = canonicalState.completed;
