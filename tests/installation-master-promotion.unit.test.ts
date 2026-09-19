@@ -76,7 +76,9 @@ if [[ "$*" == "--version" ]]; then
 fi
 if [[ "$*" == *"--dry-run"* ]]; then
   printf '%s\\n' '${options.dryRun ?? validDryRun}'
-  ${options.mutateStageAfterDryRun ? `while [[ "$#" -gt 0 ]]; do
+  ${
+    options.mutateStageAfterDryRun
+      ? `while [[ "$#" -gt 0 ]]; do
     if [[ "$1" == "--workdir" ]]; then
       case '${options.mutateStageAfterDryRun}' in
         config) printf '\\n# altered\\n' >> "$2/supabase/config.toml" ;;
@@ -87,7 +89,9 @@ if [[ "$*" == *"--dry-run"* ]]; then
       break
     fi
     shift
-  done` : ""}
+  done`
+      : ""
+  }
 fi
 `,
     { mode: 0o755 },
@@ -264,8 +268,7 @@ describe("promoção local do Control-plane Master", () => {
   it("bloqueia dry-run que menciona migration histórica proibida", () => {
     const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
       ...recoveryOptions,
-      dryRun:
-        `${validDryRun}\nremote ledger mentions 20260917184500`,
+      dryRun: `${validDryRun}\nremote ledger mentions 20260917184500`,
     });
     expect(result.code).toBe(1);
     expect(result.stdout).toContain("executor tentou selecionar 1.4.10 ou reaplicar 1.4.11");
@@ -329,7 +332,9 @@ describe("promoção local do Control-plane Master", () => {
       mutateStageAfterDryRun: "recovery",
     });
     expect(result.code).toBe(1);
-    expect(result.stdout).toContain("manifesto, arquivo-fonte e staging da recovery estão divergentes");
+    expect(result.stdout).toContain(
+      "manifesto, arquivo-fonte e staging da recovery estão divergentes",
+    );
     expect(result.calls.match(/supabase db push/g)).toHaveLength(1);
   });
 
@@ -358,11 +363,26 @@ describe("promoção local do Control-plane Master", () => {
     const root = mkdtempSync(join(tmpdir(), "unitos-recovery-manifest-"));
     mkdirSync(join(root, "master", "recovery"), { recursive: true });
     mkdirSync(join(root, "migrations"), { recursive: true });
-    cpSync("supabase/master/recovery-control-plane.json", join(root, "master", "recovery-control-plane.json"));
-    cpSync("supabase/master/recovery-control-plane-preflight.sql", join(root, "master", "recovery-control-plane-preflight.sql"));
-    cpSync("supabase/master/recovery/20260919143000_recover_missing_legacy_reconciliation.sql", join(root, "master", "recovery", "20260919143000_recover_missing_legacy_reconciliation.sql"));
-    cpSync("supabase/migrations/20260917184500_legacy_migration_reconciliation.sql", join(root, "migrations", "20260917184500_legacy_migration_reconciliation.sql"));
-    cpSync("supabase/migrations/20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql", join(root, "migrations", "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql"));
+    cpSync(
+      "supabase/master/recovery-control-plane.json",
+      join(root, "master", "recovery-control-plane.json"),
+    );
+    cpSync(
+      "supabase/master/recovery-control-plane-preflight.sql",
+      join(root, "master", "recovery-control-plane-preflight.sql"),
+    );
+    cpSync(
+      "supabase/master/recovery/20260919143000_recover_missing_legacy_reconciliation.sql",
+      join(root, "master", "recovery", "20260919143000_recover_missing_legacy_reconciliation.sql"),
+    );
+    cpSync(
+      "supabase/migrations/20260917184500_legacy_migration_reconciliation.sql",
+      join(root, "migrations", "20260917184500_legacy_migration_reconciliation.sql"),
+    );
+    cpSync(
+      "supabase/migrations/20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql",
+      join(root, "migrations", "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql"),
+    );
     writeFileSync(
       join(root, "master", "recovery", "20260919143000_recover_missing_legacy_reconciliation.sql"),
       "-- divergent\n",
