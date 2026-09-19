@@ -7,9 +7,17 @@ import {
   normalizeLegacyEvidenceRows,
   reconciledLegacyPositions,
 } from "@/lib/installation/legacy-reconciliation";
-import { splitDeltaMigrations } from "@/lib/installation/automation.server";
+import {
+  attachCanonicalMigrationIdentity,
+  splitDeltaMigrations,
+} from "@/lib/installation/automation.server";
 
-const migrations = splitDeltaMigrations(canonicalSql);
+const migrations = attachCanonicalMigrationIdentity(
+  splitDeltaMigrations(canonicalSql),
+  splitDeltaMigrations(canonicalSql)
+    .map((migration) => `${migration.file}\t${"a".repeat(64)}`)
+    .join("\n"),
+);
 const classifications = new Map<number, string>([
   ...[34, 39, 55, 61, 64, 70, 71, 84].map((position) => [position, "canonical_state"]),
   ...[21, 42, 52, 56, 66, 82, 83].map((position) => [position, "partial_compatibility"]),
@@ -70,6 +78,10 @@ describe("reconciliação segura do ledger legado", () => {
     expect(
       buildLegacyPromotionInventory(normalized, migrations).map((item) => item.position),
     ).toEqual([34, 39, 55, 61, 64, 70, 71, 72, 74, 84, 85]);
+    expect(buildLegacyPromotionInventory(normalized, migrations)[0]).toMatchObject({
+      canonicalSha256: "a".repeat(64),
+      totalStatements: expect.any(Number),
+    });
   });
   it("respeita SECURITY DEFINER final de start_job_timer", () => {
     const sql = buildLegacyReconciliationInspectionSql(migrations);
@@ -97,6 +109,17 @@ describe("reconciliação segura do ledger legado", () => {
         ),
       ),
     ).toThrow(/diverge/);
+    for (const patch of [
+      { migration_file: "" },
+      { observed: "" },
+      { evidence_key: "34:arquivo-incorreto:canonical_state" },
+    ]) {
+      expect(() =>
+        normalizeLegacyEvidenceRows(
+          rows.map((item) => (item.position === 34 ? { ...item, ...patch } : item)),
+        ),
+      ).toThrow(/diverge/);
+    }
   });
   it("é determinística em execução repetida", () => {
     expect(buildLegacyReconciliationInspectionSql(migrations)).toBe(
@@ -123,5 +146,13 @@ describe("reconciliação segura do ledger legado", () => {
         migrations,
       ),
     ).toThrow(/pacote fixado/);
+    expect(() =>
+      buildLegacyPromotionInventory(
+        approved,
+        migrations.map((migration, index) =>
+          index === 33 ? { ...migration, canonicalSha256: undefined } : migration,
+        ),
+      ),
+    ).toThrow(/SHA-256/);
   });
 });

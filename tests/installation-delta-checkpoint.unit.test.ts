@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
 import {
+  attachCanonicalMigrationIdentity,
+  assertCompletedProgressBackedByClientLedger,
   databaseMigrationsPercent,
   deltaProgressKey,
   generateDeltaManifest,
@@ -54,6 +56,23 @@ select 2;`;
     expect(migrations[0]?.fingerprint).toBe(splitDeltaMigrations(packageSql)[0]?.fingerprint);
   });
 
+  it("anexa SHA-256 e total de statements somente com manifesto integral e ordenado", () => {
+    const parsed = splitDeltaMigrations(packageSql);
+    const manifest = parsed.map((item) => `${item.file}\t${"a".repeat(64)}`).join("\n");
+    const identified = attachCanonicalMigrationIdentity(parsed, manifest);
+    expect(identified.map((item) => item.canonicalSha256)).toEqual([
+      "a".repeat(64),
+      "a".repeat(64),
+    ]);
+    expect(identified.map((item) => item.totalStatements)).toEqual([1, 1]);
+    expect(() => attachCanonicalMigrationIdentity(parsed, manifest.split("\n")[0] ?? "")).toThrow(
+      /integral/,
+    );
+    expect(() =>
+      attachCanonicalMigrationIdentity(parsed, manifest.replace("first.sql", "other.sql")),
+    ).toThrow(/posição 1/);
+  });
+
   it("não interpreta pacote sem marcador como migration válida", () => {
     expect(splitDeltaMigrations("select 1;")).toEqual([]);
   });
@@ -67,6 +86,28 @@ select 2;`;
     expect(source).toContain("reconcileLegacyMigrationMarker");
     expect(source).toContain("buildLegacyReconciliationInspectionSql");
     expect(source).not.toContain("for (const item of historical) appliedLabels.add");
+    expect(source).toContain("if (hasLegacyBlob) {");
+    expect(source).not.toContain("hasLegacyBlob && appliedLabels.size === 0");
+  });
+
+  it("bloqueia progresso Master concluído sem confirmação equivalente no ledger Client", () => {
+    const row = {
+      migration_file: "20260901000000_first.sql",
+      fingerprint: "legacy-fingerprint",
+      package_position: 1,
+      statement_index: 1,
+      total_statements: 1,
+      status: "completed" as const,
+    };
+    expect(() => assertCompletedProgressBackedByClientLedger([row], new Set())).toThrow(
+      /ledger Client.*posição 1/,
+    );
+    expect(() =>
+      assertCompletedProgressBackedByClientLedger(
+        [row],
+        new Set([`${row.migration_file}:${row.fingerprint}`]),
+      ),
+    ).not.toThrow();
   });
 
   it("NEW usa o mesmo executor canônico do UPDATE", () => {

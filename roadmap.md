@@ -1,5 +1,16 @@
 # Roadmap
 
+# MASTER 1.4.12 — endurecimento do UPDATE legado
+
+- [x] Validar integralmente arquivo, observação e chave determinística das evidências antes de qualquer promoção.
+- [x] Vincular cada promoção ao SHA-256 canônico e ao total de statements do pacote autorizado, preservando o fingerprint legado apenas para leitura compatível.
+- [x] Reconciliar ledger misto sempre que existir marcador cumulativo legado, sem reaplicar migrations comprovadas.
+- [x] Bloquear progresso concluído no Master quando não houver confirmação correspondente no ledger Client.
+- [x] Preservar o executor compartilhado do NEW, o pacote Client de 85 blocos, RBAC/RLS/auth, leases e fencing existentes.
+- [x] Concluir testes focados, typecheck e lint sem SQL remoto, UPDATE, retry, NEW ou publicação.
+- [ ] Executar integração PostgreSQL real somente após os gates administrativos do ambiente descartável autorizado.
+- [ ] Executar `master:check`, suíte global e build antes de qualquer publicação explicitamente autorizada.
+
 # MASTER 1.4.11 — P0 de atualização legada
 
 - [x] Promover somente evidências legadas integrais ao progresso canônico com pacote, posição, fingerprint, statements, lease e fencing validados.
@@ -450,3 +461,11 @@
 - [x] Impedir tela de erro quando o contador de mensagens roda durante perda ou renovação da sessão; sincronizar no MASTER 1.3.70.
 - [x] Eliminar bloqueios falsos de token nas instalações, unificar a leitura do cofre no runtime e distinguir acesso ausente de ilegível; sincronizar no MASTER 1.3.71.
 - [ ] Tornar criação, atualização, retomada e validação de ambientes resistentes a concorrência e diagnóstico incorreto; implementação e validação automatizada do MASTER 1.3.72 concluídas (297 testes de instalação + 41 guardiões), pendentes apenas publicação autorizada, ensaio descartável real e recuperação/revalidação da Apex.
+\n## UPDATE legado robusto (Master 1.4.12)
+- [ ] Contratos, fixtures e testes fail-closed
+- [ ] SHA-256 canônico com dual-read legado
+- [ ] Ledger misto e promoção cross-store retomável
+- [ ] RPCs Control-plane, bootstrap e verificadores
+- [ ] Pacote/versionamento MASTER-first
+- [ ] Testes focados, master:check, suítes, typecheck, lint e build
+- [ ] Ensaio PostgreSQL real (bloqueado até gates administrativos; não executar automaticamente)
