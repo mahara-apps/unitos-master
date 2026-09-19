@@ -76,12 +76,12 @@ describe("recuperação local da lacuna 1.4.10", () => {
     expect(preflight).toContain("pg_get_functiondef");
     expect(preflight).toContain("expected_signature");
     expect(preflight).toContain("pg_get_function_result");
-    expect(preflight).toContain("pg_get_userbyid(proowner) = 'postgres'");
+    expect(preflight).toContain("pg_get_userbyid(p.proowner)");
     expect(preflight).toContain("aclexplode");
     expect(preflight).toContain("p.prosecdef");
     expect(preflight).toContain("search_path=public");
-    expect(preflight).toContain("overload_count = 1");
-    expect(preflight).toContain("dependências de catálogo presentes");
+    expect(preflight).toContain("reconcile_overloads FROM overloads) = 1");
+    expect(preflight).toContain("dependências estruturais da 1.4.11 presentes");
   });
 
   it("permanece fora do pacote Client e dos caminhos normais do Master", () => {

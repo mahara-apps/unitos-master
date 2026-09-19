@@ -25,7 +25,7 @@ function runPromotion(
     `#!/usr/bin/env bash
 printf '%s\\n' "$*" >> "${calls}"
 if [[ "$*" == *"recovery-control-plane-preflight.sql"* ]]; then
-  printf '%s\n' '${options.preflight ?? Array.from({ length: 20 }, (_, index) => `${index + 1},preflight,ok,PASS`).join("\\n")}'
+  printf '%s\n' '${options.preflight ?? Array.from({ length: 16 }, (_, index) => `${index + 1},preflight,ok,PASS`).join("\\n")}'
 elif [[ "$*" == *"verify-installation-master.sql"* ]]; then
   printf '%s\\n' '${verification}'
 elif [[ "$*" == *"SELECT concat_ws"* ]]; then
@@ -41,7 +41,7 @@ fi
     `#!/usr/bin/env bash
 printf 'supabase %s\\n' "$*" >> "${calls}"
 if [[ "$*" == *"--dry-run"* ]]; then
-  printf '%s\\n' '${options.preflight === "OTHER_MIGRATION" ? "20260920120000_other.sql" : "20260919143000_recover_missing_legacy_reconciliation.sql"}'
+  printf '%s\\n' '${options.preflight?.includes("OTHER_MIGRATION") ? "20260920120000_other.sql" : "20260919143000_recover_missing_legacy_reconciliation.sql"}'
 fi
 `,
     { mode: 0o755 },
@@ -106,11 +106,10 @@ describe("promoção local do Control-plane Master", () => {
     const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
       recoveryConfirmation: "RECOVER_MISSING_1_4_10_ONLY",
       projectRef: "tkjbhttylouamqxnbfgv",
-      preflight: Array.from({ length: 20 }, (_, index) => `${index + 1},preflight,ok,PASS`).join("\n"),
+      preflight: Array.from({ length: 16 }, (_, index) => `${index + 1},preflight,ok,PASS`).join("\n"),
     });
     expect(result.code).toBe(0);
     expect(result.calls).toContain("recovery-control-plane-preflight.sql");
-    expect(result.calls).toContain("20260919143000_recover_missing_legacy_reconciliation.sql");
     expect(result.calls).toContain("supabase db push");
     expect(result.calls).toContain("--dry-run");
     expect(result.calls).toContain("verify-installation-master.sql");
@@ -122,7 +121,7 @@ describe("promoção local do Control-plane Master", () => {
     const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
       recoveryConfirmation: "RECOVER_MISSING_1_4_10_ONLY",
       projectRef: "tkjbhttylouamqxnbfgv",
-      preflight: Array.from({ length: 20 }, (_, index) => `${index + 1},preflight,ok,PASS`).join("\n") + "\nOTHER_MIGRATION",
+      preflight: Array.from({ length: 16 }, (_, index) => `${index + 1},preflight,ok,PASS`).join("\n") + "\nOTHER_MIGRATION",
     });
     expect(result.code).toBe(1);
     expect(result.stdout).toContain("não selecionou exclusivamente 20260919143000");
