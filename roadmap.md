@@ -2,10 +2,10 @@
 
 # MASTER 1.4.15 — congelamento global fail-closed do Control-plane
 
-- [ ] Criar estado singleton auditável, RPCs restritas e bloqueio transacional das mutações operacionais.
-- [ ] Cobrir interface, rotas públicas, cron, worker e chamadas diretas com bloqueio antecipado e autoridade final no banco.
-- [ ] Exigir congelamento ativo no preflight e na recovery 1.4.14.
-- [ ] Criar ferramenta operacional de status/freeze/unfreeze com identidade Master, quiescência e confirmação explícita.
+- [x] Criar estado singleton auditável, RPCs restritas e bloqueio transacional das mutações operacionais.
+- [x] Cobrir interface, rotas públicas, cron, worker e chamadas diretas com bloqueio antecipado e autoridade final no banco.
+- [x] Exigir congelamento ativo no preflight e na recovery 1.4.14.
+- [x] Criar ferramenta operacional de status/freeze/unfreeze com identidade Master, quiescência e confirmação explícita.
 - [ ] Regenerar artefatos MASTER-first sem alterar o pacote Client e concluir testes locais, ensaio PostgreSQL, tipos, lint e build.
 - [ ] Não aplicar migration, freeze, recovery, UPDATE, NEW, retry, P0, publicação ou deploy sem autorização remota específica.
 

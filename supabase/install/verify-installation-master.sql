@@ -83,8 +83,12 @@ WITH expected_tables(name) AS (VALUES
     'installation_operations_freeze_super_admin_read','installation_operations_freeze_events_super_admin_read')
   UNION ALL
   SELECT 8, 'Master: grants mínimos das tabelas durable',
-    CASE WHEN bool_and(has_table_privilege('service_role','public.'||name,'SELECT,INSERT,UPDATE,DELETE')) THEN 'service_role ok' ELSE 'service_role incompleto' END,
-    CASE WHEN bool_and(has_table_privilege('service_role','public.'||name,'SELECT,INSERT,UPDATE,DELETE'))
+    CASE WHEN bool_and(CASE WHEN name IN ('installation_operations_freeze','installation_operations_freeze_events')
+      THEN has_table_privilege('service_role','public.'||name,'SELECT')
+      ELSE has_table_privilege('service_role','public.'||name,'SELECT,INSERT,UPDATE,DELETE') END) THEN 'service_role ok' ELSE 'service_role incompleto' END,
+    CASE WHEN bool_and(CASE WHEN name IN ('installation_operations_freeze','installation_operations_freeze_events')
+      THEN has_table_privilege('service_role','public.'||name,'SELECT')
+      ELSE has_table_privilege('service_role','public.'||name,'SELECT,INSERT,UPDATE,DELETE') END)
            AND bool_and(NOT has_table_privilege('anon','public.'||name,'SELECT,INSERT,UPDATE,DELETE')) THEN 'PASS' ELSE 'FAIL' END
   FROM expected_tables
   UNION ALL
