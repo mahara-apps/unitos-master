@@ -1,0 +1,17 @@
+{
+  "forbiddenMigration": "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql",
+  "preflightFile": "recovery-control-plane-preflight.sql",
+  "preflightSha256": "d2c78f5d34be3e2245d9f19cbcbee0685b0ab2d44eee2c6c273cf3acf7b8759e",
+  "recoveryFile": "20260919143000_recover_missing_legacy_reconciliation.sql",
+  "recoverySha256": "62789784a051d72c39c4524a5928b9d3362f4aa2922c69683daf482b2373d090",
+  "recoveryVersion": "20260919143000",
+  "releaseVersion": "1.4.14",
+  "repairsFile": "20260917184500_legacy_migration_reconciliation.sql",
+  "repairsSha256": "7a9dd018e24796b71b62a9bb8abf36da9c7acd358e8d8b1bb16066d141556627",
+  "repairsVersion": "20260917184500",
+  "requiresFile": "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql",
+  "requiresSha256": "3a610faebe50d7a2b67c3e781331fab2a5c02de4a4a0668ad1124f1e47fef68d",
+  "requiresVersion": "20260917190721",
+  "schemaVersion": 1,
+  "targetProjectRef": "tkjbhttylouamqxnbfgv"
+}

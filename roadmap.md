@@ -1,5 +1,16 @@
 # Roadmap
 
+# MASTER 1.4.14 — recuperação local da lacuna Control-plane 1.4.10
+
+- [x] Criar artefato de recuperação exclusivo do Master, com identidade própria e sem SQL da 1.4.11.
+- [x] Exigir preflight read-only, alvo Master exato, ausência integral dos objetos, dependências presentes e nenhuma operação ativa.
+- [x] Selar migration, origem reparada, dependência e preflight por SHA-256 em manifesto próprio.
+- [x] Adicionar modo oficial transacional, fail-closed e separado de convergência/bootstrap.
+- [x] Preservar o ledger histórico: não registrar 1.4.10 e registrar somente a recuperação após pós-condições.
+- [x] Manter o pacote Client em 85 blocos e SHA canônico inalterado.
+- [x] Concluir testes locais, `master:check`, typecheck, lint focado e build.
+- [ ] Aplicar no Control-plane remoto somente após autorização específica; depois executar diagnóstico read-only da Apex antes de qualquer UPDATE.
+
 # MASTER 1.4.13 — setup reproduzível da suíte global
 
 - [x] Identificar que o setup global apenas limpava fixtures e pressupunha o schema Client.

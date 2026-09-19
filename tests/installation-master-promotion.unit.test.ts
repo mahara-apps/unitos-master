@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -7,7 +7,15 @@ import { describe, expect, it } from "vitest";
 
 const SCRIPT = "supabase/master/tools/promote_master_control_plane.sh";
 
-function runPromotion(mode: "--converge-existing" | "--bootstrap-clean", verification: string) {
+function runPromotion(
+  mode: "--converge-existing" | "--bootstrap-clean" | "--recover-missing-1.4.10",
+  verification: string,
+  options: {
+    recoveryConfirmation?: string;
+    projectRef?: string;
+    preflight?: string;
+  } = {},
+) {
   const directory = mkdtempSync(join(tmpdir(), "unitos-master-promotion-"));
   const calls = join(directory, "calls.txt");
   const fakePsql = join(directory, "psql");
@@ -15,7 +23,9 @@ function runPromotion(mode: "--converge-existing" | "--bootstrap-clean", verific
     fakePsql,
     `#!/usr/bin/env bash
 printf '%s\\n' "$*" >> "${calls}"
-if [[ "$*" == *"verify-installation-master.sql"* ]]; then
+if [[ "$*" == *"recovery-control-plane-preflight.sql"* ]]; then
+  printf '%s\n' '${options.preflight ?? verification}'
+elif [[ "$*" == *"verify-installation-master.sql"* ]]; then
   printf '%s\\n' '${verification}'
 fi
 `,
@@ -27,7 +37,9 @@ fi
       env: {
         PATH: `${directory}:${process.env["PATH"] ?? ""}`,
         UNITOS_MASTER_PROMOTION: "I_UNDERSTAND_MASTER_ONLY",
-        MASTER_DATABASE_URL: "postgresql://master.invalid/postgres",
+        MASTER_DATABASE_URL: `postgresql://tkjbhttylouamqxnbfgv.master.invalid/postgres`,
+        UNITOS_MASTER_RECOVERY: options.recoveryConfirmation ?? "",
+        MASTER_PROJECT_REF: options.projectRef ?? "",
       },
       encoding: "utf8",
       timeout: 10_000,
@@ -38,7 +50,7 @@ fi
     return {
       code: failure.status ?? 1,
       stdout: `${failure.stdout ?? ""}${failure.stderr ?? ""}`,
-      calls: readFileSync(calls, "utf8"),
+      calls: existsSync(calls) ? readFileSync(calls, "utf8") : "",
     };
   }
 }
@@ -67,5 +79,37 @@ describe("promoção local do Control-plane Master", () => {
     const result = runPromotion("--converge-existing", "1,controle,divergente,FAIL");
     expect(result.code).toBe(1);
     expect(result.stdout).toContain("verificador Master encontrou divergências");
+  });
+
+  it("bloqueia recuperação sem confirmação e identidade específicas", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS");
+    expect(result.code).toBe(2);
+    expect(result.calls).toBe("");
+  });
+
+  it("recupera somente o artefato dedicado após preflight e verifica", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      recoveryConfirmation: "RECOVER_MISSING_1_4_10_ONLY",
+      projectRef: "tkjbhttylouamqxnbfgv",
+      preflight: "1,preflight,ok,PASS",
+    });
+    expect(result.code).toBe(0);
+    expect(result.calls).toContain("recovery-control-plane-preflight.sql");
+    expect(result.calls).toContain("20260919143000_recover_missing_legacy_reconciliation.sql");
+    expect(result.calls).toContain("--single-transaction");
+    expect(result.calls).toContain("verify-installation-master.sql");
+    expect(result.calls).not.toContain("convergence-control-plane.sql");
+    expect(result.calls).not.toContain("bootstrap-control-plane.sql");
+  });
+
+  it("não aplica recuperação quando o preflight falha", () => {
+    const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      recoveryConfirmation: "RECOVER_MISSING_1_4_10_ONLY",
+      projectRef: "tkjbhttylouamqxnbfgv",
+      preflight: "1,preflight,divergente,FAIL",
+    });
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain("preflight da recuperação encontrou divergências");
+    expect(result.calls).not.toContain("20260919143000_recover_missing_legacy_reconciliation.sql");
   });
 });
