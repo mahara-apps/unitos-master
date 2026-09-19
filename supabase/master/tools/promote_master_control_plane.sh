@@ -78,6 +78,25 @@ PY
     echo "Bloqueado: fila temporária contém migration proibida" >&2
     exit 1
   fi
+  stage_sha256() {
+    python3 - "$STAGE" <<'PY'
+import hashlib
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1])
+digest = hashlib.sha256()
+for path in sorted(item for item in root.rglob("*") if item.is_file()):
+    relative = path.relative_to(root).as_posix().encode("utf-8")
+    content = path.read_bytes()
+    digest.update(len(relative).to_bytes(8, "big"))
+    digest.update(relative)
+    digest.update(len(content).to_bytes(8, "big"))
+    digest.update(content)
+print(digest.hexdigest())
+PY
+  }
+  STAGE_SHA256="$(stage_sha256)"
   supabase db push --db-url "$MASTER_DATABASE_URL" --workdir "$STAGE" --dry-run > "$DRY_RUN" 2>&1
   mapfile -t SELECTED < <(grep -Eo '[0-9]{14}[^[:space:]]*\.sql' "$DRY_RUN" | sort -u)
   if [[ "${#SELECTED[@]}" -ne 1 || "${SELECTED[0]}" != "20260919143000_recover_missing_legacy_reconciliation.sql" ]]; then
@@ -87,6 +106,10 @@ PY
   fi
   if grep -Eq '20260917184500|20260917190721' "$DRY_RUN"; then
     echo "Bloqueado: executor tentou selecionar 1.4.10 ou reaplicar 1.4.11" >&2
+    exit 1
+  fi
+  if [[ "$(stage_sha256)" != "$STAGE_SHA256" ]]; then
+    echo "Bloqueado: staging foi alterado entre o selo e a execução" >&2
     exit 1
   fi
   supabase db push --db-url "$MASTER_DATABASE_URL" --workdir "$STAGE"

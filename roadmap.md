@@ -8,6 +8,9 @@
 - [x] Adicionar modo oficial transacional, fail-closed e separado de convergência/bootstrap.
 - [x] Preservar o ledger histórico: não registrar 1.4.10 e delegar ao executor oficial o registro exclusivo da recuperação.
 - [x] Validar integralmente assinatura, corpo, propriedades, owner, ACL e dependências da 1.4.11 antes da recuperação.
+- [x] Tratar PUBLIC exclusivamente por `aclexplode` com `grantee = 0`, sem resolver a pseudo-role como role nomeada.
+- [x] Selar o staging por SHA-256 e revalidá-lo imediatamente antes da execução oficial.
+- [x] Cobrir separadamente ledger, seleção, preflight incompleto, pseudo-role PUBLIC e adulteração do staging.
 - [x] Manter o pacote Client em 85 blocos e SHA canônico inalterado.
 - [x] Concluir testes locais, `master:check`, typecheck, lint focado e build.
 - [ ] Aplicar no Control-plane remoto somente após autorização específica; depois executar diagnóstico read-only da Apex antes de qualquer UPDATE.

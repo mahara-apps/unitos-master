@@ -84,6 +84,13 @@ describe("recuperação local da lacuna 1.4.10", () => {
     expect(preflight).toContain("dependências estruturais da 1.4.11 presentes");
   });
 
+  it("trata PUBLIC exclusivamente como grantee zero na ACL expandida", () => {
+    expect(preflight).toContain("g.grantee = 0");
+    expect(preflight).toContain("aclexplode(coalesce(proacl, acldefault('f', proowner)))");
+    expect(preflight).not.toContain("has_function_privilege('public'");
+    expect(preflight).not.toContain('has_function_privilege("public"');
+  });
+
   it("permanece fora do pacote Client e dos caminhos normais do Master", () => {
     const destinations = readFileSync(
       "supabase/baseline-snapshot/tools/migration-destinations.json",
