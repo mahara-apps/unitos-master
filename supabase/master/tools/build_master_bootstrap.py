@@ -13,6 +13,7 @@ VERSION = ROOT / "baseline-snapshot" / "tools" / "delta_version.txt"
 CONVERGENCE = ROOT / "master" / "001_control_plane_convergence_v1_4_3.sql"
 RECONCILIATION = ROOT / "migrations" / "20260917184500_legacy_migration_reconciliation.sql"
 P0_HARDENING = ROOT / "migrations" / "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql"
+GLOBAL_FREEZE = ROOT / "master" / "002_control_plane_global_freeze.sql"
 RECOVERY_BUILDER = ROOT / "master" / "tools" / "build_master_recovery.py"
 OUT = ROOT / "master" / "bootstrap-control-plane.sql"
 METADATA = ROOT / "master" / "bootstrap-control-plane.json"
@@ -53,6 +54,7 @@ def build() -> tuple[str, str]:
         parts.extend([f"-- MIGRATION {name}\n", (MIGRATIONS / name).read_text(encoding="utf-8").rstrip() + "\n\n"])
     if not inserted:
         raise SystemExit("ponto de convergência Master ausente")
+    parts.extend(["-- MASTER GLOBAL FREEZE\n", GLOBAL_FREEZE.read_text(encoding="utf-8").rstrip() + "\n\n"])
     bootstrap = "".join(parts)
     metadata = json.dumps(
         {
@@ -65,6 +67,8 @@ def build() -> tuple[str, str]:
             "reconciliationSha256": sha256(RECONCILIATION.read_bytes()),
             "p0HardeningFile": P0_HARDENING.name,
             "p0HardeningSha256": sha256(P0_HARDENING.read_bytes()),
+            "globalFreezeFile": GLOBAL_FREEZE.name,
+            "globalFreezeSha256": sha256(GLOBAL_FREEZE.read_bytes()),
             "bootstrapFile": OUT.name,
             "bootstrapSha256": sha256(bootstrap.encode()),
         },
