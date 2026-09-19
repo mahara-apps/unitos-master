@@ -9,7 +9,7 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "test:global:master": "UNITOS_TEST_ENV=INTEGRATION_TEST_SUITE UNITOS_REAL_TEST_PROJECT_REF=xemwzgbzpokslnpatqsk UNITOS_INTEGRATION_TEST_PROJECT_REF=xemwzgbzpokslnpatqsk SUPABASE_PROJECT_ID=xemwzgbzpokslnpatqsk SUPABASE_URL=https://xemwzgbzpokslnpatqsk.supabase.co vitest run",
+    "test:global:master": "UNITOS_TEST_ENV=INTEGRATION_TEST_SUITE UNITOS_REAL_TEST_PROJECT_REF=xemwzgbzpokslnpatqsk UNITOS_INTEGRATION_TEST_PROJECT_REF=xemwzgbzpokslnpatqsk SUPABASE_PROJECT_ID=xemwzgbzpokslnpatqsk SUPABASE_URL=https://xemwzgbzpokslnpatqsk.supabase.co vitest run --project local --project runtime --project integration --project integration-audit",
     "test:integration:master": "UNITOS_TEST_ENV=INTEGRATION_TEST_SUITE UNITOS_REAL_TEST_PROJECT_REF=xemwzgbzpokslnpatqsk UNITOS_INTEGRATION_TEST_PROJECT_REF=xemwzgbzpokslnpatqsk SUPABASE_PROJECT_ID=xemwzgbzpokslnpatqsk SUPABASE_URL=https://xemwzgbzpokslnpatqsk.supabase.co vitest run --project integration",
     "format": "prettier --write .",
     "master:check": "python3 supabase/baseline-snapshot/tools/build_delta.py && python3 supabase/master/tools/build_master_bootstrap.py --check && vitest run tests/installation-master-sync.unit.test.ts tests/installation-master-promotion.unit.test.ts tests/installation-baseline-completeness.unit.test.ts",
