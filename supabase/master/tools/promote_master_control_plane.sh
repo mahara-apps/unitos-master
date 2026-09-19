@@ -41,7 +41,7 @@ if host != f"db.{ref}.supabase.co" and not (host.endswith(".pooler.supabase.com"
     raise SystemExit("Bloqueado: conexão não identifica exatamente o projeto Master")
 PY
   python3 "$ROOT/supabase/master/tools/build_master_recovery.py" --check
-  python3 "$ROOT/supabase/master/tools/verify_master_recovery_stage.py" --root "$ROOT"
+  python3 "$ROOT/supabase/master/tools/verify_master_recovery_stage.py" --root "$ROOT/supabase"
   if [[ ! -x "$SUPABASE_CLI" ]]; then
     echo "Bloqueado: Supabase CLI oficial fixada ausente" >&2
     exit 2
@@ -93,7 +93,7 @@ PY
     exit 1
   fi
   python3 "$ROOT/supabase/master/tools/verify_master_recovery_stage.py" \
-    --root "$ROOT" --stage "$STAGE" --ledger "$LEDGER_SNAPSHOT"
+    --root "$ROOT/supabase" --stage "$STAGE" --ledger "$LEDGER_SNAPSHOT"
   stage_sha256() {
     python3 - "$STAGE" <<'PY'
 import hashlib
@@ -136,7 +136,7 @@ PY
     exit 1
   fi
   python3 "$ROOT/supabase/master/tools/verify_master_recovery_stage.py" \
-    --root "$ROOT" --stage "$STAGE" --ledger "$LEDGER_SNAPSHOT"
+    --root "$ROOT/supabase" --stage "$STAGE" --ledger "$LEDGER_SNAPSHOT"
   if [[ "$(stage_sha256)" != "$STAGE_SHA256" ]]; then
     echo "Bloqueado: staging foi alterado entre o selo e a execução" >&2
     exit 1
@@ -164,7 +164,7 @@ if [[ -n "$SQL" ]]; then
 fi
 
 REPORT="$(mktemp)"
-trap 'rm -f "$REPORT" "${PREFLIGHT:-}"' EXIT
+trap 'rm -f "$REPORT" "${PREFLIGHT:-}" "${DRY_RUN:-}" "${LEDGER_SNAPSHOT:-}" "${LEDGER_CURRENT:-}"; [[ -z "${STAGE:-}" ]] || rm -rf "$STAGE"' EXIT
 psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --csv \
   --file "$ROOT/supabase/install/verify-installation-master.sql" > "$REPORT"
 if grep -q ',FAIL$' "$REPORT"; then
