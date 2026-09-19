@@ -12,11 +12,19 @@ export type LegacyEvidenceResult = {
   observed: string;
 };
 
-type Migration = { file: string; sql: string; fingerprint: string };
+type Migration = {
+  file: string;
+  sql: string;
+  fingerprint: string;
+  canonicalSha256?: string;
+  totalStatements?: number;
+};
 export type LegacyPromotion = {
   file: string;
   fingerprint: string;
+  canonicalSha256: string;
   position: number;
+  totalStatements: number;
 };
 const CONTRACT = [
   [21, "partial_compatibility"],
@@ -196,12 +204,19 @@ export function normalizeLegacyEvidenceRows(rows: unknown[]): LegacyEvidenceResu
     const classification = String(row["classification"] ?? "") as LegacyEvidenceClassification;
     const status = String(row["status"] ?? "") as LegacyEvidenceStatus;
     const evidenceKey = String(row["evidence_key"] ?? "");
+    const migrationFile = String(row["migration_file"] ?? "");
+    const observed = String(row["observed"] ?? "");
+    const expectedEvidenceKey = expected
+      ? `${position}:${migrationFile}:${expected[1]}`
+      : "";
     if (
       !expected ||
       seenPositions.has(position) ||
       classification !== expected[1] ||
       !["compatible", "divergent", "insufficient"].includes(status) ||
-      !evidenceKey ||
+      !migrationFile ||
+      !observed ||
+      evidenceKey !== expectedEvidenceKey ||
       seenEvidence.has(evidenceKey)
     ) {
       throw new Error("Resposta de reconciliação diverge do contrato canônico de evidências.");
@@ -210,11 +225,11 @@ export function normalizeLegacyEvidenceRows(rows: unknown[]): LegacyEvidenceResu
     seenEvidence.add(evidenceKey);
     results.push({
       position,
-      migration_file: String(row["migration_file"] ?? ""),
+      migration_file: migrationFile,
       classification,
       evidence_key: evidenceKey,
       status,
-      observed: String(row["observed"] ?? ""),
+      observed,
     });
   }
   if (results.length !== CONTRACT.length)
@@ -266,6 +281,18 @@ export function buildLegacyPromotionInventory(
       if (!migration || !evidence || evidence.migration_file !== migration.file) {
         throw new Error(`Evidência legada diverge do pacote fixado na posição ${position}.`);
       }
-      return { file: migration.file, fingerprint: migration.fingerprint, position };
+      if (!migration.canonicalSha256 || !/^[0-9a-f]{64}$/.test(migration.canonicalSha256)) {
+        throw new Error(`SHA-256 canônico ausente na posição ${position}.`);
+      }
+      if (!Number.isInteger(migration.totalStatements) || (migration.totalStatements ?? 0) < 0) {
+        throw new Error(`Total de statements canônico ausente na posição ${position}.`);
+      }
+      return {
+        file: migration.file,
+        fingerprint: migration.fingerprint,
+        canonicalSha256: migration.canonicalSha256,
+        position,
+        totalStatements: migration.totalStatements ?? 0,
+      };
     });
 }
