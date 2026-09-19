@@ -220,6 +220,12 @@ async function guard(context: { supabase: unknown; userId: string }) {
   await assertSuperAdmin(context.supabase as unknown as RpcClient, context.userId);
 }
 
+async function mutationGuard(context: { supabase: unknown; userId: string }) {
+  await guard(context);
+  const { assertInstallationOperationsWritable } = await import("./freeze.server");
+  await assertInstallationOperationsWritable(context.supabase as never);
+}
+
 export async function resolveInstallationManagerAccess(
   read: () => Promise<boolean>,
 ): Promise<boolean> {
@@ -423,7 +429,7 @@ export async function reconcileStuckOperations(context: { supabase: unknown }): 
 export const listInstallationsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await guard(context);
+    await mutationGuard(context);
     await reconcileStuckOperations(context);
     const { data, error } = await context.supabase
       .from("installations")
@@ -599,7 +605,7 @@ export const updateInstallationFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => UpdateInput.parse(input))
   .handler(async ({ data, context }) => {
-    await guard(context);
+    await mutationGuard(context);
     const validation = validateInstallationInput(data);
     if (!validation.ok) throw new Error(validation.error);
 
@@ -696,7 +702,7 @@ export const deleteInstallationFn = createServerFn({ method: "POST" })
     z.object({ id: z.string().uuid(), confirmLabel: z.string().min(1) }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    await guard(context);
+    await mutationGuard(context);
     await assertCriticalInstallationConfirm(
       context,
       data.id,
@@ -728,7 +734,7 @@ export const setInstallationServiceStateFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    await guard(context);
+    await mutationGuard(context);
     const suspend = data.state === "suspended";
     const reason = (data.reason ?? "").trim();
     if (suspend && !reason) throw new Error("Informe o motivo da suspensão.");
@@ -806,7 +812,7 @@ export const startInstallationOperationFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => StartInput.parse(input))
   .handler(async ({ data, context }) => {
-    await guard(context);
+    await mutationGuard(context);
     await assertCriticalInstallationConfirm(
       context,
       data.id,
@@ -943,7 +949,7 @@ export const completeInstallationOperationFn = createServerFn({ method: "POST" }
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => CompleteInput.parse(input))
   .handler(async ({ data, context }) => {
-    await guard(context);
+    await mutationGuard(context);
 
     const { data: op, error } = await context.supabase
       .from("installation_operations")
@@ -985,7 +991,7 @@ export const cancelInstallationOperationFn = createServerFn({ method: "POST" })
     z.object({ operationId: z.string().uuid(), confirmLabel: z.string().min(1) }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    await guard(context);
+    await mutationGuard(context);
     const { data: op, error } = await context.supabase
       .from("installation_operations")
       .select("*")
@@ -1309,7 +1315,7 @@ export const runAutomatedProvisionFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    await guard(context);
+    await mutationGuard(context);
     await assertCriticalInstallationConfirm(
       context,
       data.id,
@@ -1332,7 +1338,7 @@ export const runAutomatedValidateFn = createServerFn({ method: "POST" })
     z.object({ id: z.string().uuid(), confirmLabel: z.string().min(1) }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    await guard(context);
+    await mutationGuard(context);
     await assertCriticalInstallationConfirm(
       context,
       data.id,
@@ -1406,7 +1412,7 @@ export const restartAutomatedProvisionFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    await guard(context);
+    await mutationGuard(context);
     await assertCriticalInstallationConfirm(
       context,
       data.id,
@@ -1533,7 +1539,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    await guard(context);
+    await mutationGuard(context);
     await assertCriticalInstallationConfirm(
       context,
       data.id,

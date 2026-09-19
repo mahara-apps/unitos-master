@@ -16,6 +16,9 @@ WITH facts AS (
     to_regclass('public.installation_operation_migrations') IS NOT NULL AS has_operation_migrations,
     to_regclass('public.installation_operation_attempts') IS NOT NULL AS has_attempts,
     to_regprocedure('public.is_super_admin(uuid)') IS NOT NULL AS has_super_admin,
+    to_regclass('public.installation_operations_freeze') IS NOT NULL AS has_freeze_table,
+    to_regprocedure('public.read_installation_operations_freeze()') IS NOT NULL AS has_freeze_rpc,
+    coalesce((SELECT frozen FROM public.installation_operations_freeze WHERE singleton IS TRUE), false) AS freeze_active,
     NOT EXISTS (SELECT 1 FROM public.installation_operations WHERE status IN ('pending','running','retryable') AND (lease_expires_at IS NULL OR lease_expires_at > now())) AS no_active_operations
 ), fn_811(fn, expected_signature, expected_arg_names, expected_arg_types, expected_result, expected_body_md5) AS (VALUES
   ('reconcile', 'reconcile_installation_operation_migrations(uuid,text,bigint,jsonb)', ARRAY['_operation_id','_owner','_fencing_token','_migrations']::text[], ARRAY['uuid','text','bigint','jsonb']::text[], 'integer', 'abd43a4ec03634e6c9552eced6b7efe4'),
@@ -114,6 +117,9 @@ WITH facts AS (
   -- 1.4.11: dependências estruturais da 1.4.11 presentes (tabelas consumidas por reconcile e normalize)
   UNION ALL SELECT 11, 'dependências estruturais da 1.4.11 presentes',
     CASE WHEN has_installations AND has_operations AND has_operation_migrations AND has_attempts THEN 'PASS' ELSE 'FAIL' END
+  FROM facts
+  UNION ALL SELECT 12, 'congelamento global instalado e ativo',
+    CASE WHEN has_freeze_table AND has_freeze_rpc AND freeze_active THEN 'PASS' ELSE 'FAIL' END
   FROM facts
 )
 SELECT ord, check_name, status FROM checks ORDER BY ord;

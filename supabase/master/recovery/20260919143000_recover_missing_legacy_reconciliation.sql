@@ -6,6 +6,7 @@
 BEGIN;
 
 SELECT pg_advisory_xact_lock(hashtextextended('unitos:master:control-plane-promotion', 0));
+SELECT pg_advisory_xact_lock(hashtextextended('unitos:master:installation-operations-freeze', 0));
 
 DO $unitos_recovery_precondition$
 DECLARE
@@ -19,6 +20,11 @@ BEGIN
   END IF;
   IF EXISTS (SELECT 1 FROM supabase_migrations.schema_migrations WHERE version = '20260919143000') THEN
     RAISE EXCEPTION 'Recuperação bloqueada: migration de recuperação já está registrada' USING ERRCODE = '55000';
+  END IF;
+  IF to_regclass('public.installation_operations_freeze') IS NULL
+     OR to_regprocedure('public.read_installation_operations_freeze()') IS NULL
+     OR NOT coalesce((SELECT frozen FROM public.installation_operations_freeze WHERE singleton IS TRUE), false) THEN
+    RAISE EXCEPTION 'Recuperação bloqueada: congelamento global não está ativo' USING ERRCODE = '55000';
   END IF;
 
   SELECT array_remove(ARRAY[

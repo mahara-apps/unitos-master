@@ -38,6 +38,13 @@ export const Route = createFileRoute("/api/public/installations/report")({
           await import("@/lib/installation/runner.server");
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { assertInstallationOperationsWritable } =
+          await import("@/lib/installation/freeze.server");
+        try {
+          await assertInstallationOperationsWritable(supabaseAdmin as never);
+        } catch {
+          return new Response("Installation operations are frozen", { status: 423 });
+        }
         const tokenHash = await hashRunToken(parsed.event.token);
 
         const { data: op, error } = await supabaseAdmin
