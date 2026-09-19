@@ -73,6 +73,7 @@ import {
   buildLegacyPromotionInventory,
   buildLegacyReconciliationInspectionSql,
   legacyEvidenceBlockReason,
+  type LegacyPromotion,
   normalizeLegacyEvidenceRows,
 } from "./legacy-reconciliation";
 
@@ -5199,6 +5200,7 @@ async function seedDeltaLedger(
       "alter table public._unitos_applied_deltas add column if not exists kind text not null default 'blob'",
       "alter table public._unitos_applied_deltas add column if not exists file text",
       "alter table public._unitos_applied_deltas add column if not exists fingerprint text",
+      "alter table public._unitos_applied_deltas add column if not exists canonical_sha256 text",
       "drop index if exists public._unitos_applied_deltas_file_key",
       "create unique index if not exists _unitos_applied_deltas_file_fingerprint_key on public._unitos_applied_deltas (file, fingerprint) where kind = 'migration'",
       HELPER_TABLE_HARDENING_SQL("public._unitos_applied_deltas"),
@@ -5620,7 +5622,7 @@ async function reconcileLegacyMigrationMarker(
   packageHash: string,
 ): Promise<
   | { ok: false; detail: string }
-  | { ok: true; promotions: Array<{ file: string; fingerprint: string; position: number }> }
+  | { ok: true; promotions: LegacyPromotion[] }
 > {
   const inspection = await management.query(buildLegacyReconciliationInspectionSql(migrations));
   if (!inspection.ok)
@@ -5780,6 +5782,7 @@ export async function applyDatabaseDelta(input: {
       ) &&
       !(row as Record<string, unknown>)["file"],
   );
+  let legacyPromotions: LegacyPromotion[] = [];
   if (hasLegacyBlob) {
     const legacy = await reconcileLegacyMigrationMarker(
       management,
@@ -5789,6 +5792,7 @@ export async function applyDatabaseDelta(input: {
       input.snapshot.sha256,
     );
     if (!legacy.ok) return { state: "blocked", detail: legacy.detail };
+    legacyPromotions = legacy.promotions;
     for (const promotion of legacy.promotions) {
       const ledgerLabel = `${promotion.file}:${promotion.fingerprint}`;
       const mark = await management.query(
@@ -5820,21 +5824,8 @@ export async function applyDatabaseDelta(input: {
     }
   }
   await reconcileCanonicalMigrations(client, operation, migrations, appliedLabels);
-  if (hasLegacyBlob) {
-    const promoted = buildLegacyPromotionInventory(
-      normalizeLegacyEvidenceRows(
-        (
-          await (client as never as {
-            rpc: (name: string, args: Record<string, unknown>) => Promise<{ data?: unknown }>;
-          }).rpc("read_installation_migration_reconciliation_evidence", {
-            _installation_id: operation.installation_id,
-            _package_hash: input.snapshot.sha256,
-          })
-        ).data as unknown[],
-      ),
-      migrations,
-    );
-    for (const promotion of promoted) {
+  if (legacyPromotions.length > 0) {
+    for (const promotion of legacyPromotions) {
       await checkpointLegacyPromotion(
         client,
         operation,
