@@ -3,7 +3,18 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, Github, KeyRound, Loader2, Plus, RefreshCw, Search, Server, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Github,
+  KeyRound,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Search,
+  Server,
+  XCircle,
+} from "lucide-react";
 
 import {
   createInstallationFn,
@@ -468,8 +479,8 @@ function AdminInstallationsPage() {
             <DialogTitle>Aplicar token do GitHub nas instalações</DialogTitle>
             <DialogDescription>
               Copia o token do GitHub do MASTER (segredo do servidor) para o cofre cifrado de{" "}
-              <strong>todas as instalações</strong> cadastradas. Use quando o token da organização
-              é regenerado e as operações de código começam a falhar com acesso negado. O valor do
+              <strong>todas as instalações</strong> cadastradas. Use quando o token da organização é
+              regenerado e as operações de código começam a falhar com acesso negado. O valor do
               token nunca é exibido.
             </DialogDescription>
           </DialogHeader>

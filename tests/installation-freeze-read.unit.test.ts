@@ -55,9 +55,9 @@ describe("leitura compatível do congelamento global", () => {
   });
 
   it("não classifica mensagem genérica de objeto ausente sem identificar a RPC", () => {
-    expect(isInstallationOperationsFreezeMissing({ message: "relation unrelated does not exist" })).toBe(
-      false,
-    );
+    expect(
+      isInstallationOperationsFreezeMissing({ message: "relation unrelated does not exist" }),
+    ).toBe(false);
   });
 
   it("rejeita payload inválido", async () => {
@@ -93,9 +93,7 @@ describe("escritas permanecem fail-closed", () => {
       ),
     ).rejects.toThrow("operação bloqueada");
     await expect(
-      assertInstallationOperationsWritable(
-        clientWith({ data: { frozen: false }, error: null }),
-      ),
+      assertInstallationOperationsWritable(clientWith({ data: { frozen: false }, error: null })),
     ).rejects.toThrow("operação bloqueada");
   });
 
