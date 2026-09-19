@@ -91,6 +91,42 @@ describe("recuperação local da lacuna 1.4.10", () => {
     expect(preflight).toContain("dependências estruturais da 1.4.11 presentes");
   });
 
+  it("compara nomes, tipos, ordem e quantidade sem depender da representação textual", () => {
+    expect(preflight).toContain(
+      "ARRAY['_operation_id','_owner','_fencing_token','_migrations']::text[]",
+    );
+    expect(preflight).toContain("ARRAY['uuid','text','bigint','jsonb']::text[]");
+    expect(preflight).toContain("ARRAY['_max_idle_seconds']::text[]");
+    expect(preflight).toContain("ARRAY['integer']::text[]");
+    expect(preflight).toContain("p.proargnames[i]");
+    expect(preflight).toContain("format_type(p.proargtypes[i], NULL)");
+    expect(preflight).toContain("pronargs = cardinality(expected_arg_types)");
+    expect(preflight).toContain("actual_arg_names = expected_arg_names");
+    expect(preflight).toContain("actual_arg_types = expected_arg_types");
+    expect(preflight).not.toContain("actual_identity_args = expected_identity_args");
+  });
+
+  it("mantém o bloqueio explícito de overloads por nome", () => {
+    expect(preflight).toContain("pp.proname = split_part(s.expected_signature, '(', 1)");
+    expect(preflight).toContain("reconcile_overloads FROM overloads) = 1");
+    expect(preflight).toContain("normalize_overloads FROM overloads) = 1");
+  });
+
+  it("possui ensaio PostgreSQL isolado para assinaturas e atomicidade", () => {
+    const script = readFileSync(
+      "supabase/master/tools/test_master_recovery_local.sh",
+      "utf8",
+    );
+    expect(script).toContain("pg_get_function_identity_arguments");
+    expect(script).toContain("assert_check_status 7");
+    expect(script).toContain("argument name mismatch");
+    expect(script).toContain("argument type mismatch");
+    expect(script).toContain("argument count mismatch");
+    expect(script).toContain("unexpected overload");
+    expect(script).toContain("ROLLBACK");
+    expect(script).toContain("20260919143000");
+  });
+
   it("trata PUBLIC exclusivamente como grantee zero na ACL expandida", () => {
     expect(preflight).toContain("g.grantee = 0");
     expect(preflight).toContain("aclexplode(coalesce(proacl, acldefault('f', proowner)))");

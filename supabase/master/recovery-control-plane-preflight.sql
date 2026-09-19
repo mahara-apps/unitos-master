@@ -17,16 +17,25 @@ WITH facts AS (
     to_regclass('public.installation_operation_attempts') IS NOT NULL AS has_attempts,
     to_regprocedure('public.is_super_admin(uuid)') IS NOT NULL AS has_super_admin,
     NOT EXISTS (SELECT 1 FROM public.installation_operations WHERE status IN ('pending','running','retryable') AND (lease_expires_at IS NULL OR lease_expires_at > now())) AS no_active_operations
-), fn_811(fn, expected_signature, expected_identity_args, expected_result, expected_body_md5) AS (VALUES
-  ('reconcile', 'reconcile_installation_operation_migrations(uuid,text,bigint,jsonb)', 'uuid, text, bigint, jsonb', 'integer', 'abd43a4ec03634e6c9552eced6b7efe4'),
-  ('normalize', 'normalize_legacy_installation_operations(integer)', 'integer', 'jsonb', '29f2435ed1a84f4a6f34cff166d4cd7d')
+), fn_811(fn, expected_signature, expected_arg_names, expected_arg_types, expected_result, expected_body_md5) AS (VALUES
+  ('reconcile', 'reconcile_installation_operation_migrations(uuid,text,bigint,jsonb)', ARRAY['_operation_id','_owner','_fencing_token','_migrations']::text[], ARRAY['uuid','text','bigint','jsonb']::text[], 'integer', 'abd43a4ec03634e6c9552eced6b7efe4'),
+  ('normalize', 'normalize_legacy_installation_operations(integer)', ARRAY['_max_idle_seconds']::text[], ARRAY['integer']::text[], 'jsonb', '29f2435ed1a84f4a6f34cff166d4cd7d')
 ), fn_detail AS (
-  SELECT s.fn, s.expected_signature, s.expected_identity_args, s.expected_result, s.expected_body_md5,
+  SELECT s.fn, s.expected_signature, s.expected_arg_names, s.expected_arg_types, s.expected_result, s.expected_body_md5,
     p.oid, p.prolang, p.prokind, p.provolatile, p.proisstrict, p.proleakproof,
-    p.proparallel, p.pronargdefaults, p.prosecdef, p.proconfig, p.proowner, p.proacl, p.prosrc,
+    p.proparallel, p.pronargs, p.pronargdefaults, p.prosecdef, p.proconfig, p.proowner, p.proacl, p.prosrc,
     (SELECT count(*) FROM pg_proc pp JOIN pg_namespace nn ON nn.oid = pp.pronamespace
        WHERE nn.nspname = 'public' AND pp.proname = split_part(s.expected_signature, '(', 1)) AS overload_count,
-    pg_get_function_identity_arguments(p.oid) AS actual_identity_args,
+    ARRAY(
+      SELECT p.proargnames[i]
+      FROM generate_series(1, p.pronargs::integer) AS i
+      ORDER BY i
+    ) AS actual_arg_names,
+    ARRAY(
+      SELECT format_type(p.proargtypes[i], NULL)
+      FROM generate_series(0, p.pronargs::integer - 1) AS i
+      ORDER BY i
+    ) AS actual_arg_types,
     pg_get_function_result(p.oid) AS actual_result,
     pg_get_functiondef(p.oid) AS functiondef,
     l.lanname, pg_get_userbyid(p.proowner) AS owner_name
@@ -55,10 +64,14 @@ WITH facts AS (
       THEN 'PASS' ELSE 'FAIL' END
   FROM fn_detail
 
-  -- 1.4.11: linguagem, retorno, argumentos e demais propriedades exatas
+  -- 1.4.11: nomes, tipos, ordem e quantidade dos argumentos são comparados
+  -- separadamente no catálogo; não dependem da representação textual (nomeada
+  -- ou sem nomes) produzida por pg_get_function_identity_arguments.
   UNION ALL SELECT 7, '1.4.11 ' || fn || ': linguagem, retorno, argumentos e propriedades exatos',
     CASE WHEN lanname = 'plpgsql' AND prokind = 'f' AND actual_result = expected_result
-      AND actual_identity_args = expected_identity_args AND provolatile = 'v'
+      AND pronargs = cardinality(expected_arg_types)
+      AND actual_arg_names = expected_arg_names AND actual_arg_types = expected_arg_types
+      AND provolatile = 'v'
       AND proisstrict IS FALSE AND proleakproof IS FALSE AND proparallel = 'u'
       AND pronargdefaults = CASE WHEN fn='normalize' THEN 1 ELSE 0 END
       THEN 'PASS' ELSE 'FAIL' END

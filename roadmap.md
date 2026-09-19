@@ -17,6 +17,8 @@
 - [x] Documentar as janelas residuais entre preflight, dry-run, validações finais e transação da CLI.
 - [x] Manter o pacote Client em 85 blocos e SHA canônico inalterado.
 - [x] Concluir testes locais, `master:check`, typecheck, lint focado e build.
+- [x] Corrigir o controle 7 para validar separadamente nomes, tipos, ordem e quantidade, sem depender da representação textual dos argumentos.
+- [ ] Executar e aprovar o ensaio PostgreSQL local isolado da recovery, incluindo assinaturas divergentes, overload, aplicação e rollback.
 - [ ] Aplicar no Control-plane remoto somente após autorização específica; depois executar diagnóstico read-only da Apex antes de qualquer UPDATE.
 
 # MASTER 1.4.13 — setup reproduzível da suíte global
