@@ -6,8 +6,8 @@ MODE="${1:-}"
 SUPABASE_CLI_VERSION="2.117.0"
 SUPABASE_CLI="${UNITOS_SUPABASE_CLI:-$ROOT/node_modules/.bin/supabase}"
 
-if [[ "$MODE" != "--converge-existing" && "$MODE" != "--bootstrap-clean" && "$MODE" != "--recover-missing-1.4.10" ]]; then
-  echo "Uso: $0 --converge-existing|--bootstrap-clean|--recover-missing-1.4.10" >&2
+if [[ "$MODE" != "--converge-existing" && "$MODE" != "--bootstrap-clean" && "$MODE" != "--install-global-freeze" && "$MODE" != "--recover-missing-1.4.10" ]]; then
+  echo "Uso: $0 --converge-existing|--bootstrap-clean|--install-global-freeze|--recover-missing-1.4.10" >&2
   exit 2
 fi
 if [[ "${UNITOS_MASTER_PROMOTION:-}" != "I_UNDERSTAND_MASTER_ONLY" ]]; then
@@ -21,11 +21,7 @@ fi
 
 python3 "$ROOT/supabase/master/tools/build_master_bootstrap.py" --check
 
-if [[ "$MODE" == "--recover-missing-1.4.10" ]]; then
-  if [[ "${UNITOS_MASTER_RECOVERY:-}" != "RECOVER_MISSING_1_4_10_ONLY" ]]; then
-    echo "Bloqueado: recuperação exige confirmação específica" >&2
-    exit 2
-  fi
+if [[ "$MODE" == "--recover-missing-1.4.10" || "$MODE" == "--install-global-freeze" ]]; then
   if [[ "${MASTER_PROJECT_REF:-}" != "tkjbhttylouamqxnbfgv" ]]; then
     echo "Bloqueado: identidade do Master não coincide com o manifesto" >&2
     exit 2
@@ -33,13 +29,18 @@ if [[ "$MODE" == "--recover-missing-1.4.10" ]]; then
   python3 - "$MASTER_DATABASE_URL" "$MASTER_PROJECT_REF" <<'PY'
 import sys
 from urllib.parse import urlparse
-parsed = urlparse(sys.argv[1])
-ref = sys.argv[2]
-host = parsed.hostname or ""
-user = parsed.username or ""
+parsed = urlparse(sys.argv[1]); ref = sys.argv[2]
+host = parsed.hostname or ""; user = parsed.username or ""
 if host != f"db.{ref}.supabase.co" and not (host.endswith(".pooler.supabase.com") and user.endswith(f".{ref}")):
     raise SystemExit("Bloqueado: conexão não identifica exatamente o projeto Master")
 PY
+fi
+
+if [[ "$MODE" == "--recover-missing-1.4.10" ]]; then
+  if [[ "${UNITOS_MASTER_RECOVERY:-}" != "RECOVER_MISSING_1_4_10_ONLY" ]]; then
+    echo "Bloqueado: recuperação exige confirmação específica" >&2
+    exit 2
+  fi
   python3 "$ROOT/supabase/master/tools/build_master_recovery.py" --check
   python3 "$ROOT/supabase/master/tools/verify_master_recovery_stage.py" --root "$ROOT/supabase"
   if [[ ! -x "$SUPABASE_CLI" ]]; then
@@ -153,6 +154,12 @@ PY
     exit 1
   fi
   SQL=""
+elif [[ "$MODE" == "--install-global-freeze" ]]; then
+  if [[ "${UNITOS_MASTER_FREEZE_INSTALL:-}" != "INSTALL_GLOBAL_FREEZE_ONLY" ]]; then
+    echo "Bloqueado: instalação do freeze exige confirmação específica" >&2
+    exit 2
+  fi
+  SQL="$ROOT/supabase/master/002_control_plane_global_freeze.sql"
 elif [[ "$MODE" == "--bootstrap-clean" ]]; then
   SQL="$ROOT/supabase/master/bootstrap-control-plane.sql"
 else

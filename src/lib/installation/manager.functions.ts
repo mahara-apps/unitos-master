@@ -323,6 +323,8 @@ export const getInstallationManagerAccessFn = createServerFn({ method: "POST" })
  * isto, uma queda no meio da execução deixa a instalação travada para sempre.
  */
 export async function reconcileStuckOperations(context: { supabase: unknown }): Promise<void> {
+  const { readInstallationOperationsFreeze } = await import("./freeze.server");
+  if ((await readInstallationOperationsFreeze(context.supabase as never)).frozen) return;
   const supabase = context.supabase as {
     from: (table: string) => {
       select: (columns: string) => {

@@ -31,6 +31,8 @@ def build() -> str:
         raise SystemExit("recuperação não pode escrever diretamente no ledger da Supabase")
     if "BEGIN;" not in recovery or "COMMIT;" not in recovery:
         raise SystemExit("recuperação deve preservar uma transação explícita")
+    if "congelamento global não está ativo" not in recovery:
+        raise SystemExit("recuperação deve exigir o congelamento global ativo")
     document = {
         "schemaVersion": 3,
         "releaseVersion": "1.4.14",
