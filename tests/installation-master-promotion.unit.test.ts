@@ -106,7 +106,9 @@ describe("promoção local do Control-plane Master", () => {
     const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
       recoveryConfirmation: "RECOVER_MISSING_1_4_10_ONLY",
       projectRef: "tkjbhttylouamqxnbfgv",
-      preflight: Array.from({ length: 16 }, (_, index) => `${index + 1},preflight,ok,PASS`).join("\n"),
+      preflight: Array.from({ length: 16 }, (_, index) => `${index + 1},preflight,ok,PASS`).join(
+        "\n",
+      ),
     });
     expect(result.code).toBe(0);
     expect(result.calls).toContain("recovery-control-plane-preflight.sql");
@@ -121,7 +123,9 @@ describe("promoção local do Control-plane Master", () => {
     const result = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
       recoveryConfirmation: "RECOVER_MISSING_1_4_10_ONLY",
       projectRef: "tkjbhttylouamqxnbfgv",
-      preflight: Array.from({ length: 16 }, (_, index) => `${index + 1},preflight,ok,PASS`).join("\n") + "\nOTHER_MIGRATION",
+      preflight:
+        Array.from({ length: 16 }, (_, index) => `${index + 1},preflight,ok,PASS`).join("\n") +
+        "\nOTHER_MIGRATION",
     });
     expect(result.code).toBe(1);
     expect(result.stdout).toContain("não selecionou exclusivamente 20260919143000");
