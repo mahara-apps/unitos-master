@@ -13,4 +13,5 @@
 - [x] Permitir exceção explícita somente por instalação descartável identificada.
 - [x] Preservar autorizações e proteções fail-closed independentes do backup.
 - [x] Validar testes focados e master:check.
-- [ ] Validar typecheck, lint e build.
+- [x] Validar typecheck e build; lint dos arquivos alterados.
+- [ ] Lint global bloqueado por erros preexistentes fora deste protocolo.
