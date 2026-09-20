@@ -55,7 +55,7 @@ BEGIN
        OR _package_total IS NULL
        OR _current_version IS DISTINCT FROM _target_release
        OR _detail->'stageProgress'->>'updateRelease' IS DISTINCT FROM _target_release
-       OR lower(coalesce(_detail->'stageProgress'->>'codeSha', '')) <> lower(_target_commit)
+       OR lower(coalesce(_detail->'stageProgress'->>'codeSourceSha', '')) <> lower(_target_commit)
        OR coalesce((_detail->'stageProgress'->>'codeDone')::boolean, false) IS NOT TRUE
        OR coalesce((_detail->'stageProgress'->>'updateDatabaseReconciled')::boolean, false) IS NOT TRUE
        OR coalesce((_detail->'stageProgress'->>'updateValidationPassed')::boolean, false) IS NOT TRUE
