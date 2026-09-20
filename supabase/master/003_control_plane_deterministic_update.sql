@@ -45,16 +45,14 @@ BEGIN
   IF NOT FOUND THEN RETURN false; END IF;
 
   IF _operation.kind = 'update' AND _operation_status = 'success' THEN
-    _target_release := nullif(btrim(_operation.detail->'packageSnapshot'->>'version'), '');
-    _target_commit := nullif(btrim(_operation.detail->'packageSnapshot'->>'commitSha'), '');
-    _package_hash := nullif(btrim(_operation.detail->'packageSnapshot'->>'sha256'), '');
-    _package_total := CASE WHEN (_operation.detail->'packageSnapshot'->>'totalMigrations') ~ '^[1-9][0-9]*$'
-      THEN (_operation.detail->'packageSnapshot'->>'totalMigrations')::integer ELSE NULL END;
+    _target_release := nullif(split_part(coalesce(_operation.baseline_id, ''), ':', 1), '');
+    _target_commit := nullif(split_part(coalesce(_operation.baseline_id, ''), ':', 2), '');
+    _package_hash := nullif(btrim(_operation.baseline_hash), '');
+    _package_total := CASE WHEN split_part(coalesce(_operation.baseline_id, ''), ':', 3) ~ '^[1-9][0-9]*$'
+      THEN split_part(_operation.baseline_id, ':', 3)::integer ELSE NULL END;
 
     IF _target_release IS NULL OR _target_commit IS NULL OR _package_hash !~ '^[0-9a-f]{64}$'
        OR _package_total IS NULL
-       OR _operation.baseline_id IS DISTINCT FROM concat_ws(':', _target_release, _target_commit, _package_total::text)
-       OR _operation.baseline_hash IS DISTINCT FROM _package_hash
        OR _current_version IS DISTINCT FROM _target_release
        OR _detail->'stageProgress'->>'updateRelease' IS DISTINCT FROM _target_release
        OR lower(coalesce(_detail->'stageProgress'->>'codeSha', '')) <> lower(_target_commit)

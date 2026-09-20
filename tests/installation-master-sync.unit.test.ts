@@ -294,6 +294,8 @@ describe("sincronia MASTER-first", () => {
       p0HardeningSha256: string;
       globalFreezeFile: string;
       globalFreezeSha256: string;
+      deterministicUpdateFile: string;
+      deterministicUpdateSha256: string;
     };
     const promotion = readFileSync("supabase/master/tools/promote_master_control_plane.sh", "utf8");
     const packageJson = readFileSync("package.json", "utf8");
@@ -315,6 +317,13 @@ describe("sincronia MASTER-first", () => {
     expect(metadata.globalFreezeFile).toBe("002_control_plane_global_freeze.sql");
     expect(metadata.globalFreezeSha256).toBe(await sha256Hex(globalFreeze));
     expect(masterBootstrap).toContain("-- MASTER GLOBAL FREEZE");
+    const deterministicUpdate = readFileSync(
+      "supabase/master/003_control_plane_deterministic_update.sql",
+      "utf8",
+    );
+    expect(metadata.deterministicUpdateFile).toBe("003_control_plane_deterministic_update.sql");
+    expect(metadata.deterministicUpdateSha256).toBe(await sha256Hex(deterministicUpdate));
+    expect(masterBootstrap).toContain("-- MASTER DETERMINISTIC UPDATE");
     expect(delta).not.toContain("installation_operations_freeze");
     expect(promotion).toContain("UNITOS_MASTER_PROMOTION:-");
     expect(promotion).toContain("MASTER_DATABASE_URL:-");

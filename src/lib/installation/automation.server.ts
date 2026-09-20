@@ -6143,6 +6143,8 @@ export async function runAutomatedUpdate(input: {
         "code",
       );
     }
+  }
+  if (publishedRelease !== checkpoint.updateRelease) {
     await saveStageProgress(client, operation, { updateRelease: publishedRelease });
   }
 

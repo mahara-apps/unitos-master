@@ -494,6 +494,12 @@ export async function finalizeOperation(
     return;
   }
 
+  if (kind === "update") {
+    throw new InstallationLeaseLostError(
+      "UPDATE automatizado sem lease/fencing não pode ser finalizado pelo caminho legado.",
+    );
+  }
+
   // Operações manuais legadas não possuem lease e continuam fechando pelo
   // caminho restrito ao Super Admin.
   const { data: closed, error: opError } = await client
