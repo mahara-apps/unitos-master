@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Valida, sem rede, a evidência de backup antes de escritas no Control-plane."""
+"""Valida, sem rede, a decisão de risco antes de escritas no Control-plane."""
 
 from __future__ import annotations
 
@@ -13,9 +13,9 @@ from pathlib import Path
 
 
 BACKUP_CONFIRMATION = "BACKUP_RESTORABLE_VERIFIED"
-EXCEPTION_CONFIRMATION = "ACCEPT_DISPOSABLE_INSTALLATION_BACKUP_RISK"
-DISPOSABLE_CONFIRMATION = "INSTALLATION_NOT_DELIVERED_AND_DISPOSABLE"
-UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", re.I)
+NO_BACKUP_CONFIRMATION = "ACCEPT_EXISTING_CONTROL_PLANE_WITHOUT_RESTORABLE_BACKUP"
+EXPECTED_PROJECT_REF = "tkjbhttylouamqxnbfgv"
+PROJECT_REF = re.compile(r"^[a-z]{20}$")
 
 
 def required(name: str) -> str:
@@ -36,13 +36,19 @@ def record(event: dict[str, str]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--scope", choices=("global", "installation"), required=True)
-    parser.add_argument("--installation-id", default="")
     args = parser.parse_args()
 
     backup_confirmation = os.environ.get("UNITOS_MASTER_BACKUP_CONFIRMATION", "").strip()
-    exception_confirmation = os.environ.get("UNITOS_MASTER_BACKUP_EXCEPTION", "").strip()
+    no_backup_confirmation = os.environ.get("UNITOS_MASTER_NO_BACKUP_CONFIRMATION", "").strip()
 
     try:
+        if args.scope != "global":
+            raise ValueError("Bloqueado: o gate do Control-plane aceita somente escopo global")
+
+        project_ref = required("MASTER_PROJECT_REF")
+        if not PROJECT_REF.fullmatch(project_ref) or project_ref != EXPECTED_PROJECT_REF:
+            raise ValueError("Bloqueado: identidade do Control-plane não coincide com o Master canônico")
+
         if backup_confirmation == BACKUP_CONFIRMATION:
             evidence = required("UNITOS_MASTER_BACKUP_EVIDENCE")
             operator = required("UNITOS_MASTER_BACKUP_OPERATOR")
@@ -51,41 +57,39 @@ def main() -> int:
                     "decision": "backup_verified",
                     "evidence": evidence,
                     "operator": operator,
+                    "project_ref": project_ref,
                     "scope": args.scope,
                 }
             )
             print(f"BACKUP_GATE=backup_verified evidence={evidence} operator={operator}")
             return 0
 
-        if exception_confirmation != EXCEPTION_CONFIRMATION:
-            raise ValueError("Bloqueado: backup restaurável obrigatório e sem evidência confirmada")
-        if args.scope != "installation":
-            raise ValueError("Bloqueado: exceção de backup nunca pode ter escopo global")
+        if no_backup_confirmation != NO_BACKUP_CONFIRMATION:
+            raise ValueError(
+                "Bloqueado: informe backup restaurável ou aceite explicitamente o risco global sem backup"
+            )
 
-        installation_id = args.installation_id.strip()
-        declared_id = required("UNITOS_MASTER_BACKUP_EXCEPTION_INSTALLATION_ID")
-        if not UUID.fullmatch(installation_id) or declared_id != installation_id:
-            raise ValueError("Bloqueado: exceção não identifica exatamente a instalação afetada")
-        if os.environ.get("UNITOS_MASTER_BACKUP_EXCEPTION_DISPOSABLE", "").strip() != DISPOSABLE_CONFIRMATION:
-            raise ValueError("Bloqueado: condição descartável e não entregue não foi confirmada")
+        declared_ref = required("UNITOS_MASTER_NO_BACKUP_PROJECT_REF")
+        if declared_ref != project_ref:
+            raise ValueError("Bloqueado: aceitação sem backup não identifica exatamente o Control-plane")
 
-        operator = required("UNITOS_MASTER_BACKUP_EXCEPTION_OPERATOR")
-        risk = required("UNITOS_MASTER_BACKUP_EXCEPTION_RISK_ACCEPTED")
+        operator = required("UNITOS_MASTER_NO_BACKUP_OPERATOR")
+        risk = required("UNITOS_MASTER_NO_BACKUP_RISK_ACCEPTED")
         if len(risk) < 20:
             raise ValueError("Bloqueado: risco aceito deve ser documentado de forma específica")
 
         record(
             {
-                "decision": "disposable_exception",
-                "installation_id": installation_id,
+                "decision": "global_no_backup_accepted",
                 "operator": operator,
+                "project_ref": project_ref,
                 "risk_accepted": risk,
                 "scope": args.scope,
             }
         )
         print(
-            "BACKUP_GATE=disposable_exception "
-            f"installation_id={installation_id} operator={operator} risk_accepted={risk}"
+            "BACKUP_GATE=global_no_backup_accepted "
+            f"project_ref={project_ref} operator={operator}"
         )
         return 0
     except ValueError as error:

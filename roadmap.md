@@ -23,6 +23,13 @@
 - [x] Validar typecheck e build; lint dos arquivos alterados.
 - [ ] Lint global bloqueado por erros preexistentes fora deste protocolo.
 
+## Revisão do gate global sem backup bloqueante
+- [x] Substituir exceção descartável por aceitação global vinculada ao Master existente.
+- [x] Exigir confirmação literal, identidade canônica, operador, risco específico e auditoria JSONL.
+- [x] Preservar autorizações próprias, preflight, freeze, fencing, ledger e fail-closed.
+- [x] Executar testes focados, master:check, typecheck, lint alterado e build.
+- [x] Manter todos os ambientes remotos intactos.
+
 ## Gate do freeze global
 - [x] Conectar freeze e unfreeze ao gate de backup com escopo global.
 - [x] Rejeitar exceção descartável e argumentos adicionais no comando global.

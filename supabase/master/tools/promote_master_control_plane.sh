@@ -23,19 +23,19 @@ if [[ -z "${MASTER_DATABASE_URL:-}" ]]; then
   exit 2
 fi
 
-# Toda promoção neste executor altera o Control-plane compartilhado. Portanto,
-# a exceção por instalação nunca é aceita aqui, inclusive para recovery.
+# Toda promoção neste executor altera o Control-plane compartilhado. O gate
+# aceita backup comprovado ou risco global explícito para o Master canônico;
+# nenhuma decisão por instalação é aceita, inclusive para recovery.
 python3 "$ROOT/supabase/master/tools/verify_master_backup_gate.py" --scope global
 
 python3 "$ROOT/supabase/master/tools/build_master_bootstrap.py" --check
 python3 "$ROOT/supabase/master/tools/build_control_plane_contract.py" --check
 
-if [[ "$MODE" == "--recover-missing-1.4.10" || "$MODE" == "--install-global-freeze" || "$MODE" == "--install-deterministic-update" ]]; then
-  if [[ "${MASTER_PROJECT_REF:-}" != "tkjbhttylouamqxnbfgv" ]]; then
-    echo "Bloqueado: identidade do Master não coincide com o manifesto" >&2
-    exit 2
-  fi
-  python3 - "$MASTER_DATABASE_URL" "$MASTER_PROJECT_REF" <<'PY'
+if [[ "${MASTER_PROJECT_REF:-}" != "tkjbhttylouamqxnbfgv" ]]; then
+  echo "Bloqueado: identidade do Master não coincide com o manifesto" >&2
+  exit 2
+fi
+python3 - "$MASTER_DATABASE_URL" "$MASTER_PROJECT_REF" <<'PY'
 import sys
 from urllib.parse import urlparse
 parsed = urlparse(sys.argv[1]); ref = sys.argv[2]
@@ -43,7 +43,6 @@ host = parsed.hostname or ""; user = parsed.username or ""
 if host != f"db.{ref}.supabase.co" and not (host.endswith(".pooler.supabase.com") and user.endswith(f".{ref}")):
     raise SystemExit("Bloqueado: conexão não identifica exatamente o projeto Master")
 PY
-fi
 
 if [[ "$MODE" == "--recover-missing-1.4.10" ]]; then
   if [[ "${UNITOS_MASTER_RECOVERY:-}" != "RECOVER_MISSING_1_4_10_ONLY" ]]; then
