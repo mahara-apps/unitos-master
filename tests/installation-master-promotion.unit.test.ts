@@ -32,12 +32,15 @@ interface PromotionOptions {
   omitBackupEvidence?: boolean;
   acceptNoBackup?: boolean;
   deterministicUpdateConfirmation?: string;
+  freezeInstallConfirmation?: string;
+  freezePreflight?: string;
 }
 
 function runPromotion(
   mode:
     | "--converge-existing"
     | "--bootstrap-clean"
+    | "--install-global-freeze"
     | "--install-deterministic-update"
     | "--recover-missing-1.4.10",
   verification: string,
@@ -57,6 +60,11 @@ if [[ "$*" == *"recovery-control-plane-preflight.sql"* ]]; then
   printf '%s\\n' '${options.preflight ?? passingPreflight}'
 elif [[ "$*" == *"deterministic-update-install-preflight.sql"* ]]; then
   printf '%s\\n' '${options.preflight ?? "1,preflight,ok,PASS"}'
+elif [[ "$*" == *"global-freeze-install-preflight.sql"* ]]; then
+  printf '%s\\n' '${
+    options.freezePreflight ??
+    Array.from({ length: 8 }, (_, index) => `${index + 1},freeze-preflight,ok,PASS`).join("\n")
+  }'
 elif [[ "$*" == *"verify-installation-master.sql"* ]]; then
   printf '%s\\n' '${verification}'
 elif [[ "$*" == *"SELECT concat_ws"* ]]; then
@@ -115,6 +123,7 @@ fi
           "postgresql://postgres:secret@db.tkjbhttylouamqxnbfgv.supabase.co:5432/postgres",
         UNITOS_MASTER_RECOVERY: options.recoveryConfirmation ?? "",
         UNITOS_MASTER_DETERMINISTIC_UPDATE_INSTALL: options.deterministicUpdateConfirmation ?? "",
+        UNITOS_MASTER_FREEZE_INSTALL: options.freezeInstallConfirmation ?? "",
         MASTER_PROJECT_REF: options.projectRef ?? "tkjbhttylouamqxnbfgv",
         UNITOS_SUPABASE_CLI: fakeSupabase,
         UNITOS_MASTER_BACKUP_CONFIRMATION: options.omitBackupEvidence
@@ -168,6 +177,49 @@ describe("promoção local do Control-plane Master", () => {
     expect(result.calls).not.toContain("recovery-control-plane-preflight.sql");
   });
 
+  it("instala somente o freeze após contexto validado e preflight read-only 8/8", () => {
+    const result = runPromotion("--install-global-freeze", "1,controle,ok,PASS", {
+      freezeInstallConfirmation: "INSTALL_GLOBAL_FREEZE_ONLY",
+    });
+    expect(result.code).toBe(0);
+    expect(result.calls).toContain("global-freeze-install-preflight.sql");
+    expect(result.calls).toContain("002_control_plane_global_freeze.sql");
+    expect(result.calls).toContain("--single-transaction");
+    expect(result.calls).not.toContain("install-deterministic-update.sql");
+    expect(result.calls).not.toContain("recovery-control-plane-preflight.sql");
+    expect(result.stdout).not.toContain("postgresql://");
+    expect(result.stdout).not.toContain("secret");
+  });
+
+  it("aceita histórico terminal no preflight, mas bloqueia atividade ou ambiguidade", () => {
+    const historical = runPromotion("--install-global-freeze", "1,controle,ok,PASS", {
+      freezeInstallConfirmation: "INSTALL_GLOBAL_FREEZE_ONLY",
+      freezePreflight: Array.from(
+        { length: 8 },
+        (_, index) => `${index + 1},freeze-preflight,${index === 7 ? "67" : "0"},PASS`,
+      ).join("\n"),
+    });
+    expect(historical.code).toBe(0);
+    expect(historical.calls).toContain("002_control_plane_global_freeze.sql");
+
+    for (const failedCheck of ["atividade", "órfã", "status desconhecido"]) {
+      const blocked = runPromotion("--install-global-freeze", "1,controle,ok,PASS", {
+        freezeInstallConfirmation: "INSTALL_GLOBAL_FREEZE_ONLY",
+        freezePreflight: `1,freeze-preflight,${failedCheck},FAIL`,
+      });
+      expect(blocked.code).toBe(1);
+      expect(blocked.stdout).toContain("preflight da instalação do freeze");
+      expect(blocked.calls).not.toContain("002_control_plane_global_freeze.sql");
+    }
+  });
+
+  it("bloqueia instalação do freeze sem autorização antes de auditar ou consultar", () => {
+    const result = runPromotion("--install-global-freeze", "1,controle,ok,PASS");
+    expect(result.code).toBe(2);
+    expect(result.stdout).toContain("instalação do freeze exige confirmação específica");
+    expect(result.calls).toBe("");
+  });
+
   it("bloqueia instalação determinística sem autorização ou com preflight incompleto", () => {
     const unauthorized = runPromotion("--install-deterministic-update", "1,controle,ok,PASS", {
       projectRef: "tkjbhttylouamqxnbfgv",
@@ -198,7 +250,7 @@ describe("promoção local do Control-plane Master", () => {
       projectRef: "aaaaaaaaaaaaaaaaaaaa",
     });
     expect(result.code).toBe(2);
-    expect(result.stdout).toContain("não coincide com o Master canônico");
+    expect(result.stdout).toContain("identidade do Master não coincide");
     expect(result.calls).toBe("");
   });
 

@@ -23,14 +23,6 @@ if [[ -z "${MASTER_DATABASE_URL:-}" ]]; then
   exit 2
 fi
 
-# Toda promoção neste executor altera o Control-plane compartilhado. O gate
-# aceita backup comprovado ou risco global explícito para o Master canônico;
-# nenhuma decisão por instalação é aceita, inclusive para recovery.
-python3 "$ROOT/supabase/master/tools/verify_master_backup_gate.py" --scope global
-
-python3 "$ROOT/supabase/master/tools/build_master_bootstrap.py" --check
-python3 "$ROOT/supabase/master/tools/build_control_plane_contract.py" --check
-
 if [[ "${MASTER_PROJECT_REF:-}" != "tkjbhttylouamqxnbfgv" ]]; then
   echo "Bloqueado: identidade do Master não coincide com o manifesto" >&2
   exit 2
@@ -43,6 +35,18 @@ host = parsed.hostname or ""; user = parsed.username or ""
 if host != f"db.{ref}.supabase.co" and not (host.endswith(".pooler.supabase.com") and user.endswith(f".{ref}")):
     raise SystemExit("Bloqueado: conexão não identifica exatamente o projeto Master")
 PY
+
+if [[ "$MODE" == "--install-global-freeze" && "${UNITOS_MASTER_FREEZE_INSTALL:-}" != "INSTALL_GLOBAL_FREEZE_ONLY" ]]; then
+  echo "Bloqueado: instalação do freeze exige confirmação específica" >&2
+  exit 2
+fi
+
+# Toda promoção neste executor altera o Control-plane compartilhado. Identidade,
+# conexão e autorização própria são validadas antes de a decisão ser auditada.
+python3 "$ROOT/supabase/master/tools/verify_master_backup_gate.py" --scope global
+
+python3 "$ROOT/supabase/master/tools/build_master_bootstrap.py" --check
+python3 "$ROOT/supabase/master/tools/build_control_plane_contract.py" --check
 
 if [[ "$MODE" == "--recover-missing-1.4.10" ]]; then
   if [[ "${UNITOS_MASTER_RECOVERY:-}" != "RECOVER_MISSING_1_4_10_ONLY" ]]; then
@@ -163,9 +167,13 @@ PY
   fi
   SQL=""
 elif [[ "$MODE" == "--install-global-freeze" ]]; then
-  if [[ "${UNITOS_MASTER_FREEZE_INSTALL:-}" != "INSTALL_GLOBAL_FREEZE_ONLY" ]]; then
-    echo "Bloqueado: instalação do freeze exige confirmação específica" >&2
-    exit 2
+  PREFLIGHT="$(mktemp)"
+  trap 'rm -f "$PREFLIGHT"' EXIT
+  psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --csv \
+    --file "$ROOT/supabase/master/global-freeze-install-preflight.sql" > "$PREFLIGHT"
+  if grep -q ',FAIL$' "$PREFLIGHT" || [[ "$(grep -c ',PASS$' "$PREFLIGHT")" -ne 8 ]]; then
+    echo "Bloqueado: preflight da instalação do freeze encontrou atividade ou ambiguidade" >&2
+    exit 1
   fi
   SQL="$ROOT/supabase/master/002_control_plane_global_freeze.sql"
 elif [[ "$MODE" == "--install-deterministic-update" ]]; then
