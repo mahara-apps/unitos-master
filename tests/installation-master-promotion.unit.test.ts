@@ -193,6 +193,15 @@ describe("promoção local do Control-plane Master", () => {
     expect(result.calls).toBe("");
   });
 
+  it("bloqueia qualquer modo quando a identidade declarada diverge do Master", () => {
+    const result = runPromotion("--converge-existing", "1,controle,ok,PASS", {
+      projectRef: "aaaaaaaaaaaaaaaaaaaa",
+    });
+    expect(result.code).toBe(2);
+    expect(result.stdout).toContain("não coincide com o Master canônico");
+    expect(result.calls).toBe("");
+  });
+
   it("aceita risco global sem backup mas preserva a autorização específica da operação", () => {
     const allowed = runPromotion("--converge-existing", "1,controle,ok,PASS", {
       omitBackupEvidence: true,
