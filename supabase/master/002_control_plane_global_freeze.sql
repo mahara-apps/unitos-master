@@ -111,8 +111,10 @@ BEGIN
   FOREACH _table IN ARRAY ARRAY['installations','installation_credentials','installation_operations',
     'installation_operation_attempts','installation_operation_steps','installation_operation_outbox',
     'installation_operation_migrations','installation_migration_reconciliation_evidence'] LOOP
-    EXECUTE format('DROP TRIGGER IF EXISTS installation_operations_freeze_guard ON public.%I',_table);
-    EXECUTE format('CREATE TRIGGER installation_operations_freeze_guard BEFORE INSERT OR UPDATE OR DELETE ON public.%I FOR EACH STATEMENT EXECUTE FUNCTION public.guard_installation_operations_freeze()',_table);
+    IF to_regclass('public.' || _table) IS NOT NULL THEN
+      EXECUTE format('DROP TRIGGER IF EXISTS installation_operations_freeze_guard ON public.%I',_table);
+      EXECUTE format('CREATE TRIGGER installation_operations_freeze_guard BEFORE INSERT OR UPDATE OR DELETE ON public.%I FOR EACH STATEMENT EXECUTE FUNCTION public.guard_installation_operations_freeze()',_table);
+    END IF;
   END LOOP;
 END $unitos_freeze_triggers$;
 DO $unitos_freeze_postcondition$
@@ -125,7 +127,8 @@ BEGIN
       'installation_operation_attempts','installation_operation_steps','installation_operation_outbox',
       'installation_operation_migrations','installation_migration_reconciliation_evidence');
   SELECT count(*) INTO _singleton FROM public.installation_operations_freeze WHERE singleton IS TRUE;
-  IF _guarded <> 8 OR _singleton <> 1 THEN
+  IF _guarded <> 7 + CASE WHEN to_regclass('public.installation_migration_reconciliation_evidence') IS NULL THEN 0 ELSE 1 END
+     OR _singleton <> 1 THEN
     RAISE EXCEPTION 'Pós-condição do freeze global falhou' USING ERRCODE='55000';
   END IF;
 END $unitos_freeze_postcondition$;
