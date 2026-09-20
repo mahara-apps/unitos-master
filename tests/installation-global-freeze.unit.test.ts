@@ -111,9 +111,13 @@ fi
 
 describe("congelamento global fail-closed do Control-plane", () => {
   it("mantém estado singleton e histórico auditável com grants antes do RLS", () => {
-    expect(freezeSql).toContain("CREATE TABLE IF NOT EXISTS public.installation_operations_freeze (");
+    expect(freezeSql).toContain(
+      "CREATE TABLE IF NOT EXISTS public.installation_operations_freeze (",
+    );
     expect(freezeSql).toContain("PRIMARY KEY DEFAULT true CHECK (singleton)");
-    expect(freezeSql).toContain("CREATE TABLE IF NOT EXISTS public.installation_operations_freeze_events (");
+    expect(freezeSql).toContain(
+      "CREATE TABLE IF NOT EXISTS public.installation_operations_freeze_events (",
+    );
     expect(freezeSql.indexOf("GRANT SELECT ON public.installation_operations_freeze")).toBeLessThan(
       freezeSql.indexOf(
         "ALTER TABLE public.installation_operations_freeze ENABLE ROW LEVEL SECURITY",
@@ -130,7 +134,9 @@ describe("congelamento global fail-closed do Control-plane", () => {
     expect(freezeSql).toContain("FOR UPDATE");
     expect(freezeSql).toContain("_current.generation <> _expected_generation");
     expect(freezeSql).toContain("status = 'running' OR status = 'retryable'");
-    expect(freezeSql).not.toContain("EXISTS (SELECT 1 FROM public.installation_operations WHERE status IN ('pending','running','retryable'))");
+    expect(freezeSql).not.toContain(
+      "EXISTS (SELECT 1 FROM public.installation_operations WHERE status IN ('pending','running','retryable'))",
+    );
     expect(freezeSql).toContain("a.status = 'running'");
     expect(freezeSql).toContain("a.status = 'retryable'");
     expect(freezeSql).toContain("o.status IN ('pending','running','retryable')");
