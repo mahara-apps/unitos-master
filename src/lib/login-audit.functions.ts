@@ -4,7 +4,7 @@
  * Escrita: sempre server-side com service role, para que o cliente não possa
  * inserir/alterar registros (a tabela não tem GRANT de escrita para
  * `authenticated`). Leitura: Owner/Admin do workspace (ou Super Admin), com
- * RLS reforçada por `assertAdminAuthority`.
+ * RLS reforçada pelo guard Owner/Admin.
  */
 
 import { createServerFn } from "@tanstack/react-start";
@@ -12,7 +12,7 @@ import { getRequestHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { assertAdminAuthority } from "@/lib/access-guard";
+import { assertBrandAdmin } from "@/lib/access-guard";
 import { displayName } from "@/lib/identity";
 import {
   computeActivitySummary,
@@ -194,7 +194,7 @@ export const listLoginActivityFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<LoginActivityResult> => {
     const { supabase, userId } = context;
     // Owner/Admin do workspace (ou Super Admin). Manager não vê acessos.
-    await assertAdminAuthority(supabase, userId, data.brandId);
+    await assertBrandAdmin(supabase, userId, data.brandId, { allowManager: false });
     const role = await supabase.rpc("app_access_role", {
       _user_id: userId,
       _brand_id: data.brandId,
