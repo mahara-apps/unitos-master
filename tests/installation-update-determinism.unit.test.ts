@@ -85,7 +85,7 @@ describe("contrato determinístico de UPDATE", () => {
     expect(finalUpdate).toContain("finalizeOperation(client as never, operation as never, {");
     expect(finalUpdate).not.toContain(".catch(() => undefined)");
     expect(runner).toContain('if (kind === "update")');
-    expect(runner).toContain("UPDATE automatizado sem lease/fencing");
+    expect(runner).toMatch(/if \(kind === "update"\) \{\s*throw new InstallationLeaseLostError\(\);/);
     expect(sql).toContain("lease_expires_at > now()");
     expect(sql).toContain("pinned_release = CASE");
     expect(sql).toContain("active_operation_id = _operation_id");
