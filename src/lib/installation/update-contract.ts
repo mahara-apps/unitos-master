@@ -26,11 +26,14 @@ export function updateRecoveryDecision(
   if (status === "blocked" || status === "manual_review") return "manual_review";
   if (input.automated !== true) return "manual_review";
 
-  const leaseExpiresAt = input.leaseExpiresAt ? Date.parse(input.leaseExpiresAt) : Number.NaN;
+  const leaseExpiresAt = input.leaseExpiresAt
+    ? Date.parse(input.leaseExpiresAt)
+    : Number.NaN;
   const leaseActive = Boolean(input.leaseOwner) && Number.isFinite(leaseExpiresAt) && leaseExpiresAt > nowMs;
   if (status === "running" && leaseActive) return "wait";
   return "resume";
 }
+
 
 export type CanonicalUpdateEvidence = {
   targetRelease: string;
