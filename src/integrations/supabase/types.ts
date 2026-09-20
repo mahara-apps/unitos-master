@@ -8172,6 +8172,82 @@ export type Database = {
           },
         ]
       }
+      system_events: {
+        Row: {
+          actor_id: string | null
+          attempt: number | null
+          brand_id: string
+          category: string
+          client_id: string | null
+          correlation_id: string | null
+          error_code: string | null
+          id: string
+          message: string
+          metadata: Json
+          occurred_at: string
+          operation: string
+          outcome: string
+          severity: string
+          source: string
+        }
+        Insert: {
+          actor_id?: string | null
+          attempt?: number | null
+          brand_id: string
+          category: string
+          client_id?: string | null
+          correlation_id?: string | null
+          error_code?: string | null
+          id?: string
+          message: string
+          metadata?: Json
+          occurred_at?: string
+          operation: string
+          outcome: string
+          severity: string
+          source: string
+        }
+        Update: {
+          actor_id?: string | null
+          attempt?: number | null
+          brand_id?: string
+          category?: string
+          client_id?: string | null
+          correlation_id?: string | null
+          error_code?: string | null
+          id?: string
+          message?: string
+          metadata?: Json
+          occurred_at?: string
+          operation?: string
+          outcome?: string
+          severity?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "system_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_comments: {
         Row: {
           author_id: string
@@ -9644,6 +9720,7 @@ export type Database = {
         Returns: Json
       }
       purge_deleted_content: { Args: never; Returns: Json }
+      purge_system_events_90d: { Args: never; Returns: number }
       reactivate_portal_token: {
         Args: { _token_id: string }
         Returns: {
