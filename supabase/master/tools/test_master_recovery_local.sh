@@ -69,6 +69,12 @@ CREATE FUNCTION public.is_super_admin(uuid) RETURNS boolean LANGUAGE sql STABLE 
 CREATE TABLE public.installation_credentials (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
 CREATE TABLE public.installation_operation_steps (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
 CREATE TABLE public.installation_operation_outbox (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
+INSERT INTO public.installations(id,status,health) VALUES ('00000000-0000-0000-0000-000000000001','updating','degraded');
+INSERT INTO public.installation_operations(id,installation_id,status,lease_owner,lease_expires_at)
+VALUES ('00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000001','pending',NULL,NULL),
+       ('00000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000001','failed',NULL,NULL);
+INSERT INTO public.installation_operation_attempts(operation_id,status,retryable)
+SELECT '00000000-0000-0000-0000-000000000003','retryable',true FROM generate_series(1,67);
 SQL
 
 "${PSQL[@]}" --file "$MIGRATION_1411" >/dev/null
@@ -96,6 +102,8 @@ if grep -q ',FAIL$' <<< "$canonical"; then
   printf 'assinatura canônica deveria passar\n%s\n' "$canonical" >&2
   exit 1
 fi
+assert_check_status 4 "pending sem lease preservadas" PASS "$canonical"
+"${PSQL[@]}" --tuples-only --no-align -c "SELECT count(*) FROM public.installation_operation_attempts WHERE status='retryable'" | grep -qx 67
 
 # A representação textual canônica contém nomes, enquanto os tipos sem nomes
 # vêm do catálogo. O controle 7 deve aceitar ambos sem comparar essas strings.
@@ -189,6 +197,8 @@ fi
 "${PSQL[@]}" --tuples-only --no-align -c "SELECT to_regclass('public.installation_migration_reconciliation_evidence') IS NULL" | grep -qx t
 
 "${PSQL[@]}" --file "$RECOVERY" >/dev/null
+"${PSQL[@]}" --tuples-only --no-align -c "SELECT concat_ws(',',status,lease_owner IS NULL,lease_expires_at IS NULL) FROM public.installation_operations WHERE id='00000000-0000-0000-0000-000000000002'" | grep -qx 'pending,t,t'
+"${PSQL[@]}" --tuples-only --no-align -c "SELECT count(*) FROM public.installation_operation_attempts WHERE status='retryable'" | grep -qx 67
 "${PSQL[@]}" --tuples-only --no-align -c "
 SELECT CASE WHEN
   to_regclass('public.installation_migration_reconciliation_evidence') IS NOT NULL

@@ -19,15 +19,15 @@ python3 "$ROOT/supabase/master/tools/verify_master_backup_gate.py" --scope globa
 REPORT="$(mktemp)"; trap 'rm -f "$REPORT"' EXIT
 psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --csv --file "$ROOT/supabase/install/verify-installation-master.sql" > "$REPORT"
 if grep -q ',FAIL$' "$REPORT"; then echo "Bloqueado: contrato Master não passou na validação completa" >&2; exit 1; fi
+python3 - "$UNITOS_CRON_AUDIT_FILE" "$MASTER_PROJECT_REF" "$UNITOS_CRON_ACTOR" "$UNITOS_CRON_REASON" "$UNITOS_CONTROL_PLANE_COMMIT_SHA" "$UNITOS_CONTROL_PLANE_CONTRACT_SHA256" <<'PY'
+import datetime, json, os, pathlib, sys
+path=pathlib.Path(sys.argv[1]); path.parent.mkdir(parents=True,exist_ok=True)
+record={'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'action':'authorize_cron_37_activation','projectRef':sys.argv[2],'operator':sys.argv[3],'reason':sys.argv[4],'commitSha':sys.argv[5],'contractSha256':sys.argv[6]}
+fd=os.open(path,os.O_APPEND|os.O_CREAT|os.O_WRONLY,0o600)
+with os.fdopen(fd,'a',encoding='utf-8') as stream: stream.write(json.dumps(record,separators=(',',':'))+'\n')
+PY
 psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 \
   --set expected_commit_sha="$UNITOS_CONTROL_PLANE_COMMIT_SHA" \
   --set expected_contract_sha256="$UNITOS_CONTROL_PLANE_CONTRACT_SHA256" \
   --file "$ROOT/supabase/master/005_activate_cron_37.sql"
-python3 - "$UNITOS_CRON_AUDIT_FILE" "$MASTER_PROJECT_REF" "$UNITOS_CRON_ACTOR" "$UNITOS_CRON_REASON" "$UNITOS_CONTROL_PLANE_COMMIT_SHA" "$UNITOS_CONTROL_PLANE_CONTRACT_SHA256" <<'PY'
-import datetime, json, os, pathlib, sys
-path=pathlib.Path(sys.argv[1]); path.parent.mkdir(parents=True,exist_ok=True)
-record={'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'action':'activate_cron_37','projectRef':sys.argv[2],'operator':sys.argv[3],'reason':sys.argv[4],'commitSha':sys.argv[5],'contractSha256':sys.argv[6]}
-fd=os.open(path,os.O_APPEND|os.O_CREAT|os.O_WRONLY,0o600)
-with os.fdopen(fd,'a',encoding='utf-8') as stream: stream.write(json.dumps(record,separators=(',',':'))+'\n')
-PY
 echo "Cron 37 ativado exclusivamente após validação integral"
