@@ -76,8 +76,8 @@ BEGIN
       SELECT 1
       FROM public.installation_operation_attempts a
       LEFT JOIN public.installation_operations o ON o.id = a.operation_id
-      WHERE a.status IN ('running','retryable')
-        AND (o.id IS NULL OR o.status IN ('pending','running','retryable'))
+      WHERE a.status = 'running'
+        OR (a.status = 'retryable' AND (o.id IS NULL OR o.status IN ('pending','running','retryable')))
     )
   ) THEN
     RAISE EXCEPTION 'Congelamento bloqueado: existem operações ou tentativas ativas' USING ERRCODE='55000';

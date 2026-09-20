@@ -40,7 +40,7 @@
 - [x] Bloquear leases, concorrência, vínculos órfãos e estados desconhecidos.
 - [x] Validar autorização, projeto e conexão antes do gate auditável.
 - [x] Exigir destino JSONL absoluto e impedir exposição de conexão ou justificativa.
-- [ ] Executar validação local completa.
+- [x] Executar validação local completa.
 
 ## Gate do freeze global
 
