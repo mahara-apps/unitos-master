@@ -6,22 +6,22 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const SCRIPT = "supabase/master/tools/verify_master_backup_gate.py";
-const INSTALLATION_ID = "0b6b7f5c-44e5-4e85-a33c-37014ed044a2";
+const MASTER_PROJECT_REF = "tkjbhttylouamqxnbfgv";
 
 function run(
   scope: "global" | "installation",
   env: Record<string, string> = {},
-  installationId = "",
 ) {
   const directory = mkdtempSync(join(tmpdir(), "unitos-backup-gate-"));
   const auditFile = join(directory, "audit.jsonl");
   try {
     const stdout = execFileSync(
       "python3",
-      [SCRIPT, "--scope", scope, "--installation-id", installationId],
+      [SCRIPT, "--scope", scope],
       {
         env: {
           PATH: process.env["PATH"] ?? "",
+          MASTER_PROJECT_REF,
           UNITOS_MASTER_BACKUP_AUDIT_FILE: auditFile,
           ...env,
         },
@@ -40,10 +40,10 @@ function run(
 }
 
 describe("gate de backup do Control-plane Master", () => {
-  it("mantém backup restaurável obrigatório para mudança compartilhada", () => {
+  it("aceita backup restaurável comprovado e registra o Master exato", () => {
     const blocked = run("global");
     expect(blocked.code).toBe(2);
-    expect(blocked.output).toContain("backup restaurável obrigatório");
+    expect(blocked.output).toContain("backup restaurável ou aceite explicitamente");
 
     const allowed = run("global", {
       UNITOS_MASTER_BACKUP_CONFIRMATION: "BACKUP_RESTORABLE_VERIFIED",
@@ -52,53 +52,63 @@ describe("gate de backup do Control-plane Master", () => {
     });
     expect(allowed.code).toBe(0);
     expect(allowed.output).toContain("BACKUP_GATE=backup_verified");
-    expect(readFileSync(allowed.auditFile, "utf8")).toContain('"decision": "backup_verified"');
+    const audit = readFileSync(allowed.auditFile, "utf8");
+    expect(audit).toContain('"decision": "backup_verified"');
+    expect(audit).toContain(`"project_ref": "${MASTER_PROJECT_REF}"`);
   });
 
-  it("aceita exceção somente para instalação descartável explicitamente identificada", () => {
-    const allowed = run(
-      "installation",
-      {
-        UNITOS_MASTER_BACKUP_EXCEPTION: "ACCEPT_DISPOSABLE_INSTALLATION_BACKUP_RISK",
-        UNITOS_MASTER_BACKUP_EXCEPTION_INSTALLATION_ID: INSTALLATION_ID,
-        UNITOS_MASTER_BACKUP_EXCEPTION_DISPOSABLE: "INSTALLATION_NOT_DELIVERED_AND_DISPOSABLE",
-        UNITOS_MASTER_BACKUP_EXCEPTION_OPERATOR: "operador-control-plane",
-        UNITOS_MASTER_BACKUP_EXCEPTION_RISK_ACCEPTED:
-          "Aceito perda integral dos dados descartáveis desta instalação.",
-      },
-      INSTALLATION_ID,
-    );
+  it("aceita ausência de backup somente com risco global explícito e auditável", () => {
+    const allowed = run("global", {
+      UNITOS_MASTER_NO_BACKUP_CONFIRMATION:
+        "ACCEPT_EXISTING_CONTROL_PLANE_WITHOUT_RESTORABLE_BACKUP",
+      UNITOS_MASTER_NO_BACKUP_PROJECT_REF: MASTER_PROJECT_REF,
+      UNITOS_MASTER_NO_BACKUP_OPERATOR: "operador-control-plane",
+      UNITOS_MASTER_NO_BACKUP_RISK_ACCEPTED:
+        "Aceito o risco de executar no Control-plane existente sem backup restaurável.",
+    });
     expect(allowed.code).toBe(0);
-    expect(allowed.output).toContain(`installation_id=${INSTALLATION_ID}`);
-    expect(allowed.output).toContain("BACKUP_GATE=disposable_exception");
+    expect(allowed.output).toContain(`project_ref=${MASTER_PROJECT_REF}`);
+    expect(allowed.output).toContain("BACKUP_GATE=global_no_backup_accepted");
+    expect(allowed.output).not.toContain("risco de executar");
     const audit = readFileSync(allowed.auditFile, "utf8");
-    expect(audit).toContain(`"installation_id": "${INSTALLATION_ID}"`);
+    expect(audit).toContain(`"project_ref": "${MASTER_PROJECT_REF}"`);
     expect(audit).toContain('"risk_accepted"');
   });
 
-  it("bloqueia exceção global, identidade divergente e risco não documentado", () => {
+  it("bloqueia escopo de instalação, identidade divergente e risco não documentado", () => {
     const base = {
-      UNITOS_MASTER_BACKUP_EXCEPTION: "ACCEPT_DISPOSABLE_INSTALLATION_BACKUP_RISK",
-      UNITOS_MASTER_BACKUP_EXCEPTION_INSTALLATION_ID: INSTALLATION_ID,
-      UNITOS_MASTER_BACKUP_EXCEPTION_DISPOSABLE: "INSTALLATION_NOT_DELIVERED_AND_DISPOSABLE",
-      UNITOS_MASTER_BACKUP_EXCEPTION_OPERATOR: "operador-control-plane",
-      UNITOS_MASTER_BACKUP_EXCEPTION_RISK_ACCEPTED:
-        "Aceito perda integral dos dados descartáveis desta instalação.",
+      UNITOS_MASTER_NO_BACKUP_CONFIRMATION:
+        "ACCEPT_EXISTING_CONTROL_PLANE_WITHOUT_RESTORABLE_BACKUP",
+      UNITOS_MASTER_NO_BACKUP_PROJECT_REF: MASTER_PROJECT_REF,
+      UNITOS_MASTER_NO_BACKUP_OPERATOR: "operador-control-plane",
+      UNITOS_MASTER_NO_BACKUP_RISK_ACCEPTED:
+        "Aceito o risco de executar no Control-plane existente sem backup restaurável.",
     };
-    expect(run("global", base).output).toContain("nunca pode ter escopo global");
-    expect(run("installation", base, "11111111-1111-4111-8111-111111111111").output).toContain(
-      "não identifica exatamente",
-    );
+    expect(run("installation", base).output).toContain("somente escopo global");
     expect(
-      run(
-        "installation",
-        { ...base, UNITOS_MASTER_BACKUP_EXCEPTION_RISK_ACCEPTED: "aceito" },
-        INSTALLATION_ID,
-      ).output,
+      run("global", { ...base, UNITOS_MASTER_NO_BACKUP_PROJECT_REF: "aaaaaaaaaaaaaaaaaaaa" })
+        .output,
+    ).toContain("não identifica exatamente");
+    expect(
+      run("global", { ...base, UNITOS_MASTER_NO_BACKUP_RISK_ACCEPTED: "aceito" }).output,
     ).toContain("risco aceito deve ser documentado");
   });
 
-  it("não permite que a exceção substitua a autorização da operação", () => {
+  it("bloqueia identidade canônica ausente ou divergente mesmo com backup", () => {
+    const backup = {
+      UNITOS_MASTER_BACKUP_CONFIRMATION: "BACKUP_RESTORABLE_VERIFIED",
+      UNITOS_MASTER_BACKUP_EVIDENCE: "snapshot-master-test",
+      UNITOS_MASTER_BACKUP_OPERATOR: "operador-control-plane",
+    };
+    expect(run("global", { ...backup, MASTER_PROJECT_REF: "" }).output).toContain(
+      "MASTER_PROJECT_REF ausente",
+    );
+    expect(run("global", { ...backup, MASTER_PROJECT_REF: "aaaaaaaaaaaaaaaaaaaa" }).output).toContain(
+      "não coincide com o Master canônico",
+    );
+  });
+
+  it("não permite que a decisão de risco substitua a autorização da operação", () => {
     const promotion = execFileSync(
       "cat",
       ["supabase/master/tools/promote_master_control_plane.sh"],

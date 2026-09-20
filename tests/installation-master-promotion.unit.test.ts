@@ -30,6 +30,7 @@ interface PromotionOptions {
   concurrentLedger?: string;
   concurrentLedgerAtRead?: number;
   omitBackupEvidence?: boolean;
+  acceptNoBackup?: boolean;
   deterministicUpdateConfirmation?: string;
 }
 
@@ -122,6 +123,16 @@ fi
         UNITOS_MASTER_BACKUP_EVIDENCE: options.omitBackupEvidence ? "" : "snapshot-master-test",
         UNITOS_MASTER_BACKUP_OPERATOR: options.omitBackupEvidence ? "" : "test-operator",
         UNITOS_MASTER_BACKUP_AUDIT_FILE: join(directory, "backup-audit.jsonl"),
+        UNITOS_MASTER_NO_BACKUP_CONFIRMATION: options.acceptNoBackup
+          ? "ACCEPT_EXISTING_CONTROL_PLANE_WITHOUT_RESTORABLE_BACKUP"
+          : "",
+        UNITOS_MASTER_NO_BACKUP_PROJECT_REF: options.acceptNoBackup
+          ? "tkjbhttylouamqxnbfgv"
+          : "",
+        UNITOS_MASTER_NO_BACKUP_OPERATOR: options.acceptNoBackup ? "test-operator" : "",
+        UNITOS_MASTER_NO_BACKUP_RISK_ACCEPTED: options.acceptNoBackup
+          ? "Aceito o risco global no Control-plane existente sem backup restaurável."
+          : "",
       },
       encoding: "utf8",
       timeout: 10_000,
@@ -175,13 +186,36 @@ describe("promoção local do Control-plane Master", () => {
     expect(incomplete.calls).not.toContain("install-deterministic-update.sql");
   });
 
-  it("bloqueia qualquer escrita sem evidência de backup ou exceção válida", () => {
+  it("bloqueia qualquer escrita sem backup ou aceitação global válida", () => {
     const result = runPromotion("--converge-existing", "1,controle,ok,PASS", {
       omitBackupEvidence: true,
     });
     expect(result.code).toBe(2);
-    expect(result.stdout).toContain("backup restaurável obrigatório");
+    expect(result.stdout).toContain("backup restaurável ou aceite explicitamente");
     expect(result.calls).toBe("");
+  });
+
+  it("aceita risco global sem backup mas preserva a autorização específica da operação", () => {
+    const allowed = runPromotion("--converge-existing", "1,controle,ok,PASS", {
+      omitBackupEvidence: true,
+      acceptNoBackup: true,
+      projectRef: "tkjbhttylouamqxnbfgv",
+    });
+    expect(allowed.code).toBe(0);
+    expect(allowed.calls).toContain("convergence-control-plane.sql");
+
+    const unauthorizedRecovery = runPromotion(
+      "--recover-missing-1.4.10",
+      "1,controle,ok,PASS",
+      {
+        omitBackupEvidence: true,
+        acceptNoBackup: true,
+        projectRef: "tkjbhttylouamqxnbfgv",
+      },
+    );
+    expect(unauthorizedRecovery.code).toBe(2);
+    expect(unauthorizedRecovery.stdout).toContain("recuperação exige confirmação específica");
+    expect(unauthorizedRecovery.calls).toBe("");
   });
 
   it("Master existente aplica apenas a convergência em transação e verifica", () => {

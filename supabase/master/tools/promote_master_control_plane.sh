@@ -23,8 +23,9 @@ if [[ -z "${MASTER_DATABASE_URL:-}" ]]; then
   exit 2
 fi
 
-# Toda promoção neste executor altera o Control-plane compartilhado. Portanto,
-# a exceção por instalação nunca é aceita aqui, inclusive para recovery.
+# Toda promoção neste executor altera o Control-plane compartilhado. O gate
+# aceita backup comprovado ou risco global explícito para o Master canônico;
+# nenhuma decisão por instalação é aceita, inclusive para recovery.
 python3 "$ROOT/supabase/master/tools/verify_master_backup_gate.py" --scope global
 
 python3 "$ROOT/supabase/master/tools/build_master_bootstrap.py" --check

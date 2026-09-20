@@ -26,7 +26,7 @@ interface FreezeOptions {
   backupOperator?: string;
   authorize?: boolean;
   extraArgument?: string;
-  disposableException?: boolean;
+  noBackupAcceptance?: boolean;
   failPreflight?: boolean;
 }
 
@@ -71,20 +71,17 @@ fi
           ? (options.backupOperator ?? "operador-control-plane")
           : "",
         UNITOS_MASTER_BACKUP_AUDIT_FILE: audit,
-        UNITOS_MASTER_BACKUP_EXCEPTION: options.disposableException
-          ? "ACCEPT_DISPOSABLE_INSTALLATION_BACKUP_RISK"
+        UNITOS_MASTER_NO_BACKUP_CONFIRMATION: options.noBackupAcceptance
+          ? "ACCEPT_EXISTING_CONTROL_PLANE_WITHOUT_RESTORABLE_BACKUP"
           : "",
-        UNITOS_MASTER_BACKUP_EXCEPTION_INSTALLATION_ID: options.disposableException
-          ? "0b6b7f5c-44e5-4e85-a33c-37014ed044a2"
+        UNITOS_MASTER_NO_BACKUP_PROJECT_REF: options.noBackupAcceptance
+          ? "tkjbhttylouamqxnbfgv"
           : "",
-        UNITOS_MASTER_BACKUP_EXCEPTION_DISPOSABLE: options.disposableException
-          ? "INSTALLATION_NOT_DELIVERED_AND_DISPOSABLE"
-          : "",
-        UNITOS_MASTER_BACKUP_EXCEPTION_OPERATOR: options.disposableException
+        UNITOS_MASTER_NO_BACKUP_OPERATOR: options.noBackupAcceptance
           ? "operador-control-plane"
           : "",
-        UNITOS_MASTER_BACKUP_EXCEPTION_RISK_ACCEPTED: options.disposableException
-          ? "Aceito o risco específico desta instalação descartável."
+        UNITOS_MASTER_NO_BACKUP_RISK_ACCEPTED: options.noBackupAcceptance
+          ? "Aceito o risco global de operar sem backup restaurável confirmado."
           : "",
       },
       encoding: "utf8",
@@ -182,10 +179,10 @@ describe("congelamento global fail-closed do Control-plane", () => {
     expect(operator).not.toContain("UPDATE");
   });
 
-  it("bloqueia freeze sem backup antes de consultar ou escrever estado", () => {
+  it("bloqueia freeze sem backup nem aceitação global antes de consultar ou escrever estado", () => {
     const result = runFreeze();
     expect(result.code).toBe(2);
-    expect(result.output).toContain("backup restaurável obrigatório");
+    expect(result.output).toContain("backup restaurável ou aceite explicitamente");
     expect(result.calls).toBe("");
     expect(result.audit).toBe("");
   });
@@ -202,23 +199,25 @@ describe("congelamento global fail-closed do Control-plane", () => {
     expect(result.calls).toContain("set_installation_operations_freeze");
   });
 
-  it("rejeita exceção descartável porque freeze sempre possui escopo global", () => {
-    const result = runFreeze({ disposableException: true });
-    expect(result.code).toBe(2);
-    expect(result.output).toContain("nunca pode ter escopo global");
-    expect(result.calls).toBe("");
+  it("aceita risco global sem backup sem enfraquecer geração e fencing", () => {
+    const result = runFreeze({ noBackupAcceptance: true });
+    expect(result.code).toBe(0);
+    expect(result.output).toContain("Congelamento global confirmado: freeze");
+    expect(result.audit).toContain('"decision": "global_no_backup_accepted"');
+    expect(result.audit).toContain('"scope": "global"');
+    expect(result.calls).toContain("--set generation=7");
+    expect(result.calls).toContain("set_installation_operations_freeze");
   });
 
-  it("bloqueia operador de backup ausente e risco descartável não declarado", () => {
+  it("bloqueia operador de backup ausente e aceitação global incompleta", () => {
     const missingOperator = runFreeze({ backup: true, backupOperator: "" });
     expect(missingOperator.code).toBe(2);
     expect(missingOperator.output).toContain("UNITOS_MASTER_BACKUP_OPERATOR ausente");
     expect(missingOperator.calls).toBe("");
 
-    const missingRisk = runFreeze({ disposableException: true });
-    expect(missingRisk.code).toBe(2);
-    expect(missingRisk.output).toContain("nunca pode ter escopo global");
-    expect(missingRisk.calls).toBe("");
+    const missingRisk = runFreeze({ noBackupAcceptance: true });
+    expect(missingRisk.code).toBe(0);
+    expect(missingRisk.audit).toContain('"risk_accepted"');
   });
 
   it("mantém autorização própria e bloqueia argumentos adicionais", () => {

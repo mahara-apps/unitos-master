@@ -41,8 +41,8 @@ if [[ -z "${UNITOS_FREEZE_REASON:-}" || -z "${UNITOS_FREEZE_ACTOR:-}" ]]; then
   exit 2
 fi
 
-# Freeze e unfreeze alteram o Control-plane compartilhado. O escopo global
-# impede que a exceção descartável de uma instalação autorize esta escrita.
+# Freeze e unfreeze alteram o Control-plane compartilhado. O gate aceita
+# somente uma decisão global auditável para o Master canônico.
 python3 "$ROOT/supabase/master/tools/verify_master_backup_gate.py" --scope global
 
 STATE="$("${PSQL[@]}" --command "SELECT frozen::text||','||generation::text FROM public.installation_operations_freeze WHERE singleton IS TRUE;")"
