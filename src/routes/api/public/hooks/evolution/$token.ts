@@ -74,6 +74,20 @@ export const Route = createFileRoute("/api/public/hooks/evolution/$token")({
         // 23505 = evento repetido (índice de deduplicação): idempotente.
         if (insertError && insertError.code !== "23505") {
           console.error("[Evolution webhook] falha ao persistir evento", insertError);
+          const { logOperationalEvent } = await import("@/lib/operational-audit.server");
+          await logOperationalEvent({
+            severity: "error",
+            category: "webhook",
+            source: "evolution",
+            operation: "webhook.receive",
+            outcome: "error",
+            errorCode: insertError.code,
+            message: "Falha ao persistir evento recebido da Evolution.",
+            brandId: instance.brand_id as string,
+            clientId: (instance.client_id as string | null) ?? null,
+            correlationId: event.providerEventId,
+            metadata: { event_type: event.eventType },
+          });
           return new Response("Server error", { status: 500 });
         }
 
@@ -102,6 +116,19 @@ export const Route = createFileRoute("/api/public/hooks/evolution/$token")({
             .eq("id", instance.id as string);
         }
 
+        const { logOperationalEvent } = await import("@/lib/operational-audit.server");
+        await logOperationalEvent({
+          severity: "success",
+          category: "webhook",
+          source: "evolution",
+          operation: "webhook.receive",
+          outcome: "success",
+          message: insertError?.code === "23505" ? "Evento duplicado ignorado." : "Evento recebido e persistido.",
+          brandId: instance.brand_id as string,
+          clientId: (instance.client_id as string | null) ?? null,
+          correlationId: event.providerEventId,
+          metadata: { event_type: event.eventType, instance_status: event.instanceStatus, duplicate: insertError?.code === "23505" },
+        });
         return Response.json({ received: true });
       },
     },

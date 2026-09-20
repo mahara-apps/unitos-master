@@ -157,6 +157,21 @@ export const Route = createFileRoute("/api/public/meta/webhook")({
           for (const ev of events) {
             await brain.events.publish(ctx, ev);
           }
+          const { logOperationalEvent } = await import("@/lib/operational-audit.server");
+          const counts = new Map<string, number>();
+          for (const ev of events) counts.set(String(ev.brand_id), (counts.get(String(ev.brand_id)) ?? 0) + 1);
+          for (const [brandId, count] of counts) {
+            await logOperationalEvent({
+              severity: "success",
+              category: "webhook",
+              source: "meta",
+              operation: "webhook.receive",
+              outcome: "success",
+              message: "Eventos da Meta autenticados e encaminhados.",
+              brandId,
+              metadata: { channel, event_count: count },
+            });
+          }
         } else {
           console.warn(
             `[meta.webhook] no matching connection for channel=${channel} ids=${externalIds.join(",")}`,
