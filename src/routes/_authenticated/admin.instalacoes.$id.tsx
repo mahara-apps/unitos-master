@@ -45,7 +45,6 @@ import {
   HEALTH_CHECKS,
   INFRA_HEALTH_CHECK_IDS,
   INSTALLATION_HEALTH_LABEL,
-  OPERATION_KIND_LABEL,
   canRetryFailedProvision,
   canStartOperation,
   isOperationStale,
@@ -107,12 +106,10 @@ import {
   lifecycleIndex,
   type VisualState,
 } from "@/components/installations/installation-visuals";
-import {
-  LiveOperationBar,
-  OperationStatusBadge,
-  StepList,
-  failedStepLabel,
-} from "@/components/installations/operation-views";
+import { StepList, failedStepLabel } from "@/components/installations/operation-views";
+import { InstallationOperationPanel } from "@/components/installations/installation-operation-panel";
+import { InstallationOperationHistory } from "@/components/installations/installation-operation-history";
+import { MasterPublishedState } from "@/components/installations/master-published-state";
 import { InstallationCredentialsCard } from "@/components/installations/installation-credentials-card";
 import { CriticalConfirmDialog } from "@/components/ui/critical-confirm-dialog";
 import { CRITICAL_ACTIONS, type CriticalActionKey } from "@/lib/critical-actions";
@@ -802,54 +799,21 @@ function InstallationDetailPage() {
 
       {/* PROGRESSO SEMPRE VISÍVEL */}
       {activeOp && (
-        <LiveOperationBar
-          status={activeOp.status}
-          kind={activeOp.kind}
-          percent={activeOp.progress.percent}
-          done={activeOp.progress.done}
-          total={activeOp.progress.total}
-          steps={activeOp.steps}
-          startedAt={activeOp.startedAt}
-          finishedAt={activeOp.finishedAt}
-          lastReportAt={activeOp.lastReportAt}
-          errorKind={activeOp.errorKind}
-          currentStep={activeOp.currentStep}
-          migrationFile={activeOp.migrationFile}
-          migrationPosition={activeOp.migrationPosition}
-          migrationStatement={activeOp.migrationStatement}
-          migrationStatementsTotal={activeOp.migrationStatementsTotal}
-          summary={activeOp.summary}
-        >
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={restartProvision.isPending}
-            onClick={() =>
-              askCritical("installation.reprovision", (confirmLabel) =>
-                restartProvision.mutate({ force: !staleActive, confirmLabel }),
-              )
-            }
-          >
-            {restartProvision.isPending ? (
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-            )}
-            Reiniciar
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={cancel.isPending}
-            onClick={() =>
-              askCritical("installation.cancel_operation", (confirmLabel) =>
-                cancel.mutate({ operationId: activeOp.id, confirmLabel }),
-              )
-            }
-          >
-            <XCircle className="mr-1.5 h-3.5 w-3.5" /> Cancelar
-          </Button>
-        </LiveOperationBar>
+        <InstallationOperationPanel
+          operation={activeOp}
+          restarting={restartProvision.isPending}
+          cancelling={cancel.isPending}
+          onRestart={() =>
+            askCritical("installation.reprovision", (confirmLabel) =>
+              restartProvision.mutate({ force: !staleActive, confirmLabel }),
+            )
+          }
+          onCancel={() =>
+            askCritical("installation.cancel_operation", (confirmLabel) =>
+              cancel.mutate({ operationId: activeOp.id, confirmLabel }),
+            )
+          }
+        />
       )}
 
       {/* VEREDITO CURTO */}
@@ -1111,18 +1075,14 @@ function InstallationDetailPage() {
               <VersionPair installed={installedRelease} available={inst.availableVersion} compact />
             </CardHeader>
             <CardContent className="space-y-3">
+              <MasterPublishedState
+                snapshot={masterVersion.data}
+                pending={masterVersion.isPending}
+              />
               <p className="text-xs text-muted-foreground">
                 Esta instalação não publica sozinha: o build automático da branch está desligado e o
                 código só avança quando você autoriza a atualização aqui.
               </p>
-              {masterVersion.data?.masterPublished === false && (
-                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
-                  <strong>MASTER não publicado.</strong> O pacote de código está na versão{" "}
-                  {formatVersion(masterVersion.data.repoRelease ?? "—")} e o sistema já está em{" "}
-                  {formatVersion(masterVersion.data.release)}. Publique o MASTER antes de autorizar:
-                  enviar agora repetiria o mesmo código.
-                </div>
-              )}
               <DataGrid columns={3}>
                 <DataCell
                   label="Publicado nesta instalação"
@@ -1414,65 +1374,45 @@ function InstallationDetailPage() {
               </Badge>
             </CardHeader>
             <CardContent className="space-y-2">
-              {operations.length === 0 && (
-                <p className="text-xs text-muted-foreground">Nenhuma operação registrada.</p>
-              )}
-              {pagedOperations.map((op) => (
-                <div key={op.id} className="rounded-lg border border-border/60 px-3 py-2.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium">{OPERATION_KIND_LABEL[op.kind]}</span>
-                    <OperationStatusBadge status={op.status} />
-                    {op.detail.releaseVersion && (
-                      <span className="font-mono text-[11px] text-muted-foreground">
-                        {op.detail.releaseVersion}
-                      </span>
-                    )}
-                    <span className="ml-auto text-[11px] text-muted-foreground">
-                      {formatDateTimeBr(op.startedAt)}
-                      {op.finishedAt ? ` → ${formatDateTimeBr(op.finishedAt)}` : ""}
-                    </span>
-                  </div>
-                  {op.summary && <p className="mt-1 text-xs text-muted-foreground">{op.summary}</p>}
-                  {op.errorKind && (
-                    <p className="mt-1 text-xs text-destructive">Motivo: {op.errorKind}</p>
-                  )}
-                  {(op.status === "pending" ||
-                    op.status === "running" ||
-                    op.status === "retryable") && (
+              <InstallationOperationHistory
+                operations={pagedOperations}
+                renderActions={(op) =>
+                  op.status === "pending" ||
+                  op.status === "running" ||
+                  op.status === "retryable" ? (
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      {/* Operação automatizada reporta o próprio resultado: nada de registro manual. */}
                       {!op.detail.automated && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={complete.isPending}
-                          onClick={() =>
-                            askCritical("installation.complete_operation", (confirmLabel) =>
-                              complete.mutate({
-                                operationId: op.id,
-                                ok: true,
-                                version: inst.availableVersion,
-                                confirmLabel,
-                              }),
-                            )
-                          }
-                        >
-                          <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Registrar sucesso
-                        </Button>
-                      )}
-                      {!op.detail.automated && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={complete.isPending}
-                          onClick={() =>
-                            askCritical("installation.complete_operation", (confirmLabel) =>
-                              complete.mutate({ operationId: op.id, ok: false, confirmLabel }),
-                            )
-                          }
-                        >
-                          <XCircle className="mr-1.5 h-3.5 w-3.5" /> Registrar falha
-                        </Button>
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={complete.isPending}
+                            onClick={() =>
+                              askCritical("installation.complete_operation", (confirmLabel) =>
+                                complete.mutate({
+                                  operationId: op.id,
+                                  ok: true,
+                                  version: inst.availableVersion,
+                                  confirmLabel,
+                                }),
+                              )
+                            }
+                          >
+                            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Registrar sucesso
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={complete.isPending}
+                            onClick={() =>
+                              askCritical("installation.complete_operation", (confirmLabel) =>
+                                complete.mutate({ operationId: op.id, ok: false, confirmLabel }),
+                              )
+                            }
+                          >
+                            <XCircle className="mr-1.5 h-3.5 w-3.5" /> Registrar falha
+                          </Button>
+                        </>
                       )}
                       <Button
                         size="sm"
@@ -1487,9 +1427,9 @@ function InstallationDetailPage() {
                         Cancelar operação
                       </Button>
                     </div>
-                  )}
-                </div>
-              ))}
+                  ) : null
+                }
+              />
               {operations.length > opsPerPage && (
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2.5">
                   <span className="text-[11px] text-muted-foreground">

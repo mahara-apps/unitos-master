@@ -30,6 +30,8 @@ import {
   type InstallationHealth,
   type InstallationOperationKind,
   type InstallationOperationStatus,
+  type InstallationOperationAttempt,
+  type InstallationMigrationCheckpoint,
   type InstallationStatus,
   type OperationStep,
   type StepProgress,
@@ -121,6 +123,15 @@ export type InstallationOperationRecord = {
   startedAt: string;
   finishedAt: string | null;
   lastReportAt: string | null;
+  workflowVersion: number | null;
+  attemptCount: number;
+  nextAttemptAt: string | null;
+  heartbeatAt: string | null;
+  leaseExpiresAt: string | null;
+  hasLease: boolean;
+  fencingToken: number;
+  attempts: InstallationOperationAttempt[];
+  checkpoints: InstallationMigrationCheckpoint[];
 };
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -181,10 +192,30 @@ type MigrationEvidence = {
   package_position?: number | null;
   statement_index?: number | null;
   total_statements?: number | null;
+  status?: string | null;
+  updated_at?: string | null;
 };
 
-function mapOperation(row: any, migration?: MigrationEvidence): InstallationOperationRecord {
+type AttemptEvidence = {
+  id: string;
+  attempt_number: number;
+  status: string;
+  error_kind?: string | null;
+  error_message?: string | null;
+  retryable?: boolean | null;
+  fencing_token: number;
+  started_at: string;
+  heartbeat_at?: string | null;
+  finished_at?: string | null;
+};
+
+function mapOperation(
+  row: any,
+  migrations: MigrationEvidence[] = [],
+  attempts: AttemptEvidence[] = [],
+): InstallationOperationRecord {
   const steps = readSteps(row.steps);
+  const migration = migrations[0];
   return {
     id: row.id,
     kind: row.kind as InstallationOperationKind,
@@ -202,6 +233,33 @@ function mapOperation(row: any, migration?: MigrationEvidence): InstallationOper
     startedAt: row.started_at,
     finishedAt: row.finished_at ?? null,
     lastReportAt: row.last_report_at ?? null,
+    workflowVersion: typeof row.workflow_version === "number" ? row.workflow_version : null,
+    attemptCount: typeof row.attempt_count === "number" ? row.attempt_count : 0,
+    nextAttemptAt: row.next_attempt_at ?? null,
+    heartbeatAt: row.heartbeat_at ?? null,
+    leaseExpiresAt: row.lease_expires_at ?? null,
+    hasLease: typeof row.lease_owner === "string" && row.lease_owner.trim().length > 0,
+    fencingToken: typeof row.fencing_token === "number" ? row.fencing_token : 0,
+    attempts: attempts.map((attempt) => ({
+      id: attempt.id,
+      attemptNumber: attempt.attempt_number,
+      status: attempt.status,
+      errorKind: attempt.error_kind ?? null,
+      errorMessage: attempt.error_message ?? null,
+      retryable: attempt.retryable ?? null,
+      fencingToken: attempt.fencing_token,
+      startedAt: attempt.started_at,
+      heartbeatAt: attempt.heartbeat_at ?? null,
+      finishedAt: attempt.finished_at ?? null,
+    })),
+    checkpoints: migrations.map((checkpoint) => ({
+      migrationFile: checkpoint.migration_file ?? "",
+      packagePosition: checkpoint.package_position ?? null,
+      statementIndex: checkpoint.statement_index ?? null,
+      totalStatements: checkpoint.total_statements ?? null,
+      status: checkpoint.status ?? "unknown",
+      updatedAt: checkpoint.updated_at ?? null,
+    })),
   };
 }
 
@@ -675,27 +733,50 @@ export const getInstallationFn = createServerFn({ method: "POST" })
     if (ops.error) throw ops.error;
     const operationRows = ops.data ?? [];
     const operationIds = operationRows.map((operation) => operation.id);
-    const migrations = operationIds.length
-      ? await context.supabase
-          .from("installation_operation_migrations")
-          .select(
-            "operation_id,migration_file,package_position,statement_index,total_statements,status,updated_at",
-          )
-          .in("operation_id", operationIds)
-          .order("package_position", { ascending: false })
-          .order("updated_at", { ascending: false })
-      : { data: [], error: null };
+    const [migrations, attempts] = operationIds.length
+      ? await Promise.all([
+          context.supabase
+            .from("installation_operation_migrations")
+            .select(
+              "operation_id,migration_file,package_position,statement_index,total_statements,status,updated_at",
+            )
+            .in("operation_id", operationIds)
+            .order("package_position", { ascending: false })
+            .order("updated_at", { ascending: false }),
+          context.supabase
+            .from("installation_operation_attempts")
+            .select(
+              "id,operation_id,attempt_number,status,error_kind,error_message,retryable,fencing_token,started_at,heartbeat_at,finished_at",
+            )
+            .in("operation_id", operationIds)
+            .order("attempt_number", { ascending: false }),
+        ])
+      : [
+          { data: [], error: null },
+          { data: [], error: null },
+        ];
     if (migrations.error) throw migrations.error;
-    const latestMigration = new Map<string, MigrationEvidence>();
+    if (attempts.error) throw attempts.error;
+    const migrationsByOperation = new Map<string, MigrationEvidence[]>();
     for (const migration of migrations.data ?? []) {
-      if (!latestMigration.has(migration.operation_id)) {
-        latestMigration.set(migration.operation_id, migration);
-      }
+      const current = migrationsByOperation.get(migration.operation_id) ?? [];
+      current.push(migration);
+      migrationsByOperation.set(migration.operation_id, current);
+    }
+    const attemptsByOperation = new Map<string, AttemptEvidence[]>();
+    for (const attempt of attempts.data ?? []) {
+      const current = attemptsByOperation.get(attempt.operation_id) ?? [];
+      current.push(attempt);
+      attemptsByOperation.set(attempt.operation_id, current);
     }
     return {
       installation: mapInstallation(row),
       operations: operationRows.map((operation) =>
-        mapOperation(operation, latestMigration.get(operation.id)),
+        mapOperation(
+          operation,
+          migrationsByOperation.get(operation.id),
+          attemptsByOperation.get(operation.id),
+        ),
       ),
       provisionSteps: PROVISION_STEPS,
       validateSteps: VALIDATE_STEPS,

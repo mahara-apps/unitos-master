@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/dialog";
 import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import { InstallationCard } from "@/components/installations/installation-card";
+import { MasterPublishedState } from "@/components/installations/master-published-state";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin/instalacoes/")({
@@ -282,14 +283,7 @@ function AdminInstallationsPage() {
         </div>
       </header>
 
-      {masterVersion.data?.masterPublished === false && (
-        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
-          <strong>MASTER não publicado.</strong> O pacote de código disponível para as instalações
-          está na versão {masterVersion.data.repoRelease ?? "—"} e o sistema já está em{" "}
-          {masterVersion.data.release}. Publique o MASTER antes de autorizar atualizações — sem isso
-          as instalações recebem o mesmo código de novo.
-        </div>
-      )}
+      <MasterPublishedState snapshot={masterVersion.data} pending={masterVersion.isPending} />
 
       <PageKpiGrid>
         <PageKpi icon={<Server />} label="Total" value={kpis.total} />
