@@ -139,6 +139,7 @@ describe("congelamento global fail-closed do Control-plane", () => {
       "installation_operation_steps",
       "installation_operation_outbox",
       "installation_operation_migrations",
+      "installation_migration_reconciliation_evidence",
     ]) {
       expect(freezeSql).toContain(`'${table}'`);
     }
@@ -171,6 +172,8 @@ describe("congelamento global fail-closed do Control-plane", () => {
   it("separa instalação, ativação e desativação da recovery e do UPDATE", () => {
     expect(promotion).toContain("--install-global-freeze");
     expect(promotion).toContain("INSTALL_GLOBAL_FREEZE_ONLY");
+    expect(promotion).toContain("--install-deterministic-update");
+    expect(promotion).toContain("INSTALL_DETERMINISTIC_UPDATE_ONLY");
     expect(operator).toContain("status|freeze|unfreeze");
     expect(operator).toContain("I_UNDERSTAND_GLOBAL_CONTROL_PLANE_FREEZE");
     expect(operator).toContain("UNITOS_FREEZE_REASON");

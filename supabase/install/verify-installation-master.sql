@@ -74,7 +74,7 @@ WITH expected_tables(name) AS (VALUES
     CASE WHEN bool_and(c.relrowsecurity) THEN 'PASS' ELSE 'FAIL' END
   FROM expected_tables e JOIN pg_class c ON c.oid=to_regclass('public.' || e.name)
   UNION ALL
-  SELECT 7, 'Master: policies Super Admin', count(*)::text || '/8', CASE WHEN count(*)=8 THEN 'PASS' ELSE 'FAIL' END
+  SELECT 7, 'Master: policies Super Admin', count(*)::text || '/10', CASE WHEN count(*)=10 THEN 'PASS' ELSE 'FAIL' END
   FROM pg_policies WHERE schemaname='public' AND policyname IN (
     'installations_super_admin_all','installation_credentials_super_admin_all','installation_operations_super_admin_all',
     'installation_operation_attempts_super_admin_read','installation_operation_steps_super_admin_read',
@@ -117,6 +117,9 @@ WITH expected_tables(name) AS (VALUES
     CASE WHEN position('lease_expires_at > now()' in pg_get_functiondef('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'::regprocedure))>0
       AND position('updateDatabaseReconciled' in pg_get_functiondef('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'::regprocedure))>0
       AND position('pinned_commit_sha' in pg_get_functiondef('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'::regprocedure))>0
+      AND position('_minimum_position <> 1' in pg_get_functiondef('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'::regprocedure))>0
+      AND position('_maximum_position <> _package_total' in pg_get_functiondef('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'::regprocedure))>0
+      AND position('_distinct_positions <> _package_total' in pg_get_functiondef('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'::regprocedure))>0
       THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
   SELECT 13, 'Master: triggers fail-closed nas tabelas operacionais', count(*)::text || '/8',

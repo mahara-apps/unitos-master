@@ -30,10 +30,15 @@ interface PromotionOptions {
   concurrentLedger?: string;
   concurrentLedgerAtRead?: number;
   omitBackupEvidence?: boolean;
+  deterministicUpdateConfirmation?: string;
 }
 
 function runPromotion(
-  mode: "--converge-existing" | "--bootstrap-clean" | "--recover-missing-1.4.10",
+  mode:
+    | "--converge-existing"
+    | "--bootstrap-clean"
+    | "--install-deterministic-update"
+    | "--recover-missing-1.4.10",
   verification: string,
   options: PromotionOptions = {},
 ) {
@@ -106,6 +111,8 @@ fi
         MASTER_DATABASE_URL:
           "postgresql://postgres:secret@db.tkjbhttylouamqxnbfgv.supabase.co:5432/postgres",
         UNITOS_MASTER_RECOVERY: options.recoveryConfirmation ?? "",
+        UNITOS_MASTER_DETERMINISTIC_UPDATE_INSTALL:
+          options.deterministicUpdateConfirmation ?? "",
         MASTER_PROJECT_REF: options.projectRef ?? "",
         UNITOS_SUPABASE_CLI: fakeSupabase,
         UNITOS_MASTER_BACKUP_CONFIRMATION: options.omitBackupEvidence
