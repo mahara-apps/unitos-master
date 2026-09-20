@@ -1,4 +1,7 @@
 import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -10,18 +13,28 @@ function run(
   env: Record<string, string> = {},
   installationId = "",
 ) {
+  const directory = mkdtempSync(join(tmpdir(), "unitos-backup-gate-"));
+  const auditFile = join(directory, "audit.jsonl");
   try {
     const stdout = execFileSync(
       "python3",
       [SCRIPT, "--scope", scope, "--installation-id", installationId],
-      { env: { PATH: process.env["PATH"] ?? "", ...env }, encoding: "utf8" },
+      {
+        env: {
+          PATH: process.env["PATH"] ?? "",
+          UNITOS_MASTER_BACKUP_AUDIT_FILE: auditFile,
+          ...env,
+        },
+        encoding: "utf8",
+      },
     );
-    return { code: 0, output: stdout };
+    return { code: 0, output: stdout, auditFile };
   } catch (error) {
     const failure = error as { status?: number; stdout?: string; stderr?: string };
     return {
       code: failure.status ?? 1,
       output: `${failure.stdout ?? ""}${failure.stderr ?? ""}`,
+      auditFile,
     };
   }
 }
@@ -39,6 +52,7 @@ describe("gate de backup do Control-plane Master", () => {
     });
     expect(allowed.code).toBe(0);
     expect(allowed.output).toContain("BACKUP_GATE=backup_verified");
+    expect(readFileSync(allowed.auditFile, "utf8")).toContain('"decision": "backup_verified"');
   });
 
   it("aceita exceção somente para instalação descartável explicitamente identificada", () => {
@@ -57,6 +71,9 @@ describe("gate de backup do Control-plane Master", () => {
     expect(allowed.code).toBe(0);
     expect(allowed.output).toContain(`installation_id=${INSTALLATION_ID}`);
     expect(allowed.output).toContain("BACKUP_GATE=disposable_exception");
+    const audit = readFileSync(allowed.auditFile, "utf8");
+    expect(audit).toContain(`"installation_id": "${INSTALLATION_ID}"`);
+    expect(audit).toContain('"risk_accepted"');
   });
 
   it("bloqueia exceção global, identidade divergente e risco não documentado", () => {
@@ -91,6 +108,6 @@ describe("gate de backup do Control-plane Master", () => {
     expect(promotion).toContain('UNITOS_MASTER_RECOVERY:-}" != "RECOVER_MISSING_1_4_10_ONLY"');
     expect(promotion).toContain("recovery-control-plane-preflight.sql");
     expect(promotion).toContain("verify_master_recovery_stage.py");
-    expect(promotion).toContain("verify_master_backup_gate.py\" --scope global");
+    expect(promotion).toContain('verify_master_backup_gate.py" --scope global');
   });
 });

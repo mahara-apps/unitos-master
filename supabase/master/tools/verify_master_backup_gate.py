@@ -4,9 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import sys
+from datetime import datetime, timezone
+from pathlib import Path
 
 
 BACKUP_CONFIRMATION = "BACKUP_RESTORABLE_VERIFIED"
@@ -22,6 +25,14 @@ def required(name: str) -> str:
     return value
 
 
+def record(event: dict[str, str]) -> None:
+    audit_file = Path(required("UNITOS_MASTER_BACKUP_AUDIT_FILE"))
+    audit_file.parent.mkdir(parents=True, exist_ok=True)
+    event["recorded_at"] = datetime.now(timezone.utc).isoformat()
+    with audit_file.open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--scope", choices=("global", "installation"), required=True)
@@ -35,6 +46,14 @@ def main() -> int:
         if backup_confirmation == BACKUP_CONFIRMATION:
             evidence = required("UNITOS_MASTER_BACKUP_EVIDENCE")
             operator = required("UNITOS_MASTER_BACKUP_OPERATOR")
+            record(
+                {
+                    "decision": "backup_verified",
+                    "evidence": evidence,
+                    "operator": operator,
+                    "scope": args.scope,
+                }
+            )
             print(f"BACKUP_GATE=backup_verified evidence={evidence} operator={operator}")
             return 0
 
@@ -55,6 +74,15 @@ def main() -> int:
         if len(risk) < 20:
             raise ValueError("Bloqueado: risco aceito deve ser documentado de forma específica")
 
+        record(
+            {
+                "decision": "disposable_exception",
+                "installation_id": installation_id,
+                "operator": operator,
+                "risk_accepted": risk,
+                "scope": args.scope,
+            }
+        )
         print(
             "BACKUP_GATE=disposable_exception "
             f"installation_id={installation_id} operator={operator} risk_accepted={risk}"

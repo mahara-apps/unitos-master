@@ -12,4 +12,5 @@
 - [x] Exigir evidência de backup restaurável para escritas compartilhadas.
 - [x] Permitir exceção explícita somente por instalação descartável identificada.
 - [x] Preservar autorizações e proteções fail-closed independentes do backup.
-- [ ] Validar testes focados, master:check, typecheck, lint e build.
+- [x] Validar testes focados e master:check.
+- [ ] Validar typecheck, lint e build.

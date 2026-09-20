@@ -113,6 +113,7 @@ fi
           : "BACKUP_RESTORABLE_VERIFIED",
         UNITOS_MASTER_BACKUP_EVIDENCE: options.omitBackupEvidence ? "" : "snapshot-master-test",
         UNITOS_MASTER_BACKUP_OPERATOR: options.omitBackupEvidence ? "" : "test-operator",
+        UNITOS_MASTER_BACKUP_AUDIT_FILE: join(directory, "backup-audit.jsonl"),
       },
       encoding: "utf8",
       timeout: 10_000,
