@@ -495,9 +495,7 @@ export async function finalizeOperation(
   }
 
   if (kind === "update") {
-    throw new InstallationLeaseLostError(
-      "UPDATE automatizado sem lease/fencing não pode ser finalizado pelo caminho legado.",
-    );
+    throw new InstallationLeaseLostError();
   }
 
   // Operações manuais legadas não possuem lease e continuam fechando pelo
