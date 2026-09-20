@@ -482,7 +482,7 @@ export async function sendBrandEmail(
       errorCode: "resend_nao_configurado",
       message: "Canal de e-mail não configurado para o workspace.",
       brandId,
-    });
+    }, supabase as never);
     return { sent: false, error: "resend_nao_configurado" };
   }
   const result = await sendResendEmail(config, msg);
@@ -497,6 +497,6 @@ export async function sendBrandEmail(
     message: result.sent ? "E-mail aceito pelo provedor." : `Falha no envio: ${result.error}`,
     brandId,
     metadata: { credential_source: config.source },
-  });
+  }, supabase as never);
   return result;
 }

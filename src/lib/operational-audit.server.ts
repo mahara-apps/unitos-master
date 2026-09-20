@@ -82,7 +82,12 @@ export async function logOperationalEvent(
       attempt: input.attempt ?? null,
       metadata: sanitizeOperationalMetadata(input.metadata),
     });
-    if (error) console.error("[operational-audit] insert failed", error.message);
+    if (error) {
+      console.error(
+        "[operational-audit] insert failed",
+        sanitizeOperationalText(error.message, 200),
+      );
+    }
   } catch (error) {
     console.error(
       "[operational-audit] unavailable",
