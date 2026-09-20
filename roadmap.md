@@ -15,3 +15,10 @@
 - [x] Validar testes focados e master:check.
 - [x] Validar typecheck e build; lint dos arquivos alterados.
 - [ ] Lint global bloqueado por erros preexistentes fora deste protocolo.
+
+## Gate do freeze global
+- [x] Conectar freeze e unfreeze ao gate de backup com escopo global.
+- [x] Rejeitar exceção descartável e argumentos adicionais no comando global.
+- [x] Preservar autorização própria, preflight transacional, geração e fencing.
+- [x] Registrar evidência não secreta em JSONL e manter status somente leitura.
+- [x] Executar validação local completa sem acesso remoto.

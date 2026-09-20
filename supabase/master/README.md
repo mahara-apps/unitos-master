@@ -19,7 +19,7 @@ Uma operação de UPDATE só conclui quando release, commit e SHA-256 do pacote 
 - `tools/build_master_bootstrap.py`: gerador determinístico do artefato.
 - `tools/promote_master_control_plane.sh`: promoção transacional explícita para Master existente ou Master limpo, seguida do verificador read-only.
 - `002_control_plane_global_freeze.sql`: proteção MASTER-only que serializa e bloqueia todas as mutações do Installation Manager.
-- `tools/control_plane_freeze.sh`: ferramenta separada para consultar, ativar e desativar o congelamento com identidade, motivo, responsável e geração esperada.
+- `tools/control_plane_freeze.sh`: ferramenta separada para consultar, ativar e desativar o congelamento com identidade, backup global comprovado, motivo, responsável e geração esperada.
 - `recovery/20260919143000_recover_missing_legacy_reconciliation.sql`: recuperação excepcional e transacional da lacuna 1.4.10 quando 1.4.11 já está aplicada; fica fora do pacote Client e do bootstrap limpo.
 - `recovery-control-plane-preflight.sql` e `recovery-control-plane.json`: preflight read-only e manifesto selado da recuperação.
 - `../install/verify-installation-master.sql`: auditoria read-only do estado final Master.
@@ -58,6 +58,6 @@ Janelas residuais inevitáveis: o preflight e o dry-run usam conexões independe
 
 ## Congelamento operacional
 
-A instalação do mecanismo, sua ativação, a recovery e o UPDATE são quatro autorizações independentes. `master:install:freeze` instala somente a proteção no Control-plane; `master:freeze:status` é leitura; `master:freeze:on` e `master:freeze:off` exigem confirmação, motivo e responsável. Ativar falha se houver operação ou tentativa ativa e usa a mesma advisory lock das triggers, impedindo que uma nova mutação entre entre a verificação de quiescência e o commit. Estado ausente, duplicado ou ilegível bloqueia as mutações.
+A instalação do mecanismo, sua ativação, a recovery e o UPDATE são quatro autorizações independentes. `master:install:freeze` instala somente a proteção no Control-plane; `master:freeze:status` é leitura e não passa pelo gate de backup; `master:freeze:on` e `master:freeze:off` exigem confirmação própria, motivo, responsável e backup restaurável comprovado pelo gate global. A exceção descartável é sempre rejeitada para freeze e unfreeze. O gate ocorre antes da primeira consulta preparatória ao banco e registra a decisão não secreta em JSONL. Ativar falha se houver operação ou tentativa ativa e usa a mesma advisory lock das triggers, impedindo que uma nova mutação entre entre a verificação de quiescência e o commit. Estado ausente, duplicado ou ilegível bloqueia as mutações.
 
 Enquanto ativo, triggers `BEFORE ... FOR EACH STATEMENT` bloqueiam INSERT, UPDATE e DELETE em instalações, credenciais, operações, tentativas, etapas, outbox, checkpoints de migration e evidências. Rotas públicas, cron, worker e funções da interface também consultam o estado para falhar cedo; as triggers continuam sendo a autoridade contra chamadas diretas com `service_role`. A recovery 1.4.14 exige o freeze ativo e adquire a mesma lock. Descongelar não cria nem autoriza UPDATE.

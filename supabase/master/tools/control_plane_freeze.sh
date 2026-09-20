@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 ACTION="${1:-}"
 EXPECTED_REF="tkjbhttylouamqxnbfgv"
 
-if [[ "$ACTION" != "status" && "$ACTION" != "freeze" && "$ACTION" != "unfreeze" ]]; then
+if [[ "$#" -ne 1 || ( "$ACTION" != "status" && "$ACTION" != "freeze" && "$ACTION" != "unfreeze" ) ]]; then
   echo "Uso: $0 status|freeze|unfreeze" >&2
   exit 2
 fi
@@ -31,6 +31,7 @@ if [[ "$ACTION" == "status" ]]; then
   "${PSQL[@]}" --command "SELECT public.read_installation_operations_freeze();"
   exit 0
 fi
+
 if [[ "${UNITOS_MASTER_FREEZE:-}" != "I_UNDERSTAND_GLOBAL_CONTROL_PLANE_FREEZE" ]]; then
   echo "Bloqueado: alteração exige UNITOS_MASTER_FREEZE=I_UNDERSTAND_GLOBAL_CONTROL_PLANE_FREEZE" >&2
   exit 2
@@ -39,6 +40,10 @@ if [[ -z "${UNITOS_FREEZE_REASON:-}" || -z "${UNITOS_FREEZE_ACTOR:-}" ]]; then
   echo "Bloqueado: motivo e responsável são obrigatórios" >&2
   exit 2
 fi
+
+# Freeze e unfreeze alteram o Control-plane compartilhado. O escopo global
+# impede que a exceção descartável de uma instalação autorize esta escrita.
+python3 "$ROOT/supabase/master/tools/verify_master_backup_gate.py" --scope global
 
 STATE="$("${PSQL[@]}" --command "SELECT frozen::text||','||generation::text FROM public.installation_operations_freeze WHERE singleton IS TRUE;")"
 IFS=',' read -r FROZEN GENERATION <<< "$STATE"
