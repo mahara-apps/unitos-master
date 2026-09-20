@@ -8,26 +8,19 @@ import { describe, expect, it } from "vitest";
 const SCRIPT = "supabase/master/tools/verify_master_backup_gate.py";
 const MASTER_PROJECT_REF = "tkjbhttylouamqxnbfgv";
 
-function run(
-  scope: "global" | "installation",
-  env: Record<string, string> = {},
-) {
+function run(scope: "global" | "installation", env: Record<string, string> = {}) {
   const directory = mkdtempSync(join(tmpdir(), "unitos-backup-gate-"));
   const auditFile = join(directory, "audit.jsonl");
   try {
-    const stdout = execFileSync(
-      "python3",
-      [SCRIPT, "--scope", scope],
-      {
-        env: {
-          PATH: process.env["PATH"] ?? "",
-          MASTER_PROJECT_REF,
-          UNITOS_MASTER_BACKUP_AUDIT_FILE: auditFile,
-          ...env,
-        },
-        encoding: "utf8",
+    const stdout = execFileSync("python3", [SCRIPT, "--scope", scope], {
+      env: {
+        PATH: process.env["PATH"] ?? "",
+        MASTER_PROJECT_REF,
+        UNITOS_MASTER_BACKUP_AUDIT_FILE: auditFile,
+        ...env,
       },
-    );
+      encoding: "utf8",
+    });
     return { code: 0, output: stdout, auditFile };
   } catch (error) {
     const failure = error as { status?: number; stdout?: string; stderr?: string };
@@ -103,16 +96,15 @@ describe("gate de backup do Control-plane Master", () => {
     expect(run("global", { ...backup, MASTER_PROJECT_REF: "" }).output).toContain(
       "MASTER_PROJECT_REF ausente",
     );
-    expect(run("global", { ...backup, MASTER_PROJECT_REF: "aaaaaaaaaaaaaaaaaaaa" }).output).toContain(
-      "não coincide com o Master canônico",
-    );
+    expect(
+      run("global", { ...backup, MASTER_PROJECT_REF: "aaaaaaaaaaaaaaaaaaaa" }).output,
+    ).toContain("não coincide com o Master canônico");
   });
 
   it("rejeita o formato antigo de exceção descartável", () => {
     const rejected = run("global", {
       UNITOS_MASTER_BACKUP_EXCEPTION: "ACCEPT_DISPOSABLE_INSTALLATION_BACKUP_RISK",
-      UNITOS_MASTER_BACKUP_EXCEPTION_INSTALLATION_ID:
-        "0b6b7f5c-44e5-4e85-a33c-37014ed044a2",
+      UNITOS_MASTER_BACKUP_EXCEPTION_INSTALLATION_ID: "0b6b7f5c-44e5-4e85-a33c-37014ed044a2",
       UNITOS_MASTER_BACKUP_EXCEPTION_DISPOSABLE: "INSTALLATION_NOT_DELIVERED_AND_DISPOSABLE",
       UNITOS_MASTER_BACKUP_EXCEPTION_OPERATOR: "operador-control-plane",
       UNITOS_MASTER_BACKUP_EXCEPTION_RISK_ACCEPTED:

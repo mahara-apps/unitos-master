@@ -126,9 +126,7 @@ fi
         UNITOS_MASTER_NO_BACKUP_CONFIRMATION: options.acceptNoBackup
           ? "ACCEPT_EXISTING_CONTROL_PLANE_WITHOUT_RESTORABLE_BACKUP"
           : "",
-        UNITOS_MASTER_NO_BACKUP_PROJECT_REF: options.acceptNoBackup
-          ? "tkjbhttylouamqxnbfgv"
-          : "",
+        UNITOS_MASTER_NO_BACKUP_PROJECT_REF: options.acceptNoBackup ? "tkjbhttylouamqxnbfgv" : "",
         UNITOS_MASTER_NO_BACKUP_OPERATOR: options.acceptNoBackup ? "test-operator" : "",
         UNITOS_MASTER_NO_BACKUP_RISK_ACCEPTED: options.acceptNoBackup
           ? "Aceito o risco global no Control-plane existente sem backup restaurável."
@@ -204,15 +202,11 @@ describe("promoção local do Control-plane Master", () => {
     expect(allowed.code).toBe(0);
     expect(allowed.calls).toContain("convergence-control-plane.sql");
 
-    const unauthorizedRecovery = runPromotion(
-      "--recover-missing-1.4.10",
-      "1,controle,ok,PASS",
-      {
-        omitBackupEvidence: true,
-        acceptNoBackup: true,
-        projectRef: "tkjbhttylouamqxnbfgv",
-      },
-    );
+    const unauthorizedRecovery = runPromotion("--recover-missing-1.4.10", "1,controle,ok,PASS", {
+      omitBackupEvidence: true,
+      acceptNoBackup: true,
+      projectRef: "tkjbhttylouamqxnbfgv",
+    });
     expect(unauthorizedRecovery.code).toBe(2);
     expect(unauthorizedRecovery.stdout).toContain("recuperação exige confirmação específica");
     expect(unauthorizedRecovery.calls).toBe("");
