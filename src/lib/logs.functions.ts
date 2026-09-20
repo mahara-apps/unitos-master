@@ -126,7 +126,7 @@ export const listSystemLogs = createServerFn({ method: "POST" })
       );
     }
     if (sources.includes("critical_action")) {
-      let q = supabase
+      const q = supabase
         .from("critical_action_events")
         .select(
           "id, created_at, action_key, target_type, target_id, target_label, brand_id, actor_id, impact, result, error_message",
