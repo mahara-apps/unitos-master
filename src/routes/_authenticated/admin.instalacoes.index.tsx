@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Search,
   Server,
+  ShieldAlert,
   XCircle,
 } from "lucide-react";
 
@@ -49,6 +50,22 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin/instalacoes/")({
   component: AdminInstallationsPage,
+  head: () => ({
+    meta: [
+      { title: "Instalações · Administração Unitos" },
+      {
+        name: "description",
+        content: "Inventário, versões e estado operacional das instalações do Unitos.",
+      },
+      { property: "og:title", content: "Instalações · Administração Unitos" },
+      {
+        property: "og:description",
+        content: "Acompanhe instalações, versões e operações do Unitos Master.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
 });
 
 type FormState = {
@@ -243,6 +260,11 @@ function AdminInstallationsPage() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link to="/admin/instalacoes/reparacao">
+              <ShieldAlert className="mr-2 h-4 w-4" /> Reparação do Control-plane
+            </Link>
+          </Button>
           <Button
             size="sm"
             variant="outline"
