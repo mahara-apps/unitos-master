@@ -71,10 +71,10 @@
 
 ## Desbloqueio operacional Control-plane 1.4.18
 
-- [ ] Permitir freeze global preservando operações pending sem lease e histórico terminal.
-- [ ] Permitir instalação isolada do executor com pending legítima preservada.
-- [ ] Permitir recovery 1.4.14 sem reivindicar ou editar pending preservada.
-- [ ] Criar ato mínimo e autorizado para ativar exclusivamente o cron 37 após validação.
-- [ ] Separar convergência, freeze, executor e recovery em atos independentes.
-- [ ] Implementar promoção atômica própria do Control-plane após validações.
+- [x] Permitir freeze global preservando operações pending sem lease e histórico terminal.
+- [x] Permitir instalação isolada do executor com pending legítima preservada.
+- [x] Permitir recovery 1.4.14 sem reivindicar ou editar pending preservada.
+- [x] Criar ato mínimo e autorizado para ativar exclusivamente o cron 37 após validação.
+- [x] Separar convergência, freeze, executor e recovery em atos independentes.
+- [x] Implementar promoção atômica própria do Control-plane após validações.
 - [ ] Regenerar artefatos MASTER-first e executar validações locais completas.
