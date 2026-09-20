@@ -393,7 +393,7 @@ export async function finalizeOperation(
   // "etapa não identificada".
   const { data: fresh, error: progressError } = await client
     .from("installation_operations")
-    .select("steps")
+    .select("steps, detail")
     .eq("id", op.id)
     .maybeSingle();
   if (progressError) throw progressError;

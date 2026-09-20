@@ -3439,6 +3439,10 @@ export type StageProgress = {
   updateGitPushCommit?: string;
   /** Versão do pacote do MASTER já publicada nesta operação (registro da versão). */
   updateRelease?: string;
+  /** Banco Client reconciliado integralmente com o manifesto selado. */
+  updateDatabaseReconciled?: boolean;
+  /** Verificador final do Client concluiu sem FAIL. */
+  updateValidationPassed?: boolean;
   /** Release e commit imutáveis fixados para uma instalação nova. */
   provisionRelease?: string;
   /** Efeitos externos do NEW persistidos para consulta, nunca repetidos às cegas. */
@@ -6095,6 +6099,7 @@ export async function runAutomatedUpdate(input: {
     return { result: "PENDING", reasons: [delta.detail] };
   }
   await report(client, operation, "database", "done", delta.detail, 100);
+  await saveStageProgress(client, operation, { updateDatabaseReconciled: true });
 
   // Checkpoints antigos podem apontar para uma tentativa REST recusada. Só um
   // deployment associado ao commit de push Git pode ser retomado.
@@ -6349,6 +6354,7 @@ export async function runAutomatedUpdate(input: {
       );
     }
     await report(client, operation, "validation", "done", `${pushSummary.total} verificações PASS`);
+    await saveStageProgress(client, operation, { updateValidationPassed: true });
     await report(
       client,
       operation,
@@ -6357,34 +6363,11 @@ export async function runAutomatedUpdate(input: {
       shortPush ? `${appliedByPush} (${shortPush})` : appliedByPush,
     );
 
-    if (targetSha) {
-      const { error: pinError } = await (
-        client.from("installations") as unknown as {
-          update: (v: Record<string, unknown>) => {
-            eq: (c: string, v: string) => Promise<{ error?: { message?: string } | null }>;
-          };
-        }
-      )
-        .update({
-          pinned_commit_sha: targetSha,
-          pinned_release: appliedByPush,
-          pinned_at: new Date().toISOString(),
-        })
-        .eq("id", installation.id);
-      if (pinError) {
-        return fail(
-          "FAIL",
-          `a publicação ficou pronta, mas a versão não pôde ser registrada: ${pinError.message ?? "falha no registro"}`,
-          "version",
-        );
-      }
-    }
-
     await finalizeOperation(client as never, operation as never, {
       ok: true,
       version: appliedByPush,
       summary: `Atualização aplicada: código do MASTER (${appliedByPush}${shortPush ? ` · ${shortPush}` : ""}) confirmado na hospedagem após publicação pelo Git.`,
-    }).catch(() => undefined);
+    });
     return { result: "PASS", reasons: [] };
   };
   return finishByGitPush("atualização enviada ao repositório");

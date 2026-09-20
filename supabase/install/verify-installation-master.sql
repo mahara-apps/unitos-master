@@ -111,6 +111,14 @@ WITH expected_tables(name) AS (VALUES
     CASE WHEN count(*)=1 AND bool_and(singleton) AND min(generation)>=0 THEN 'PASS' ELSE 'FAIL' END
   FROM public.installation_operations_freeze
   UNION ALL
+  SELECT 14, 'Master: finalização UPDATE atômica e fenced',
+    CASE WHEN position('pinned_release' in pg_get_functiondef('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'::regprocedure))>0
+      THEN 'versão e operação fechadas na mesma RPC' ELSE 'contrato antigo' END,
+    CASE WHEN position('lease_expires_at > now()' in pg_get_functiondef('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'::regprocedure))>0
+      AND position('updateDatabaseReconciled' in pg_get_functiondef('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'::regprocedure))>0
+      AND position('pinned_commit_sha' in pg_get_functiondef('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'::regprocedure))>0
+      THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
   SELECT 13, 'Master: triggers fail-closed nas tabelas operacionais', count(*)::text || '/8',
     CASE WHEN count(*)=8 THEN 'PASS' ELSE 'FAIL' END
   FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace

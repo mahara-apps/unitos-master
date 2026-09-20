@@ -14,6 +14,7 @@ CONVERGENCE = ROOT / "master" / "001_control_plane_convergence_v1_4_3.sql"
 RECONCILIATION = ROOT / "migrations" / "20260917184500_legacy_migration_reconciliation.sql"
 P0_HARDENING = ROOT / "migrations" / "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql"
 GLOBAL_FREEZE = ROOT / "master" / "002_control_plane_global_freeze.sql"
+DETERMINISTIC_UPDATE = ROOT / "master" / "003_control_plane_deterministic_update.sql"
 RECOVERY_BUILDER = ROOT / "master" / "tools" / "build_master_recovery.py"
 OUT = ROOT / "master" / "bootstrap-control-plane.sql"
 METADATA = ROOT / "master" / "bootstrap-control-plane.json"
@@ -55,6 +56,7 @@ def build() -> tuple[str, str]:
     if not inserted:
         raise SystemExit("ponto de convergência Master ausente")
     parts.extend(["-- MASTER GLOBAL FREEZE\n", GLOBAL_FREEZE.read_text(encoding="utf-8").rstrip() + "\n\n"])
+    parts.extend(["-- MASTER DETERMINISTIC UPDATE\n", DETERMINISTIC_UPDATE.read_text(encoding="utf-8").rstrip() + "\n\n"])
     bootstrap = "".join(parts)
     metadata = json.dumps(
         {
@@ -69,6 +71,8 @@ def build() -> tuple[str, str]:
             "p0HardeningSha256": sha256(P0_HARDENING.read_bytes()),
             "globalFreezeFile": GLOBAL_FREEZE.name,
             "globalFreezeSha256": sha256(GLOBAL_FREEZE.read_bytes()),
+            "deterministicUpdateFile": DETERMINISTIC_UPDATE.name,
+            "deterministicUpdateSha256": sha256(DETERMINISTIC_UPDATE.read_bytes()),
             "bootstrapFile": OUT.name,
             "bootstrapSha256": sha256(bootstrap.encode()),
         },
