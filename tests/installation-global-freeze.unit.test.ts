@@ -11,6 +11,10 @@ const recovery = readFileSync(
   "utf8",
 );
 const preflight = readFileSync("supabase/master/recovery-control-plane-preflight.sql", "utf8");
+const installPreflight = readFileSync(
+  "supabase/master/global-freeze-install-preflight.sql",
+  "utf8",
+);
 const promotion = readFileSync("supabase/master/tools/promote_master_control_plane.sh", "utf8");
 const operator = readFileSync("supabase/master/tools/control_plane_freeze.sh", "utf8");
 const managerFunctions = readFileSync("src/lib/installation/manager.functions.ts", "utf8");
@@ -126,7 +130,18 @@ describe("congelamento global fail-closed do Control-plane", () => {
     expect(freezeSql).toContain("FOR UPDATE");
     expect(freezeSql).toContain("_current.generation <> _expected_generation");
     expect(freezeSql).toContain("status IN ('pending','running','retryable')");
-    expect(freezeSql).toContain("status IN ('running','retryable')");
+    expect(freezeSql).toContain("a.status IN ('running','retryable')");
+    expect(freezeSql).toContain("o.status IN ('pending','running','retryable')");
+  });
+
+  it("classifica histórico terminal sem esconder atividade ou ambiguidade", () => {
+    expect(installPreflight).toContain("historical_terminal");
+    expect(installPreflight).toContain("o.status IN ('blocked', 'manual_review', 'success', 'failed')");
+    expect(installPreflight).toContain("active_or_concurrent = 0");
+    expect(installPreflight).toContain("orphaned = 0");
+    expect(installPreflight).toContain("unknown_status = 0");
+    expect(installPreflight).toContain("lease_owner IS NOT NULL OR lease_expires_at IS NOT NULL");
+    expect(installPreflight).not.toMatch(/UPDATE|DELETE|INSERT|ALTER|CREATE|DROP/);
   });
 
   it("bloqueia fail-closed todas as tabelas operacionais inclusive service_role", () => {

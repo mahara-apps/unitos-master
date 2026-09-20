@@ -8,7 +8,11 @@ import { describe, expect, it } from "vitest";
 const SCRIPT = "supabase/master/tools/verify_master_backup_gate.py";
 const MASTER_PROJECT_REF = "tkjbhttylouamqxnbfgv";
 
-function run(scope: "global" | "installation", env: Record<string, string> = {}) {
+function run(
+  scope: "global" | "installation",
+  env: Record<string, string> = {},
+  auditFileOverride?: string,
+) {
   const directory = mkdtempSync(join(tmpdir(), "unitos-backup-gate-"));
   const auditFile = join(directory, "audit.jsonl");
   try {
@@ -16,7 +20,7 @@ function run(scope: "global" | "installation", env: Record<string, string> = {})
       env: {
         PATH: process.env["PATH"] ?? "",
         MASTER_PROJECT_REF,
-        UNITOS_MASTER_BACKUP_AUDIT_FILE: auditFile,
+        UNITOS_MASTER_BACKUP_AUDIT_FILE: auditFileOverride ?? auditFile,
         ...env,
       },
       encoding: "utf8",
@@ -112,6 +116,29 @@ describe("gate de backup do Control-plane Master", () => {
     });
     expect(rejected.code).toBe(2);
     expect(rejected.output).toContain("aceite explicitamente o risco global");
+  });
+
+  it("exige destino JSONL absoluto e não registra segredos", () => {
+    const decision = {
+      UNITOS_MASTER_NO_BACKUP_CONFIRMATION:
+        "ACCEPT_EXISTING_CONTROL_PLANE_WITHOUT_RESTORABLE_BACKUP",
+      UNITOS_MASTER_NO_BACKUP_PROJECT_REF: MASTER_PROJECT_REF,
+      UNITOS_MASTER_NO_BACKUP_OPERATOR: "operador-control-plane",
+      UNITOS_MASTER_NO_BACKUP_RISK_ACCEPTED:
+        "Aceito o risco global sem backup; senha-super-secreta não deve ir ao terminal.",
+    };
+    const relative = run("global", decision, "audit.jsonl");
+    expect(relative.code).toBe(2);
+    expect(relative.output).toContain("caminho absoluto .jsonl");
+
+    const wrongExtension = run("global", decision, "/tmp/audit.txt");
+    expect(wrongExtension.code).toBe(2);
+    expect(wrongExtension.output).toContain("caminho absoluto .jsonl");
+
+    const allowed = run("global", decision);
+    expect(allowed.code).toBe(0);
+    expect(allowed.output).not.toContain("senha-super-secreta");
+    expect(allowed.output).not.toContain("postgresql://");
   });
 
   it("não permite que a decisão de risco substitua a autorização da operação", () => {
