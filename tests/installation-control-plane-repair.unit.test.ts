@@ -78,6 +78,8 @@ describe("reparação controlada do Control-plane", () => {
     expect(source).toContain("assertMasterInstallation()");
     expect(source).toContain("assertSuperAdmin");
     expect(source).not.toMatch(/method:\s*"(?:POST|PUT|PATCH|DELETE)"/);
-    expect(source).not.toMatch(/promote_master|control_plane_freeze|cron\.alter_job|supabase\.from/);
+    expect(source).not.toMatch(
+      /promote_master|control_plane_freeze|cron\.alter_job|supabase\.from/,
+    );
   });
 });
