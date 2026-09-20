@@ -7,8 +7,20 @@ BEGIN
   IF (SELECT count(*) FROM public.installation_operations_freeze WHERE singleton IS TRUE AND frozen IS TRUE) <> 1 THEN
     RAISE EXCEPTION 'Freeze global ausente, inválido ou inativo' USING ERRCODE='55000';
   END IF;
-  IF EXISTS (SELECT 1 FROM public.installation_operations WHERE status IN ('pending','running','retryable'))
-     OR EXISTS (SELECT 1 FROM public.installation_operation_attempts WHERE status IN ('running','retryable')) THEN
+  IF EXISTS (
+       SELECT 1 FROM public.installation_operations
+       WHERE status = 'running' OR status = 'retryable'
+         OR lease_owner IS NOT NULL OR lease_expires_at IS NOT NULL
+         OR status IS NULL
+         OR status NOT IN ('pending','running','retryable','blocked','manual_review','success','failed')
+     ) OR EXISTS (
+       SELECT 1 FROM public.installation_operation_attempts a
+       LEFT JOIN public.installation_operations o ON o.id = a.operation_id
+       WHERE o.id IS NULL OR a.status = 'running'
+         OR a.status IS NULL
+         OR a.status NOT IN ('running','retryable','completed','failed','exhausted','orphaned')
+         OR (a.status = 'retryable' AND o.status IN ('pending','running','retryable'))
+     ) THEN
     RAISE EXCEPTION 'Operações ou tentativas ativas impedem a instalação' USING ERRCODE='55000';
   END IF;
 END $preflight$;

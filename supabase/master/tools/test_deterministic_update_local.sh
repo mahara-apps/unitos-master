@@ -13,6 +13,8 @@ PSQL=(psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U lovable postgres
 
 "${PSQL[@]}" >/dev/null <<'SQL'
 CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN;
+CREATE SCHEMA auth;
+CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS 'SELECT NULL::uuid';
 CREATE TABLE public.installations (
  id uuid PRIMARY KEY, status text, health text, health_checks jsonb, health_checked_at timestamptz,
  active_operation_id uuid, last_error text, current_version text, pinned_release text,
@@ -36,7 +38,32 @@ CREATE TABLE public.installation_operation_migrations (
  fingerprint text, package_position integer, statement_index integer, total_statements integer,
  status text, confirmed_at timestamptz
 );
+CREATE TABLE public.installation_credentials (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
+CREATE TABLE public.installation_operation_steps (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
+CREATE TABLE public.installation_operation_outbox (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
+CREATE TABLE public.installation_migration_reconciliation_evidence (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
+CREATE FUNCTION public.is_super_admin(uuid) RETURNS boolean LANGUAGE sql STABLE AS 'SELECT false';
 SQL
+"${PSQL[@]}" --file "$ROOT/supabase/master/002_control_plane_global_freeze.sql" >/dev/null
+"${PSQL[@]}" >/dev/null <<'SQL'
+INSERT INTO public.installations(id,status,current_version)
+VALUES ('00000000-0000-0000-0000-000000000010','updating','1.3.71'),
+       ('00000000-0000-0000-0000-000000000011','error','1.3.70');
+INSERT INTO public.installation_operations(id,installation_id,kind,status,lease_owner,fencing_token,lease_expires_at,detail,steps)
+VALUES ('00000000-0000-0000-0000-000000000012','00000000-0000-0000-0000-000000000010','update','pending',NULL,0,NULL,'{}','[]'),
+       ('00000000-0000-0000-0000-000000000013','00000000-0000-0000-0000-000000000011','update','failed',NULL,0,NULL,'{}','[]');
+INSERT INTO public.installation_operation_attempts(operation_id,fencing_token,status,retryable)
+SELECT '00000000-0000-0000-0000-000000000013',0,'retryable',true FROM generate_series(1,67);
+SELECT public.set_installation_operations_freeze(true,'ensaio executor','teste',0);
+SQL
+"${PSQL[@]}" --csv --tuples-only --file "$ROOT/supabase/master/deterministic-update-install-preflight.sql" | tee "$TMP_ROOT/preflight.out" >/dev/null
+if grep -q ',FAIL$' "$TMP_ROOT/preflight.out" || [[ "$(grep -c ',PASS$' "$TMP_ROOT/preflight.out")" -ne 10 ]]; then
+  echo "preflight do executor deveria preservar pending e histórico terminal" >&2; exit 1
+fi
+"${PSQL[@]}" --file "$ROOT/supabase/master/install-deterministic-update.sql" >/dev/null
+"${PSQL[@]}" --tuples-only --no-align -c "SELECT concat_ws(',',status,lease_owner IS NULL,lease_expires_at IS NULL) FROM public.installation_operations WHERE id='00000000-0000-0000-0000-000000000012'" | grep -qx 'pending,t,t'
+"${PSQL[@]}" --tuples-only --no-align -c "SELECT count(*) FROM public.installation_operation_attempts WHERE status='retryable'" | grep -qx 67
+"${PSQL[@]}" -c "SELECT public.set_installation_operations_freeze(false,'continua ensaio','teste',1);" >/dev/null
 "${PSQL[@]}" --file "$ROOT/supabase/master/003_control_plane_deterministic_update.sql" >/dev/null
 
 IDS=("00000000-0000-0000-0000-000000000001" "00000000-0000-0000-0000-000000000002")

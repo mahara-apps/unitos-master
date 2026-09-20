@@ -33,16 +33,21 @@ interface PromotionOptions {
   acceptNoBackup?: boolean;
   deterministicUpdateConfirmation?: string;
   freezeInstallConfirmation?: string;
+  convergenceConfirmation?: string;
+  releaseInstallConfirmation?: string;
+  releaseBaseline?: { current: string; pinned: string; commit: string };
   freezePreflight?: string;
 }
 
 function runPromotion(
   mode:
     | "--converge-existing"
+    | "--apply-convergence-only"
     | "--bootstrap-clean"
     | "--install-global-freeze"
     | "--install-deterministic-update"
-    | "--recover-missing-1.4.10",
+    | "--recover-missing-1.4.10"
+    | "--install-control-plane-release",
   verification: string,
   options: PromotionOptions = {},
 ) {
@@ -124,6 +129,11 @@ fi
         UNITOS_MASTER_RECOVERY: options.recoveryConfirmation ?? "",
         UNITOS_MASTER_DETERMINISTIC_UPDATE_INSTALL: options.deterministicUpdateConfirmation ?? "",
         UNITOS_MASTER_FREEZE_INSTALL: options.freezeInstallConfirmation ?? "",
+        UNITOS_MASTER_CONVERGENCE: options.convergenceConfirmation ?? "",
+        UNITOS_MASTER_RELEASE_INSTALL: options.releaseInstallConfirmation ?? "",
+        UNITOS_CONTROL_PLANE_BASELINE_CURRENT_VERSION: options.releaseBaseline?.current ?? "",
+        UNITOS_CONTROL_PLANE_BASELINE_PINNED_RELEASE: options.releaseBaseline?.pinned ?? "",
+        UNITOS_CONTROL_PLANE_BASELINE_PINNED_COMMIT_SHA: options.releaseBaseline?.commit ?? "",
         MASTER_PROJECT_REF: options.projectRef ?? "tkjbhttylouamqxnbfgv",
         UNITOS_SUPABASE_CLI: fakeSupabase,
         UNITOS_MASTER_BACKUP_CONFIRMATION: options.omitBackupEvidence
@@ -165,7 +175,7 @@ describe("promoção local do Control-plane Master", () => {
     const result = runPromotion("--install-deterministic-update", "1,controle,ok,PASS", {
       projectRef: "tkjbhttylouamqxnbfgv",
       deterministicUpdateConfirmation: "INSTALL_DETERMINISTIC_UPDATE_ONLY",
-      preflight: Array.from({ length: 5 }, (_, index) => `${index + 1},preflight,ok,PASS`).join(
+      preflight: Array.from({ length: 10 }, (_, index) => `${index + 1},preflight,ok,PASS`).join(
         "\n",
       ),
     });
@@ -237,8 +247,9 @@ describe("promoção local do Control-plane Master", () => {
   });
 
   it("bloqueia qualquer escrita sem backup ou aceitação global válida", () => {
-    const result = runPromotion("--converge-existing", "1,controle,ok,PASS", {
+    const result = runPromotion("--apply-convergence-only", "1,controle,ok,PASS", {
       omitBackupEvidence: true,
+      convergenceConfirmation: "APPLY_CONTROL_PLANE_CONVERGENCE_ONLY",
     });
     expect(result.code).toBe(2);
     expect(result.stdout).toContain("backup restaurável ou aceite explicitamente");
@@ -246,8 +257,9 @@ describe("promoção local do Control-plane Master", () => {
   });
 
   it("bloqueia qualquer modo quando a identidade declarada diverge do Master", () => {
-    const result = runPromotion("--converge-existing", "1,controle,ok,PASS", {
+    const result = runPromotion("--apply-convergence-only", "1,controle,ok,PASS", {
       projectRef: "aaaaaaaaaaaaaaaaaaaa",
+      convergenceConfirmation: "APPLY_CONTROL_PLANE_CONVERGENCE_ONLY",
     });
     expect(result.code).toBe(2);
     expect(result.stdout).toContain("identidade do Master não coincide");
@@ -255,10 +267,11 @@ describe("promoção local do Control-plane Master", () => {
   });
 
   it("aceita risco global sem backup mas preserva a autorização específica da operação", () => {
-    const allowed = runPromotion("--converge-existing", "1,controle,ok,PASS", {
+    const allowed = runPromotion("--apply-convergence-only", "1,controle,ok,PASS", {
       omitBackupEvidence: true,
       acceptNoBackup: true,
       projectRef: "tkjbhttylouamqxnbfgv",
+      convergenceConfirmation: "APPLY_CONTROL_PLANE_CONVERGENCE_ONLY",
     });
     expect(allowed.code).toBe(0);
     expect(allowed.calls).toContain("convergence-control-plane.sql");
@@ -273,15 +286,43 @@ describe("promoção local do Control-plane Master", () => {
     expect(unauthorizedRecovery.calls).toBe("");
   });
 
-  it("Master existente aplica apenas a convergência em transação e verifica", () => {
-    const result = runPromotion("--converge-existing", "1,controle,ok,PASS");
+  it("Master existente aplica apenas a convergência com autorização própria", () => {
+    const result = runPromotion("--apply-convergence-only", "1,controle,ok,PASS", {
+      convergenceConfirmation: "APPLY_CONTROL_PLANE_CONVERGENCE_ONLY",
+    });
     expect(result.code).toBe(0);
     expect(result.calls).toContain("--single-transaction");
     expect(result.calls).toContain("convergence-control-plane.sql");
     expect(result.calls).not.toContain(
       "--file /dev-server/supabase/master/bootstrap-control-plane.sql",
     );
-    expect(result.calls).toContain("verify-installation-master.sql");
+    expect(result.calls).not.toContain("002_control_plane_global_freeze.sql");
+    expect(result.calls).not.toContain("install-deterministic-update.sql");
+  });
+
+  it("recusa o atalho legado --converge-existing antes de qualquer acesso", () => {
+    const result = runPromotion("--converge-existing", "1,controle,ok,PASS");
+    expect(result.code).toBe(2);
+    expect(result.stdout).toContain("--converge-existing foi removido");
+    expect(result.calls).toBe("");
+  });
+
+  it("instala o estado próprio somente com baseline canônico explícito", () => {
+    const missing = runPromotion("--install-control-plane-release", "1,controle,ok,PASS", {
+      releaseInstallConfirmation: "INSTALL_CONTROL_PLANE_RELEASE_ONLY",
+    });
+    expect(missing.code).toBe(2);
+    expect(missing.stdout).toContain("baseline canônico");
+    expect(missing.calls).toBe("");
+
+    const installed = runPromotion("--install-control-plane-release", "1,controle,ok,PASS", {
+      releaseInstallConfirmation: "INSTALL_CONTROL_PLANE_RELEASE_ONLY",
+      releaseBaseline: { current: "1.3.71", pinned: "1.3.72", commit: "b005d07" },
+    });
+    expect(installed.code).toBe(0);
+    expect(installed.calls).toContain("install-control-plane-release.sql");
+    expect(installed.calls).toContain("baseline_current_version=1.3.71");
+    expect(installed.calls).not.toContain("convergence-control-plane.sql");
   });
 
   it("Master limpo aplica o bootstrap completo em transação", () => {
@@ -293,7 +334,7 @@ describe("promoção local do Control-plane Master", () => {
   });
 
   it("falha a promoção quando o verificador Master encontra FAIL", () => {
-    const result = runPromotion("--converge-existing", "1,controle,divergente,FAIL");
+    const result = runPromotion("--bootstrap-clean", "1,controle,divergente,FAIL");
     expect(result.code).toBe(1);
     expect(result.stdout).toContain("verificador Master encontrou divergências");
   });
@@ -314,7 +355,7 @@ describe("promoção local do Control-plane Master", () => {
     expect(result.calls.match(/supabase db push/g)).toHaveLength(2);
     expect(result.calls).toContain("--dry-run");
     expect(result.calls).toContain("supabase --version");
-    expect(result.calls).toContain("verify-installation-master.sql");
+    expect(result.calls).not.toContain("convergence-control-plane.sql");
     expect(result.calls).not.toContain("convergence-control-plane.sql");
     expect(result.calls).not.toContain("bootstrap-control-plane.sql");
   });

@@ -10,8 +10,12 @@ if [[ "$#" -ne 1 ]]; then
   echo "Bloqueado: informe exatamente um modo, sem parâmetros adicionais" >&2
   exit 2
 fi
-if [[ "$MODE" != "--converge-existing" && "$MODE" != "--bootstrap-clean" && "$MODE" != "--install-global-freeze" && "$MODE" != "--install-deterministic-update" && "$MODE" != "--recover-missing-1.4.10" ]]; then
-  echo "Uso: $0 --converge-existing|--bootstrap-clean|--install-global-freeze|--install-deterministic-update|--recover-missing-1.4.10" >&2
+if [[ "$MODE" == "--converge-existing" ]]; then
+  echo "Bloqueado: --converge-existing foi removido; use --apply-convergence-only com autorização própria" >&2
+  exit 2
+fi
+if [[ "$MODE" != "--apply-convergence-only" && "$MODE" != "--bootstrap-clean" && "$MODE" != "--install-global-freeze" && "$MODE" != "--install-deterministic-update" && "$MODE" != "--recover-missing-1.4.10" && "$MODE" != "--install-control-plane-release" ]]; then
+  echo "Uso: $0 --apply-convergence-only|--bootstrap-clean|--install-global-freeze|--install-deterministic-update|--recover-missing-1.4.10|--install-control-plane-release" >&2
   exit 2
 fi
 if [[ "${UNITOS_MASTER_PROMOTION:-}" != "I_UNDERSTAND_MASTER_ONLY" ]]; then
@@ -39,6 +43,22 @@ PY
 if [[ "$MODE" == "--install-global-freeze" && "${UNITOS_MASTER_FREEZE_INSTALL:-}" != "INSTALL_GLOBAL_FREEZE_ONLY" ]]; then
   echo "Bloqueado: instalação do freeze exige confirmação específica" >&2
   exit 2
+fi
+if [[ "$MODE" == "--apply-convergence-only" && "${UNITOS_MASTER_CONVERGENCE:-}" != "APPLY_CONTROL_PLANE_CONVERGENCE_ONLY" ]]; then
+  echo "Bloqueado: convergência exige confirmação específica" >&2
+  exit 2
+fi
+if [[ "$MODE" == "--install-control-plane-release" && "${UNITOS_MASTER_RELEASE_INSTALL:-}" != "INSTALL_CONTROL_PLANE_RELEASE_ONLY" ]]; then
+  echo "Bloqueado: instalação da promoção do Control-plane exige confirmação específica" >&2
+  exit 2
+fi
+if [[ "$MODE" == "--install-control-plane-release" ]]; then
+  for name in UNITOS_CONTROL_PLANE_BASELINE_CURRENT_VERSION UNITOS_CONTROL_PLANE_BASELINE_PINNED_RELEASE UNITOS_CONTROL_PLANE_BASELINE_PINNED_COMMIT_SHA; do
+    if [[ -z "${!name:-}" ]]; then
+      echo "Bloqueado: baseline canônico $name ausente" >&2
+      exit 2
+    fi
+  done
 fi
 
 # Toda promoção neste executor altera o Control-plane compartilhado. Identidade,
@@ -185,11 +205,13 @@ elif [[ "$MODE" == "--install-deterministic-update" ]]; then
   trap 'rm -f "$PREFLIGHT"' EXIT
   psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --csv \
     --file "$ROOT/supabase/master/deterministic-update-install-preflight.sql" > "$PREFLIGHT"
-  if grep -q ',FAIL$' "$PREFLIGHT" || [[ "$(grep -c ',PASS$' "$PREFLIGHT")" -ne 5 ]]; then
+  if grep -q ',FAIL$' "$PREFLIGHT" || [[ "$(grep -c ',PASS$' "$PREFLIGHT")" -ne 10 ]]; then
     echo "Bloqueado: preflight do executor determinístico encontrou divergências" >&2
     exit 1
   fi
   SQL="$ROOT/supabase/master/install-deterministic-update.sql"
+elif [[ "$MODE" == "--install-control-plane-release" ]]; then
+  SQL="$ROOT/supabase/master/install-control-plane-release.sql"
 elif [[ "$MODE" == "--bootstrap-clean" ]]; then
   SQL="$ROOT/supabase/master/bootstrap-control-plane.sql"
 else
@@ -197,15 +219,25 @@ else
 fi
 
 if [[ -n "$SQL" ]]; then
-  psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --single-transaction --file "$SQL"
+  if [[ "$MODE" == "--install-control-plane-release" ]]; then
+    psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --single-transaction \
+      --set baseline_current_version="$UNITOS_CONTROL_PLANE_BASELINE_CURRENT_VERSION" \
+      --set baseline_pinned_release="$UNITOS_CONTROL_PLANE_BASELINE_PINNED_RELEASE" \
+      --set baseline_pinned_commit_sha="$UNITOS_CONTROL_PLANE_BASELINE_PINNED_COMMIT_SHA" \
+      --file "$SQL"
+  else
+    psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --single-transaction --file "$SQL"
+  fi
 fi
 
-REPORT="$(mktemp)"
-trap 'rm -f "$REPORT" "${PREFLIGHT:-}" "${DRY_RUN:-}" "${LEDGER_SNAPSHOT:-}" "${LEDGER_CURRENT:-}"; [[ -z "${STAGE:-}" ]] || rm -rf "$STAGE"' EXIT
-psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --csv \
-  --file "$ROOT/supabase/install/verify-installation-master.sql" > "$REPORT"
-if grep -q ',FAIL$' "$REPORT"; then
-  echo "Falha: verificador Master encontrou divergências" >&2
-  exit 1
+if [[ "$MODE" == "--bootstrap-clean" ]]; then
+  REPORT="$(mktemp)"
+  trap 'rm -f "$REPORT" "${PREFLIGHT:-}" "${DRY_RUN:-}" "${LEDGER_SNAPSHOT:-}" "${LEDGER_CURRENT:-}"; [[ -z "${STAGE:-}" ]] || rm -rf "$STAGE"' EXIT
+  psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --csv \
+    --file "$ROOT/supabase/install/verify-installation-master.sql" > "$REPORT"
+  if grep -q ',FAIL$' "$REPORT"; then
+    echo "Falha: verificador Master encontrou divergências" >&2
+    exit 1
+  fi
 fi
-echo "Promoção Master concluída e verificada"
+echo "Ato Master isolado concluído e verificado"
