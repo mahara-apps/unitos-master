@@ -509,3 +509,11 @@
 - [ ] Pacote/versionamento MASTER-first
 - [ ] Testes focados, master:check, suítes, typecheck, lint e build
 - [ ] Ensaio PostgreSQL real (bloqueado até gates administrativos; não executar automaticamente)
+
+## Auditoria operacional canônica
+
+- [x] Criar eventos operacionais persistentes, sanitizados, imutáveis para usuários e com retenção de 90 dias.
+- [x] Exibir saúde das fontes, escopo por workspace/cliente e evidências no painel para Owner/Admin/Super Admin.
+- [x] Instrumentar os fluxos centrais de e-mail e webhooks Meta/Evolution.
+- [x] Sincronizar no pacote MASTER 1.4.16 e executar validações locais; integração bloqueada por credencial publicável inválida do ambiente descartável.
+- [ ] Publicar somente após autorização explícita.

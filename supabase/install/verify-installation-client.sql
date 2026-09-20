@@ -461,7 +461,7 @@ WITH checks AS (
                'client_ad_accounts','project_participants','user_login_events','work_comments',
                 'work_links','work_statuses','client_automation_attempts',
                  'client_automation_dates','client_automation_dispatches','client_automation_rules',
-                 'project_job_counters'
+                  'project_job_counters','system_events'
              ]) AS t
              WHERE to_regclass('public.' || t) IS NULL
            ) faltando
@@ -477,10 +477,32 @@ WITH checks AS (
              'client_ad_accounts','project_participants','user_login_events','work_comments',
               'work_links','work_statuses','client_automation_attempts',
                'client_automation_dates','client_automation_dispatches','client_automation_rules',
-               'project_job_counters'
+                'project_job_counters','system_events'
            ]) AS t
            WHERE to_regclass('public.' || t) IS NULL
          ) THEN 'PASS' ELSE 'FAIL' END
+
+  UNION ALL
+  SELECT 85, 'auditoria operacional: tabela, RLS, política, retenção e escopo protegidos',
+         CASE WHEN to_regclass('public.system_events') IS NULL THEN 'tabela ausente'
+              ELSE 'tabela presente / segurança e retenção verificadas' END,
+         CASE WHEN to_regclass('public.system_events') IS NOT NULL
+                   AND EXISTS (
+                     SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                     WHERE n.nspname='public' AND c.relname='system_events' AND c.relrowsecurity)
+                   AND EXISTS (
+                     SELECT 1 FROM pg_policies
+                     WHERE schemaname='public' AND tablename='system_events'
+                       AND policyname='system_events_owner_admin_read')
+                   AND NOT has_table_privilege('anon', 'public.system_events', 'SELECT')
+                   AND NOT has_table_privilege('anon', 'public.system_events', 'INSERT')
+                   AND NOT has_table_privilege('anon', 'public.system_events', 'UPDATE')
+                   AND NOT has_table_privilege('anon', 'public.system_events', 'DELETE')
+                   AND has_table_privilege('authenticated', 'public.system_events', 'SELECT')
+                   AND to_regprocedure('public.purge_system_events_90d()') IS NOT NULL
+                   AND EXISTS (SELECT 1 FROM pg_trigger
+                               WHERE tgname='system_events_guard_scope_trg' AND NOT tgisinternal)
+              THEN 'PASS' ELSE 'FAIL' END
 
   UNION ALL
   SELECT 81, 'retomada: ledger incremental completo e protegido',
