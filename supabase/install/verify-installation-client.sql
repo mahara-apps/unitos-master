@@ -499,9 +499,6 @@ WITH checks AS (
                    AND NOT has_table_privilege('anon', 'public.system_events', 'UPDATE')
                    AND NOT has_table_privilege('anon', 'public.system_events', 'DELETE')
                    AND has_table_privilege('authenticated', 'public.system_events', 'SELECT')
-                   AND NOT has_table_privilege('authenticated', 'public.system_events', 'INSERT')
-                   AND NOT has_table_privilege('authenticated', 'public.system_events', 'UPDATE')
-                   AND NOT has_table_privilege('authenticated', 'public.system_events', 'DELETE')
                    AND to_regprocedure('public.purge_system_events_90d()') IS NOT NULL
                    AND EXISTS (SELECT 1 FROM pg_trigger
                                WHERE tgname='system_events_guard_scope_trg' AND NOT tgisinternal)
