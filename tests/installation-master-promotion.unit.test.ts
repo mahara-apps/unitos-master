@@ -115,7 +115,7 @@ fi
           "postgresql://postgres:secret@db.tkjbhttylouamqxnbfgv.supabase.co:5432/postgres",
         UNITOS_MASTER_RECOVERY: options.recoveryConfirmation ?? "",
         UNITOS_MASTER_DETERMINISTIC_UPDATE_INSTALL: options.deterministicUpdateConfirmation ?? "",
-        MASTER_PROJECT_REF: options.projectRef ?? "",
+        MASTER_PROJECT_REF: options.projectRef ?? "tkjbhttylouamqxnbfgv",
         UNITOS_SUPABASE_CLI: fakeSupabase,
         UNITOS_MASTER_BACKUP_CONFIRMATION: options.omitBackupEvidence
           ? ""

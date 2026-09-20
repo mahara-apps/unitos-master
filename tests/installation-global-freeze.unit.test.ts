@@ -27,6 +27,7 @@ interface FreezeOptions {
   authorize?: boolean;
   extraArgument?: string;
   noBackupAcceptance?: boolean;
+  noBackupRisk?: string;
   failPreflight?: boolean;
 }
 
@@ -81,7 +82,8 @@ fi
           ? "operador-control-plane"
           : "",
         UNITOS_MASTER_NO_BACKUP_RISK_ACCEPTED: options.noBackupAcceptance
-          ? "Aceito o risco global de operar sem backup restaurável confirmado."
+          ? (options.noBackupRisk ??
+            "Aceito o risco global de operar sem backup restaurável confirmado.")
           : "",
       },
       encoding: "utf8",
@@ -215,9 +217,10 @@ describe("congelamento global fail-closed do Control-plane", () => {
     expect(missingOperator.output).toContain("UNITOS_MASTER_BACKUP_OPERATOR ausente");
     expect(missingOperator.calls).toBe("");
 
-    const missingRisk = runFreeze({ noBackupAcceptance: true });
-    expect(missingRisk.code).toBe(0);
-    expect(missingRisk.audit).toContain('"risk_accepted"');
+    const missingRisk = runFreeze({ noBackupAcceptance: true, noBackupRisk: "" });
+    expect(missingRisk.code).toBe(2);
+    expect(missingRisk.output).toContain("UNITOS_MASTER_NO_BACKUP_RISK_ACCEPTED ausente");
+    expect(missingRisk.calls).toBe("");
   });
 
   it("mantém autorização própria e bloqueia argumentos adicionais", () => {

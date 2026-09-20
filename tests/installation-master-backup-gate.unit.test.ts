@@ -108,6 +108,20 @@ describe("gate de backup do Control-plane Master", () => {
     );
   });
 
+  it("rejeita o formato antigo de exceção descartável", () => {
+    const rejected = run("global", {
+      UNITOS_MASTER_BACKUP_EXCEPTION: "ACCEPT_DISPOSABLE_INSTALLATION_BACKUP_RISK",
+      UNITOS_MASTER_BACKUP_EXCEPTION_INSTALLATION_ID:
+        "0b6b7f5c-44e5-4e85-a33c-37014ed044a2",
+      UNITOS_MASTER_BACKUP_EXCEPTION_DISPOSABLE: "INSTALLATION_NOT_DELIVERED_AND_DISPOSABLE",
+      UNITOS_MASTER_BACKUP_EXCEPTION_OPERATOR: "operador-control-plane",
+      UNITOS_MASTER_BACKUP_EXCEPTION_RISK_ACCEPTED:
+        "Aceito perda integral dos dados descartáveis desta instalação.",
+    });
+    expect(rejected.code).toBe(2);
+    expect(rejected.output).toContain("aceite explicitamente o risco global");
+  });
+
   it("não permite que a decisão de risco substitua a autorização da operação", () => {
     const promotion = execFileSync(
       "cat",
