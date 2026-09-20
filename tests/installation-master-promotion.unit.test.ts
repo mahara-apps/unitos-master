@@ -63,7 +63,7 @@ elif [[ "$*" == *"deterministic-update-install-preflight.sql"* ]]; then
 elif [[ "$*" == *"global-freeze-install-preflight.sql"* ]]; then
   printf '%s\\n' '${
     options.freezePreflight ??
-    Array.from({ length: 8 }, (_, index) => `${index + 1},freeze-preflight,ok,PASS`).join("\\n")
+    Array.from({ length: 8 }, (_, index) => `${index + 1},freeze-preflight,ok,PASS`).join("\n")
   }'
 elif [[ "$*" == *"verify-installation-master.sql"* ]]; then
   printf '%s\\n' '${verification}'
@@ -250,7 +250,7 @@ describe("promoção local do Control-plane Master", () => {
       projectRef: "aaaaaaaaaaaaaaaaaaaa",
     });
     expect(result.code).toBe(2);
-    expect(result.stdout).toContain("não coincide com o Master canônico");
+    expect(result.stdout).toContain("identidade do Master não coincide");
     expect(result.calls).toBe("");
   });
 
