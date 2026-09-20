@@ -1,7 +1,7 @@
 -- MASTER 1.4.15: congelamento global fail-closed do Installation Manager.
 -- Control-plane only. Nunca incluir no pacote Client.
 
-CREATE TABLE public.installation_operations_freeze (
+CREATE TABLE IF NOT EXISTS public.installation_operations_freeze (
   singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
   frozen boolean NOT NULL DEFAULT false,
   generation bigint NOT NULL DEFAULT 0 CHECK (generation >= 0),
@@ -13,11 +13,12 @@ CREATE TABLE public.installation_operations_freeze (
 GRANT SELECT ON public.installation_operations_freeze TO authenticated;
 GRANT SELECT ON public.installation_operations_freeze TO service_role;
 ALTER TABLE public.installation_operations_freeze ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS installation_operations_freeze_super_admin_read ON public.installation_operations_freeze;
 CREATE POLICY installation_operations_freeze_super_admin_read
   ON public.installation_operations_freeze FOR SELECT TO authenticated
   USING (public.is_super_admin(auth.uid()));
 
-CREATE TABLE public.installation_operations_freeze_events (
+CREATE TABLE IF NOT EXISTS public.installation_operations_freeze_events (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   generation bigint NOT NULL CHECK (generation > 0),
   frozen boolean NOT NULL,
@@ -29,14 +30,16 @@ CREATE TABLE public.installation_operations_freeze_events (
 GRANT SELECT ON public.installation_operations_freeze_events TO authenticated;
 GRANT SELECT ON public.installation_operations_freeze_events TO service_role;
 ALTER TABLE public.installation_operations_freeze_events ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS installation_operations_freeze_events_super_admin_read ON public.installation_operations_freeze_events;
 CREATE POLICY installation_operations_freeze_events_super_admin_read
   ON public.installation_operations_freeze_events FOR SELECT TO authenticated
   USING (public.is_super_admin(auth.uid()));
 
 INSERT INTO public.installation_operations_freeze(singleton, frozen, generation)
-VALUES (true, false, 0);
+VALUES (true, false, 0)
+ON CONFLICT (singleton) DO NOTHING;
 
-CREATE FUNCTION public.read_installation_operations_freeze()
+CREATE OR REPLACE FUNCTION public.read_installation_operations_freeze()
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public AS $$
 DECLARE _row public.installation_operations_freeze%ROWTYPE;
 BEGIN
@@ -52,7 +55,7 @@ END $$;
 REVOKE ALL ON FUNCTION public.read_installation_operations_freeze() FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.read_installation_operations_freeze() TO authenticated,service_role;
 
-CREATE FUNCTION public.set_installation_operations_freeze(
+CREATE OR REPLACE FUNCTION public.set_installation_operations_freeze(
   _frozen boolean, _reason text, _changed_by text, _expected_generation bigint
 ) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE _current public.installation_operations_freeze%ROWTYPE; _next_generation bigint;
@@ -71,12 +74,21 @@ BEGIN
     RAISE EXCEPTION 'Congelamento já está no estado solicitado' USING ERRCODE='55000';
   END IF;
   IF _frozen AND (
-    EXISTS (SELECT 1 FROM public.installation_operations WHERE status IN ('pending','running','retryable'))
+    EXISTS (
+      SELECT 1 FROM public.installation_operations
+      WHERE status = 'running' OR status = 'retryable'
+        OR lease_owner IS NOT NULL OR lease_expires_at IS NOT NULL
+        OR status IS NULL
+        OR status NOT IN ('pending','running','retryable','blocked','manual_review','success','failed')
+    )
     OR EXISTS (
       SELECT 1
       FROM public.installation_operation_attempts a
       LEFT JOIN public.installation_operations o ON o.id = a.operation_id
-      WHERE a.status = 'running'
+      WHERE o.id IS NULL
+        OR a.status IS NULL
+        OR a.status NOT IN ('running','retryable','completed','failed','exhausted','orphaned')
+        OR a.status = 'running'
         OR (a.status = 'retryable' AND (o.id IS NULL OR o.status IN ('pending','running','retryable')))
     )
   ) THEN
@@ -95,7 +107,7 @@ REVOKE ALL ON FUNCTION public.set_installation_operations_freeze(boolean,text,te
   FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.set_installation_operations_freeze(boolean,text,text,bigint) TO service_role;
 
-CREATE FUNCTION public.guard_installation_operations_freeze()
+CREATE OR REPLACE FUNCTION public.guard_installation_operations_freeze()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE _frozen boolean;
 BEGIN

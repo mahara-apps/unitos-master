@@ -19,7 +19,22 @@ WITH facts AS (
     to_regclass('public.installation_operations_freeze') IS NOT NULL AS has_freeze_table,
     to_regprocedure('public.read_installation_operations_freeze()') IS NOT NULL AS has_freeze_rpc,
     coalesce((SELECT frozen FROM public.installation_operations_freeze WHERE singleton IS TRUE), false) AS freeze_active,
-    NOT EXISTS (SELECT 1 FROM public.installation_operations WHERE status IN ('pending','running','retryable') AND (lease_expires_at IS NULL OR lease_expires_at > now())) AS no_active_operations
+    NOT EXISTS (
+      SELECT 1 FROM public.installation_operations
+      WHERE status = 'running' OR status = 'retryable'
+        OR lease_owner IS NOT NULL OR lease_expires_at IS NOT NULL
+        OR status IS NULL
+        OR status NOT IN ('pending','running','retryable','blocked','manual_review','success','failed')
+    ) AND NOT EXISTS (
+      SELECT 1 FROM public.installation_operation_attempts a
+      LEFT JOIN public.installation_operations o ON o.id = a.operation_id
+      WHERE o.id IS NULL OR a.status = 'running'
+        OR a.status IS NULL
+        OR a.status NOT IN ('running','retryable','completed','failed','exhausted','orphaned')
+        OR (a.status = 'retryable' AND o.status IN ('pending','running','retryable'))
+    ) AS no_unsafe_activity,
+    count(*) FILTER (WHERE status = 'pending' AND lease_owner IS NULL AND lease_expires_at IS NULL) AS queued_preserved
+    FROM public.installation_operations
 ), fn_811(fn, expected_signature, expected_arg_names, expected_arg_types, expected_result, expected_body_md5) AS (VALUES
   ('reconcile', 'reconcile_installation_operation_migrations(uuid,text,bigint,jsonb)', ARRAY['_operation_id','_owner','_fencing_token','_migrations']::text[], ARRAY['uuid','text','bigint','jsonb']::text[], 'integer', 'abd43a4ec03634e6c9552eced6b7efe4'),
   ('normalize', 'normalize_legacy_installation_operations(integer)', ARRAY['_max_idle_seconds']::text[], ARRAY['integer']::text[], 'jsonb', '29f2435ed1a84f4a6f34cff166d4cd7d')
@@ -54,7 +69,7 @@ WITH facts AS (
   SELECT 1 ord, 'ledger: 1.4.10 ausente, 1.4.11 presente, recuperação ausente' check_name, CASE WHEN has_1411 AND NOT has_1410 AND NOT has_recovery THEN 'PASS' ELSE 'FAIL' END status FROM facts
   UNION ALL SELECT 2, 'objetos 1.4.10 integralmente ausentes', CASE WHEN NOT has_table AND NOT has_any_reconciliation_rpc THEN 'PASS' ELSE 'FAIL' END FROM facts
   UNION ALL SELECT 3, 'dependências anteriores e 1.4.11 presentes', CASE WHEN has_installations AND has_operations AND has_super_admin AND has_1411_reconcile AND has_1411_normalize THEN 'PASS' ELSE 'FAIL' END FROM facts
-  UNION ALL SELECT 4, 'nenhuma operação ativa ou retomável', CASE WHEN no_active_operations THEN 'PASS' ELSE 'FAIL' END FROM facts
+  UNION ALL SELECT 4, 'pending sem lease preservadas; nenhuma atividade incompatível (' || queued_preserved::text || ' preservadas)', CASE WHEN no_unsafe_activity THEN 'PASS' ELSE 'FAIL' END FROM facts
 
   -- 1.4.11: assinatura exata, sem overloads (reconcile_overloads=1 AND normalize_overloads=1)
   UNION ALL SELECT 5, '1.4.11: assinaturas exatas sem overload',

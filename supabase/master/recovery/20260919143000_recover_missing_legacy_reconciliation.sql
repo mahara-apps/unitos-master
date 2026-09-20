@@ -56,10 +56,19 @@ BEGIN
 
   IF EXISTS (
     SELECT 1 FROM public.installation_operations
-    WHERE status IN ('pending', 'running', 'retryable')
-      AND (lease_expires_at IS NULL OR lease_expires_at > now())
+    WHERE status = 'running' OR status = 'retryable'
+      OR lease_owner IS NOT NULL OR lease_expires_at IS NOT NULL
+      OR status IS NULL
+      OR status NOT IN ('pending','running','retryable','blocked','manual_review','success','failed')
+  ) OR EXISTS (
+    SELECT 1 FROM public.installation_operation_attempts a
+    LEFT JOIN public.installation_operations o ON o.id = a.operation_id
+    WHERE o.id IS NULL OR a.status = 'running'
+      OR a.status IS NULL
+      OR a.status NOT IN ('running','retryable','completed','failed','exhausted','orphaned')
+      OR (a.status = 'retryable' AND o.status IN ('pending','running','retryable'))
   ) THEN
-    RAISE EXCEPTION 'Recuperação bloqueada: existe operação ativa ou retomável' USING ERRCODE = '55000';
+    RAISE EXCEPTION 'Recuperação bloqueada: existe atividade, lease ou ambiguidade incompatível' USING ERRCODE = '55000';
   END IF;
 END
 $unitos_recovery_precondition$;
