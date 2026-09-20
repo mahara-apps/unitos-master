@@ -48,6 +48,8 @@ describe("auditoria operacional", () => {
       "REVOKE ALL ON FUNCTION public.system_events_guard_scope() FROM PUBLIC, anon, authenticated",
     );
     expect(verify).toContain("'project_job_counters','system_events'");
-    expect(verify).toContain("auditoria operacional: tabela, RLS, política, retenção e escopo protegidos");
+    expect(verify).toContain(
+      "auditoria operacional: tabela, RLS, política, retenção e escopo protegidos",
+    );
   });
 });

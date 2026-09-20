@@ -473,30 +473,36 @@ export async function sendBrandEmail(
   const config = await resolveResendConfig(supabase, brandId, displayName);
   if (!config) {
     const { logOperationalEvent } = await import("@/lib/operational-audit.server");
-    await logOperationalEvent({
-      severity: "error",
-      category: "email",
-      source: "resend",
-      operation: "email.send",
-      outcome: "error",
-      errorCode: "resend_nao_configurado",
-      message: "Canal de e-mail não configurado para o workspace.",
-      brandId,
-    }, supabase as never);
+    await logOperationalEvent(
+      {
+        severity: "error",
+        category: "email",
+        source: "resend",
+        operation: "email.send",
+        outcome: "error",
+        errorCode: "resend_nao_configurado",
+        message: "Canal de e-mail não configurado para o workspace.",
+        brandId,
+      },
+      supabase as never,
+    );
     return { sent: false, error: "resend_nao_configurado" };
   }
   const result = await sendResendEmail(config, msg);
   const { logOperationalEvent } = await import("@/lib/operational-audit.server");
-  await logOperationalEvent({
-    severity: result.sent ? "success" : "error",
-    category: "email",
-    source: "resend",
-    operation: "email.send",
-    outcome: result.sent ? "success" : "error",
-    errorCode: result.sent ? null : result.error,
-    message: result.sent ? "E-mail aceito pelo provedor." : `Falha no envio: ${result.error}`,
-    brandId,
-    metadata: { credential_source: config.source },
-  }, supabase as never);
+  await logOperationalEvent(
+    {
+      severity: result.sent ? "success" : "error",
+      category: "email",
+      source: "resend",
+      operation: "email.send",
+      outcome: result.sent ? "success" : "error",
+      errorCode: result.sent ? null : result.error,
+      message: result.sent ? "E-mail aceito pelo provedor." : `Falha no envio: ${result.error}`,
+      brandId,
+      metadata: { credential_source: config.source },
+    },
+    supabase as never,
+  );
   return result;
 }
