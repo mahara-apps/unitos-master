@@ -127,7 +127,7 @@ BEGIN
       'installation_operation_attempts','installation_operation_steps','installation_operation_outbox',
       'installation_operation_migrations','installation_migration_reconciliation_evidence');
   SELECT count(*) INTO _singleton FROM public.installation_operations_freeze WHERE singleton IS TRUE;
-  IF _guarded <> 7 + CASE WHEN to_regclass('public.installation_migration_reconciliation_evidence') IS NULL THEN 0 ELSE 1 END
+  IF _guarded <> (7 + CASE WHEN to_regclass('public.installation_migration_reconciliation_evidence') IS NULL THEN 0 ELSE 1 END)
      OR _singleton <> 1 THEN
     RAISE EXCEPTION 'Pós-condição do freeze global falhou' USING ERRCODE='55000';
   END IF;
