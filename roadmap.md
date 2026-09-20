@@ -67,4 +67,4 @@
 - [x] Expor relatório somente leitura para Super Admin no MASTER.
 - [x] Criar tela com bloqueios, gates, ordem, rollback e validações.
 - [x] Preservar explicitamente a operação Apex e impedir controles de execução.
-- [ ] Executar validações locais completas sem ação remota.
+- [x] Executar validações locais completas sem ação remota.
