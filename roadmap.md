@@ -78,3 +78,4 @@
 - [x] Separar convergência, freeze, executor e recovery em atos independentes.
 - [x] Implementar promoção atômica própria do Control-plane após validações.
 - [ ] Regenerar artefatos MASTER-first e executar validações locais completas.
+
