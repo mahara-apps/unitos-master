@@ -110,7 +110,7 @@ DECLARE _table text;
 BEGIN
   FOREACH _table IN ARRAY ARRAY['installations','installation_credentials','installation_operations',
     'installation_operation_attempts','installation_operation_steps','installation_operation_outbox',
-    'installation_operation_migrations'] LOOP
+    'installation_operation_migrations','installation_migration_reconciliation_evidence'] LOOP
     EXECUTE format('DROP TRIGGER IF EXISTS installation_operations_freeze_guard ON public.%I',_table);
     EXECUTE format('CREATE TRIGGER installation_operations_freeze_guard BEFORE INSERT OR UPDATE OR DELETE ON public.%I FOR EACH STATEMENT EXECUTE FUNCTION public.guard_installation_operations_freeze()',_table);
   END LOOP;
