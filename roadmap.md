@@ -31,11 +31,11 @@
 - [x] Executar validação local completa sem acesso remoto.
 
 ## Execução definitiva — Etapa 1 somente leitura
-- [ ] Revalidar identidade do Control-plane e da instalação Apex.
-- [ ] Conferir Master 1.4.18 e hashes locais.
-- [ ] Confirmar cron 37 inativo e versões current/pinned/produção.
-- [ ] Conferir ledger 1.4.10, 1.4.11 e recovery 1.4.14.
-- [ ] Inventariar objetos remotos de freeze e executor.
-- [ ] Verificar integralmente a operação Apex, tentativas, efeitos, migrations, passos e leases.
-- [ ] Identificar operações concorrentes, running e stale sem alterar estado.
-- [ ] Emitir resultado objetivo PASS ou BLOCK.
+- [x] Revalidar identidade do Control-plane e da instalação Apex.
+- [x] Conferir Master 1.4.18 e hashes locais.
+- [x] Confirmar cron 37 inativo e versões current/pinned/produção.
+- [x] Conferir ledger 1.4.10, 1.4.11 e recovery 1.4.14.
+- [x] Inventariar objetos remotos de freeze e executor.
+- [x] Verificar integralmente a operação Apex, tentativas, efeitos, migrations, passos e leases.
+- [x] Identificar operações concorrentes, running e stale sem alterar estado.
+- [x] Emitir resultado objetivo PASS ou BLOCK: BLOCK por freeze/executor ausentes e versão de produção não comprovável.
