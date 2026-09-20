@@ -4,9 +4,16 @@
 - [x] Tornar promoção de versão e finalização UPDATE atômicas e fenced.
 - [x] Cobrir política de pending/running expirado/failed/manual_review/updating inconsistente.
 - [x] Ensaiar finalização, concorrência e ledger em PostgreSQL efêmero.
-- [ ] Cobrir os cenários de aceitação solicitados.
-- [ ] Regenerar pacote e validar MASTER-first.
-- [ ] Executar testes focados, suíte global, typecheck, lint, build e ensaio PostgreSQL isolado.
+- [x] Cobrir os cenários de aceitação solicitados.
+- [x] Regenerar pacote e validar MASTER-first.
+- [x] Executar testes focados, master:check, typecheck, lint alterado, build e ensaio PostgreSQL isolado.
+
+## Gates locais Master 1.4.18
+- [x] Selar o inventário de freeze e executor determinístico.
+- [x] Separar a instalação do executor com backup, identidade, autorização e preflight próprios.
+- [x] Bloquear promoção com ledger fora de ordem, lacunas ou fingerprints inválidos.
+- [x] Criar diagnóstico offline de versões sem rede nem inferências.
+- [x] Cobrir a evidência de reconciliação pelo freeze global.
 
 ## Protocolo de backup do Master
 - [x] Exigir evidência de backup restaurável para escritas compartilhadas.
