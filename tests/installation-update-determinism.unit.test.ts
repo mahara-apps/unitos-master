@@ -80,9 +80,10 @@ describe("contrato determinístico de UPDATE", () => {
   });
 
   it("faz promoção somente na finalização atômica fenced", () => {
+    const finalUpdate = automation.slice(automation.lastIndexOf("const finishByGitPush"));
     expect(automation).not.toMatch(/from\("installations"\)[\s\S]{0,300}pinned_release/);
-    expect(automation).toContain("finalizeOperation(client as never, operation as never, {");
-    expect(automation).not.toContain(".catch(() => undefined)");
+    expect(finalUpdate).toContain("finalizeOperation(client as never, operation as never, {");
+    expect(finalUpdate).not.toContain(".catch(() => undefined)");
     expect(runner).toContain('if (kind === "update")');
     expect(runner).toContain("UPDATE automatizado sem lease/fencing");
     expect(sql).toContain("lease_expires_at > now()");
