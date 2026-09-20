@@ -65,7 +65,7 @@ export async function logOperationalEvent(
 ): Promise<void> {
   try {
     const writer = client ?? (await import("@/integrations/supabase/client.server")).supabaseAdmin;
-    const { error } = await writer.from("system_events" as never).insert({
+    const { error } = await writer.from("system_events").insert({
       severity: input.severity,
       category: input.category,
       source: sanitizeOperationalText(input.source, 80),
@@ -81,7 +81,7 @@ export async function logOperationalEvent(
         : null,
       attempt: input.attempt ?? null,
       metadata: sanitizeOperationalMetadata(input.metadata),
-    } as never);
+    });
     if (error) console.error("[operational-audit] insert failed", error.message);
   } catch (error) {
     console.error(

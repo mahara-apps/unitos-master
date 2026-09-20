@@ -97,7 +97,7 @@ export const listSystemLogs = createServerFn({ method: "POST" })
 
     const reads = new Map<LogSource, Promise<QueryResult>>();
     if (sources.includes("system")) {
-      let q = supabase.from("system_events" as never).select("id, occurred_at, severity, category, source, operation, outcome, error_code, message, brand_id, client_id, actor_id, correlation_id, attempt, metadata").eq("brand_id", data.brandId).order("occurred_at", { ascending: false }).limit(limit);
+      let q = supabase.from("system_events").select("id, occurred_at, severity, category, source, operation, outcome, error_code, message, brand_id, client_id, actor_id, correlation_id, attempt, metadata").eq("brand_id", data.brandId).order("occurred_at", { ascending: false }).limit(limit);
       if (data.clientId) q = q.eq("client_id", data.clientId);
       reads.set("system", applyWindow(q as never, "occurred_at") as unknown as Promise<QueryResult>);
     }
