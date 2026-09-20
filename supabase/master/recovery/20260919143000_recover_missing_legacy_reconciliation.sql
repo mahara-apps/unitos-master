@@ -8,6 +8,11 @@ BEGIN;
 SELECT pg_advisory_xact_lock(hashtextextended('unitos:master:control-plane-promotion', 0));
 SELECT pg_advisory_xact_lock(hashtextextended('unitos:master:installation-operations-freeze', 0));
 
+CREATE TEMP TABLE unitos_recovery_operations_snapshot ON COMMIT DROP AS
+SELECT * FROM public.installation_operations;
+CREATE TEMP TABLE unitos_recovery_attempts_snapshot ON COMMIT DROP AS
+SELECT * FROM public.installation_operation_attempts;
+
 DO $unitos_recovery_precondition$
 DECLARE
   _missing_objects text[];
@@ -176,6 +181,18 @@ BEGIN
   END IF;
 END
 $unitos_recovery_postcondition$;
+
+DO $unitos_recovery_preservation$
+BEGIN
+  IF EXISTS ((SELECT * FROM public.installation_operations EXCEPT SELECT * FROM unitos_recovery_operations_snapshot)
+             UNION ALL
+             (SELECT * FROM unitos_recovery_operations_snapshot EXCEPT SELECT * FROM public.installation_operations))
+     OR EXISTS ((SELECT * FROM public.installation_operation_attempts EXCEPT SELECT * FROM unitos_recovery_attempts_snapshot)
+             UNION ALL
+             (SELECT * FROM unitos_recovery_attempts_snapshot EXCEPT SELECT * FROM public.installation_operation_attempts)) THEN
+    RAISE EXCEPTION 'Recuperação alterou operações ou tentativas preservadas' USING ERRCODE='55000';
+  END IF;
+END $unitos_recovery_preservation$;
 
 -- O executor oficial de migrations registra 20260919143000 somente após este COMMIT.
 -- Este artefato nunca escreve diretamente em supabase_migrations.schema_migrations.
