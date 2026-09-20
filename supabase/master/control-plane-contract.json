@@ -1,23 +1,29 @@
 {
   "files": {
-    "002_control_plane_global_freeze.sql": "d6af4b091e21efaef7051841f20ccf07ba2313f8d4a33068b40ec14ef868a152",
+    "002_control_plane_global_freeze.sql": "fbe7545402d1a4cc2a5e0e5b23801c9ece20a6069e826606cdf3a6f7d27ce87f",
     "003_control_plane_deterministic_update.sql": "bbcb76b9456f72e36464d62c2beb0a13fe8ad9a72207ef3343edd1d8930d1dd5",
-    "deterministic-update-install-preflight.sql": "7c0c51d02d244e79afa92f4da5a2c3508b753171675e0154d7ac12e08499fa58",
-    "global-freeze-install-preflight.sql": "389272f1ee42b3a82f8e3d3d8a79c18360ae1c499b3f2dca2db46c48aec11e5d",
-    "install-deterministic-update.sql": "7aa125efc877ce7971f8781d2dfaee126a35cecf1b6d4373642e7480cc3c47b1"
+    "004_control_plane_release_promotion.sql": "3b53ef0588b38c51cb350166f6e665fef40bac798c4cefc4f2702f8c80604910",
+    "005_activate_cron_37.sql": "55e4f218a632d81d7ba24aa3441f4e09dcd750f4f5262082777dcd9d7bcd675b",
+    "deterministic-update-install-preflight.sql": "5ebf26e070d9ad3d3b51425d37c19f3962fc7bfe3f7d5778f59c8ff7c21b85c5",
+    "global-freeze-install-preflight.sql": "a03f4bc042bd83436da4474eaa3ea265b33db3db3cdc925ee69d4a7ab1b60178",
+    "install-control-plane-release.sql": "b2f65dcc12f5b3d83861baf02e9a0e3821665313f32156aa59ae95ca74f30426",
+    "install-deterministic-update.sql": "954c84024940a9b83ddfc54e1a36720d9e6bec2a0f5ab9be98baae301ad200fd"
   },
   "functions": [
     "read_installation_operations_freeze()",
     "set_installation_operations_freeze(boolean,text,text,bigint)",
     "guard_installation_operations_freeze()",
     "finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)",
-    "normalize_legacy_installation_operations(integer)"
+    "normalize_legacy_installation_operations(integer)",
+    "promote_control_plane_release(bigint,text,text,text,text,text,text,jsonb,text)"
   ],
   "releaseVersion": "1.4.18",
   "schemaVersion": 1,
   "tables": [
     "installation_operations_freeze",
-    "installation_operations_freeze_events"
+    "installation_operations_freeze_events",
+    "control_plane_release_state",
+    "control_plane_release_events"
   ],
   "triggers": [
     "installation_operations_freeze_guard@installations",
