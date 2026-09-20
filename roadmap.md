@@ -79,8 +79,3 @@
 - [x] Implementar promoção atômica própria do Control-plane após validações.
 - [ ] Regenerar artefatos MASTER-first e executar validações locais completas.
 
-## Inventário técnico read-only do Unitos Master
-
-- [ ] Mapear repositório, fluxos NEW/UPDATE, executor, migrations, integrações e retomada.
-- [ ] Separar código central, dados por cliente e infraestrutura externa.
-- [ ] Documentar dependências, proteções, riscos e próximo passo sem executar alterações.
