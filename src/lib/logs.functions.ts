@@ -111,7 +111,7 @@ export const listSystemLogs = createServerFn({ method: "POST" })
 
     const reads = new Map<LogSource, Promise<QueryResult>>();
     if (sources.includes("system")) {
-      const q = supabase
+      let q = supabase
         .from("system_events")
         .select(
           "id, occurred_at, severity, category, source, operation, outcome, error_code, message, brand_id, client_id, actor_id, correlation_id, attempt, metadata",
