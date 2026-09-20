@@ -19,6 +19,16 @@ if [[ -z "${MASTER_DATABASE_URL:-}" ]]; then
   exit 2
 fi
 
+# Este gate só valida evidência. Ele não cria backup nem substitui a
+# autorização específica de promoção, freeze ou recovery.
+if [[ "$MODE" == "--recover-missing-1.4.10" ]]; then
+  python3 "$ROOT/supabase/master/tools/verify_master_backup_gate.py" \
+    --scope installation \
+    --installation-id "${MASTER_AFFECTED_INSTALLATION_ID:-}"
+else
+  python3 "$ROOT/supabase/master/tools/verify_master_backup_gate.py" --scope global
+fi
+
 python3 "$ROOT/supabase/master/tools/build_master_bootstrap.py" --check
 
 if [[ "$MODE" == "--recover-missing-1.4.10" || "$MODE" == "--install-global-freeze" ]]; then
