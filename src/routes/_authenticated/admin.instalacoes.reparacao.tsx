@@ -15,7 +15,8 @@ export const Route = createFileRoute("/_authenticated/admin/instalacoes/reparaca
       { title: "Reparação do Control-plane · Administração Unitos" },
       {
         name: "description",
-        content: "Plano controlado e somente leitura para reparar o Control-plane do Unitos Master.",
+        content:
+          "Plano controlado e somente leitura para reparar o Control-plane do Unitos Master.",
       },
       { property: "og:title", content: "Reparação do Control-plane · Administração Unitos" },
       {

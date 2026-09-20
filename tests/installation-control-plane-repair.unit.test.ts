@@ -51,9 +51,9 @@ describe("reparação controlada do Control-plane", () => {
   it("é fail-closed até todos os gates passarem", () => {
     const report = getControlPlaneRepairReport();
     expect(canExecuteControlPlaneRepair(report.gates)).toBe(false);
-    expect(canExecuteControlPlaneRepair(report.gates.map((gate) => ({ ...gate, status: "pass" })))).toBe(
-      true,
-    );
+    expect(
+      canExecuteControlPlaneRepair(report.gates.map((gate) => ({ ...gate, status: "pass" }))),
+    ).toBe(true);
     expect(canExecuteControlPlaneRepair([])).toBe(false);
   });
 

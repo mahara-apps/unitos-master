@@ -73,13 +73,15 @@ export const CONFIRMED_REMOTE_BLOCKERS: RepairBlocker[] = [
   {
     id: "freeze",
     label: "Contrato de freeze ausente",
-    evidence: "As tabelas do freeze e a função installation_operations_freeze_guard não existem remotamente.",
+    evidence:
+      "As tabelas do freeze e a função installation_operations_freeze_guard não existem remotamente.",
     status: "confirmed",
   },
   {
     id: "executor",
     label: "Executor determinístico ausente",
-    evidence: "O contrato remoto não possui o conjunto 1.4.18 de finalização fenced, ledger e checkpoints.",
+    evidence:
+      "O contrato remoto não possui o conjunto 1.4.18 de finalização fenced, ledger e checkpoints.",
     status: "confirmed",
   },
   {
@@ -118,19 +120,22 @@ export const REPAIR_GATES: RepairGate[] = [
   {
     id: "connection",
     label: "Conexão de escrita autorizada",
-    requirement: "A conexão deve ser fornecida ao executor selado e validada antes de qualquer consulta operacional.",
+    requirement:
+      "A conexão deve ser fornecida ao executor selado e validada antes de qualquer consulta operacional.",
     status: "block",
   },
   {
     id: "operator",
     label: "Operador autenticado",
-    requirement: "Super Admin autenticado e operador nominal devem coincidir com a autorização da etapa.",
+    requirement:
+      "Super Admin autenticado e operador nominal devem coincidir com a autorização da etapa.",
     status: "block",
   },
   {
     id: "reason",
     label: "Justificativa específica",
-    requirement: "O risco e o objetivo da etapa devem ser descritos de forma específica, sem segredos.",
+    requirement:
+      "O risco e o objetivo da etapa devem ser descritos de forma específica, sem segredos.",
     status: "block",
   },
   {
@@ -161,8 +166,10 @@ export const REPAIR_STEPS: RepairStep[] = [
     artifact: "--install-global-freeze",
     dependsOn: ["identity", "connection", "operator", "reason", "risk", "audit", "preflight"],
     approval: "INSTALL_GLOBAL_FREEZE_ONLY",
-    idempotency: "Instalador selado, transação única e verificação de 2 tabelas, 3 funções, 8 triggers, ACL e RLS.",
-    rollback: "Falha antes do COMMIT reverte integralmente; após sucesso, não remover objetos automaticamente.",
+    idempotency:
+      "Instalador selado, transação única e verificação de 2 tabelas, 3 funções, 8 triggers, ACL e RLS.",
+    rollback:
+      "Falha antes do COMMIT reverte integralmente; após sucesso, não remover objetos automaticamente.",
     validations: ["Hashes do contrato", "Preflight 8/8", "Estado inicial inativo", "Apex intacta"],
   },
   {
@@ -172,8 +179,10 @@ export const REPAIR_STEPS: RepairStep[] = [
     artifact: "control_plane_freeze.sh freeze",
     dependsOn: ["freeze-install"],
     approval: "I_UNDERSTAND_GLOBAL_CONTROL_PLANE_FREEZE",
-    idempotency: "Geração esperada e advisory lock impedem escritor obsoleto ou ativação concorrente.",
-    rollback: "Descongelamento exige autorização independente e somente após validação pós-bootstrap.",
+    idempotency:
+      "Geração esperada e advisory lock impedem escritor obsoleto ou ativação concorrente.",
+    rollback:
+      "Descongelamento exige autorização independente e somente após validação pós-bootstrap.",
     validations: ["Quiescência", "Estado ativo", "Geração incrementada", "Cron 37 inativo"],
   },
   {
@@ -184,7 +193,8 @@ export const REPAIR_STEPS: RepairStep[] = [
     dependsOn: ["freeze-enable"],
     approval: "INSTALL_DETERMINISTIC_UPDATE_ONLY",
     idempotency: "Preflight 5/5, advisory lock e instalação transacional do contrato 1.4.18.",
-    rollback: "Falha transacional não publica objetos parciais; sucesso exige preservação e nova decisão.",
+    rollback:
+      "Falha transacional não publica objetos parciais; sucesso exige preservação e nova decisão.",
     validations: ["RPCs e assinaturas", "Fencing", "Ledger", "Checkpoints", "ACL/RLS"],
   },
   {
@@ -195,7 +205,8 @@ export const REPAIR_STEPS: RepairStep[] = [
     dependsOn: ["executor-install"],
     approval: "RECOVER_MISSING_1_4_10_ONLY",
     idempotency: "CLI 2.117.0, staging selado, dry-run exclusivo e snapshots imutáveis do ledger.",
-    rollback: "A transação reverte em falha; não existe compensação automática após confirmação no ledger.",
+    rollback:
+      "A transação reverte em falha; não existe compensação automática após confirmação no ledger.",
     validations: ["Preflight 17/17", "Seleção exclusiva 20260919143000", "Ledger 0/1/1", "Hashes"],
   },
   {
@@ -217,8 +228,14 @@ export const REPAIR_STEPS: RepairStep[] = [
     dependsOn: ["contract-validation"],
     approval: "Autorização independente para reativar o cron",
     idempotency: "Só permite ativação após contrato integralmente validado e executor operacional.",
-    rollback: "Desativar exclusivamente o job 37 se a primeira execução não mantiver os invariantes.",
-    validations: ["Executor operacional", "Sem concorrência", "Apex preservada", "Monitoramento da primeira claim"],
+    rollback:
+      "Desativar exclusivamente o job 37 se a primeira execução não mantiver os invariantes.",
+    validations: [
+      "Executor operacional",
+      "Sem concorrência",
+      "Apex preservada",
+      "Monitoramento da primeira claim",
+    ],
   },
 ];
 
@@ -238,19 +255,22 @@ export function getControlPlaneRepairReport() {
     projectRef: CONTROL_PLANE_PROJECT_REF,
     verdict: "BLOCK" as RepairVerdict,
     mode: "PREPARATION_ONLY" as const,
-    remoteEvidenceObservedAt: "2026-09-20T18:48:00Z",
+    remoteEvidence:
+      "Última auditoria remota somente leitura; timestamp não comprovado no relatório.",
     apexProtection: {
       installationId: APEX_INSTALLATION_ID,
       operationId: APEX_OPERATION_ID,
       requiredState: "pending",
-      invariant: "Preservar integralmente: 5 etapas pending, attempt_count 0, fencing_token 0, sem lease e sem efeitos.",
+      invariant:
+        "Preservar integralmente: 5 etapas pending, attempt_count 0, fencing_token 0, sem lease e sem efeitos.",
     },
     blockers: CONFIRMED_REMOTE_BLOCKERS,
     gates: REPAIR_GATES,
     artifacts: CONTROL_PLANE_ARTIFACTS,
     steps: REPAIR_STEPS,
     prohibitedActions: PROHIBITED_REPAIR_ACTIONS,
-    nextDecision: "Nenhuma etapa pode ser executada enquanto todos os gates não estiverem comprovados.",
+    nextDecision:
+      "Nenhuma etapa pode ser executada enquanto todos os gates não estiverem comprovados.",
   };
 }
 
@@ -266,13 +286,15 @@ export function formatControlPlaneRepairReport(report: ControlPlaneRepairReport)
     `Decisão: ${report.verdict}`,
     `Projeto: ${report.projectRef}`,
     `Release: ${report.releaseVersion}`,
-    `Evidência remota: ${report.remoteEvidenceObservedAt}`,
+    `Evidência remota: ${report.remoteEvidence}`,
     "",
     "BLOQUEIOS CONFIRMADOS",
     ...report.blockers.map((item) => `- BLOCK | ${item.label}: ${item.evidence}`),
     "",
     "PRÉ-REQUISITOS",
-    ...report.gates.map((gate) => `- ${gate.status.toUpperCase()} | ${gate.label}: ${gate.requirement}`),
+    ...report.gates.map(
+      (gate) => `- ${gate.status.toUpperCase()} | ${gate.label}: ${gate.requirement}`,
+    ),
     "",
     "ORDEM DE EXECUÇÃO",
     ...report.steps.map(

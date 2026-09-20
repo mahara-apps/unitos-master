@@ -14,7 +14,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { AlertBanner } from "@/components/ui/alert-banner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -116,9 +121,7 @@ export function ControlPlaneRepairPlan({ report }: { report: ControlPlaneRepairR
           <h3 id="remote-blockers-title" className="text-base font-semibold">
             Bloqueios remotos confirmados
           </h3>
-          <p className="text-xs text-muted-foreground">
-            Evidências da auditoria somente leitura de {report.remoteEvidenceObservedAt}.
-          </p>
+          <p className="text-xs text-muted-foreground">{report.remoteEvidence}</p>
         </div>
         <div className="grid gap-2 lg:grid-cols-2">
           {report.blockers.map((blocker) => (
@@ -148,7 +151,9 @@ export function ControlPlaneRepairPlan({ report }: { report: ControlPlaneRepairR
               Ausência ou ambiguidade mantém o fluxo fechado.
             </p>
           </div>
-          <Badge variant="outline">{passingGates} de {report.gates.length}</Badge>
+          <Badge variant="outline">
+            {passingGates} de {report.gates.length}
+          </Badge>
         </div>
         <div className="divide-y rounded-lg border">
           {report.gates.map((gate) => {
@@ -208,7 +213,9 @@ export function ControlPlaneRepairPlan({ report }: { report: ControlPlaneRepairR
               <CardContent className="pl-12 text-xs">
                 <Accordion type="single" collapsible>
                   <AccordionItem value="details" className="border-0">
-                    <AccordionTrigger className="py-1.5 text-xs">Dependências e garantias</AccordionTrigger>
+                    <AccordionTrigger className="py-1.5 text-xs">
+                      Dependências e garantias
+                    </AccordionTrigger>
                     <AccordionContent className="space-y-3 pt-2 text-xs">
                       <Detail label="Depende de" value={step.dependsOn.join(" → ")} mono />
                       <Detail label="Confirmação" value={step.approval} mono />
@@ -319,7 +326,9 @@ function Detail({
         {icon}
         {label}
       </span>
-      <span className={cn("min-w-0 break-words text-muted-foreground", mono && "font-mono text-[11px]")}>
+      <span
+        className={cn("min-w-0 break-words text-muted-foreground", mono && "font-mono text-[11px]")}
+      >
         {value}
       </span>
     </div>
