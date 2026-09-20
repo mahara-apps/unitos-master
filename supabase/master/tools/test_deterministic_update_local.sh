@@ -13,6 +13,8 @@ PSQL=(psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U lovable postgres
 
 "${PSQL[@]}" >/dev/null <<'SQL'
 CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN;
+CREATE SCHEMA auth;
+CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS 'SELECT NULL::uuid';
 CREATE TABLE public.installations (
  id uuid PRIMARY KEY, status text, health text, health_checks jsonb, health_checked_at timestamptz,
  active_operation_id uuid, last_error text, current_version text, pinned_release text,
@@ -36,6 +38,10 @@ CREATE TABLE public.installation_operation_migrations (
  fingerprint text, package_position integer, statement_index integer, total_statements integer,
  status text, confirmed_at timestamptz
 );
+CREATE TABLE public.installation_credentials (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
+CREATE TABLE public.installation_operation_steps (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
+CREATE TABLE public.installation_operation_outbox (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
+CREATE TABLE public.installation_migration_reconciliation_evidence (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
 CREATE FUNCTION public.is_super_admin(uuid) RETURNS boolean LANGUAGE sql STABLE AS 'SELECT false';
 SQL
 "${PSQL[@]}" --file "$ROOT/supabase/master/002_control_plane_global_freeze.sql" >/dev/null

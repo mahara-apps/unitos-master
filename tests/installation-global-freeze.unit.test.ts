@@ -111,9 +111,9 @@ fi
 
 describe("congelamento global fail-closed do Control-plane", () => {
   it("mantém estado singleton e histórico auditável com grants antes do RLS", () => {
-    expect(freezeSql).toContain("CREATE TABLE public.installation_operations_freeze (");
+    expect(freezeSql).toContain("CREATE TABLE IF NOT EXISTS public.installation_operations_freeze (");
     expect(freezeSql).toContain("PRIMARY KEY DEFAULT true CHECK (singleton)");
-    expect(freezeSql).toContain("CREATE TABLE public.installation_operations_freeze_events (");
+    expect(freezeSql).toContain("CREATE TABLE IF NOT EXISTS public.installation_operations_freeze_events (");
     expect(freezeSql.indexOf("GRANT SELECT ON public.installation_operations_freeze")).toBeLessThan(
       freezeSql.indexOf(
         "ALTER TABLE public.installation_operations_freeze ENABLE ROW LEVEL SECURITY",
