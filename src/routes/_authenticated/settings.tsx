@@ -26,7 +26,7 @@ type TabDef = {
   to: string;
   label: string;
   icon: typeof User;
-  /** true = exige poder administrar a marca (owner/manager/super admin). */
+  /** true = exige Owner/Admin do workspace ou Super Admin. */
   admin: boolean;
 };
 
@@ -77,8 +77,8 @@ function isTabActive(pathname: string, to: string) {
 
 function SettingsLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { role, isReady, isError, retry } = useAccessRole();
-  const isAdmin = role === "admin";
+  const { authorityRole, isReady, isError, retry } = useAccessRole();
+  const isAdmin = authorityRole === "super_admin" || authorityRole === "admin";
 
   const currentTab = ALL_TABS.find((t) => isTabActive(pathname, t.to));
   const blocked = !!currentTab?.admin && isReady && !isAdmin;
