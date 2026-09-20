@@ -54,6 +54,8 @@ printf '%s\\n' "$*" >> "${calls}"
 if [[ "$*" == *"recovery-control-plane-preflight.sql"* ]]; then
   ${options.preflightError ? `printf '%s\\n' '${options.preflightError}' >&2; exit 1` : ""}
   printf '%s\\n' '${options.preflight ?? passingPreflight}'
+elif [[ "$*" == *"deterministic-update-install-preflight.sql"* ]]; then
+  printf '%s\\n' '${options.preflight ?? "1,preflight,ok,PASS"}'
 elif [[ "$*" == *"verify-installation-master.sql"* ]]; then
   printf '%s\\n' '${verification}'
 elif [[ "$*" == *"SELECT concat_ws"* ]]; then
