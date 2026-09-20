@@ -68,3 +68,13 @@
 - [x] Criar tela com bloqueios, gates, ordem, rollback e validações.
 - [x] Preservar explicitamente a operação Apex e impedir controles de execução.
 - [x] Executar validações locais completas sem ação remota.
+
+## Desbloqueio operacional Control-plane 1.4.18
+
+- [ ] Permitir freeze global preservando operações pending sem lease e histórico terminal.
+- [ ] Permitir instalação isolada do executor com pending legítima preservada.
+- [ ] Permitir recovery 1.4.14 sem reivindicar ou editar pending preservada.
+- [ ] Criar ato mínimo e autorizado para ativar exclusivamente o cron 37 após validação.
+- [ ] Separar convergência, freeze, executor e recovery em atos independentes.
+- [ ] Implementar promoção atômica própria do Control-plane após validações.
+- [ ] Regenerar artefatos MASTER-first e executar validações locais completas.
