@@ -182,7 +182,7 @@ elif [[ "$MODE" == "--install-deterministic-update" ]]; then
     echo "Bloqueado: preflight do executor determinístico encontrou divergências" >&2
     exit 1
   fi
-  SQL="$ROOT/supabase/master/003_control_plane_deterministic_update.sql"
+  SQL="$ROOT/supabase/master/install-deterministic-update.sql"
 elif [[ "$MODE" == "--bootstrap-clean" ]]; then
   SQL="$ROOT/supabase/master/bootstrap-control-plane.sql"
 else
