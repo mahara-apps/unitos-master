@@ -17,6 +17,7 @@ import {
   preflightAccess,
   runAutomatedProvision,
 } from "@/lib/installation/automation.server";
+import { MASTER_RELEASE_VERSION } from "@/lib/installation/manager-contract";
 
 const MASTER_REF = "tkjbhttylouamqxnbfgv";
 
@@ -27,7 +28,7 @@ const githubResponse = (url: string): Response | null => {
   if (url.includes("/contents/supabase/baseline-snapshot/tools/delta_version.txt"))
     return Response.json({
       encoding: "base64",
-      content: Buffer.from("version=1.4.11\n", "utf8").toString("base64"),
+      content: Buffer.from(`version=${MASTER_RELEASE_VERSION}\n`, "utf8").toString("base64"),
     });
   if (url.includes("/git/trees")) return Response.json({ tree: [] });
   if (url.includes("/git/ref/heads/")) return Response.json({ object: { sha: "sha_dest" } });
@@ -838,7 +839,7 @@ describe("runAutomatedProvision", () => {
         codeDone: true,
         codeSha: "sha_master",
         codeSourceSha: "sha_master",
-        provisionRelease: "1.4.11",
+        provisionRelease: MASTER_RELEASE_VERSION,
       },
     });
     const calls: string[] = [];

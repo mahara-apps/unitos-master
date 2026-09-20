@@ -21,7 +21,7 @@ import { MASTER_FORBIDDEN_TOKENS } from "./bootstrap-contract";
  * Subir a cada correção de banco/código propagável: é o que habilita o botão
  * "Atualizar" (que agora também aplica o delta de banco na instalação).
  */
-export const MASTER_RELEASE_VERSION = "1.4.18";
+export const MASTER_RELEASE_VERSION = "1.4.19";
 
 /* ------------------------------------------------------------------ MASTER */
 
@@ -124,6 +124,73 @@ export type OperationRuntimeState =
   | "failed"
   | "cancelled"
   | "terminal";
+
+export type InstallationOperationAttempt = {
+  id: string;
+  attemptNumber: number;
+  status: string;
+  errorKind: string | null;
+  errorMessage: string | null;
+  retryable: boolean | null;
+  fencingToken: number;
+  startedAt: string;
+  heartbeatAt: string | null;
+  finishedAt: string | null;
+};
+
+export type InstallationMigrationCheckpoint = {
+  migrationFile: string;
+  packagePosition: number | null;
+  statementIndex: number | null;
+  totalStatements: number | null;
+  status: string;
+  updatedAt: string | null;
+};
+
+export type MasterPublishedSnapshot = {
+  release: string;
+  commitSha: string | null;
+  repoRelease: string | null;
+  repoReleaseError: string | null;
+  masterPublished: boolean | null;
+  error: string | null;
+};
+
+export type MasterPublicationState = "confirmed" | "divergent" | "indeterminate";
+
+/** Projeção fail-closed: falta de evidência nunca aparece como publicação confirmada. */
+export function masterPublicationState(
+  snapshot: MasterPublishedSnapshot | null | undefined,
+): MasterPublicationState {
+  if (
+    !snapshot ||
+    snapshot.masterPublished === null ||
+    !snapshot.commitSha ||
+    !snapshot.repoRelease
+  ) {
+    return "indeterminate";
+  }
+  return snapshot.masterPublished ? "confirmed" : "divergent";
+}
+
+export type AttemptPresentationState =
+  | "running"
+  | "scheduled"
+  | "completed"
+  | "failed"
+  | "interrupted"
+  | "indeterminate";
+
+/** Classifica somente estados conhecidos; histórico desconhecido permanece explícito. */
+export function attemptPresentationState(status: string): AttemptPresentationState {
+  const normalized = status.trim().toLowerCase();
+  if (normalized === "running") return "running";
+  if (normalized === "retryable" || normalized === "deferred") return "scheduled";
+  if (normalized === "completed" || normalized === "success") return "completed";
+  if (normalized === "failed" || normalized === "orphaned") return "failed";
+  if (normalized === "interrupted" || normalized === "cancelled") return "interrupted";
+  return "indeterminate";
+}
 
 /** Estado operacional exibido sem alterar o estado canônico persistido. */
 export function operationRuntimeState(

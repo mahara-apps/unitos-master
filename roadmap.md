@@ -77,5 +77,10 @@
 - [x] Criar ato mínimo e autorizado para ativar exclusivamente o cron 37 após validação.
 - [x] Separar convergência, freeze, executor e recovery em atos independentes.
 - [x] Implementar promoção atômica própria do Control-plane após validações.
-- [ ] Regenerar artefatos MASTER-first e executar validações locais completas.
+- [x] Regenerar artefatos MASTER-first e executar validações locais completas.
 
+## Painel operacional de instalações
+
+- [x] Extrair operação ativa, histórico e estado publicado sem duplicar o executor.
+- [x] Expor tentativas, lease, heartbeat, fencing e checkpoints somente para leitura.
+- [x] Validar testes, typecheck, lint, build e fluxo MASTER-first local.
