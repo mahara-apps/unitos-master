@@ -52,6 +52,14 @@ if [[ "$MODE" == "--install-control-plane-release" && "${UNITOS_MASTER_RELEASE_I
   echo "Bloqueado: instalação da promoção do Control-plane exige confirmação específica" >&2
   exit 2
 fi
+if [[ "$MODE" == "--install-control-plane-release" ]]; then
+  for name in UNITOS_CONTROL_PLANE_BASELINE_CURRENT_VERSION UNITOS_CONTROL_PLANE_BASELINE_PINNED_RELEASE UNITOS_CONTROL_PLANE_BASELINE_PINNED_COMMIT_SHA; do
+    if [[ -z "${!name:-}" ]]; then
+      echo "Bloqueado: baseline canônico $name ausente" >&2
+      exit 2
+    fi
+  done
+fi
 
 # Toda promoção neste executor altera o Control-plane compartilhado. Identidade,
 # conexão e autorização própria são validadas antes de a decisão ser auditada.
@@ -211,7 +219,15 @@ else
 fi
 
 if [[ -n "$SQL" ]]; then
-  psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --single-transaction --file "$SQL"
+  if [[ "$MODE" == "--install-control-plane-release" ]]; then
+    psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --single-transaction \
+      --set baseline_current_version="$UNITOS_CONTROL_PLANE_BASELINE_CURRENT_VERSION" \
+      --set baseline_pinned_release="$UNITOS_CONTROL_PLANE_BASELINE_PINNED_RELEASE" \
+      --set baseline_pinned_commit_sha="$UNITOS_CONTROL_PLANE_BASELINE_PINNED_COMMIT_SHA" \
+      --file "$SQL"
+  else
+    psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --single-transaction --file "$SQL"
+  fi
 fi
 
 if [[ "$MODE" == "--bootstrap-clean" ]]; then

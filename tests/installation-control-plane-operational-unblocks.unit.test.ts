@@ -76,6 +76,7 @@ describe("seis desbloqueios operacionais do Control-plane 1.4.18", () => {
   it("promove o próprio Control-plane atomicamente e sem tabelas Client", () => {
     expect(release).toContain("CREATE TABLE IF NOT EXISTS public.control_plane_release_state");
     expect(release).toContain("CREATE TABLE IF NOT EXISTS public.control_plane_release_events");
+    expect(release).not.toContain("INSERT INTO public.control_plane_release_state(singleton) VALUES (true)");
     expect(release).toContain("pg_advisory_xact_lock");
     expect(release).toContain("FOR UPDATE");
     expect(release).toContain("_state.current_version IS DISTINCT FROM _expected_current_version");
@@ -85,5 +86,7 @@ describe("seis desbloqueios operacionais do Control-plane 1.4.18", () => {
     expect(release).not.toMatch(/UPDATE\s+public\.installation_operations/i);
     expect(releaseInstall).toContain("BEGIN;");
     expect(releaseInstall).toContain("COMMIT;");
+    expect(releaseInstall).toContain("baseline_current_version");
+    expect(releaseInstall).toContain("Baseline existente diverge; instalação abortada sem sobrescrita");
   });
 });

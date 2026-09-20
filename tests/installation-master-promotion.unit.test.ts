@@ -35,6 +35,7 @@ interface PromotionOptions {
   freezeInstallConfirmation?: string;
   convergenceConfirmation?: string;
   releaseInstallConfirmation?: string;
+  releaseBaseline?: { current: string; pinned: string; commit: string };
   freezePreflight?: string;
 }
 
@@ -130,6 +131,9 @@ fi
         UNITOS_MASTER_FREEZE_INSTALL: options.freezeInstallConfirmation ?? "",
         UNITOS_MASTER_CONVERGENCE: options.convergenceConfirmation ?? "",
         UNITOS_MASTER_RELEASE_INSTALL: options.releaseInstallConfirmation ?? "",
+        UNITOS_CONTROL_PLANE_BASELINE_CURRENT_VERSION: options.releaseBaseline?.current ?? "",
+        UNITOS_CONTROL_PLANE_BASELINE_PINNED_RELEASE: options.releaseBaseline?.pinned ?? "",
+        UNITOS_CONTROL_PLANE_BASELINE_PINNED_COMMIT_SHA: options.releaseBaseline?.commit ?? "",
         MASTER_PROJECT_REF: options.projectRef ?? "tkjbhttylouamqxnbfgv",
         UNITOS_SUPABASE_CLI: fakeSupabase,
         UNITOS_MASTER_BACKUP_CONFIRMATION: options.omitBackupEvidence
@@ -301,6 +305,24 @@ describe("promoção local do Control-plane Master", () => {
     expect(result.code).toBe(2);
     expect(result.stdout).toContain("--converge-existing foi removido");
     expect(result.calls).toBe("");
+  });
+
+  it("instala o estado próprio somente com baseline canônico explícito", () => {
+    const missing = runPromotion("--install-control-plane-release", "1,controle,ok,PASS", {
+      releaseInstallConfirmation: "INSTALL_CONTROL_PLANE_RELEASE_ONLY",
+    });
+    expect(missing.code).toBe(2);
+    expect(missing.stdout).toContain("baseline canônico");
+    expect(missing.calls).toBe("");
+
+    const installed = runPromotion("--install-control-plane-release", "1,controle,ok,PASS", {
+      releaseInstallConfirmation: "INSTALL_CONTROL_PLANE_RELEASE_ONLY",
+      releaseBaseline: { current: "1.3.71", pinned: "1.3.72", commit: "b005d07" },
+    });
+    expect(installed.code).toBe(0);
+    expect(installed.calls).toContain("install-control-plane-release.sql");
+    expect(installed.calls).toContain("baseline_current_version=1.3.71");
+    expect(installed.calls).not.toContain("convergence-control-plane.sql");
   });
 
   it("Master limpo aplica o bootstrap completo em transação", () => {

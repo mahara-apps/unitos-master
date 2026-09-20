@@ -3,6 +3,9 @@
 BEGIN;
 SELECT pg_advisory_xact_lock(hashtextextended('unitos:master:control-plane-promotion',0));
 SELECT pg_advisory_xact_lock(hashtextextended('unitos:master:installation-operations-freeze',0));
+SELECT set_config('unitos.baseline_current_version', :'baseline_current_version', true);
+SELECT set_config('unitos.baseline_pinned_release', :'baseline_pinned_release', true);
+SELECT set_config('unitos.baseline_pinned_commit_sha', :'baseline_pinned_commit_sha', true);
 DO $precondition$
 BEGIN
   IF (SELECT count(*) FROM public.installation_operations_freeze WHERE singleton IS TRUE AND frozen IS TRUE) <> 1 THEN
@@ -15,6 +18,27 @@ BEGIN
   END IF;
 END $precondition$;
 \ir 004_control_plane_release_promotion.sql
+DO $baseline$
+DECLARE
+  _current text := current_setting('unitos.baseline_current_version');
+  _pinned text := current_setting('unitos.baseline_pinned_release');
+  _commit text := current_setting('unitos.baseline_pinned_commit_sha');
+BEGIN
+  IF nullif(btrim(_current),'') IS NULL OR nullif(btrim(_pinned),'') IS NULL
+     OR nullif(btrim(_commit),'') IS NULL THEN
+    RAISE EXCEPTION 'Baseline canônico do Control-plane é obrigatório' USING ERRCODE='22023';
+  END IF;
+  INSERT INTO public.control_plane_release_state(
+    singleton,current_version,pinned_release,pinned_commit_sha,generation
+  ) VALUES (true,btrim(_current),btrim(_pinned),btrim(_commit),0)
+  ON CONFLICT (singleton) DO NOTHING;
+  IF (SELECT count(*) FROM public.control_plane_release_state
+      WHERE singleton IS TRUE AND current_version=btrim(_current)
+        AND pinned_release=btrim(_pinned) AND pinned_commit_sha=btrim(_commit)
+        AND generation=0 AND contract_sha256 IS NULL) <> 1 THEN
+    RAISE EXCEPTION 'Baseline existente diverge; instalação abortada sem sobrescrita' USING ERRCODE='40001';
+  END IF;
+END $baseline$;
 DO $postcondition$
 BEGIN
   IF (SELECT count(*) FROM public.control_plane_release_state WHERE singleton IS TRUE) <> 1
