@@ -5,7 +5,7 @@
 
 WITH operation_facts AS (
   SELECT
-    count(*) FILTER (WHERE status IN ('pending', 'retryable') AND lease_owner IS NULL AND lease_expires_at IS NULL) AS queued_without_lease,
+    count(*) FILTER (WHERE status = 'pending' AND lease_owner IS NULL AND lease_expires_at IS NULL) AS queued_without_lease,
     count(*) FILTER (WHERE status = 'running' OR lease_owner IS NOT NULL OR lease_expires_at IS NOT NULL) AS active_stale_or_ambiguous,
     count(*) FILTER (WHERE status IS NULL OR status NOT IN ('pending', 'running', 'retryable', 'blocked', 'manual_review', 'success', 'failed')) AS unknown_status
   FROM public.installation_operations

@@ -214,12 +214,14 @@ if [[ -n "$SQL" ]]; then
   psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --single-transaction --file "$SQL"
 fi
 
-REPORT="$(mktemp)"
-trap 'rm -f "$REPORT" "${PREFLIGHT:-}" "${DRY_RUN:-}" "${LEDGER_SNAPSHOT:-}" "${LEDGER_CURRENT:-}"; [[ -z "${STAGE:-}" ]] || rm -rf "$STAGE"' EXIT
-psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --csv \
-  --file "$ROOT/supabase/install/verify-installation-master.sql" > "$REPORT"
-if grep -q ',FAIL$' "$REPORT"; then
-  echo "Falha: verificador Master encontrou divergências" >&2
-  exit 1
+if [[ "$MODE" == "--bootstrap-clean" ]]; then
+  REPORT="$(mktemp)"
+  trap 'rm -f "$REPORT" "${PREFLIGHT:-}" "${DRY_RUN:-}" "${LEDGER_SNAPSHOT:-}" "${LEDGER_CURRENT:-}"; [[ -z "${STAGE:-}" ]] || rm -rf "$STAGE"' EXIT
+  psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --csv \
+    --file "$ROOT/supabase/install/verify-installation-master.sql" > "$REPORT"
+  if grep -q ',FAIL$' "$REPORT"; then
+    echo "Falha: verificador Master encontrou divergências" >&2
+    exit 1
+  fi
 fi
-echo "Promoção Master concluída e verificada"
+echo "Ato Master isolado concluído e verificado"

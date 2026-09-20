@@ -33,8 +33,7 @@ WITH facts AS (
         OR a.status NOT IN ('running','retryable','completed','failed','exhausted','orphaned')
         OR (a.status = 'retryable' AND o.status IN ('pending','running','retryable'))
     ) AS no_unsafe_activity,
-    count(*) FILTER (WHERE status = 'pending' AND lease_owner IS NULL AND lease_expires_at IS NULL) AS queued_preserved
-    FROM public.installation_operations
+    (SELECT count(*) FROM public.installation_operations WHERE status = 'pending' AND lease_owner IS NULL AND lease_expires_at IS NULL) AS queued_preserved
 ), fn_811(fn, expected_signature, expected_arg_names, expected_arg_types, expected_result, expected_body_md5) AS (VALUES
   ('reconcile', 'reconcile_installation_operation_migrations(uuid,text,bigint,jsonb)', ARRAY['_operation_id','_owner','_fencing_token','_migrations']::text[], ARRAY['uuid','text','bigint','jsonb']::text[], 'integer', 'abd43a4ec03634e6c9552eced6b7efe4'),
   ('normalize', 'normalize_legacy_installation_operations(integer)', ARRAY['_max_idle_seconds']::text[], ARRAY['integer']::text[], 'jsonb', '29f2435ed1a84f4a6f34cff166d4cd7d')
