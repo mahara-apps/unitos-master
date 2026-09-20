@@ -45,7 +45,11 @@ describe("recuperação local da lacuna 1.4.10", () => {
     expect(preflight).toContain("version='20260919143000'");
     expect(preflight).toContain("objetos 1.4.10 integralmente ausentes");
     expect(recovery).toContain("estrutura 1.4.10 parcial ou divergente");
-    expect(recovery).toContain("existe operação ativa ou retomável");
+    expect(recovery).toContain("existe atividade, lease ou ambiguidade incompatível");
+    expect(preflight).toContain("pending sem lease preservadas");
+    expect(recovery).toContain("unitos_recovery_operations_snapshot");
+    expect(recovery).toContain("unitos_recovery_attempts_snapshot");
+    expect(recovery).toContain("Recuperação alterou operações ou tentativas preservadas");
     expect(recovery).toContain("pg_advisory_xact_lock");
     expect(preflight).toContain("congelamento global instalado e ativo");
     expect(recovery).toContain("congelamento global não está ativo");

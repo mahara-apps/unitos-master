@@ -129,10 +129,12 @@ describe("congelamento global fail-closed do Control-plane", () => {
     ).toHaveLength(2);
     expect(freezeSql).toContain("FOR UPDATE");
     expect(freezeSql).toContain("_current.generation <> _expected_generation");
-    expect(freezeSql).toContain("status IN ('pending','running','retryable')");
+    expect(freezeSql).toContain("status = 'running' OR status = 'retryable'");
+    expect(freezeSql).not.toContain("EXISTS (SELECT 1 FROM public.installation_operations WHERE status IN ('pending','running','retryable'))");
     expect(freezeSql).toContain("a.status = 'running'");
     expect(freezeSql).toContain("a.status = 'retryable'");
     expect(freezeSql).toContain("o.status IN ('pending','running','retryable')");
+    expect(freezeSql).toContain("lease_owner IS NOT NULL OR lease_expires_at IS NOT NULL");
   });
 
   it("classifica histórico terminal sem esconder atividade ou ambiguidade", () => {

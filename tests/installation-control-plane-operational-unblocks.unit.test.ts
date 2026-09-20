@@ -1,0 +1,89 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+
+const freeze = readFileSync("supabase/master/002_control_plane_global_freeze.sql", "utf8");
+const executorPreflight = readFileSync(
+  "supabase/master/deterministic-update-install-preflight.sql",
+  "utf8",
+);
+const executorInstall = readFileSync("supabase/master/install-deterministic-update.sql", "utf8");
+const recoveryPreflight = readFileSync(
+  "supabase/master/recovery-control-plane-preflight.sql",
+  "utf8",
+);
+const recovery = readFileSync(
+  "supabase/master/recovery/20260919143000_recover_missing_legacy_reconciliation.sql",
+  "utf8",
+);
+const promotion = readFileSync("supabase/master/tools/promote_master_control_plane.sh", "utf8");
+const release = readFileSync("supabase/master/004_control_plane_release_promotion.sql", "utf8");
+const releaseInstall = readFileSync("supabase/master/install-control-plane-release.sql", "utf8");
+const cron = readFileSync("supabase/master/005_activate_cron_37.sql", "utf8");
+const cronTool = readFileSync("supabase/master/tools/activate_cron_37.sh", "utf8");
+
+describe("seis desbloqueios operacionais do Control-plane 1.4.18", () => {
+  it("freeze preserva pending sem lease e bloqueia atividade ou ambiguidade", () => {
+    expect(freeze).not.toContain("WHERE status IN ('pending','running','retryable')");
+    expect(freeze).toContain("status = 'running' OR status = 'retryable'");
+    expect(freeze).toContain("lease_owner IS NOT NULL OR lease_expires_at IS NOT NULL");
+    expect(freeze).toContain("o.id IS NULL");
+    expect(freeze).toContain("status NOT IN");
+    expect(freeze).toContain("BEFORE INSERT OR UPDATE OR DELETE");
+  });
+
+  it("executor preserva pending e histórico terminal em preflight e transação", () => {
+    for (const source of [executorPreflight, executorInstall]) {
+      expect(source).toContain("status = 'running'");
+      expect(source).toContain("lease_owner IS NOT NULL OR lease_expires_at IS NOT NULL");
+      expect(source).toContain("o.id IS NULL");
+      expect(source).toContain("a.status = 'retryable'");
+      expect(source).toContain("o.status IN ('pending','running','retryable')");
+    }
+    expect(executorPreflight).toContain("pending sem lease preservadas");
+    expect(executorPreflight).toContain("tentativas históricas terminais preservadas");
+  });
+
+  it("recovery não exige lease da pending nem altera operações ou tentativas", () => {
+    expect(recoveryPreflight).toContain("pending sem lease preservadas");
+    expect(recovery).toContain("unitos_recovery_operations_snapshot");
+    expect(recovery).toContain("unitos_recovery_attempts_snapshot");
+    expect(recovery).not.toMatch(/UPDATE\s+public\.installation_operations/i);
+    expect(recovery).not.toMatch(/DELETE\s+FROM\s+public\.installation_operations/i);
+    expect(recovery).not.toMatch(/INSERT\s+INTO\s+public\.installation_operations/i);
+  });
+
+  it("cron ativa exclusivamente o job 37 após contrato validado", () => {
+    expect(cron).toContain("cron.alter_job(job_id := 37, active := true)");
+    expect(cron).not.toContain("cron.schedule");
+    expect(cron).not.toContain("cron.unschedule");
+    expect(cron).toContain("jobname='installation-provision-resume'");
+    expect(cron).toContain("frozen IS FALSE");
+    expect(cronTool).toContain("ACTIVATE_VERIFIED_CRON_37_ONLY");
+    expect(cronTool).toContain("UNITOS_CRON_AUDIT_FILE");
+    expect(cronTool).toContain("verify-installation-master.sql");
+  });
+
+  it("separa os atos e recusa convergência agregada legada", () => {
+    expect(promotion).toContain("--apply-convergence-only");
+    expect(promotion).toContain("APPLY_CONTROL_PLANE_CONVERGENCE_ONLY");
+    expect(promotion).toContain("--converge-existing foi removido");
+    expect(promotion).toContain("--install-global-freeze");
+    expect(promotion).toContain("--install-deterministic-update");
+    expect(promotion).toContain("--recover-missing-1.4.10");
+    expect(promotion).toContain("--install-control-plane-release");
+  });
+
+  it("promove o próprio Control-plane atomicamente e sem tabelas Client", () => {
+    expect(release).toContain("CREATE TABLE IF NOT EXISTS public.control_plane_release_state");
+    expect(release).toContain("CREATE TABLE IF NOT EXISTS public.control_plane_release_events");
+    expect(release).toContain("pg_advisory_xact_lock");
+    expect(release).toContain("FOR UPDATE");
+    expect(release).toContain("_state.current_version IS DISTINCT FROM _expected_current_version");
+    expect(release).toContain("contractValidated");
+    expect(release).toContain("recoveryValidated");
+    expect(release).not.toMatch(/UPDATE\s+public\.installations/i);
+    expect(release).not.toMatch(/UPDATE\s+public\.installation_operations/i);
+    expect(releaseInstall).toContain("BEGIN;");
+    expect(releaseInstall).toContain("COMMIT;");
+  });
+});
