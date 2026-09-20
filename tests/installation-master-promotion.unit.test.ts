@@ -111,11 +111,8 @@ fi
         UNITOS_MASTER_BACKUP_CONFIRMATION: options.omitBackupEvidence
           ? ""
           : "BACKUP_RESTORABLE_VERIFIED",
-        UNITOS_MASTER_BACKUP_EVIDENCE: options.omitBackupEvidence
-          ? ""
-          : "snapshot-master-test",
+        UNITOS_MASTER_BACKUP_EVIDENCE: options.omitBackupEvidence ? "" : "snapshot-master-test",
         UNITOS_MASTER_BACKUP_OPERATOR: options.omitBackupEvidence ? "" : "test-operator",
-        MASTER_AFFECTED_INSTALLATION_ID: "0b6b7f5c-44e5-4e85-a33c-37014ed044a2",
       },
       encoding: "utf8",
       timeout: 10_000,

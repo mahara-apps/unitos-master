@@ -73,18 +73,24 @@ describe("gate de backup do Control-plane Master", () => {
       "não identifica exatamente",
     );
     expect(
-      run("installation", { ...base, UNITOS_MASTER_BACKUP_EXCEPTION_RISK_ACCEPTED: "aceito" }, INSTALLATION_ID)
-        .output,
+      run(
+        "installation",
+        { ...base, UNITOS_MASTER_BACKUP_EXCEPTION_RISK_ACCEPTED: "aceito" },
+        INSTALLATION_ID,
+      ).output,
     ).toContain("risco aceito deve ser documentado");
   });
 
   it("não permite que a exceção substitua a autorização da operação", () => {
-    const promotion = execFileSync("cat", ["supabase/master/tools/promote_master_control_plane.sh"], {
-      encoding: "utf8",
-    });
+    const promotion = execFileSync(
+      "cat",
+      ["supabase/master/tools/promote_master_control_plane.sh"],
+      { encoding: "utf8" },
+    );
     expect(promotion).toContain('UNITOS_MASTER_PROMOTION:-}" != "I_UNDERSTAND_MASTER_ONLY"');
     expect(promotion).toContain('UNITOS_MASTER_RECOVERY:-}" != "RECOVER_MISSING_1_4_10_ONLY"');
     expect(promotion).toContain("recovery-control-plane-preflight.sql");
     expect(promotion).toContain("verify_master_recovery_stage.py");
+    expect(promotion).toContain("verify_master_backup_gate.py\" --scope global");
   });
 });
