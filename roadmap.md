@@ -60,3 +60,11 @@
 - [x] Verificar integralmente a operação Apex, tentativas, efeitos, migrations, passos e leases.
 - [x] Identificar operações concorrentes, running e stale sem alterar estado.
 - [x] Emitir resultado objetivo PASS ou BLOCK: BLOCK por freeze/executor ausentes e versão de produção não comprovável.
+
+## Reparação controlada do Control-plane
+
+- [ ] Criar contrato versionado e fail-closed do plano 1.4.18.
+- [ ] Expor relatório somente leitura para Super Admin no MASTER.
+- [ ] Criar tela com bloqueios, gates, ordem, rollback e validações.
+- [ ] Preservar explicitamente a operação Apex e impedir controles de execução.
+- [ ] Executar validações locais completas sem ação remota.
