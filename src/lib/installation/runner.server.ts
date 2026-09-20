@@ -393,7 +393,7 @@ export async function finalizeOperation(
   // "etapa não identificada".
   const { data: fresh, error: progressError } = await client
     .from("installation_operations")
-    .select("steps")
+    .select("steps, detail")
     .eq("id", op.id)
     .maybeSingle();
   if (progressError) throw progressError;
@@ -492,6 +492,10 @@ export async function finalizeOperation(
     if (error) throw error;
     if (closed !== true) throw new InstallationLeaseLostError();
     return;
+  }
+
+  if (kind === "update") {
+    throw new InstallationLeaseLostError();
   }
 
   // Operações manuais legadas não possuem lease e continuam fechando pelo

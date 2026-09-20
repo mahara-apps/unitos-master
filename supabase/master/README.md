@@ -3,7 +3,18 @@
 Este diretório é exclusivo do banco MASTER e nunca integra o pacote Client.
 
 - `001_control_plane_convergence_v1_4_3.sql`: convergência idempotente recuperada da definição histórica canônica. Deve entrar depois da migration `20260913205310_998a5893-b6be-4068-806a-520361185290.sql` e antes de `20260913230055_f50b7d0b-e5e5-4cc8-9ad0-ddcfd8104005.sql`.
-- `bootstrap-control-plane.sql`: artefato gerado com as 30 migrations Control-plane, a convergência no ponto obrigatório e a proteção global ao final.
+- `bootstrap-control-plane.sql`: artefato gerado com as 30 migrations Control-plane, convergência, proteção global e finalização determinística ao final.
+- `003_control_plane_deterministic_update.sql`: fecha operação, versão aplicada e reconciliação na mesma transação fenced; bloqueia evidência parcial.
+
+## Política de retomada de UPDATE
+
+- `pending` automatizada sem lease e `running`/`retryable` com lease expirado: podem ser reivindicadas pelo executor oficial, que sempre incrementa o fencing token.
+- `running` com lease vigente: outro executor deve aguardar; qualquer escrita do worker anterior é rejeitada após novo claim.
+- `failed`: é terminal e preserva evidências; não é transformada silenciosamente em sucesso nem retomada sem uma nova decisão explícita.
+- `blocked` ou `manual_review`: exigem intervenção explícita; nenhuma migration é inferida ou reaplicada.
+- instalação `updating` sem operação automatizada executável: é marcada como inconsistente para revisão, nunca declarada atualizada.
+
+Uma operação de UPDATE só conclui quando release, commit e SHA-256 do pacote selado coincidem com a publicação, todas as migrations possuem confirmação canônica, todas as etapas terminaram e a validação final passou. A mesma RPC fenced atualiza operação, instalação, versão aplicada e estado de reconciliação. Falha de finalização é propagada e nunca retorna `PASS`.
 - `bootstrap-control-plane.json`: manifesto selado com versão e SHA-256 do bootstrap e da convergência.
 - `tools/build_master_bootstrap.py`: gerador determinístico do artefato.
 - `tools/promote_master_control_plane.sh`: promoção transacional explícita para Master existente ou Master limpo, seguida do verificador read-only.

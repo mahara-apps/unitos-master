@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+TMP_ROOT="$(mktemp -d /tmp/unitos-deterministic-update.XXXXXX)"
+PGDATA="$TMP_ROOT/data"; SOCKET_DIR="$TMP_ROOT/socket"; PORT="$((56000 + RANDOM % 1000))"; LOG="$TMP_ROOT/postgres.log"
+cleanup() { if test -f "$PGDATA/postmaster.pid"; then setpriv --reuid=1000 --regid=1000 --clear-groups pg_ctl -D "$PGDATA" -m immediate stop >/dev/null 2>&1 || true; fi; rm -rf "$TMP_ROOT"; }
+trap cleanup EXIT
+mkdir -p "$PGDATA" "$SOCKET_DIR"; chown -R lovable:lovable "$TMP_ROOT"
+setpriv --reuid=1000 --regid=1000 --clear-groups initdb -D "$PGDATA" --no-locale --encoding=UTF8 >/dev/null
+setpriv --reuid=1000 --regid=1000 --clear-groups pg_ctl -D "$PGDATA" -l "$LOG" -o "-F -k $SOCKET_DIR -p $PORT -c listen_addresses=''" start >/dev/null
+PSQL=(psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U lovable postgres)
+
+"${PSQL[@]}" >/dev/null <<'SQL'
+CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN;
+CREATE TABLE public.installations (
+ id uuid PRIMARY KEY, status text, health text, health_checks jsonb, health_checked_at timestamptz,
+ active_operation_id uuid, last_error text, current_version text, pinned_release text,
+ pinned_commit_sha text, pinned_at timestamptz, last_provisioned_at timestamptz,
+ last_validated_at timestamptz, updated_at timestamptz
+);
+CREATE TABLE public.installation_operations (
+ id uuid PRIMARY KEY, installation_id uuid NOT NULL, kind text, status text, lease_owner text,
+ fencing_token bigint, lease_expires_at timestamptz, baseline_id text, baseline_hash text,
+ detail jsonb, steps jsonb, summary text, error_kind text, current_step text, next_attempt_at timestamptz,
+ next_command text, run_token_hash text, finished_at timestamptz, heartbeat_at timestamptz,
+ last_report_at timestamptz, reconciled_at timestamptz
+);
+CREATE TABLE public.installation_operation_attempts (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(), operation_id uuid, fencing_token bigint, status text,
+ error_kind text, error_message text, retryable boolean, finished_at timestamptz,
+ heartbeat_at timestamptz, updated_at timestamptz
+);
+CREATE TABLE public.installation_operation_migrations (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(), operation_id uuid, migration_file text,
+ fingerprint text, package_position integer, statement_index integer, total_statements integer,
+ status text, confirmed_at timestamptz
+);
+SQL
+"${PSQL[@]}" --file "$ROOT/supabase/master/003_control_plane_deterministic_update.sql" >/dev/null
+
+IDS=("00000000-0000-0000-0000-000000000001" "00000000-0000-0000-0000-000000000002")
+"${PSQL[@]}" >/dev/null <<SQL
+INSERT INTO public.installations(id,status,active_operation_id,current_version) VALUES ('${IDS[0]}','updating','${IDS[1]}','1.3.76');
+INSERT INTO public.installation_operations(id,installation_id,kind,status,lease_owner,fencing_token,lease_expires_at,baseline_id,baseline_hash,detail,steps)
+VALUES ('${IDS[1]}','${IDS[0]}','update','running','worker-a',7,now()+interval '5 minutes','1.4.17:abcdef1234567890:2',repeat('a',64),
+ '{"stageProgress":{"updateRelease":"1.4.17","codeSourceSha":"abcdef1234567890","codeDone":true,"updateDatabaseReconciled":true,"updateValidationPassed":true}}',
+ '[{"state":"done"},{"state":"done"}]');
+INSERT INTO public.installation_operation_attempts(operation_id,fencing_token,status) VALUES ('${IDS[1]}',7,'running');
+INSERT INTO public.installation_operation_migrations(operation_id,migration_file,fingerprint,package_position,statement_index,total_statements,status)
+VALUES ('${IDS[1]}','001.sql','sha-1',1,1,1,'completed'),('${IDS[1]}','002.sql','sha-2',2,1,1,'completed');
+SQL
+
+# Executor concorrente/zumbi não finaliza e não promove versão.
+"${PSQL[@]}" --tuples-only --no-align -c "SELECT public.finalize_installation_operation('${IDS[1]}','worker-z',6,'success','ok',NULL,'{}','[{\"state\":\"done\"}]','up_to_date','healthy','{}','1.4.17',true,false)" | grep -qx f
+"${PSQL[@]}" --tuples-only --no-align -c "SELECT current_version FROM public.installations WHERE id='${IDS[0]}'" | grep -qx 1.3.76
+
+# O owner vigente fecha operação, ledger, release e commit atomicamente.
+"${PSQL[@]}" --tuples-only --no-align -c "SELECT public.finalize_installation_operation('${IDS[1]}','worker-a',7,'success','ok',NULL,'{\"stageProgress\":{\"updateRelease\":\"1.4.17\",\"codeSourceSha\":\"abcdef1234567890\",\"codeDone\":true,\"updateDatabaseReconciled\":true,\"updateValidationPassed\":true}}','[{\"state\":\"done\"},{\"state\":\"done\"}]','up_to_date','healthy','{}','1.4.17',true,false)" | grep -qx t
+"${PSQL[@]}" --tuples-only --no-align -c "SELECT concat_ws(',',current_version,pinned_release,pinned_commit_sha,status,active_operation_id IS NULL) FROM public.installations WHERE id='${IDS[0]}'" | grep -qx '1.4.17,1.4.17,abcdef1234567890,up_to_date,t'
+"${PSQL[@]}" --tuples-only --no-align -c "SELECT concat_ws(',',status,reconciled_at IS NOT NULL,detail->>'reconciliationState') FROM public.installation_operations WHERE id='${IDS[1]}'" | grep -qx 'success,t,reconciled'
+
+echo "deterministic update PostgreSQL local: PASS"
