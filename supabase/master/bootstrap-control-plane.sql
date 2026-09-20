@@ -3152,9 +3152,6 @@ DROP POLICY IF EXISTS control_plane_release_events_super_admin_read ON public.co
 CREATE POLICY control_plane_release_events_super_admin_read ON public.control_plane_release_events
   FOR SELECT TO authenticated USING (public.is_super_admin(auth.uid()));
 
-INSERT INTO public.control_plane_release_state(singleton) VALUES (true)
-ON CONFLICT (singleton) DO NOTHING;
-
 CREATE OR REPLACE FUNCTION public.promote_control_plane_release(
   _expected_generation bigint,
   _expected_current_version text,
