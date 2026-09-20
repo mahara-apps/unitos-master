@@ -136,7 +136,9 @@ describe("congelamento global fail-closed do Control-plane", () => {
 
   it("classifica histórico terminal sem esconder atividade ou ambiguidade", () => {
     expect(installPreflight).toContain("historical_terminal");
-    expect(installPreflight).toContain("o.status IN ('blocked', 'manual_review', 'success', 'failed')");
+    expect(installPreflight).toContain(
+      "o.status IN ('blocked', 'manual_review', 'success', 'failed')",
+    );
     expect(installPreflight).toContain("active_or_concurrent = 0");
     expect(installPreflight).toContain("orphaned = 0");
     expect(installPreflight).toContain("unknown_status = 0");

@@ -18,6 +18,7 @@ Este diretório é exclusivo do banco MASTER e nunca integra o pacote Client.
 - instalação `updating` sem operação automatizada executável: é marcada como inconsistente para revisão, nunca declarada atualizada.
 
 Uma operação de UPDATE só conclui quando release, commit e SHA-256 do pacote selado coincidem com a publicação, todas as migrations possuem confirmação canônica, todas as etapas terminaram e a validação final passou. A mesma RPC fenced atualiza operação, instalação, versão aplicada e estado de reconciliação. Falha de finalização é propagada e nunca retorna `PASS`.
+
 - `bootstrap-control-plane.json`: manifesto selado com versão e SHA-256 do bootstrap e da convergência.
 - `tools/build_master_bootstrap.py`: gerador determinístico do artefato.
 - `tools/promote_master_control_plane.sh`: promoção transacional explícita para Master existente ou Master limpo, seguida do verificador read-only.
