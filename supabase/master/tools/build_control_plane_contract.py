@@ -5,9 +5,9 @@ import argparse, hashlib, json
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 OUT=ROOT/'master'/'control-plane-contract.json'
-FILES=[ROOT/'master'/'002_control_plane_global_freeze.sql',ROOT/'master'/'global-freeze-install-preflight.sql',ROOT/'master'/'003_control_plane_deterministic_update.sql',ROOT/'master'/'deterministic-update-install-preflight.sql',ROOT/'master'/'install-deterministic-update.sql']
-TABLES=['installation_operations_freeze','installation_operations_freeze_events']
-FUNCTIONS=['read_installation_operations_freeze()','set_installation_operations_freeze(boolean,text,text,bigint)','guard_installation_operations_freeze()','finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)','normalize_legacy_installation_operations(integer)']
+FILES=[ROOT/'master'/'002_control_plane_global_freeze.sql',ROOT/'master'/'global-freeze-install-preflight.sql',ROOT/'master'/'003_control_plane_deterministic_update.sql',ROOT/'master'/'deterministic-update-install-preflight.sql',ROOT/'master'/'install-deterministic-update.sql',ROOT/'master'/'004_control_plane_release_promotion.sql',ROOT/'master'/'install-control-plane-release.sql',ROOT/'master'/'005_activate_cron_37.sql']
+TABLES=['installation_operations_freeze','installation_operations_freeze_events','control_plane_release_state','control_plane_release_events']
+FUNCTIONS=['read_installation_operations_freeze()','set_installation_operations_freeze(boolean,text,text,bigint)','guard_installation_operations_freeze()','finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)','normalize_legacy_installation_operations(integer)','promote_control_plane_release(bigint,text,text,text,text,text,text,jsonb,text)']
 TRIGGERS=[f'installation_operations_freeze_guard@{x}' for x in ['installations','installation_credentials','installation_operations','installation_operation_attempts','installation_operation_steps','installation_operation_outbox','installation_operation_migrations','installation_migration_reconciliation_evidence']]
 def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
 def build():

@@ -3,6 +3,8 @@
 BEGIN;
 SELECT pg_advisory_xact_lock(hashtextextended('unitos:master:cron-37-activation',0));
 SELECT pg_advisory_xact_lock(hashtextextended('unitos:master:installation-operations-freeze',0));
+SELECT set_config('unitos.expected_commit_sha', :'expected_commit_sha', true);
+SELECT set_config('unitos.expected_contract_sha256', :'expected_contract_sha256', true);
 DO $precondition$
 DECLARE _before record;
 BEGIN
@@ -20,7 +22,8 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.control_plane_release_state
     WHERE singleton IS TRUE AND current_version='1.4.18' AND pinned_release='1.4.18'
-      AND pinned_commit_sha=:'expected_commit_sha' AND contract_sha256=:'expected_contract_sha256'
+      AND pinned_commit_sha=current_setting('unitos.expected_commit_sha')
+      AND contract_sha256=current_setting('unitos.expected_contract_sha256')
   ) OR NOT EXISTS (SELECT 1 FROM supabase_migrations.schema_migrations WHERE version='20260919143000')
      OR to_regprocedure('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)') IS NULL THEN
     RAISE EXCEPTION 'Contrato 1.4.18 ainda não está integralmente validado' USING ERRCODE='55000';
