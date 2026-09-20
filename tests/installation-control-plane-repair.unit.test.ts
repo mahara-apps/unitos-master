@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import {
   APEX_OPERATION_ID,
@@ -64,5 +66,18 @@ describe("reparação controlada do Control-plane", () => {
     expect(text).not.toMatch(/postgres(?:ql)?:\/\//i);
     expect(text).not.toMatch(/service_role|sb_secret|password/i);
     expect(text).not.toMatch(/cancelar a operação Apex|excluir a operação Apex/i);
+  });
+
+  it("expõe somente GET autenticado no Master e não conecta executores", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "src/lib/installation/control-plane-repair.functions.ts"),
+      "utf8",
+    );
+    expect(source).toContain('createServerFn({ method: "GET" })');
+    expect(source).toContain("requireSupabaseAuth");
+    expect(source).toContain("assertMasterInstallation()");
+    expect(source).toContain("assertSuperAdmin");
+    expect(source).not.toMatch(/method:\s*"(?:POST|PUT|PATCH|DELETE)"/);
+    expect(source).not.toMatch(/promote_master|control_plane_freeze|cron\.alter_job|supabase\.from/);
   });
 });
