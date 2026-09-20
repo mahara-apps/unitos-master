@@ -159,7 +159,8 @@ export const Route = createFileRoute("/api/public/meta/webhook")({
           }
           const { logOperationalEvent } = await import("@/lib/operational-audit.server");
           const counts = new Map<string, number>();
-          for (const ev of events) counts.set(String(ev.brand_id), (counts.get(String(ev.brand_id)) ?? 0) + 1);
+          for (const ev of events)
+            counts.set(String(ev.brand_id), (counts.get(String(ev.brand_id)) ?? 0) + 1);
           for (const [brandId, count] of counts) {
             await logOperationalEvent({
               severity: "success",

@@ -62,36 +62,46 @@ afterAll(async () => {
 
 describe("Auditoria (logs) — enforcement de papel no servidor", () => {
   it("USER é bloqueado", async () => {
-    await expect(assertBrandAdmin(fx!.userA.client, fx!.userA.id, fx!.brandId, { allowManager: false })).rejects.toThrow(
-      /Forbidden/,
-    );
+    await expect(
+      assertBrandAdmin(fx!.userA.client, fx!.userA.id, fx!.brandId, { allowManager: false }),
+    ).rejects.toThrow(/Forbidden/);
   });
 
   it("user sem vínculo também é bloqueado", async () => {
     await expect(
-      assertBrandAdmin(fx!.userNoLink.client, fx!.userNoLink.id, fx!.brandId, { allowManager: false }),
+      assertBrandAdmin(fx!.userNoLink.client, fx!.userNoLink.id, fx!.brandId, {
+        allowManager: false,
+      }),
     ).rejects.toThrow(/Forbidden/);
   });
 
   it("portal_client é bloqueado", async () => {
     await expect(
-      assertBrandAdmin(fx!.userPortal.client, fx!.userPortal.id, fx!.brandId, { allowManager: false }),
+      assertBrandAdmin(fx!.userPortal.client, fx!.userPortal.id, fx!.brandId, {
+        allowManager: false,
+      }),
     ).rejects.toThrow(/Forbidden/);
   });
 
   it("manager é bloqueado e admin (owner) passa", async () => {
     await expect(
-      assertBrandAdmin(fx!.userManager.client, fx!.userManager.id, fx!.brandId, { allowManager: false }),
+      assertBrandAdmin(fx!.userManager.client, fx!.userManager.id, fx!.brandId, {
+        allowManager: false,
+      }),
     ).rejects.toThrow(/Forbidden/);
     await expect(
-      assertBrandAdmin(fx!.userOwner.client, fx!.userOwner.id, fx!.brandId, { allowManager: false }),
+      assertBrandAdmin(fx!.userOwner.client, fx!.userOwner.id, fx!.brandId, {
+        allowManager: false,
+      }),
     ).resolves.toBeDefined();
   });
 
   it("cross-brand: manager de outra marca não vira admin na marca alheia", async () => {
     // userManager só é membro de fx.brandId; em otherBrandId não tem papel.
     await expect(
-      assertBrandAdmin(fx!.userManager.client, fx!.userManager.id, fx!.otherBrandId, { allowManager: false }),
+      assertBrandAdmin(fx!.userManager.client, fx!.userManager.id, fx!.otherBrandId, {
+        allowManager: false,
+      }),
     ).rejects.toThrow(/Forbidden/);
   });
 });
@@ -216,7 +226,6 @@ describe("Identidade da agência (brands)", () => {
     expect(error).toBeNull();
     expect(data ?? []).toHaveLength(0);
   });
-
 
   it("admin (owner) altera dados cadastrais", async () => {
     const { data, error } = await fx!.userOwner.client

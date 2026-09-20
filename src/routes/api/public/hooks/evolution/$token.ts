@@ -123,11 +123,18 @@ export const Route = createFileRoute("/api/public/hooks/evolution/$token")({
           source: "evolution",
           operation: "webhook.receive",
           outcome: "success",
-          message: insertError?.code === "23505" ? "Evento duplicado ignorado." : "Evento recebido e persistido.",
+          message:
+            insertError?.code === "23505"
+              ? "Evento duplicado ignorado."
+              : "Evento recebido e persistido.",
           brandId: instance.brand_id as string,
           clientId: (instance.client_id as string | null) ?? null,
           correlationId: event.providerEventId,
-          metadata: { event_type: event.eventType, instance_status: event.instanceStatus, duplicate: insertError?.code === "23505" },
+          metadata: {
+            event_type: event.eventType,
+            instance_status: event.instanceStatus,
+            duplicate: insertError?.code === "23505",
+          },
         });
         return Response.json({ received: true });
       },
