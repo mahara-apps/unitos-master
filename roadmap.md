@@ -30,6 +30,13 @@
 - [x] Executar testes focados, master:check, typecheck, lint alterado e build.
 - [x] Manter todos os ambientes remotos intactos.
 
+## Preflight local da instalação do freeze 1.4.18
+- [x] Separar tentativas históricas terminais de atividade real sem alterar histórico.
+- [x] Bloquear leases, concorrência, vínculos órfãos e estados desconhecidos.
+- [x] Validar autorização, projeto e conexão antes do gate auditável.
+- [x] Exigir destino JSONL absoluto e impedir exposição de conexão ou justificativa.
+- [ ] Executar validação local completa.
+
 ## Gate do freeze global
 - [x] Conectar freeze e unfreeze ao gate de backup com escopo global.
 - [x] Rejeitar exceção descartável e argumentos adicionais no comando global.

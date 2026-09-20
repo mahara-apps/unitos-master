@@ -27,6 +27,10 @@ def required(name: str) -> str:
 
 def record(event: dict[str, str]) -> None:
     audit_file = Path(required("UNITOS_MASTER_BACKUP_AUDIT_FILE"))
+    if not audit_file.is_absolute() or audit_file.suffix != ".jsonl":
+        raise ValueError("Bloqueado: UNITOS_MASTER_BACKUP_AUDIT_FILE deve ser um caminho absoluto .jsonl")
+    if audit_file.exists() and audit_file.is_symlink():
+        raise ValueError("Bloqueado: destino de auditoria não pode ser link simbólico")
     audit_file.parent.mkdir(parents=True, exist_ok=True)
     event["recorded_at"] = datetime.now(timezone.utc).isoformat()
     with audit_file.open("a", encoding="utf-8") as stream:
