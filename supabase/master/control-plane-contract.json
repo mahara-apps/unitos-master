@@ -1,9 +1,9 @@
 {
   "files": {
-    "002_control_plane_global_freeze.sql": "8db2f3a7b33392cada6c42629eef9833949d59ac458248d62434cf5aaaa7db92",
+    "002_control_plane_global_freeze.sql": "d6af4b091e21efaef7051841f20ccf07ba2313f8d4a33068b40ec14ef868a152",
     "003_control_plane_deterministic_update.sql": "bbcb76b9456f72e36464d62c2beb0a13fe8ad9a72207ef3343edd1d8930d1dd5",
     "deterministic-update-install-preflight.sql": "7c0c51d02d244e79afa92f4da5a2c3508b753171675e0154d7ac12e08499fa58",
-    "global-freeze-install-preflight.sql": "70fea192b33fcdc53f37686dcd47157610f22e70cd64de77281f16025fd86983",
+    "global-freeze-install-preflight.sql": "389272f1ee42b3a82f8e3d3d8a79c18360ae1c499b3f2dca2db46c48aec11e5d",
     "install-deterministic-update.sql": "7aa125efc877ce7971f8781d2dfaee126a35cecf1b6d4373642e7480cc3c47b1"
   },
   "functions": [
