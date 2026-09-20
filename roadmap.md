@@ -515,4 +515,5 @@
 - [x] Criar eventos operacionais persistentes, sanitizados, imutáveis para usuários e com retenção de 90 dias.
 - [x] Exibir saúde das fontes, escopo por workspace/cliente e evidências no painel para Owner/Admin/Super Admin.
 - [x] Instrumentar os fluxos centrais de e-mail e webhooks Meta/Evolution.
-- [ ] Sincronizar no pacote MASTER, executar validações e publicar somente após autorização explícita.
+- [x] Sincronizar no pacote MASTER 1.4.16 e executar validações locais; integração bloqueada por credencial publicável inválida do ambiente descartável.
+- [ ] Publicar somente após autorização explícita.
