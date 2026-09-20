@@ -21,4 +21,4 @@
 - [x] Rejeitar exceção descartável e argumentos adicionais no comando global.
 - [x] Preservar autorização própria, preflight transacional, geração e fencing.
 - [x] Registrar evidência não secreta em JSONL e manter status somente leitura.
-- [ ] Executar validação local completa sem acesso remoto.
+- [x] Executar validação local completa sem acesso remoto.

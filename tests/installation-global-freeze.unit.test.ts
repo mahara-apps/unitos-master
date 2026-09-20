@@ -61,12 +61,15 @@ fi
         MASTER_DATABASE_URL:
           "postgresql://postgres:secret@db.tkjbhttylouamqxnbfgv.supabase.co:5432/postgres",
         MASTER_PROJECT_REF: "tkjbhttylouamqxnbfgv",
-        UNITOS_MASTER_FREEZE: options.authorize === false ? "" : "I_UNDERSTAND_GLOBAL_CONTROL_PLANE_FREEZE",
+        UNITOS_MASTER_FREEZE:
+          options.authorize === false ? "" : "I_UNDERSTAND_GLOBAL_CONTROL_PLANE_FREEZE",
         UNITOS_FREEZE_REASON: "Janela controlada de manutenção",
         UNITOS_FREEZE_ACTOR: "operador-control-plane",
         UNITOS_MASTER_BACKUP_CONFIRMATION: options.backup ? "BACKUP_RESTORABLE_VERIFIED" : "",
         UNITOS_MASTER_BACKUP_EVIDENCE: options.backup ? "snapshot-master-freeze-test" : "",
-        UNITOS_MASTER_BACKUP_OPERATOR: options.backup ? (options.backupOperator ?? "operador-control-plane") : "",
+        UNITOS_MASTER_BACKUP_OPERATOR: options.backup
+          ? (options.backupOperator ?? "operador-control-plane")
+          : "",
         UNITOS_MASTER_BACKUP_AUDIT_FILE: audit,
         UNITOS_MASTER_BACKUP_EXCEPTION: options.disposableException
           ? "ACCEPT_DISPOSABLE_INSTALLATION_BACKUP_RISK"
