@@ -19,6 +19,10 @@ if [[ -z "${MASTER_DATABASE_URL:-}" ]]; then
   exit 2
 fi
 
+# Toda promoção neste executor altera o Control-plane compartilhado. Portanto,
+# a exceção por instalação nunca é aceita aqui, inclusive para recovery.
+python3 "$ROOT/supabase/master/tools/verify_master_backup_gate.py" --scope global
+
 python3 "$ROOT/supabase/master/tools/build_master_bootstrap.py" --check
 
 if [[ "$MODE" == "--recover-missing-1.4.10" || "$MODE" == "--install-global-freeze" ]]; then

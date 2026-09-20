@@ -7,3 +7,11 @@
 - [ ] Cobrir os cenários de aceitação solicitados.
 - [ ] Regenerar pacote e validar MASTER-first.
 - [ ] Executar testes focados, suíte global, typecheck, lint, build e ensaio PostgreSQL isolado.
+
+## Protocolo de backup do Master
+- [x] Exigir evidência de backup restaurável para escritas compartilhadas.
+- [x] Permitir exceção explícita somente por instalação descartável identificada.
+- [x] Preservar autorizações e proteções fail-closed independentes do backup.
+- [x] Validar testes focados e master:check.
+- [x] Validar typecheck e build; lint dos arquivos alterados.
+- [ ] Lint global bloqueado por erros preexistentes fora deste protocolo.

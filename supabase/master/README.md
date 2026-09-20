@@ -36,6 +36,14 @@ python3 supabase/master/tools/build_master_recovery.py --check
 
 O `master:check` usa `--check` e bloqueia a liberação se o SQL ou o manifesto estiverem ausentes/divergentes. A promoção exige `MASTER_DATABASE_URL` e a confirmação explícita `UNITOS_MASTER_PROMOTION=I_UNDERSTAND_MASTER_ONLY`; ela nunca é executada pelo fluxo Client.
 
+## Protocolo de backup
+
+Toda escrita no Control-plane compartilhado exige, além da autorização própria da operação, uma evidência de backup restaurável: `UNITOS_MASTER_BACKUP_CONFIRMATION=BACKUP_RESTORABLE_VERIFIED`, `UNITOS_MASTER_BACKUP_EVIDENCE`, `UNITOS_MASTER_BACKUP_OPERATOR` e um caminho local persistente em `UNITOS_MASTER_BACKUP_AUDIT_FILE`. Isso se aplica a recovery, migrations, ledger, permissões, freeze e configurações críticas.
+
+Uma exceção é permitida somente para uma ação limitada ao banco de uma instalação ainda não entregue, sem dados relevantes e declarada descartável. Ela exige `UNITOS_MASTER_BACKUP_EXCEPTION=ACCEPT_DISPOSABLE_INSTALLATION_BACKUP_RISK`, `UNITOS_MASTER_BACKUP_EXCEPTION_INSTALLATION_ID` igual à instalação afetada, `UNITOS_MASTER_BACKUP_EXCEPTION_DISPOSABLE=INSTALLATION_NOT_DELIVERED_AND_DISPOSABLE`, operador e uma descrição específica em `UNITOS_MASTER_BACKUP_EXCEPTION_RISK_ACCEPTED`. A exceção é rejeitada em ações globais e não desativa freeze, preflight, fencing, validações de integridade ou confirmações da operação. O executor de promoção Master sempre usa escopo global, inclusive na recovery 1.4.14, e por isso nunca aceita essa exceção.
+
+O gate registra no arquivo de auditoria uma linha JSON com data UTC, decisão, escopo, operador e evidência; na exceção, inclui também instalação e risco aceito. O gate nunca cria backup nem executa escrita automaticamente. A autorização de backup ou sua exceção e a autorização de recovery/migration continuam sendo decisões separadas.
+
 Para um Master existente, `master:promote:convergence` aplica somente a convergência idempotente. Para um Master limpo, `master:promote:bootstrap` aplica o bootstrap Control-plane completo. Ambos usam uma única transação e só concluem se `verify-installation-master.sql` não retornar `FAIL`.
 
 A recuperação histórica é um terceiro modo, bloqueado por `UNITOS_MASTER_RECOVERY=RECOVER_MISSING_1_4_10_ONLY`, `MASTER_PROJECT_REF` idêntico ao manifesto e preflight integralmente `PASS`. O preflight valida a definição completa, corpo, assinatura sem overloads, propriedades, owner, ACL expandida e dependências da 1.4.11; `PUBLIC` é identificado exclusivamente por `grantee = 0`, sem resolução como role nomeada.

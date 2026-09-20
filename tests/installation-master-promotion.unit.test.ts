@@ -29,6 +29,7 @@ interface PromotionOptions {
   mutateStageAfterDryRun?: "config" | "duplicate" | "historical" | "recovery";
   concurrentLedger?: string;
   concurrentLedgerAtRead?: number;
+  omitBackupEvidence?: boolean;
 }
 
 function runPromotion(
@@ -107,6 +108,12 @@ fi
         UNITOS_MASTER_RECOVERY: options.recoveryConfirmation ?? "",
         MASTER_PROJECT_REF: options.projectRef ?? "",
         UNITOS_SUPABASE_CLI: fakeSupabase,
+        UNITOS_MASTER_BACKUP_CONFIRMATION: options.omitBackupEvidence
+          ? ""
+          : "BACKUP_RESTORABLE_VERIFIED",
+        UNITOS_MASTER_BACKUP_EVIDENCE: options.omitBackupEvidence ? "" : "snapshot-master-test",
+        UNITOS_MASTER_BACKUP_OPERATOR: options.omitBackupEvidence ? "" : "test-operator",
+        UNITOS_MASTER_BACKUP_AUDIT_FILE: join(directory, "backup-audit.jsonl"),
       },
       encoding: "utf8",
       timeout: 10_000,
@@ -128,6 +135,15 @@ const recoveryOptions: PromotionOptions = {
 };
 
 describe("promoção local do Control-plane Master", () => {
+  it("bloqueia qualquer escrita sem evidência de backup ou exceção válida", () => {
+    const result = runPromotion("--converge-existing", "1,controle,ok,PASS", {
+      omitBackupEvidence: true,
+    });
+    expect(result.code).toBe(2);
+    expect(result.stdout).toContain("backup restaurável obrigatório");
+    expect(result.calls).toBe("");
+  });
+
   it("Master existente aplica apenas a convergência em transação e verifica", () => {
     const result = runPromotion("--converge-existing", "1,controle,ok,PASS");
     expect(result.code).toBe(0);
