@@ -27,7 +27,7 @@
 - [x] Substituir exceção descartável por aceitação global vinculada ao Master existente.
 - [x] Exigir confirmação literal, identidade canônica, operador, risco específico e auditoria JSONL.
 - [x] Preservar autorizações próprias, preflight, freeze, fencing, ledger e fail-closed.
-- [ ] Executar testes focados, master:check, typecheck, lint alterado e build.
+- [x] Executar testes focados, master:check, typecheck, lint alterado e build.
 - [x] Manter todos os ambientes remotos intactos.
 
 ## Gate do freeze global
