@@ -113,8 +113,7 @@ fi
         MASTER_DATABASE_URL:
           "postgresql://postgres:secret@db.tkjbhttylouamqxnbfgv.supabase.co:5432/postgres",
         UNITOS_MASTER_RECOVERY: options.recoveryConfirmation ?? "",
-        UNITOS_MASTER_DETERMINISTIC_UPDATE_INSTALL:
-          options.deterministicUpdateConfirmation ?? "",
+        UNITOS_MASTER_DETERMINISTIC_UPDATE_INSTALL: options.deterministicUpdateConfirmation ?? "",
         MASTER_PROJECT_REF: options.projectRef ?? "",
         UNITOS_SUPABASE_CLI: fakeSupabase,
         UNITOS_MASTER_BACKUP_CONFIRMATION: options.omitBackupEvidence
@@ -148,7 +147,9 @@ describe("promoção local do Control-plane Master", () => {
     const result = runPromotion("--install-deterministic-update", "1,controle,ok,PASS", {
       projectRef: "tkjbhttylouamqxnbfgv",
       deterministicUpdateConfirmation: "INSTALL_DETERMINISTIC_UPDATE_ONLY",
-      preflight: Array.from({ length: 5 }, (_, index) => `${index + 1},preflight,ok,PASS`).join("\n"),
+      preflight: Array.from({ length: 5 }, (_, index) => `${index + 1},preflight,ok,PASS`).join(
+        "\n",
+      ),
     });
     expect(result.code).toBe(0);
     expect(result.calls).toContain("deterministic-update-install-preflight.sql");
