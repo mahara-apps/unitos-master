@@ -1,0 +1,31 @@
+{
+  "files": {
+    "002_control_plane_global_freeze.sql": "688cc5190cf261354a8383a3bd30a073a7dc220b8649a39960d56fe25cbee2ef",
+    "003_control_plane_deterministic_update.sql": "bbcb76b9456f72e36464d62c2beb0a13fe8ad9a72207ef3343edd1d8930d1dd5",
+    "deterministic-update-install-preflight.sql": "7c0c51d02d244e79afa92f4da5a2c3508b753171675e0154d7ac12e08499fa58",
+    "install-deterministic-update.sql": "7aa125efc877ce7971f8781d2dfaee126a35cecf1b6d4373642e7480cc3c47b1"
+  },
+  "functions": [
+    "read_installation_operations_freeze()",
+    "set_installation_operations_freeze(boolean,text,text,bigint)",
+    "guard_installation_operations_freeze()",
+    "finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)",
+    "normalize_legacy_installation_operations(integer)"
+  ],
+  "releaseVersion": "1.4.18",
+  "schemaVersion": 1,
+  "tables": [
+    "installation_operations_freeze",
+    "installation_operations_freeze_events"
+  ],
+  "triggers": [
+    "installation_operations_freeze_guard@installations",
+    "installation_operations_freeze_guard@installation_credentials",
+    "installation_operations_freeze_guard@installation_operations",
+    "installation_operations_freeze_guard@installation_operation_attempts",
+    "installation_operations_freeze_guard@installation_operation_steps",
+    "installation_operations_freeze_guard@installation_operation_outbox",
+    "installation_operations_freeze_guard@installation_operation_migrations",
+    "installation_operations_freeze_guard@installation_migration_reconciliation_evidence"
+  ]
+}

@@ -95,6 +95,10 @@ describe("contrato determinístico de UPDATE", () => {
 
   it("bloqueia ledger incompleto, pacote divergente e evidência parcial", () => {
     expect(sql).toContain("_completed_migrations <> _package_total");
+    expect(sql).toContain("_minimum_position <> 1");
+    expect(sql).toContain("_maximum_position <> _package_total");
+    expect(sql).toContain("_distinct_positions <> _package_total");
+    expect(sql).toContain("fingerprint !~ '^[0-9a-f]{64}$'");
     expect(sql).toContain("baseline_hash");
     expect(sql).toContain("updateDatabaseReconciled");
     expect(sql).toContain("updateValidationPassed");

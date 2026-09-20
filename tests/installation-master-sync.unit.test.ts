@@ -332,5 +332,7 @@ describe("sincronia MASTER-first", () => {
     expect(promotion).toContain('build_master_bootstrap.py" --check');
     expect(packageJson).toContain("master:promote:convergence");
     expect(packageJson).toContain("master:promote:bootstrap");
+    expect(packageJson).toContain("master:install:deterministic-update");
+    expect(packageJson).toContain("master:diagnose:release");
   });
 });

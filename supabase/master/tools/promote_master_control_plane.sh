@@ -6,8 +6,12 @@ MODE="${1:-}"
 SUPABASE_CLI_VERSION="2.117.0"
 SUPABASE_CLI="${UNITOS_SUPABASE_CLI:-$ROOT/node_modules/.bin/supabase}"
 
-if [[ "$MODE" != "--converge-existing" && "$MODE" != "--bootstrap-clean" && "$MODE" != "--install-global-freeze" && "$MODE" != "--recover-missing-1.4.10" ]]; then
-  echo "Uso: $0 --converge-existing|--bootstrap-clean|--install-global-freeze|--recover-missing-1.4.10" >&2
+if [[ "$#" -ne 1 ]]; then
+  echo "Bloqueado: informe exatamente um modo, sem parâmetros adicionais" >&2
+  exit 2
+fi
+if [[ "$MODE" != "--converge-existing" && "$MODE" != "--bootstrap-clean" && "$MODE" != "--install-global-freeze" && "$MODE" != "--install-deterministic-update" && "$MODE" != "--recover-missing-1.4.10" ]]; then
+  echo "Uso: $0 --converge-existing|--bootstrap-clean|--install-global-freeze|--install-deterministic-update|--recover-missing-1.4.10" >&2
   exit 2
 fi
 if [[ "${UNITOS_MASTER_PROMOTION:-}" != "I_UNDERSTAND_MASTER_ONLY" ]]; then
@@ -24,8 +28,9 @@ fi
 python3 "$ROOT/supabase/master/tools/verify_master_backup_gate.py" --scope global
 
 python3 "$ROOT/supabase/master/tools/build_master_bootstrap.py" --check
+python3 "$ROOT/supabase/master/tools/build_control_plane_contract.py" --check
 
-if [[ "$MODE" == "--recover-missing-1.4.10" || "$MODE" == "--install-global-freeze" ]]; then
+if [[ "$MODE" == "--recover-missing-1.4.10" || "$MODE" == "--install-global-freeze" || "$MODE" == "--install-deterministic-update" ]]; then
   if [[ "${MASTER_PROJECT_REF:-}" != "tkjbhttylouamqxnbfgv" ]]; then
     echo "Bloqueado: identidade do Master não coincide com o manifesto" >&2
     exit 2
@@ -164,6 +169,20 @@ elif [[ "$MODE" == "--install-global-freeze" ]]; then
     exit 2
   fi
   SQL="$ROOT/supabase/master/002_control_plane_global_freeze.sql"
+elif [[ "$MODE" == "--install-deterministic-update" ]]; then
+  if [[ "${UNITOS_MASTER_DETERMINISTIC_UPDATE_INSTALL:-}" != "INSTALL_DETERMINISTIC_UPDATE_ONLY" ]]; then
+    echo "Bloqueado: instalação do executor determinístico exige confirmação específica" >&2
+    exit 2
+  fi
+  PREFLIGHT="$(mktemp)"
+  trap 'rm -f "$PREFLIGHT"' EXIT
+  psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --csv \
+    --file "$ROOT/supabase/master/deterministic-update-install-preflight.sql" > "$PREFLIGHT"
+  if grep -q ',FAIL$' "$PREFLIGHT" || [[ "$(grep -c ',PASS$' "$PREFLIGHT")" -ne 5 ]]; then
+    echo "Bloqueado: preflight do executor determinístico encontrou divergências" >&2
+    exit 1
+  fi
+  SQL="$ROOT/supabase/master/install-deterministic-update.sql"
 elif [[ "$MODE" == "--bootstrap-clean" ]]; then
   SQL="$ROOT/supabase/master/bootstrap-control-plane.sql"
 else

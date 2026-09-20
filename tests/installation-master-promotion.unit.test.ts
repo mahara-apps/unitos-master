@@ -30,10 +30,15 @@ interface PromotionOptions {
   concurrentLedger?: string;
   concurrentLedgerAtRead?: number;
   omitBackupEvidence?: boolean;
+  deterministicUpdateConfirmation?: string;
 }
 
 function runPromotion(
-  mode: "--converge-existing" | "--bootstrap-clean" | "--recover-missing-1.4.10",
+  mode:
+    | "--converge-existing"
+    | "--bootstrap-clean"
+    | "--install-deterministic-update"
+    | "--recover-missing-1.4.10",
   verification: string,
   options: PromotionOptions = {},
 ) {
@@ -49,6 +54,8 @@ printf '%s\\n' "$*" >> "${calls}"
 if [[ "$*" == *"recovery-control-plane-preflight.sql"* ]]; then
   ${options.preflightError ? `printf '%s\\n' '${options.preflightError}' >&2; exit 1` : ""}
   printf '%s\\n' '${options.preflight ?? passingPreflight}'
+elif [[ "$*" == *"deterministic-update-install-preflight.sql"* ]]; then
+  printf '%s\\n' '${options.preflight ?? "1,preflight,ok,PASS"}'
 elif [[ "$*" == *"verify-installation-master.sql"* ]]; then
   printf '%s\\n' '${verification}'
 elif [[ "$*" == *"SELECT concat_ws"* ]]; then
@@ -106,6 +113,7 @@ fi
         MASTER_DATABASE_URL:
           "postgresql://postgres:secret@db.tkjbhttylouamqxnbfgv.supabase.co:5432/postgres",
         UNITOS_MASTER_RECOVERY: options.recoveryConfirmation ?? "",
+        UNITOS_MASTER_DETERMINISTIC_UPDATE_INSTALL: options.deterministicUpdateConfirmation ?? "",
         MASTER_PROJECT_REF: options.projectRef ?? "",
         UNITOS_SUPABASE_CLI: fakeSupabase,
         UNITOS_MASTER_BACKUP_CONFIRMATION: options.omitBackupEvidence
@@ -135,6 +143,38 @@ const recoveryOptions: PromotionOptions = {
 };
 
 describe("promoção local do Control-plane Master", () => {
+  it("instala somente o executor determinístico após backup, identidade, autorização e preflight", () => {
+    const result = runPromotion("--install-deterministic-update", "1,controle,ok,PASS", {
+      projectRef: "tkjbhttylouamqxnbfgv",
+      deterministicUpdateConfirmation: "INSTALL_DETERMINISTIC_UPDATE_ONLY",
+      preflight: Array.from({ length: 5 }, (_, index) => `${index + 1},preflight,ok,PASS`).join(
+        "\n",
+      ),
+    });
+    expect(result.code).toBe(0);
+    expect(result.calls).toContain("deterministic-update-install-preflight.sql");
+    expect(result.calls).toContain("install-deterministic-update.sql");
+    expect(result.calls).toContain("--single-transaction");
+    expect(result.calls).not.toContain("002_control_plane_global_freeze.sql");
+    expect(result.calls).not.toContain("recovery-control-plane-preflight.sql");
+  });
+
+  it("bloqueia instalação determinística sem autorização ou com preflight incompleto", () => {
+    const unauthorized = runPromotion("--install-deterministic-update", "1,controle,ok,PASS", {
+      projectRef: "tkjbhttylouamqxnbfgv",
+    });
+    expect(unauthorized.code).toBe(2);
+    expect(unauthorized.calls).toBe("");
+    const incomplete = runPromotion("--install-deterministic-update", "1,controle,ok,PASS", {
+      projectRef: "tkjbhttylouamqxnbfgv",
+      deterministicUpdateConfirmation: "INSTALL_DETERMINISTIC_UPDATE_ONLY",
+      preflight: "1,preflight,ok,PASS",
+    });
+    expect(incomplete.code).toBe(1);
+    expect(incomplete.stdout).toContain("preflight do executor determinístico");
+    expect(incomplete.calls).not.toContain("install-deterministic-update.sql");
+  });
+
   it("bloqueia qualquer escrita sem evidência de backup ou exceção válida", () => {
     const result = runPromotion("--converge-existing", "1,controle,ok,PASS", {
       omitBackupEvidence: true,

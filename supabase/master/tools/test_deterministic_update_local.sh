@@ -48,7 +48,7 @@ VALUES ('${IDS[1]}','${IDS[0]}','update','running','worker-a',7,now()+interval '
  '[{"state":"done"},{"state":"done"}]');
 INSERT INTO public.installation_operation_attempts(operation_id,fencing_token,status) VALUES ('${IDS[1]}',7,'running');
 INSERT INTO public.installation_operation_migrations(operation_id,migration_file,fingerprint,package_position,statement_index,total_statements,status)
-VALUES ('${IDS[1]}','001.sql','sha-1',1,1,1,'completed'),('${IDS[1]}','002.sql','sha-2',2,1,1,'completed');
+VALUES ('${IDS[1]}','20260920000001_first.sql',repeat('1',64),1,1,1,'completed'),('${IDS[1]}','20260920000002_second.sql',repeat('2',64),2,1,1,'completed');
 SQL
 
 # Executor concorrente/zumbi não finaliza e não promove versão.

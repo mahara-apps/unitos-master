@@ -4,7 +4,10 @@ Este diretório é exclusivo do banco MASTER e nunca integra o pacote Client.
 
 - `001_control_plane_convergence_v1_4_3.sql`: convergência idempotente recuperada da definição histórica canônica. Deve entrar depois da migration `20260913205310_998a5893-b6be-4068-806a-520361185290.sql` e antes de `20260913230055_f50b7d0b-e5e5-4cc8-9ad0-ddcfd8104005.sql`.
 - `bootstrap-control-plane.sql`: artefato gerado com as 30 migrations Control-plane, convergência, proteção global e finalização determinística ao final.
-- `003_control_plane_deterministic_update.sql`: fecha operação, versão aplicada e reconciliação na mesma transação fenced; bloqueia evidência parcial.
+- `003_control_plane_deterministic_update.sql`: fecha operação, versão aplicada e reconciliação na mesma transação fenced; bloqueia evidência parcial, posições com lacunas/duplicidades e fingerprints inválidos.
+- `control-plane-contract.json`: inventário selado dos objetos, assinaturas, triggers e hashes exigidos para freeze e executor.
+- `install-deterministic-update.sql`: transação exclusiva de instalação do executor; reassume a advisory lock, exige freeze ativo e quiescência antes de aplicar e verificar a RPC.
+- `deterministic-update-install-preflight.sql`: preflight read-only obrigatório dessa instalação independente.
 
 ## Política de retomada de UPDATE
 
@@ -24,7 +27,7 @@ Uma operação de UPDATE só conclui quando release, commit e SHA-256 do pacote 
 - `recovery-control-plane-preflight.sql` e `recovery-control-plane.json`: preflight read-only e manifesto selado da recuperação.
 - `../install/verify-installation-master.sql`: auditoria read-only do estado final Master.
 
-`installation_operation_effects` e `installation_migration_ledger` permanecem deliberadamente ausentes: não possuem consumidor atual e dependem de decisão arquitetural futura.
+`installation_operation_migrations` é o ledger operacional canônico por operação; `installation_migration_reconciliation_evidence` guarda evidência legada verificável. As estruturas históricas sem consumidor `installation_operation_effects` e `installation_migration_ledger` permanecem deliberadamente ausentes e não são usadas para inferir aplicação.
 
 Regeneração local:
 
@@ -32,6 +35,7 @@ Regeneração local:
 python3 supabase/master/tools/build_master_bootstrap.py
 python3 supabase/master/tools/build_master_bootstrap.py --check
 python3 supabase/master/tools/build_master_recovery.py --check
+python3 supabase/master/tools/build_control_plane_contract.py --check
 ```
 
 O `master:check` usa `--check` e bloqueia a liberação se o SQL ou o manifesto estiverem ausentes/divergentes. A promoção exige `MASTER_DATABASE_URL` e a confirmação explícita `UNITOS_MASTER_PROMOTION=I_UNDERSTAND_MASTER_ONLY`; ela nunca é executada pelo fluxo Client.
@@ -46,6 +50,10 @@ O gate registra no arquivo de auditoria uma linha JSON com data UTC, decisão, e
 
 Para um Master existente, `master:promote:convergence` aplica somente a convergência idempotente. Para um Master limpo, `master:promote:bootstrap` aplica o bootstrap Control-plane completo. Ambos usam uma única transação e só concluem se `verify-installation-master.sql` não retornar `FAIL`.
 
+`master:install:deterministic-update` instala somente a finalização 1.4.18. Exige backup global comprovado, identidade exata do Master, `UNITOS_MASTER_DETERMINISTIC_UPDATE_INSTALL=INSTALL_DETERMINISTIC_UPDATE_ONLY`, preflight 5/5 PASS, freeze previamente instalado e ativo e nenhuma operação/tentativa ativa. O SQL reassume a mesma advisory lock e repete quiescência dentro da transação, impedindo promoção parcial ou concorrente. Esse comando não ativa freeze, não trata a operação Apex e não executa recovery ou UPDATE.
+
+Os diagnósticos `master:diagnose:release -- --evidence <arquivo.json>` e `diagnose_control_plane_contract.py --report <export.json>` são estritamente offline: valores ausentes ou divergentes resultam em `BLOCK`; nenhuma versão é inferida e nenhum deploy é iniciado.
+
 A recuperação histórica é um terceiro modo, bloqueado por `UNITOS_MASTER_RECOVERY=RECOVER_MISSING_1_4_10_ONLY`, `MASTER_PROJECT_REF` idêntico ao manifesto e preflight integralmente `PASS`. O preflight valida a definição completa, corpo, assinatura sem overloads, propriedades, owner, ACL expandida e dependências da 1.4.11; `PUBLIC` é identificado exclusivamente por `grantee = 0`, sem resolução como role nomeada.
 
 Os argumentos da 1.4.11 são validados separadamente pelo catálogo: `proargnames` confirma nomes e ordem, enquanto `proargtypes` e `pronargs` confirmam tipos, ordem e quantidade. O resultado não depende da forma textual, nomeada ou sem nomes, retornada por `pg_get_function_identity_arguments`. O ensaio obrigatório sem rede usa `bash supabase/master/tools/test_master_recovery_local.sh`; ele cria e destrói um cluster PostgreSQL temporário em `/tmp`, testa divergências de assinatura/overload e comprova aplicação e rollback da recovery.
@@ -58,6 +66,6 @@ Janelas residuais inevitáveis: o preflight e o dry-run usam conexões independe
 
 ## Congelamento operacional
 
-A instalação do mecanismo, sua ativação, a recovery e o UPDATE são quatro autorizações independentes. `master:install:freeze` instala somente a proteção no Control-plane; `master:freeze:status` é leitura e não passa pelo gate de backup; `master:freeze:on` e `master:freeze:off` exigem confirmação própria, motivo, responsável e backup restaurável comprovado pelo gate global. A exceção descartável é sempre rejeitada para freeze e unfreeze. O gate ocorre antes da primeira consulta preparatória ao banco e registra a decisão não secreta em JSONL. Ativar falha se houver operação ou tentativa ativa e usa a mesma advisory lock das triggers, impedindo que uma nova mutação entre entre a verificação de quiescência e o commit. Estado ausente, duplicado ou ilegível bloqueia as mutações.
+A instalação do mecanismo, sua ativação, a instalação do executor determinístico, a recovery e o UPDATE são autorizações independentes. `master:install:freeze` instala somente a proteção no Control-plane; `master:freeze:status` é leitura e não passa pelo gate de backup; `master:freeze:on` e `master:freeze:off` exigem confirmação própria, motivo, responsável e backup restaurável comprovado pelo gate global. A exceção descartável é sempre rejeitada para freeze e unfreeze. O gate ocorre antes da primeira consulta preparatória ao banco e registra a decisão não secreta em JSONL. Ativar falha se houver operação ou tentativa ativa e usa a mesma advisory lock das triggers, impedindo que uma nova mutação entre entre a verificação de quiescência e o commit. Estado ausente, duplicado ou ilegível bloqueia as mutações.
 
 Enquanto ativo, triggers `BEFORE ... FOR EACH STATEMENT` bloqueiam INSERT, UPDATE e DELETE em instalações, credenciais, operações, tentativas, etapas, outbox, checkpoints de migration e evidências. Rotas públicas, cron, worker e funções da interface também consultam o estado para falhar cedo; as triggers continuam sendo a autoridade contra chamadas diretas com `service_role`. A recovery 1.4.14 exige o freeze ativo e adquire a mesma lock. Descongelar não cria nem autoriza UPDATE.

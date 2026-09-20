@@ -2893,11 +2893,28 @@ DECLARE _table text;
 BEGIN
   FOREACH _table IN ARRAY ARRAY['installations','installation_credentials','installation_operations',
     'installation_operation_attempts','installation_operation_steps','installation_operation_outbox',
-    'installation_operation_migrations'] LOOP
-    EXECUTE format('DROP TRIGGER IF EXISTS installation_operations_freeze_guard ON public.%I',_table);
-    EXECUTE format('CREATE TRIGGER installation_operations_freeze_guard BEFORE INSERT OR UPDATE OR DELETE ON public.%I FOR EACH STATEMENT EXECUTE FUNCTION public.guard_installation_operations_freeze()',_table);
+    'installation_operation_migrations','installation_migration_reconciliation_evidence'] LOOP
+    IF to_regclass('public.' || _table) IS NOT NULL THEN
+      EXECUTE format('DROP TRIGGER IF EXISTS installation_operations_freeze_guard ON public.%I',_table);
+      EXECUTE format('CREATE TRIGGER installation_operations_freeze_guard BEFORE INSERT OR UPDATE OR DELETE ON public.%I FOR EACH STATEMENT EXECUTE FUNCTION public.guard_installation_operations_freeze()',_table);
+    END IF;
   END LOOP;
 END $unitos_freeze_triggers$;
+DO $unitos_freeze_postcondition$
+DECLARE _guarded integer; _singleton integer;
+BEGIN
+  SELECT count(*) INTO _guarded
+  FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+  WHERE NOT t.tgisinternal AND t.tgname='installation_operations_freeze_guard' AND n.nspname='public'
+    AND c.relname IN ('installations','installation_credentials','installation_operations',
+      'installation_operation_attempts','installation_operation_steps','installation_operation_outbox',
+      'installation_operation_migrations','installation_migration_reconciliation_evidence');
+  SELECT count(*) INTO _singleton FROM public.installation_operations_freeze WHERE singleton IS TRUE;
+  IF _guarded <> (7 + CASE WHEN to_regclass('public.installation_migration_reconciliation_evidence') IS NULL THEN 0 ELSE 1 END)
+     OR _singleton <> 1 THEN
+    RAISE EXCEPTION 'Pós-condição do freeze global falhou' USING ERRCODE='55000';
+  END IF;
+END $unitos_freeze_postcondition$;
 
 -- MASTER DETERMINISTIC UPDATE
 -- MASTER 1.4.17: finalização atômica e determinística de UPDATE.
@@ -2931,6 +2948,9 @@ DECLARE
   _package_hash text;
   _package_total integer;
   _completed_migrations integer;
+  _minimum_position integer;
+  _maximum_position integer;
+  _distinct_positions integer;
 BEGIN
   IF _operation_status NOT IN ('success', 'failed', 'blocked', 'manual_review') THEN
     RAISE EXCEPTION 'Estado final inválido' USING ERRCODE = '22023';
@@ -2967,16 +2987,25 @@ BEGIN
       RAISE EXCEPTION 'Evidência canônica do UPDATE incompleta ou divergente' USING ERRCODE = '55000';
     END IF;
 
-    SELECT count(*) INTO _completed_migrations
+    SELECT count(*), min(package_position), max(package_position), count(DISTINCT package_position)
+    INTO _completed_migrations, _minimum_position, _maximum_position, _distinct_positions
     FROM public.installation_operation_migrations
     WHERE operation_id = _operation_id
       AND status = 'completed'
       AND statement_index = total_statements;
-    IF _completed_migrations <> _package_total OR EXISTS (
-      SELECT 1 FROM public.installation_operation_migrations
-      WHERE operation_id = _operation_id
-        AND (status <> 'completed' OR statement_index <> total_statements)
-    ) THEN
+    IF _completed_migrations <> _package_total
+       OR _minimum_position <> 1
+       OR _maximum_position <> _package_total
+       OR _distinct_positions <> _package_total
+       OR EXISTS (
+         SELECT 1 FROM public.installation_operation_migrations
+         WHERE operation_id = _operation_id
+           AND (status <> 'completed'
+             OR statement_index <> total_statements
+             OR total_statements < 0
+             OR migration_file !~ '^[0-9]{14}_[A-Za-z0-9_-]+\.sql$'
+             OR fingerprint !~ '^[0-9a-f]{64}$')
+       ) THEN
       RAISE EXCEPTION 'Ledger canônico do UPDATE incompleto ou inconsistente' USING ERRCODE = '55000';
     END IF;
     _detail := coalesce(_detail, '{}'::jsonb) || jsonb_build_object(
