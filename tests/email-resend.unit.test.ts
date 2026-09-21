@@ -6,6 +6,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 process.env.BRAND_CREDENTIALS_SECRET ??= "test-secret-para-cifra-de-credenciais";
 
+const installationSettings = vi.hoisted(() => ({
+  emailFrom: "contato@dominio.com" as string | null,
+  emailFromName: null as string | null,
+}));
+
+vi.mock("@/lib/installation-settings.server", () => ({
+  getInstallationSettings: vi.fn(async () => installationSettings),
+}));
+
 const BRAND_A = "11111111-1111-4111-8111-111111111111";
 const BRAND_B = "22222222-2222-4222-8222-222222222222";
 
@@ -34,6 +43,8 @@ describe("resolveResendConfig", () => {
   beforeEach(() => {
     delete process.env.RESEND_API_KEY;
     delete process.env.INVITE_FROM_EMAIL;
+    installationSettings.emailFrom = "contato@dominio.com";
+    installationSettings.emailFromName = null;
     vi.restoreAllMocks();
   });
 
@@ -90,17 +101,40 @@ describe("resolveResendConfig", () => {
 
   it("cai para a credencial da instalação quando a marca não tem a própria", async () => {
     process.env.RESEND_API_KEY = "re_installation_key";
-    process.env.INVITE_FROM_EMAIL = "Unitos <sistema@dominio.com>";
+    installationSettings.emailFrom = "sistema@dominio.com";
     const { resolveResendConfig } = await mod();
     const cfg = await resolveResendConfig(makeSupabase({}), BRAND_A);
     expect(cfg?.source).toBe("installation");
     expect(cfg?.from).toBe("Unitos <sistema@dominio.com>");
+  });
+
+  it("não herda remetente do workspace quando o remetente central está ausente", async () => {
+    const { encryptCredential, maskCredential } = await import("@/lib/credentials-crypto.server");
+    const { resolveResendStatus } = await mod();
+    installationSettings.emailFrom = null;
+    const key = "re_workspace_key";
+    const status = await resolveResendStatus(
+      makeSupabase({
+        [BRAND_A]: {
+          ciphertext: await encryptCredential(key),
+          masked: maskCredential(key),
+          metadata: { handle: "legado@outro-dominio.com" },
+        },
+      }),
+      BRAND_A,
+    );
+    expect(status).toMatchObject({
+      configured: false,
+      reason: "remetente_instalacao_nao_configurado",
+    });
   });
 });
 
 describe("invariante UI ↔ envio", () => {
   beforeEach(() => {
     delete process.env.RESEND_API_KEY;
+    installationSettings.emailFrom = "contato@dominio.com";
+    installationSettings.emailFromName = null;
     vi.restoreAllMocks();
   });
 
@@ -189,7 +223,16 @@ describe("sanitizeProviderError", () => {
       sanitizeProviderError(403, '{"message":"The casa8agencia.com domain is not verified"}'),
     ).toBe("dominio_remetente_nao_verificado");
     expect(
-      sanitizeProviderError(403, '{"message":"You can only send testing emails to your own email address"}'),
+      sanitizeProviderError(
+        403,
+        '{"message":"You can only send testing emails to your own email address"}',
+      ),
+    ).toBe("conta_resend_em_modo_teste");
+    expect(
+      sanitizeProviderError(
+        403,
+        '{"message":"You can only send testing emails to your own email address. To send emails to other recipients, please verify a domain at resend.com/domains"}',
+      ),
     ).toBe("conta_resend_em_modo_teste");
     expect(sanitizeProviderError(403, "forbidden")).toBe("resend_sem_permissao_de_envio");
   });
