@@ -115,3 +115,10 @@
 - [x] Alinhar promoção, ativação exclusiva do cron 37 e ensaios locais à versão autorizada 1.4.20.
 - [x] Regenerar os artefatos canônicos MASTER-first e validar a coerência local completa.
 - [x] Manter ambiente remoto, recovery, cron e operação Apex intactos.
+
+## Compatibilidade do pacote Client após o bloco 85
+
+- [x] Separar o trecho legado reconciliável (posições 1–85) do tamanho atual do pacote canônico.
+- [x] Manter os blocos 86 e 87 fora da promoção legada para execução normal pelo executor.
+- [x] Regenerar os artefatos MASTER-first e validar localmente antes de publicar.
+- [ ] Publicar somente após autorização explícita e então iniciar uma nova atualização da Taveira.
