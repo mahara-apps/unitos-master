@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Registrar, em uma futura alteração exclusivamente documental, a evolução do inventário de migrations sem modificar migrations, pacote Client, manifestos, versão, SHA ou comportamento de instalação.
+Registrar somente em uma proposta temporária local a evolução do inventário de migrations, sem modificar documentos oficiais, migrations, pacote Client, manifestos, versão, SHA ou comportamento de instalação.
 
 ## Estado factual validado
 
@@ -13,7 +13,7 @@ Registrar, em uma futura alteração exclusivamente documental, a evolução do 
 - Pacote Client 1.4.19: 87 blocos, formados por 84 Client + 3 split.
 - SHA oficial preservado: `917dc18928f3df612a3b1fff4ea05f8c70865a1b8e43d2312a4a18edb26c8c81`.
 
-## Proposta de alteração futura
+## Conteúdo proposto para uma alteração futura
 
 1. Criar uma referência documental vigente em `docs/MAPA_MIGRATIONS_MASTER_CLIENT.md` com:
    - data de corte do inventário;
@@ -47,4 +47,4 @@ Registrar, em uma futura alteração exclusivamente documental, a evolução do 
 
 ## Estado desta etapa
 
-Proposta preparada; nenhuma atualização documental oficial foi executada.
+Proposta temporária preparada; nenhuma atualização documental oficial será executada nesta etapa.
