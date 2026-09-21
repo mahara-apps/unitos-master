@@ -3,7 +3,7 @@ import { MASTER_RELEASE_VERSION } from "./manager-contract";
 export const CONTROL_PLANE_PROJECT_REF = "tkjbhttylouamqxnbfgv";
 export const APEX_INSTALLATION_ID = "0b6b7f5c-44e5-4e85-a33c-37014ed044a2";
 export const APEX_OPERATION_ID = "7ff64a81-af3d-432f-b3d3-2a1412dda404";
-export const CONTROL_PLANE_REPAIR_PLAN_VERSION = "1.4.18-repair.1";
+export const CONTROL_PLANE_REPAIR_PLAN_VERSION = "1.4.19-repair.1";
 export const CONTROL_PLANE_RISK_CONFIRMATION =
   "ACCEPT_EXISTING_CONTROL_PLANE_WITHOUT_RESTORABLE_BACKUP";
 
@@ -81,7 +81,7 @@ export const CONFIRMED_REMOTE_BLOCKERS: RepairBlocker[] = [
     id: "executor",
     label: "Executor determinístico ausente",
     evidence:
-      "O contrato remoto não possui o conjunto 1.4.18 de finalização fenced, ledger e checkpoints.",
+      "O contrato remoto não possui o conjunto 1.4.19 de finalização fenced, ledger e checkpoints.",
     status: "confirmed",
   },
   {
@@ -99,7 +99,7 @@ export const CONFIRMED_REMOTE_BLOCKERS: RepairBlocker[] = [
   {
     id: "versions",
     label: "Versões divergentes",
-    evidence: "Versão atual, release fixada e versão publicada não convergem para 1.4.18.",
+    evidence: "Versão atual, release fixada e versão publicada não convergem para 1.4.19.",
     status: "confirmed",
   },
   {
@@ -192,7 +192,7 @@ export const REPAIR_STEPS: RepairStep[] = [
     artifact: "--install-deterministic-update",
     dependsOn: ["freeze-enable"],
     approval: "INSTALL_DETERMINISTIC_UPDATE_ONLY",
-    idempotency: "Preflight 5/5, advisory lock e instalação transacional do contrato 1.4.18.",
+    idempotency: "Preflight 5/5, advisory lock e instalação transacional do contrato 1.4.19.",
     rollback:
       "Falha transacional não publica objetos parciais; sucesso exige preservação e nova decisão.",
     validations: ["RPCs e assinaturas", "Fencing", "Ledger", "Checkpoints", "ACL/RLS"],

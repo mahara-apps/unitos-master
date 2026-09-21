@@ -3118,7 +3118,7 @@ REVOKE ALL ON FUNCTION public.normalize_legacy_installation_operations(integer) 
 GRANT EXECUTE ON FUNCTION public.normalize_legacy_installation_operations(integer) TO service_role;
 
 -- MASTER CONTROL-PLANE RELEASE
--- MASTER 1.4.18: estado e promoção atômica do próprio Control-plane.
+-- MASTER 1.4.19: estado e promoção atômica do próprio Control-plane.
 -- Não reutiliza instalações ou operações de clientes.
 
 CREATE TABLE IF NOT EXISTS public.control_plane_release_state (

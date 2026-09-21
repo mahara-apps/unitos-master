@@ -4,7 +4,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 EXPECTED_REF="tkjbhttylouamqxnbfgv"
 if [[ "$#" -ne 0 ]]; then echo "Bloqueado: promoção do Control-plane não aceita argumentos" >&2; exit 2; fi
 python3 "$ROOT/supabase/master/tools/verify_control_plane_compatibility.py"
-if [[ "${UNITOS_CONTROL_PLANE_PROMOTION:-}" != "PROMOTE_VALIDATED_CONTROL_PLANE_1_4_18_ONLY" ]]; then echo "Bloqueado: autorização específica da promoção ausente" >&2; exit 2; fi
+if [[ "${UNITOS_CONTROL_PLANE_PROMOTION:-}" != "PROMOTE_VALIDATED_CONTROL_PLANE_1.4.19_ONLY" ]]; then echo "Bloqueado: autorização específica da promoção ausente" >&2; exit 2; fi
 for name in MASTER_DATABASE_URL UNITOS_CONTROL_PLANE_EXPECTED_GENERATION UNITOS_CONTROL_PLANE_TARGET_COMMIT_SHA UNITOS_CONTROL_PLANE_CONTRACT_SHA256 UNITOS_CONTROL_PLANE_PROMOTED_BY; do
   if [[ -z "${!name:-}" ]]; then echo "Bloqueado: $name ausente" >&2; exit 2; fi
 done
@@ -35,7 +35,7 @@ psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --set generation="
 BEGIN;
 SELECT public.promote_control_plane_release(
   :'generation'::bigint, nullif(:'current',''), nullif(:'pinned',''), nullif(:'commit',''),
-  '1.4.18', :'target_commit', :'contract_sha',
+  '1.4.19', :'target_commit', :'contract_sha',
   '{"contractValidated":true,"freezeValidated":true,"executorValidated":true,"recoveryValidated":true,"ledgerValidated":true}'::jsonb,
   :'actor'
 );
@@ -43,6 +43,6 @@ COMMIT;
 SQL
 
 FINAL="$(psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --tuples-only --no-align --command "SELECT concat_ws(',',current_version,pinned_release,pinned_commit_sha,contract_sha256,generation) FROM public.control_plane_release_state WHERE singleton IS TRUE;")"
-EXPECTED="1.4.18,1.4.18,$UNITOS_CONTROL_PLANE_TARGET_COMMIT_SHA,$UNITOS_CONTROL_PLANE_CONTRACT_SHA256,$((GENERATION + 1))"
+EXPECTED="1.4.19,1.4.19,$UNITOS_CONTROL_PLANE_TARGET_COMMIT_SHA,$UNITOS_CONTROL_PLANE_CONTRACT_SHA256,$((GENERATION + 1))"
 if [[ "$FINAL" != "$EXPECTED" ]]; then echo "Falha: promoção atômica do Control-plane não foi confirmada" >&2; exit 1; fi
-echo "Control-plane 1.4.18 promovido atomicamente e validado"
+echo "Control-plane 1.4.19 promovido atomicamente e validado"
