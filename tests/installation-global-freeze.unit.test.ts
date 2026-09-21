@@ -43,14 +43,16 @@ function runFreeze(options: FreezeOptions = {}) {
   writeFileSync(
     fakePsql,
     `#!/usr/bin/env bash
-printf '%s\\n' "$*" >> "${calls}"
-if [[ "$*" == *"read_installation_operations_freeze"* ]]; then
+input="$(cat)"
+call="$* $input"
+printf '%s\\n' "$call" >> "${calls}"
+if [[ "$call" == *"read_installation_operations_freeze"* ]]; then
   printf '%s\\n' '{"frozen":false,"generation":7}'
-elif [[ "$*" == *"frozen::text||','||generation::text"* ]]; then
+elif [[ "$call" == *"frozen::text||','||generation::text"* ]]; then
   printf '%s\\n' 'false,7'
-elif [[ "$*" == *"set_installation_operations_freeze"* ]]; then
+elif [[ "$call" == *"set_installation_operations_freeze"* ]]; then
   ${options.failPreflight ? "printf '%s\\n' 'ERROR: Congelamento bloqueado: existem operações ou tentativas ativas' >&2; exit 1" : ":"}
-elif [[ "$*" == *"SELECT frozen::text"* ]]; then
+elif [[ "$call" == *"SELECT frozen::text"* ]]; then
   printf '%s\\n' 'true'
 fi
 `,
@@ -209,6 +211,8 @@ describe("congelamento global fail-closed do Control-plane", () => {
     expect(operator).toContain("I_UNDERSTAND_GLOBAL_CONTROL_PLANE_FREEZE");
     expect(operator).toContain("UNITOS_FREEZE_REASON");
     expect(operator).toContain("UNITOS_FREEZE_ACTOR");
+    expect(operator).toContain("<<'SQL'");
+    expect(operator).toContain(":'frozen'::boolean");
     expect(operator).not.toContain("recover-missing-1.4.10");
     expect(operator).not.toContain("UPDATE");
   });
