@@ -5,7 +5,7 @@
     "004_control_plane_release_promotion.sql": "612acc27e72f273441a061f57e86b7e3f1fa4903c47e421c8f3a9077e37d5969",
     "005_activate_cron_37.sql": "55e4f218a632d81d7ba24aa3441f4e09dcd750f4f5262082777dcd9d7bcd675b",
     "deterministic-update-install-preflight.sql": "b674eb507a03a8e63153c582c8bac14d00486c4004d96d9f247159548d304436",
-    "global-freeze-install-preflight.sql": "bd109f5f0ddd3ef4b69dd25949f2b7b3752545310c62c74cf44141f37563262d",
+    "global-freeze-install-preflight.sql": "0abbfe06e0cef06d981eb54c3423f00514cbc3ed50af4fd621fd65779bd015f8",
     "install-control-plane-release.sql": "ad287f7048c15a00dc518335bc8362ccc868d2209ad616d9bea984b65ed5ceaf",
     "install-deterministic-update.sql": "ea1ef77d567e40f6f5d09047a38efcf6aee0627b590ff17d63116f6610c35988",
     "operation-state-catalog.json": "92108e320d66bb8e03f71cd517eb59a9d7f31254139e1f70abc6f59c2f1f93ce"
