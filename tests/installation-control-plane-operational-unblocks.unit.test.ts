@@ -40,11 +40,16 @@ describe("seis desbloqueios operacionais do Control-plane 1.4.18", () => {
       expect(source).toContain("o.status IN ('pending','running','retryable')");
     }
     expect(executorPreflight).toContain("pending sem lease preservadas");
-    expect(executorPreflight).toContain("tentativas históricas terminais preservadas");
+    expect(executorPreflight).toContain("histórico deferred/interrupted/retryable tem evidência terminal");
+    expect(executorPreflight).not.toMatch(/SELECT 2[^\n]+true/);
+    expect(executorPreflight).not.toMatch(/SELECT 6[^\n]+true/);
+    expect(executorPreflight).toContain("a.finished_at IS NOT NULL");
+    expect(executorPreflight).toContain("a.fencing_token <= o.fencing_token");
   });
 
   it("recovery não exige lease da pending nem altera operações ou tentativas", () => {
     expect(recoveryPreflight).toContain("pending sem lease preservadas");
+    expect(recoveryPreflight).toContain("'deferred','interrupted'");
     expect(recovery).toContain("unitos_recovery_operations_snapshot");
     expect(recovery).toContain("unitos_recovery_attempts_snapshot");
     expect(recovery).not.toMatch(/UPDATE\s+public\.installation_operations/i);

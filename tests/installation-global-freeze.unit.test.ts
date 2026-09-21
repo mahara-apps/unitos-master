@@ -154,7 +154,10 @@ describe("congelamento global fail-closed do Control-plane", () => {
     expect(installPreflight).toContain("status IS NULL OR status NOT IN");
     expect(installPreflight).toContain("orphaned = 0");
     expect(installPreflight).toContain("unknown_status = 0");
-    expect(installPreflight).toContain("lease_owner IS NOT NULL OR lease_expires_at IS NOT NULL");
+    expect(installPreflight).toContain("lease_expires_at<=now()");
+    expect(installPreflight).toContain("'deferred','interrupted'");
+    expect(installPreflight).not.toMatch(/SELECT 4[^\n]+true/);
+    expect(installPreflight).not.toMatch(/SELECT 8[^\n]+true/);
     expect(installPreflight).not.toMatch(/UPDATE|DELETE|INSERT|ALTER|CREATE|DROP/);
   });
 

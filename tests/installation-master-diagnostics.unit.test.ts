@@ -75,5 +75,40 @@ describe("diagnósticos locais fail-closed do Master", () => {
     expect(blocked.code).toBe(2);
     expect(blocked.output).toContain('"status": "BLOCK"');
     expect(blocked.output).toContain("installation_operations_freeze_guard@installations");
+    writeFileSync(report, JSON.stringify({ ...contract, releaseVersion: "0.0.0" }));
+    const versionBlocked = run("supabase/master/tools/diagnose_control_plane_contract.py", [
+      "--report",
+      report,
+    ]);
+    expect(versionBlocked.code).toBe(2);
+    expect(versionBlocked.output).toContain('"versions"');
+  });
+
+  it("bloqueia explicitamente a divergência local Master/Client 1.4.19 e Control-plane 1.4.18", () => {
+    const result = run("supabase/master/tools/verify_control_plane_compatibility.py", []);
+    expect(result.code).toBe(2);
+    expect(result.output).toContain('"status": "BLOCK"');
+    expect(result.output).toContain("Master/Client=1.4.19; Control-plane=1.4.18");
+  });
+
+  it("rejeita relatório de preflight ausente, inválido, inconsistente ou negativo", () => {
+    const dir = mkdtempSync(join(tmpdir(), "unitos-preflight-report-"));
+    for (const [name, body] of [
+      ["missing.csv", "1,primeiro,0,PASS\n"],
+      ["invalid.csv", "1,primeiro,,PASS\n2,segundo,0,PASS\n"],
+      ["inconsistent.csv", "2,segundo,0,PASS\n1,primeiro,0,PASS\n"],
+      ["negative.csv", "1,primeiro,-1,PASS\n2,segundo,0,PASS\n"],
+    ]) {
+      const report = join(dir, name);
+      writeFileSync(report, body);
+      expect(
+        run("supabase/master/tools/verify_preflight_report.py", [
+          "--report",
+          report,
+          "--expected",
+          "2",
+        ]).code,
+      ).toBe(2);
+    }
   });
 });
