@@ -5425,6 +5425,72 @@ export type Database = {
           },
         ]
       }
+      installation_migration_reconciliation_evidence: {
+        Row: {
+          classification: string
+          created_at: string
+          evidence_key: string
+          evidence_status: string
+          fingerprint: string
+          id: string
+          installation_id: string
+          migration_file: string
+          observed: string
+          operation_id: string
+          package_hash: string
+          package_position: number
+          updated_at: string
+          verified_at: string
+        }
+        Insert: {
+          classification: string
+          created_at?: string
+          evidence_key: string
+          evidence_status: string
+          fingerprint: string
+          id?: string
+          installation_id: string
+          migration_file: string
+          observed: string
+          operation_id: string
+          package_hash: string
+          package_position: number
+          updated_at?: string
+          verified_at?: string
+        }
+        Update: {
+          classification?: string
+          created_at?: string
+          evidence_key?: string
+          evidence_status?: string
+          fingerprint?: string
+          id?: string
+          installation_id?: string
+          migration_file?: string
+          observed?: string
+          operation_id?: string
+          package_hash?: string
+          package_position?: number
+          updated_at?: string
+          verified_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_migration_reconciliation_evid_installation_id_fkey"
+            columns: ["installation_id"]
+            isOneToOne: false
+            referencedRelation: "installations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installation_migration_reconciliation_evidenc_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "installation_operations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       installation_operation_attempts: {
         Row: {
           attempt_number: number
@@ -9787,6 +9853,10 @@ export type Database = {
           token: string
         }[]
       }
+      read_installation_migration_reconciliation_evidence: {
+        Args: { _installation_id: string; _package_hash: string }
+        Returns: Json
+      }
       read_installation_operations_freeze: { Args: never; Returns: Json }
       reap_brain_learning_queue: { Args: never; Returns: number }
       reap_stuck_ai_jobs: { Args: never; Returns: number }
@@ -9805,6 +9875,16 @@ export type Database = {
       }
       reconcile_orphan_installation_attempts: {
         Args: { _max_idle_seconds?: number }
+        Returns: number
+      }
+      record_installation_migration_reconciliation_evidence: {
+        Args: {
+          _evidence: Json
+          _fencing_token: number
+          _operation_id: string
+          _owner: string
+          _package_hash: string
+        }
         Returns: number
       }
       refresh_brain_stats: { Args: never; Returns: undefined }
