@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "policyVersion": "1.0.0",
+  "operationStates": {
+    "pending": { "classification": "queued", "terminal": false },
+    "running": { "classification": "active", "terminal": false },
+    "retryable": { "classification": "active", "terminal": false },
+    "blocked": { "classification": "terminal", "terminal": true },
+    "manual_review": { "classification": "terminal", "terminal": true },
+    "success": { "classification": "terminal", "terminal": true },
+    "failed": { "classification": "terminal", "terminal": true }
+  },
+  "attemptStates": {
+    "running": { "classification": "active", "terminal": false },
+    "retryable": { "classification": "evidence_required", "terminal": false },
+    "completed": { "classification": "terminal", "terminal": true },
+    "failed": { "classification": "terminal", "terminal": true },
+    "exhausted": { "classification": "terminal", "terminal": true },
+    "orphaned": { "classification": "terminal", "terminal": true },
+    "deferred": { "classification": "evidence_required", "terminal": false },
+    "interrupted": { "classification": "evidence_required", "terminal": false }
+  },
+  "historicalEvidence": {
+    "parentOperationMustBeTerminal": true,
+    "attemptMustBeFinished": true,
+    "attemptFencingMustNotExceedParent": true,
+    "unknownOrMissingFencingIsAmbiguous": true
+  },
+  "residualLeasePolicy": {
+    "operationMustBeTerminal": true,
+    "ownerAndExpiryMustBothExist": true,
+    "expiryMustNotBeFuture": true,
+    "activeAttemptForbidden": true,
+    "dataMutation": "forbidden"
+  }
+}
