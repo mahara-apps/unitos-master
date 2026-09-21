@@ -605,17 +605,17 @@
     {
       "position": 121,
       "file": "20260921222853_0baa8eee-53f5-4506-8885-0a4597d28558.sql",
-      "destination": "control-plane"
+      "destination": "excluded"
     },
     {
       "position": 122,
       "file": "20260921223018_4f115e55-06ef-449b-a668-f517bf40c1f6.sql",
-      "destination": "control-plane"
+      "destination": "excluded"
     },
     {
       "position": 123,
       "file": "20260921230456_5e22ad52-7cf3-41ca-b199-236ee4b02823.sql",
-      "destination": "control-plane"
+      "destination": "excluded"
     }
   ]
 }
