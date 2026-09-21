@@ -50,7 +50,7 @@ describe("installation panel view model", () => {
       masterPublicationState({
         release: "1.4.19",
         commitSha: "abcdef1",
-        repoRelease: "1.4.18",
+        repoRelease: "1.4.19",
         repoReleaseError: null,
         masterPublished: false,
         error: null,

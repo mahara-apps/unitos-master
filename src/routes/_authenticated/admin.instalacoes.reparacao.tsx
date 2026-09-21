@@ -32,7 +32,7 @@ export const Route = createFileRoute("/_authenticated/admin/instalacoes/reparaca
 function ControlPlaneRepairPage() {
   const reportFn = useServerFn(getControlPlaneRepairReportFn);
   const report = useQuery({
-    queryKey: ["control-plane-repair-plan", "1.4.18"],
+    queryKey: ["control-plane-repair-plan", "1.4.19"],
     queryFn: () => reportFn(),
     retry: false,
     staleTime: Number.POSITIVE_INFINITY,

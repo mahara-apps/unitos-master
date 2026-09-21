@@ -9,7 +9,7 @@
 - [x] Regenerar pacote e validar MASTER-first.
 - [x] Executar testes focados, master:check, typecheck, lint alterado, build e ensaio PostgreSQL isolado.
 
-## Gates locais Master 1.4.18
+## Gates locais Master 1.4.19
 
 - [x] Selar o inventário de freeze e executor determinístico.
 - [x] Separar a instalação do executor com backup, identidade, autorização e preflight próprios.
@@ -34,7 +34,7 @@
 - [x] Executar testes focados, master:check, typecheck, lint alterado e build.
 - [x] Manter todos os ambientes remotos intactos.
 
-## Preflight local da instalação do freeze 1.4.18
+## Preflight local da instalação do freeze 1.4.19
 
 - [x] Separar tentativas históricas terminais de atividade real sem alterar histórico.
 - [x] Bloquear leases, concorrência, vínculos órfãos e estados desconhecidos.
@@ -53,7 +53,7 @@
 ## Execução definitiva — Etapa 1 somente leitura
 
 - [x] Revalidar identidade do Control-plane e da instalação Apex.
-- [x] Conferir Master 1.4.18 e hashes locais.
+- [x] Conferir Master 1.4.19 e hashes locais.
 - [x] Confirmar cron 37 inativo e versões current/pinned/produção.
 - [x] Conferir ledger 1.4.10, 1.4.11 e recovery 1.4.14.
 - [x] Inventariar objetos remotos de freeze e executor.
@@ -63,13 +63,13 @@
 
 ## Reparação controlada do Control-plane
 
-- [x] Criar contrato versionado e fail-closed do plano 1.4.18.
+- [x] Criar contrato versionado e fail-closed do plano 1.4.19.
 - [x] Expor relatório somente leitura para Super Admin no MASTER.
 - [x] Criar tela com bloqueios, gates, ordem, rollback e validações.
 - [x] Preservar explicitamente a operação Apex e impedir controles de execução.
 - [x] Executar validações locais completas sem ação remota.
 
-## Desbloqueio operacional Control-plane 1.4.18
+## Desbloqueio operacional Control-plane 1.4.19
 
 - [x] Permitir freeze global preservando operações pending sem lease e histórico terminal.
 - [x] Permitir instalação isolada do executor com pending legítima preservada.
