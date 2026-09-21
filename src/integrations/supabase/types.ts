@@ -4958,6 +4958,84 @@ export type Database = {
           },
         ]
       }
+      control_plane_release_events: {
+        Row: {
+          contract_sha256: string
+          generation: number
+          id: number
+          previous_current_version: string | null
+          previous_pinned_commit_sha: string | null
+          previous_pinned_release: string | null
+          promoted_at: string
+          promoted_by: string
+          target_commit_sha: string
+          target_version: string
+          validation_evidence: Json
+        }
+        Insert: {
+          contract_sha256: string
+          generation: number
+          id?: never
+          previous_current_version?: string | null
+          previous_pinned_commit_sha?: string | null
+          previous_pinned_release?: string | null
+          promoted_at?: string
+          promoted_by: string
+          target_commit_sha: string
+          target_version: string
+          validation_evidence: Json
+        }
+        Update: {
+          contract_sha256?: string
+          generation?: number
+          id?: never
+          previous_current_version?: string | null
+          previous_pinned_commit_sha?: string | null
+          previous_pinned_release?: string | null
+          promoted_at?: string
+          promoted_by?: string
+          target_commit_sha?: string
+          target_version?: string
+          validation_evidence?: Json
+        }
+        Relationships: []
+      }
+      control_plane_release_state: {
+        Row: {
+          contract_sha256: string | null
+          current_version: string | null
+          generation: number
+          pinned_commit_sha: string | null
+          pinned_release: string | null
+          promoted_at: string | null
+          promoted_by: string | null
+          singleton: boolean
+          updated_at: string
+        }
+        Insert: {
+          contract_sha256?: string | null
+          current_version?: string | null
+          generation?: number
+          pinned_commit_sha?: string | null
+          pinned_release?: string | null
+          promoted_at?: string | null
+          promoted_by?: string | null
+          singleton?: boolean
+          updated_at?: string
+        }
+        Update: {
+          contract_sha256?: string | null
+          current_version?: string | null
+          generation?: number
+          pinned_commit_sha?: string | null
+          pinned_release?: string | null
+          promoted_at?: string | null
+          promoted_by?: string | null
+          singleton?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       critical_action_events: {
         Row: {
           action_key: string
@@ -9830,6 +9908,20 @@ export type Database = {
       post_copy_queue_drain_off: { Args: never; Returns: boolean }
       post_copy_queue_drain_on: { Args: never; Returns: boolean }
       process_brain_learning_queue: { Args: { _limit?: number }; Returns: Json }
+      promote_control_plane_release: {
+        Args: {
+          _contract_sha256: string
+          _expected_current_version: string
+          _expected_generation: number
+          _expected_pinned_commit_sha: string
+          _expected_pinned_release: string
+          _promoted_by: string
+          _target_commit_sha: string
+          _target_version: string
+          _validation_evidence: Json
+        }
+        Returns: Json
+      }
       public_surface_rate_hit: {
         Args: {
           _block_seconds?: number
