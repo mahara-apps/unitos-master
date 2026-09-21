@@ -120,5 +120,5 @@
 
 - [x] Separar o trecho legado reconciliável (posições 1–85) do tamanho atual do pacote canônico.
 - [x] Manter os blocos 86 e 87 fora da promoção legada para execução normal pelo executor.
-- [ ] Regenerar os artefatos MASTER-first e validar localmente antes de publicar.
+- [x] Regenerar os artefatos MASTER-first e validar localmente antes de publicar.
 - [ ] Publicar somente após autorização explícita e então iniciar uma nova atualização da Taveira.
