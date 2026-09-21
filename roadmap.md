@@ -92,3 +92,12 @@
 - [ ] Ensaiar promoção, cron 37, concorrência e comando legado em PostgreSQL/shell local.
 - [ ] Bloquear explicitamente divergências entre versões e hashes Master/Client e Control-plane.
 - [ ] Executar validação local completa sem qualquer ação remota.
+
+## Finalização operacional do Master 1.4.19
+
+- [ ] Classificar e remover código/testes Master redundantes, obsoletos, sem uso ou contraditórios.
+- [ ] Consolidar NEW, UPDATE, retomada, freeze, fencing, promoção e cron 37 em um fluxo único.
+- [ ] Corrigir vinculação de hashes, convergência isolada e política coerente de leases.
+- [ ] Reduzir `master:check` aos comportamentos operacionais essenciais sem retirar garantias de segurança.
+- [ ] Regenerar artefatos MASTER-first e validar fluxo integrado localmente.
+- [ ] Documentar arquivos removidos/mantidos, comandos e próxima ação remota única.
