@@ -38,7 +38,7 @@ describe("installation panel view model", () => {
     expect(masterPublicationState(undefined)).toBe("indeterminate");
     expect(
       masterPublicationState({
-        release: "1.4.20",
+        release: "1.4.21",
         commitSha: null,
         repoRelease: null,
         repoReleaseError: "sem evidência",
@@ -48,9 +48,9 @@ describe("installation panel view model", () => {
     ).toBe("indeterminate");
     expect(
       masterPublicationState({
-        release: "1.4.20",
+        release: "1.4.21",
         commitSha: "abcdef1",
-        repoRelease: "1.4.20",
+        repoRelease: "1.4.21",
         repoReleaseError: null,
         masterPublished: false,
         error: null,
@@ -58,9 +58,9 @@ describe("installation panel view model", () => {
     ).toBe("divergent");
     expect(
       masterPublicationState({
-        release: "1.4.20",
+        release: "1.4.21",
         commitSha: "abcdef1",
-        repoRelease: "1.4.20",
+        repoRelease: "1.4.21",
         repoReleaseError: null,
         masterPublished: true,
         error: null,
