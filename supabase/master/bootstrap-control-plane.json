@@ -1,6 +1,6 @@
 {
   "bootstrapFile": "bootstrap-control-plane.sql",
-  "bootstrapSha256": "bc97476c3d83411abf7e7db92c21075e68d4d0f4c78b36bbcf80afa5ff83c7bb",
+  "bootstrapSha256": "ea18606256e8a9c2f4ec5924dd3e49bed9b6a45f19a5d81fda66a441e6c1addd",
   "controlPlaneMigrations": 30,
   "controlPlaneReleaseFile": "004_control_plane_release_promotion.sql",
   "controlPlaneReleaseSha256": "612acc27e72f273441a061f57e86b7e3f1fa4903c47e421c8f3a9077e37d5969",
@@ -9,7 +9,7 @@
   "deterministicUpdateFile": "003_control_plane_deterministic_update.sql",
   "deterministicUpdateSha256": "bbcb76b9456f72e36464d62c2beb0a13fe8ad9a72207ef3343edd1d8930d1dd5",
   "globalFreezeFile": "002_control_plane_global_freeze.sql",
-  "globalFreezeSha256": "fbe7545402d1a4cc2a5e0e5b23801c9ece20a6069e826606cdf3a6f7d27ce87f",
+  "globalFreezeSha256": "5a9f653033c17159318b68f39fc9117a135f71bf8b08cb80584618653d30d23e",
   "p0HardeningFile": "20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql",
   "p0HardeningSha256": "3a610faebe50d7a2b67c3e781331fab2a5c02de4a4a0668ad1124f1e47fef68d",
   "reconciliationFile": "20260917184500_legacy_migration_reconciliation.sql",
