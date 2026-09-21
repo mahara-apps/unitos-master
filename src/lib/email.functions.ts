@@ -13,7 +13,7 @@ export type EmailChannelStatus = {
   from: string | null;
   source: "brand" | "installation" | null;
   masked: string | null;
-  reason: "resend_nao_configurado" | null;
+  reason: "resend_nao_configurado" | "remetente_instalacao_nao_configurado" | null;
 };
 
 export const getEmailChannelStatus = createServerFn({ method: "GET" })

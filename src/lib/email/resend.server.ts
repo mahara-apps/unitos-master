@@ -28,7 +28,7 @@ export type ResendStatus = {
   source: ResendConfigSource | null;
   masked: string | null;
   /** Código estável quando não configurado (usado pela UI e pelo envio). */
-  reason: "resend_nao_configurado" | null;
+  reason: "resend_nao_configurado" | "remetente_instalacao_nao_configurado" | null;
 };
 
 export class ResendNotConfiguredError extends Error {
@@ -85,18 +85,20 @@ export function sanitizeProviderError(status: number, body: string): string {
   }
   if (status === 403) {
     const normalized = msg.toLowerCase();
-    if (
-      normalized.includes("domain") &&
-      (normalized.includes("not verified") || normalized.includes("verify"))
-    ) {
-      return "dominio_remetente_nao_verificado";
-    }
+    // A mensagem oficial do sandbox também manda "verify a domain". Este
+    // caso precisa ser reconhecido antes do diagnóstico genérico de domínio.
     if (
       normalized.includes("testing emails") ||
       normalized.includes("your own email") ||
       normalized.includes("only send")
     ) {
       return "conta_resend_em_modo_teste";
+    }
+    if (
+      normalized.includes("domain") &&
+      (normalized.includes("not verified") || normalized.includes("verify"))
+    ) {
+      return "dominio_remetente_nao_verificado";
     }
     return "resend_sem_permissao_de_envio";
   }
@@ -114,6 +116,22 @@ export async function resolveResendConfig(
   /** Nome da marca do evento, usado como rótulo do remetente. */
   displayName?: string | null,
 ): Promise<ResendConfig | null> {
+  // O remetente é identidade da INSTALAÇÃO, nunca do workspace. A chave pode
+  // continuar segregada por workspace, mas metadata.handle não decide o From.
+  let installationFrom: string | null = null;
+  let installationName: string | null = null;
+  try {
+    const { getInstallationSettings } = await import("@/lib/installation-settings.server");
+    const settings = await getInstallationSettings();
+    installationFrom = settings.emailFrom;
+    installationName = settings.emailFromName;
+  } catch {
+    // Sem a fonte canônica, falhamos fechado em vez de herdar outro remetente.
+  }
+  const canonicalFrom = installationFrom?.trim()
+    ? normalizeFrom(installationFrom, DEFAULT_FROM, installationName ?? displayName)
+    : null;
+
   type CredRow = { ciphertext?: string; masked?: string; metadata?: Record<string, string> };
   let row: CredRow | null = null;
   try {
@@ -131,14 +149,10 @@ export async function resolveResendConfig(
   if (row?.ciphertext) {
     try {
       const apiKey = (await decryptCredential(row.ciphertext)).trim();
-      if (apiKey) {
+      if (apiKey && canonicalFrom) {
         return {
           apiKey,
-          from: normalizeFrom(
-            row.metadata?.["handle"] ?? row.metadata?.["from"],
-            DEFAULT_FROM,
-            displayName,
-          ),
+          from: canonicalFrom,
           source: "brand",
           masked: row.masked ?? null,
         };
@@ -150,27 +164,10 @@ export async function resolveResendConfig(
   }
 
   const envKey = process.env.RESEND_API_KEY?.trim();
-  if (envKey) {
-    // Fallback de INSTALAÇÃO: o remetente vem do singleton `installation`
-    // (configurável por Super Admin) e só depois do env, para que nenhuma
-    // instalação herde o remetente de outra via `.env` copiado.
-    let installationFrom: string | null = null;
-    let installationName: string | null = null;
-    try {
-      const { getInstallationSettings } = await import("@/lib/installation-settings.server");
-      const s = await getInstallationSettings();
-      installationFrom = s.emailFrom;
-      installationName = s.emailFromName;
-    } catch {
-      /* sem banco disponível: usa apenas o env desta instância */
-    }
+  if (envKey && canonicalFrom) {
     return {
       apiKey: envKey,
-      from: normalizeFrom(
-        installationFrom ?? process.env.INVITE_FROM_EMAIL,
-        DEFAULT_FROM,
-        displayName ?? installationName,
-      ),
+      from: canonicalFrom,
       source: "installation",
       masked: null,
     };
@@ -185,12 +182,25 @@ export async function resolveResendStatus(
 ): Promise<ResendStatus> {
   const cfg = await resolveResendConfig(supabase, brandId);
   if (!cfg) {
+    let hasCredential = false;
+    try {
+      const res = await supabase
+        .from("brand_api_credentials")
+        .select("ciphertext")
+        .eq("brand_id", brandId)
+        .eq("provider", "resend")
+        .maybeSingle();
+      hasCredential = Boolean((res as { data?: { ciphertext?: string } | null }).data?.ciphertext);
+    } catch {
+      hasCredential = false;
+    }
+    hasCredential ||= Boolean(process.env.RESEND_API_KEY?.trim());
     return {
       configured: false,
       from: null,
       source: null,
       masked: null,
-      reason: "resend_nao_configurado",
+      reason: hasCredential ? "remetente_instalacao_nao_configurado" : "resend_nao_configurado",
     };
   }
   return {

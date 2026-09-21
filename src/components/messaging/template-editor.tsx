@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { emailSendErrorMessage } from "@/lib/email/resend-error-messages";
 
 import {
   EVENTS,
@@ -62,17 +63,6 @@ import {
   sendTestMessage,
   type TemplateRecord,
 } from "@/lib/message-templates.functions";
-
-function emailSendErrorMessage(error?: string) {
-  if (error === "credencial_invalida") return "A chave da API do Resend foi recusada.";
-  if (error === "dominio_remetente_nao_verificado")
-    return "O domínio do remetente ainda não foi verificado no Resend.";
-  if (error === "conta_resend_em_modo_teste")
-    return "O Resend está em modo de teste e só permite enviar para o e-mail da própria conta.";
-  if (error === "resend_sem_permissao_de_envio")
-    return "A chave não possui permissão para enviar e-mails no Resend.";
-  return error ? `Não enviado: ${error}` : "Não enviado";
-}
 
 function templateKey(brandId: string) {
   return ["message-templates", brandId] as const;
