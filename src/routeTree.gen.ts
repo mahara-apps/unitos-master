@@ -123,7 +123,6 @@ import { Route as AuthenticatedCustomersCustomerIdPautaRouteImport } from './rou
 import { Route as AuthenticatedCustomersCustomerIdMediaPlanRouteImport } from './routes/_authenticated/customers.$customerId.media-plan'
 import { Route as AuthenticatedCustomersCustomerIdBriefingRouteImport } from './routes/_authenticated/customers.$customerId.briefing'
 import { Route as AuthenticatedCustomersCustomerIdBrainRouteImport } from './routes/_authenticated/customers.$customerId.brain'
-import { Route as AuthenticatedAdminInstalacoesReparacaoRouteImport } from './routes/_authenticated/admin.instalacoes.reparacao'
 import { Route as AuthenticatedAdminInstalacoesIdRouteImport } from './routes/_authenticated/admin.instalacoes.$id'
 import { Route as ApiSocialPostsPostIdAnalyticsRouteImport } from './routes/api/social/posts/$postId.analytics'
 import { Route as ApiPublicHooksEvolutionTokenRouteImport } from './routes/api/public/hooks/evolution/$token'
@@ -751,12 +750,6 @@ const AuthenticatedCustomersCustomerIdBrainRoute =
     path: '/brain',
     getParentRoute: () => AuthenticatedCustomersCustomerIdRoute,
   } as any)
-const AuthenticatedAdminInstalacoesReparacaoRoute =
-  AuthenticatedAdminInstalacoesReparacaoRouteImport.update({
-    id: '/reparacao',
-    path: '/reparacao',
-    getParentRoute: () => AuthenticatedAdminInstalacoesRoute,
-  } as any)
 const AuthenticatedAdminInstalacoesIdRoute =
   AuthenticatedAdminInstalacoesIdRouteImport.update({
     id: '/$id',
@@ -863,7 +856,6 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/portal/$token/': typeof PortalTokenIndexRoute
   '/admin/instalacoes/$id': typeof AuthenticatedAdminInstalacoesIdRoute
-  '/admin/instalacoes/reparacao': typeof AuthenticatedAdminInstalacoesReparacaoRoute
   '/customers/$customerId/brain': typeof AuthenticatedCustomersCustomerIdBrainRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
@@ -972,7 +964,6 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/portal/$token': typeof PortalTokenIndexRoute
   '/admin/instalacoes/$id': typeof AuthenticatedAdminInstalacoesIdRoute
-  '/admin/instalacoes/reparacao': typeof AuthenticatedAdminInstalacoesReparacaoRoute
   '/customers/$customerId/brain': typeof AuthenticatedCustomersCustomerIdBrainRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
@@ -1093,7 +1084,6 @@ export interface FileRoutesById {
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/portal/$token/': typeof PortalTokenIndexRoute
   '/_authenticated/admin/instalacoes/$id': typeof AuthenticatedAdminInstalacoesIdRoute
-  '/_authenticated/admin/instalacoes/reparacao': typeof AuthenticatedAdminInstalacoesReparacaoRoute
   '/_authenticated/customers/$customerId/brain': typeof AuthenticatedCustomersCustomerIdBrainRoute
   '/_authenticated/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/_authenticated/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
@@ -1213,7 +1203,6 @@ export interface FileRouteTypes {
     | '/settings/'
     | '/portal/$token/'
     | '/admin/instalacoes/$id'
-    | '/admin/instalacoes/reparacao'
     | '/customers/$customerId/brain'
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/media-plan'
@@ -1322,7 +1311,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/portal/$token'
     | '/admin/instalacoes/$id'
-    | '/admin/instalacoes/reparacao'
     | '/customers/$customerId/brain'
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/media-plan'
@@ -1442,7 +1430,6 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/'
     | '/portal/$token/'
     | '/_authenticated/admin/instalacoes/$id'
-    | '/_authenticated/admin/instalacoes/reparacao'
     | '/_authenticated/customers/$customerId/brain'
     | '/_authenticated/customers/$customerId/briefing'
     | '/_authenticated/customers/$customerId/media-plan'
@@ -2319,13 +2306,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersCustomerIdBrainRouteImport
       parentRoute: typeof AuthenticatedCustomersCustomerIdRoute
     }
-    '/_authenticated/admin/instalacoes/reparacao': {
-      id: '/_authenticated/admin/instalacoes/reparacao'
-      path: '/reparacao'
-      fullPath: '/admin/instalacoes/reparacao'
-      preLoaderRoute: typeof AuthenticatedAdminInstalacoesReparacaoRouteImport
-      parentRoute: typeof AuthenticatedAdminInstalacoesRoute
-    }
     '/_authenticated/admin/instalacoes/$id': {
       id: '/_authenticated/admin/instalacoes/$id'
       path: '/$id'
@@ -2352,15 +2332,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedAdminInstalacoesRouteChildren {
   AuthenticatedAdminInstalacoesIdRoute: typeof AuthenticatedAdminInstalacoesIdRoute
-  AuthenticatedAdminInstalacoesReparacaoRoute: typeof AuthenticatedAdminInstalacoesReparacaoRoute
   AuthenticatedAdminInstalacoesIndexRoute: typeof AuthenticatedAdminInstalacoesIndexRoute
 }
 
 const AuthenticatedAdminInstalacoesRouteChildren: AuthenticatedAdminInstalacoesRouteChildren =
   {
     AuthenticatedAdminInstalacoesIdRoute: AuthenticatedAdminInstalacoesIdRoute,
-    AuthenticatedAdminInstalacoesReparacaoRoute:
-      AuthenticatedAdminInstalacoesReparacaoRoute,
     AuthenticatedAdminInstalacoesIndexRoute:
       AuthenticatedAdminInstalacoesIndexRoute,
   }

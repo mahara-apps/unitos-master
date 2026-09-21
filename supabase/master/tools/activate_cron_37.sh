@@ -9,6 +9,9 @@ if [[ -z "${MASTER_DATABASE_URL:-}" || "${MASTER_PROJECT_REF:-}" != "$EXPECTED_R
 if [[ -z "${UNITOS_CRON_ACTOR:-}" || -z "${UNITOS_CRON_REASON:-}" ]]; then echo "Bloqueado: operador e justificativa do cron são obrigatórios" >&2; exit 2; fi
 if [[ -z "${UNITOS_CRON_AUDIT_FILE:-}" || "${UNITOS_CRON_AUDIT_FILE}" != /* || "${UNITOS_CRON_AUDIT_FILE}" != *.jsonl ]]; then echo "Bloqueado: destino JSONL absoluto da auditoria do cron é obrigatório" >&2; exit 2; fi
 if [[ -z "${UNITOS_CONTROL_PLANE_COMMIT_SHA:-}" || -z "${UNITOS_CONTROL_PLANE_CONTRACT_SHA256:-}" ]]; then echo "Bloqueado: commit e hash do contrato validados são obrigatórios" >&2; exit 2; fi
+if [[ ! "$UNITOS_CONTROL_PLANE_CONTRACT_SHA256" =~ ^[0-9a-f]{64}$ ]]; then echo "Bloqueado: hash do contrato inválido" >&2; exit 2; fi
+LOCAL_CONTRACT_SHA256="$(sha256sum "$ROOT/supabase/master/control-plane-contract.json" | awk '{print $1}')"
+if [[ "$UNITOS_CONTROL_PLANE_CONTRACT_SHA256" != "$LOCAL_CONTRACT_SHA256" ]]; then echo "Bloqueado: hash informado diverge do contrato local selado" >&2; exit 2; fi
 python3 - "$MASTER_DATABASE_URL" "$MASTER_PROJECT_REF" <<'PY'
 import sys
 from urllib.parse import urlparse

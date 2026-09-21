@@ -13,7 +13,6 @@ import {
   RefreshCw,
   Search,
   Server,
-  ShieldAlert,
   XCircle,
 } from "lucide-react";
 
@@ -261,11 +260,6 @@ function AdminInstallationsPage() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button asChild size="sm" variant="outline">
-            <Link to="/admin/instalacoes/reparacao">
-              <ShieldAlert className="mr-2 h-4 w-4" /> Reparação do Control-plane
-            </Link>
-          </Button>
           <Button
             size="sm"
             variant="outline"

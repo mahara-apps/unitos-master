@@ -20,6 +20,8 @@ const release = readFileSync("supabase/master/004_control_plane_release_promotio
 const releaseInstall = readFileSync("supabase/master/install-control-plane-release.sql", "utf8");
 const cron = readFileSync("supabase/master/005_activate_cron_37.sql", "utf8");
 const cronTool = readFileSync("supabase/master/tools/activate_cron_37.sh", "utf8");
+const releaseTool = readFileSync("supabase/master/tools/promote_control_plane_release.sh", "utf8");
+const convergenceEntry = readFileSync("supabase/master/convergence-control-plane.sql", "utf8");
 
 describe("seis desbloqueios operacionais do Control-plane 1.4.19", () => {
   it("freeze preserva pending sem lease e bloqueia atividade ou ambiguidade", () => {
@@ -68,6 +70,9 @@ describe("seis desbloqueios operacionais do Control-plane 1.4.19", () => {
     expect(cronTool).toContain("ACTIVATE_VERIFIED_CRON_37_ONLY");
     expect(cronTool).toContain("UNITOS_CRON_AUDIT_FILE");
     expect(cronTool).toContain("verify-installation-master.sql");
+    expect(cronTool).toContain("LOCAL_CONTRACT_SHA256");
+    expect(cron).toContain("lease_expires_at > now()");
+    expect(cron).toContain("a.fencing_token<=o.fencing_token");
   });
 
   it("separa os atos e recusa convergência agregada legada", () => {
@@ -78,6 +83,9 @@ describe("seis desbloqueios operacionais do Control-plane 1.4.19", () => {
     expect(promotion).toContain("--install-deterministic-update");
     expect(promotion).toContain("--recover-missing-1.4.10");
     expect(promotion).toContain("--install-control-plane-release");
+    expect(convergenceEntry.trim()).toBe(
+      "\\set ON_ERROR_STOP on\n\\ir 001_control_plane_convergence_v1_4_3.sql",
+    );
   });
 
   it("promove o próprio Control-plane atomicamente e sem tabelas Client", () => {
@@ -99,5 +107,7 @@ describe("seis desbloqueios operacionais do Control-plane 1.4.19", () => {
     expect(releaseInstall).toContain(
       "Baseline existente diverge; instalação abortada sem sobrescrita",
     );
+    expect(releaseTool).toContain("LOCAL_CONTRACT_SHA256");
+    expect(releaseTool).toContain("hash informado diverge do contrato local selado");
   });
 });
