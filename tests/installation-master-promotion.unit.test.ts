@@ -68,7 +68,7 @@ elif [[ "$*" == *"deterministic-update-install-preflight.sql"* ]]; then
 elif [[ "$*" == *"global-freeze-install-preflight.sql"* ]]; then
   printf '%s\\n' '${
     options.freezePreflight ??
-    Array.from({ length: 8 }, (_, index) => `${index + 1},freeze-preflight,ok,PASS`).join("\n")
+    Array.from({ length: 9 }, (_, index) => `${index + 1},freeze-preflight,ok,PASS`).join("\n")
   }'
 elif [[ "$*" == *"verify-installation-master.sql"* ]]; then
   printf '%s\\n' '${verification}'
@@ -175,7 +175,7 @@ describe("promoção local do Control-plane Master", () => {
     const result = runPromotion("--install-deterministic-update", "1,controle,ok,PASS", {
       projectRef: "tkjbhttylouamqxnbfgv",
       deterministicUpdateConfirmation: "INSTALL_DETERMINISTIC_UPDATE_ONLY",
-      preflight: Array.from({ length: 10 }, (_, index) => `${index + 1},preflight,ok,PASS`).join(
+      preflight: Array.from({ length: 11 }, (_, index) => `${index + 1},preflight,ok,PASS`).join(
         "\n",
       ),
     });
@@ -205,7 +205,7 @@ describe("promoção local do Control-plane Master", () => {
     const historical = runPromotion("--install-global-freeze", "1,controle,ok,PASS", {
       freezeInstallConfirmation: "INSTALL_GLOBAL_FREEZE_ONLY",
       freezePreflight: Array.from(
-        { length: 8 },
+        { length: 9 },
         (_, index) => `${index + 1},freeze-preflight,${index === 7 ? "67" : "0"},PASS`,
       ).join("\n"),
     });
@@ -307,22 +307,21 @@ describe("promoção local do Control-plane Master", () => {
     expect(result.calls).toBe("");
   });
 
-  it("instala o estado próprio somente com baseline canônico explícito", () => {
+  it("bloqueia instalação do estado próprio enquanto as versões locais divergem", () => {
     const missing = runPromotion("--install-control-plane-release", "1,controle,ok,PASS", {
       releaseInstallConfirmation: "INSTALL_CONTROL_PLANE_RELEASE_ONLY",
     });
     expect(missing.code).toBe(2);
-    expect(missing.stdout).toContain("baseline canônico");
+    expect(missing.stdout).toContain('"status": "BLOCK"');
     expect(missing.calls).toBe("");
 
     const installed = runPromotion("--install-control-plane-release", "1,controle,ok,PASS", {
       releaseInstallConfirmation: "INSTALL_CONTROL_PLANE_RELEASE_ONLY",
       releaseBaseline: { current: "1.3.71", pinned: "1.3.72", commit: "b005d07" },
     });
-    expect(installed.code).toBe(0);
-    expect(installed.calls).toContain("install-control-plane-release.sql");
-    expect(installed.calls).toContain("baseline_current_version=1.3.71");
-    expect(installed.calls).not.toContain("convergence-control-plane.sql");
+    expect(installed.code).toBe(2);
+    expect(installed.stdout).toContain("Master/Client=1.4.19; Control-plane=1.4.18");
+    expect(installed.calls).toBe("");
   });
 
   it("Master limpo aplica o bootstrap completo em transação", () => {
