@@ -3,6 +3,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 EXPECTED_REF="tkjbhttylouamqxnbfgv"
 if [[ "$#" -ne 0 ]]; then echo "Bloqueado: ativação do cron 37 não aceita argumentos" >&2; exit 2; fi
+python3 "$ROOT/supabase/master/tools/verify_control_plane_compatibility.py"
 if [[ "${UNITOS_MASTER_CRON_37_ACTIVATION:-}" != "ACTIVATE_VERIFIED_CRON_37_ONLY" ]]; then echo "Bloqueado: autorização específica do cron 37 ausente" >&2; exit 2; fi
 if [[ -z "${MASTER_DATABASE_URL:-}" || "${MASTER_PROJECT_REF:-}" != "$EXPECTED_REF" ]]; then echo "Bloqueado: conexão ou identidade do Master ausente/divergente" >&2; exit 2; fi
 if [[ -z "${UNITOS_CRON_ACTOR:-}" || -z "${UNITOS_CRON_REASON:-}" ]]; then echo "Bloqueado: operador e justificativa do cron são obrigatórios" >&2; exit 2; fi

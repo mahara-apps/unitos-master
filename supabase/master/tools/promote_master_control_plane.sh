@@ -14,6 +14,9 @@ if [[ "$MODE" == "--converge-existing" ]]; then
   echo "Bloqueado: --converge-existing foi removido; use --apply-convergence-only com autorização própria" >&2
   exit 2
 fi
+if [[ "$MODE" == "--install-control-plane-release" ]]; then
+  python3 "$ROOT/supabase/master/tools/verify_control_plane_compatibility.py"
+fi
 if [[ "$MODE" != "--apply-convergence-only" && "$MODE" != "--bootstrap-clean" && "$MODE" != "--install-global-freeze" && "$MODE" != "--install-deterministic-update" && "$MODE" != "--recover-missing-1.4.10" && "$MODE" != "--install-control-plane-release" ]]; then
   echo "Uso: $0 --apply-convergence-only|--bootstrap-clean|--install-global-freeze|--install-deterministic-update|--recover-missing-1.4.10|--install-control-plane-release" >&2
   exit 2
@@ -91,7 +94,7 @@ if [[ "$MODE" == "--recover-missing-1.4.10" ]]; then
   trap 'rm -f "$PREFLIGHT" "$DRY_RUN" "$LEDGER_SNAPSHOT" "$LEDGER_CURRENT"; rm -rf "$STAGE"' EXIT
   psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --csv \
     --file "$ROOT/supabase/master/recovery-control-plane-preflight.sql" > "$PREFLIGHT"
-  if grep -q ',FAIL$' "$PREFLIGHT" || [[ "$(grep -c ',PASS$' "$PREFLIGHT")" -ne 17 ]]; then
+  if ! python3 "$ROOT/supabase/master/tools/verify_preflight_report.py" --report "$PREFLIGHT" --expected 17; then
     echo "Bloqueado: preflight da recuperação encontrou divergências" >&2
     exit 1
   fi
@@ -191,7 +194,7 @@ elif [[ "$MODE" == "--install-global-freeze" ]]; then
   trap 'rm -f "$PREFLIGHT"' EXIT
   psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --csv \
     --file "$ROOT/supabase/master/global-freeze-install-preflight.sql" > "$PREFLIGHT"
-  if grep -q ',FAIL$' "$PREFLIGHT" || [[ "$(grep -c ',PASS$' "$PREFLIGHT")" -ne 8 ]]; then
+  if ! python3 "$ROOT/supabase/master/tools/verify_preflight_report.py" --report "$PREFLIGHT" --expected 9; then
     echo "Bloqueado: preflight da instalação do freeze encontrou atividade ou ambiguidade" >&2
     exit 1
   fi
@@ -205,7 +208,7 @@ elif [[ "$MODE" == "--install-deterministic-update" ]]; then
   trap 'rm -f "$PREFLIGHT"' EXIT
   psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --csv \
     --file "$ROOT/supabase/master/deterministic-update-install-preflight.sql" > "$PREFLIGHT"
-  if grep -q ',FAIL$' "$PREFLIGHT" || [[ "$(grep -c ',PASS$' "$PREFLIGHT")" -ne 10 ]]; then
+  if ! python3 "$ROOT/supabase/master/tools/verify_preflight_report.py" --report "$PREFLIGHT" --expected 11; then
     echo "Bloqueado: preflight do executor determinístico encontrou divergências" >&2
     exit 1
   fi
