@@ -5,7 +5,7 @@ Este diretório é exclusivo do banco MASTER e nunca integra o pacote Client.
 - `001_control_plane_convergence_v1_4_3.sql`: convergência idempotente recuperada da definição histórica canônica. Deve entrar depois da migration `20260913205310_998a5893-b6be-4068-806a-520361185290.sql` e antes de `20260913230055_f50b7d0b-e5e5-4cc8-9ad0-ddcfd8104005.sql`.
 - `bootstrap-control-plane.sql`: artefato gerado com as 30 migrations Control-plane, convergência, proteção global, finalização determinística e estado próprio de release ao final.
 - `003_control_plane_deterministic_update.sql`: fecha operação, versão aplicada e reconciliação na mesma transação fenced; bloqueia evidência parcial, posições com lacunas/duplicidades e fingerprints inválidos.
-- `control-plane-contract.json`: inventário selado dos objetos, assinaturas, triggers e hashes exigidos para freeze e executor.
+- `control-plane-contract.json`: inventário selado dos objetos, assinaturas, triggers e hashes exigidos para freeze e executor; a política de estados é validada diretamente nos SQLs executáveis.
 - `install-deterministic-update.sql`: transação exclusiva de instalação do executor; reassume a advisory lock, exige freeze ativo e quiescência antes de aplicar e verificar a RPC.
 - `deterministic-update-install-preflight.sql`: preflight read-only obrigatório dessa instalação independente.
 - `004_control_plane_release_promotion.sql`: estado e promoção atômica do próprio Control-plane, sem reutilizar operações Client.
@@ -57,7 +57,7 @@ Para um Master existente, `master:promote:convergence` aplica somente a converg�
 
 `master:install:deterministic-update` instala somente a finalização 1.4.19. Exige decisão global de risco aceita pelo gate, identidade exata do Master, `UNITOS_MASTER_DETERMINISTIC_UPDATE_INSTALL=INSTALL_DETERMINISTIC_UPDATE_ONLY`, preflight 10/10 PASS e freeze ativo. Operações `pending` sem lease e tentativas `retryable` inequivocamente históricas são preservadas; running, retryable operacional, lease, órfão, status desconhecido ou concorrência bloqueiam. O SQL reassume a mesma advisory lock e repete as condições dentro da transação.
 
-Os diagnósticos `master:diagnose:release -- --evidence <arquivo.json>` e `diagnose_control_plane_contract.py --report <export.json>` são estritamente offline: valores ausentes ou divergentes resultam em `BLOCK`; nenhuma versão é inferida e nenhum deploy é iniciado.
+O verificador `verify_control_plane_compatibility.py` é a fonte local única para versões e hashes: valores ausentes ou divergentes resultam em `BLOCK`; nenhuma versão é inferida e nenhum deploy é iniciado.
 
 A recuperação histórica é um ato independente, bloqueado por `UNITOS_MASTER_RECOVERY=RECOVER_MISSING_1_4_10_ONLY`, `MASTER_PROJECT_REF` idêntico ao manifesto e preflight integralmente `PASS`. Ela admite `pending` sem lease, bloqueia atividade ou ambiguidade e compara snapshots transacionais para provar que operações e tentativas permaneceram inalteradas. O preflight também valida a definição completa, corpo, assinatura sem overloads, propriedades, owner, ACL expandida e dependências da 1.4.11; `PUBLIC` é identificado exclusivamente por `grantee = 0`.
 
@@ -79,4 +79,19 @@ Enquanto ativo, triggers `BEFORE ... FOR EACH STATEMENT` bloqueiam INSERT, UPDAT
 
 O contrato próprio do Control-plane usa `control_plane_release_state` e `control_plane_release_events`. `master:install:control-plane-release` instala somente esses objetos sob freeze e exige o baseline canônico explícito em `UNITOS_CONTROL_PLANE_BASELINE_CURRENT_VERSION`, `UNITOS_CONTROL_PLANE_BASELINE_PINNED_RELEASE` e `UNITOS_CONTROL_PLANE_BASELINE_PINNED_COMMIT_SHA`; não infere nem sobrescreve baseline divergente. `master:promote:control-plane-release` exige validação integral, geração esperada, hash do contrato e commit; a RPC usa locks, `FOR UPDATE` e comparação dos valores anteriores. `current_version`, `pinned_release` e `pinned_commit_sha` só mudam juntos depois que freeze, executor, recovery, ledger e contrato foram comprovados.
 
-O cron permanece inativo durante todo o bootstrap. `master:cron:activate-37` exige autorização literal, operador, justificativa, auditoria JSONL absoluta, identidade/conexão canônicas, freeze já desativado, release 1.4.19 promovida com commit/hash esperados, recovery registrada e nenhuma atividade concorrente. O SQL usa exclusivamente `cron.alter_job(job_id := 37, active := true)`; não recria nem altera outro job.
+O cron permanece inativo durante todo o bootstrap. `master:cron:activate-37` exige autorização literal, operador, justificativa, auditoria JSONL absoluta, identidade/conexão canônicas, freeze já desativado, release 1.4.19 promovida com commit/hash iguais ao contrato local, recovery registrada e nenhuma atividade concorrente. Leases residuais são aceitos apenas em operações terminais, expirados, completos e com fencing consistente; nada é limpo. O SQL usa exclusivamente `cron.alter_job(job_id := 37, active := true)`; não recria nem altera outro job.
+
+## Fluxo operacional final 1.4.19
+
+O caminho canônico para Master existente é sequencial e cada comando exige sua própria autorização: `bun run master:promote:convergence`, `bun run master:install:freeze`, `bun run master:freeze:on`, `bun run master:install:deterministic-update`, `bun run master:recover:missing-1.4.10`, `bun run master:install:control-plane-release`, `bun run master:promote:control-plane-release`, `bun run master:freeze:off` e, por último, `bun run master:cron:activate-37`. O bootstrap limpo usa somente `bun run master:promote:bootstrap`; nunca é usado para reparar o Master existente.
+
+Antes de cada escrita, o operador deve fornecer a identidade canônica, a autorização literal do ato e o gate global de backup/risco. A operação Apex existente não é criada, cancelada, substituída, reivindicada nem atualizada por convergência, freeze, recovery ou promoção. Depois da ativação do cron, somente o executor durável pode reivindicá-la com novo fencing token.
+
+Validação local obrigatória antes de qualquer autorização remota:
+
+```bash
+bun run master:check
+bunx tsgo --noEmit
+bunx eslint tests/installation-control-plane-operational-unblocks.unit.test.ts tests/installation-master-promotion.unit.test.ts tests/installation-master-sync.unit.test.ts
+bun run build
+```

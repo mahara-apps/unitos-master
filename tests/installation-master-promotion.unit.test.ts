@@ -307,21 +307,21 @@ describe("promoção local do Control-plane Master", () => {
     expect(result.calls).toBe("");
   });
 
-  it("bloqueia instalação do estado próprio enquanto as versões locais divergem", () => {
+  it("exige baseline explícito e instala o estado próprio com versões locais coerentes", () => {
     const missing = runPromotion("--install-control-plane-release", "1,controle,ok,PASS", {
       releaseInstallConfirmation: "INSTALL_CONTROL_PLANE_RELEASE_ONLY",
     });
     expect(missing.code).toBe(2);
-    expect(missing.stdout).toContain('"status": "BLOCK"');
+    expect(missing.stdout).toContain("baseline canônico");
     expect(missing.calls).toBe("");
 
     const installed = runPromotion("--install-control-plane-release", "1,controle,ok,PASS", {
       releaseInstallConfirmation: "INSTALL_CONTROL_PLANE_RELEASE_ONLY",
       releaseBaseline: { current: "1.3.71", pinned: "1.3.72", commit: "b005d07" },
     });
-    expect(installed.code).toBe(2);
-    expect(installed.stdout).toContain("Master/Client=1.4.19; Control-plane=1.4.19");
-    expect(installed.calls).toBe("");
+    expect(installed.code).toBe(0);
+    expect(installed.calls).toContain("install-control-plane-release.sql");
+    expect(installed.calls).toContain("baseline_current_version=1.3.71");
   });
 
   it("Master limpo aplica o bootstrap completo em transação", () => {

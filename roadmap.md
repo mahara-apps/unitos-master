@@ -87,17 +87,17 @@
 
 ## Compatibilidade histórica e validação local do Control-plane
 
-- [ ] Catalogar estados e aplicar política fail-closed para deferred/interrupted e leases residuais.
-- [ ] Remover falsos PASS dos preflights e cobrir contadores inválidos.
-- [ ] Ensaiar promoção, cron 37, concorrência e comando legado em PostgreSQL/shell local.
-- [ ] Bloquear explicitamente divergências entre versões e hashes Master/Client e Control-plane.
-- [ ] Executar validação local completa sem qualquer ação remota.
+- [x] Aplicar política fail-closed para deferred/interrupted e leases residuais.
+- [x] Remover falsos PASS dos preflights e cobrir contadores inválidos.
+- [x] Ensaiar promoção, cron 37, concorrência e comando legado em PostgreSQL/shell local.
+- [x] Bloquear explicitamente divergências entre versões e hashes Master/Client e Control-plane.
+- [x] Executar validação local completa sem qualquer ação remota.
 
 ## Finalização operacional do Master 1.4.19
 
-- [ ] Classificar e remover código/testes Master redundantes, obsoletos, sem uso ou contraditórios.
-- [ ] Consolidar NEW, UPDATE, retomada, freeze, fencing, promoção e cron 37 em um fluxo único.
-- [ ] Corrigir vinculação de hashes, convergência isolada e política coerente de leases.
-- [ ] Reduzir `master:check` aos comportamentos operacionais essenciais sem retirar garantias de segurança.
-- [ ] Regenerar artefatos MASTER-first e validar fluxo integrado localmente.
-- [ ] Documentar arquivos removidos/mantidos, comandos e próxima ação remota única.
+- [x] Classificar e remover código/testes Master redundantes, obsoletos, sem uso ou contraditórios.
+- [x] Consolidar NEW, UPDATE, retomada, freeze, fencing, promoção e cron 37 em um fluxo único.
+- [x] Corrigir vinculação de hashes, convergência isolada e política coerente de leases.
+- [x] Reduzir `master:check` aos comportamentos operacionais essenciais sem retirar garantias de segurança.
+- [x] Regenerar artefatos MASTER-first e validar fluxo integrado localmente.
+- [x] Documentar arquivos removidos/mantidos, comandos e próxima ação remota única.

@@ -227,13 +227,10 @@ describe("sincronia MASTER-first", () => {
     );
   });
 
-  it("reprova assinatura divergente e preserva os grants mínimos da RPC", () => {
+  it("mantém convergência isolada e preserva os grants mínimos da RPC legada", () => {
     const signature = "read_installation_migration_reconciliation_evidence(uuid,text)";
-    expect(convergenceEntry).toContain(
-      "\\ir ../migrations/20260917184500_legacy_migration_reconciliation.sql",
-    );
-    expect(convergenceEntry).toContain(
-      "\\ir ../migrations/20260917190721_f04a7c59-5fbb-4ef3-aa75-044844da8fa3.sql",
+    expect(convergenceEntry.trim()).toBe(
+      "\\set ON_ERROR_STOP on\n\\ir 001_control_plane_convergence_v1_4_3.sql",
     );
     expect(reconciliation).toMatch(
       /CREATE OR REPLACE FUNCTION public\.read_installation_migration_reconciliation_evidence\(_installation_id uuid,_package_hash text\)/,
@@ -333,6 +330,6 @@ describe("sincronia MASTER-first", () => {
     expect(packageJson).toContain("master:promote:convergence");
     expect(packageJson).toContain("master:promote:bootstrap");
     expect(packageJson).toContain("master:install:deterministic-update");
-    expect(packageJson).toContain("master:diagnose:release");
+    expect(packageJson).not.toContain("master:diagnose:release");
   });
 });

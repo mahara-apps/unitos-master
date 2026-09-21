@@ -16,8 +16,8 @@ CREATE SCHEMA supabase_migrations; CREATE TABLE supabase_migrations.schema_migra
 CREATE TABLE public.installation_operations_freeze(singleton boolean PRIMARY KEY CHECK(singleton),frozen boolean); INSERT INTO public.installation_operations_freeze VALUES(true,true);
 CREATE TABLE public.control_plane_release_state(singleton boolean PRIMARY KEY CHECK(singleton),current_version text,pinned_release text,pinned_commit_sha text,contract_sha256 text);
 INSERT INTO public.control_plane_release_state VALUES(true,'1.4.19','1.4.19','commit',repeat('a',64));
-CREATE TABLE public.installation_operations(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),status text,lease_owner text,lease_expires_at timestamptz);
-CREATE TABLE public.installation_operation_attempts(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),status text);
+CREATE TABLE public.installation_operations(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),status text,lease_owner text,lease_expires_at timestamptz,fencing_token bigint);
+CREATE TABLE public.installation_operation_attempts(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),operation_id uuid,status text,finished_at timestamptz,fencing_token bigint);
 CREATE FUNCTION public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean) RETURNS boolean LANGUAGE sql AS 'SELECT true';
 INSERT INTO public.installation_operations(status) VALUES('pending');
 SQL
@@ -30,9 +30,11 @@ if run_sql; then exit 1; fi
 "${PSQL[@]}" -c "UPDATE public.installation_operations_freeze SET frozen=false; UPDATE public.control_plane_release_state SET pinned_commit_sha='wrong'" >/dev/null
 if run_sql; then exit 1; fi
 # Concorrência bloqueia.
-"${PSQL[@]}" -c "UPDATE public.control_plane_release_state SET pinned_commit_sha='commit'; INSERT INTO public.installation_operation_attempts(status) VALUES('running')" >/dev/null
+"${PSQL[@]}" -c "UPDATE public.control_plane_release_state SET pinned_commit_sha='commit'; INSERT INTO public.installation_operation_attempts(operation_id,status) SELECT id,'running' FROM public.installation_operations LIMIT 1" >/dev/null
 if run_sql; then exit 1; fi
 "${PSQL[@]}" -c "DELETE FROM public.installation_operation_attempts" >/dev/null
+# Lease residual terminal, expirado e fenced é histórico seguro; não é limpo.
+"${PSQL[@]}" -c "INSERT INTO public.installation_operations(status,lease_owner,lease_expires_at,fencing_token) VALUES('failed','old-worker',now()-interval '1 hour',4); INSERT INTO public.installation_operation_attempts(operation_id,status,finished_at,fencing_token) SELECT id,'interrupted',now()-interval '1 hour',4 FROM public.installation_operations WHERE status='failed'" >/dev/null
 run_sql
-"${PSQL[@]}" -Atc "SELECT concat_ws(',',(SELECT active FROM cron.job WHERE jobid=37),(SELECT active FROM cron.job WHERE jobid=38),(SELECT status FROM public.installation_operations))" | grep -qx 't,f,pending'
+"${PSQL[@]}" -Atc "SELECT concat_ws(',',(SELECT active FROM cron.job WHERE jobid=37),(SELECT active FROM cron.job WHERE jobid=38),(SELECT count(*) FROM public.installation_operations WHERE status='pending'),(SELECT count(*) FROM public.installation_operations WHERE status='failed' AND lease_owner='old-worker'))" | grep -qx 't,f,1,1'
 echo 'cron 37 PostgreSQL local: PASS'

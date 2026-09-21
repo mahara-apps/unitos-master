@@ -28,9 +28,38 @@ BEGIN
      OR to_regprocedure('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)') IS NULL THEN
     RAISE EXCEPTION 'Contrato 1.4.19 ainda não está integralmente validado' USING ERRCODE='55000';
   END IF;
-  IF EXISTS (SELECT 1 FROM public.installation_operations WHERE status='running' OR lease_owner IS NOT NULL OR lease_expires_at IS NOT NULL)
-     OR EXISTS (SELECT 1 FROM public.installation_operation_attempts WHERE status='running') THEN
-    RAISE EXCEPTION 'Atividade concorrente impede ativação do cron' USING ERRCODE='55000';
+  IF EXISTS (
+    SELECT 1 FROM public.installation_operations o
+    WHERE o.status IS NULL
+      OR o.status NOT IN ('pending','running','retryable','blocked','manual_review','success','failed')
+      OR o.status IN ('running','retryable')
+      OR o.status='pending' AND (o.lease_owner IS NOT NULL OR o.lease_expires_at IS NOT NULL)
+      OR o.status IN ('blocked','manual_review','success','failed') AND (
+        (o.lease_owner IS NULL) <> (o.lease_expires_at IS NULL)
+        OR o.lease_expires_at > now()
+        OR o.lease_owner IS NOT NULL AND o.fencing_token IS NULL
+        OR EXISTS (
+          SELECT 1 FROM public.installation_operation_attempts a
+          WHERE a.operation_id=o.id
+            AND (a.status='running' OR a.fencing_token IS NULL OR a.fencing_token>o.fencing_token)
+        )
+      )
+  ) OR EXISTS (
+    SELECT 1 FROM public.installation_operation_attempts a
+    LEFT JOIN public.installation_operations o ON o.id=a.operation_id
+    WHERE o.id IS NULL
+      OR a.status IS NULL
+      OR a.status NOT IN ('running','retryable','completed','failed','exhausted','orphaned','deferred','interrupted')
+      OR a.status='running'
+      OR a.status IN ('retryable','deferred','interrupted') AND NOT (
+        o.status IN ('blocked','manual_review','success','failed')
+        AND a.finished_at IS NOT NULL
+        AND a.fencing_token IS NOT NULL
+        AND o.fencing_token IS NOT NULL
+        AND a.fencing_token<=o.fencing_token
+      )
+  ) THEN
+    RAISE EXCEPTION 'Atividade ou ambiguidade impede ativação do cron' USING ERRCODE='55000';
   END IF;
 END $precondition$;
 SELECT cron.alter_job(job_id := 37, active := true);
