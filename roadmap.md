@@ -109,3 +109,9 @@
 - [x] Impedir fallback silencioso para `onboarding@resend.dev` e remetente legado do workspace.
 - [ ] Verificar `pitada.digital` no Resend e registrar `unitos@pitada.digital` no singleton da instalação — bloqueado pelos registros DNS pendentes.
 - [ ] Confirmar envio real para destinatário externo — bloqueado até a verificação DNS.
+
+## Alinhamento operacional do Control-plane 1.4.20
+
+- [x] Alinhar promoção, ativação exclusiva do cron 37 e ensaios locais à versão autorizada 1.4.20.
+- [x] Regenerar os artefatos canônicos MASTER-first e validar a coerência local completa.
+- [x] Manter ambiente remoto, recovery, cron e operação Apex intactos.

@@ -15,7 +15,7 @@ CREATE FUNCTION cron.alter_job(job_id bigint,active boolean) RETURNS void LANGUA
 CREATE SCHEMA supabase_migrations; CREATE TABLE supabase_migrations.schema_migrations(version text PRIMARY KEY); INSERT INTO supabase_migrations.schema_migrations VALUES('20260919143000');
 CREATE TABLE public.installation_operations_freeze(singleton boolean PRIMARY KEY CHECK(singleton),frozen boolean); INSERT INTO public.installation_operations_freeze VALUES(true,true);
 CREATE TABLE public.control_plane_release_state(singleton boolean PRIMARY KEY CHECK(singleton),current_version text,pinned_release text,pinned_commit_sha text,contract_sha256 text);
-INSERT INTO public.control_plane_release_state VALUES(true,'1.4.19','1.4.19','commit',repeat('a',64));
+INSERT INTO public.control_plane_release_state VALUES(true,'1.4.20','1.4.20','commit',repeat('a',64));
 CREATE TABLE public.installation_operations(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),status text,lease_owner text,lease_expires_at timestamptz,fencing_token bigint);
 CREATE TABLE public.installation_operation_attempts(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),operation_id uuid,status text,finished_at timestamptz,fencing_token bigint);
 CREATE FUNCTION public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean) RETURNS boolean LANGUAGE sql AS 'SELECT true';
