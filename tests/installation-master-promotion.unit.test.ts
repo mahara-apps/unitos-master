@@ -187,7 +187,7 @@ describe("promoção local do Control-plane Master", () => {
     expect(result.calls).not.toContain("recovery-control-plane-preflight.sql");
   });
 
-  it("instala somente o freeze após contexto validado e preflight read-only 8/8", () => {
+  it("instala somente o freeze após contexto validado e preflight read-only 9/9", () => {
     const result = runPromotion("--install-global-freeze", "1,controle,ok,PASS", {
       freezeInstallConfirmation: "INSTALL_GLOBAL_FREEZE_ONLY",
     });

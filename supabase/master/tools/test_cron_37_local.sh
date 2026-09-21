@@ -34,5 +34,5 @@ if run_sql; then exit 1; fi
 if run_sql; then exit 1; fi
 "${PSQL[@]}" -c "DELETE FROM public.installation_operation_attempts" >/dev/null
 run_sql
-"${PSQL[@]}" -Atc "SELECT concat_ws(',',(SELECT active FROM cron.job WHERE jobid=37),(SELECT active FROM cron.job WHERE jobid=38),(SELECT status FROM public.installation_operations))" | grep -qx 'true,false,pending'
+"${PSQL[@]}" -Atc "SELECT concat_ws(',',(SELECT active FROM cron.job WHERE jobid=37),(SELECT active FROM cron.job WHERE jobid=38),(SELECT status FROM public.installation_operations))" | grep -qx 't,f,pending'
 echo 'cron 37 PostgreSQL local: PASS'

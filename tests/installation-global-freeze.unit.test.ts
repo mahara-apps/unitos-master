@@ -139,7 +139,7 @@ describe("congelamento global fail-closed do Control-plane", () => {
     );
     expect(freezeSql).toContain("a.status = 'running'");
     expect(freezeSql).toContain("a.status IN ('retryable','deferred','interrupted')");
-    expect(freezeSql).toContain("o.status IN ('pending','running','retryable')");
+    expect(freezeSql).toContain("o.status IN ('blocked','manual_review','success','failed')");
     expect(freezeSql).toContain("lease_owner IS NOT NULL OR lease_expires_at IS NOT NULL");
   });
 
