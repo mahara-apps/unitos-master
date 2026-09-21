@@ -113,5 +113,5 @@
 ## Alinhamento operacional do Control-plane 1.4.20
 
 - [x] Alinhar promoção, ativação exclusiva do cron 37 e ensaios locais à versão autorizada 1.4.20.
-- [ ] Regenerar os artefatos canônicos MASTER-first e validar a coerência local completa.
+- [x] Regenerar os artefatos canônicos MASTER-first e validar a coerência local completa.
 - [x] Manter ambiente remoto, recovery, cron e operação Apex intactos.
