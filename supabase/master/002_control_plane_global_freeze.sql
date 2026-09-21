@@ -76,8 +76,13 @@ BEGIN
   IF _frozen AND (
     EXISTS (
       SELECT 1 FROM public.installation_operations
-      WHERE status = 'running' OR status = 'retryable'
-        OR lease_owner IS NOT NULL OR lease_expires_at IS NOT NULL
+      WHERE status IN ('running','retryable')
+        OR status='pending' AND (lease_owner IS NOT NULL OR lease_expires_at IS NOT NULL)
+        OR status IN ('blocked','manual_review','success','failed') AND (
+          (lease_owner IS NULL) <> (lease_expires_at IS NULL) OR lease_expires_at > now() OR fencing_token IS NULL
+          OR EXISTS (SELECT 1 FROM public.installation_operation_attempts a WHERE a.operation_id=installation_operations.id
+            AND (a.status='running' OR a.fencing_token IS NULL OR a.fencing_token>installation_operations.fencing_token))
+        )
         OR status IS NULL
         OR status NOT IN ('pending','running','retryable','blocked','manual_review','success','failed')
     )
@@ -87,9 +92,12 @@ BEGIN
       LEFT JOIN public.installation_operations o ON o.id = a.operation_id
       WHERE o.id IS NULL
         OR a.status IS NULL
-        OR a.status NOT IN ('running','retryable','completed','failed','exhausted','orphaned')
+        OR a.status NOT IN ('running','retryable','completed','failed','exhausted','orphaned','deferred','interrupted')
         OR a.status = 'running'
-        OR (a.status = 'retryable' AND (o.id IS NULL OR o.status IN ('pending','running','retryable')))
+        OR a.status IN ('retryable','deferred','interrupted') AND NOT (
+          o.status IN ('blocked','manual_review','success','failed') AND a.finished_at IS NOT NULL
+          AND a.fencing_token IS NOT NULL AND o.fencing_token IS NOT NULL AND a.fencing_token<=o.fencing_token
+        )
     )
   ) THEN
     RAISE EXCEPTION 'Congelamento bloqueado: existem operações ou tentativas ativas' USING ERRCODE='55000';
