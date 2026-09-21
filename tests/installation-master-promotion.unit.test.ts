@@ -320,7 +320,7 @@ describe("promoção local do Control-plane Master", () => {
       releaseBaseline: { current: "1.3.71", pinned: "1.3.72", commit: "b005d07" },
     });
     expect(installed.code).toBe(2);
-    expect(installed.stdout).toContain("Master/Client=1.4.19; Control-plane=1.4.18");
+    expect(installed.stdout).toContain("Master/Client=1.4.19; Control-plane=1.4.19");
     expect(installed.calls).toBe("");
   });
 

@@ -21,7 +21,7 @@ const releaseInstall = readFileSync("supabase/master/install-control-plane-relea
 const cron = readFileSync("supabase/master/005_activate_cron_37.sql", "utf8");
 const cronTool = readFileSync("supabase/master/tools/activate_cron_37.sh", "utf8");
 
-describe("seis desbloqueios operacionais do Control-plane 1.4.18", () => {
+describe("seis desbloqueios operacionais do Control-plane 1.4.19", () => {
   it("freeze preserva pending sem lease e bloqueia atividade ou ambiguidade", () => {
     expect(freeze).not.toContain("WHERE status IN ('pending','running','retryable')");
     expect(freeze).toContain("status IN ('running','retryable')");

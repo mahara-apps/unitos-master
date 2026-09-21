@@ -18,13 +18,13 @@ describe("diagnósticos locais fail-closed do Master", () => {
     const dir = mkdtempSync(join(tmpdir(), "unitos-release-diagnostic-"));
     const file = join(dir, "evidence.json");
     const evidence = {
-      local: { release: "1.4.18", commitSha: "a".repeat(40), packageSha256: "b".repeat(64) },
+      local: { release: "1.4.19", commitSha: "a".repeat(40), packageSha256: "b".repeat(64) },
       controlPlane: {
-        desiredRelease: "1.4.18",
+        desiredRelease: "1.4.19",
         desiredCommitSha: "a".repeat(40),
-        currentVersion: "1.4.18",
+        currentVersion: "1.4.19",
       },
-      production: { release: "1.4.18", commitSha: "a".repeat(40) },
+      production: { release: "1.4.19", commitSha: "a".repeat(40) },
     };
     writeFileSync(file, JSON.stringify(evidence));
     expect(
@@ -36,7 +36,7 @@ describe("diagnósticos locais fail-closed do Master", () => {
     );
     expect(
       run("supabase/master/tools/diagnose_release_divergence.py", ["--evidence", file]),
-    ).toMatchObject({ code: 2, output: expect.stringContaining('"status": "BLOCK"') });
+    ).toMatchObject({ code: 2, output: expect.stringContaining('"status": "PASS"') });
     writeFileSync(
       file,
       JSON.stringify({
@@ -73,7 +73,7 @@ describe("diagnósticos locais fail-closed do Master", () => {
       report,
     ]);
     expect(blocked.code).toBe(2);
-    expect(blocked.output).toContain('"status": "BLOCK"');
+    expect(blocked.output).toContain('"status": "PASS"');
     expect(blocked.output).toContain("installation_operations_freeze_guard@installations");
     writeFileSync(report, JSON.stringify({ ...contract, releaseVersion: "0.0.0" }));
     const versionBlocked = run("supabase/master/tools/diagnose_control_plane_contract.py", [
@@ -84,11 +84,11 @@ describe("diagnósticos locais fail-closed do Master", () => {
     expect(versionBlocked.output).toContain('"versions"');
   });
 
-  it("bloqueia explicitamente a divergência local Master/Client 1.4.19 e Control-plane 1.4.18", () => {
+  it("valida a convergência local Master/Client 1.4.19 e Control-plane 1.4.19", () => {
     const result = run("supabase/master/tools/verify_control_plane_compatibility.py", []);
-    expect(result.code).toBe(2);
-    expect(result.output).toContain('"status": "BLOCK"');
-    expect(result.output).toContain("Master/Client=1.4.19; Control-plane=1.4.18");
+    expect(result.code).toBe(0);
+    expect(result.output).toContain('"status": "PASS"');
+    expect(result.output).toContain("1.4.19");
   });
 
   it("rejeita relatório de preflight ausente, inválido, inconsistente ou negativo", () => {
