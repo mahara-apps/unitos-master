@@ -84,3 +84,11 @@
 - [x] Extrair operação ativa, histórico e estado publicado sem duplicar o executor.
 - [x] Expor tentativas, lease, heartbeat, fencing e checkpoints somente para leitura.
 - [x] Validar testes, typecheck, lint, build e fluxo MASTER-first local.
+
+## Compatibilidade histórica e validação local do Control-plane
+
+- [ ] Catalogar estados e aplicar política fail-closed para deferred/interrupted e leases residuais.
+- [ ] Remover falsos PASS dos preflights e cobrir contadores inválidos.
+- [ ] Ensaiar promoção, cron 37, concorrência e comando legado em PostgreSQL/shell local.
+- [ ] Bloquear explicitamente divergências entre versões e hashes Master/Client e Control-plane.
+- [ ] Executar validação local completa sem qualquer ação remota.
