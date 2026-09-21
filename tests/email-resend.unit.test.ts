@@ -223,7 +223,10 @@ describe("sanitizeProviderError", () => {
       sanitizeProviderError(403, '{"message":"The casa8agencia.com domain is not verified"}'),
     ).toBe("dominio_remetente_nao_verificado");
     expect(
-      sanitizeProviderError(403, '{"message":"You can only send testing emails to your own email address"}'),
+      sanitizeProviderError(
+        403,
+        '{"message":"You can only send testing emails to your own email address"}',
+      ),
     ).toBe("conta_resend_em_modo_teste");
     expect(
       sanitizeProviderError(

@@ -514,7 +514,13 @@ function TestProviderDialog({
         toast.success("Mensagem de teste enviada");
         onOpenChange(false);
       } else {
-        toast.error(provider.channel === "email" ? emailSendErrorMessage(r.error) : r.error ? `Não enviado: ${r.error}` : "Não enviado");
+        toast.error(
+          provider.channel === "email"
+            ? emailSendErrorMessage(r.error)
+            : r.error
+              ? `Não enviado: ${r.error}`
+              : "Não enviado",
+        );
       }
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Falha no envio"),

@@ -378,7 +378,13 @@ function EventEditor({
         toast.success("Mensagem de teste enviada");
         setTestOpen(false);
       } else {
-        toast.error(channel === "email" ? emailSendErrorMessage(r.error) : r.error ? `Não enviado: ${r.error}` : "Não enviado");
+        toast.error(
+          channel === "email"
+            ? emailSendErrorMessage(r.error)
+            : r.error
+              ? `Não enviado: ${r.error}`
+              : "Não enviado",
+        );
       }
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Falha no envio"),
