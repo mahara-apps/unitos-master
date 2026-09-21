@@ -10,6 +10,7 @@ def main():
   want=set(expected.get(key,[])); got=set(observed.get(key,[])); absent=sorted(want-got); extra=sorted(got-want)
   if absent or extra: missing[key]={'missing':absent,'unexpected':extra}
  hashes={k:{'expected':v,'observed':(observed.get('files') or {}).get(k)} for k,v in expected.get('files',{}).items() if (observed.get('files') or {}).get(k)!=v}
- result={'status':'PASS' if not missing and not hashes else 'BLOCK','objects':missing,'hashes':hashes}
+ versions={} if expected.get('releaseVersion') == observed.get('releaseVersion') else {'expected':expected.get('releaseVersion'),'observed':observed.get('releaseVersion')}
+ result={'status':'PASS' if not missing and not hashes and not versions else 'BLOCK','objects':missing,'hashes':hashes,'versions':versions}
  print(json.dumps(result,ensure_ascii=False,sort_keys=True)); return 0 if result['status']=='PASS' else 2
 if __name__=='__main__': raise SystemExit(main())

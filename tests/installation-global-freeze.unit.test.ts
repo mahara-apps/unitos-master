@@ -133,13 +133,13 @@ describe("congelamento global fail-closed do Control-plane", () => {
     ).toHaveLength(2);
     expect(freezeSql).toContain("FOR UPDATE");
     expect(freezeSql).toContain("_current.generation <> _expected_generation");
-    expect(freezeSql).toContain("status = 'running' OR status = 'retryable'");
+    expect(freezeSql).toContain("status IN ('running','retryable')");
     expect(freezeSql).not.toContain(
       "EXISTS (SELECT 1 FROM public.installation_operations WHERE status IN ('pending','running','retryable'))",
     );
     expect(freezeSql).toContain("a.status = 'running'");
-    expect(freezeSql).toContain("a.status = 'retryable'");
-    expect(freezeSql).toContain("o.status IN ('pending','running','retryable')");
+    expect(freezeSql).toContain("a.status IN ('retryable','deferred','interrupted')");
+    expect(freezeSql).toContain("o.status IN ('blocked','manual_review','success','failed')");
     expect(freezeSql).toContain("lease_owner IS NOT NULL OR lease_expires_at IS NOT NULL");
   });
 
@@ -150,11 +150,14 @@ describe("congelamento global fail-closed do Control-plane", () => {
     );
     expect(installPreflight).toContain("active_or_concurrent = 0");
     expect(installPreflight).toContain("a.status = 'running'");
-    expect(installPreflight).toContain("a.status = 'retryable' AND o.status IN");
+    expect(installPreflight).toContain("a.status IN ('retryable','deferred','interrupted')");
     expect(installPreflight).toContain("status IS NULL OR status NOT IN");
     expect(installPreflight).toContain("orphaned = 0");
     expect(installPreflight).toContain("unknown_status = 0");
-    expect(installPreflight).toContain("lease_owner IS NOT NULL OR lease_expires_at IS NOT NULL");
+    expect(installPreflight).toContain("lease_expires_at<=now()");
+    expect(installPreflight).toContain("'deferred','interrupted'");
+    expect(installPreflight).not.toMatch(/SELECT 4[^\n]+true/);
+    expect(installPreflight).not.toMatch(/SELECT 8[^\n]+true/);
     expect(installPreflight).not.toMatch(/UPDATE|DELETE|INSERT|ALTER|CREATE|DROP/);
   });
 

@@ -73,8 +73,10 @@ INSERT INTO public.installations(id,status,health) VALUES ('00000000-0000-0000-0
 INSERT INTO public.installation_operations(id,installation_id,status,lease_owner,lease_expires_at)
 VALUES ('00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000001','pending',NULL,NULL),
        ('00000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000001','failed',NULL,NULL);
-INSERT INTO public.installation_operation_attempts(operation_id,status,retryable)
-SELECT '00000000-0000-0000-0000-000000000003','retryable',true FROM generate_series(1,67);
+INSERT INTO public.installation_operation_attempts(operation_id,status,retryable,fencing_token,finished_at)
+SELECT '00000000-0000-0000-0000-000000000003',
+  CASE WHEN n <= 65 THEN 'retryable' WHEN n = 66 THEN 'deferred' ELSE 'interrupted' END,
+  true,0,now() FROM generate_series(1,67) n;
 SQL
 
 "${PSQL[@]}" --file "$MIGRATION_1411" >/dev/null
@@ -103,7 +105,7 @@ if grep -q ',FAIL$' <<< "$canonical"; then
   exit 1
 fi
 assert_check_status 4 "pending sem lease preservadas" PASS "$canonical"
-"${PSQL[@]}" --tuples-only --no-align -c "SELECT count(*) FROM public.installation_operation_attempts WHERE status='retryable'" | grep -qx 67
+"${PSQL[@]}" --tuples-only --no-align -c "SELECT count(*) FROM public.installation_operation_attempts WHERE status IN ('retryable','deferred','interrupted')" | grep -qx 67
 
 # A representação textual canônica contém nomes, enquanto os tipos sem nomes
 # vêm do catálogo. O controle 7 deve aceitar ambos sem comparar essas strings.
@@ -198,7 +200,7 @@ fi
 
 "${PSQL[@]}" --file "$RECOVERY" >/dev/null
 "${PSQL[@]}" --tuples-only --no-align -c "SELECT concat_ws(',',status,lease_owner IS NULL,lease_expires_at IS NULL) FROM public.installation_operations WHERE id='00000000-0000-0000-0000-000000000002'" | grep -qx 'pending,t,t'
-"${PSQL[@]}" --tuples-only --no-align -c "SELECT count(*) FROM public.installation_operation_attempts WHERE status='retryable'" | grep -qx 67
+"${PSQL[@]}" --tuples-only --no-align -c "SELECT count(*) FROM public.installation_operation_attempts WHERE status IN ('retryable','deferred','interrupted')" | grep -qx 67
 "${PSQL[@]}" --tuples-only --no-align -c "
 SELECT CASE WHEN
   to_regclass('public.installation_migration_reconciliation_evidence') IS NOT NULL

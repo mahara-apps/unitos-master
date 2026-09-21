@@ -3,6 +3,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 EXPECTED_REF="tkjbhttylouamqxnbfgv"
 if [[ "$#" -ne 0 ]]; then echo "Bloqueado: promoção do Control-plane não aceita argumentos" >&2; exit 2; fi
+python3 "$ROOT/supabase/master/tools/verify_control_plane_compatibility.py"
 if [[ "${UNITOS_CONTROL_PLANE_PROMOTION:-}" != "PROMOTE_VALIDATED_CONTROL_PLANE_1_4_18_ONLY" ]]; then echo "Bloqueado: autorização específica da promoção ausente" >&2; exit 2; fi
 for name in MASTER_DATABASE_URL UNITOS_CONTROL_PLANE_EXPECTED_GENERATION UNITOS_CONTROL_PLANE_TARGET_COMMIT_SHA UNITOS_CONTROL_PLANE_CONTRACT_SHA256 UNITOS_CONTROL_PLANE_PROMOTED_BY; do
   if [[ -z "${!name:-}" ]]; then echo "Bloqueado: $name ausente" >&2; exit 2; fi
