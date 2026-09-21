@@ -5843,6 +5843,60 @@ export type Database = {
           },
         ]
       }
+      installation_operations_freeze: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          frozen: boolean
+          generation: number
+          reason: string | null
+          singleton: boolean
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          frozen?: boolean
+          generation?: number
+          reason?: string | null
+          singleton?: boolean
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          frozen?: boolean
+          generation?: number
+          reason?: string | null
+          singleton?: boolean
+        }
+        Relationships: []
+      }
+      installation_operations_freeze_events: {
+        Row: {
+          changed_at: string
+          changed_by: string
+          frozen: boolean
+          generation: number
+          id: number
+          reason: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by: string
+          frozen: boolean
+          generation: number
+          id?: never
+          reason: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string
+          frozen?: boolean
+          generation?: number
+          id?: never
+          reason?: string
+        }
+        Relationships: []
+      }
       installations: {
         Row: {
           active_operation_id: string | null
@@ -9733,6 +9787,7 @@ export type Database = {
           token: string
         }[]
       }
+      read_installation_operations_freeze: { Args: never; Returns: Json }
       reap_brain_learning_queue: { Args: never; Returns: number }
       reap_stuck_ai_jobs: { Args: never; Returns: number }
       reconcile_client_document_ai: {
@@ -9786,6 +9841,15 @@ export type Database = {
         Returns: undefined
       }
       set_cron_secret: { Args: { _value: string }; Returns: undefined }
+      set_installation_operations_freeze: {
+        Args: {
+          _changed_by: string
+          _expected_generation: number
+          _frozen: boolean
+          _reason: string
+        }
+        Returns: Json
+      }
       set_member_hourly_cost: {
         Args: {
           _brand_id: string
