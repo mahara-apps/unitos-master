@@ -40,7 +40,9 @@ describe("seis desbloqueios operacionais do Control-plane 1.4.18", () => {
       expect(source).toContain("o.status IN ('blocked','manual_review','success','failed')");
     }
     expect(executorPreflight).toContain("contagem de pending sem lease íntegra");
-    expect(executorPreflight).toContain("histórico deferred/interrupted/retryable tem evidência terminal");
+    expect(executorPreflight).toContain(
+      "histórico deferred/interrupted/retryable tem evidência terminal",
+    );
     expect(executorPreflight).not.toMatch(/SELECT 2[^\n]+true/);
     expect(executorPreflight).not.toMatch(/SELECT 6[^\n]+true/);
     expect(executorPreflight).toContain("a.finished_at IS NOT NULL");
