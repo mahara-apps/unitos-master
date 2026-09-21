@@ -33,11 +33,19 @@ const rows = [...classifications].map(([position, classification]) => ({
 }));
 
 describe("reconciliação segura do ledger legado", () => {
-  it("gera uma única inspeção read-only para as 18 posições aprovadas", () => {
+  it("inspeciona somente o trecho legado 1–85 dentro do pacote canônico completo", () => {
+    expect(migrations).toHaveLength(87);
     const sql = buildLegacyReconciliationInspectionSql(migrations);
     expect(sql.match(/SELECT \d+::integer AS position/g)).toHaveLength(18);
+    expect(sql).not.toContain("SELECT 86::integer AS position");
+    expect(sql).not.toContain("SELECT 87::integer AS position");
     expect(sql).not.toMatch(/^\s*(insert|update|delete|alter|create|drop|grant|revoke)\b/im);
     expect(sql).toContain("regexp_replace(lower(prosrc)");
+  });
+  it("falha fechado quando o pacote não cobre todo o trecho legado", () => {
+    expect(() => buildLegacyReconciliationInspectionSql(migrations.slice(0, 84))).toThrow(
+      /cobertura canônica até o bloco 85/,
+    );
   });
   it("inspeciona o pseudo-role PUBLIC pela ACL sem resolvê-lo como role nomeada", () => {
     const sql = buildLegacyReconciliationInspectionSql(migrations);

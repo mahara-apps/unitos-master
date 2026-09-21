@@ -46,6 +46,7 @@ const CONTRACT = [
   [84, "canonical_state"],
   [85, "external_checkpoint_required"],
 ] as const satisfies readonly (readonly [number, LegacyEvidenceClassification])[];
+const LEGACY_RECONCILIATION_LAST_POSITION = 85;
 
 export const LEGACY_RECONCILIATION_POSITIONS = CONTRACT.map(([position]) => position);
 const literal = (value: string) => `'${value.replace(/'/g, "''")}'`;
@@ -105,8 +106,10 @@ function resultSelect(
 
 /** Inspeção única, SELECT-only, com chave exclusiva por migration. */
 export function buildLegacyReconciliationInspectionSql(migrations: Migration[]): string {
-  if (migrations.length !== 85)
-    throw new Error("Reconciliação exige o pacote Client canônico de 85 blocos.");
+  if (migrations.length < LEGACY_RECONCILIATION_LAST_POSITION)
+    throw new Error(
+      `Reconciliação exige cobertura canônica até o bloco ${LEGACY_RECONCILIATION_LAST_POSITION}.`,
+    );
   const packageSql = migrations.map((item) => item.sql).join("\n");
   const migrationAt = (position: number) => {
     const migration = migrations[position - 1];
