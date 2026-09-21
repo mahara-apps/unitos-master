@@ -101,3 +101,11 @@
 - [x] Reduzir `master:check` aos comportamentos operacionais essenciais sem retirar garantias de segurança.
 - [x] Regenerar artefatos MASTER-first e validar fluxo integrado localmente.
 - [x] Documentar arquivos removidos/mantidos, comandos e próxima ação remota única.
+
+## Remetente institucional do Resend
+
+- [x] Rastrear a fonte central e confirmar o remetente legado por workspace.
+- [x] Corrigir a classificação do erro 403 do modo de teste do Resend.
+- [x] Impedir fallback silencioso para `onboarding@resend.dev` e remetente legado do workspace.
+- [ ] Verificar `pitada.digital` no Resend e registrar `unitos@pitada.digital` no singleton da instalação — bloqueado pelos registros DNS pendentes.
+- [ ] Confirmar envio real para destinatário externo — bloqueado até a verificação DNS.

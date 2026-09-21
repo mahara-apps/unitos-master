@@ -133,6 +133,8 @@ describe("resolveResendConfig", () => {
 describe("invariante UI ↔ envio", () => {
   beforeEach(() => {
     delete process.env.RESEND_API_KEY;
+    installationSettings.emailFrom = "contato@dominio.com";
+    installationSettings.emailFromName = null;
     vi.restoreAllMocks();
   });
 
