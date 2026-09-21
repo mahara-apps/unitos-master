@@ -55,8 +55,14 @@ if [[ "$FROZEN" == "$TARGET" ]]; then
 fi
 
 "${PSQL[@]}" --set frozen="$TARGET" --set generation="$GENERATION" \
-  --set reason="$UNITOS_FREEZE_REASON" --set actor="$UNITOS_FREEZE_ACTOR" --command \
-  "SELECT public.set_installation_operations_freeze(:'frozen'::boolean, :'reason', :'actor', :'generation'::bigint);"
+  --set reason="$UNITOS_FREEZE_REASON" --set actor="$UNITOS_FREEZE_ACTOR" <<'SQL'
+SELECT public.set_installation_operations_freeze(
+  :'frozen'::boolean,
+  :'reason',
+  :'actor',
+  :'generation'::bigint
+);
+SQL
 
 EXPECTED="$( [[ "$TARGET" == true ]] && echo true || echo false )"
 VERIFIED="$("${PSQL[@]}" --command "SELECT frozen::text FROM public.installation_operations_freeze WHERE singleton IS TRUE;")"
