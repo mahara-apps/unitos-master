@@ -12,7 +12,8 @@ def main() -> int:
     parser.add_argument("--report", required=True)
     parser.add_argument("--expected", required=True, type=int)
     args = parser.parse_args()
-    rows = list(csv.reader(Path(args.report).read_text().splitlines()))
+    parsed = list(csv.reader(Path(args.report).read_text().splitlines()))
+    rows = [row for row in parsed if row and row[0].isdigit()]
     if len(rows) != args.expected:
         print(f"BLOCK: quantidade de checks inválida: {len(rows)}/{args.expected}", file=sys.stderr)
         return 2
