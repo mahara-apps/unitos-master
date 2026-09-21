@@ -67,14 +67,13 @@ fi
 "${PSQL[@]}" --tuples-only --no-align -c "SELECT count(*) FROM public.installation_operation_attempts WHERE status IN ('retryable','deferred','interrupted')" | grep -qx 67
 
 # Lease residual terminal expirado e fenced é histórico; lease ativo bloqueia.
-"${PSQL[@]}" -c "UPDATE public.installation_operations SET lease_owner='legacy',lease_expires_at=now()-interval '1 minute' WHERE id='00000000-0000-0000-0000-000000000013'" >/dev/null
+"${PSQL[@]}" -c "SELECT public.set_installation_operations_freeze(false,'testa lease residual','teste',1); UPDATE public.installation_operations SET lease_owner='legacy',lease_expires_at=now()-interval '1 minute' WHERE id='00000000-0000-0000-0000-000000000013'; SELECT public.set_installation_operations_freeze(true,'testa lease residual','teste',2);" >/dev/null
 "${PSQL[@]}" --csv --tuples-only --file "$ROOT/supabase/master/deterministic-update-install-preflight.sql" > "$TMP_ROOT/residual.out"
 grep -q 'leases residuais apenas terminais.*PASS$' "$TMP_ROOT/residual.out"
-"${PSQL[@]}" -c "UPDATE public.installation_operations SET lease_expires_at=now()+interval '1 minute' WHERE id='00000000-0000-0000-0000-000000000013'" >/dev/null
+"${PSQL[@]}" -c "SELECT public.set_installation_operations_freeze(false,'testa lease ativo','teste',3); UPDATE public.installation_operations SET lease_expires_at=now()+interval '1 minute' WHERE id='00000000-0000-0000-0000-000000000013'" >/dev/null
 "${PSQL[@]}" --csv --tuples-only --file "$ROOT/supabase/master/deterministic-update-install-preflight.sql" > "$TMP_ROOT/active-lease.out"
 grep -q 'leases residuais apenas terminais.*FAIL$' "$TMP_ROOT/active-lease.out"
 "${PSQL[@]}" -c "UPDATE public.installation_operations SET lease_owner=NULL,lease_expires_at=NULL WHERE id='00000000-0000-0000-0000-000000000013'" >/dev/null
-"${PSQL[@]}" -c "SELECT public.set_installation_operations_freeze(false,'continua ensaio','teste',1);" >/dev/null
 "${PSQL[@]}" --file "$ROOT/supabase/master/003_control_plane_deterministic_update.sql" >/dev/null
 
 IDS=("00000000-0000-0000-0000-000000000001" "00000000-0000-0000-0000-000000000002")

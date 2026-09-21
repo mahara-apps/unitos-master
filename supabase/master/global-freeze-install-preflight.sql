@@ -48,8 +48,8 @@ WITH operation_facts AS (
   UNION ALL
   SELECT 2, 'estados de operação conhecidos', unknown_status::text, unknown_status = 0 FROM operation_facts
   UNION ALL
-  SELECT 3, 'nenhuma operação em execução, leased, stale ou ambígua', active_stale_or_ambiguous::text,
-    active_stale_or_ambiguous = 0 FROM operation_facts
+  SELECT 3, 'nenhuma operação em execução, leased, stale ou ambígua', active::text || ' ativas; ' || ambiguous::text || ' ambíguas',
+    active = 0 AND ambiguous = 0 FROM operation_facts
   UNION ALL
   SELECT 4, 'contagem de operações enfileiradas sem lease íntegra', queued_without_lease::text, queued_without_lease >= 0 FROM operation_facts
   UNION ALL

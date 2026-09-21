@@ -24,7 +24,7 @@ const cronTool = readFileSync("supabase/master/tools/activate_cron_37.sh", "utf8
 describe("seis desbloqueios operacionais do Control-plane 1.4.18", () => {
   it("freeze preserva pending sem lease e bloqueia atividade ou ambiguidade", () => {
     expect(freeze).not.toContain("WHERE status IN ('pending','running','retryable')");
-    expect(freeze).toContain("status = 'running' OR status = 'retryable'");
+    expect(freeze).toContain("status IN ('running','retryable')");
     expect(freeze).toContain("lease_owner IS NOT NULL OR lease_expires_at IS NOT NULL");
     expect(freeze).toContain("o.id IS NULL");
     expect(freeze).toContain("status NOT IN");
@@ -36,8 +36,8 @@ describe("seis desbloqueios operacionais do Control-plane 1.4.18", () => {
       expect(source).toContain("status = 'running'");
       expect(source).toContain("lease_owner IS NOT NULL OR lease_expires_at IS NOT NULL");
       expect(source).toContain("o.id IS NULL");
-      expect(source).toContain("a.status = 'retryable'");
-      expect(source).toContain("o.status IN ('pending','running','retryable')");
+      expect(source).toContain("'retryable','deferred','interrupted'");
+      expect(source).toContain("o.status IN ('blocked','manual_review','success','failed')");
     }
     expect(executorPreflight).toContain("pending sem lease preservadas");
     expect(executorPreflight).toContain("histórico deferred/interrupted/retryable tem evidência terminal");
