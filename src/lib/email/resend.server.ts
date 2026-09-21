@@ -482,6 +482,8 @@ export async function sendBrandEmail(
 
   const config = await resolveResendConfig(supabase, brandId, displayName);
   if (!config) {
+    const status = await resolveResendStatus(supabase, brandId);
+    const errorCode = status.reason ?? "resend_nao_configurado";
     const { logOperationalEvent } = await import("@/lib/operational-audit.server");
     await logOperationalEvent(
       {
@@ -490,13 +492,16 @@ export async function sendBrandEmail(
         source: "resend",
         operation: "email.send",
         outcome: "error",
-        errorCode: "resend_nao_configurado",
-        message: "Canal de e-mail não configurado para o workspace.",
+        errorCode,
+        message:
+          errorCode === "remetente_instalacao_nao_configurado"
+            ? "Remetente institucional não configurado para a instalação."
+            : "Canal de e-mail não configurado para o workspace.",
         brandId,
       },
       supabase as never,
     );
-    return { sent: false, error: "resend_nao_configurado" };
+    return { sent: false, error: errorCode };
   }
   const result = await sendResendEmail(config, msg);
   const { logOperationalEvent } = await import("@/lib/operational-audit.server");

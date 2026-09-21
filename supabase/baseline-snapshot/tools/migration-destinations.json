@@ -596,6 +596,11 @@
       "position": 119,
       "file": "20260920135809_c8f58682-011e-4b63-8c84-b83ace82b0b1.sql",
       "destination": "client"
+    },
+    {
+      "position": 120,
+      "file": "20260921135359_e8c81a8f-8df5-4cf2-9343-e44c18128a5b.sql",
+      "destination": "control-plane"
     }
   ]
 }
