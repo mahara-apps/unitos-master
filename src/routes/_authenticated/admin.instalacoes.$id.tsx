@@ -1619,9 +1619,9 @@ function InstallationDetailPage() {
           <ol className="grid grid-cols-3 gap-2" aria-label="Etapas da substituição">
             {(
               [
-              [1, "Novo ambiente"],
-              [2, "Publicação"],
-              [3, "Revisão"],
+                [1, "Novo ambiente"],
+                [2, "Publicação"],
+                [3, "Revisão"],
               ] as const
             ).map(([step, label]) => (
               <li
