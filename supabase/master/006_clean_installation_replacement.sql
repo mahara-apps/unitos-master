@@ -75,9 +75,10 @@ BEGIN
        AND installation_id=_replacement.id AND kind='provision' AND status='success') THEN RETURN false; END IF;
   SELECT * INTO STRICT _source FROM public.installations WHERE id=_replacement.clean_replacement_of FOR UPDATE;
   IF _source.domain IS NOT NULL OR _source.active_operation_id IS NOT NULL THEN RETURN false; END IF;
+  UPDATE public.installations SET clean_replacement_of=NULL,updated_at=now() WHERE id=_replacement.id;
   DELETE FROM public.installations WHERE id=_source.id;
   UPDATE public.installations SET name=_source.name,slug=_source.slug,pending_domain=NULL,
-    clean_replacement_of=NULL,notes=_source.notes,updated_at=now() WHERE id=_replacement.id;
+    notes=_source.notes,updated_at=now() WHERE id=_replacement.id;
   RETURN true;
 END $$;
 

@@ -1592,10 +1592,13 @@ function InstallationDetailPage() {
             <Button
               variant="destructive"
               disabled={replaceCleanly.isPending || !cleanReplacement.supabaseManagementToken.trim() || !cleanReplacement.deployProject.trim() || (!cleanReplacement.supabaseUrl.trim() && !cleanReplacement.supabaseProjectRef.trim())}
-              onClick={() => askCritical("installation.clean_replacement", (confirmLabel) => replaceCleanly.mutate(confirmLabel), [
-                { label: "Preservado", value: "nome, domínio e identidade institucional" },
-                { label: "Não migrado", value: "usuários, dados operacionais e histórico antigo" },
-              ])}
+              onClick={() => {
+                setCleanReplacementOpen(false);
+                askCritical("installation.clean_replacement", (confirmLabel) => replaceCleanly.mutate(confirmLabel), [
+                  { label: "Preservado", value: "nome, domínio e identidade institucional" },
+                  { label: "Não migrado", value: "usuários, dados operacionais e histórico antigo" },
+                ]);
+              }}
             >
               {replaceCleanly.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Confirmar ambiente novo

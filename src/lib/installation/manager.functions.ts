@@ -682,7 +682,7 @@ export const createCleanInstallationReplacementFn = createServerFn({ method: "PO
   .inputValidator((input: unknown) => CleanReplacementInput.parse(input))
   .handler(async ({ data, context }) => {
     await mutationGuard(context);
-    const source = await assertCriticalInstallationConfirm(
+    await assertCriticalInstallationConfirm(
       context,
       data.id,
       data.confirmLabel,
@@ -762,7 +762,7 @@ export const createCleanInstallationReplacementFn = createServerFn({ method: "PO
         created_by: context.userId,
         clean_replacement_of: data.id,
         pending_domain: current.domain,
-      })
+      } as never)
       .select("*")
       .single();
     if (insertError) throw insertError;
