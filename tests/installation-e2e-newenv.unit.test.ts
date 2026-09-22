@@ -127,6 +127,7 @@ function scenario(
     stageProgress?: Record<string, unknown>;
     vercelProjectMissing?: boolean;
     vercelProjectRepo?: string;
+    vercelRepoIdMissing?: boolean;
     vercelProjectTeam?: string;
     failEnv?: boolean;
   } = {},
@@ -161,7 +162,11 @@ function scenario(
       if (u.includes("/git/blobs")) {
         return Response.json({ sha: "blob_1", content: "", encoding: "base64" });
       }
-      if (u.includes("/git/commits")) return Response.json({ sha: "commit_1" });
+      if (u.includes("/git/commits")) {
+        return init?.method === "POST"
+          ? Response.json({ sha: "commit_1" })
+          : Response.json({ sha: "sha_dest", tree: { sha: "tree_dest" } });
+      }
       if (u.includes("/git/refs")) return Response.json({ ok: true });
       return Response.json({ full_name: "mahara-apps/unitos-novo" });
     }
@@ -235,7 +240,7 @@ function scenario(
           type: "github",
           org: "mahara-apps",
           repo: overrides.vercelProjectRepo ?? "unitos-novo",
-          repoId: 101,
+          ...(overrides.vercelRepoIdMissing ? {} : { repoId: 101 }),
           productionBranch: "main",
         },
         targets: { production: { url: "unitos-novo-abc.vercel.app" } },
@@ -329,6 +334,25 @@ describe("instalação de ambiente novo — ponta a ponta", () => {
     });
     expect(creates[0]?.url).toContain("teamId=team_unitos");
     expect(calls.some((call) => call.url.includes("/v9/projects/prj_new"))).toBe(true);
+  });
+
+  it("projeto recém-criado sem repoId aguarda o deployment Git sem tentar REST inválido", async () => {
+    const { run, calls } = scenario({
+      vercelProjectMissing: true,
+      vercelRepoIdMissing: true,
+    });
+    const result = await run();
+
+    expect(result.result).toBe("RUNNING");
+    expect(
+      calls.some(
+        (call) =>
+          call.method === "POST" &&
+          call.url.includes("api.vercel.com/v13/deployments") &&
+          call.body.includes('"gitSource"'),
+      ),
+    ).toBe(false);
+    expect(calls.some((call) => call.url.includes("api.vercel.com/v6/deployments"))).toBe(true);
   });
 
   it("falha após criar o projeto retoma pelo checkpoint sem criar duplicado", async () => {

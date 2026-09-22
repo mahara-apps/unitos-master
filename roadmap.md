@@ -146,3 +146,10 @@
 - [ ] Remover os recursos e o histórico técnico antigos na ordem segura, sem reaproveitar migrations legadas.
 - [x] Criar e provisionar uma instalação nova diretamente na versão MASTER vigente.
 - [ ] Validar RBAC, RLS, autenticação, domínio e identidade institucional antes da liberação.
+
+## Primeiro deployment das instalações novas
+
+- [x] Impedir deployment REST sem projeto e repoId confirmados.
+- [x] Encaminhar recusas atuais da Vercel para o fallback Git idempotente.
+- [x] Regenerar e validar a próxima versão pelo fluxo MASTER-first.
+- [ ] Publicar somente após autorização explícita e então repetir o provisionamento.

@@ -1,4 +1,4 @@
--- MASTER 1.4.26: estado e promoção atômica do próprio Control-plane.
+-- MASTER 1.4.27: estado e promoção atômica do próprio Control-plane.
 -- Não reutiliza instalações ou operações de clientes.
 
 CREATE TABLE IF NOT EXISTS public.control_plane_release_state (
