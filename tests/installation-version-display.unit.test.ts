@@ -22,11 +22,12 @@ describe("versão exibida no ambiente", () => {
 describe("consulta do commit do MASTER", () => {
   const automation = read("src/lib/installation/automation.server.ts");
 
-  it("envia autorização do GitHub em latestCommit", () => {
+  it("usa autorização quando disponível e permite leitura pública de fallback", () => {
     const start = automation.indexOf("async latestCommit()");
     expect(start).toBeGreaterThan(-1);
-    const block = automation.slice(start, start + 1600);
+    const block = automation.slice(start, start + 2400);
     expect(block).toContain("authorization: `Bearer ${gh}`");
-    expect(block).toContain("UNITOS_GITHUB_TOKEN");
+    expect(block).toContain("authenticated.status === 403");
+    expect(block).toContain("await doFetch(url, { headers: baseGithubHeaders })");
   });
 });
