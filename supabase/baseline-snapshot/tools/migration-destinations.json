@@ -626,6 +626,11 @@
       "position": 125,
       "file": "20260922135039_e1e252cf-16c1-4ea4-88fb-c765f57316ec.sql",
       "destination": "control-plane"
+    },
+    {
+      "position": 126,
+      "file": "20260922163500_retry_inherit_git_checkpoint.sql",
+      "destination": "control-plane"
     }
   ]
 }
