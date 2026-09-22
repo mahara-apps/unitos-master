@@ -45,6 +45,24 @@ export type ResendStatus = {
   reason: ResendStatusReason;
 };
 
+type InstallationCredentialRow = {
+  ciphertext?: string;
+  masked?: string;
+  validation_status?: "pending" | "ready" | "action_required";
+  validation_code?: string | null;
+};
+
+async function readInstallationCredential(): Promise<InstallationCredentialRow | null> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("installation_email_credentials")
+    .select("ciphertext, masked, validation_status, validation_code")
+    .eq("id", true)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 export class ResendNotConfiguredError extends Error {
   code = "resend_nao_configurado" as const;
   constructor() {
@@ -205,24 +223,7 @@ export async function resolveResendConfig(
     ? normalizeFrom(installationFrom, DEFAULT_FROM, installationName ?? displayName)
     : null;
 
-  type CredRow = {
-    ciphertext?: string;
-    masked?: string;
-    validation_status?: "pending" | "ready" | "action_required";
-    validation_code?: string | null;
-  };
-  let row: CredRow | null = null;
-  try {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const res = await supabaseAdmin
-      .from("installation_email_credentials")
-      .select("ciphertext, masked, validation_status, validation_code")
-      .eq("id", true)
-      .maybeSingle();
-    row = ((res as { data: unknown }).data as CredRow | null) ?? null;
-  } catch {
-    row = null;
-  }
+  const row = await readInstallationCredential();
 
   if (row?.ciphertext) {
     try {
@@ -269,13 +270,7 @@ export async function resolveResendStatus(
   if (!cfg) {
     let hasCredential = false;
     try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const res = await supabaseAdmin
-        .from("installation_email_credentials")
-        .select("ciphertext")
-        .eq("id", true)
-        .maybeSingle();
-      hasCredential = Boolean((res as { data?: { ciphertext?: string } | null }).data?.ciphertext);
+      hasCredential = Boolean((await readInstallationCredential())?.ciphertext);
     } catch {
       hasCredential = false;
     }

@@ -401,8 +401,8 @@ export const saveToolCredential = createServerFn({ method: "POST" })
     const masked = maskCredential(data.apiKey);
 
     if (data.provider === "resend") {
-      const { assertIntegrationAuthority } = await import("@/lib/access-guard");
-      await assertIntegrationAuthority(context.supabase, context.userId, data.brandId);
+      const { assertSuperAdmin } = await import("@/lib/super-admin");
+      await assertSuperAdmin(context.supabase, context.userId);
       const { parseResendSender, validateResendConfiguration } = await import(
         "@/lib/email/resend.server"
       );
@@ -470,8 +470,8 @@ export const removeToolCredential = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => RemoveToolInput.parse(input))
   .handler(async ({ data, context }) => {
     if (data.provider === "resend") {
-      const { assertIntegrationAuthority } = await import("@/lib/access-guard");
-      await assertIntegrationAuthority(context.supabase, context.userId, data.brandId);
+      const { assertSuperAdmin } = await import("@/lib/super-admin");
+      await assertSuperAdmin(context.supabase, context.userId);
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const { callRpc } = await import("@/lib/supabase-rpc");
       const { error } = await callRpc(supabaseAdmin, "remove_installation_email_configuration");
