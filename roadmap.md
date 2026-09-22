@@ -134,3 +134,10 @@
 - [x] Regenerar e validar a versão 1.4.23 pelo fluxo MASTER-first.
 - [ ] Reexecutar a suíte global com credenciais válidas do projeto de integração; execução atual bloqueada por `Invalid API key` e pré-condições remotas ausentes.
 - [ ] Publicar somente após nova autorização explícita.
+
+## Reinstalação limpa da Taveira
+
+- [ ] Preservar somente nome, domínio e identidade institucional confirmada na instalação atual.
+- [ ] Remover os recursos e o histórico técnico antigos na ordem segura, sem reaproveitar migrations legadas.
+- [ ] Criar e provisionar uma instalação nova diretamente na versão MASTER vigente.
+- [ ] Validar RBAC, RLS, autenticação, domínio e identidade institucional antes da liberação.
