@@ -5229,7 +5229,8 @@ export function readAppliedMigrationLabels(
   const applied = new Set<string>();
   for (const row of rows) {
     if (row.kind !== "migration") continue;
-    const explicit = row.file && row.fingerprint ? `${String(row.file)}:${String(row.fingerprint)}` : "";
+    const explicit =
+      row.file && row.fingerprint ? `${String(row.file)}:${String(row.fingerprint)}` : "";
     const legacyLabel = typeof row.label === "string" ? row.label : "";
     if (canonical.has(explicit)) applied.add(explicit);
     else if (canonical.has(legacyLabel)) applied.add(legacyLabel);

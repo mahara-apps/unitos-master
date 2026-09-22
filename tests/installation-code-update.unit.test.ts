@@ -206,10 +206,7 @@ describe("atualização de código da instalação", () => {
       ok: true,
       sha: "public1234567",
     });
-    expect(calls).toEqual([
-      { authorization: "Bearer gh-limitado" },
-      { authorization: undefined },
-    ]);
+    expect(calls).toEqual([{ authorization: "Bearer gh-limitado" }, { authorization: undefined }]);
   });
 
   it("lê o MASTER público mesmo sem token configurado", async () => {
