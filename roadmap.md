@@ -6,7 +6,7 @@
 - [x] Restringir alteração a SUPER ADMIN e remover fallback legado.
 - [x] Cobrir configuração pronta, pendente, ausente e ilegível.
 - [x] Regenerar pacote e sincronizar a versão 1.4.31.
-- [ ] Executar `master:check` e validações finais.
+- [x] Executar `master:check` e validações finais.
 - [ ] Publicar somente com autorização explícita.
 
 ## Atualização determinística das instalações
