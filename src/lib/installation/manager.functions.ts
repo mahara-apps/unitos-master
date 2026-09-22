@@ -79,6 +79,8 @@ export type InstallationRecord = {
   healthChecks: Record<HealthCheckId, HealthCheckResult>;
   healthCheckedAt: string | null;
   activeOperationId: string | null;
+  cleanReplacementOf: string | null;
+  pendingDomain: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -166,6 +168,8 @@ function mapInstallation(row: any): InstallationRecord {
     healthChecks: normalizeHealthChecks(row.health_checks),
     healthCheckedAt: row.health_checked_at ?? null,
     activeOperationId: row.active_operation_id ?? null,
+    cleanReplacementOf: row.clean_replacement_of ?? null,
+    pendingDomain: row.pending_domain ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -774,6 +778,53 @@ export const createCleanInstallationReplacementFn = createServerFn({ method: "PO
     } catch (error) {
       await context.supabase.from("installations").delete().eq("id", replacement.id);
       throw new Error(`A substituição limpa não foi aberta; o ambiente atual foi preservado. ${error instanceof Error ? error.message : String(error)}`);
+    }
+  });
+
+/**
+ * Segunda confirmação da troca limpa. Só aceita uma substituição já
+ * provisionada e saudável. O domínio é transferido no Control-plane antes do
+ * reprovisionamento final; a origem só é removida automaticamente depois que
+ * esse provisionamento, incluindo verify-installation, termina em sucesso.
+ */
+export const activateCleanInstallationReplacementFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid(), confirmLabel: z.string().min(1) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await mutationGuard(context);
+    await assertCriticalInstallationConfirm(
+      context,
+      data.id,
+      data.confirmLabel,
+      "installation.clean_replacement",
+      { phase: "domain_cutover_after_verified_staging" },
+    );
+    await assertNoActiveInstallationOperation(context.supabase as never, data.id);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { callRpc } = await import("@/lib/supabase-rpc");
+    const prepared = await callRpc<Record<string, unknown>>(
+      supabaseAdmin as never,
+      "prepare_clean_installation_replacement_cutover",
+      { _replacement_id: data.id, _expected_release: MASTER_RELEASE_VERSION },
+    );
+    if (prepared.error) throw prepared.error;
+    try {
+      const started = await openAutomatedProvision(context, data.id);
+      if (started.result !== "STARTED") throw new Error(started.reasons.join(" | "));
+      return started;
+    } catch (error) {
+      const rolledBack = await callRpc<boolean>(
+        supabaseAdmin as never,
+        "rollback_clean_installation_replacement_cutover",
+        { _replacement_id: data.id },
+      );
+      if (rolledBack.error || rolledBack.data !== true) {
+        throw new Error("A ativação não iniciou e o rollback do domínio não foi confirmado; revisão manual obrigatória.");
+      }
+      throw error;
     }
   });
 

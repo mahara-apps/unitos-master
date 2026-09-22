@@ -491,6 +491,26 @@ export async function finalizeOperation(
     });
     if (error) throw error;
     if (closed !== true) throw new InstallationLeaseLostError();
+    if (kind === "provision" && acceptedSuccess) {
+      const { data: replacement, error: replacementError } = await client
+        .from("installations")
+        .select("clean_replacement_of,pending_domain,domain")
+        .eq("id", op.installation_id)
+        .maybeSingle();
+      if (replacementError) throw replacementError;
+      if (
+        replacement?.clean_replacement_of &&
+        replacement.pending_domain &&
+        replacement.domain === replacement.pending_domain
+      ) {
+        const { data: cutover, error: cutoverError } = await client.rpc(
+          "finalize_clean_installation_replacement",
+          { _replacement_id: op.installation_id, _operation_id: op.id },
+        );
+        if (cutoverError) throw cutoverError;
+        if (cutover !== true) throw new Error("A finalização atômica da substituição limpa foi recusada.");
+      }
+    }
     return;
   }
 

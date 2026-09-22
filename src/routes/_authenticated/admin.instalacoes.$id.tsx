@@ -23,6 +23,7 @@ import {
 
 import {
   cancelInstallationOperationFn,
+  activateCleanInstallationReplacementFn,
   createCleanInstallationReplacementFn,
   completeInstallationOperationFn,
   getInstallationFn,
@@ -224,6 +225,7 @@ function InstallationDetailPage() {
   const removeFn = useServerFn(deleteInstallationFn);
   const serviceStateFn = useServerFn(setInstallationServiceStateFn);
   const cleanReplacementFn = useServerFn(createCleanInstallationReplacementFn);
+  const activateReplacementFn = useServerFn(activateCleanInstallationReplacementFn);
 
   const [runCommand, setRunCommand] = useState<string | null>(null);
   const [critical, setCritical] = useState<{
@@ -490,6 +492,14 @@ function InstallationDetailPage() {
     onSuccess: (result) => {
       toast.success("Reinstalação limpa iniciada em ambiente separado; a instalação atual foi preservada.");
       void navigate({ to: "/admin/instalacoes/$id", params: { id: result.replacement.id } });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const activateReplacement = useMutation({
+    mutationFn: (confirmLabel: string) => activateReplacementFn({ data: { id, confirmLabel } }),
+    onSuccess: () => {
+      toast.success("Transferência do domínio iniciada; o cadastro antigo só será removido após nova validação completa.");
+      invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -769,6 +779,17 @@ function InstallationDetailPage() {
                 >
                   <CirclePlus className="mr-2 h-3.5 w-3.5" /> Reinstalação limpa…
                 </DropdownMenuItem>
+                {inst.cleanReplacementOf && inst.pendingDomain ? (
+                  <DropdownMenuItem
+                    disabled={!!activeOp || activateReplacement.isPending || inst.health !== "healthy" || inst.currentVersion !== inst.availableVersion}
+                    onClick={() => askCritical("installation.clean_replacement", (confirmLabel) => activateReplacement.mutate(confirmLabel), [
+                      { label: "Domínio a transferir", value: inst.pendingDomain },
+                      { label: "Pré-condição", value: "provisionamento e verificações PASS" },
+                    ])}
+                  >
+                    <ShieldCheck className="mr-2 h-3.5 w-3.5" /> Liberar substituição validada…
+                  </DropdownMenuItem>
+                ) : null}
                 <DropdownMenuItem
                   disabled={
                     !!activeOp ||
