@@ -553,6 +553,44 @@ async function assertSupabaseManagementAccess(input: {
   }
 }
 
+async function assertEmptySupabaseProject(input: {
+  token: string;
+  supabaseProjectRef?: string | null;
+  supabaseUrl?: string | null;
+}): Promise<string> {
+  const { extractProjectRef } = await import("./automation-contract");
+  const projectRef = extractProjectRef(input);
+  if (!projectRef) throw new Error("Informe a URL do projeto Supabase novo.");
+
+  const { createManagementClient } = await import("./automation.server");
+  const management = createManagementClient({ token: input.token, projectRef });
+  const emptyCheck = await management.query(
+    `select
+      (select count(*)::int from information_schema.tables where table_schema='public' and table_type='BASE TABLE') as public_tables,
+      (select count(*)::int from auth.users) as auth_users,
+      (select count(*)::int from storage.objects) as storage_objects`,
+  );
+  const emptyRow = emptyCheck.rows[0] as
+    | { public_tables?: unknown; auth_users?: unknown; storage_objects?: unknown }
+    | undefined;
+  const counts = {
+    publicTables: Number(emptyRow?.public_tables ?? NaN),
+    authUsers: Number(emptyRow?.auth_users ?? NaN),
+    storageObjects: Number(emptyRow?.storage_objects ?? NaN),
+  };
+  if (!emptyCheck.ok || Object.values(counts).some((count) => !Number.isFinite(count))) {
+    throw new Error(
+      `Não foi possível confirmar que o projeto Supabase novo está vazio. ${emptyCheck.error ?? ""}`.trim(),
+    );
+  }
+  if (Object.values(counts).some((count) => count !== 0)) {
+    throw new Error(
+      `O projeto Supabase informado não está vazio (${counts.publicTables} tabela(s) em public, ${counts.authUsers} usuário(s), ${counts.storageObjects} arquivo(s)). Nenhum dado foi alterado.`,
+    );
+  }
+  return projectRef;
+}
+
 async function prevalidateSupabaseOperation(input: {
   env: Record<string, string | undefined>;
   supabaseProjectRef?: string | null;
@@ -602,13 +640,18 @@ export const createInstallationFn = createServerFn({ method: "POST" })
       supabaseProjectRef: data.supabaseProjectRef,
       supabaseUrl: data.supabaseUrl,
     });
+    const projectRef = await assertEmptySupabaseProject({
+      token: data.supabaseManagementToken,
+      supabaseProjectRef: data.supabaseProjectRef,
+      supabaseUrl: data.supabaseUrl,
+    });
 
     const insert = {
       name: data.name.trim(),
       slug: validation.slug,
       domain: clean(data.domain),
       supabase_url: clean(data.supabaseUrl),
-      supabase_project_ref: clean(data.supabaseProjectRef),
+      supabase_project_ref: clean(data.supabaseProjectRef) ?? projectRef,
       git_repo_url: clean(data.gitRepoUrl),
       deploy_project: clean(data.deployProject),
       notes: clean(data.notes),
@@ -724,35 +767,11 @@ export const createCleanInstallationReplacementFn = createServerFn({ method: "PO
       supabaseProjectRef: data.supabaseProjectRef,
       supabaseUrl: data.supabaseUrl,
     });
-    const { createManagementClient } = await import("./automation.server");
-    const management = createManagementClient({
+    await assertEmptySupabaseProject({
       token: data.supabaseManagementToken,
-      projectRef: newProjectRef,
+      supabaseProjectRef: data.supabaseProjectRef,
+      supabaseUrl: data.supabaseUrl,
     });
-    const emptyCheck = await management.query(
-      `select
-        (select count(*)::int from information_schema.tables where table_schema='public' and table_type='BASE TABLE') as public_tables,
-        (select count(*)::int from auth.users) as auth_users,
-        (select count(*)::int from storage.objects) as storage_objects`,
-    );
-    const emptyRow = emptyCheck.rows[0] as
-      | { public_tables?: unknown; auth_users?: unknown; storage_objects?: unknown }
-      | undefined;
-    const counts = {
-      publicTables: Number(emptyRow?.public_tables ?? NaN),
-      authUsers: Number(emptyRow?.auth_users ?? NaN),
-      storageObjects: Number(emptyRow?.storage_objects ?? NaN),
-    };
-    if (!emptyCheck.ok || Object.values(counts).some((count) => !Number.isFinite(count))) {
-      throw new Error(
-        `Não foi possível confirmar que o projeto Supabase novo está vazio. ${emptyCheck.error ?? ""}`.trim(),
-      );
-    }
-    if (Object.values(counts).some((count) => count !== 0)) {
-      throw new Error(
-        `O projeto Supabase informado não está vazio (${counts.publicTables} tabela(s) em public, ${counts.authUsers} usuário(s), ${counts.storageObjects} arquivo(s)). Nenhum dado foi alterado.`,
-      );
-    }
 
     const suffix = newProjectRef.slice(0, 8);
     const replacementName = `${String(current.name)} · nova ${suffix}`.slice(0, 120);
