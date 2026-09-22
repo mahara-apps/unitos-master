@@ -156,5 +156,5 @@
 
 - [x] Concluir domínio como pendência não bloqueante e retry com herança segura de checkpoints.
 - [x] Corrigir a troca de deployment REST posteriormente bloqueado para o fallback Git idempotente.
-- [ ] Validar e preparar o MASTER 1.4.29 pelo fluxo MASTER-first.
+- [x] Validar e preparar o MASTER 1.4.29 pelo fluxo MASTER-first.
 - [ ] Publicar o MASTER 1.4.29 somente após autorização explícita e então permitir nova tentativa na Apex.
