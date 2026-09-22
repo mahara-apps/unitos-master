@@ -3271,6 +3271,7 @@ type Client = { from: (table: string) => any }; // eslint-disable-line @typescri
 
 export type AutomationRunResult = Omit<AutomationOutcome, "result"> & {
   result: AutomationOutcome["result"] | "RUNNING";
+  warnings?: boolean;
   appUrl: string | null;
   urlSource: "custom_domain" | "deploy" | null;
   steps: { id: string; state: CheckState | "done" | "error"; detail: string | null }[];
@@ -3768,7 +3769,13 @@ export async function runAutomatedProvision(input: {
       errorKind: outcome.result === "PASS" ? null : outcome.result.toLowerCase(),
       checks: checks as never,
     });
-    return { ...outcome, appUrl, urlSource: source, steps };
+    return {
+      ...outcome,
+      warnings: outcome.result === "PASS" && pendingNotes.length > 0,
+      appUrl,
+      urlSource: source,
+      steps,
+    };
   };
 
   const mark = async (

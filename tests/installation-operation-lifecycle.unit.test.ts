@@ -19,7 +19,7 @@ import sealedPackageSql from "../supabase/migrations/20260914193902_b2da0b29-18e
 import sealedPackageStrictHashSql from "../supabase/migrations/20260914194505_2a76102f-5090-46e6-9269-f3c0f1bd057f.sql?raw";
 import durableStartSql from "../supabase/migrations/20260915095958_eb639764-7956-418c-8ed9-9b9fde0246a3.sql?raw";
 import failedProvisionRetrySql from "../supabase/migrations/20260916140310_b0a7973f-0881-4ef0-9b48-a19202063e8d.sql?raw";
-import checkpointRetrySql from "../supabase/migrations/20260922134654_f4127132-edf5-4afb-bbc3-e688b14b7b4d.sql?raw";
+import checkpointRetrySql from "../supabase/migrations/20260922135039_e1e252cf-16c1-4ea4-88fb-c765f57316ec.sql?raw";
 
 const NOW = Date.parse("2026-01-10T12:00:00.000Z");
 

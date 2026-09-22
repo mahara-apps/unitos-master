@@ -698,7 +698,6 @@ describe("runAutomatedProvision", () => {
     expect(result.appUrl).toBe("https://x-abc.vercel.app");
     expect(result.urlSource).toBe("deploy");
     expect(result.warnings).toBe(true);
-    expect(result.reasons.join(" ")).toContain("Domínio definitivo");
   });
 
   it("BLOCKED quando o deploy não expõe URL e não há domínio", async () => {

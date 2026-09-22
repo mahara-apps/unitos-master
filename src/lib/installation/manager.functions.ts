@@ -1371,9 +1371,7 @@ async function openAutomatedProvision(
         kind: latestResult.data.kind as InstallationOperationKind,
         status: latestResult.data.status as InstallationOperationStatus,
         baselineId:
-          typeof latestResult.data.baseline_id === "string"
-            ? latestResult.data.baseline_id
-            : null,
+          typeof latestResult.data.baseline_id === "string" ? latestResult.data.baseline_id : null,
         baselineHash:
           typeof latestResult.data.baseline_hash === "string"
             ? latestResult.data.baseline_hash
