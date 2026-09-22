@@ -256,16 +256,17 @@ select 1;`;
     });
   });
 
-  it("recupera deterministicamente os 85 blocos do pacote oficial quando o manifesto está ausente", async () => {
+  it("recupera deterministicamente todos os blocos do pacote oficial quando o manifesto está ausente", async () => {
     const version = /^version=(.+)$/m.exec(canonicalVersion)?.[1] ?? "";
     const sha256 = /^sha256=([a-f0-9]{64})$/m.exec(canonicalVersion)?.[1] ?? "";
-    const snapshot = { version, commitSha: "commit-legado", sha256, total: 85, sql: canonicalSql };
+    const total = splitDeltaMigrations(canonicalSql).length;
+    const snapshot = { version, commitSha: "commit-legado", sha256, total, sql: canonicalSql };
     const recovered = await recoverLegacyCanonicalManifest(snapshot);
     expect(recovered).toEqual({ ok: true, manifest: canonicalManifest });
     await expect(generateDeltaManifest(canonicalSql)).resolves.toBe(canonicalManifest);
     await expect(
       validateCanonicalPackage(
-        { baseline_id: `${version}:commit-legado:85`, baseline_hash: sha256 },
+        { baseline_id: `${version}:commit-legado:${total}`, baseline_hash: sha256 },
         snapshot,
       ),
     ).resolves.toEqual({ ok: true });
