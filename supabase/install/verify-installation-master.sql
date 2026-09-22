@@ -17,8 +17,7 @@ WITH expected_tables(name) AS (VALUES
   ('installation_operation_steps','operation_id'), ('installation_operation_steps','step_key'),
   ('installation_operation_steps','position'), ('installation_operation_steps','state'),
   ('installation_operation_outbox','operation_id'), ('installation_operation_outbox','deduplication_key'),
-  ('installation_operation_outbox','status'), ('installation_operation_outbox','available_at'),
-  ('installations','clean_replacement_of'), ('installations','pending_domain')
+  ('installation_operation_outbox','status'), ('installation_operation_outbox','available_at')
 ), expected_functions(signature) AS (VALUES
   ('start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamp with time zone,uuid)'),
   ('claim_stale_installation_operations(text,integer,integer)'),
@@ -39,7 +38,6 @@ WITH expected_tables(name) AS (VALUES
   ,('set_installation_operations_freeze(boolean,text,text,bigint)')
   ,('guard_installation_operations_freeze()')
   ,('promote_control_plane_release(bigint,text,text,text,text,text,text,jsonb,text)')
-  ,('prepare_clean_installation_replacement_cutover(uuid,text)')
 ), checks AS (
   SELECT 1 AS ord, 'Master: tabelas Control-plane ativas' AS check_name,
     coalesce(string_agg(name, ', ' ORDER BY name) FILTER (WHERE to_regclass('public.' || name) IS NULL), 'todas presentes') AS observed,

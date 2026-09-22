@@ -5,9 +5,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  ArrowRight,
   CheckCircle2,
   Github,
-  KeyRound,
   Loader2,
   Plus,
   RefreshCw,
@@ -90,6 +90,25 @@ const EMPTY_FORM: FormState = {
   supabaseManagementToken: "",
 };
 
+const DEFAULT_GITHUB_OWNER = "mahara-apps";
+
+function supabaseProjectRefFromUrl(value: string): string {
+  const match = value.trim().match(/^https:\/\/([a-z0-9]+)\.supabase\.co\/?$/i);
+  return match?.[1]?.toLowerCase() ?? "";
+}
+
+function technicalNameFromName(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 63);
+}
+
 type Filter = "all" | "running" | "outdated" | "problems";
 
 const FILTERS: { id: Filter; label: string }[] = [
@@ -140,6 +159,7 @@ function AdminInstallationsPage() {
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createStep, setCreateStep] = useState<1 | 2 | 3>(1);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [propagateOpen, setPropagateOpen] = useState(false);
@@ -148,6 +168,12 @@ function AdminInstallationsPage() {
     null,
   );
   const goToCredentialsRef = useRef(false);
+
+  const openCreate = () => {
+    setForm(EMPTY_FORM);
+    setCreateStep(1);
+    setCreateOpen(true);
+  };
 
   const propagateFn = useServerFn(propagateMasterGithubTokenFn);
   const propagate = useMutation({
@@ -199,6 +225,11 @@ function AdminInstallationsPage() {
   });
 
   const installations = list.data?.installations ?? [];
+  const newProjectRef = supabaseProjectRefFromUrl(form.supabaseUrl);
+  const newEnvironmentName = form.deployProject.trim().toLowerCase();
+  const newRepoUrl = newEnvironmentName
+    ? `https://github.com/${DEFAULT_GITHUB_OWNER}/${newEnvironmentName}`
+    : "";
   const kpis = useMemo(() => {
     const count = (fn: (i: InstallationRecord) => boolean) => installations.filter(fn).length;
     return {
@@ -271,7 +302,7 @@ function AdminInstallationsPage() {
           >
             <Github className="mr-2 h-4 w-4" /> Aplicar token do GitHub
           </Button>
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
+          <Button size="sm" onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" /> Nova instalação
           </Button>
         </div>
@@ -352,7 +383,7 @@ function AdminInstallationsPage() {
               Cadastre a primeira instalação para provisionar, validar e acompanhar a versão
               publicada.
             </p>
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Button size="sm" onClick={openCreate}>
               <Plus className="mr-2 h-4 w-4" /> Nova instalação
             </Button>
           </CardContent>
@@ -376,108 +407,218 @@ function AdminInstallationsPage() {
       )}
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-[620px]">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Nova instalação</DialogTitle>
             <DialogDescription>
-              Cada instalação usa o acesso do próprio cliente. Informe o Supabase Access Token dele:
-              ele é guardado cifrado e nunca aparece de novo na tela.
+              Crie um ambiente independente, começando do zero na versão atual do MASTER.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Nome" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-            <Field
-              label="Domínio"
-              placeholder="app.cliente.com.br"
-              value={form.domain}
-              onChange={(v) => setForm({ ...form, domain: v })}
-            />
-            <Field
-              label="URL do Supabase"
-              placeholder="https://xxxx.supabase.co"
-              value={form.supabaseUrl}
-              onChange={(v) => setForm({ ...form, supabaseUrl: v })}
-            />
-            <Field
-              label="Project ref do Supabase"
-              value={form.supabaseProjectRef}
-              onChange={(v) => setForm({ ...form, supabaseProjectRef: v })}
-            />
-            <Field
-              label="Repositório Git"
-              placeholder="https://github.com/org/repo"
-              value={form.gitRepoUrl}
-              onChange={(v) => setForm({ ...form, gitRepoUrl: v })}
-            />
-            <Field
-              label="Projeto de deploy"
-              value={form.deployProject}
-              onChange={(v) => setForm({ ...form, deployProject: v })}
-            />
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label className="text-xs">Supabase Access Token do cliente</Label>
-              <PasswordInput
-                value={form.supabaseManagementToken}
-                placeholder="sbp_..."
-                autoComplete="off"
-                onChange={(e) => setForm({ ...form, supabaseManagementToken: e.target.value })}
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Obrigatório. Guardado cifrado e nunca exibido outra vez — esta instalação usa o
-                acesso do próprio cliente, não o acesso central.{" "}
-                <a
-                  href="https://supabase.com/dashboard/account/tokens"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline"
-                >
-                  Gerar token no Supabase
-                </a>
-                .
-              </p>
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label className="text-xs">Observações</Label>
-              <Textarea
-                rows={3}
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              />
-            </div>
-          </div>
+          <ol className="grid grid-cols-3 gap-2" aria-label="Etapas da nova instalação">
+            {(
+              [
+                [1, "Novo ambiente"],
+                [2, "Publicação"],
+                [3, "Revisão"],
+              ] as const
+            ).map(([step, label]) => (
+              <li
+                key={step}
+                className={cn(
+                  "border-b-2 pb-2 text-xs font-medium",
+                  createStep === step
+                    ? "border-primary text-foreground"
+                    : createStep > step
+                      ? "border-health-good text-health-good"
+                      : "border-border text-muted-foreground",
+                )}
+              >
+                <span className="mr-1.5">{createStep > step ? "✓" : step}.</span>
+                {label}
+              </li>
+            ))}
+          </ol>
 
-          <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => setCreateOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => {
-                goToCredentialsRef.current = false;
-                create.mutate();
-              }}
-              disabled={create.isPending}
-            >
-              {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Cadastrar
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                goToCredentialsRef.current = true;
-                create.mutate();
-              }}
-              disabled={create.isPending}
-            >
-              {create.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <KeyRound className="mr-2 h-4 w-4" />
-              )}
-              Cadastrar e configurar acessos
-            </Button>
+          {createStep === 1 && (
+            <div className="space-y-4 py-1">
+              <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
+                <p className="font-medium">Use um projeto Supabase novo e vazio.</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  Esta instalação não consultará nem reaproveitará ambientes, usuários ou dados
+                  antigos.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field
+                  label="Nome da instalação"
+                  placeholder="Unitos Cliente"
+                  value={form.name}
+                  onChange={(name) => {
+                    const previousGenerated = technicalNameFromName(form.name);
+                    setForm({
+                      ...form,
+                      name,
+                      deployProject:
+                        !form.deployProject || form.deployProject === previousGenerated
+                          ? technicalNameFromName(name)
+                          : form.deployProject,
+                    });
+                  }}
+                />
+                <Field
+                  label="Domínio"
+                  placeholder="app.cliente.com.br"
+                  value={form.domain}
+                  onChange={(domain) => setForm({ ...form, domain })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="new-supabase-url">Endereço do novo Supabase</Label>
+                <Input
+                  id="new-supabase-url"
+                  placeholder="https://novo-projeto.supabase.co"
+                  value={form.supabaseUrl}
+                  onChange={(e) => setForm({ ...form, supabaseUrl: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {newProjectRef
+                    ? `Projeto identificado: ${newProjectRef}`
+                    : "Cole o endereço exibido nas configurações do novo projeto."}
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="new-supabase-token">Token de acesso do Supabase</Label>
+                <PasswordInput
+                  id="new-supabase-token"
+                  value={form.supabaseManagementToken}
+                  placeholder="sbp_..."
+                  autoComplete="off"
+                  onChange={(e) => setForm({ ...form, supabaseManagementToken: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Usado para preparar e verificar o novo projeto. O valor fica protegido.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {createStep === 2 && (
+            <div className="space-y-4 py-1">
+              <div className="space-y-1.5">
+                <Label htmlFor="new-environment-name">Nome técnico da nova instalação</Label>
+                <Input
+                  id="new-environment-name"
+                  placeholder="unitos-cliente"
+                  value={form.deployProject}
+                  onChange={(e) =>
+                    setForm({ ...form, deployProject: technicalNameFromName(e.target.value) })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  O MASTER usará este nome para criar a publicação e o repositório.
+                </p>
+              </div>
+              <div className="divide-y rounded-md border border-border bg-muted/20 text-sm">
+                <div className="flex items-start justify-between gap-4 p-3">
+                  <span className="text-muted-foreground">Publicação</span>
+                  <span className="break-all text-right font-medium">{newEnvironmentName}</span>
+                </div>
+                <div className="flex items-start justify-between gap-4 p-3">
+                  <span className="text-muted-foreground">Repositório</span>
+                  <span className="break-all text-right font-medium">{newRepoUrl}</span>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="new-notes">Observações</Label>
+                <Textarea
+                  id="new-notes"
+                  rows={3}
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                />
+              </div>
+            </div>
+          )}
+
+          {createStep === 3 && (
+            <div className="space-y-4 py-1">
+              <div className="rounded-md border border-health-good/40 bg-health-good/5 p-3">
+                <p className="flex items-center gap-2 text-sm font-semibold text-health-good">
+                  <CheckCircle2 className="h-4 w-4" /> Instalação totalmente nova
+                </p>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                  Banco, usuários, arquivos, publicação e repositório começarão sem dados de
+                  instalações anteriores.
+                </p>
+              </div>
+              <div className="grid gap-1 rounded-md border border-border p-3 text-xs sm:grid-cols-[130px_1fr]">
+                <span className="text-muted-foreground">Nome</span>
+                <span>{form.name}</span>
+                <span className="text-muted-foreground">Domínio</span>
+                <span className="break-all">{form.domain}</span>
+                <span className="text-muted-foreground">Novo Supabase</span>
+                <span className="break-all">{newProjectRef}</span>
+                <span className="text-muted-foreground">Nova publicação</span>
+                <span className="break-all">{newEnvironmentName}</span>
+                <span className="text-muted-foreground">Novo repositório</span>
+                <span className="break-all">{newRepoUrl}</span>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="border-t border-border pt-4">
+            {createStep === 1 ? (
+              <Button
+                variant="ghost"
+                disabled={create.isPending}
+                onClick={() => setCreateOpen(false)}
+              >
+                Cancelar
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                disabled={create.isPending}
+                onClick={() => setCreateStep((step) => (step === 3 ? 2 : 1))}
+              >
+                Voltar
+              </Button>
+            )}
+            {createStep < 3 ? (
+              <Button
+                disabled={
+                  createStep === 1
+                    ? !form.name.trim() ||
+                      !form.domain.trim() ||
+                      !newProjectRef ||
+                      !form.supabaseManagementToken.trim()
+                    : !newEnvironmentName
+                }
+                onClick={() => {
+                  setForm((current) => ({
+                    ...current,
+                    supabaseProjectRef: newProjectRef,
+                    gitRepoUrl: newRepoUrl,
+                    deployProject: newEnvironmentName,
+                  }));
+                  setCreateStep((step) => (step === 1 ? 2 : 3));
+                }}
+              >
+                Continuar <ArrowRight className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                onClick={() => {
+                  goToCredentialsRef.current = false;
+                  create.mutate();
+                }}
+                disabled={create.isPending}
+              >
+                {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Criar nova instalação
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
