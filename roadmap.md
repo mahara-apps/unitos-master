@@ -3,7 +3,7 @@
 - [x] Confirmar o HTTP 403 causado pela ausência de `User-Agent`.
 - [x] Padronizar os cabeçalhos da leitura autenticada e pública.
 - [x] Cobrir a regressão com teste das duas tentativas.
-- [ ] Regenerar o pacote MASTER 1.4.32 e executar validações finais.
+- [x] Regenerar o pacote MASTER 1.4.32 e executar validações finais.
 - [ ] Publicar somente com autorização explícita.
 
 ## Resend institucional por instalação
