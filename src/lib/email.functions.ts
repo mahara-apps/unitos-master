@@ -11,9 +11,16 @@ const BrandInput = z.object({ brandId: z.string().uuid() });
 export type EmailChannelStatus = {
   configured: boolean;
   from: string | null;
-  source: "brand" | "installation" | null;
+  source: "installation" | null;
   masked: string | null;
-  reason: "resend_nao_configurado" | "remetente_instalacao_nao_configurado" | null;
+  state: "not_configured" | "pending" | "ready" | "action_required";
+  reason:
+    | "resend_nao_configurado"
+    | "remetente_instalacao_nao_configurado"
+    | "credencial_instalacao_ilegivel"
+    | "dominio_remetente_pendente"
+    | "validacao_resend_pendente"
+    | null;
 };
 
 export const getEmailChannelStatus = createServerFn({ method: "GET" })

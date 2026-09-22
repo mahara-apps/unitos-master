@@ -1,18 +1,29 @@
 // Server-only: camada ÚNICA de configuração e envio de e-mail via Resend.
 //
-// Fonte única de verdade: a credencial cifrada em `brand_api_credentials`
-// (provider = 'resend') do MESMO workspace/marca exibido na UI. Só quando a
-// marca não tem credencial própria caímos para a credencial de instalação
-// (`RESEND_API_KEY`). A UI consome exatamente o mesmo resolvedor
+// Fonte única de verdade: a credencial cifrada da INSTALAÇÃO em
+// `installation_email_credentials`, acompanhada do remetente institucional em
+// `installation`. Não existe fallback para credencial de workspace ou variável
+// compartilhada. A UI consome exatamente o mesmo resolvedor
 // (`getEmailChannelStatus`), então "Conectado" e "envio real" não podem
 // divergir.
 //
 // Nunca retornamos a API key para fora deste módulo, nem em logs ou erros.
 
-import { decryptCredential } from "@/lib/credentials-crypto.server";
+import {
+  decryptCredential,
+  isCredentialDecryptError,
+} from "@/lib/credentials-crypto.server";
 import type { SupabaseLike } from "./resend-types";
 
-export type ResendConfigSource = "brand" | "installation";
+export type ResendConfigSource = "installation";
+export type ResendValidationState = "not_configured" | "pending" | "ready" | "action_required";
+export type ResendStatusReason =
+  | "resend_nao_configurado"
+  | "remetente_instalacao_nao_configurado"
+  | "credencial_instalacao_ilegivel"
+  | "dominio_remetente_pendente"
+  | "validacao_resend_pendente"
+  | null;
 
 export type ResendConfig = {
   apiKey: string;
@@ -20,6 +31,8 @@ export type ResendConfig = {
   from: string;
   source: ResendConfigSource;
   masked: string | null;
+  validationState: Exclude<ResendValidationState, "not_configured">;
+  validationCode: string | null;
 };
 
 export type ResendStatus = {
@@ -27,9 +40,34 @@ export type ResendStatus = {
   from: string | null;
   source: ResendConfigSource | null;
   masked: string | null;
+  state: ResendValidationState;
   /** Código estável quando não configurado (usado pela UI e pelo envio). */
-  reason: "resend_nao_configurado" | "remetente_instalacao_nao_configurado" | null;
+  reason: ResendStatusReason;
 };
+
+type InstallationCredentialRow = {
+  ciphertext?: string;
+  masked?: string;
+  validation_status?: "pending" | "ready" | "action_required";
+  validation_code?: string | null;
+};
+
+async function readInstallationCredential(): Promise<InstallationCredentialRow | null> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("installation_email_credentials")
+    .select("ciphertext, masked, validation_status, validation_code")
+    .eq("id", true)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const validationStatus = ["pending", "ready", "action_required"].includes(
+    data.validation_status,
+  )
+    ? (data.validation_status as InstallationCredentialRow["validation_status"])
+    : "pending";
+  return { ...data, validation_status: validationStatus };
+}
 
 export class ResendNotConfiguredError extends Error {
   code = "resend_nao_configurado" as const;
@@ -63,6 +101,64 @@ export function normalizeFrom(
   if (v.includes("<") && v.includes(">")) return v;
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return `${label} <${v}>`;
   return fallback;
+}
+
+export function parseResendSender(raw: string): {
+  email: string;
+  name: string | null;
+  formatted: string;
+  domain: string;
+} | null {
+  const value = raw.trim();
+  const named = value.match(/^\s*([^<>]+?)\s*<([^<>\s@]+@[^<>\s@]+\.[^<>\s@]+)>\s*$/);
+  const email = (named?.[2] ?? value).trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
+  const name = named?.[1]?.trim() || null;
+  return {
+    email,
+    name,
+    formatted: name ? `${name} <${email}>` : email,
+    domain: email.slice(email.lastIndexOf("@") + 1),
+  };
+}
+
+export type ResendConfigurationValidation = {
+  status: "pending" | "ready" | "action_required";
+  code: string;
+  verifiedAt: string;
+};
+
+/** Valida a chave e o domínio sem enviar mensagem. Falha de consulta vira pendência. */
+export async function validateResendConfiguration(
+  apiKey: string,
+  senderDomain: string,
+): Promise<ResendConfigurationValidation> {
+  const verifiedAt = new Date().toISOString();
+  let response: Response;
+  try {
+    response = await fetch("https://api.resend.com/domains", {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(RESEND_TIMEOUT_MS),
+    });
+  } catch {
+    return { status: "pending", code: "validacao_indisponivel", verifiedAt };
+  }
+  if (response.status === 401) throw new Error("credencial_invalida");
+  if (response.status === 403) {
+    return { status: "pending", code: "validacao_sem_permissao_de_leitura", verifiedAt };
+  }
+  if (!response.ok) {
+    return { status: "pending", code: `validacao_http_${response.status}`, verifiedAt };
+  }
+  const payload = (await response.json()) as {
+    data?: Array<{ name?: string; status?: string }>;
+  };
+  const domain = payload.data?.find((item) => item.name?.toLowerCase() === senderDomain);
+  if (!domain) return { status: "action_required", code: "dominio_nao_cadastrado", verifiedAt };
+  if (domain.status?.toLowerCase() !== "verified") {
+    return { status: "action_required", code: "dominio_nao_verificado", verifiedAt };
+  }
+  return { status: "ready", code: "pronto", verifiedAt };
 }
 
 /** Remove qualquer segredo/PII sensível de mensagens do provedor. */
@@ -116,8 +212,9 @@ export async function resolveResendConfig(
   /** Nome da marca do evento, usado como rótulo do remetente. */
   displayName?: string | null,
 ): Promise<ResendConfig | null> {
-  // O remetente é identidade da INSTALAÇÃO, nunca do workspace. A chave pode
-  // continuar segregada por workspace, mas metadata.handle não decide o From.
+  // brandId permanece no contrato para escopo/auditoria do evento. A credencial
+  // e o remetente são sempre do singleton desta instalação.
+  void brandId;
   let installationFrom: string | null = null;
   let installationName: string | null = null;
   try {
@@ -132,19 +229,7 @@ export async function resolveResendConfig(
     ? normalizeFrom(installationFrom, DEFAULT_FROM, installationName ?? displayName)
     : null;
 
-  type CredRow = { ciphertext?: string; masked?: string; metadata?: Record<string, string> };
-  let row: CredRow | null = null;
-  try {
-    const res = await supabase
-      .from("brand_api_credentials")
-      .select("ciphertext, masked, metadata")
-      .eq("brand_id", brandId)
-      .eq("provider", "resend")
-      .maybeSingle();
-    row = ((res as { data: unknown }).data as CredRow | null) ?? null;
-  } catch {
-    row = null;
-  }
+  const row = await readInstallationCredential();
 
   if (row?.ciphertext) {
     try {
@@ -153,24 +238,16 @@ export async function resolveResendConfig(
         return {
           apiKey,
           from: canonicalFrom,
-          source: "brand",
+          source: "installation",
           masked: row.masked ?? null,
+          validationState: row.validation_status ?? "pending",
+          validationCode: row.validation_code ?? null,
         };
       }
-    } catch {
-      // Credencial ilegível (segredo de cifra ausente/rotacionado): trata como
-      // não configurada em vez de vazar detalhe de criptografia.
+    } catch (error) {
+      if (isCredentialDecryptError(error)) throw error;
+      throw error;
     }
-  }
-
-  const envKey = process.env.RESEND_API_KEY?.trim();
-  if (envKey && canonicalFrom) {
-    return {
-      apiKey: envKey,
-      from: canonicalFrom,
-      source: "installation",
-      masked: null,
-    };
   }
   return null;
 }
@@ -180,35 +257,51 @@ export async function resolveResendStatus(
   supabase: SupabaseLike,
   brandId: string,
 ): Promise<ResendStatus> {
-  const cfg = await resolveResendConfig(supabase, brandId);
+  let cfg: ResendConfig | null = null;
+  try {
+    cfg = await resolveResendConfig(supabase, brandId);
+  } catch (error) {
+    if (isCredentialDecryptError(error)) {
+      return {
+        configured: false,
+        from: null,
+        source: "installation",
+        masked: null,
+        state: "action_required",
+        reason: "credencial_instalacao_ilegivel",
+      };
+    }
+    throw error;
+  }
   if (!cfg) {
     let hasCredential = false;
     try {
-      const res = await supabase
-        .from("brand_api_credentials")
-        .select("ciphertext")
-        .eq("brand_id", brandId)
-        .eq("provider", "resend")
-        .maybeSingle();
-      hasCredential = Boolean((res as { data?: { ciphertext?: string } | null }).data?.ciphertext);
+      hasCredential = Boolean((await readInstallationCredential())?.ciphertext);
     } catch {
       hasCredential = false;
     }
-    hasCredential ||= Boolean(process.env.RESEND_API_KEY?.trim());
     return {
       configured: false,
       from: null,
-      source: null,
+      source: hasCredential ? "installation" : null,
       masked: null,
+      state: hasCredential ? "action_required" : "not_configured",
       reason: hasCredential ? "remetente_instalacao_nao_configurado" : "resend_nao_configurado",
     };
   }
+  const state = cfg.validationState;
   return {
     configured: true,
     from: cfg.from,
     source: cfg.source,
     masked: cfg.masked,
-    reason: null,
+    state,
+    reason:
+      state === "ready"
+        ? null
+        : state === "pending"
+          ? "validacao_resend_pendente"
+          : "dominio_remetente_pendente",
   };
 }
 

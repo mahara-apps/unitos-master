@@ -2592,11 +2592,9 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
       { id: "meta", state: meta.state, detail: meta.detail },
       {
         id: "resend",
-        ...envIntegrationState({
-          envKeys: keys,
-          required: ["RESEND_API_KEY"],
-          label: "E-mail (Resend)",
-        }),
+        state: "pending" as const,
+        detail:
+          "Resend é configurado dentro da instalação, em Administração → Conexões. O estado efetivo é validado no próprio ambiente sem expor a chave.",
       },
       {
         id: "evolution",
