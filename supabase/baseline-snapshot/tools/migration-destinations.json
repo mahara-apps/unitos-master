@@ -616,6 +616,16 @@
       "position": 123,
       "file": "20260921230456_5e22ad52-7cf3-41ca-b199-236ee4b02823.sql",
       "destination": "excluded"
+    },
+    {
+      "position": 124,
+      "file": "20260922134654_f4127132-edf5-4afb-bbc3-e688b14b7b4d.sql",
+      "destination": "excluded"
+    },
+    {
+      "position": 125,
+      "file": "20260922135039_e1e252cf-16c1-4ea4-88fb-c765f57316ec.sql",
+      "destination": "control-plane"
     }
   ]
 }

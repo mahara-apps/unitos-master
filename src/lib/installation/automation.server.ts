@@ -4503,14 +4503,6 @@ export async function runAutomatedProvision(input: {
     let domainNote = "";
     if (requested.ok && requested.source === "custom_domain") {
       const domain = await deploy.ensureDomain(requested.origin);
-      if (!domain.ok && !domain.pending) {
-        failures.push(
-          `Domínio não pôde ser conferido no projeto de deploy: ${domain.error ?? ""}`.trim(),
-        );
-        await mark("deploy", "error", domain.error ?? "falha ao conferir o domínio");
-        checks.configuration = "error";
-        return finish(requested.origin, requested.source);
-      }
       if (!domain.ok || !domain.verified) {
         domainNote = !domain.ok
           ? `Domínio definitivo pendente: ${domain.error ?? "atribuição não confirmada"}`

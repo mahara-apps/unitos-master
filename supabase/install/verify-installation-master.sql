@@ -109,6 +109,14 @@ WITH expected_tables(name) AS (VALUES
     AND (e.signature='read_installation_operations_freeze()'
       OR NOT has_function_privilege('authenticated',p.oid,'EXECUTE'))
   UNION ALL
+  SELECT 11, 'Master: retry herda somente checkpoints comprovados do pacote selado',
+    CASE WHEN position('checkpointInheritance' in pg_get_functiondef('public.start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamp with time zone,uuid)'::regprocedure))>0
+      THEN 'herança segura ativa' ELSE 'contrato antigo' END,
+    CASE WHEN position('same_sealed_package' in pg_get_functiondef('public.start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamp with time zone,uuid)'::regprocedure))>0
+      AND position('statement_index = total_statements' in pg_get_functiondef('public.start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamp with time zone,uuid)'::regprocedure))>0
+      AND position('provisionDeploymentId' in pg_get_functiondef('public.start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamp with time zone,uuid)'::regprocedure))=0
+      THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
   SELECT 12, 'Master: singleton do congelamento íntegro',
     count(*)::text || ' linha; geração ' || coalesce(max(generation)::text,'ausente'),
     CASE WHEN count(*)=1 AND bool_and(singleton) AND min(generation)>=0 THEN 'PASS' ELSE 'FAIL' END
