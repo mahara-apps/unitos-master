@@ -1,4 +1,5 @@
 import { ArrowRight, Globe, ShieldCheck } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
 import {
   INSTALLATION_HEALTH_LABEL,
@@ -27,29 +28,21 @@ const HEALTH_STATE: Record<InstallationHealth, VisualState> = {
 
 export function InstallationCard({
   installation,
-  onOpen,
 }: {
   installation: InstallationRecord;
-  onOpen: () => void;
 }) {
   const i = installation;
   return (
-    <Card
-      role="button"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onOpen();
-        }
-      }}
+    <Link
+      to="/admin/instalacoes/$id"
+      params={{ id: i.id }}
+      aria-label={`Abrir instalação ${i.name}`}
       className={cn(
-        "cursor-pointer transition hover:border-primary/40 hover:shadow-sm",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
       )}
     >
-      <CardContent className="space-y-3 p-4">
+      <Card className="cursor-pointer transition hover:border-primary/40 hover:shadow-sm">
+        <CardContent className="space-y-3 p-4">
         <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
           <div className="min-w-0 space-y-1.5">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -69,8 +62,10 @@ export function InstallationCard({
               <span className="truncate">{i.domain ?? "domínio não informado"}</span>
             </p>
           </div>
-          <Button variant="ghost" size="sm" className="shrink-0" tabIndex={-1}>
+          <Button asChild variant="ghost" size="sm" className="pointer-events-none shrink-0">
+            <span>
             Abrir <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+            </span>
           </Button>
         </header>
 
@@ -89,7 +84,8 @@ export function InstallationCard({
               : "nunca validada"}
           </span>
         </footer>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
