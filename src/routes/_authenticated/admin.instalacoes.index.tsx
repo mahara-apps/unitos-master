@@ -400,7 +400,6 @@ function AdminInstallationsPage() {
             <InstallationCard
               key={i.id}
               installation={i}
-              onOpen={() => void navigate({ to: "/admin/instalacoes/$id", params: { id: i.id } })}
             />
           ))}
         </div>
