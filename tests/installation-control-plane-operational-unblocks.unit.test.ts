@@ -23,7 +23,7 @@ const cronTool = readFileSync("supabase/master/tools/activate_cron_37.sh", "utf8
 const releaseTool = readFileSync("supabase/master/tools/promote_control_plane_release.sh", "utf8");
 const convergenceEntry = readFileSync("supabase/master/convergence-control-plane.sql", "utf8");
 
-describe("seis desbloqueios operacionais do Control-plane 1.4.21", () => {
+describe("seis desbloqueios operacionais do Control-plane 1.4.22", () => {
   it("freeze preserva pending sem lease e bloqueia atividade ou ambiguidade", () => {
     expect(freeze).not.toContain("WHERE status IN ('pending','running','retryable')");
     expect(freeze).toContain("status IN ('running','retryable')");

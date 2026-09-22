@@ -121,4 +121,8 @@
 - [x] Separar o trecho legado reconciliável (posições 1–85) do tamanho atual do pacote canônico.
 - [x] Manter os blocos 86 e 87 fora da promoção legada para execução normal pelo executor.
 - [x] Regenerar os artefatos MASTER-first e validar localmente antes de publicar.
-- [ ] Publicar somente após autorização explícita e então iniciar uma nova atualização da Taveira.
+- [x] Publicar a versão 1.4.21 após autorização explícita.
+- [x] Diagnosticar sem escrita o bloqueio real da Taveira após a publicação.
+- [x] Preservar identidades incrementais legadas registradas no rótulo e impedir reconciliação heurística sobre migrations posteriores.
+- [x] Regenerar e validar a versão 1.4.22 pelo fluxo MASTER-first.
+- [ ] Publicar a versão 1.4.22 somente após nova autorização explícita.
