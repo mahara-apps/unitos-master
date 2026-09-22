@@ -4263,10 +4263,9 @@ export async function runAutomatedProvision(input: {
           checks.database = "error";
           return finish(appUrl, urlSource);
         }
-        const snapshot = localDeltaPackage(provisionCommitSha);
+        const snapshot = localDeltaPackage(provisionCommitSha, operation.baseline_id);
         if (
           !snapshot.version ||
-          snapshot.version !== MASTER_RELEASE_VERSION ||
           !snapshot.sha256 ||
           snapshot.total === 0
         ) {
@@ -4504,6 +4503,14 @@ export async function runAutomatedProvision(input: {
     let domainNote = "";
     if (requested.ok && requested.source === "custom_domain") {
       const domain = await deploy.ensureDomain(requested.origin);
+      if (!domain.ok && !domain.pending) {
+        failures.push(
+          `Domínio não pôde ser conferido no projeto de deploy: ${domain.error ?? ""}`.trim(),
+        );
+        await mark("deploy", "error", domain.error ?? "falha ao conferir o domínio");
+        checks.configuration = "error";
+        return finish(requested.origin, requested.source);
+      }
       if (!domain.ok || !domain.verified) {
         domainNote = !domain.ok
           ? `Domínio definitivo pendente: ${domain.error ?? "atribuição não confirmada"}`
