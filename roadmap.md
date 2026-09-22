@@ -158,6 +158,7 @@
 - [x] Corrigir a troca de deployment REST posteriormente bloqueado para o fallback Git idempotente.
 - [x] Validar e preparar o MASTER 1.4.29 pelo fluxo MASTER-first.
 - [x] Publicar o MASTER 1.4.29 após autorização explícita.
-- [ ] Corrigir na 1.4.30 a retomada para herdar o commit Git revalidável e nunca recriar REST quando ele existir.
-- [ ] Validar a 1.4.30 pelo fluxo MASTER-first e publicar somente após autorização explícita.
+- [x] Corrigir na 1.4.30 a retomada para herdar o commit Git revalidável e nunca recriar REST quando ele existir.
+- [x] Validar a 1.4.30 pelo fluxo MASTER-first, com tipos, qualidade e cenários focados aprovados.
+- [ ] Publicar o MASTER 1.4.30 somente após autorização explícita.
 - [ ] Depois da publicação, permitir nova tentativa na Apex preservando todos os checkpoints confirmados.
