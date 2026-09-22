@@ -971,7 +971,13 @@ export type DeployClient = {
   /** Garante que o domínio definitivo esteja atribuído ao projeto de deploy. */
   ensureDomain: (
     domain: string,
-  ) => Promise<{ ok: boolean; added?: boolean; verified?: boolean; error?: string }>;
+  ) => Promise<{
+    ok: boolean;
+    added?: boolean;
+    verified?: boolean;
+    pending?: boolean;
+    error?: string;
+  }>;
 
   setEnv: (
     entries: readonly { key: string; value: string; sensitive: boolean }[],
@@ -3067,8 +3073,11 @@ export function createDeployClient(input: {
         );
         if (!created.ok) {
           const text = await created.text().catch(() => "");
+          const pending =
+            created.status === 409 || /domain_already_in_use|domain.*already.*use/i.test(text);
           return {
             ok: false,
+            pending,
             error: `HTTP ${created.status} ao atribuir o domínio ${host} (${text.slice(0, 200)})`,
           };
         }
@@ -4487,10 +4496,25 @@ export async function runAutomatedProvision(input: {
 
     await mark("deploy", "running");
     const deployment = await deploy.deploymentUrl();
-    const resolved = resolveOperationalUrl({
+    const requested = resolveOperationalUrl({
       customDomain: installation.domain,
       deploymentUrl: deployment.url ?? null,
     });
+    let resolved = requested;
+    let domainNote = "";
+    if (requested.ok && requested.source === "custom_domain") {
+      const domain = await deploy.ensureDomain(requested.origin);
+      if (!domain.ok || !domain.verified) {
+        domainNote = !domain.ok
+          ? `Domínio definitivo pendente: ${domain.error ?? "atribuição não confirmada"}`
+          : "Domínio definitivo atribuído, aguardando verificação de DNS";
+        pendingNotes.push(domainNote);
+        resolved = resolveOperationalUrl({
+          customDomain: null,
+          deploymentUrl: deployment.url ?? null,
+        });
+      }
+    }
     if (!resolved.ok) {
       blocked.push(
         `URL operacional indisponível: ${resolved.reason}${
@@ -4764,19 +4788,6 @@ export async function runAutomatedProvision(input: {
       provisionDeploymentReadyAt: deploymentReadyAt,
     });
 
-    // Domínio definitivo precisa estar atribuído ao projeto de deploy — sem isso
-    // a URL responde 404 mesmo com o app publicado.
-    let domainNote = "";
-    if (url.source === "custom_domain") {
-      const domain = await deploy.ensureDomain(url.origin);
-      if (!domain.ok) {
-        failures.push(`Domínio não atribuído ao projeto de deploy: ${domain.error ?? ""}`.trim());
-        domainNote = " · domínio pendente";
-      } else if (!domain.verified) {
-        domainNote = " · domínio aguardando verificação de DNS";
-      }
-    }
-
     // O probe HTTP é complementar: só roda após READY + commit comprovado.
     if (!redeployed.ok && failures.length === 0) {
       await mark("deploy", "error", blocked.join(" | ") || "deployment não confirmado");
@@ -4788,7 +4799,7 @@ export async function runAutomatedProvision(input: {
     if (!probe.ok) {
       // Sem publicação nova (cota) ou com DNS/domínio ainda propagando, o 404 é
       // esperado: é pendência de acompanhamento, não bloqueio do provisionamento.
-      const pendingPublish = redeployed.quotaExceeded === true || domainNote !== "";
+      const pendingPublish = redeployed.quotaExceeded === true;
       // Domínio definitivo depende do DNS do dono do domínio, fora do alcance da
       // automação. O ambiente segue aplicado e utilizável pela URL de deploy.
       const dnsPending = url.source === "custom_domain";
@@ -4829,7 +4840,7 @@ export async function runAutomatedProvision(input: {
       "done",
       `${envResult.applied} variáveis gravadas — URL operacional ${url.origin} (${
         url.source === "deploy" ? "temporária do deploy" : "domínio definitivo"
-      })${publishNote ? ` · ${publishNote}` : " · redeploy pendente"} · deployment ${deploymentId} READY (${deploymentSource})${domainNote}${
+        })${publishNote ? ` · ${publishNote}` : " · redeploy pendente"} · deployment ${deploymentId} READY (${deploymentSource})${domainNote ? ` · ${domainNote}` : ""}${
         probe.ok ? " · frontend respondendo" : ` · frontend ${probe.detail}`
       }`,
     );
@@ -5139,14 +5150,24 @@ export async function runAutomatedValidate(input: {
 /** Rótulo do arquivo de delta aplicado nas atualizações. */
 export const UPDATE_DELTA_LABEL = "007_delta_migrations";
 
-function localDeltaPackage(commitSha: string): OperationPackageSnapshot {
-  const version = /^version=(.+)$/m.exec(deltaVersion)?.[1]?.trim() ?? "";
+function localDeltaPackage(
+  commitSha: string,
+  sealedBaselineId?: string | null,
+): OperationPackageSnapshot {
+  const currentVersion = /^version=(.+)$/m.exec(deltaVersion)?.[1]?.trim() ?? "";
   const sha256 = /^sha256=([a-f0-9]{64})$/m.exec(deltaVersion)?.[1] ?? "";
+  const sealed = sealedBaselineId?.split(":") ?? [];
+  const sealedVersion = sealed.length >= 3 ? sealed[0] : null;
+  const sealedCommit = sealed.length >= 3 ? sealed.slice(1, -1).join(":") : null;
+  const sealedTotal = sealed.length >= 3 ? Number(sealed.at(-1)) : null;
+  const total = splitDeltaMigrations(baseline007).length;
+  const version =
+    sealedVersion && sealedCommit === commitSha && sealedTotal === total ? sealedVersion : currentVersion;
   return {
     version,
     commitSha,
     sha256,
-    total: splitDeltaMigrations(baseline007).length,
+    total,
     sql: baseline007,
     manifest: deltaManifest,
   };

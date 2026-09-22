@@ -1340,6 +1340,8 @@ async function openAutomatedProvision(
     id: string;
     kind: InstallationOperationKind;
     status: InstallationOperationStatus;
+    baselineId: string | null;
+    baselineHash: string | null;
   } | null = null;
   let retrySourceId: string | null = null;
   let hasSuccessfulProvision = false;
@@ -1347,7 +1349,7 @@ async function openAutomatedProvision(
     const [latestResult, successfulResult] = await Promise.all([
       supabase
         .from("installation_operations")
-        .select("id,kind,status")
+        .select("id,kind,status,baseline_id,baseline_hash")
         .eq("installation_id", installationId)
         .eq("kind", "provision")
         .order("created_at", { ascending: false })
@@ -1368,6 +1370,14 @@ async function openAutomatedProvision(
         id: String(latestResult.data.id),
         kind: latestResult.data.kind as InstallationOperationKind,
         status: latestResult.data.status as InstallationOperationStatus,
+        baselineId:
+          typeof latestResult.data.baseline_id === "string"
+            ? latestResult.data.baseline_id
+            : null,
+        baselineHash:
+          typeof latestResult.data.baseline_hash === "string"
+            ? latestResult.data.baseline_hash
+            : null,
       };
       retrySourceId = retrySource.id;
     }
@@ -1389,6 +1399,11 @@ async function openAutomatedProvision(
   }
   if (retryOfOperationId && !retryAllowed) {
     throw new Error("A operação informada não é elegível para nova tentativa de provisionamento.");
+  }
+  if (retryOfOperationId && (!retrySource?.baselineId || !retrySource.baselineHash)) {
+    throw new Error(
+      "A operação anterior não possui um pacote selado; o progresso não pode ser herdado com segurança.",
+    );
   }
 
   // Teste efetivo antes de criar a operação: token revogado, projeto incorreto
@@ -1415,6 +1430,8 @@ async function openAutomatedProvision(
         ? { retryOfOperationId, retryReason: "failed_provision" as const }
         : {}),
     },
+    baselineId: retrySource?.baselineId ?? null,
+    baselineHash: retrySource?.baselineHash ?? null,
     retryOfOperationId: retryOfOperationId ?? null,
   });
 
