@@ -140,6 +140,9 @@
 - [x] Abandonar a substituição vinculada: os ambientes novos não reaproveitam instalações antigas.
 - [x] Impedir que um token limitado bloqueie a leitura pública do commit do MASTER (1.4.25).
 - [x] Aplicar ao botão Nova instalação o formulário em etapas, derivando projeto, publicação e repositório automaticamente.
+- [x] Exigir projeto Supabase realmente vazio e remover o fluxo vinculado de substituição antiga.
+- [x] Regenerar os artefatos 1.4.26 e aprovar `master:check`, tipos, lint alterado e build.
+- [ ] Revalidar a suíte global quando a chave do projeto de integração deixar de responder `Invalid API key`.
 - [ ] Remover os recursos e o histórico técnico antigos na ordem segura, sem reaproveitar migrations legadas.
 - [x] Criar e provisionar uma instalação nova diretamente na versão MASTER vigente.
 - [ ] Validar RBAC, RLS, autenticação, domínio e identidade institucional antes da liberação.
