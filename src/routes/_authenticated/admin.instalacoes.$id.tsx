@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   ArrowDownToLine,
   ArrowLeft,
+  ArrowRight,
   CirclePlus,
   CheckCircle2,
   Copy,
@@ -173,6 +174,23 @@ type EditForm = {
   notes: string;
 };
 
+type CleanReplacementForm = {
+  supabaseUrl: string;
+  supabaseManagementToken: string;
+  environmentName: string;
+};
+
+function supabaseProjectRefFromUrl(value: string): string {
+  const match = value.trim().match(/^https:\/\/([a-z0-9]+)\.supabase\.co\/?$/i);
+  return match?.[1]?.toLowerCase() ?? "";
+}
+
+function githubOwnerFromUrl(value: string | null): string {
+  if (!value) return "";
+  const match = value.match(/^https:\/\/github\.com\/([^/]+)\/[^/]+\/?$/i);
+  return match?.[1] ?? "";
+}
+
 const EMPTY_FORM: EditForm = {
   name: "",
   domain: "",
@@ -244,12 +262,11 @@ function InstallationDetailPage() {
   const [updateOpen, setUpdateOpen] = useState(false);
   const [provisionOpen, setProvisionOpen] = useState(false);
   const [cleanReplacementOpen, setCleanReplacementOpen] = useState(false);
-  const [cleanReplacement, setCleanReplacement] = useState({
+  const [cleanReplacementStep, setCleanReplacementStep] = useState<1 | 2 | 3>(1);
+  const [cleanReplacement, setCleanReplacement] = useState<CleanReplacementForm>({
     supabaseUrl: "",
-    supabaseProjectRef: "",
     supabaseManagementToken: "",
-    deployProject: "",
-    gitRepoUrl: "",
+    environmentName: "",
   });
   const [opsPageRaw, setOpsPage] = useState(1);
   const [tab, setTab] = useState<TabValue>(tabParam ?? "visao");
@@ -477,16 +494,21 @@ function InstallationDetailPage() {
   });
 
   const replaceCleanly = useMutation({
-    mutationFn: (confirmLabel: string) =>
+    mutationFn: (input: {
+      confirmLabel: string;
+      projectRef: string;
+      deployProject: string;
+      gitRepoUrl: string;
+    }) =>
       cleanReplacementFn({
         data: {
           id,
-          confirmLabel,
+          confirmLabel: input.confirmLabel,
           supabaseUrl: cleanReplacement.supabaseUrl || null,
-          supabaseProjectRef: cleanReplacement.supabaseProjectRef || null,
+          supabaseProjectRef: input.projectRef || null,
           supabaseManagementToken: cleanReplacement.supabaseManagementToken,
-          deployProject: cleanReplacement.deployProject,
-          gitRepoUrl: cleanReplacement.gitRepoUrl || null,
+          deployProject: input.deployProject,
+          gitRepoUrl: input.gitRepoUrl || null,
         },
       }),
     onSuccess: (result) => {
@@ -599,6 +621,22 @@ function InstallationDetailPage() {
   const updatePending =
     inst.updateAvailable ||
     (!!masterVersion.data?.commitSha && inst.pinnedCommitSha !== masterVersion.data.commitSha);
+  const cleanProjectRef = supabaseProjectRefFromUrl(cleanReplacement.supabaseUrl);
+  const cleanEnvironmentName = cleanReplacement.environmentName.trim().toLowerCase();
+  const cleanGithubOwner = githubOwnerFromUrl(inst.gitRepoUrl);
+  const cleanRepoUrl = cleanGithubOwner
+    ? `https://github.com/${cleanGithubOwner}/${cleanEnvironmentName}`
+    : "";
+
+  const openCleanReplacement = () => {
+    setCleanReplacementStep(1);
+    setCleanReplacement({
+      supabaseUrl: "",
+      supabaseManagementToken: "",
+      environmentName: `${inst.slug}-novo`,
+    });
+    setCleanReplacementOpen(true);
+  };
 
   const openEdit = () => {
     setForm({
@@ -778,9 +816,9 @@ function InstallationDetailPage() {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   disabled={!!activeOp || replaceCleanly.isPending}
-                  onClick={() => setCleanReplacementOpen(true)}
+                  onClick={openCleanReplacement}
                 >
-                  <CirclePlus className="mr-2 h-3.5 w-3.5" /> Reinstalação limpa…
+                  <CirclePlus className="mr-2 h-3.5 w-3.5" /> Substituir por instalação nova…
                 </DropdownMenuItem>
                 {inst.cleanReplacementOf && inst.pendingDomain ? (
                   <DropdownMenuItem
@@ -1570,102 +1608,219 @@ function InstallationDetailPage() {
       </Dialog>
 
       <Dialog open={cleanReplacementOpen} onOpenChange={setCleanReplacementOpen}>
-        <DialogContent className="sm:max-w-[560px]">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Reinstalação limpa em ambiente novo</DialogTitle>
+            <DialogTitle>Substituir por uma instalação nova</DialogTitle>
             <DialogDescription>
-              O ambiente atual continuará intacto. O novo ambiente começa na versão MASTER vigente,
-              sem usuários, dados operacionais ou histórico de versões antigas. Informe um projeto
-              Supabase novo e vazio; o domínio só será transferido após validação completa.
+              A instalação atual continuará funcionando até a nova passar por todas as verificações.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="clean-supabase-url">URL do Supabase novo</Label>
-              <Input
-                id="clean-supabase-url"
-                placeholder="https://novo-ref.supabase.co"
-                value={cleanReplacement.supabaseUrl}
-                onChange={(e) =>
-                  setCleanReplacement((v) => ({ ...v, supabaseUrl: e.target.value }))
+
+          <ol className="grid grid-cols-3 gap-2" aria-label="Etapas da substituição">
+            {[
+              [1, "Novo ambiente"],
+              [2, "Publicação"],
+              [3, "Revisão"],
+            ].map(([step, label]) => (
+              <li
+                key={step}
+                className={cn(
+                  "border-b-2 pb-2 text-xs font-medium",
+                  cleanReplacementStep === step
+                    ? "border-primary text-foreground"
+                    : cleanReplacementStep > step
+                      ? "border-health-good text-health-good"
+                      : "border-border text-muted-foreground",
+                )}
+              >
+                <span className="mr-1.5">{cleanReplacementStep > step ? "✓" : step}.</span>
+                {label}
+              </li>
+            ))}
+          </ol>
+
+          {cleanReplacementStep === 1 && (
+            <div className="space-y-4 py-1">
+              <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
+                <p className="font-medium">Use um projeto Supabase novo e vazio.</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  O sistema confirmará que não existem tabelas, usuários ou arquivos antes de criar
+                  qualquer coisa.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="clean-supabase-url">Endereço do novo Supabase</Label>
+                <Input
+                  id="clean-supabase-url"
+                  placeholder="https://novo-projeto.supabase.co"
+                  value={cleanReplacement.supabaseUrl}
+                  onChange={(e) =>
+                    setCleanReplacement((v) => ({ ...v, supabaseUrl: e.target.value }))
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  {cleanProjectRef
+                    ? `Projeto identificado: ${cleanProjectRef}`
+                    : "Cole o endereço exibido nas configurações do novo projeto."}
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="clean-token">Token de acesso do Supabase</Label>
+                <PasswordInput
+                  id="clean-token"
+                  autoComplete="off"
+                  value={cleanReplacement.supabaseManagementToken}
+                  onChange={(e) =>
+                    setCleanReplacement((v) => ({
+                      ...v,
+                      supabaseManagementToken: e.target.value,
+                    }))
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Usado apenas para preparar e verificar o novo projeto. O valor fica protegido.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {cleanReplacementStep === 2 && (
+            <div className="space-y-4 py-1">
+              <div className="space-y-1.5">
+                <Label htmlFor="clean-environment-name">Nome técnico da nova instalação</Label>
+                <Input
+                  id="clean-environment-name"
+                  placeholder="unitos-cliente-novo"
+                  value={cleanReplacement.environmentName}
+                  onChange={(e) =>
+                    setCleanReplacement((v) => ({
+                      ...v,
+                      environmentName: e.target.value
+                        .toLowerCase()
+                        .replace(/[^a-z0-9-]/g, "-")
+                        .replace(/-+/g, "-")
+                        .replace(/^-/, ""),
+                    }))
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  O MASTER usará este nome para criar a publicação e o novo repositório.
+                </p>
+              </div>
+              <div className="divide-y rounded-md border border-border bg-muted/20 text-sm">
+                <div className="flex items-start justify-between gap-4 p-3">
+                  <span className="text-muted-foreground">Publicação</span>
+                  <span className="break-all text-right font-medium">{cleanEnvironmentName}</span>
+                </div>
+                <div className="flex items-start justify-between gap-4 p-3">
+                  <span className="text-muted-foreground">Repositório</span>
+                  <span className="break-all text-right font-medium">
+                    {cleanRepoUrl || "Não foi possível identificar a organização atual"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {cleanReplacementStep === 3 && (
+            <div className="space-y-4 py-1">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-md border border-health-good/40 bg-health-good/5 p-3">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-health-good">
+                    <CheckCircle2 className="h-4 w-4" /> Será preservado
+                  </p>
+                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                    Nome, domínio e identidade institucional.
+                  </p>
+                </div>
+                <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-destructive">
+                    <XCircle className="h-4 w-4" /> Não será migrado
+                  </p>
+                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                    Usuários, clientes, projetos, arquivos, dados operacionais e histórico antigo.
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2 rounded-md border border-border p-3 text-sm">
+                <p className="font-medium">Antes de iniciar</p>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  O novo ambiente será criado separado. Nada será apagado agora, e o domínio só será
+                  transferido após a validação completa.
+                </p>
+                <div className="grid gap-1 pt-1 text-xs sm:grid-cols-[120px_1fr]">
+                  <span className="text-muted-foreground">Novo Supabase</span>
+                  <span className="break-all">{cleanProjectRef}</span>
+                  <span className="text-muted-foreground">Nova publicação</span>
+                  <span className="break-all">{cleanEnvironmentName}</span>
+                  <span className="text-muted-foreground">Novo repositório</span>
+                  <span className="break-all">{cleanRepoUrl}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="border-t border-border pt-4">
+            {cleanReplacementStep === 1 ? (
+              <Button
+                variant="ghost"
+                disabled={replaceCleanly.isPending}
+                onClick={() => setCleanReplacementOpen(false)}
+              >
+                Cancelar
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                disabled={replaceCleanly.isPending}
+                onClick={() =>
+                  setCleanReplacementStep((step) => (step === 3 ? 2 : 1))
                 }
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="clean-project-ref">Project ref novo</Label>
-              <Input
-                id="clean-project-ref"
-                value={cleanReplacement.supabaseProjectRef}
-                onChange={(e) =>
-                  setCleanReplacement((v) => ({ ...v, supabaseProjectRef: e.target.value }))
+              >
+                Voltar
+              </Button>
+            )}
+            {cleanReplacementStep < 3 ? (
+              <Button
+                disabled={
+                  cleanReplacementStep === 1
+                    ? !cleanProjectRef || !cleanReplacement.supabaseManagementToken.trim()
+                    : !cleanEnvironmentName || !cleanRepoUrl
                 }
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="clean-deploy">Projeto de deploy novo</Label>
-              <Input
-                id="clean-deploy"
-                value={cleanReplacement.deployProject}
-                onChange={(e) =>
-                  setCleanReplacement((v) => ({ ...v, deployProject: e.target.value }))
+                onClick={() =>
+                  setCleanReplacementStep((step) => (step === 1 ? 2 : 3))
                 }
-              />
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="clean-repo">Repositório novo</Label>
-              <Input
-                id="clean-repo"
-                placeholder="https://github.com/organizacao/repositorio-novo"
-                value={cleanReplacement.gitRepoUrl}
-                onChange={(e) => setCleanReplacement((v) => ({ ...v, gitRepoUrl: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="clean-token">Supabase Access Token</Label>
-              <PasswordInput
-                id="clean-token"
-                value={cleanReplacement.supabaseManagementToken}
-                onChange={(e) =>
-                  setCleanReplacement((v) => ({ ...v, supabaseManagementToken: e.target.value }))
-                }
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="ghost"
-              disabled={replaceCleanly.isPending}
-              onClick={() => setCleanReplacementOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={
-                replaceCleanly.isPending ||
-                !cleanReplacement.supabaseManagementToken.trim() ||
-                !cleanReplacement.deployProject.trim() ||
-                (!cleanReplacement.supabaseUrl.trim() &&
-                  !cleanReplacement.supabaseProjectRef.trim())
-              }
-              onClick={() => {
-                setCleanReplacementOpen(false);
-                askCritical(
-                  "installation.clean_replacement",
-                  (confirmLabel) => replaceCleanly.mutate(confirmLabel),
-                  [
-                    { label: "Preservado", value: "nome, domínio e identidade institucional" },
-                    {
-                      label: "Não migrado",
-                      value: "usuários, dados operacionais e histórico antigo",
-                    },
-                  ],
-                );
-              }}
-            >
-              {replaceCleanly.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Confirmar ambiente novo
-            </Button>
+              >
+                Continuar <ArrowRight className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                disabled={replaceCleanly.isPending}
+                onClick={() => {
+                  setCleanReplacementOpen(false);
+                  askCritical(
+                    "installation.clean_replacement",
+                    (confirmLabel) =>
+                      replaceCleanly.mutate({
+                        confirmLabel,
+                        projectRef: cleanProjectRef,
+                        deployProject: cleanEnvironmentName,
+                        gitRepoUrl: cleanRepoUrl,
+                      }),
+                    [
+                      { label: "Preservado", value: "nome, domínio e identidade institucional" },
+                      {
+                        label: "Não migrado",
+                        value: "usuários, dados operacionais e histórico antigo",
+                      },
+                    ],
+                  );
+                }}
+              >
+                {replaceCleanly.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Criar nova instalação
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
