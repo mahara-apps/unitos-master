@@ -4,7 +4,7 @@
     "003_control_plane_deterministic_update.sql": "bbcb76b9456f72e36464d62c2beb0a13fe8ad9a72207ef3343edd1d8930d1dd5",
     "004_control_plane_release_promotion.sql": "4fc899b29db2c4f5d7e7a3924969338da305858ca8cc4f9963981f1b0f369dc4",
     "005_activate_cron_37.sql": "f1479835fb93937fe368ae9e196301d5ea353a4993305c73c747647f5e15b188",
-    "006_clean_installation_replacement.sql": "317b4c2df8aba9563e601b99be782e263cd338d57084844b713d735fc79af18b",
+    "006_clean_installation_replacement.sql": "8521382e03795895f22613b67a3fef0a5db055f65af5dd4649abeab8929becbc",
     "deterministic-update-install-preflight.sql": "b674eb507a03a8e63153c582c8bac14d00486c4004d96d9f247159548d304436",
     "global-freeze-install-preflight.sql": "0abbfe06e0cef06d981eb54c3423f00514cbc3ed50af4fd621fd65779bd015f8",
     "install-control-plane-release.sql": "ad287f7048c15a00dc518335bc8362ccc868d2209ad616d9bea984b65ed5ceaf",
@@ -17,9 +17,7 @@
     "finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)",
     "normalize_legacy_installation_operations(integer)",
     "promote_control_plane_release(bigint,text,text,text,text,text,text,jsonb,text)",
-    "prepare_clean_installation_replacement_cutover(uuid,text)",
-    "rollback_clean_installation_replacement_cutover(uuid)",
-    "finalize_clean_installation_replacement(uuid,uuid)"
+    "prepare_clean_installation_replacement_cutover(uuid,text)"
   ],
   "releaseVersion": "1.4.23",
   "schemaVersion": 1,
