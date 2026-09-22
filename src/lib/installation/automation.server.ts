@@ -1326,10 +1326,8 @@ export function createCodeClient(input: {
     "user-agent": "unitos-installation-manager",
   };
   const headers = { ...baseHeaders, authorization: `Bearer ${input.token}` };
-  const masterHeaders = {
-    ...baseHeaders,
-    authorization: `Bearer ${(input.masterToken ?? "").trim() || input.token}`,
-  };
+  const masterToken = (input.masterToken ?? "").trim() || input.token;
+  const masterHeaders = { ...baseHeaders, authorization: `Bearer ${masterToken}` };
   /**
    * Só LEITURA (GET) do repositório do MASTER usa o token do MASTER. Escritas
    * em `/repos/{master}/generate` cria no destino e continua com o token da
@@ -1337,11 +1335,24 @@ export function createCodeClient(input: {
    */
   const readsMaster = (path: string, init?: RequestInit) =>
     (init?.method ?? "GET").toUpperCase() === "GET" && path.startsWith(`/repos/${master}`);
-  const rawApi = (path: string, init?: RequestInit) =>
-    doFetch(`https://api.github.com${path}`, {
-      ...init,
-      headers: readsMaster(path, init) ? masterHeaders : headers,
-    });
+  const rawApi = async (path: string, init?: RequestInit) => {
+    const masterRead = readsMaster(path, init);
+    const request = (requestHeaders: Record<string, string>) =>
+      doFetch(`https://api.github.com${path}`, {
+        ...init,
+        headers: requestHeaders,
+      });
+    const response = await request(masterRead ? masterHeaders : headers);
+    // O MASTER público não pode ficar indisponível porque um token válido está
+    // limitado ou não foi autorizado para esse repositório. Em 403/404,
+    // repetimos somente a leitura, sem autenticação; repositórios privados
+    // continuam falhando fechados com a resposta original.
+    if (masterRead && (response.status === 403 || response.status === 404)) {
+      const publicResponse = await request(baseHeaders);
+      if (publicResponse.ok) return publicResponse;
+    }
+    return response;
+  };
 
   /**
    * Limite de uso do GitHub atingido. `resetAt` (epoch em segundos) diz quando
@@ -2851,32 +2862,33 @@ export function createDeployClient(input: {
       }
     },
     async latestCommit() {
-      // O repositório do MASTER é privado: sem o token do GitHub a API responde
-      // 403. Melhor dizer o que falta do que devolver um HTTP cru.
       const gh = (input.githubToken ?? "").trim();
-      if (!gh) {
-        return {
-          ok: false,
-          error:
-            "Token do GitHub não configurado (UNITOS_GITHUB_TOKEN) — não é possível ler o commit do MASTER.",
-        };
-      }
       try {
-        const res = await doFetch(`https://api.github.com/repos/${masterRepo}/commits/main`, {
-          headers: {
-            accept: "application/vnd.github+json",
-            authorization: `Bearer ${gh}`,
-            "x-github-api-version": "2022-11-28",
-          },
-        });
+        const url = `https://api.github.com/repos/${masterRepo}/commits/main`;
+        const baseGithubHeaders = {
+          accept: "application/vnd.github+json",
+          "x-github-api-version": "2022-11-28",
+        };
+        const authenticated = gh
+          ? await doFetch(url, {
+              headers: { ...baseGithubHeaders, authorization: `Bearer ${gh}` },
+            })
+          : null;
+        const publicResponse =
+          !authenticated || authenticated.status === 403 || authenticated.status === 404
+            ? await doFetch(url, { headers: baseGithubHeaders })
+            : null;
+        const res = publicResponse?.ok ? publicResponse : (authenticated ?? publicResponse);
+        if (!res) return { ok: false, error: "resposta do GitHub não retornada" };
         if (!res.ok) {
+          const detail = (await res.text().catch(() => "")).slice(0, 200);
           const hint =
             res.status === 403 || res.status === 404
               ? " — verifique se o token tem acesso de leitura ao repositório do MASTER"
               : "";
           return {
             ok: false,
-            error: `HTTP ${res.status} ao consultar o commit do MASTER${hint}`,
+            error: `HTTP ${res.status} ao consultar o commit do MASTER${hint}${detail ? ` (${detail})` : ""}`,
           };
         }
         const body = (await res.json().catch(() => ({}))) as { sha?: string };
@@ -5217,7 +5229,8 @@ export function readAppliedMigrationLabels(
   const applied = new Set<string>();
   for (const row of rows) {
     if (row.kind !== "migration") continue;
-    const explicit = row.file && row.fingerprint ? `${String(row.file)}:${String(row.fingerprint)}` : "";
+    const explicit =
+      row.file && row.fingerprint ? `${String(row.file)}:${String(row.fingerprint)}` : "";
     const legacyLabel = typeof row.label === "string" ? row.label : "";
     if (canonical.has(explicit)) applied.add(explicit);
     else if (canonical.has(legacyLabel)) applied.add(legacyLabel);

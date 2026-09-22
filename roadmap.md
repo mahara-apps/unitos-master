@@ -138,6 +138,7 @@
 ## Reinstalação limpa da Taveira
 
 - [x] Preservar somente nome, domínio e identidade institucional confirmada na instalação atual.
+- [x] Impedir que um token limitado bloqueie a leitura pública do commit do MASTER (1.4.25).
 - [ ] Remover os recursos e o histórico técnico antigos na ordem segura, sem reaproveitar migrations legadas.
 - [x] Criar e provisionar uma instalação nova diretamente na versão MASTER vigente.
 - [ ] Validar RBAC, RLS, autenticação, domínio e identidade institucional antes da liberação.

@@ -3280,7 +3280,7 @@ REVOKE ALL ON FUNCTION public.normalize_legacy_installation_operations(integer) 
 GRANT EXECUTE ON FUNCTION public.normalize_legacy_installation_operations(integer) TO service_role;
 
 -- MASTER CONTROL-PLANE RELEASE
--- MASTER 1.4.24: estado e promoção atômica do próprio Control-plane.
+-- MASTER 1.4.25: estado e promoção atômica do próprio Control-plane.
 -- Não reutiliza instalações ou operações de clientes.
 
 CREATE TABLE IF NOT EXISTS public.control_plane_release_state (
@@ -3393,7 +3393,7 @@ REVOKE ALL ON FUNCTION public.promote_control_plane_release(bigint,text,text,tex
 GRANT EXECUTE ON FUNCTION public.promote_control_plane_release(bigint,text,text,text,text,text,text,jsonb,text) TO service_role;
 
 -- MASTER CLEAN INSTALLATION REPLACEMENT
--- MASTER 1.4.24: vínculo fail-closed para substituição limpa de instalações.
+-- MASTER 1.4.25: vínculo fail-closed para substituição limpa de instalações.
 -- Control-plane only. Nunca incluir no pacote Client.
 
 ALTER TABLE public.installations

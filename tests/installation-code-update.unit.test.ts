@@ -188,6 +188,44 @@ describe("atualização de código da instalação", () => {
     await expect(client.latestCommit()).resolves.toMatchObject({ ok: true, sha: "cafe1234567" });
   });
 
+  it("repete sem autenticação quando o token recebe 403 no MASTER público", async () => {
+    const calls: Array<{ authorization?: string }> = [];
+    const client = createDeployClient({
+      token: "t",
+      project: "p",
+      githubToken: "gh-limitado",
+      fetchImpl: async (_url, init) => {
+        const headers = (init?.headers ?? {}) as Record<string, string>;
+        calls.push({ authorization: headers.authorization });
+        if (headers.authorization) return new Response("forbidden", { status: 403 });
+        return Response.json({ sha: "public1234567" });
+      },
+    });
+
+    await expect(client.latestCommit()).resolves.toMatchObject({
+      ok: true,
+      sha: "public1234567",
+    });
+    expect(calls).toEqual([{ authorization: "Bearer gh-limitado" }, { authorization: undefined }]);
+  });
+
+  it("lê o MASTER público mesmo sem token configurado", async () => {
+    const client = createDeployClient({
+      token: "t",
+      project: "p",
+      fetchImpl: async (_url, init) => {
+        const headers = (init?.headers ?? {}) as Record<string, string>;
+        expect(headers.authorization).toBeUndefined();
+        return Response.json({ sha: "public7654321" });
+      },
+    });
+
+    await expect(client.latestCommit()).resolves.toMatchObject({
+      ok: true,
+      sha: "public7654321",
+    });
+  });
+
   it("lê o estado do deployment", async () => {
     const { impl } = fakeFetch([
       {
