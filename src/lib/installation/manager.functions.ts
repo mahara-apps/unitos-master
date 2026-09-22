@@ -655,6 +655,128 @@ export const createInstallationFn = createServerFn({ method: "POST" })
     return mapInstallation(row);
   });
 
+const CleanReplacementInput = z.object({
+  id: z.string().uuid(),
+  confirmLabel: z.string().min(1),
+  supabaseUrl: z.string().max(300).nullable().optional(),
+  supabaseProjectRef: z.string().max(120).nullable().optional(),
+  supabaseManagementToken: z.string().max(4096).transform((value) => value.trim()).refine(Boolean, {
+    message: "Informe o Supabase Access Token do projeto novo.",
+  }),
+  deployProject: z.string().min(1).max(200),
+  gitRepoUrl: z.string().max(300).nullable().optional(),
+});
+
+/**
+ * Abre uma substituição limpa sem tocar no ambiente atual. O cadastro novo
+ * nasce sem domínio para impedir cutover antecipado e recebe uma operação de
+ * provisionamento normal, diretamente no pacote MASTER vigente. O cadastro
+ * antigo só poderá ser aposentado por uma etapa posterior, após validação.
+ */
+export const createCleanInstallationReplacementFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => CleanReplacementInput.parse(input))
+  .handler(async ({ data, context }) => {
+    await mutationGuard(context);
+    const source = await assertCriticalInstallationConfirm(
+      context,
+      data.id,
+      data.confirmLabel,
+      "installation.clean_replacement",
+      { preserves: ["name", "domain", "institutional_identity"], migratesOperationalData: false },
+    );
+    await assertNoActiveInstallationOperation(context.supabase as never, data.id);
+
+    const { extractProjectRef } = await import("./automation-contract");
+    const newProjectRef = extractProjectRef({
+      supabaseProjectRef: data.supabaseProjectRef,
+      supabaseUrl: data.supabaseUrl,
+    });
+    if (!newProjectRef) throw new Error("Informe a URL ou o Project ref do projeto Supabase novo.");
+
+    const { data: current, error: currentError } = await context.supabase
+      .from("installations")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (currentError) throw currentError;
+    if (!current) throw new Error("Instalação não encontrada.");
+    const oldProjectRef = extractProjectRef({
+      supabaseProjectRef: current.supabase_project_ref,
+      supabaseUrl: current.supabase_url,
+    });
+    if (oldProjectRef && oldProjectRef === newProjectRef) {
+      throw new Error("Reinstalação limpa exige um projeto Supabase novo; o projeto atual foi recusado.");
+    }
+
+    await assertSupabaseManagementAccess({
+      token: data.supabaseManagementToken,
+      supabaseProjectRef: data.supabaseProjectRef,
+      supabaseUrl: data.supabaseUrl,
+    });
+    const { createManagementClient } = await import("./automation.server");
+    const management = createManagementClient({ token: data.supabaseManagementToken, projectRef: newProjectRef });
+    const emptyCheck = await management.query(
+      "select count(*)::int as object_count from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE'",
+    );
+    const objectCount = Number((emptyCheck.rows[0] as { object_count?: unknown } | undefined)?.object_count ?? NaN);
+    if (!emptyCheck.ok || !Number.isFinite(objectCount)) {
+      throw new Error(`Não foi possível confirmar que o projeto Supabase novo está vazio. ${emptyCheck.error ?? ""}`.trim());
+    }
+    if (objectCount !== 0) {
+      throw new Error(`O projeto Supabase informado não está vazio (${objectCount} tabela(s) em public). Nenhum dado foi alterado.`);
+    }
+
+    const suffix = newProjectRef.slice(0, 8);
+    const replacementName = `${String(current.name)} · nova ${suffix}`.slice(0, 120);
+    const validation = validateInstallationInput({
+      name: replacementName,
+      domain: null,
+      supabaseUrl: data.supabaseUrl,
+      supabaseProjectRef: data.supabaseProjectRef,
+      gitRepoUrl: data.gitRepoUrl,
+      deployProject: data.deployProject,
+      notes: current.notes,
+    });
+    if (!validation.ok) throw new Error(validation.error);
+
+    const { data: replacement, error: insertError } = await context.supabase
+      .from("installations")
+      .insert({
+        name: replacementName,
+        slug: validation.slug,
+        domain: null,
+        supabase_url: clean(data.supabaseUrl),
+        supabase_project_ref: clean(data.supabaseProjectRef) ?? newProjectRef,
+        git_repo_url: clean(data.gitRepoUrl),
+        deploy_project: clean(data.deployProject),
+        notes: clean(`Substituição limpa de ${current.name}. Identidade preservada: domínio ${current.domain ?? "não informado"}. Dados operacionais e usuários não migrados.`),
+        status: "preparing",
+        health: "unknown",
+        available_version: MASTER_RELEASE_VERSION,
+        requires_own_supabase_token: true,
+        created_by: context.userId,
+        clean_replacement_of: data.id,
+        pending_domain: current.domain,
+      })
+      .select("*")
+      .single();
+    if (insertError) throw insertError;
+
+    try {
+      const { saveInstallationCredentials } = await import("./credentials.server");
+      await saveInstallationCredentials(context.supabase, replacement.id, context.userId, {
+        supabaseManagementToken: data.supabaseManagementToken,
+      });
+      const started = await openAutomatedProvision(context, replacement.id);
+      if (started.result !== "STARTED") throw new Error(started.reasons.join(" | "));
+      return { replacement: mapInstallation(replacement), operationId: started.operationId };
+    } catch (error) {
+      await context.supabase.from("installations").delete().eq("id", replacement.id);
+      throw new Error(`A substituição limpa não foi aberta; o ambiente atual foi preservado. ${error instanceof Error ? error.message : String(error)}`);
+    }
+  });
+
 /**
  * Edição dos dados. O Supabase Access Token é opcional aqui: campo vazio
  * MANTÉM o token já guardado (nunca apaga por descuido). Se a gravação cifrada

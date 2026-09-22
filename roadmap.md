@@ -137,7 +137,7 @@
 
 ## Reinstalação limpa da Taveira
 
-- [ ] Preservar somente nome, domínio e identidade institucional confirmada na instalação atual.
+- [x] Preservar somente nome, domínio e identidade institucional confirmada na instalação atual.
 - [ ] Remover os recursos e o histórico técnico antigos na ordem segura, sem reaproveitar migrations legadas.
-- [ ] Criar e provisionar uma instalação nova diretamente na versão MASTER vigente.
+- [x] Criar e provisionar uma instalação nova diretamente na versão MASTER vigente.
 - [ ] Validar RBAC, RLS, autenticação, domínio e identidade institucional antes da liberação.

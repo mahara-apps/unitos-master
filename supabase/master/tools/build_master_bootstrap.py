@@ -16,6 +16,7 @@ P0_HARDENING = ROOT / "migrations" / "20260917190721_f04a7c59-5fbb-4ef3-aa75-044
 GLOBAL_FREEZE = ROOT / "master" / "002_control_plane_global_freeze.sql"
 DETERMINISTIC_UPDATE = ROOT / "master" / "003_control_plane_deterministic_update.sql"
 CONTROL_PLANE_RELEASE = ROOT / "master" / "004_control_plane_release_promotion.sql"
+CLEAN_REPLACEMENT = ROOT / "master" / "006_clean_installation_replacement.sql"
 RECOVERY_BUILDER = ROOT / "master" / "tools" / "build_master_recovery.py"
 OUT = ROOT / "master" / "bootstrap-control-plane.sql"
 METADATA = ROOT / "master" / "bootstrap-control-plane.json"
@@ -59,6 +60,7 @@ def build() -> tuple[str, str]:
     parts.extend(["-- MASTER GLOBAL FREEZE\n", GLOBAL_FREEZE.read_text(encoding="utf-8").rstrip() + "\n\n"])
     parts.extend(["-- MASTER DETERMINISTIC UPDATE\n", DETERMINISTIC_UPDATE.read_text(encoding="utf-8").rstrip() + "\n\n"])
     parts.extend(["-- MASTER CONTROL-PLANE RELEASE\n", CONTROL_PLANE_RELEASE.read_text(encoding="utf-8").rstrip() + "\n\n"])
+    parts.extend(["-- MASTER CLEAN INSTALLATION REPLACEMENT\n", CLEAN_REPLACEMENT.read_text(encoding="utf-8").rstrip() + "\n\n"])
     bootstrap = "".join(parts)
     metadata = json.dumps(
         {
@@ -77,6 +79,8 @@ def build() -> tuple[str, str]:
             "deterministicUpdateSha256": sha256(DETERMINISTIC_UPDATE.read_bytes()),
             "controlPlaneReleaseFile": CONTROL_PLANE_RELEASE.name,
             "controlPlaneReleaseSha256": sha256(CONTROL_PLANE_RELEASE.read_bytes()),
+            "cleanReplacementFile": CLEAN_REPLACEMENT.name,
+            "cleanReplacementSha256": sha256(CLEAN_REPLACEMENT.read_bytes()),
             "bootstrapFile": OUT.name,
             "bootstrapSha256": sha256(bootstrap.encode()),
         },
