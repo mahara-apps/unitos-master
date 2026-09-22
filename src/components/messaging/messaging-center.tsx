@@ -31,6 +31,7 @@ import {
 } from "@/lib/connections.functions";
 import { sendTestMessage } from "@/lib/message-templates.functions";
 import { getEmailChannelStatus } from "@/lib/email.functions";
+import type { EmailChannelStatus } from "@/lib/email.functions";
 import { emailSendErrorMessage } from "@/lib/email/resend-error-messages";
 import { EVENTS, getDefault, type Channel } from "@/lib/message-templates.catalog";
 import { cn } from "@/lib/utils";
@@ -271,7 +272,7 @@ function ProviderCard({
         {statusLoading ? (
           <Skeleton className="h-5 w-24 rounded-full" />
         ) : (
-          <StatusPill connected={connected} />
+          <StatusPill state={status?.state ?? "not_configured"} />
         )}
       </div>
 
@@ -279,7 +280,11 @@ function ProviderCard({
         <div className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-2">
           <dt className="text-muted-foreground">Credencial</dt>
           <dd className="truncate text-right font-medium">
-            {connected ? "Configurada" : "Nenhuma credencial configurada"}
+            {connected
+              ? status?.state === "ready"
+                ? "Configurada e validada"
+                : "Configurada — requer atenção"
+              : "Nenhuma credencial configurada"}
           </dd>
         </div>
         {connected && sender ? (
@@ -311,6 +316,7 @@ function ProviderCard({
         onOpenChange={setManageOpen}
         provider={provider}
         config={config}
+        status={status}
         brandId={brandId}
         onChanged={handleChanged}
       />
@@ -324,7 +330,9 @@ function ProviderCard({
   );
 }
 
-function StatusPill({ connected }: { connected: boolean }) {
+function StatusPill({ state }: { state: EmailChannelStatus["state"] }) {
+  const connected = state === "ready";
+  const pending = state === "pending" || state === "action_required";
   return (
     <Badge
       variant="outline"
@@ -332,17 +340,19 @@ function StatusPill({ connected }: { connected: boolean }) {
         "shrink-0 gap-1.5 text-[10px]",
         connected
           ? "border-health-good/40 bg-health-good/10 text-health-good"
-          : "text-muted-foreground",
+          : pending
+            ? "border-health-warning/40 bg-health-warning/10 text-health-warning"
+            : "text-muted-foreground",
       )}
     >
       <span
         aria-hidden
         className={cn(
           "h-1.5 w-1.5 rounded-full",
-          connected ? "bg-health-good" : "bg-muted-foreground/60",
+           connected ? "bg-health-good" : pending ? "bg-health-warning" : "bg-muted-foreground/60",
         )}
       />
-      {connected ? "Conectado" : "Não configurado"}
+      {connected ? "Pronto" : pending ? "Ação necessária" : "Não configurado"}
     </Badge>
   );
 }
@@ -352,6 +362,7 @@ function ManageProviderDialog({
   onOpenChange,
   provider,
   config,
+  status,
   brandId,
   onChanged,
 }: {
@@ -359,12 +370,13 @@ function ManageProviderDialog({
   onOpenChange: (v: boolean) => void;
   provider: ProviderDef;
   config?: ChannelConfig;
+  status?: EmailChannelStatus;
   brandId: string;
   onChanged: () => void;
 }) {
   const [apiKey, setApiKey] = useState("");
-  const [handle, setHandle] = useState(config?.handle ?? "");
-  const connected = !!config?.connected;
+  const [handle, setHandle] = useState(status?.from ?? config?.handle ?? "");
+  const connected = !!status?.configured || status?.state === "action_required";
 
   const saveFn = useServerFn(saveToolCredential);
   const removeFn = useServerFn(removeToolCredential);
@@ -413,7 +425,7 @@ function ManageProviderDialog({
           {connected && (
             <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs">
               <span className="text-muted-foreground">Credencial atual</span>
-              <span className="font-mono">{config?.handle || "••••••••"}</span>
+               <span className="font-mono">{status?.masked || "••••••••"}</span>
             </div>
           )}
           <div className="space-y-2">
@@ -461,7 +473,7 @@ function ManageProviderDialog({
             <Button
               size="sm"
               onClick={() => saveMut.mutate()}
-              disabled={saveMut.isPending || apiKey.trim().length < 4}
+               disabled={saveMut.isPending || apiKey.trim().length < 4 || !handle.trim()}
             >
               {saveMut.isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -400,6 +400,31 @@ export const saveToolCredential = createServerFn({ method: "POST" })
     const ciphertext = await encryptCredential(data.apiKey);
     const masked = maskCredential(data.apiKey);
 
+    if (data.provider === "resend") {
+      const { assertIntegrationAuthority } = await import("@/lib/access-guard");
+      await assertIntegrationAuthority(context.supabase, context.userId, data.brandId);
+      const { parseResendSender, validateResendConfiguration } = await import(
+        "@/lib/email/resend.server"
+      );
+      const sender = parseResendSender(data.metadata?.handle ?? "");
+      if (!sender) throw new Error("Informe um remetente válido, como Nome <email@dominio.com>.");
+      const validation = await validateResendConfiguration(data.apiKey.trim(), sender.domain);
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { callRpc } = await import("@/lib/supabase-rpc");
+      const { error } = await callRpc(supabaseAdmin, "save_installation_email_configuration", {
+        _ciphertext: ciphertext,
+        _masked: masked,
+        _email_from: sender.email,
+        _email_from_name: sender.name ?? "",
+        _validation_status: validation.status,
+        _validation_code: validation.code,
+        _verified_at: validation.verifiedAt,
+        _updated_by: context.userId,
+      });
+      if (error) throw error;
+      return { ok: true, masked, validationStatus: validation.status };
+    }
+
     const { error: credErr } = await context.supabase.from("brand_api_credentials").upsert(
       {
         brand_id: data.brandId,
@@ -444,6 +469,15 @@ export const removeToolCredential = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => RemoveToolInput.parse(input))
   .handler(async ({ data, context }) => {
+    if (data.provider === "resend") {
+      const { assertIntegrationAuthority } = await import("@/lib/access-guard");
+      await assertIntegrationAuthority(context.supabase, context.userId, data.brandId);
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { callRpc } = await import("@/lib/supabase-rpc");
+      const { error } = await callRpc(supabaseAdmin, "remove_installation_email_configuration");
+      if (error) throw error;
+      return { ok: true };
+    }
     await context.supabase
       .from("brand_api_credentials")
       .delete()
