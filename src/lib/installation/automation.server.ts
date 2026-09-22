@@ -4647,7 +4647,7 @@ export async function runAutomatedProvision(input: {
       });
     }
     let redeployed: Awaited<ReturnType<DeployClient["deployLatestCode"]>> = deploymentId
-      ? { ok: true, deploymentId, source: deploymentSource }
+      ? { ok: true, deploymentId, source: "git" }
       : await deploy.deployLatestCode({ sha: provisionCommitSha });
     if (redeployed.ok && redeployed.deploymentId && !deploymentId) {
       deploymentId = redeployed.deploymentId;
