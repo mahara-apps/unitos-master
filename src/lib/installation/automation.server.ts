@@ -5194,6 +5194,54 @@ export function splitDeltaMigrations(sql: string): DeltaMigration[] {
   });
 }
 
+type DeltaLedgerRow = {
+  kind?: unknown;
+  label?: unknown;
+  file?: unknown;
+  fingerprint?: unknown;
+};
+
+/**
+ * Aceita tanto o ledger atual (file + fingerprint em colunas) quanto o ledger
+ * incremental anterior, que gravava a mesma identidade canônica somente em
+ * `label`. O rótulo só vale quando coincide exatamente com uma migration do
+ * pacote fixado; nomes ou fingerprints desconhecidos não viram evidência.
+ */
+export function readAppliedMigrationLabels(
+  rows: DeltaLedgerRow[],
+  migrations: DeltaMigration[],
+): Set<string> {
+  const canonical = new Set(
+    migrations.map((migration) => `${migration.file}:${migration.fingerprint}`),
+  );
+  const applied = new Set<string>();
+  for (const row of rows) {
+    if (row.kind !== "migration") continue;
+    const explicit = row.file && row.fingerprint ? `${String(row.file)}:${String(row.fingerprint)}` : "";
+    const legacyLabel = typeof row.label === "string" ? row.label : "";
+    if (canonical.has(explicit)) applied.add(explicit);
+    else if (canonical.has(legacyLabel)) applied.add(legacyLabel);
+  }
+  return applied;
+}
+
+export function needsLegacyBlobReconciliation(
+  hasLegacyBlob: boolean,
+  appliedLabels: Set<string>,
+  migrations: DeltaMigration[],
+): boolean {
+  if (!hasLegacyBlob) return false;
+  const highestApplied = migrations.reduce(
+    (highest, migration, index) =>
+      appliedLabels.has(`${migration.file}:${migration.fingerprint}`) ? index : highest,
+    -1,
+  );
+  if (highestApplied < 0) return true;
+  return migrations
+    .slice(0, highestApplied + 1)
+    .some((migration) => !appliedLabels.has(`${migration.file}:${migration.fingerprint}`));
+}
+
 async function seedDeltaLedger(
   management: Pick<ManagementClient, "query">,
   migrations: DeltaMigration[],
@@ -5728,7 +5776,7 @@ export async function applyDatabaseDelta(input: {
       detail: `banco da instalação inacessível: ${ledgerSetup.error ?? "falha"}`,
     };
   const ledger = await management.query(
-    "select label, file, fingerprint from public._unitos_applied_deltas order by applied_at, label",
+    "select kind, label, file, fingerprint from public._unitos_applied_deltas order by applied_at, label",
   );
   if (!ledger.ok) {
     return {
@@ -5736,13 +5784,10 @@ export async function applyDatabaseDelta(input: {
       detail: `banco da instalação inacessível: ${ledger.error ?? "falha"}`,
     };
   }
-  const appliedLabels = new Set(
-    ledger.rows
-      .filter((row): row is Record<string, unknown> => !!row && typeof row === "object")
-      .filter((row) => Boolean(row["file"] && row["fingerprint"]))
-      .map((row) => `${String(row["file"])}:${String(row["fingerprint"])}`)
-      .filter(Boolean),
+  const ledgerRows = ledger.rows.filter(
+    (row): row is Record<string, unknown> => !!row && typeof row === "object",
   );
+  const appliedLabels = readAppliedMigrationLabels(ledgerRows, migrations);
   const hasLegacyBlob = ledger.rows.some(
     (row) =>
       !!row &&
@@ -5752,7 +5797,7 @@ export async function applyDatabaseDelta(input: {
       ) &&
       !(row as Record<string, unknown>)["file"],
   );
-  if (hasLegacyBlob) {
+  if (needsLegacyBlobReconciliation(hasLegacyBlob, appliedLabels, migrations)) {
     const legacy = await reconcileLegacyMigrationMarker(
       management,
       client,

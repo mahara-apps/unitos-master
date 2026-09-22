@@ -8,6 +8,8 @@ import {
   deltaProgressKey,
   generateDeltaManifest,
   INCREMENTAL_LEDGER_CUTOVER_FILE,
+  needsLegacyBlobReconciliation,
+  readAppliedMigrationLabels,
   recoverLegacyCanonicalManifest,
   splitDeltaMigrations,
   validateCanonicalPackage,
@@ -86,8 +88,48 @@ select 2;`;
     expect(source).toContain("reconcileLegacyMigrationMarker");
     expect(source).toContain("buildLegacyReconciliationInspectionSql");
     expect(source).not.toContain("for (const item of historical) appliedLabels.add");
-    expect(source).toContain("if (hasLegacyBlob) {");
+    expect(source).toContain("needsLegacyBlobReconciliation(hasLegacyBlob");
     expect(source).not.toContain("hasLegacyBlob && appliedLabels.size === 0");
+  });
+
+  it("recupera a identidade incremental antiga somente quando o rótulo coincide com o pacote", () => {
+    const migrations = splitDeltaMigrations(packageSql);
+    const first = migrations[0];
+    const second = migrations[1];
+    expect(first).toBeDefined();
+    expect(second).toBeDefined();
+    if (!first || !second) return;
+    const applied = readAppliedMigrationLabels(
+      [
+        { kind: "migration", label: `${first.file}:${first.fingerprint}`, file: first.file },
+        { kind: "migration", label: `${second.file}:fingerprint-incorreto`, file: second.file },
+        { kind: "blob", label: `${second.file}:${second.fingerprint}`, file: second.file },
+      ],
+      migrations,
+    );
+    expect(applied).toEqual(new Set([`${first.file}:${first.fingerprint}`]));
+  });
+
+  it("dispensa a reconciliação por heurística quando o trecho histórico tem identidade contínua", () => {
+    const migrations = splitDeltaMigrations(packageSql);
+    const labels = new Set(migrations.map((item) => `${item.file}:${item.fingerprint}`));
+    expect(needsLegacyBlobReconciliation(true, labels, migrations)).toBe(false);
+    expect(needsLegacyBlobReconciliation(false, new Set(), migrations)).toBe(false);
+  });
+
+  it("mantém falha fechada quando o ledger histórico tem lacuna ou nenhuma identidade", () => {
+    const migrations = splitDeltaMigrations(packageSql);
+    const second = migrations[1];
+    expect(second).toBeDefined();
+    if (!second) return;
+    expect(
+      needsLegacyBlobReconciliation(
+        true,
+        new Set([`${second.file}:${second.fingerprint}`]),
+        migrations,
+      ),
+    ).toBe(true);
+    expect(needsLegacyBlobReconciliation(true, new Set(), migrations)).toBe(true);
   });
 
   it("bloqueia progresso Master concluído sem confirmação equivalente no ledger Client", () => {
