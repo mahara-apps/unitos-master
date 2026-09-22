@@ -6,8 +6,6 @@ import { toast } from "sonner";
 import {
   ArrowDownToLine,
   ArrowLeft,
-  ArrowRight,
-  CirclePlus,
   CheckCircle2,
   Copy,
   Loader2,
@@ -24,8 +22,6 @@ import {
 
 import {
   cancelInstallationOperationFn,
-  activateCleanInstallationReplacementFn,
-  createCleanInstallationReplacementFn,
   completeInstallationOperationFn,
   getInstallationFn,
   getAutomationCapabilityFn,
@@ -174,23 +170,6 @@ type EditForm = {
   notes: string;
 };
 
-type CleanReplacementForm = {
-  supabaseUrl: string;
-  supabaseManagementToken: string;
-  environmentName: string;
-};
-
-function supabaseProjectRefFromUrl(value: string): string {
-  const match = value.trim().match(/^https:\/\/([a-z0-9]+)\.supabase\.co\/?$/i);
-  return match?.[1]?.toLowerCase() ?? "";
-}
-
-function githubOwnerFromUrl(value: string | null): string {
-  if (!value) return "";
-  const match = value.match(/^https:\/\/github\.com\/([^/]+)\/[^/]+\/?$/i);
-  return match?.[1] ?? "";
-}
-
 const EMPTY_FORM: EditForm = {
   name: "",
   domain: "",
@@ -242,8 +221,6 @@ function InstallationDetailPage() {
   const editFn = useServerFn(updateInstallationFn);
   const removeFn = useServerFn(deleteInstallationFn);
   const serviceStateFn = useServerFn(setInstallationServiceStateFn);
-  const cleanReplacementFn = useServerFn(createCleanInstallationReplacementFn);
-  const activateReplacementFn = useServerFn(activateCleanInstallationReplacementFn);
 
   const [runCommand, setRunCommand] = useState<string | null>(null);
   const [critical, setCritical] = useState<{
@@ -261,13 +238,6 @@ function InstallationDetailPage() {
 
   const [updateOpen, setUpdateOpen] = useState(false);
   const [provisionOpen, setProvisionOpen] = useState(false);
-  const [cleanReplacementOpen, setCleanReplacementOpen] = useState(false);
-  const [cleanReplacementStep, setCleanReplacementStep] = useState<1 | 2 | 3>(1);
-  const [cleanReplacement, setCleanReplacement] = useState<CleanReplacementForm>({
-    supabaseUrl: "",
-    supabaseManagementToken: "",
-    environmentName: "",
-  });
   const [opsPageRaw, setOpsPage] = useState(1);
   const [tab, setTab] = useState<TabValue>(tabParam ?? "visao");
 
@@ -493,41 +463,6 @@ function InstallationDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const replaceCleanly = useMutation({
-    mutationFn: (input: {
-      confirmLabel: string;
-      projectRef: string;
-      deployProject: string;
-      gitRepoUrl: string;
-    }) =>
-      cleanReplacementFn({
-        data: {
-          id,
-          confirmLabel: input.confirmLabel,
-          supabaseUrl: cleanReplacement.supabaseUrl || null,
-          supabaseProjectRef: input.projectRef || null,
-          supabaseManagementToken: cleanReplacement.supabaseManagementToken,
-          deployProject: input.deployProject,
-          gitRepoUrl: input.gitRepoUrl || null,
-        },
-      }),
-    onSuccess: (result) => {
-      toast.success(
-        "Reinstalação limpa iniciada em ambiente separado; a instalação atual foi preservada.",
-      );
-      void navigate({ to: "/admin/instalacoes/$id", params: { id: result.replacement.id } });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  const activateReplacement = useMutation({
-    mutationFn: (confirmLabel: string) => activateReplacementFn({ data: { id, confirmLabel } }),
-    onSuccess: () => {
-      toast.success("Substituição limpa liberada; domínio transferido e cadastro antigo removido.");
-      void qc.invalidateQueries({ queryKey: ["installations"] });
-      void navigate({ to: "/admin/instalacoes" });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const serviceState = useMutation({
     mutationFn: (input: { state: "active" | "suspended"; reason?: string; confirmLabel: string }) =>
@@ -621,23 +556,6 @@ function InstallationDetailPage() {
   const updatePending =
     inst.updateAvailable ||
     (!!masterVersion.data?.commitSha && inst.pinnedCommitSha !== masterVersion.data.commitSha);
-  const cleanProjectRef = supabaseProjectRefFromUrl(cleanReplacement.supabaseUrl);
-  const cleanEnvironmentName = cleanReplacement.environmentName.trim().toLowerCase();
-  const cleanGithubOwner = githubOwnerFromUrl(inst.gitRepoUrl);
-  const cleanRepoUrl = cleanGithubOwner
-    ? `https://github.com/${cleanGithubOwner}/${cleanEnvironmentName}`
-    : "";
-
-  const openCleanReplacement = () => {
-    setCleanReplacementStep(1);
-    setCleanReplacement({
-      supabaseUrl: "",
-      supabaseManagementToken: "",
-      environmentName: `${inst.slug}-novo`,
-    });
-    setCleanReplacementOpen(true);
-  };
-
   const openEdit = () => {
     setForm({
       name: inst.name,
@@ -814,34 +732,6 @@ function InstallationDetailPage() {
                 >
                   <Rocket className="mr-2 h-3.5 w-3.5" /> Reprovisionar instalação…
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={!!activeOp || replaceCleanly.isPending}
-                  onClick={openCleanReplacement}
-                >
-                  <CirclePlus className="mr-2 h-3.5 w-3.5" /> Substituir por instalação nova…
-                </DropdownMenuItem>
-                {inst.cleanReplacementOf && inst.pendingDomain ? (
-                  <DropdownMenuItem
-                    disabled={
-                      !!activeOp ||
-                      activateReplacement.isPending ||
-                      inst.health !== "healthy" ||
-                      inst.currentVersion !== inst.availableVersion
-                    }
-                    onClick={() =>
-                      askCritical(
-                        "installation.clean_replacement",
-                        (confirmLabel) => activateReplacement.mutate(confirmLabel),
-                        [
-                          { label: "Domínio a transferir", value: inst.pendingDomain },
-                          { label: "Pré-condição", value: "provisionamento e verificações PASS" },
-                        ],
-                      )
-                    }
-                  >
-                    <ShieldCheck className="mr-2 h-3.5 w-3.5" /> Liberar substituição validada…
-                  </DropdownMenuItem>
-                ) : null}
                 <DropdownMenuItem
                   disabled={
                     !!activeOp ||
