@@ -11,7 +11,7 @@ FUNCTIONS=['read_installation_operations_freeze()','set_installation_operations_
 TRIGGERS=[f'installation_operations_freeze_guard@{x}' for x in ['installations','installation_credentials','installation_operations','installation_operation_attempts','installation_operation_steps','installation_operation_outbox','installation_operation_migrations','installation_migration_reconciliation_evidence']]
 def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
 def build():
- d={'schemaVersion':1,'releaseVersion':'1.4.24','files':{p.name:sha(p) for p in FILES},'tables':TABLES,'functions':FUNCTIONS,'triggers':TRIGGERS}
+ d={'schemaVersion':1,'releaseVersion':'1.4.25','files':{p.name:sha(p) for p in FILES},'tables':TABLES,'functions':FUNCTIONS,'triggers':TRIGGERS}
  return json.dumps(d,indent=2,sort_keys=True)+'\n'
 def main():
  ap=argparse.ArgumentParser(); ap.add_argument('--check',action='store_true'); a=ap.parse_args(); data=build()
