@@ -508,7 +508,8 @@ export async function finalizeOperation(
           { _replacement_id: op.installation_id, _operation_id: op.id },
         );
         if (cutoverError) throw cutoverError;
-        if (cutover !== true) throw new Error("A finalização atômica da substituição limpa foi recusada.");
+        if (cutover !== true)
+          throw new Error("A finalização atômica da substituição limpa foi recusada.");
       }
     }
     if (kind === "provision" && !acceptedSuccess) {
@@ -528,7 +529,8 @@ export async function finalizeOperation(
           { _replacement_id: op.installation_id },
         );
         if (rollbackError) throw rollbackError;
-        if (rolledBack !== true) throw new Error("O rollback do domínio após falha não foi confirmado.");
+        if (rolledBack !== true)
+          throw new Error("O rollback do domínio após falha não foi confirmado.");
       }
     }
     return;

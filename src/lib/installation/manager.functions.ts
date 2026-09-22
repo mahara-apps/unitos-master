@@ -664,9 +664,13 @@ const CleanReplacementInput = z.object({
   confirmLabel: z.string().min(1),
   supabaseUrl: z.string().max(300).nullable().optional(),
   supabaseProjectRef: z.string().max(120).nullable().optional(),
-  supabaseManagementToken: z.string().max(4096).transform((value) => value.trim()).refine(Boolean, {
-    message: "Informe o Supabase Access Token do projeto novo.",
-  }),
+  supabaseManagementToken: z
+    .string()
+    .max(4096)
+    .transform((value) => value.trim())
+    .refine(Boolean, {
+      message: "Informe o Supabase Access Token do projeto novo.",
+    }),
   deployProject: z.string().min(1).max(200),
   gitRepoUrl: z.string().max(300).nullable().optional(),
 });
@@ -710,7 +714,9 @@ export const createCleanInstallationReplacementFn = createServerFn({ method: "PO
       supabaseUrl: current.supabase_url,
     });
     if (oldProjectRef && oldProjectRef === newProjectRef) {
-      throw new Error("Reinstalação limpa exige um projeto Supabase novo; o projeto atual foi recusado.");
+      throw new Error(
+        "Reinstalação limpa exige um projeto Supabase novo; o projeto atual foi recusado.",
+      );
     }
 
     await assertSupabaseManagementAccess({
@@ -719,7 +725,10 @@ export const createCleanInstallationReplacementFn = createServerFn({ method: "PO
       supabaseUrl: data.supabaseUrl,
     });
     const { createManagementClient } = await import("./automation.server");
-    const management = createManagementClient({ token: data.supabaseManagementToken, projectRef: newProjectRef });
+    const management = createManagementClient({
+      token: data.supabaseManagementToken,
+      projectRef: newProjectRef,
+    });
     const emptyCheck = await management.query(
       `select
         (select count(*)::int from information_schema.tables where table_schema='public' and table_type='BASE TABLE') as public_tables,
@@ -735,7 +744,9 @@ export const createCleanInstallationReplacementFn = createServerFn({ method: "PO
       storageObjects: Number(emptyRow?.storage_objects ?? NaN),
     };
     if (!emptyCheck.ok || Object.values(counts).some((count) => !Number.isFinite(count))) {
-      throw new Error(`Não foi possível confirmar que o projeto Supabase novo está vazio. ${emptyCheck.error ?? ""}`.trim());
+      throw new Error(
+        `Não foi possível confirmar que o projeto Supabase novo está vazio. ${emptyCheck.error ?? ""}`.trim(),
+      );
     }
     if (Object.values(counts).some((count) => count !== 0)) {
       throw new Error(
@@ -766,7 +777,9 @@ export const createCleanInstallationReplacementFn = createServerFn({ method: "PO
         supabase_project_ref: clean(data.supabaseProjectRef) ?? newProjectRef,
         git_repo_url: clean(data.gitRepoUrl),
         deploy_project: clean(data.deployProject),
-        notes: clean(`Substituição limpa de ${current.name}. Identidade preservada: domínio ${current.domain ?? "não informado"}. Dados operacionais e usuários não migrados.`),
+        notes: clean(
+          `Substituição limpa de ${current.name}. Identidade preservada: domínio ${current.domain ?? "não informado"}. Dados operacionais e usuários não migrados.`,
+        ),
         status: "preparing",
         health: "unknown",
         available_version: MASTER_RELEASE_VERSION,
@@ -789,7 +802,9 @@ export const createCleanInstallationReplacementFn = createServerFn({ method: "PO
       return { replacement: mapInstallation(replacement), operationId: started.operationId };
     } catch (error) {
       await context.supabase.from("installations").delete().eq("id", replacement.id);
-      throw new Error(`A substituição limpa não foi aberta; o ambiente atual foi preservado. ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `A substituição limpa não foi aberta; o ambiente atual foi preservado. ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   });
 
@@ -834,7 +849,9 @@ export const activateCleanInstallationReplacementFn = createServerFn({ method: "
         { _replacement_id: data.id },
       );
       if (rolledBack.error || rolledBack.data !== true) {
-        throw new Error("A ativação não iniciou e o rollback do domínio não foi confirmado; revisão manual obrigatória.");
+        throw new Error(
+          "A ativação não iniciou e o rollback do domínio não foi confirmado; revisão manual obrigatória.",
+        );
       }
       throw error;
     }
