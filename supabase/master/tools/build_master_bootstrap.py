@@ -41,7 +41,7 @@ def build() -> tuple[str, str]:
         raise SystemExit("gerador do manifesto de recuperação ausente")
     files = [entry["file"] for entry in document["migrations"] if entry["destination"] == "control-plane"]
     if (
-        len(files) != 32
+        len(files) != 33
         or INSERT_BEFORE not in files
         or RECONCILIATION.name not in files
         or P0_HARDENING.name not in files
