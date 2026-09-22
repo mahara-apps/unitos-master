@@ -17,7 +17,8 @@ WITH expected_tables(name) AS (VALUES
   ('installation_operation_steps','operation_id'), ('installation_operation_steps','step_key'),
   ('installation_operation_steps','position'), ('installation_operation_steps','state'),
   ('installation_operation_outbox','operation_id'), ('installation_operation_outbox','deduplication_key'),
-  ('installation_operation_outbox','status'), ('installation_operation_outbox','available_at')
+  ('installation_operation_outbox','status'), ('installation_operation_outbox','available_at'),
+  ('installations','clean_replacement_of'), ('installations','pending_domain')
 ), expected_functions(signature) AS (VALUES
   ('start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamp with time zone,uuid)'),
   ('claim_stale_installation_operations(text,integer,integer)'),
@@ -38,6 +39,7 @@ WITH expected_tables(name) AS (VALUES
   ,('set_installation_operations_freeze(boolean,text,text,bigint)')
   ,('guard_installation_operations_freeze()')
   ,('promote_control_plane_release(bigint,text,text,text,text,text,text,jsonb,text)')
+  ,('prepare_clean_installation_replacement_cutover(uuid,text)')
 ), checks AS (
   SELECT 1 AS ord, 'Master: tabelas Control-plane ativas' AS check_name,
     coalesce(string_agg(name, ', ' ORDER BY name) FILTER (WHERE to_regclass('public.' || name) IS NULL), 'todas presentes') AS observed,
@@ -101,7 +103,7 @@ WITH expected_tables(name) AS (VALUES
     'installation_operation_steps_touch_updated_at','installation_operation_outbox_disable_legacy',
     'installation_operations_freeze_guard')
   UNION ALL
-  SELECT 10, 'Master: RPCs durable restritas', count(*)::text || '/19', CASE WHEN count(*)=19 THEN 'PASS' ELSE 'FAIL' END
+  SELECT 10, 'Master: RPCs durable restritas', count(*)::text || '/20', CASE WHEN count(*)=20 THEN 'PASS' ELSE 'FAIL' END
   FROM expected_functions e JOIN pg_proc p ON p.oid=to_regprocedure('public.'||e.signature)
   WHERE p.prosecdef AND position('public' in pg_get_functiondef(p.oid))>0
     AND has_function_privilege('service_role',p.oid,'EXECUTE')

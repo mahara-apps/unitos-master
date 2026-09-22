@@ -79,6 +79,8 @@ export type InstallationRecord = {
   healthChecks: Record<HealthCheckId, HealthCheckResult>;
   healthCheckedAt: string | null;
   activeOperationId: string | null;
+  cleanReplacementOf: string | null;
+  pendingDomain: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -166,6 +168,8 @@ function mapInstallation(row: any): InstallationRecord {
     healthChecks: normalizeHealthChecks(row.health_checks),
     healthCheckedAt: row.health_checked_at ?? null,
     activeOperationId: row.active_operation_id ?? null,
+    cleanReplacementOf: row.clean_replacement_of ?? null,
+    pendingDomain: row.pending_domain ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -653,6 +657,188 @@ export const createInstallationFn = createServerFn({ method: "POST" })
     });
 
     return mapInstallation(row);
+  });
+
+const CleanReplacementInput = z.object({
+  id: z.string().uuid(),
+  confirmLabel: z.string().min(1),
+  supabaseUrl: z.string().max(300).nullable().optional(),
+  supabaseProjectRef: z.string().max(120).nullable().optional(),
+  supabaseManagementToken: z
+    .string()
+    .max(4096)
+    .transform((value) => value.trim())
+    .refine(Boolean, {
+      message: "Informe o Supabase Access Token do projeto novo.",
+    }),
+  deployProject: z.string().min(1).max(200),
+  gitRepoUrl: z.string().max(300).nullable().optional(),
+});
+
+/**
+ * Abre uma substituição limpa sem tocar no ambiente atual. O cadastro novo
+ * nasce sem domínio para impedir cutover antecipado e recebe uma operação de
+ * provisionamento normal, diretamente no pacote MASTER vigente. O cadastro
+ * antigo só poderá ser aposentado por uma etapa posterior, após validação.
+ */
+export const createCleanInstallationReplacementFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => CleanReplacementInput.parse(input))
+  .handler(async ({ data, context }) => {
+    await mutationGuard(context);
+    await assertCriticalInstallationConfirm(
+      context,
+      data.id,
+      data.confirmLabel,
+      "installation.clean_replacement",
+      { preserves: ["name", "domain", "institutional_identity"], migratesOperationalData: false },
+    );
+    await assertNoActiveInstallationOperation(context.supabase as never, data.id);
+
+    const { extractProjectRef } = await import("./automation-contract");
+    const newProjectRef = extractProjectRef({
+      supabaseProjectRef: data.supabaseProjectRef,
+      supabaseUrl: data.supabaseUrl,
+    });
+    if (!newProjectRef) throw new Error("Informe a URL ou o Project ref do projeto Supabase novo.");
+
+    const { data: current, error: currentError } = await context.supabase
+      .from("installations")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (currentError) throw currentError;
+    if (!current) throw new Error("Instalação não encontrada.");
+    const oldProjectRef = extractProjectRef({
+      supabaseProjectRef: current.supabase_project_ref,
+      supabaseUrl: current.supabase_url,
+    });
+    if (oldProjectRef && oldProjectRef === newProjectRef) {
+      throw new Error(
+        "Reinstalação limpa exige um projeto Supabase novo; o projeto atual foi recusado.",
+      );
+    }
+
+    await assertSupabaseManagementAccess({
+      token: data.supabaseManagementToken,
+      supabaseProjectRef: data.supabaseProjectRef,
+      supabaseUrl: data.supabaseUrl,
+    });
+    const { createManagementClient } = await import("./automation.server");
+    const management = createManagementClient({
+      token: data.supabaseManagementToken,
+      projectRef: newProjectRef,
+    });
+    const emptyCheck = await management.query(
+      `select
+        (select count(*)::int from information_schema.tables where table_schema='public' and table_type='BASE TABLE') as public_tables,
+        (select count(*)::int from auth.users) as auth_users,
+        (select count(*)::int from storage.objects) as storage_objects`,
+    );
+    const emptyRow = emptyCheck.rows[0] as
+      | { public_tables?: unknown; auth_users?: unknown; storage_objects?: unknown }
+      | undefined;
+    const counts = {
+      publicTables: Number(emptyRow?.public_tables ?? NaN),
+      authUsers: Number(emptyRow?.auth_users ?? NaN),
+      storageObjects: Number(emptyRow?.storage_objects ?? NaN),
+    };
+    if (!emptyCheck.ok || Object.values(counts).some((count) => !Number.isFinite(count))) {
+      throw new Error(
+        `Não foi possível confirmar que o projeto Supabase novo está vazio. ${emptyCheck.error ?? ""}`.trim(),
+      );
+    }
+    if (Object.values(counts).some((count) => count !== 0)) {
+      throw new Error(
+        `O projeto Supabase informado não está vazio (${counts.publicTables} tabela(s) em public, ${counts.authUsers} usuário(s), ${counts.storageObjects} arquivo(s)). Nenhum dado foi alterado.`,
+      );
+    }
+
+    const suffix = newProjectRef.slice(0, 8);
+    const replacementName = `${String(current.name)} · nova ${suffix}`.slice(0, 120);
+    const validation = validateInstallationInput({
+      name: replacementName,
+      domain: null,
+      supabaseUrl: data.supabaseUrl,
+      supabaseProjectRef: data.supabaseProjectRef,
+      gitRepoUrl: data.gitRepoUrl,
+      deployProject: data.deployProject,
+      notes: current.notes,
+    });
+    if (!validation.ok) throw new Error(validation.error);
+
+    const { data: replacement, error: insertError } = await context.supabase
+      .from("installations")
+      .insert({
+        name: replacementName,
+        slug: validation.slug,
+        domain: null,
+        supabase_url: clean(data.supabaseUrl),
+        supabase_project_ref: clean(data.supabaseProjectRef) ?? newProjectRef,
+        git_repo_url: clean(data.gitRepoUrl),
+        deploy_project: clean(data.deployProject),
+        notes: clean(
+          `Substituição limpa de ${current.name}. Identidade preservada: domínio ${current.domain ?? "não informado"}. Dados operacionais e usuários não migrados.`,
+        ),
+        status: "preparing",
+        health: "unknown",
+        available_version: MASTER_RELEASE_VERSION,
+        requires_own_supabase_token: true,
+        created_by: context.userId,
+        clean_replacement_of: data.id,
+        pending_domain: current.domain,
+      } as never)
+      .select("*")
+      .single();
+    if (insertError) throw insertError;
+
+    try {
+      const { saveInstallationCredentials } = await import("./credentials.server");
+      await saveInstallationCredentials(context.supabase, replacement.id, context.userId, {
+        supabaseManagementToken: data.supabaseManagementToken,
+      });
+      const started = await openAutomatedProvision(context, replacement.id);
+      if (started.result !== "STARTED") throw new Error(started.reasons.join(" | "));
+      return { replacement: mapInstallation(replacement), operationId: started.operationId };
+    } catch (error) {
+      await context.supabase.from("installations").delete().eq("id", replacement.id);
+      throw new Error(
+        `A substituição limpa não foi aberta; o ambiente atual foi preservado. ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  });
+
+/**
+ * Segunda confirmação da troca limpa. Só aceita uma substituição já
+ * provisionada e saudável. O domínio é transferido pelo Control-plane depois
+ * da validação; o cadastro antigo é removido na mesma transação atômica.
+ */
+export const activateCleanInstallationReplacementFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid(), confirmLabel: z.string().min(1) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await mutationGuard(context);
+    await assertCriticalInstallationConfirm(
+      context,
+      data.id,
+      data.confirmLabel,
+      "installation.clean_replacement",
+      { phase: "domain_cutover_after_verified_staging" },
+    );
+    await assertNoActiveInstallationOperation(context.supabase as never, data.id);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { callRpc } = await import("@/lib/supabase-rpc");
+    const prepared = await callRpc<Record<string, unknown>>(
+      supabaseAdmin as never,
+      "prepare_clean_installation_replacement_cutover",
+      { _replacement_id: data.id, _expected_release: MASTER_RELEASE_VERSION },
+    );
+    if (prepared.error) throw prepared.error;
+    if (!prepared.data) throw new Error("A substituição limpa não foi ativada.");
+    return { result: "ACTIVATED" as const, replacementId: data.id };
   });
 
 /**

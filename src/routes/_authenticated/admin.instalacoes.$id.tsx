@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   ArrowDownToLine,
   ArrowLeft,
+  CirclePlus,
   CheckCircle2,
   Copy,
   Loader2,
@@ -22,6 +23,8 @@ import {
 
 import {
   cancelInstallationOperationFn,
+  activateCleanInstallationReplacementFn,
+  createCleanInstallationReplacementFn,
   completeInstallationOperationFn,
   getInstallationFn,
   getAutomationCapabilityFn,
@@ -221,6 +224,8 @@ function InstallationDetailPage() {
   const editFn = useServerFn(updateInstallationFn);
   const removeFn = useServerFn(deleteInstallationFn);
   const serviceStateFn = useServerFn(setInstallationServiceStateFn);
+  const cleanReplacementFn = useServerFn(createCleanInstallationReplacementFn);
+  const activateReplacementFn = useServerFn(activateCleanInstallationReplacementFn);
 
   const [runCommand, setRunCommand] = useState<string | null>(null);
   const [critical, setCritical] = useState<{
@@ -238,6 +243,14 @@ function InstallationDetailPage() {
 
   const [updateOpen, setUpdateOpen] = useState(false);
   const [provisionOpen, setProvisionOpen] = useState(false);
+  const [cleanReplacementOpen, setCleanReplacementOpen] = useState(false);
+  const [cleanReplacement, setCleanReplacement] = useState({
+    supabaseUrl: "",
+    supabaseProjectRef: "",
+    supabaseManagementToken: "",
+    deployProject: "",
+    gitRepoUrl: "",
+  });
   const [opsPageRaw, setOpsPage] = useState(1);
   const [tab, setTab] = useState<TabValue>(tabParam ?? "visao");
 
@@ -457,6 +470,37 @@ function InstallationDetailPage() {
     mutationFn: (confirmLabel: string) => removeFn({ data: { id, confirmLabel } }),
     onSuccess: () => {
       toast.success("Instalação removida do painel.");
+      void qc.invalidateQueries({ queryKey: ["installations"] });
+      void navigate({ to: "/admin/instalacoes" });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const replaceCleanly = useMutation({
+    mutationFn: (confirmLabel: string) =>
+      cleanReplacementFn({
+        data: {
+          id,
+          confirmLabel,
+          supabaseUrl: cleanReplacement.supabaseUrl || null,
+          supabaseProjectRef: cleanReplacement.supabaseProjectRef || null,
+          supabaseManagementToken: cleanReplacement.supabaseManagementToken,
+          deployProject: cleanReplacement.deployProject,
+          gitRepoUrl: cleanReplacement.gitRepoUrl || null,
+        },
+      }),
+    onSuccess: (result) => {
+      toast.success(
+        "Reinstalação limpa iniciada em ambiente separado; a instalação atual foi preservada.",
+      );
+      void navigate({ to: "/admin/instalacoes/$id", params: { id: result.replacement.id } });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const activateReplacement = useMutation({
+    mutationFn: (confirmLabel: string) => activateReplacementFn({ data: { id, confirmLabel } }),
+    onSuccess: () => {
+      toast.success("Substituição limpa liberada; domínio transferido e cadastro antigo removido.");
       void qc.invalidateQueries({ queryKey: ["installations"] });
       void navigate({ to: "/admin/instalacoes" });
     },
@@ -732,6 +776,34 @@ function InstallationDetailPage() {
                 >
                   <Rocket className="mr-2 h-3.5 w-3.5" /> Reprovisionar instalação…
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={!!activeOp || replaceCleanly.isPending}
+                  onClick={() => setCleanReplacementOpen(true)}
+                >
+                  <CirclePlus className="mr-2 h-3.5 w-3.5" /> Reinstalação limpa…
+                </DropdownMenuItem>
+                {inst.cleanReplacementOf && inst.pendingDomain ? (
+                  <DropdownMenuItem
+                    disabled={
+                      !!activeOp ||
+                      activateReplacement.isPending ||
+                      inst.health !== "healthy" ||
+                      inst.currentVersion !== inst.availableVersion
+                    }
+                    onClick={() =>
+                      askCritical(
+                        "installation.clean_replacement",
+                        (confirmLabel) => activateReplacement.mutate(confirmLabel),
+                        [
+                          { label: "Domínio a transferir", value: inst.pendingDomain },
+                          { label: "Pré-condição", value: "provisionamento e verificações PASS" },
+                        ],
+                      )
+                    }
+                  >
+                    <ShieldCheck className="mr-2 h-3.5 w-3.5" /> Liberar substituição validada…
+                  </DropdownMenuItem>
+                ) : null}
                 <DropdownMenuItem
                   disabled={
                     !!activeOp ||
@@ -1492,6 +1564,107 @@ function InstallationDetailPage() {
             >
               {start.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Confirmar atualização
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={cleanReplacementOpen} onOpenChange={setCleanReplacementOpen}>
+        <DialogContent className="sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle>Reinstalação limpa em ambiente novo</DialogTitle>
+            <DialogDescription>
+              O ambiente atual continuará intacto. O novo ambiente começa na versão MASTER vigente,
+              sem usuários, dados operacionais ou histórico de versões antigas. Informe um projeto
+              Supabase novo e vazio; o domínio só será transferido após validação completa.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="clean-supabase-url">URL do Supabase novo</Label>
+              <Input
+                id="clean-supabase-url"
+                placeholder="https://novo-ref.supabase.co"
+                value={cleanReplacement.supabaseUrl}
+                onChange={(e) =>
+                  setCleanReplacement((v) => ({ ...v, supabaseUrl: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="clean-project-ref">Project ref novo</Label>
+              <Input
+                id="clean-project-ref"
+                value={cleanReplacement.supabaseProjectRef}
+                onChange={(e) =>
+                  setCleanReplacement((v) => ({ ...v, supabaseProjectRef: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="clean-deploy">Projeto de deploy novo</Label>
+              <Input
+                id="clean-deploy"
+                value={cleanReplacement.deployProject}
+                onChange={(e) =>
+                  setCleanReplacement((v) => ({ ...v, deployProject: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="clean-repo">Repositório novo</Label>
+              <Input
+                id="clean-repo"
+                placeholder="https://github.com/organizacao/repositorio-novo"
+                value={cleanReplacement.gitRepoUrl}
+                onChange={(e) => setCleanReplacement((v) => ({ ...v, gitRepoUrl: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="clean-token">Supabase Access Token</Label>
+              <PasswordInput
+                id="clean-token"
+                value={cleanReplacement.supabaseManagementToken}
+                onChange={(e) =>
+                  setCleanReplacement((v) => ({ ...v, supabaseManagementToken: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              disabled={replaceCleanly.isPending}
+              onClick={() => setCleanReplacementOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={
+                replaceCleanly.isPending ||
+                !cleanReplacement.supabaseManagementToken.trim() ||
+                !cleanReplacement.deployProject.trim() ||
+                (!cleanReplacement.supabaseUrl.trim() &&
+                  !cleanReplacement.supabaseProjectRef.trim())
+              }
+              onClick={() => {
+                setCleanReplacementOpen(false);
+                askCritical(
+                  "installation.clean_replacement",
+                  (confirmLabel) => replaceCleanly.mutate(confirmLabel),
+                  [
+                    { label: "Preservado", value: "nome, domínio e identidade institucional" },
+                    {
+                      label: "Não migrado",
+                      value: "usuários, dados operacionais e histórico antigo",
+                    },
+                  ],
+                );
+              }}
+            >
+              {replaceCleanly.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirmar ambiente novo
             </Button>
           </DialogFooter>
         </DialogContent>

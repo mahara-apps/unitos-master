@@ -16,6 +16,7 @@ export const CRITICAL_ACTION_KEYS = [
   "installation.provision",
   "installation.retry_provision",
   "installation.reprovision",
+  "installation.clean_replacement",
   "installation.update",
   "installation.validate",
   "installation.cancel_operation",
@@ -87,6 +88,14 @@ export const CRITICAL_ACTIONS: Record<CriticalActionKey, CriticalActionDefinitio
     title: "Reprovisionar instalação",
     impact:
       "Reinicia a instalação do zero neste ambiente de cliente. O ambiente pode ficar indisponível durante o processo.",
+    irreversible: false,
+    targetType: "installation",
+  },
+  "installation.clean_replacement": {
+    key: "installation.clean_replacement",
+    title: "Iniciar reinstalação limpa",
+    impact:
+      "Cria uma instalação separada em um projeto Supabase novo e vazio. Usuários, dados operacionais e histórico técnico antigos não são migrados; o ambiente atual permanece preservado até a liberação explícita.",
     irreversible: false,
     targetType: "installation",
   },
