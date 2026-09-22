@@ -2,8 +2,8 @@
   "files": {
     "002_control_plane_global_freeze.sql": "5a9f653033c17159318b68f39fc9117a135f71bf8b08cb80584618653d30d23e",
     "003_control_plane_deterministic_update.sql": "bbcb76b9456f72e36464d62c2beb0a13fe8ad9a72207ef3343edd1d8930d1dd5",
-    "004_control_plane_release_promotion.sql": "2d85e866aa5e0097287df467553d8a1ec0e4c86181cc7d0c3c146356647e0d21",
-    "005_activate_cron_37.sql": "0c7a158b8f6401a2be998e8b740aee81ceda875d883dd00603ce07053b67e894",
+    "004_control_plane_release_promotion.sql": "4fc899b29db2c4f5d7e7a3924969338da305858ca8cc4f9963981f1b0f369dc4",
+    "005_activate_cron_37.sql": "f1479835fb93937fe368ae9e196301d5ea353a4993305c73c747647f5e15b188",
     "deterministic-update-install-preflight.sql": "b674eb507a03a8e63153c582c8bac14d00486c4004d96d9f247159548d304436",
     "global-freeze-install-preflight.sql": "0abbfe06e0cef06d981eb54c3423f00514cbc3ed50af4fd621fd65779bd015f8",
     "install-control-plane-release.sql": "ad287f7048c15a00dc518335bc8362ccc868d2209ad616d9bea984b65ed5ceaf",
@@ -17,7 +17,7 @@
     "normalize_legacy_installation_operations(integer)",
     "promote_control_plane_release(bigint,text,text,text,text,text,text,jsonb,text)"
   ],
-  "releaseVersion": "1.4.22",
+  "releaseVersion": "1.4.23",
   "schemaVersion": 1,
   "tables": [
     "installation_operations_freeze",
