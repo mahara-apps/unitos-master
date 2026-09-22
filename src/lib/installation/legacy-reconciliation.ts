@@ -191,7 +191,11 @@ export function buildLegacyReconciliationInspectionSql(migrations: Migration[]):
     ],
     [
       82,
-      serviceOnly(82, "seed_default_work_statuses_for_brand()", "seed_default_work_statuses_for_brand"),
+      serviceOnly(
+        82,
+        "seed_default_work_statuses_for_brand()",
+        "seed_default_work_statuses_for_brand",
+      ),
     ],
     [
       83,

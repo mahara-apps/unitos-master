@@ -99,10 +99,16 @@ describe("reconciliação segura do ledger legado", () => {
       .slice(0, 42)
       .map((migration) => migration.sql)
       .join("\n")
-      .match(/create\s+or\s+replace\s+function\s+public\.bump_message_thread\s*\([^)]*\)[\s\S]*?\bas\s+\$([A-Za-z0-9_]*)\$([\s\S]*?)\$\1\$\s*;/i)?.[2]
+      .match(
+        /create\s+or\s+replace\s+function\s+public\.bump_message_thread\s*\([^)]*\)[\s\S]*?\bas\s+\$([A-Za-z0-9_]*)\$([\s\S]*?)\$\1\$\s*;/i,
+      )?.[2]
       ?.replace(/\s+/g, "")
       .toLowerCase();
-    const finalBumpBody = [...canonicalSql.matchAll(/create\s+or\s+replace\s+function\s+public\.bump_message_thread\s*\([^)]*\)[\s\S]*?\bas\s+\$([A-Za-z0-9_]*)\$([\s\S]*?)\$\1\$\s*;/gi)]
+    const finalBumpBody = [
+      ...canonicalSql.matchAll(
+        /create\s+or\s+replace\s+function\s+public\.bump_message_thread\s*\([^)]*\)[\s\S]*?\bas\s+\$([A-Za-z0-9_]*)\$([\s\S]*?)\$\1\$\s*;/gi,
+      ),
+    ]
       .at(-1)?.[2]
       ?.replace(/\s+/g, "")
       .toLowerCase();
@@ -121,7 +127,9 @@ describe("reconciliação segura do ledger legado", () => {
     expect(position71).toContain("blocked.enumlabel='blocked'");
     expect(position71).toContain("done.enumlabel='done'");
     expect(position84).toContain("public.installation','SELECT'");
-    expect(position84).toContain("a.privilege_type IN ('MAINTAIN','TRUNCATE','TRIGGER','REFERENCES')");
+    expect(position84).toContain(
+      "a.privilege_type IN ('MAINTAIN','TRUNCATE','TRIGGER','REFERENCES')",
+    );
   });
   it("classifica falsos positivos por migrations posteriores ou hardening manual como parciais", () => {
     for (const position of [21, 42, 52, 56, 66, 82, 83])
