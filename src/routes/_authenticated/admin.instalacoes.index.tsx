@@ -569,7 +569,11 @@ function AdminInstallationsPage() {
 
           <DialogFooter className="border-t border-border pt-4">
             {createStep === 1 ? (
-              <Button variant="ghost" disabled={create.isPending} onClick={() => setCreateOpen(false)}>
+              <Button
+                variant="ghost"
+                disabled={create.isPending}
+                onClick={() => setCreateOpen(false)}
+              >
                 Cancelar
               </Button>
             ) : (
