@@ -124,6 +124,7 @@ function scenario(
     suppliedKeys?: boolean;
     deploymentStates?: string[];
     deploymentCommit?: string;
+    restDeploymentBlockedForGitOnly?: boolean;
     stageProgress?: Record<string, unknown>;
     vercelProjectMissing?: boolean;
     vercelProjectRepo?: string;
@@ -252,9 +253,46 @@ function scenario(
         : Response.json({ created: [] });
     }
     if (u.includes("api.vercel.com/v6/deployments")) {
-      return Response.json({ deployments: [{ uid: "dpl_prev", name: "unitos-novo" }] });
+      return overrides.restDeploymentBlockedForGitOnly
+        ? Response.json({
+            deployments: [
+              {
+                uid: "dpl_git",
+                name: "unitos-novo",
+                readyState: "READY",
+                source: "git",
+                createdAt: 2,
+                meta: { githubCommitSha: "commit_1" },
+              },
+              {
+                uid: "dpl_new",
+                name: "unitos-novo",
+                readyState: "BLOCKED",
+                source: "api",
+                createdAt: 1,
+                meta: { githubCommitSha: "sha_master" },
+              },
+            ],
+          })
+        : Response.json({ deployments: [{ uid: "dpl_prev", name: "unitos-novo" }] });
+    }
+    if (u.includes("api.vercel.com/v13/deployments/dpl_git")) {
+      return Response.json({
+        readyState: "READY",
+        url: "unitos-novo-abc.vercel.app",
+        meta: { githubCommitSha: "commit_1" },
+      });
     }
     if (u.includes("api.vercel.com/v13/deployments/dpl_new")) {
+      if (overrides.restDeploymentBlockedForGitOnly) {
+        return Response.json({
+          readyState: "BLOCKED",
+          readyStateReason:
+            "REST API deployments are not allowed in production. Only Git deployments are allowed.",
+          alwaysRefuseToBuild: true,
+          meta: { githubCommitSha: "sha_master" },
+        });
+      }
       const states = overrides.deploymentStates ?? ["READY"];
       const readyState = states[Math.min(deploymentStateReads, states.length - 1)];
       deploymentStateReads += 1;
@@ -417,6 +455,25 @@ describe("instalação de ambiente novo — ponta a ponta", () => {
     expect(result.result).toBe("FAIL");
     expect(result.reasons.join(" ")).toContain("ERROR");
     expect(calls.some((call) => call.url === "https://unitos-novo-abc.vercel.app")).toBe(false);
+  });
+
+  it("troca deployment REST posteriormente bloqueado pelo deployment do commit Git", async () => {
+    const { run, calls, updates } = scenario({ restDeploymentBlockedForGitOnly: true });
+    const result = await run();
+
+    expect(result.result).toBe("PASS");
+    expect(calls.some((call) => call.url.includes("/v13/deployments/dpl_new"))).toBe(true);
+    expect(calls.some((call) => call.url.includes("/v13/deployments/dpl_git"))).toBe(true);
+    expect(
+      calls.filter(
+        (call) => call.method === "POST" && call.url.includes("/git/commits"),
+      ),
+    ).toHaveLength(1);
+    expect(
+      updates.some((update) =>
+        JSON.stringify(update).includes('"provisionDeploymentId":"dpl_git"'),
+      ),
+    ).toBe(true);
   });
 
   it("retoma pelo deployment ID persistido sem criar outro", async () => {

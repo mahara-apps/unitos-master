@@ -3474,7 +3474,7 @@ export type StageProgress = {
   provisionVercelTeamId?: string;
   provisionRepositoryLinked?: boolean;
   provisionEnvApplied?: boolean;
-  provisionDeploymentId?: string;
+  provisionDeploymentId?: string | null;
   provisionDeploymentCommit?: string;
   provisionDeploymentState?: string;
   provisionDeploymentReadyAt?: string;
@@ -4608,7 +4608,11 @@ export async function runAutomatedProvision(input: {
     // build). Sem repositório ligado, cai para rebuild do último snapshot.
     let deploymentId = stage.provisionDeploymentId ?? null;
     let expectedDeploymentCommit = stage.provisionDeploymentCommit ?? provisionCommitSha;
-    let deploymentSource: "api" | "git" = stage.provisionGitPushCommit ? "git" : "api";
+    let deploymentSource: "api" | "git" =
+      stage.provisionGitPushCommit &&
+      stage.provisionDeploymentCommit === stage.provisionGitPushCommit
+        ? "git"
+        : "api";
     let redeployed = deploymentId
       ? { ok: true, deploymentId, source: "git" as const }
       : await deploy.deployLatestCode({ sha: provisionCommitSha });
@@ -4747,7 +4751,7 @@ export async function runAutomatedProvision(input: {
       return finish(url.origin, url.source);
     }
 
-    const deploymentResult = await pollDeploymentUntilTerminal({
+    let deploymentResult = await pollDeploymentUntilTerminal({
       deploy,
       deploymentId,
       waitMs: input.waitMs,
@@ -4760,6 +4764,83 @@ export async function runAutomatedProvision(input: {
         });
       },
     });
+    const refusedRestForGitOnly =
+      deploymentSource === "api" &&
+      (deploymentResult.refused || deploymentResult.state === "BLOCKED") &&
+      isGitOnlyOrMissingRepo(deploymentResult.reason ?? "");
+    if (refusedRestForGitOnly) {
+      // A API pode aceitar a criação e só depois marcar o deployment como
+      // BLOCKED pela política "somente Git". Esse ID REST nunca é prova de
+      // publicação: abandona-o e acompanha exclusivamente o commit disparado
+      // pela integração Git, reaproveitando o checkpoint nas retomadas.
+      deploymentId = null;
+      let fallbackCommit = stage.provisionGitPushCommit ?? null;
+      await saveStageProgress(client, operation, {
+        provisionDeploymentId: null,
+        provisionDeploymentState: "QUEUED",
+      });
+      if (!fallbackCommit) {
+        const nudge = await code.nudgeDeploy(
+          "chore(unitos): republicar com as variaveis da instalacao",
+        );
+        if (!nudge.ok || !nudge.commitSha) {
+          const reason = `deployment REST recusado e publicação pelo Git falhou: ${nudge.error ?? "commit de publicação não retornado"}`;
+          failures.push(reason);
+          await mark("deploy", "error", reason);
+          checks.frontend = "error";
+          return finish(url.origin, url.source);
+        }
+        fallbackCommit = nudge.commitSha;
+        await saveStageProgress(client, operation, {
+          provisionGitPushCommit: fallbackCommit,
+          provisionDeploymentCommit: fallbackCommit,
+          provisionDeploymentState: "QUEUED",
+        });
+      }
+      expectedDeploymentCommit = fallbackCommit;
+      deploymentSource = "git";
+      const located = await deploy.findProductionDeployment(fallbackCommit);
+      if (!located.ok || !located.deploymentId) {
+        await mark(
+          "deploy",
+          "running",
+          located.error ?? "aguardando a hospedagem detectar o commit de publicação pelo Git",
+        );
+        return {
+          result: "RUNNING",
+          reasons: [],
+          appUrl: url.origin,
+          urlSource: url.source,
+          steps,
+        };
+      }
+      deploymentId = located.deploymentId;
+      redeployed = {
+        ok: true,
+        deploymentId,
+        source: "git",
+        ref: fallbackCommit,
+      };
+      publishNote = "deployment REST recusado; publicação retomada pelo Git";
+      await saveStageProgress(client, operation, {
+        provisionDeploymentId: deploymentId,
+        provisionDeploymentCommit: fallbackCommit,
+        provisionDeploymentState: located.state ?? "QUEUED",
+      });
+      deploymentResult = await pollDeploymentUntilTerminal({
+        deploy,
+        deploymentId,
+        waitMs: input.waitMs,
+        sleep: input.sleep,
+        onObserved: async (observed) => {
+          await saveStageProgress(client, operation, {
+            provisionDeploymentId: deploymentId,
+            provisionDeploymentCommit: fallbackCommit,
+            provisionDeploymentState: observed.state,
+          });
+        },
+      });
+    }
     if (deploymentResult.refused || FAILED_DEPLOYMENT_STATES.has(deploymentResult.state)) {
       const reason = deploymentResult.reason
         ? `deployment ${deploymentResult.state}: ${deploymentResult.reason}`
