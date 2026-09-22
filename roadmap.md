@@ -123,5 +123,5 @@
 - [x] Regenerar os artefatos MASTER-first e validar localmente antes de publicar.
 - [x] Publicar a versão 1.4.21 após autorização explícita.
 - [x] Diagnosticar sem escrita o bloqueio real da Taveira após a publicação.
-- [ ] Preservar identidades incrementais legadas registradas no rótulo e impedir reconciliação heurística sobre migrations posteriores.
+- [x] Preservar identidades incrementais legadas registradas no rótulo e impedir reconciliação heurística sobre migrations posteriores.
 - [ ] Regenerar e validar uma nova versão MASTER-first; publicar somente após nova autorização explícita.
