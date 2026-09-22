@@ -131,7 +131,7 @@
 
 - [x] Comparar cada posição histórica somente com o estado canônico acumulado até ela.
 - [x] Preservar as posições 71 e 84 como verificações fail-closed do estado real.
-- [x] Regenerar e validar a versão 1.4.23 pelo fluxo MASTER-first.
+- [x] Regenerar e validar a versão 1.4.24 pelo fluxo MASTER-first.
 - [ ] Reexecutar a suíte global com credenciais válidas do projeto de integração; execução atual bloqueada por `Invalid API key` e pré-condições remotas ausentes.
 - [ ] Publicar somente após nova autorização explícita.
 
