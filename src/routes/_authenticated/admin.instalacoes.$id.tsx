@@ -1773,9 +1773,7 @@ function InstallationDetailPage() {
               <Button
                 variant="ghost"
                 disabled={replaceCleanly.isPending}
-                onClick={() =>
-                  setCleanReplacementStep((step) => (step === 3 ? 2 : 1))
-                }
+                onClick={() => setCleanReplacementStep((step) => (step === 3 ? 2 : 1))}
               >
                 Voltar
               </Button>
@@ -1787,9 +1785,7 @@ function InstallationDetailPage() {
                     ? !cleanProjectRef || !cleanReplacement.supabaseManagementToken.trim()
                     : !cleanEnvironmentName || !cleanRepoUrl
                 }
-                onClick={() =>
-                  setCleanReplacementStep((step) => (step === 1 ? 2 : 3))
-                }
+                onClick={() => setCleanReplacementStep((step) => (step === 1 ? 2 : 3))}
               >
                 Continuar <ArrowRight className="h-4 w-4" />
               </Button>
