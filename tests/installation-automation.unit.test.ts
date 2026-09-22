@@ -651,7 +651,7 @@ describe("runAutomatedProvision", () => {
     expect(result.reasons.join(" ")).toContain("Frontend");
   });
 
-  it("domínio definitivo pendente mantém a instalação incompleta", async () => {
+  it("domínio definitivo pendente usa a URL temporária sem falhar a instalação", async () => {
     const { api } = fakeClient();
     const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
@@ -694,10 +694,10 @@ describe("runAutomatedProvision", () => {
       fetchImpl: fetchImpl as never,
     });
 
-    expect(result.result).toBe("FAIL");
-    expect(result.appUrl).toBe("https://app.cliente.com.br");
-    expect(result.urlSource).toBe("custom_domain");
-    expect(result.reasons.join(" ")).toContain("Frontend");
+    expect(result.result).toBe("PASS");
+    expect(result.appUrl).toBe("https://x-abc.vercel.app");
+    expect(result.urlSource).toBe("deploy");
+    expect(result.warnings).toBe(true);
   });
 
   it("BLOCKED quando o deploy não expõe URL e não há domínio", async () => {

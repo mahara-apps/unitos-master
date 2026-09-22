@@ -154,4 +154,5 @@
 - [x] Regenerar e validar a próxima versão pelo fluxo MASTER-first.
 - [ ] Publicar somente após autorização explícita e então repetir o provisionamento.
 
-- [ ] Concluir domínio como pendência não bloqueante e retry com herança segura de checkpoints (aguarda validação/publicação)
+- [x] Concluir domínio como pendência não bloqueante e retry com herança segura de checkpoints.
+- [ ] Publicar o MASTER 1.4.28 somente após autorização explícita e então permitir nova tentativa.
