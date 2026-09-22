@@ -1,4 +1,4 @@
--- MASTER 1.4.25: vínculo fail-closed para substituição limpa de instalações.
+-- MASTER 1.4.26: vínculo fail-closed para substituição limpa de instalações.
 -- Control-plane only. Nunca incluir no pacote Client.
 
 ALTER TABLE public.installations
