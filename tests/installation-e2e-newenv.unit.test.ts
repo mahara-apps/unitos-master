@@ -458,7 +458,7 @@ describe("instalação de ambiente novo — ponta a ponta", () => {
   });
 
   it("troca deployment REST posteriormente bloqueado pelo deployment do commit Git", async () => {
-    const { run, calls, updates } = scenario({ restDeploymentBlockedForGitOnly: true });
+    const { run, calls } = scenario({ restDeploymentBlockedForGitOnly: true });
     const result = await run();
 
     expect(result.result).toBe("PASS");
@@ -469,11 +469,32 @@ describe("instalação de ambiente novo — ponta a ponta", () => {
         (call) => call.method === "POST" && call.url.includes("/git/commits"),
       ),
     ).toHaveLength(1);
+  });
+
+  it("retoma fallback Git salvo sem criar outro commit", async () => {
+    const { run, calls } = scenario({
+      restDeploymentBlockedForGitOnly: true,
+      stageProgress: {
+        provisionDeploymentId: "dpl_new",
+        provisionDeploymentCommit: "sha_master",
+        provisionDeploymentState: "BLOCKED",
+        provisionGitPushCommit: "commit_1",
+        provisionEnvApplied: true,
+        codeDone: true,
+        codeSha: "sha_master",
+        codeSourceSha: "sha_master",
+        provisionRelease: "9.9.9",
+      },
+    });
+    const result = await run();
+
+    expect(result.result).toBe("PASS");
+    expect(calls.some((call) => call.url.includes("/v13/deployments/dpl_git"))).toBe(true);
     expect(
-      updates.some((update) =>
-        JSON.stringify(update).includes('"provisionDeploymentId":"dpl_git"'),
+      calls.filter(
+        (call) => call.method === "POST" && call.url.includes("/git/commits"),
       ),
-    ).toBe(true);
+    ).toHaveLength(0);
   });
 
   it("retoma pelo deployment ID persistido sem criar outro", async () => {
