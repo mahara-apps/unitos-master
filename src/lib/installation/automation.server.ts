@@ -1174,7 +1174,7 @@ export async function pollDeploymentUntilTerminal(input: {
  * push no repositório da instalação.
  */
 export function isGitOnlyOrMissingRepo(text: string): boolean {
-  return /incorrect_git_source_info|repository can't be found|not allowed in production|only git deployments/i.test(
+  return /incorrect_git_source_info|repository can't be found|not allowed in production|only git deployments|missing_project_settings|projectSettings.+required|gitSource.+repoId/i.test(
     text ?? "",
   );
 }
@@ -2974,21 +2974,24 @@ export function createDeployClient(input: {
         const branch = (link?.productionBranch ?? "main").trim() || "main";
         const ref = (options?.sha ?? "").trim() || branch;
 
-        // A Vercel aceita mais de uma forma de identificar a origem Git e nem
-        // todas funcionam em todo projeto (repositório recriado, id antigo em
-        // cache, app do GitHub reinstalado). Tentamos todas antes de desistir.
-        const variants: Array<Record<string, unknown>> = [];
-        if (repoId !== undefined && repoId !== null && String(repoId).trim()) {
-          variants.push({ type, repoId: String(repoId), ref });
-        }
-        if (org && repoName) {
-          variants.push({ type, org, repo: repoName, ref });
-          variants.push({ type, repo: `${org}/${repoName}`, ref });
+        // A API atual da Vercel exige o projeto existente e o repoId numérico.
+        // Sem qualquer um deles, chamar POST /deployments pode tentar criar um
+        // projeto implícito ou ser recusado. O executor deve então publicar pelo
+        // push Git idempotente e comprovar o deployment criado pelo SHA.
+        if (!body.id || repoId === undefined || repoId === null || !String(repoId).trim()) {
+          return {
+            ok: false,
+            gitSourceUnavailable: true,
+            error: !body.id
+              ? "a Vercel não confirmou o ID do projeto existente; publicação seguirá pelo Git"
+              : `a Vercel não confirmou o repoId de ${org}/${repoName}; publicação seguirá pelo Git`,
+          };
         }
 
         const attempts: string[] = [];
         let gitSourceUnavailable = false;
-        for (const gitSource of variants) {
+        const gitSource = { type, repoId: String(repoId), ref };
+        {
           const created = await doFetch(
             `https://api.vercel.com/v13/deployments?${qs("forceNew=1")}`,
             {
@@ -2998,7 +3001,7 @@ export function createDeployClient(input: {
                 name: body.name ?? input.project,
                 // Amarrar ao projeto por id evita publicar em um projeto novo
                 // quando o vínculo do repositório está ausente.
-                ...(body.id ? { project: body.id } : {}),
+                project: body.id,
                 target: "production",
                 gitSource,
               }),

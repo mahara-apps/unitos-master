@@ -71,6 +71,7 @@ describe("atualização de código da instalação", () => {
       {
         match: /v9\/projects\//,
         body: {
+          id: "prj_1",
           name: "unitos-teste",
           link: {
             type: "github",
@@ -121,16 +122,57 @@ describe("atualização de código da instalação", () => {
 
   it("sem vínculo salvo resolve o repositório no GitHub e publica o código novo", async () => {
     const { impl } = fakeFetch([
-      { match: /v9\/projects\//, body: { name: "unitos-teste" } },
-      {
-        match: /v6\/deployments/,
-        body: { deployments: [{ uid: "dpl_old", name: "unitos-teste" }] },
-      },
+      { match: /v9\/projects\//, body: { id: "prj_1", name: "unitos-teste" } },
+      { match: /api\.github\.com\/repos\//, body: { id: 42 } },
       { match: /v13\/deployments\?/, body: { id: "dpl_2" } },
     ]);
-    const client = createDeployClient({ token: "t", project: "unitos-teste", fetchImpl: impl });
+    const client = createDeployClient({
+      token: "t",
+      project: "unitos-teste",
+      githubToken: "gh",
+      fetchImpl: impl,
+    });
     const res = await client.deployLatestCode();
     expect(res).toMatchObject({ ok: true, source: "git" });
+  });
+
+  it("sem ID confirmado não tenta criar projeto implícito e encaminha para o push Git", async () => {
+    const { impl, calls } = fakeFetch([
+      {
+        match: /v9\/projects\//,
+        body: {
+          name: "unitos-novo",
+          link: { type: "github", org: "mahara-apps", repo: "unitos-novo", repoId: 42 },
+        },
+      },
+    ]);
+    const client = createDeployClient({ token: "t", project: "unitos-novo", fetchImpl: impl });
+    const result = await client.deployLatestCode({ sha: "abc1234" });
+
+    expect(result).toMatchObject({ ok: false, gitSourceUnavailable: true });
+    expect(calls.some((call) => call.method === "POST" && /v13\/deployments/.test(call.url))).toBe(
+      false,
+    );
+  });
+
+  it("sem repoId confirmado não envia variantes inválidas à Vercel", async () => {
+    const { impl, calls } = fakeFetch([
+      {
+        match: /v9\/projects\//,
+        body: {
+          id: "prj_1",
+          name: "unitos-novo",
+          link: { type: "github", org: "mahara-apps", repo: "unitos-novo" },
+        },
+      },
+    ]);
+    const client = createDeployClient({ token: "t", project: "unitos-novo", fetchImpl: impl });
+    const result = await client.deployLatestCode({ sha: "abc1234" });
+
+    expect(result).toMatchObject({ ok: false, gitSourceUnavailable: true });
+    expect(calls.some((call) => call.method === "POST" && /v13\/deployments/.test(call.url))).toBe(
+      false,
+    );
   });
 
   it("mantém o build automático ligado e publica o commit autorizado", async () => {
@@ -138,6 +180,7 @@ describe("atualização de código da instalação", () => {
       {
         match: /v9\/projects\//,
         body: {
+          id: "prj_1",
           name: "unitos-teste",
           link: {
             type: "github",
@@ -624,11 +667,12 @@ describe("projeto Vercel da instalação nova", () => {
 });
 
 describe("quando a Vercel não encontra o repositório", () => {
-  it("tenta owner/repo e sinaliza gitSourceUnavailable para publicar pelo Git", async () => {
+  it("sinaliza gitSourceUnavailable para publicar pelo Git", async () => {
     const { impl, calls } = fakeFetch([
       {
         match: /v9\/projects\//,
         body: {
+          id: "prj_1",
           name: "unitos-taveira",
           link: {
             type: "github",
@@ -655,6 +699,38 @@ describe("quando a Vercel não encontra o repositório", () => {
     expect(res.ok).toBe(false);
     expect(res.gitSourceUnavailable).toBe(true);
     const deployPosts = calls.filter((c) => c.method === "POST" && /v13\/deployments/.test(c.url));
-    expect(deployPosts.length).toBeGreaterThan(1);
+    expect(deployPosts).toHaveLength(1);
   });
+
+  it.each(["missing_project_settings", "gitSource missing required property repoId"])(
+    "encaminha o erro %s para o fallback Git",
+    async (message) => {
+      const { impl } = fakeFetch([
+        {
+          match: /v9\/projects\//,
+          body: {
+            id: "prj_1",
+            name: "unitos-novo",
+            link: {
+              type: "github",
+              org: "mahara-apps",
+              repo: "unitos-novo",
+              repoId: 99,
+              productionBranch: "main",
+            },
+          },
+        },
+        {
+          match: /v13\/deployments\?/,
+          status: 400,
+          body: { error: { code: "bad_request", message } },
+        },
+      ]);
+      const client = createDeployClient({ token: "t", project: "unitos-novo", fetchImpl: impl });
+      await expect(client.deployLatestCode({ sha: "abc1234" })).resolves.toMatchObject({
+        ok: false,
+        gitSourceUnavailable: true,
+      });
+    },
+  );
 });
