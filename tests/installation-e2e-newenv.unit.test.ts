@@ -465,9 +465,7 @@ describe("instalação de ambiente novo — ponta a ponta", () => {
     expect(calls.some((call) => call.url.includes("/v13/deployments/dpl_new"))).toBe(true);
     expect(calls.some((call) => call.url.includes("/v13/deployments/dpl_git"))).toBe(true);
     expect(
-      calls.filter(
-        (call) => call.method === "POST" && call.url.includes("/git/commits"),
-      ),
+      calls.filter((call) => call.method === "POST" && call.url.includes("/git/commits")),
     ).toHaveLength(1);
   });
 
@@ -491,9 +489,32 @@ describe("instalação de ambiente novo — ponta a ponta", () => {
     expect(result.result).toBe("PASS");
     expect(calls.some((call) => call.url.includes("/v13/deployments/dpl_git"))).toBe(true);
     expect(
+      calls.filter((call) => call.method === "POST" && call.url.includes("/git/commits")),
+    ).toHaveLength(0);
+  });
+
+  it("nova tentativa herda somente o commit Git e não cria outro deployment REST", async () => {
+    const { run, calls } = scenario({
+      restDeploymentBlockedForGitOnly: true,
+      stageProgress: {
+        provisionGitPushCommit: "commit_1",
+        codeDone: true,
+        codeSha: "sha_master",
+        codeSourceSha: "sha_master",
+        provisionRelease: "9.9.9",
+      },
+    });
+    const result = await run();
+
+    expect(result.result).toBe("PASS");
+    expect(calls.some((call) => call.url.includes("/v13/deployments/dpl_git"))).toBe(true);
+    expect(
       calls.filter(
-        (call) => call.method === "POST" && call.url.includes("/git/commits"),
+        (call) => call.method === "POST" && call.url.includes("api.vercel.com/v13/deployments"),
       ),
+    ).toHaveLength(0);
+    expect(
+      calls.filter((call) => call.method === "POST" && call.url.includes("/git/commits")),
     ).toHaveLength(0);
   });
 

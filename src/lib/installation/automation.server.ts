@@ -4613,8 +4613,41 @@ export async function runAutomatedProvision(input: {
       stage.provisionDeploymentCommit === stage.provisionGitPushCommit
         ? "git"
         : "api";
-    let redeployed = deploymentId
-      ? { ok: true, deploymentId, source: "git" as const }
+    // O commit do fallback Git é uma evidência externa revalidável. Em retries
+    // ele é herdado sem o ID do deployment: localizar esse deployment primeiro
+    // impede que a retomada crie outro REST, que será novamente bloqueado em
+    // projetos configurados para aceitar apenas deployments via Git.
+    if (!deploymentId && stage.provisionGitPushCommit) {
+      const located = await deploy.findProductionDeployment(stage.provisionGitPushCommit);
+      if (!located.ok || !located.deploymentId) {
+        await saveStageProgress(client, operation, {
+          provisionDeploymentCommit: stage.provisionGitPushCommit,
+          provisionDeploymentState: located.state ?? "QUEUED",
+        });
+        await mark(
+          "deploy",
+          "running",
+          located.error ?? "aguardando a hospedagem detectar o commit de publicação pelo Git",
+        );
+        return {
+          result: "RUNNING",
+          reasons: [],
+          appUrl: url.origin,
+          urlSource: url.source,
+          steps,
+        };
+      }
+      deploymentId = located.deploymentId;
+      expectedDeploymentCommit = stage.provisionGitPushCommit;
+      deploymentSource = "git";
+      await saveStageProgress(client, operation, {
+        provisionDeploymentId: deploymentId,
+        provisionDeploymentCommit: stage.provisionGitPushCommit,
+        provisionDeploymentState: located.state ?? "QUEUED",
+      });
+    }
+    let redeployed: Awaited<ReturnType<DeployClient["deployLatestCode"]>> = deploymentId
+      ? { ok: true, deploymentId, source: "git" }
       : await deploy.deployLatestCode({ sha: provisionCommitSha });
     if (redeployed.ok && redeployed.deploymentId && !deploymentId) {
       deploymentId = redeployed.deploymentId;

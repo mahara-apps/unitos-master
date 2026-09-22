@@ -19,7 +19,7 @@ import sealedPackageSql from "../supabase/migrations/20260914193902_b2da0b29-18e
 import sealedPackageStrictHashSql from "../supabase/migrations/20260914194505_2a76102f-5090-46e6-9269-f3c0f1bd057f.sql?raw";
 import durableStartSql from "../supabase/migrations/20260915095958_eb639764-7956-418c-8ed9-9b9fde0246a3.sql?raw";
 import failedProvisionRetrySql from "../supabase/migrations/20260916140310_b0a7973f-0881-4ef0-9b48-a19202063e8d.sql?raw";
-import checkpointRetrySql from "../supabase/migrations/20260922135039_e1e252cf-16c1-4ea4-88fb-c765f57316ec.sql?raw";
+import checkpointRetrySql from "../supabase/migrations/20260922163500_retry_inherit_git_checkpoint.sql?raw";
 
 const NOW = Date.parse("2026-01-10T12:00:00.000Z");
 
@@ -250,6 +250,9 @@ describe("contagem de falhas consecutivas", () => {
     expect(checkpointRetrySql).toContain("AND status = 'completed'");
     expect(checkpointRetrySql).toContain("AND statement_index = total_statements");
     expect(checkpointRetrySql).toContain("'checkpointInheritance', 'same_sealed_package'");
+    expect(checkpointRetrySql).toContain(
+      "'provisionGitPushCommit', _source_stage_progress->'provisionGitPushCommit'",
+    );
     expect(checkpointRetrySql).not.toContain("'provisionDeploymentId'");
     expect(checkpointRetrySql).not.toContain("'provisionEnvApplied'");
     expect(checkpointRetrySql).not.toMatch(/lease_owner\s*=/i);

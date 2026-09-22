@@ -1,4 +1,4 @@
--- MASTER 1.4.29: ato mínimo para ativar exclusivamente o cron 37 já existente.
+-- MASTER 1.4.30: ato mínimo para ativar exclusivamente o cron 37 já existente.
 \set ON_ERROR_STOP on
 BEGIN;
 SELECT pg_advisory_xact_lock(hashtextextended('unitos:master:cron-37-activation',0));
@@ -21,12 +21,12 @@ BEGIN
   END IF;
   IF NOT EXISTS (
     SELECT 1 FROM public.control_plane_release_state
-    WHERE singleton IS TRUE AND current_version='1.4.29' AND pinned_release='1.4.29'
+    WHERE singleton IS TRUE AND current_version='1.4.30' AND pinned_release='1.4.30'
       AND pinned_commit_sha=current_setting('unitos.expected_commit_sha')
       AND contract_sha256=current_setting('unitos.expected_contract_sha256')
   ) OR NOT EXISTS (SELECT 1 FROM supabase_migrations.schema_migrations WHERE version='20260919143000')
      OR to_regprocedure('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)') IS NULL THEN
-    RAISE EXCEPTION 'Contrato 1.4.29 ainda não está integralmente validado' USING ERRCODE='55000';
+    RAISE EXCEPTION 'Contrato 1.4.30 ainda não está integralmente validado' USING ERRCODE='55000';
   END IF;
   IF EXISTS (
     SELECT 1 FROM public.installation_operations o

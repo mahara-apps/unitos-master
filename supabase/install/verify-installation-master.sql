@@ -114,6 +114,7 @@ WITH expected_tables(name) AS (VALUES
       THEN 'herança segura ativa' ELSE 'contrato antigo' END,
     CASE WHEN position('same_sealed_package' in pg_get_functiondef('public.start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamp with time zone,uuid)'::regprocedure))>0
       AND position('statement_index = total_statements' in pg_get_functiondef('public.start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamp with time zone,uuid)'::regprocedure))>0
+      AND position('provisionGitPushCommit' in pg_get_functiondef('public.start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamp with time zone,uuid)'::regprocedure))>0
       AND position('provisionDeploymentId' in pg_get_functiondef('public.start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamp with time zone,uuid)'::regprocedure))=0
       THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
