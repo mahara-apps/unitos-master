@@ -110,55 +110,67 @@ export function buildLegacyReconciliationInspectionSql(migrations: Migration[]):
     throw new Error(
       `Reconciliação exige cobertura canônica até o bloco ${LEGACY_RECONCILIATION_LAST_POSITION}.`,
     );
-  const packageSql = migrations.map((item) => item.sql).join("\n");
   const migrationAt = (position: number) => {
     const migration = migrations[position - 1];
     if (!migration) throw new Error(`Migration canônica ausente na posição ${position}.`);
     return migration;
   };
+  const packageSqlAt = (position: number) =>
+    migrations
+      .slice(0, position)
+      .map((item) => item.sql)
+      .join("\n");
   const fn = (
+    position: number,
     signature: string,
     name: string,
     options?: { serviceRole?: boolean; securityDefiner?: boolean },
-  ) => functionCondition({ packageSql, signature, name, ...options });
-  const noPublic = (signature: string, name: string) => fn(signature, name);
-  const serviceOnly = (signature: string, name: string, securityDefiner?: boolean) =>
-    fn(signature, name, {
+  ) => functionCondition({ packageSql: packageSqlAt(position), signature, name, ...options });
+  const noPublic = (position: number, signature: string, name: string) =>
+    fn(position, signature, name);
+  const serviceOnly = (
+    position: number,
+    signature: string,
+    name: string,
+    securityDefiner?: boolean,
+  ) =>
+    fn(position, signature, name, {
       serviceRole: true,
       ...(securityDefiner === undefined ? {} : { securityDefiner }),
     });
   const dangerousAcl = `NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, acldefault(CASE WHEN c.relkind='S' THEN 'S'::"char" ELSE 'r'::"char" END,c.relowner))) a WHERE n.nspname='public' AND c.relkind IN ('r','p') AND c.relowner='postgres'::regrole AND a.grantee='anon'::regrole AND a.privilege_type IN ('MAINTAIN','TRUNCATE','TRIGGER','REFERENCES'))`;
   const defaultAcl = `NOT EXISTS (SELECT 1 FROM pg_default_acl d CROSS JOIN LATERAL aclexplode(d.defaclacl) a WHERE d.defaclrole='postgres'::regrole AND d.defaclnamespace='public'::regnamespace AND d.defaclobjtype='r' AND a.grantee='anon'::regrole AND a.privilege_type IN ('MAINTAIN','TRUNCATE','TRIGGER','REFERENCES'))`;
   const conditions = new Map<number, string | null>([
-    [21, noPublic("enforce_single_brand()", "enforce_single_brand")],
+    [21, noPublic(21, "enforce_single_brand()", "enforce_single_brand")],
     [
       34,
-      `${noPublic("block_portal_client_team_link()", "block_portal_client_team_link")} AND ${noPublic("enforce_portal_client_exclusivity()", "enforce_portal_client_exclusivity")}`,
+      `${noPublic(34, "block_portal_client_team_link()", "block_portal_client_team_link")} AND ${noPublic(34, "enforce_portal_client_exclusivity()", "enforce_portal_client_exclusivity")}`,
     ],
-    [39, noPublic("guard_client_policy_authority()", "guard_client_policy_authority")],
-    [42, serviceOnly("bump_message_thread()", "bump_message_thread")],
+    [39, noPublic(39, "guard_client_policy_authority()", "guard_client_policy_authority")],
+    [42, serviceOnly(42, "bump_message_thread()", "bump_message_thread")],
     [
       52,
       `EXISTS (SELECT 1 FROM public.feature_catalog WHERE key='messages' AND name='Mensagens' AND description='Central de mensagens entre time, clientes e portal.' AND category='Gestão' AND icon='MessagesSquare' AND default_enabled AND is_available AND sort_order=105) AND NOT EXISTS (SELECT 1 FROM public.brands b WHERE NOT EXISTS (SELECT 1 FROM public.brand_features f WHERE f.brand_id=b.id AND f.feature_key='messages' AND f.enabled))`,
     ],
     [
       55,
-      `${serviceOnly("post_copy_queue_drain_on()", "post_copy_queue_drain_on")} AND ${serviceOnly("post_copy_queue_drain_off()", "post_copy_queue_drain_off")} AND ${noPublic("post_copy_queue_notify()", "post_copy_queue_notify")}`,
+      `${serviceOnly(55, "post_copy_queue_drain_on()", "post_copy_queue_drain_on")} AND ${serviceOnly(55, "post_copy_queue_drain_off()", "post_copy_queue_drain_off")} AND ${noPublic(55, "post_copy_queue_notify()", "post_copy_queue_notify")}`,
     ],
     [
       56,
       `EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='posts')`,
     ],
-    [61, serviceOnly("protect_pipeline_delete()", "protect_pipeline_delete")],
+    [61, serviceOnly(61, "protect_pipeline_delete()", "protect_pipeline_delete")],
     [
       64,
-      fn("can_manage_client_automations(uuid,uuid,uuid)", "can_manage_client_automations", {
+      fn(64, "can_manage_client_automations(uuid,uuid,uuid)", "can_manage_client_automations", {
         securityDefiner: false,
       }),
     ],
     [
       66,
       fn(
+        66,
         "set_client_default_whatsapp_recipient(uuid,uuid,uuid)",
         "set_client_default_whatsapp_recipient",
         { securityDefiner: false },
@@ -166,7 +178,7 @@ export function buildLegacyReconciliationInspectionSql(migrations: Migration[]):
     ],
     [
       70,
-      `${serviceOnly("clean_mention_tokens(text)", "clean_mention_tokens")} AND ${serviceOnly("sanitize_mention_body()", "sanitize_mention_body")} AND ${serviceOnly("bump_message_thread()", "bump_message_thread")}`,
+      `${serviceOnly(70, "clean_mention_tokens(text)", "clean_mention_tokens")} AND ${serviceOnly(70, "sanitize_mention_body()", "sanitize_mention_body")} AND ${serviceOnly(70, "bump_message_thread()", "bump_message_thread")}`,
     ],
     [
       71,
@@ -175,11 +187,11 @@ export function buildLegacyReconciliationInspectionSql(migrations: Migration[]):
     [72, null],
     [
       74,
-      `${serviceOnly("assign_project_job_number()", "assign_project_job_number")} AND ${serviceOnly("prevent_project_job_number_change()", "prevent_project_job_number_change")} AND ${serviceOnly("log_project_job_activity()", "log_project_job_activity")} AND ${serviceOnly("log_task_activity()", "log_task_activity")} AND ${serviceOnly("log_work_timer_stop()", "log_work_timer_stop")} AND ${serviceOnly("start_job_timer(uuid,uuid)", "start_job_timer", true)}`,
+      `${serviceOnly(74, "assign_project_job_number()", "assign_project_job_number")} AND ${serviceOnly(74, "prevent_project_job_number_change()", "prevent_project_job_number_change")} AND ${serviceOnly(74, "log_project_job_activity()", "log_project_job_activity")} AND ${serviceOnly(74, "log_task_activity()", "log_task_activity")} AND ${serviceOnly(74, "log_work_timer_stop()", "log_work_timer_stop")} AND ${serviceOnly(74, "start_job_timer(uuid,uuid)", "start_job_timer", false)}`,
     ],
     [
       82,
-      serviceOnly("seed_default_work_statuses_for_brand()", "seed_default_work_statuses_for_brand"),
+      serviceOnly(82, "seed_default_work_statuses_for_brand()", "seed_default_work_statuses_for_brand"),
     ],
     [
       83,

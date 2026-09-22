@@ -125,4 +125,11 @@
 - [x] Diagnosticar sem escrita o bloqueio real da Taveira após a publicação.
 - [x] Preservar identidades incrementais legadas registradas no rótulo e impedir reconciliação heurística sobre migrations posteriores.
 - [x] Regenerar e validar a versão 1.4.22 pelo fluxo MASTER-first.
-- [ ] Publicar a versão 1.4.22 somente após nova autorização explícita.
+- [x] Publicar a versão 1.4.22 somente após nova autorização explícita.
+
+## Reconciliação cumulativa das instalações legadas
+
+- [x] Comparar cada posição histórica somente com o estado canônico acumulado até ela.
+- [x] Preservar as posições 71 e 84 como verificações fail-closed do estado real.
+- [ ] Regenerar e validar a próxima versão pelo fluxo MASTER-first.
+- [ ] Publicar somente após nova autorização explícita.
