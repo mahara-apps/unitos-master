@@ -500,10 +500,9 @@ function InstallationDetailPage() {
   const activateReplacement = useMutation({
     mutationFn: (confirmLabel: string) => activateReplacementFn({ data: { id, confirmLabel } }),
     onSuccess: () => {
-      toast.success(
-        "Transferência do domínio iniciada; o cadastro antigo só será removido após nova validação completa.",
-      );
-      invalidate();
+      toast.success("Substituição limpa liberada; domínio transferido e cadastro antigo removido.");
+      void qc.invalidateQueries({ queryKey: ["installations"] });
+      void navigate({ to: "/admin/instalacoes" });
     },
     onError: (e: Error) => toast.error(e.message),
   });

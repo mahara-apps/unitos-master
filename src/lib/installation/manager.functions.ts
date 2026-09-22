@@ -810,9 +810,8 @@ export const createCleanInstallationReplacementFn = createServerFn({ method: "PO
 
 /**
  * Segunda confirmação da troca limpa. Só aceita uma substituição já
- * provisionada e saudável. O domínio é transferido no Control-plane antes do
- * reprovisionamento final; a origem só é removida automaticamente depois que
- * esse provisionamento, incluindo verify-installation, termina em sucesso.
+ * provisionada e saudável. O domínio é transferido pelo Control-plane depois
+ * da validação; o cadastro antigo é removido na mesma transação atômica.
  */
 export const activateCleanInstallationReplacementFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -838,23 +837,8 @@ export const activateCleanInstallationReplacementFn = createServerFn({ method: "
       { _replacement_id: data.id, _expected_release: MASTER_RELEASE_VERSION },
     );
     if (prepared.error) throw prepared.error;
-    try {
-      const started = await openAutomatedProvision(context, data.id);
-      if (started.result !== "STARTED") throw new Error(started.reasons.join(" | "));
-      return started;
-    } catch (error) {
-      const rolledBack = await callRpc<boolean>(
-        supabaseAdmin as never,
-        "rollback_clean_installation_replacement_cutover",
-        { _replacement_id: data.id },
-      );
-      if (rolledBack.error || rolledBack.data !== true) {
-        throw new Error(
-          "A ativação não iniciou e o rollback do domínio não foi confirmado; revisão manual obrigatória.",
-        );
-      }
-      throw error;
-    }
+    if (!prepared.data) throw new Error("A substituição limpa não foi ativada.");
+    return { result: "ACTIVATED" as const, replacementId: data.id };
   });
 
 /**
