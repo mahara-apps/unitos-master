@@ -135,11 +135,11 @@
 - [ ] Reexecutar a suíte global com credenciais válidas do projeto de integração; execução atual bloqueada por `Invalid API key` e pré-condições remotas ausentes.
 - [ ] Publicar somente após nova autorização explícita.
 
-## Reinstalação limpa da Taveira
+## Novas instalações sem legado
 
-- [x] Preservar somente nome, domínio e identidade institucional confirmada na instalação atual.
+- [x] Abandonar a substituição vinculada: os ambientes novos não reaproveitam instalações antigas.
 - [x] Impedir que um token limitado bloqueie a leitura pública do commit do MASTER (1.4.25).
-- [x] Simplificar a substituição limpa em etapas, derivando projeto, publicação e repositório automaticamente.
+- [x] Aplicar ao botão Nova instalação o formulário em etapas, derivando projeto, publicação e repositório automaticamente.
 - [ ] Remover os recursos e o histórico técnico antigos na ordem segura, sem reaproveitar migrations legadas.
 - [x] Criar e provisionar uma instalação nova diretamente na versão MASTER vigente.
 - [ ] Validar RBAC, RLS, autenticação, domínio e identidade institucional antes da liberação.
