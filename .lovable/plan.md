@@ -7,6 +7,7 @@
 - O indicador “Conectado/Gerenciar” e todos os envios usam outro caminho: `resolveResendConfig` ignora `metadata.handle` e exige `public.installation.email_from`.
 - Não existe hoje uma tela ou função que grave o remetente informado pelo diálogo do Resend em `public.installation.email_from`/`email_from_name`.
 - Resultado: a gravação pode concluir com sucesso, mas imediatamente depois o mesmo sistema considera o canal “não configurado” e bloqueia o envio com `remetente_instalacao_nao_configurado`.
+- O painel de instalações possui uma terceira leitura divergente: considera o Resend configurado apenas pela presença de `RESEND_API_KEY` no deploy, sem conferir a chave cifrada usada pelo workspace nem o remetente exigido pelo envio. Assim, ele pode indicar “configurado” quando o envio está bloqueado ou “não configurado” quando existe uma chave própria salva.
 
 ### Evidência no MASTER
 - Existe uma credencial Resend cifrada, um remetente em `metadata.handle` e o espelho do canal marcado como conectado.
@@ -18,6 +19,7 @@
 - O contrato defeituoso está no código e no pacote MASTER atual, portanto pode atingir qualquer instalação que receba essa versão.
 - O painel registra Apex e Taveira em 1.4.30, `unitos-new-teste-02` em 1.4.28, Casa 8 ainda em provisionamento e `unitos-teste` com acesso ao banco indisponível.
 - Esta auditoria não alterou nem testou envios nas instalações. A configuração interna de cada banco ainda precisa ser inspecionada individualmente antes de classificar cada ambiente como pronto, incompleto, chave inválida ou domínio não verificado.
+- O problema não é causado pelo Resend ter parado globalmente: a falha comprovada está na forma como o sistema persiste e interpreta a configuração. Chaves e domínios ainda podem ter problemas próprios, que só serão classificados após a inspeção individual.
 
 ## Comportamento definitivo
 
@@ -52,6 +54,7 @@ O botão passará a refletir a persistência real: configuração salva aparece 
 3. **Um único resolvedor**
    - Tela, teste manual, convites, notificações e templates usarão exatamente a mesma configuração por instalação.
    - Remover a decisão operacional baseada no espelho legado de `brand_connections.channels.resend`.
+   - Fazer o painel de instalações consultar o mesmo estado efetivo, em vez de inferir funcionamento apenas pela variável `RESEND_API_KEY`.
    - Não usar silenciosamente credenciais de outro workspace ou de outra instalação.
 
 4. **Migração segura do legado**
