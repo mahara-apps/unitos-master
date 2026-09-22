@@ -5401,6 +5401,45 @@ export type Database = {
           },
         ]
       }
+      installation_email_credentials: {
+        Row: {
+          ciphertext: string
+          created_at: string
+          id: boolean
+          masked: string
+          provider: string
+          updated_at: string
+          updated_by: string | null
+          validation_code: string | null
+          validation_status: string
+          verified_at: string | null
+        }
+        Insert: {
+          ciphertext: string
+          created_at?: string
+          id?: boolean
+          masked: string
+          provider?: string
+          updated_at?: string
+          updated_by?: string | null
+          validation_code?: string | null
+          validation_status?: string
+          verified_at?: string | null
+        }
+        Update: {
+          ciphertext?: string
+          created_at?: string
+          id?: boolean
+          masked?: string
+          provider?: string
+          updated_at?: string
+          updated_by?: string | null
+          validation_code?: string | null
+          validation_status?: string
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       installation_meta_app: {
         Row: {
           app_id: string | null
@@ -9984,6 +10023,10 @@ export type Database = {
         Args: { _task_id: string }
         Returns: number
       }
+      remove_installation_email_configuration: {
+        Args: never
+        Returns: undefined
+      }
       retry_installation_operation: {
         Args: {
           _delay_seconds: number
@@ -9997,6 +10040,19 @@ export type Database = {
         Returns: boolean
       }
       safe_uuid: { Args: { _txt: string }; Returns: string }
+      save_installation_email_configuration: {
+        Args: {
+          _ciphertext: string
+          _email_from: string
+          _email_from_name: string
+          _masked: string
+          _updated_by: string
+          _validation_code: string
+          _validation_status: string
+          _verified_at: string
+        }
+        Returns: undefined
+      }
       seal_installation_operation_baseline: {
         Args: {
           _baseline_hash: string
