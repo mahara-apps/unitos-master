@@ -222,7 +222,7 @@ function ConnectionsPage() {
   const qc = useQueryClient();
   // Autoridade de integração = super_admin | admin (owner normaliza para admin).
   // NÃO usar o `role` legado: ele funde MANAGER em "admin".
-  const { canManageIntegrations, isReady } = useAccessRole();
+  const { canManageIntegrations, authorityRole, isReady } = useAccessRole();
   const search = Route.useSearch();
   const aiSection = ["providers", "usage", "logs", "prompts"].includes(search.section ?? "")
     ? search.section!
@@ -502,7 +502,7 @@ function ConnectionsPage() {
             channels={data?.channels ?? {}}
             isLoading={isLoading}
             onChanged={invalidate}
-            canManage={canManageIntegrations}
+            canManage={authorityRole === "super_admin"}
           />
         </TabsContent>
       </Tabs>

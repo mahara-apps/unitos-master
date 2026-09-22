@@ -5,7 +5,8 @@
 - [x] Unificar salvamento, estado exibido, validação de domínio e envio.
 - [x] Restringir alteração a SUPER ADMIN e remover fallback legado.
 - [x] Cobrir configuração pronta, pendente, ausente e ilegível.
-- [ ] Regenerar pacote, sincronizar versão e executar `master:check`.
+- [x] Regenerar pacote e sincronizar a versão 1.4.31.
+- [ ] Executar `master:check` e validações finais.
 - [ ] Publicar somente com autorização explícita.
 
 ## Atualização determinística das instalações
