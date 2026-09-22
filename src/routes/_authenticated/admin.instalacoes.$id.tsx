@@ -463,7 +463,6 @@ function InstallationDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-
   const serviceState = useMutation({
     mutationFn: (input: { state: "active" | "suspended"; reason?: string; confirmLabel: string }) =>
       serviceStateFn({ data: { id, ...input } }),

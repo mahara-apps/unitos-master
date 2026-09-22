@@ -1,11 +1,9 @@
 {
   "bootstrapFile": "bootstrap-control-plane.sql",
-  "bootstrapSha256": "07f0e32e456e3b550fdc5e77575f5ae7a9a6c84584ac21a775e4edb96c086b6e",
-  "cleanReplacementFile": "006_clean_installation_replacement.sql",
-  "cleanReplacementSha256": "8b2085993ed1042d523d3244d971fd651493c76df0cf792f13334de0085bf28b",
+  "bootstrapSha256": "e0bd36148cf8177cb5abdbd9f9de8dbc6f44db1c3f3240e82ae8474d5b290a2a",
   "controlPlaneMigrations": 31,
   "controlPlaneReleaseFile": "004_control_plane_release_promotion.sql",
-  "controlPlaneReleaseSha256": "eba4137b95a8e764eb25a64b0d2b144b95f1a71c3de32320522e0ef6c932b561",
+  "controlPlaneReleaseSha256": "4937abe2400d47e3b77b6316cff241a38ae85eded2679657069aaad19bfc8ce2",
   "convergenceFile": "001_control_plane_convergence_v1_4_3.sql",
   "convergenceSha256": "37b309fb3618095388b361e319df95b8f93487a064009f34b07e071459044286",
   "deterministicUpdateFile": "003_control_plane_deterministic_update.sql",
