@@ -240,8 +240,12 @@ describe("contagem de falhas consecutivas", () => {
   });
 
   it("retry herda somente checkpoints locais do mesmo pacote selado", () => {
-    expect(checkpointRetrySql).toContain("_retry_operation.baseline_id IS DISTINCT FROM _baseline_id");
-    expect(checkpointRetrySql).toContain("_retry_operation.baseline_hash IS DISTINCT FROM _baseline_hash");
+    expect(checkpointRetrySql).toContain(
+      "_retry_operation.baseline_id IS DISTINCT FROM _baseline_id",
+    );
+    expect(checkpointRetrySql).toContain(
+      "_retry_operation.baseline_hash IS DISTINCT FROM _baseline_hash",
+    );
     expect(checkpointRetrySql).toContain("'{baselineProgress}'");
     expect(checkpointRetrySql).toContain("AND status = 'completed'");
     expect(checkpointRetrySql).toContain("AND statement_index = total_statements");

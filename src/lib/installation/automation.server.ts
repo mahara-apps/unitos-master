@@ -969,9 +969,7 @@ export type DeployClient = {
   }>;
 
   /** Garante que o domínio definitivo esteja atribuído ao projeto de deploy. */
-  ensureDomain: (
-    domain: string,
-  ) => Promise<{
+  ensureDomain: (domain: string) => Promise<{
     ok: boolean;
     added?: boolean;
     verified?: boolean;
@@ -4271,11 +4269,7 @@ export async function runAutomatedProvision(input: {
           return finish(appUrl, urlSource);
         }
         const snapshot = localDeltaPackage(provisionCommitSha, operation.baseline_id);
-        if (
-          !snapshot.version ||
-          !snapshot.sha256 ||
-          snapshot.total === 0
-        ) {
+        if (!snapshot.version || !snapshot.sha256 || snapshot.total === 0) {
           blocked.push("metadados locais do pacote de migrations estão incompletos ou divergentes");
           await mark("database", "error", "manifesto do pacote inválido");
           checks.database = "error";
@@ -4846,7 +4840,7 @@ export async function runAutomatedProvision(input: {
       "done",
       `${envResult.applied} variáveis gravadas — URL operacional ${url.origin} (${
         url.source === "deploy" ? "temporária do deploy" : "domínio definitivo"
-        })${publishNote ? ` · ${publishNote}` : " · redeploy pendente"} · deployment ${deploymentId} READY (${deploymentSource})${domainNote ? ` · ${domainNote}` : ""}${
+      })${publishNote ? ` · ${publishNote}` : " · redeploy pendente"} · deployment ${deploymentId} READY (${deploymentSource})${domainNote ? ` · ${domainNote}` : ""}${
         probe.ok ? " · frontend respondendo" : ` · frontend ${probe.detail}`
       }`,
     );
@@ -5168,7 +5162,9 @@ function localDeltaPackage(
   const sealedTotal = sealed.length >= 3 ? Number(sealed.at(-1)) : null;
   const total = splitDeltaMigrations(baseline007).length;
   const version =
-    sealedVersion && sealedCommit === commitSha && sealedTotal === total ? sealedVersion : currentVersion;
+    sealedVersion && sealedCommit === commitSha && sealedTotal === total
+      ? sealedVersion
+      : currentVersion;
   return {
     version,
     commitSha,

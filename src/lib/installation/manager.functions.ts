@@ -304,7 +304,7 @@ export function resolveRunningProvisionRead<T>(result: {
 }
 
 export async function assertNoActiveInstallationOperation(
-  supabase: { from: (table: string) => any }, // eslint-disable-line @typescript-eslint/no-explicit-any
+  supabase: { from: (table: string) => any },
   installationId: string,
 ): Promise<void> {
   const { data: active, error } = await supabase
@@ -1299,7 +1299,7 @@ async function openAutomatedProvision(
   retryOfOperationId?: string | null,
 ): Promise<AutomatedProvisionStart> {
   const supabase = context.supabase as never as {
-    from: (table: string) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    from: (table: string) => any;
   };
 
   const { resolveAutomationCapability, resolveAutomationTarget } =
@@ -1694,7 +1694,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
     );
 
     const supabase = context.supabase as never as {
-      from: (table: string) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
+      from: (table: string) => any;
     };
 
     const { resolveAutomationCapability } = await import("./automation-contract");
@@ -1818,7 +1818,7 @@ export const syncInstallationVersionFn = createServerFn({ method: "POST" })
     );
 
     const supabase = context.supabase as never as {
-      from: (table: string) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
+      from: (table: string) => any;
     };
     const { data: current, error: readError } = await supabase
       .from("installations")
