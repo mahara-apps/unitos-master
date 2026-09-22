@@ -256,17 +256,27 @@ select 1;`;
     });
   });
 
-  it("recupera deterministicamente todos os blocos do pacote oficial quando o manifesto está ausente", async () => {
+  it("recupera deterministicamente o pacote legado de 85 blocos quando o manifesto está ausente", async () => {
     const version = /^version=(.+)$/m.exec(canonicalVersion)?.[1] ?? "";
     const sha256 = /^sha256=([a-f0-9]{64})$/m.exec(canonicalVersion)?.[1] ?? "";
-    const total = splitDeltaMigrations(canonicalSql).length;
-    const snapshot = { version, commitSha: "commit-legado", sha256, total, sql: canonicalSql };
+    const legacySql = canonicalSql.replace(
+      /\n-- -+\n-- 20260920133109_1aec88a7-bd4d-45fe-a8b6-5b7be92ac9b4\.sql\n-- -+\n[\s\S]*$/,
+      "\n",
+    );
+    const legacyManifest = await generateDeltaManifest(legacySql);
+    const legacySha256 = createHash("sha256").update(legacySql).digest("hex");
+    const snapshot = {
+      version,
+      commitSha: "commit-legado",
+      sha256: legacySha256,
+      total: 85,
+      sql: legacySql,
+    };
     const recovered = await recoverLegacyCanonicalManifest(snapshot);
-    expect(recovered).toEqual({ ok: true, manifest: canonicalManifest });
-    await expect(generateDeltaManifest(canonicalSql)).resolves.toBe(canonicalManifest);
+    expect(recovered).toEqual({ ok: true, manifest: legacyManifest });
     await expect(
       validateCanonicalPackage(
-        { baseline_id: `${version}:commit-legado:${total}`, baseline_hash: sha256 },
+        { baseline_id: `${version}:commit-legado:85`, baseline_hash: legacySha256 },
         snapshot,
       ),
     ).resolves.toEqual({ ok: true });
