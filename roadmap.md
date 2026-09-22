@@ -1,3 +1,11 @@
+## Consulta do commit do MASTER no GitHub
+
+- [x] Confirmar o HTTP 403 causado pela ausência de `User-Agent`.
+- [x] Padronizar os cabeçalhos da leitura autenticada e pública.
+- [x] Cobrir a regressão com teste das duas tentativas.
+- [x] Regenerar o pacote MASTER 1.4.32 e executar validações finais.
+- [ ] Publicar somente com autorização explícita.
+
 ## Resend institucional por instalação
 
 - [x] Confirmar divergência entre chave, remetente, indicador e envio.
