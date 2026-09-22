@@ -91,11 +91,45 @@ describe("reconciliação segura do ledger legado", () => {
       totalStatements: expect.any(Number),
     });
   });
-  it("respeita SECURITY DEFINER final de start_job_timer", () => {
+  it("compara cada função com o estado canônico acumulado até a própria posição", () => {
     const sql = buildLegacyReconciliationInspectionSql(migrations);
+    const position42 = sql.split("SELECT 42::integer AS position")[1]?.split("UNION ALL")[0] ?? "";
     const position74 = sql.split("SELECT 74::integer AS position")[1]?.split("UNION ALL")[0] ?? "";
-    expect(position74).toContain("prosecdef = true");
-    expect(position74).not.toContain("prosecdef = false");
+    const historicalBumpBody = migrations
+      .slice(0, 42)
+      .map((migration) => migration.sql)
+      .join("\n")
+      .match(
+        /create\s+or\s+replace\s+function\s+public\.bump_message_thread\s*\([^)]*\)[\s\S]*?\bas\s+\$([A-Za-z0-9_]*)\$([\s\S]*?)\$\1\$\s*;/i,
+      )?.[2]
+      ?.replace(/\s+/g, "")
+      .toLowerCase();
+    const finalBumpBody = [
+      ...canonicalSql.matchAll(
+        /create\s+or\s+replace\s+function\s+public\.bump_message_thread\s*\([^)]*\)[\s\S]*?\bas\s+\$([A-Za-z0-9_]*)\$([\s\S]*?)\$\1\$\s*;/gi,
+      ),
+    ]
+      .at(-1)?.[2]
+      ?.replace(/\s+/g, "")
+      .toLowerCase();
+    expect(historicalBumpBody).toBeTruthy();
+    expect(finalBumpBody).toBeTruthy();
+    expect(historicalBumpBody).not.toBe(finalBumpBody);
+    expect(position42).toContain(historicalBumpBody);
+    expect(position42).not.toContain(finalBumpBody);
+    expect(position74).toContain("prosecdef = false");
+    expect(position74).not.toContain("prosecdef = true");
+  });
+  it("mantém 71 e 84 como verificações fail-closed do estado real", () => {
+    const sql = buildLegacyReconciliationInspectionSql(migrations);
+    const position71 = sql.split("SELECT 71::integer AS position")[1]?.split("UNION ALL")[0] ?? "";
+    const position84 = sql.split("SELECT 84::integer AS position")[1]?.split("UNION ALL")[0] ?? "";
+    expect(position71).toContain("blocked.enumlabel='blocked'");
+    expect(position71).toContain("done.enumlabel='done'");
+    expect(position84).toContain("public.installation','SELECT'");
+    expect(position84).toContain(
+      "a.privilege_type IN ('MAINTAIN','TRUNCATE','TRIGGER','REFERENCES')",
+    );
   });
   it("classifica falsos positivos por migrations posteriores ou hardening manual como parciais", () => {
     for (const position of [21, 42, 52, 56, 66, 82, 83])
