@@ -341,13 +341,29 @@ WITH checks AS (
   -- --------------------------------------------------- nenhum dado de negócio copiado
   UNION ALL
   SELECT 55, 'sem dados de negócio herdados (marcas/clientes/posts/credenciais)',
-         format('brands=%s clients=%s posts=%s credenciais=%s meta_app=%s',
+         format('brands=%s clients=%s posts=%s credenciais=%s meta_app=%s email_instalacao=%s',
                 (SELECT count(*) FROM public.brands),
                 (SELECT count(*) FROM public.clients),
                 (SELECT count(*) FROM public.posts),
                 (SELECT count(*) FROM public.brand_api_credentials),
-                (SELECT count(*) FROM public.installation_meta_app)),
+                 (SELECT count(*) FROM public.installation_meta_app),
+                 (SELECT count(*) FROM public.installation_email_credentials)),
          'INFO'
+
+  UNION ALL
+  SELECT 56, 'Resend: configuração protegida por instalação',
+         format('tabela=%s salvar=%s remover=%s anon=%s autenticado=%s',
+           to_regclass('public.installation_email_credentials') IS NOT NULL,
+           to_regprocedure('public.save_installation_email_configuration(text,text,text,text,text,text,timestamptz,uuid)') IS NOT NULL,
+           to_regprocedure('public.remove_installation_email_configuration()') IS NOT NULL,
+           has_table_privilege('anon', 'public.installation_email_credentials', 'SELECT'),
+           has_table_privilege('authenticated', 'public.installation_email_credentials', 'SELECT')),
+         CASE WHEN to_regclass('public.installation_email_credentials') IS NOT NULL
+                    AND to_regprocedure('public.save_installation_email_configuration(text,text,text,text,text,text,timestamptz,uuid)') IS NOT NULL
+                    AND to_regprocedure('public.remove_installation_email_configuration()') IS NOT NULL
+                    AND NOT has_table_privilege('anon', 'public.installation_email_credentials', 'SELECT')
+                    AND NOT has_table_privilege('authenticated', 'public.installation_email_credentials', 'SELECT')
+              THEN 'PASS' ELSE 'FAIL' END
 
   UNION ALL
   SELECT 57, 'Jobs: numeração, status e timer direto instalados',

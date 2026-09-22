@@ -631,6 +631,16 @@
       "position": 126,
       "file": "20260922163500_retry_inherit_git_checkpoint.sql",
       "destination": "control-plane"
+    },
+    {
+      "position": 127,
+      "file": "20260922184517_aa87cc29-01ee-4bb2-8826-d023128ba151.sql",
+      "destination": "client"
+    },
+    {
+      "position": 128,
+      "file": "20260922185232_3e76c535-1f3b-4088-b6e8-b3ac25cd067a.sql",
+      "destination": "client"
     }
   ]
 }

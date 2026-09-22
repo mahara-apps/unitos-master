@@ -1,3 +1,13 @@
+## Resend institucional por instalação
+
+- [x] Confirmar divergência entre chave, remetente, indicador e envio.
+- [x] Criar armazenamento cifrado e protegido por instalação.
+- [x] Unificar salvamento, estado exibido, validação de domínio e envio.
+- [x] Restringir alteração a SUPER ADMIN e remover fallback legado.
+- [x] Cobrir configuração pronta, pendente, ausente e ilegível.
+- [ ] Regenerar pacote, sincronizar versão e executar `master:check`.
+- [ ] Publicar somente com autorização explícita.
+
 ## Atualização determinística das instalações
 
 - [x] Unificar a fonte canônica de versão e reconciliação.

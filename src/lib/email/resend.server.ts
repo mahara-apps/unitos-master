@@ -60,7 +60,13 @@ async function readInstallationCredential(): Promise<InstallationCredentialRow |
     .eq("id", true)
     .maybeSingle();
   if (error) throw error;
-  return data;
+  if (!data) return null;
+  const validationStatus = ["pending", "ready", "action_required"].includes(
+    data.validation_status,
+  )
+    ? (data.validation_status as InstallationCredentialRow["validation_status"])
+    : "pending";
+  return { ...data, validation_status: validationStatus };
 }
 
 export class ResendNotConfiguredError extends Error {
