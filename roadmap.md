@@ -153,3 +153,5 @@
 - [x] Encaminhar recusas atuais da Vercel para o fallback Git idempotente.
 - [x] Regenerar e validar a próxima versão pelo fluxo MASTER-first.
 - [ ] Publicar somente após autorização explícita e então repetir o provisionamento.
+
+- [ ] Concluir domínio como pendência não bloqueante e retry com herança segura de checkpoints (aguarda validação/publicação)
