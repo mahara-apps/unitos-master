@@ -110,10 +110,13 @@ select 2;`;
     expect(applied).toEqual(new Set([`${first.file}:${first.fingerprint}`]));
   });
 
-  it("dispensa a reconciliação por heurística quando o trecho histórico tem identidade contínua", () => {
+  it("dispensa a reconciliação por heurística quando o trecho histórico aplicado é contínuo", () => {
     const migrations = splitDeltaMigrations(packageSql);
-    const labels = new Set(migrations.map((item) => `${item.file}:${item.fingerprint}`));
+    const labels = new Set(
+      migrations.slice(0, 82).map((item) => `${item.file}:${item.fingerprint}`),
+    );
     expect(needsLegacyBlobReconciliation(true, labels, migrations)).toBe(false);
+    expect(labels.has(`${migrations[83]?.file}:${migrations[83]?.fingerprint}`)).toBe(false);
     expect(needsLegacyBlobReconciliation(false, new Set(), migrations)).toBe(false);
   });
 
@@ -256,19 +259,17 @@ select 1;`;
     });
   });
 
-  it("recupera deterministicamente os 85 blocos do pacote oficial quando o manifesto está ausente", async () => {
+  it("bloqueia pacote atual de 87 blocos quando uma operação antiga não possui manifesto", async () => {
     const version = /^version=(.+)$/m.exec(canonicalVersion)?.[1] ?? "";
     const sha256 = /^sha256=([a-f0-9]{64})$/m.exec(canonicalVersion)?.[1] ?? "";
     const snapshot = { version, commitSha: "commit-legado", sha256, total: 85, sql: canonicalSql };
     const recovered = await recoverLegacyCanonicalManifest(snapshot);
-    expect(recovered).toEqual({ ok: true, manifest: canonicalManifest });
+    expect(recovered).toMatchObject({ ok: false });
     await expect(generateDeltaManifest(canonicalSql)).resolves.toBe(canonicalManifest);
-    await expect(
-      validateCanonicalPackage(
-        { baseline_id: `${version}:commit-legado:85`, baseline_hash: sha256 },
-        snapshot,
-      ),
-    ).resolves.toEqual({ ok: true });
+    await expect(validateCanonicalPackage(
+      { baseline_id: `${version}:commit-legado:85`, baseline_hash: sha256 },
+      snapshot,
+    )).resolves.toMatchObject({ ok: false });
   });
 
   it("bloqueia recuperação com hash divergente ou pacote incompatível", async () => {
