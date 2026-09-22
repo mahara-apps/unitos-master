@@ -959,6 +959,35 @@ describe("clientes de gestão", () => {
     expect(seen[0]).toContain("upsert=true");
   });
 
+  it("consulta o commit do MASTER com User-Agent na leitura autenticada e pública", async () => {
+    const headersSeen: Array<Record<string, string>> = [];
+    const client = createDeployClient({
+      token: "vercel-token",
+      project: "unitos-pitada",
+      githubToken: "github-token",
+      fetchImpl: (async (url: string, init?: RequestInit) => {
+        if (!url.includes("api.github.com/repos/mahara-apps/unitos-master/commits/main")) {
+          return new Response("not found", { status: 404 });
+        }
+        const headers = Object.fromEntries(new Headers(init?.headers).entries());
+        headersSeen.push(headers);
+        if (headers.authorization) {
+          return new Response("Request forbidden by administrative rules", { status: 403 });
+        }
+        return Response.json({ sha: "master-sha" });
+      }) as never,
+    });
+
+    const result = await client.latestCommit();
+
+    expect(result).toEqual({ ok: true, sha: "master-sha" });
+    expect(headersSeen).toHaveLength(2);
+    expect(headersSeen[0]?.["user-agent"]).toBe("unitos-installation-manager");
+    expect(headersSeen[0]?.authorization).toBe("Bearer github-token");
+    expect(headersSeen[1]?.["user-agent"]).toBe("unitos-installation-manager");
+    expect(headersSeen[1]?.authorization).toBeUndefined();
+  });
+
   it("descobre automaticamente a equipe dona do projeto de deploy", async () => {
     const seen: string[] = [];
     const client = createDeployClient({
