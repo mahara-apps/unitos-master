@@ -140,6 +140,31 @@ describe("delta do baseline", () => {
     }
   });
 
+  it("credencial de e-mail revoga acesso direto e endurece tabelas futuras", () => {
+    const hardening =
+      migrationFiles[
+        "../supabase/migrations/20260923110105_11162a73-21e7-4751-aeff-cceae78fd5fa.sql"
+      ];
+    expect(hardening).toBeDefined();
+    expect(hardening).toContain(
+      "REVOKE ALL ON TABLE public.installation_email_credentials FROM PUBLIC, anon, authenticated",
+    );
+    expect(hardening).toContain("ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public");
+    expect(verifySql).toContain("Resend: configuração protegida por instalação");
+    for (const privilege of [
+      "SELECT",
+      "INSERT",
+      "UPDATE",
+      "DELETE",
+      "TRUNCATE",
+      "TRIGGER",
+      "REFERENCES",
+      "MAINTAIN",
+    ] as const) {
+      expect(verifySql).toContain(`'${privilege}'`);
+    }
+  });
+
   it("não envia estruturas ou RPCs Control-plane no pacote Client", () => {
     for (const marker of [
       "public.installations",

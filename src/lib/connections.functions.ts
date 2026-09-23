@@ -403,9 +403,8 @@ export const saveToolCredential = createServerFn({ method: "POST" })
     if (data.provider === "resend") {
       const { assertSuperAdmin } = await import("@/lib/super-admin");
       await assertSuperAdmin(context.supabase, context.userId);
-      const { parseResendSender, validateResendConfiguration } = await import(
-        "@/lib/email/resend.server"
-      );
+      const { parseResendSender, validateResendConfiguration } =
+        await import("@/lib/email/resend.server");
       const sender = parseResendSender(data.metadata?.handle ?? "");
       if (!sender) throw new Error("Informe um remetente válido, como Nome <email@dominio.com>.");
       const validation = await validateResendConfiguration(data.apiKey.trim(), sender.domain);
@@ -422,6 +421,20 @@ export const saveToolCredential = createServerFn({ method: "POST" })
         _updated_by: context.userId,
       });
       if (error) throw error;
+      const { __resetInstallationSettingsCache } =
+        await import("@/lib/installation-settings.server");
+      __resetInstallationSettingsCache();
+      const { logCriticalAction } = await import("@/lib/critical-audit.server");
+      await logCriticalAction(context.supabase as never, {
+        action: "email.configure",
+        actorId: context.userId,
+        targetLabel: "Resend da instalação",
+        impact: {
+          masked,
+          validationStatus: validation.status,
+          validationCode: validation.code,
+        },
+      });
       return { ok: true, masked, validationStatus: validation.status };
     }
 
@@ -476,6 +489,16 @@ export const removeToolCredential = createServerFn({ method: "POST" })
       const { callRpc } = await import("@/lib/supabase-rpc");
       const { error } = await callRpc(supabaseAdmin, "remove_installation_email_configuration");
       if (error) throw error;
+      const { __resetInstallationSettingsCache } =
+        await import("@/lib/installation-settings.server");
+      __resetInstallationSettingsCache();
+      const { logCriticalAction } = await import("@/lib/critical-audit.server");
+      await logCriticalAction(context.supabase as never, {
+        action: "email.remove",
+        actorId: context.userId,
+        targetLabel: "Resend da instalação",
+        impact: { credentialRemoved: true, senderRemoved: true },
+      });
       return { ok: true };
     }
     await context.supabase

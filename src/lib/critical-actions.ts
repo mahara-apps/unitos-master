@@ -38,6 +38,8 @@ export const CRITICAL_ACTION_KEYS = [
   "meta_app.update",
   "ai_limits.update",
   "environment.rename",
+  "email.configure",
+  "email.remove",
   // Usuários e permissões
   "user.grant_master",
   "user.revoke_master",
@@ -243,6 +245,21 @@ export const CRITICAL_ACTIONS: Record<CriticalActionKey, CriticalActionDefinitio
     impact: "Altera o nome exibido do ambiente em todas as telas e comunicações.",
     irreversible: false,
     targetType: "environment",
+  },
+  "email.configure": {
+    key: "email.configure",
+    title: "Configurar e-mail da instalação",
+    impact: "Substitui a credencial e o remetente usados por todos os e-mails desta instalação.",
+    irreversible: false,
+    targetType: "installation_email_credentials",
+  },
+  "email.remove": {
+    key: "email.remove",
+    title: "Remover e-mail da instalação",
+    impact:
+      "Remove a credencial e o remetente; os disparos ficam indisponíveis até nova configuração.",
+    irreversible: true,
+    targetType: "installation_email_credentials",
   },
   "user.grant_master": {
     key: "user.grant_master",

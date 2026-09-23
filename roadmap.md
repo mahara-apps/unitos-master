@@ -16,6 +16,11 @@
 - [x] Regenerar pacote e sincronizar a versão 1.4.31.
 - [x] Executar `master:check` e validações finais.
 - [ ] Publicar somente com autorização explícita.
+- [x] Diagnosticar privilégios herdados na instalação 1.4.28 sem alterar dados.
+- [x] Aplicar hardening retroativo no MASTER e defaults seguros para novas tabelas.
+- [x] Eliminar cache obsoleto, auditar alterações e deduplicar retries no provedor.
+- [ ] Validar e selar o pacote MASTER 1.4.33.
+- [ ] Atualizar primeiro `unitos-new-teste-02` após autorização de publicação.
 
 ## Atualização determinística das instalações
 

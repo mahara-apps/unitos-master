@@ -346,8 +346,9 @@ WITH checks AS (
                 (SELECT count(*) FROM public.clients),
                 (SELECT count(*) FROM public.posts),
                 (SELECT count(*) FROM public.brand_api_credentials),
-                 (SELECT count(*) FROM public.installation_meta_app),
-                 (SELECT count(*) FROM public.installation_email_credentials)),
+                  (SELECT count(*) FROM public.installation_meta_app),
+                  CASE WHEN to_regclass('public.installation_email_credentials') IS NULL
+                       THEN 'ausente' ELSE 'presente' END),
          'INFO'
 
   UNION ALL
@@ -356,13 +357,13 @@ WITH checks AS (
            to_regclass('public.installation_email_credentials') IS NOT NULL,
            to_regprocedure('public.save_installation_email_configuration(text,text,text,text,text,text,timestamptz,uuid)') IS NOT NULL,
            to_regprocedure('public.remove_installation_email_configuration()') IS NOT NULL,
-           has_table_privilege('anon', 'public.installation_email_credentials', 'SELECT'),
-           has_table_privilege('authenticated', 'public.installation_email_credentials', 'SELECT')),
+           coalesce(has_table_privilege('anon', to_regclass('public.installation_email_credentials'), 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER,REFERENCES,MAINTAIN'), false),
+           coalesce(has_table_privilege('authenticated', to_regclass('public.installation_email_credentials'), 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER,REFERENCES,MAINTAIN'), false)),
          CASE WHEN to_regclass('public.installation_email_credentials') IS NOT NULL
                     AND to_regprocedure('public.save_installation_email_configuration(text,text,text,text,text,text,timestamptz,uuid)') IS NOT NULL
                     AND to_regprocedure('public.remove_installation_email_configuration()') IS NOT NULL
-                    AND NOT has_table_privilege('anon', 'public.installation_email_credentials', 'SELECT')
-                    AND NOT has_table_privilege('authenticated', 'public.installation_email_credentials', 'SELECT')
+                    AND NOT coalesce(has_table_privilege('anon', to_regclass('public.installation_email_credentials'), 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER,REFERENCES,MAINTAIN'), false)
+                    AND NOT coalesce(has_table_privilege('authenticated', to_regclass('public.installation_email_credentials'), 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER,REFERENCES,MAINTAIN'), false)
               THEN 'PASS' ELSE 'FAIL' END
 
   UNION ALL

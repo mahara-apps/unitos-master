@@ -114,13 +114,16 @@ describe("sendResendEmail", () => {
 
   it("503 recupera quando a tentativa seguinte tem sucesso", async () => {
     let n = 0;
-    const { result, logs, sleeps } = run((async () => {
+    const idempotencyKeys: string[] = [];
+    const { result, logs, sleeps } = run((async (_url: string, init: RequestInit) => {
       n += 1;
+      idempotencyKeys.push(new Headers(init.headers).get("Idempotency-Key") ?? "");
       return n === 1 ? jsonRes(503, "upstream") : jsonRes(200);
     }) as unknown as typeof fetch);
     await expect(result).resolves.toEqual({ sent: true, from: config.from });
     expect(n).toBe(2);
     expect(sleeps).toHaveLength(1);
+    expect(idempotencyKeys).toEqual(["test-id", "test-id"]);
     expect(logs[0]?.retries).toBe(1);
     expect(logs[0]?.reason).toBe("sent");
   });
@@ -168,13 +171,10 @@ describe("sendResendEmail", () => {
     process.env.LOVABLE_API_KEY = "lovable-key";
     const cfg = { ...config, apiKey: "conn_key_123456" };
     const urls: string[] = [];
-    vi.stubGlobal(
-      "fetch",
-      (async (u: string) => {
-        urls.push(u);
-        return urls.length === 1 ? jsonRes(401, "no connection") : jsonRes(200);
-      }) as unknown as typeof fetch,
-    );
+    vi.stubGlobal("fetch", (async (u: string) => {
+      urls.push(u);
+      return urls.length === 1 ? jsonRes(401, "no connection") : jsonRes(200);
+    }) as unknown as typeof fetch);
     const logs: ResendTelemetrySummary[] = [];
     const r = await sendResendEmail(cfg, msg, {
       sleep: async () => {},
