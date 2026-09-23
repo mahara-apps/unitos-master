@@ -14,6 +14,6 @@
   "p0HardeningSha256": "3a610faebe50d7a2b67c3e781331fab2a5c02de4a4a0668ad1124f1e47fef68d",
   "reconciliationFile": "20260917184500_legacy_migration_reconciliation.sql",
   "reconciliationSha256": "7a9dd018e24796b71b62a9bb8abf36da9c7acd358e8d8b1bb16066d141556627",
-  "releaseVersion": "1.4.32",
+  "releaseVersion": "1.4.33",
   "schemaVersion": 1
 }
