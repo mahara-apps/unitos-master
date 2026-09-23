@@ -114,13 +114,16 @@ describe("sendResendEmail", () => {
 
   it("503 recupera quando a tentativa seguinte tem sucesso", async () => {
     let n = 0;
-    const { result, logs, sleeps } = run((async () => {
+    const idempotencyKeys: string[] = [];
+    const { result, logs, sleeps } = run((async (_url: string, init: RequestInit) => {
       n += 1;
+      idempotencyKeys.push(new Headers(init.headers).get("Idempotency-Key") ?? "");
       return n === 1 ? jsonRes(503, "upstream") : jsonRes(200);
     }) as unknown as typeof fetch);
     await expect(result).resolves.toEqual({ sent: true, from: config.from });
     expect(n).toBe(2);
     expect(sleeps).toHaveLength(1);
+    expect(idempotencyKeys).toEqual(["test-id", "test-id"]);
     expect(logs[0]?.retries).toBe(1);
     expect(logs[0]?.reason).toBe("sent");
   });

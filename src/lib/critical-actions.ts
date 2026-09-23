@@ -38,6 +38,8 @@ export const CRITICAL_ACTION_KEYS = [
   "meta_app.update",
   "ai_limits.update",
   "environment.rename",
+  "email.configure",
+  "email.remove",
   // Usuários e permissões
   "user.grant_master",
   "user.revoke_master",

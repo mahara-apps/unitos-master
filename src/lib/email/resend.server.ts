@@ -219,7 +219,9 @@ export async function resolveResendConfig(
   let installationName: string | null = null;
   try {
     const { getInstallationSettings } = await import("@/lib/installation-settings.server");
-    const settings = await getInstallationSettings();
+    // Configuração operacional sensível: uma gravação seguida de teste nunca
+    // pode observar o remetente armazenado no cache de outro instante/worker.
+    const settings = await getInstallationSettings({ fresh: true });
     installationFrom = settings.emailFrom;
     installationName = settings.emailFromName;
   } catch {
@@ -387,12 +389,14 @@ async function postResend(
   config: ResendConfig,
   msg: { to: string; subject: string; html: string },
   viaGateway: boolean,
+  idempotencyKey: string,
   signal?: AbortSignal,
 ): Promise<ResendOutcome> {
   const url = viaGateway
     ? "https://connector-gateway.lovable.dev/resend/emails"
     : "https://api.resend.com/emails";
   const headers: Record<string, string> = { "Content-Type": "application/json" };
+  headers["Idempotency-Key"] = idempotencyKey;
   if (viaGateway) {
     headers["Authorization"] = `Bearer ${process.env.LOVABLE_API_KEY}`;
     headers["X-Connection-Api-Key"] = config.apiKey;
@@ -448,12 +452,13 @@ export async function sendResendEmail(
   const rand = opts.rand ?? Math.random;
   const now = opts.now ?? Date.now;
   const startedAtMs = now();
+  const operationId = (opts.idFactory ?? (() => crypto.randomUUID()))();
   const canUseGateway = Boolean(process.env.LOVABLE_API_KEY) && !isNativeResendKey(config.apiKey);
   let useGateway = canUseGateway;
 
   const perAttempt: ResendAttemptTelemetry[] = [];
   const summary: ResendTelemetrySummary = {
-    operationId: (opts.idFactory ?? (() => Math.random().toString(36).slice(2, 10)))(),
+    operationId,
     startedAt: new Date(startedAtMs).toISOString(),
     finishedAt: new Date(startedAtMs).toISOString(),
     durationMs: 0,
@@ -481,7 +486,7 @@ export async function sendResendEmail(
 
   for (let attempt = 1; attempt <= RESEND_MAX_ATTEMPTS; attempt += 1) {
     const attemptStart = now();
-    const outcome = await postResend(config, msg, useGateway, opts.signal);
+    const outcome = await postResend(config, msg, useGateway, operationId, opts.signal);
     const route: "gateway" | "api" = useGateway ? "gateway" : "api";
     summary.route = route;
 
