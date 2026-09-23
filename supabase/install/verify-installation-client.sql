@@ -346,8 +346,9 @@ WITH checks AS (
                 (SELECT count(*) FROM public.clients),
                 (SELECT count(*) FROM public.posts),
                 (SELECT count(*) FROM public.brand_api_credentials),
-                 (SELECT count(*) FROM public.installation_meta_app),
-                 (SELECT count(*) FROM public.installation_email_credentials)),
+                  (SELECT count(*) FROM public.installation_meta_app),
+                  CASE WHEN to_regclass('public.installation_email_credentials') IS NULL
+                       THEN 'ausente' ELSE 'presente' END),
          'INFO'
 
   UNION ALL
