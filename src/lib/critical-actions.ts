@@ -256,7 +256,8 @@ export const CRITICAL_ACTIONS: Record<CriticalActionKey, CriticalActionDefinitio
   "email.remove": {
     key: "email.remove",
     title: "Remover e-mail da instalação",
-    impact: "Remove a credencial e o remetente; os disparos ficam indisponíveis até nova configuração.",
+    impact:
+      "Remove a credencial e o remetente; os disparos ficam indisponíveis até nova configuração.",
     irreversible: true,
     targetType: "installation_email_credentials",
   },

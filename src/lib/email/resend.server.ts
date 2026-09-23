@@ -9,10 +9,7 @@
 //
 // Nunca retornamos a API key para fora deste módulo, nem em logs ou erros.
 
-import {
-  decryptCredential,
-  isCredentialDecryptError,
-} from "@/lib/credentials-crypto.server";
+import { decryptCredential, isCredentialDecryptError } from "@/lib/credentials-crypto.server";
 import type { SupabaseLike } from "./resend-types";
 
 export type ResendConfigSource = "installation";
@@ -61,9 +58,7 @@ async function readInstallationCredential(): Promise<InstallationCredentialRow |
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  const validationStatus = ["pending", "ready", "action_required"].includes(
-    data.validation_status,
-  )
+  const validationStatus = ["pending", "ready", "action_required"].includes(data.validation_status)
     ? (data.validation_status as InstallationCredentialRow["validation_status"])
     : "pending";
   return { ...data, validation_status: validationStatus };

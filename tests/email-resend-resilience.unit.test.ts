@@ -171,13 +171,10 @@ describe("sendResendEmail", () => {
     process.env.LOVABLE_API_KEY = "lovable-key";
     const cfg = { ...config, apiKey: "conn_key_123456" };
     const urls: string[] = [];
-    vi.stubGlobal(
-      "fetch",
-      (async (u: string) => {
-        urls.push(u);
-        return urls.length === 1 ? jsonRes(401, "no connection") : jsonRes(200);
-      }) as unknown as typeof fetch,
-    );
+    vi.stubGlobal("fetch", (async (u: string) => {
+      urls.push(u);
+      return urls.length === 1 ? jsonRes(401, "no connection") : jsonRes(200);
+    }) as unknown as typeof fetch);
     const logs: ResendTelemetrySummary[] = [];
     const r = await sendResendEmail(cfg, msg, {
       sleep: async () => {},
