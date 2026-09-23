@@ -356,13 +356,13 @@ WITH checks AS (
            to_regclass('public.installation_email_credentials') IS NOT NULL,
            to_regprocedure('public.save_installation_email_configuration(text,text,text,text,text,text,timestamptz,uuid)') IS NOT NULL,
            to_regprocedure('public.remove_installation_email_configuration()') IS NOT NULL,
-           has_table_privilege('anon', 'public.installation_email_credentials', 'SELECT'),
-           has_table_privilege('authenticated', 'public.installation_email_credentials', 'SELECT')),
+          has_table_privilege('anon', 'public.installation_email_credentials', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER,REFERENCES,MAINTAIN'),
+          has_table_privilege('authenticated', 'public.installation_email_credentials', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER,REFERENCES,MAINTAIN')),
          CASE WHEN to_regclass('public.installation_email_credentials') IS NOT NULL
                     AND to_regprocedure('public.save_installation_email_configuration(text,text,text,text,text,text,timestamptz,uuid)') IS NOT NULL
                     AND to_regprocedure('public.remove_installation_email_configuration()') IS NOT NULL
-                    AND NOT has_table_privilege('anon', 'public.installation_email_credentials', 'SELECT')
-                    AND NOT has_table_privilege('authenticated', 'public.installation_email_credentials', 'SELECT')
+                   AND NOT has_table_privilege('anon', 'public.installation_email_credentials', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER,REFERENCES,MAINTAIN')
+                   AND NOT has_table_privilege('authenticated', 'public.installation_email_credentials', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER,REFERENCES,MAINTAIN')
               THEN 'PASS' ELSE 'FAIL' END
 
   UNION ALL

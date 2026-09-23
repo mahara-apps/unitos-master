@@ -246,6 +246,20 @@ export const CRITICAL_ACTIONS: Record<CriticalActionKey, CriticalActionDefinitio
     irreversible: false,
     targetType: "environment",
   },
+  "email.configure": {
+    key: "email.configure",
+    title: "Configurar e-mail da instalação",
+    impact: "Substitui a credencial e o remetente usados por todos os e-mails desta instalação.",
+    irreversible: false,
+    targetType: "installation_email_credentials",
+  },
+  "email.remove": {
+    key: "email.remove",
+    title: "Remover e-mail da instalação",
+    impact: "Remove a credencial e o remetente; os disparos ficam indisponíveis até nova configuração.",
+    irreversible: true,
+    targetType: "installation_email_credentials",
+  },
   "user.grant_master": {
     key: "user.grant_master",
     title: "Conceder nível master",
