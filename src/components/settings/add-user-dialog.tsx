@@ -10,7 +10,6 @@ import {
 	EXPANDED_MODAL_TABS_BODY,
 	ExpandedModal,
 } from "@/components/ui/expanded-modal";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
 	Select,
@@ -24,8 +23,6 @@ import { useAccessRole } from "@/hooks/use-access-role";
 import { listAccessProfiles } from "@/lib/access-profiles.functions";
 import { inviteBrandMembers } from "@/lib/team.functions";
 import type { BrandRole } from "@/lib/team-admin.functions";
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Adiciona colaboradores por convite de uso único. A pessoa define a própria

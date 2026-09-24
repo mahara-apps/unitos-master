@@ -737,19 +737,6 @@ const AddExistingInput = z.object({
 		.default([]),
 });
 
-// ============================================================================
-// Provisionamento manual de usuários com senha temporária e escopo por projeto
-// ============================================================================
-
-const AssignmentInput = z.object({
-	brandId: z.string().uuid(),
-	role: z.enum(ASSIGNABLE).default("user"),
-	permissions: z
-		.array(z.enum(ALL_PERMISSION_IDS as [PermissionId, ...PermissionId[]]))
-		.default([]),
-	clientIds: z.array(z.string().uuid()).default([]),
-});
-
 // Lista workspaces onde o usuário atual pode provisionar novos usuários
 export const listProvisionableBrands = createServerFn({ method: "GET" })
 	.middleware([requireSupabaseAuth])
