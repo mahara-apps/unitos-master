@@ -7280,19 +7280,6 @@ export async function runAutomatedUpdate(input: {
 			`URL necessária para configurar autenticação: ${operationalUrl.reason}`,
 		);
 	}
-	const authDefaults = await applyInstallationAuthDefaults(
-		management,
-		operationalUrl.origin,
-	).catch((error) => ({
-		applied: false,
-		detail: error instanceof Error ? error.message : "falha desconhecida",
-	}));
-	if (!authDefaults.applied) {
-		return fail(
-			"BLOCKED",
-			`Autenticação da instalação não confirmada: ${authDefaults.detail}`,
-		);
-	}
 	const code = createCodeClient({
 		token: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
 		masterToken:
@@ -7386,6 +7373,60 @@ export async function runAutomatedUpdate(input: {
 			updatePreflight.checks.find((check) => !check.ok)?.area === "database"
 				? "database"
 				: "code",
+		);
+	}
+
+	/* O contrato de runtime/browser da PRÓPRIA instalação é reaplicado antes de
+	 * qualquer alteração no banco. Isso corrige projetos antigos sem `VITE_*` e
+	 * impede publicar um bundle que não consiga abrir login. */
+	const managedKeys = await management.keys();
+	const publishableKey =
+		(managedKeys.ok ? managedKeys.publishableKey : null) ??
+		(env["UNITOS_SUPABASE_PUBLISHABLE_KEY"] ?? "").trim();
+	const serviceRoleKey =
+		(managedKeys.ok ? managedKeys.serviceRoleKey : null) ??
+		(env["UNITOS_SUPABASE_SERVICE_ROLE_KEY"] ?? "").trim();
+	const runtimePlan = buildInstallationRuntimeEnvPlan({
+		appUrl: operationalUrl.origin,
+		supabaseUrl:
+			installation.supabaseUrl ?? `https://${target.projectRef}.supabase.co`,
+		publishableKey,
+		serviceRoleKey,
+		projectRef: target.projectRef,
+	});
+	if (!runtimePlan.ok) {
+		return fail("BLOCKED", `Configuração da instalação recusada: ${runtimePlan.reason}`);
+	}
+	const runtimeConfigFingerprint = createHash("sha256")
+		.update(
+			runtimePlan.entries
+				.map((entry) => `${entry.key}\u0000${entry.value}`)
+				.sort()
+				.join("\u0001"),
+		)
+		.digest("hex");
+	if (checkpoint.updateRuntimeConfigFingerprint !== runtimeConfigFingerprint) {
+		const envResult = await deploy.setEnv(runtimePlan.entries);
+		if (!envResult.ok || envResult.applied !== runtimePlan.entries.length) {
+			return fail(
+				"BLOCKED",
+				`Configuração do deploy não reconciliada: ${envResult.error ?? "aplicação incompleta"}`,
+			);
+		}
+		await saveStageProgress(client, operation, { updateRuntimeConfigFingerprint: runtimeConfigFingerprint });
+	}
+
+	const authDefaults = await applyInstallationAuthDefaults(
+		management,
+		operationalUrl.origin,
+	).catch((error) => ({
+		applied: false,
+		detail: error instanceof Error ? error.message : "falha desconhecida",
+	}));
+	if (!authDefaults.applied) {
+		return fail(
+			"BLOCKED",
+			`Autenticação da instalação não confirmada: ${authDefaults.detail}`,
 		);
 	}
 
