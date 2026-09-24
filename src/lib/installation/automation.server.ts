@@ -1303,6 +1303,48 @@ export function validateReadyDeploymentCommit(
 }
 
 /**
+ * READY na hospedagem só comprova o build. A atualização apenas pode ser
+ * promovida depois de a rota pública de login responder sem a tela fail-closed
+ * de configuração. Não envia cookies, tokens ou qualquer credencial.
+ */
+export async function verifyPublishedLogin(input: {
+	origin: string;
+	fetchImpl?: Fetcher;
+}): Promise<{ ok: true } | { ok: false; reason: string }> {
+	const doFetch = input.fetchImpl ?? fetch;
+	const url = `${input.origin.replace(/\/+$/, "")}/login`;
+	try {
+		const response = await doFetch(url, {
+			headers: { accept: "text/html" },
+			redirect: "follow",
+		});
+		const body = await response.text().catch(() => "");
+		if (!response.ok) {
+			return {
+				ok: false,
+				reason: `login público respondeu HTTP ${response.status}`,
+			};
+		}
+		if (
+			/Configuração indisponível|installation_configuration_unavailable|configuration\.invalid/i.test(
+				body,
+			)
+		) {
+			return {
+				ok: false,
+				reason: "login público bloqueado por configuração da instalação",
+			};
+		}
+		return { ok: true };
+	} catch (error) {
+		return {
+			ok: false,
+			reason: `login público inacessível: ${error instanceof Error ? error.message : "falha de rede"}`,
+		};
+	}
+}
+
+/**
  * Acompanha um deployment específico por uma janela curta e finita. O chamador
  * decide se um timeout volta ao executor durável ou encerra a operação.
  */
@@ -7754,6 +7796,17 @@ export async function runAutomatedUpdate(input: {
 				result: "PENDING",
 				reasons: [`build disparado pelo Git em ${pushState}`],
 			};
+		}
+		const loginProbe = await verifyPublishedLogin({
+			origin: operationalUrl.origin,
+			...(input.fetchImpl ? { fetchImpl: input.fetchImpl } : {}),
+		});
+		if (!loginProbe.ok) {
+			return fail(
+				"FAIL",
+				`a hospedagem marcou READY, mas ${loginProbe.reason}; a versão não foi promovida`,
+				"validation",
+			);
 		}
 		await report(
 			client,

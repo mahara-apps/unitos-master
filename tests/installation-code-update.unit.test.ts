@@ -6,6 +6,7 @@ import {
   createDeployClient,
   pollDeploymentUntilTerminal,
   validateReadyDeploymentCommit,
+  verifyPublishedLogin,
 } from "@/lib/installation/automation.server";
 import { UPDATE_STEPS, stepsFor, statusAfterOperation } from "@/lib/installation/manager-contract";
 
@@ -353,6 +354,22 @@ describe("atualização de código da instalação", () => {
     expect(
       validateReadyDeploymentCommit({ state: "BUILDING", commitSha: "abc123" }, "abc123"),
     ).toMatchObject({ ok: false, reason: expect.stringContaining("não está READY") });
+  });
+
+  it("não aceita READY quando o login público responde 404, 500 ou configuração indisponível", async () => {
+    const probe = (status: number, body: string) =>
+      verifyPublishedLogin({
+        origin: "https://cliente.example",
+        fetchImpl: async () => new Response(body, { status }),
+      });
+
+    await expect(probe(404, "not found")).resolves.toMatchObject({ ok: false });
+    await expect(probe(500, "server error")).resolves.toMatchObject({ ok: false });
+    await expect(probe(200, "<h1>Configuração indisponível</h1>")).resolves.toMatchObject({
+      ok: false,
+      reason: expect.stringContaining("configuração"),
+    });
+    await expect(probe(200, "<main>Entrar no Unitos</main>")).resolves.toEqual({ ok: true });
   });
 
   it("localiza o deployment de produção pelo commit exato do push", async () => {
