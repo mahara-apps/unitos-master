@@ -54,6 +54,7 @@ import {
 	summarizeVerificationRows,
 } from "./baseline-sql";
 import { containsMasterReference } from "./bootstrap-contract";
+import { createHash } from "node:crypto";
 import {
 	buildLegacyPromotionInventory,
 	buildLegacyReconciliationInspectionSql,
@@ -5267,6 +5268,18 @@ export async function runAutomatedProvision(input: {
 				`CRON_SECRET não gravado no Vault do destino: ${vault.error ?? ""}`.trim(),
 			);
 			await mark("secrets", "error", "set_cron_secret falhou");
+			checks.secrets = "error";
+			return finish(null, null);
+		}
+		const bootstrapHash = createHash("sha256")
+			.update(secrets.INSTALLATION_BOOTSTRAP_CODE)
+			.digest("hex");
+		const bootstrap = await management.query(
+			`select public.prepare_installation_bootstrap('${sqlLiteral(bootstrapHash)}'::text, now() + interval '7 days')`,
+		);
+		if (!bootstrap.ok && !/installation_already_initialized/i.test(bootstrap.error ?? "")) {
+			failures.push(`Código de primeiro acesso não preparado: ${bootstrap.error ?? "erro desconhecido"}`);
+			await mark("secrets", "error", "primeiro acesso não preparado");
 			checks.secrets = "error";
 			return finish(null, null);
 		}
