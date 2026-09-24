@@ -41,15 +41,15 @@ const githubResponse = (url: string): Response | null => {
 };
 
 const authConfigResponse = (url: string): Response | null =>
-	url.includes("/config/auth")
-		? Response.json({
-				site_url: "https://unitos-pitada-abc.vercel.app",
-				uri_allow_list:
-					"https://unitos-pitada-abc.vercel.app/reset-password,https://unitos-pitada-abc.vercel.app/invite/*",
-				disable_signup: true,
-				mailer_autoconfirm: true,
-			})
-		: null;
+  url.includes("/config/auth")
+    ? Response.json({
+        site_url: "https://unitos-pitada-abc.vercel.app",
+        uri_allow_list:
+          "https://unitos-pitada-abc.vercel.app/reset-password,https://unitos-pitada-abc.vercel.app/invite/*",
+        disable_signup: true,
+        mailer_autoconfirm: true,
+      })
+    : null;
 
 describe("credenciais de gestão do MASTER", () => {
   it("BLOCKED quando as credenciais próprias não existem", () => {
@@ -215,7 +215,7 @@ describe("plano de variáveis do deploy", () => {
       BRAND_CREDENTIALS_SECRET: generateInstallationSecret(),
       META_STATE_SECRET: generateInstallationSecret(),
       META_WEBHOOK_VERIFY_TOKEN: generateInstallationSecret(),
-			INSTALLATION_BOOTSTRAP_CODE: generateInstallationSecret(),
+      INSTALLATION_BOOTSTRAP_CODE: generateInstallationSecret(),
     },
   };
 

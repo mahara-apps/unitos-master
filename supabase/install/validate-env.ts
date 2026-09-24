@@ -55,19 +55,28 @@ for (const key of required) {
 
 // Isolamento: nenhuma variável pode referenciar o MASTER.
 const leaking = Object.entries(env)
-  .filter(([key]) => key.startsWith("SUPABASE_") || key.startsWith("VITE_SUPABASE_") || key.startsWith("META_") || key === "PUBLIC_APP_URL")
+  .filter(
+    ([key]) =>
+      key.startsWith("SUPABASE_") ||
+      key.startsWith("VITE_SUPABASE_") ||
+      key.startsWith("META_") ||
+      key === "PUBLIC_APP_URL",
+  )
   .filter(([, value]) => containsMasterReference(value))
   .map(([key]) => key);
 
 checks.push({
   name: "isolamento do MASTER",
   ok: leaking.length === 0,
-  detail: leaking.length === 0 ? "nenhuma referência ao MASTER" : `referências em: ${leaking.join(", ")}`,
+  detail:
+    leaking.length === 0 ? "nenhuma referência ao MASTER" : `referências em: ${leaking.join(", ")}`,
 });
 
 // Coerência de projeto entre as variáveis do Supabase.
 const serverRef = (env["SUPABASE_URL"] ?? "").match(/https:\/\/([a-z0-9]+)\.supabase\.co/i)?.[1];
-const clientRef = (env["VITE_SUPABASE_URL"] ?? "").match(/https:\/\/([a-z0-9]+)\.supabase\.co/i)?.[1];
+const clientRef = (env["VITE_SUPABASE_URL"] ?? "").match(
+  /https:\/\/([a-z0-9]+)\.supabase\.co/i,
+)?.[1];
 const declaredRef = (env["VITE_SUPABASE_PROJECT_ID"] ?? "").trim();
 const serverDeclaredRef = (env["SUPABASE_PROJECT_ID"] ?? "").trim();
 const sameProject =
