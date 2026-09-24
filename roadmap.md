@@ -1,3 +1,12 @@
+## Substituição segura de modelos de IA
+
+- [x] Remover modelos descontinuados dos defaults e fallbacks compilados.
+- [x] Priorizar sucessores compatíveis com o mesmo papel e família.
+- [x] Promover override somente depois de uma geração real bem-sucedida.
+- [x] Fazer o health check validar o candidato antes da troca.
+- [ ] Executar testes, suíte global e fluxo MASTER-first da nova versão.
+- [ ] Publicar e propagar somente após autorização explícita.
+
 ## Consulta do commit do MASTER no GitHub
 
 - [x] Confirmar o HTTP 403 causado pela ausência de `User-Agent`.

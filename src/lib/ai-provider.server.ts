@@ -379,6 +379,8 @@ function withModelInstrumentation(
     let provider = ctx.provider;
     let apiKey = ctx.apiKey;
     let switchedProvider = false;
+    let pendingPromotion: { provider: ProviderName; modelId: string; replacedModelId: string } | null =
+      null;
     let call = 0;
     for (;;) {
       const modelId = tried[tried.length - 1] ?? base.modelId;
@@ -420,6 +422,17 @@ function withModelInstrumentation(
         log(modelId, inTok, outTok, true, null, { provider, attempt: call });
 
         ctx.attempts.push({ provider, model: modelId, attempt: call, result: "success" });
+        if (pendingPromotion) {
+          await saveCatalogOverride({
+            provider: pendingPromotion.provider,
+            role: ctx.role,
+            modelId: pendingPromotion.modelId,
+            replacedModelId: pendingPromotion.replacedModelId,
+            reason: "validated_runtime_replacement",
+            source: "runtime_validated",
+          });
+          pendingPromotion = null;
+        }
         return out;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -456,13 +469,7 @@ function withModelInstrumentation(
           const next = nextFallbackModel(provider, ctx.role, tried);
           if (next) {
             logAiRetry({ ...logEntry, detail: `modelo indisponível — tentando ${next}` });
-            await saveCatalogOverride({
-              provider,
-              role: ctx.role,
-              modelId: next,
-              replacedModelId: modelId,
-              reason: msg,
-            });
+            pendingPromotion = { provider, modelId: next, replacedModelId: modelId };
             tried.push(next);
             current = instantiateModel(provider, apiKey, next) as ModelV2;
             continue;
@@ -485,6 +492,7 @@ function withModelInstrumentation(
           });
           provider = ctx.fallback.provider;
           apiKey = ctx.fallback.apiKey;
+          pendingPromotion = null;
           tried.length = 0;
           tried.push(ctx.fallback.modelId);
           current = instantiateModel(provider, apiKey, ctx.fallback.modelId) as ModelV2;

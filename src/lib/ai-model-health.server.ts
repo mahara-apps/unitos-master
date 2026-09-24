@@ -13,7 +13,9 @@ import { decryptCredential } from "./credentials-crypto.server";
 import { filterRowsByPrefs } from "@/lib/notification-prefs";
 import {
   PROVIDER_CAPABILITIES,
+  compatibleSuccessorCandidates,
   invalidateCatalogCache,
+  isModelUnavailableError,
   resolveModel,
   type ProviderName,
   type ProviderRole,
@@ -39,24 +41,8 @@ export type HealthCheckResult = {
 
 /* ---------------------------- error triage ---------------------------- */
 
-const DEPRECATED_PATTERNS = [
-  "model_not_found",
-  "does not exist",
-  "not found",
-  "is not supported",
-  "deprecated",
-  "retired",
-  "no longer available",
-  "unsupported model",
-  "invalid model",
-  "404",
-];
-
 function isDeprecationError(message: string): boolean {
-  const m = message.toLowerCase();
-  if (m.includes("rate limit") || m.includes("quota") || m.includes("billing")) return false;
-  if (m.includes("api key") || m.includes("unauthorized") || m.includes("401")) return false;
-  return DEPRECATED_PATTERNS.some((p) => m.includes(p));
+  return isModelUnavailableError(message);
 }
 
 /* --------------------------- model listings --------------------------- */
@@ -125,25 +111,20 @@ function versionScore(id: string): number {
 
 /** Escolhe o sucessor mais recente da mesma família para o papel. */
 export function pickSuccessor(
+  provider: ProviderName,
   currentId: string,
   role: ProviderRole,
   listed: ListedModel[],
 ): string | null {
-  const family = currentId.split(/[-.]/)[0]!.toLowerCase();
-  const wantsImage = role === "image";
-
-  const candidates = listed
-    .filter((m) => {
-      const id = m.id.toLowerCase();
-      if (id === currentId.toLowerCase()) return false;
-      if (!id.startsWith(family)) return false;
-      if (EXCLUDE.some((x) => id.includes(x))) return false;
-      const isImage = id.includes("image") || id.includes("imagen");
-      return wantsImage ? isImage : !isImage;
-    })
-    .sort((a, b) => (b.created ?? 0) - (a.created ?? 0) || versionScore(b.id) - versionScore(a.id));
-
-  return candidates[0]?.id ?? null;
+  const ordered = [...listed].sort(
+    (a, b) => (b.created ?? 0) - (a.created ?? 0) || versionScore(b.id) - versionScore(a.id),
+  );
+  return compatibleSuccessorCandidates(
+    provider,
+    role,
+    currentId,
+    ordered.filter((model) => !EXCLUDE.some((token) => model.id.toLowerCase().includes(token))).map((model) => model.id),
+  )[0] ?? null;
 }
 
 /* ------------------------------ the check ----------------------------- */
@@ -334,7 +315,25 @@ export async function runAiModelHealthCheck(): Promise<HealthCheckResult> {
 
       if (status === "deprecated") {
         listed ??= await listProviderModels(provider, apiKey);
-        const successor = pickSuccessor(modelId, role, listed);
+        const candidates = compatibleSuccessorCandidates(
+          provider,
+          role,
+          modelId,
+          listed.map((model) => model.id),
+        );
+        let successor: string | null = null;
+        for (const candidate of candidates) {
+          try {
+            if (role !== "image") await pingTextModel(provider, apiKey, candidate);
+            successor = candidate;
+            break;
+          } catch (candidateError) {
+            console.warn(
+              `[ai-model-health] sucessor rejeitado ${provider}/${role}/${candidate}`,
+              candidateError instanceof Error ? candidateError.message : String(candidateError),
+            );
+          }
+        }
         if (successor) {
           const { error: upErr } = await supabaseAdmin.from("ai_model_catalog_overrides").upsert(
             {
