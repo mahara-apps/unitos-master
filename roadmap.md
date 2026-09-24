@@ -235,5 +235,5 @@
 - [x] Remover fallback silencioso para o Supabase MASTER e normalizar erros públicos.
 - [x] Verificar e automatizar configuração Auth por instalação com checkpoints.
 - [x] Atualizar verificadores, testes e matriz de upgrades.
-- [ ] Regenerar e validar o pacote MASTER-first.
+- [x] Regenerar e validar o pacote MASTER-first na versão 1.4.38.
 - [ ] Publicar e propagar somente após autorização explícita.
