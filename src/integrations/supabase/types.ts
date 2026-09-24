@@ -5351,6 +5351,36 @@ export type Database = {
         }
         Relationships: []
       }
+      installation_bootstrap_state: {
+        Row: {
+          consumed_at: string | null
+          consumed_by: string | null
+          created_at: string
+          expires_at: string
+          secret_hash: string
+          singleton: boolean
+          updated_at: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          consumed_by?: string | null
+          created_at?: string
+          expires_at: string
+          secret_hash: string
+          singleton?: boolean
+          updated_at?: string
+        }
+        Update: {
+          consumed_at?: string | null
+          consumed_by?: string | null
+          created_at?: string
+          expires_at?: string
+          secret_hash?: string
+          singleton?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       installation_credentials: {
         Row: {
           created_at: string
@@ -9631,6 +9661,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      complete_installation_bootstrap: {
+        Args: { _full_name: string; _secret: string; _workspace_name: string }
+        Returns: string
+      }
       consolidate_brain_memory: {
         Args: { _brand_id?: string }
         Returns: number
@@ -9946,6 +9980,10 @@ export type Database = {
       }
       post_copy_queue_drain_off: { Args: never; Returns: boolean }
       post_copy_queue_drain_on: { Args: never; Returns: boolean }
+      prepare_installation_bootstrap: {
+        Args: { _expires_at: string; _secret_hash: string }
+        Returns: undefined
+      }
       process_brain_learning_queue: { Args: { _limit?: number }; Returns: Json }
       promote_control_plane_release: {
         Args: {
