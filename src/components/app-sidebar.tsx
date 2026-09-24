@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -244,6 +245,26 @@ export function AppSidebar() {
     retry: false,
   });
   const messagesUnread = unreadQ.data ?? 0;
+  const refetchMessagesUnread = unreadQ.refetch;
+  useEffect(() => {
+    if (!brandId || !hasSession) return;
+    const channel = supabase
+      .channel(`message-badge:${brandId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "message_threads",
+          filter: `brand_id=eq.${brandId}`,
+        },
+        () => refetchMessagesUnread(),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [brandId, hasSession, refetchMessagesUnread]);
   const featureEnabled = (key?: string) => {
     if (!key) return true;
     if (isSuper) return true;

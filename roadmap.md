@@ -23,6 +23,14 @@
 - [x] Validar tipos, qualidade e compilação; teste autenticado indisponível por Supabase externo.
 - [x] Manter a alteração no pacote MASTER 1.4.35.
 
+## Mensagens lidas e não lidas
+
+- [x] Reutilizar o controle canônico de última leitura e contagem por conversa.
+- [x] Exibir contador nas abas, conversas e menu lateral, com limite visual `99+`.
+- [x] Identificar conversas lidas e destacar conversas não lidas na listagem.
+- [x] Atualizar contadores em tempo real e marcar leitura somente após carregar o histórico.
+- [x] Validar testes, compilação e fluxo MASTER-first da versão 1.4.36.
+
 ## Consulta do commit do MASTER no GitHub
 
 - [x] Confirmar o HTTP 403 causado pela ausência de `User-Agent`.

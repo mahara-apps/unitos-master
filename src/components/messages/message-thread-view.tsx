@@ -57,6 +57,7 @@ export function MessageThreadView({
     staleTime: 5_000,
   });
   const messages = listQ.data ?? [];
+  const latestMessageId = messages.at(-1)?.id ?? null;
 
   // Realtime: novas mensagens da conversa aberta chegam sem recarregar.
   useEffect(() => {
@@ -76,12 +77,15 @@ export function MessageThreadView({
     };
   }, [thread.id, qc, queryKey, onChanged]);
 
-  // Abrir a conversa zera as não lidas dela.
+  // Só confirma a leitura depois que o histórico carregou. Se uma mensagem
+  // chegar enquanto a conversa estiver aberta, o novo histórico confirma a
+  // leitura sem depender de um clique adicional.
   useEffect(() => {
+    if (!listQ.isSuccess) return;
     markRead({ data: { threadId: thread.id } })
       .then(() => onChanged?.())
       .catch(() => undefined);
-  }, [thread.id, markRead, onChanged]);
+  }, [thread.id, latestMessageId, listQ.isSuccess, markRead, onChanged]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });
