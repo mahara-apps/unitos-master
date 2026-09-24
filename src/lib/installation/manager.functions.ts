@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { readRuntimeEnv } from "@/lib/runtime-env.server";
 import { assertSuperAdmin, resolveIsSuperAdmin } from "@/lib/super-admin";
 import { assertConfirmLabel, type CriticalActionKey } from "@/lib/critical-actions";
 import type { RpcClient } from "@/lib/access-guard";
@@ -1047,9 +1048,12 @@ export const startInstallationOperationFn = createServerFn({ method: "POST" })
     if (updateError) throw updateError;
 
     const masterUrl =
-      process.env["PUBLIC_APP_URL"] ??
-      process.env["VITE_PUBLIC_APP_URL"] ??
-      "https://unitos-master.lovable.app";
+      readRuntimeEnv("PUBLIC_APP_URL") ?? readRuntimeEnv("VITE_PUBLIC_APP_URL");
+    if (!masterUrl) {
+      throw new Error(
+        "Configuração pública do MASTER indisponível; operação não iniciada.",
+      );
+    }
 
     return {
       installation: mapInstallation(updated),
