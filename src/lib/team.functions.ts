@@ -148,15 +148,6 @@ function randomToken(bytes = 24): string {
   return Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function randomPassword(length = 16): string {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%*?";
-  const arr = new Uint8Array(length);
-  crypto.getRandomValues(arr);
-  let out = "";
-  for (let i = 0; i < length; i++) out += alphabet[arr[i] % alphabet.length];
-  return out;
-}
-
 async function sendInviteEmail(opts: {
   supabase: SupabaseLike;
   brandId: string;
@@ -164,12 +155,11 @@ async function sendInviteEmail(opts: {
   brandName: string;
   inviterName: string;
   acceptUrl: string;
-  tempPassword?: string;
   inviteRole?: string;
   actorUserId?: string | null;
 }): Promise<{ sent: boolean; error?: string }> {
   // 1) Caminho canônico: template `team_invite` (da marca ou default do catálogo)
-  //    renderizado com contexto REAL. A senha temporária vem só do evento atual.
+    //    renderizado com contexto REAL, sem transportar credenciais.
   const { sendEventEmail } = await import("@/lib/message-templates/dispatch.server");
   const viaTemplate = await sendEventEmail(opts.supabase as never, {
     eventKey: "team_invite",
@@ -181,27 +171,16 @@ async function sendInviteEmail(opts: {
       invite: {
         url: opts.acceptUrl,
         role: opts.inviteRole ?? null,
-        ...(opts.tempPassword ? { password: opts.tempPassword } : {}),
       },
     },
   });
   if (viaTemplate.sent) return { sent: true };
 
-  // 2) Fallback: template exige variável que este convite não possui (ex.: convite
-  //    sem senha temporária). Mantém o envio funcionando com o layout mínimo.
-  const credsBlock = opts.tempPassword
-    ? `
-      <div style="margin:16px 0;padding:12px 14px;border:1px solid #e4e4e7;border-radius:8px;background:#fafafa">
-        <div style="font-size:12px;color:#71717a;margin-bottom:4px">Senha temporária</div>
-        <div style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;font-weight:600;color:#0a0a0a">${opts.tempPassword}</div>
-        <div style="font-size:11px;color:#a1a1aa;margin-top:8px">Você precisará escolher uma nova senha no primeiro acesso.</div>
-      </div>`
-    : "";
+  // 2) Fallback mínimo sem senha ou qualquer outro segredo.
   const html = `
     <div style="font-family:ui-sans-serif,system-ui;line-height:1.5;color:#0a0a0a">
       <h2 style="margin:0 0 12px">Convite para ${opts.brandName}</h2>
       <p>${opts.inviterName} convidou você para colaborar na marca <strong>${opts.brandName}</strong> no Unitos.</p>
-      ${credsBlock}
       <p><a href="${opts.acceptUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Aceitar convite</a></p>
       <p style="color:#71717a;font-size:12px">Se o botão não funcionar, copie o link: ${opts.acceptUrl}</p>
     </div>`;
@@ -287,11 +266,21 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
       }
 
 
-      // 1. Check if an auth user already exists for this email; if not, provision one
-      //    with a random temporary password and force a password change on first login.
+      // Conta nova recebe um link único do Supabase; nenhuma senha é criada,
+      // persistida, devolvida ou enviada por e-mail.
       let provisioned = false;
-      let tempPassword: string | undefined;
       let createdUserId: string | null = null;
+      const { tryInstallationAbsoluteUrl } = await import("@/lib/installation-url.server");
+      const inviteUrl = await tryInstallationAbsoluteUrl(
+        supabase,
+        data.brandId,
+        `/invite/${token}`,
+      );
+      if (!inviteUrl) {
+        results.push({ email, status: "error", error: "instalacao_url_desconhecida" });
+        continue;
+      }
+      let acceptUrl = inviteUrl;
       try {
         const { data: existing } = await supabaseAdmin.auth.admin.listUsers({
           page: 1,
@@ -299,22 +288,21 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
         });
         const alreadyExists = existing?.users?.some((u) => (u.email ?? "").toLowerCase() === email);
         if (!alreadyExists) {
-          tempPassword = randomPassword(16);
-          const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+          const { data: generated, error: createErr } = await supabaseAdmin.auth.admin.generateLink({
+            type: "invite",
             email,
-            password: tempPassword,
-            email_confirm: true,
-            // Sem nome inventado: a pessoa confirma o nome real no primeiro acesso.
+            options: { redirectTo: inviteUrl },
           });
           if (createErr) {
             results.push({ email, status: "error", error: `provision_${createErr.message}` });
             continue;
           }
-          if (created?.user?.id) {
-            createdUserId = created.user.id;
+          if (generated.user?.id && generated.properties?.action_link) {
+            createdUserId = generated.user.id;
+            acceptUrl = generated.properties.action_link;
             const { ensureUserProfile } = await import("@/lib/user-profile.server");
             await ensureUserProfile(supabaseAdmin, {
-              userId: created.user.id,
+              userId: generated.user.id,
               email,
               requiresPasswordChange: true,
             });
@@ -340,7 +328,7 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
         permissions: data.permissions,
         token,
         invited_by: userId,
-        temp_password_sent: provisioned,
+        temp_password_sent: false,
         ...(data.expiresAt ? { expires_at: data.expiresAt } : {}),
       };
       const { error: inviteErr } = await supabase.from("brand_invites").insert(insertPayload);
@@ -350,50 +338,21 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
         continue;
       }
 
-      // Conta recém-provisionada: o trigger `handle_new_user` cria a membership
-      // padrão como USER no primeiro workspace. Como a pessoa entra direto com a
-      // senha provisória (sem abrir o link do convite), o papel escolhido tem de
-      // ser aplicado agora — a autoridade já foi validada acima.
-      if (provisioned && createdUserId) {
-        const { error: bmErr } = await supabaseAdmin.from("brand_members").upsert(
-          {
-            brand_id: data.brandId,
-            user_id: createdUserId,
-            role: data.role,
-            permissions: data.permissions,
-          },
-          { onConflict: "brand_id,user_id" },
-        );
-        if (bmErr) console.error("[invite] falha ao aplicar papel na membership", bmErr);
-      }
-
-      // URL canônica da instalação ATUAL (host da requisição) — nunca link relativo
-      // nem domínio herdado de env de outra instalação.
-      const { tryInstallationAbsoluteUrl } = await import("@/lib/installation-url.server");
-      const link = await tryInstallationAbsoluteUrl(supabase, data.brandId, `/invite/${token}`);
-      if (!link) {
-        console.error(
-          "[invite email] URL da instalação do workspace desconhecida; convite não enviado",
-        );
-      }
-      const emailRes = link
-        ? await sendInviteEmail({
+      const emailRes = await sendInviteEmail({
             supabase: supabase as unknown as SupabaseLike,
             brandId: data.brandId,
             to: email,
             brandName,
             inviterName,
-            acceptUrl: link,
-            ...(tempPassword ? { tempPassword } : {}),
+            acceptUrl,
             inviteRole: data.role,
             actorUserId: userId,
-          })
-        : { sent: false, error: "instalacao_url_desconhecida" };
+          });
 
       results.push({
         email,
         status: "invited",
-        link: link ?? undefined,
+        link: inviteUrl,
 
         emailSent: emailRes.sent,
         error: emailRes.error,
@@ -576,34 +535,6 @@ export const resendBrandInvite = createServerFn({ method: "POST" })
     const token = randomToken();
     const expiresAt = new Date(Date.now() + 14 * 86_400_000).toISOString();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    let tempPassword: string | undefined;
-
-    if (nextEmail !== previousEmail && invite.temp_password_sent) {
-      throw new Error(
-        "Este convite já criou uma conta. Revogue-o e crie um novo convite para trocar o e-mail.",
-      );
-    }
-    if (invite.temp_password_sent) {
-      const { data: users, error: usersError } = await supabaseAdmin.auth.admin.listUsers({
-        page: 1,
-        perPage: 1000,
-      });
-      if (usersError) throw usersError;
-      const oldUser = users.users.find(
-        (candidate) => (candidate.email ?? "").toLowerCase() === previousEmail,
-      );
-      if (!oldUser) throw new Error("A conta provisória deste convite não foi encontrada.");
-      tempPassword = randomPassword(16);
-      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(oldUser.id, {
-        password: tempPassword,
-      });
-      if (authError) throw authError;
-      const { error: profileError } = await supabaseAdmin
-        .from("user_profiles")
-        .update({ requires_password_change: true })
-        .eq("id", oldUser.id);
-      if (profileError) throw profileError;
-    }
 
     const { error: updateError } = await supabaseAdmin
       .from("brand_invites")
@@ -626,7 +557,6 @@ export const resendBrandInvite = createServerFn({ method: "POST" })
       acceptUrl: link,
       inviteRole: String(invite.role),
       actorUserId: userId,
-      ...(tempPassword ? { tempPassword } : {}),
     });
     if (!sent.sent) throw new Error(sent.error || "Não foi possível enviar o convite.");
     const { logCriticalAction } = await import("@/lib/critical-audit.server");
