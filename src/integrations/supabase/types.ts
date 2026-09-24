@@ -9665,6 +9665,15 @@ export type Database = {
         Args: { _full_name: string; _secret: string; _workspace_name: string }
         Returns: string
       }
+      complete_installation_bootstrap_service: {
+        Args: {
+          _full_name: string
+          _secret: string
+          _user_id: string
+          _workspace_name: string
+        }
+        Returns: string
+      }
       consolidate_brain_memory: {
         Args: { _brand_id?: string }
         Returns: number

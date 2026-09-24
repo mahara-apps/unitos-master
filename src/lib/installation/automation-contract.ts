@@ -282,6 +282,7 @@ export const GENERATED_SECRET_VARS = [
   "BRAND_CREDENTIALS_SECRET",
   "META_STATE_SECRET",
   "META_WEBHOOK_VERIFY_TOKEN",
+	"INSTALLATION_BOOTSTRAP_CODE",
 ] as const;
 
 export type GeneratedSecretVar = (typeof GENERATED_SECRET_VARS)[number];

@@ -275,6 +275,16 @@ async function readGeneratedSecrets(
   return (await readGeneratedSecretsSnapshot(client, installationId)).secrets;
 }
 
+/** Leitura pontual de um segredo para uma ação administrativa explícita. */
+export async function readInstallationSecret(
+	client: Client,
+	installationId: string,
+	name: string,
+): Promise<string | null> {
+	const secrets = await readGeneratedSecrets(client, installationId);
+	return (secrets[name] ?? "").trim() || null;
+}
+
 async function compareAndSetGeneratedSecrets(
   client: Client,
   installationId: string,

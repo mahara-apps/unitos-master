@@ -2065,6 +2065,22 @@ export const getInstallationSecretsFn = createServerFn({ method: "POST" })
     return getInstallationSecretsStatus(context.supabase as never, data.id, GENERATED_SECRET_VARS);
   });
 
+/** Exibe somente o código de ativação solicitado pelo Super Admin do MASTER. */
+export const revealInstallationBootstrapCodeFn = createServerFn({ method: "POST" })
+	.middleware([requireSupabaseAuth])
+	.inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+	.handler(async ({ data, context }) => {
+		await guard(context);
+		const { readInstallationSecret } = await import("./credentials.server");
+		const code = await readInstallationSecret(
+			context.supabase as never,
+			data.id,
+			"INSTALLATION_BOOTSTRAP_CODE",
+		);
+		if (!code) throw new Error("O código de primeiro acesso ainda não foi preparado.");
+		return { code };
+	});
+
 /** Troca um segredo próprio da instalação — ação deliberada, nunca automática. */
 export const rotateInstallationSecretFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
