@@ -5995,3 +5995,24 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
   REVOKE ALL ON TABLES FROM PUBLIC, anon, authenticated;
 
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 20260924185816_4cbb5fb4-d018-4392-b24f-44c4dabcc2c3.sql
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.sanitize_mention_body()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  NEW.body := public.clean_mention_tokens(NEW.body);
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.clean_mention_tokens(text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.clean_mention_tokens(text) TO service_role;
+
+REVOKE ALL ON FUNCTION public.sanitize_mention_body() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.sanitize_mention_body() TO service_role;
