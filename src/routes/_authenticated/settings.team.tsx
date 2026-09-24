@@ -135,12 +135,18 @@ function TeamSettingsPage() {
 
 	const membersQ = useQuery({
 		queryKey: ["team-members", brandId],
-		queryFn: () => loadMembers({ data: { brandId: brandId! } }),
+		queryFn: () => {
+			if (!brandId) throw new Error("workspace_required");
+			return loadMembers({ data: { brandId } });
+		},
 		enabled: !!brandId,
 	});
 	const teamQ = useQuery({
 		queryKey: ["brand-team", brandId],
-		queryFn: () => loadTeam({ data: { brandId: brandId! } }),
+		queryFn: () => {
+			if (!brandId) throw new Error("workspace_required");
+			return loadTeam({ data: { brandId } });
+		},
 		enabled: !!brandId,
 	});
 
