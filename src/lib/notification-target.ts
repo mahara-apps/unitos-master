@@ -122,6 +122,20 @@ function fromHref(href: string): NotificationTarget | null {
     return isUuid(taskId) ? taskTarget(taskId) : { to: "/tasks" };
   }
 
+  const project = /^\/projects\/([0-9a-f-]{36})$/i.exec(path);
+  if (project && isUuid(project[1])) {
+    const tab = get("tab");
+    const job = get("job");
+    return {
+      to: "/projects/$projectId",
+      params: { projectId: project[1] },
+      search: {
+        ...(tab === "comments" ? { tab: "comments" } : {}),
+        ...(isUuid(job) ? { job } : {}),
+      },
+    };
+  }
+
   if (path === "/inbox") {
     const cliente = get("cliente");
     return {

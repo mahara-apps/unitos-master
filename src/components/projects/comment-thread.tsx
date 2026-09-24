@@ -7,8 +7,9 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { MessageSquare, Send, Trash2 } from "lucide-react";
+import { AtSign, MessageSquare, Send, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cleanMentionText, MentionTextarea } from "@/components/ui/mention-textarea";
 import { MentionText } from "@/components/ui/mention-text";
@@ -35,6 +36,7 @@ type Entry = {
   author_name: string | null;
   author_avatar: string | null;
   body: string;
+  mentions: string[];
   created_at: string;
 };
 
@@ -138,6 +140,14 @@ export function CommentThread({
   });
 
   const entries = listQ.data ?? [];
+  const myMentions = currentUserId
+    ? entries.filter((entry) => entry.mentions.includes(currentUserId)).length
+    : 0;
+  const submit = () => {
+    const text = body.trim();
+    if (!text || addMut.isPending) return;
+    addMut.mutate(text);
+  };
 
   return (
     <div className={cn("flex min-h-0 flex-col", className)}>
@@ -150,6 +160,12 @@ export function CommentThread({
           <span className="rounded-md border border-border/60 bg-background/60 px-1.5 py-0.5 font-mono text-xs tabular-nums text-foreground">
             {entries.length}
           </span>
+        ) : null}
+        {myMentions > 0 ? (
+          <Badge tone="blue" className="h-5 gap-1 rounded-full px-2 text-[10px]">
+            <AtSign className="h-3 w-3" />
+            {myMentions === 1 ? "Mencionou você" : `${myMentions} menções a você`}
+          </Badge>
         ) : null}
       </div> : null}
 
@@ -179,6 +195,12 @@ export function CommentThread({
                   <span className="text-[10px] text-muted-foreground">
                     {formatWhen(c.created_at)}
                   </span>
+                  {currentUserId && c.mentions.includes(currentUserId) ? (
+                    <Badge tone="blue" className="h-5 gap-1 rounded-full px-2 text-[10px]">
+                      <AtSign className="h-3 w-3" />
+                      Mencionou você
+                    </Badge>
+                  ) : null}
                   {currentUserId && c.author_id === currentUserId ? (
                     <Button
                       variant="ghost"
@@ -210,16 +232,16 @@ export function CommentThread({
           people={people}
           placeholder={placeholder}
           rows={2}
-          onSubmit={() => {
-            if (body.trim()) addMut.mutate(body.trim());
-          }}
+          disabled={addMut.isPending}
+          submitOnEnter
+          onSubmit={submit}
         />
         <div className="mt-2 flex justify-end">
           <Button
             size="sm"
             className="h-8 gap-1.5"
             disabled={!body.trim() || addMut.isPending}
-            onClick={() => addMut.mutate(body.trim())}
+            onClick={submit}
           >
             <Send className="h-3.5 w-3.5" />
             Comentar

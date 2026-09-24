@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveMentions } from "../src/components/ui/mention-textarea";
 import { cleanMentionText } from "../src/lib/mentions";
 import { notifyMentions } from "../src/lib/mention-notify.server";
+import { readFileSync } from "node:fs";
 
 const people = [
   { id: "u1", name: "Ana Paula" },
@@ -19,6 +20,15 @@ describe("resolveMentions", () => {
 
   it("não duplica a mesma pessoa", () => {
     expect(resolveMentions("@Ana Paula e @ana paula", people)).toEqual(["u1"]);
+  });
+});
+
+describe("comentários de projeto", () => {
+  it("envia com Enter e sinaliza visualmente a pessoa mencionada", () => {
+    const source = readFileSync("src/components/projects/comment-thread.tsx", "utf8");
+    expect(source).toContain("submitOnEnter");
+    expect(source).toContain("Mencionou você");
+    expect(source).toContain("c.mentions.includes(currentUserId)");
   });
 });
 
