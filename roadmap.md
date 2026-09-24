@@ -246,6 +246,7 @@
 - [x] Exibir falha de configuração controlada sem acessar outro ambiente.
 - [x] Endurecer a coerência das variáveis e cobrir erro, vazio e valor válido.
 - [x] Regenerar o pacote MASTER 1.4.39 e sincronizar versão e hash.
-- [ ] Concluir guardiões, suíte global e ensaio de navegação antes de publicar.
+- [x] Concluir guardiões e ensaio de navegação sem tela branca ou carregamento infinito.
+- [ ] Reexecutar a suíte global quando a credencial do projeto descartável voltar a reconhecê-lo; bloqueio externo confirmado antes de carregar testes.
 - [ ] Publicar somente após autorização explícita e validar o domínio publicado.
 - [ ] Propagar às instalações somente após autorização separada.
