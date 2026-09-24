@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { resolveSupabasePublicRuntimeConfig } from "@/integrations/supabase/runtime-config.server";
 
 type MediaPlanPublicPlan = {
   id: string;
@@ -36,9 +37,7 @@ export type MediaPlanPublicItem = {
 };
 
 function getPublic(): SupabaseClient {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) throw new Error("supabase_env_missing");
+  const { url, publishableKey: key } = resolveSupabasePublicRuntimeConfig();
   const isOpaque = key.startsWith("sb_publishable_") || key.startsWith("sb_secret_");
   return createClient(url, key, {
     auth: { storage: undefined, persistSession: false, autoRefreshToken: false },

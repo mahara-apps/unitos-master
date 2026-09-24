@@ -22,6 +22,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { resolveSupabasePublicRuntimeConfig } from "@/integrations/supabase/runtime-config.server";
 import type {
   GetAudienceOptions,
   GetDashboardOptions,
@@ -89,11 +90,13 @@ export function requireBearer(request: Request): string {
 
 /** Cliente Supabase autenticado como o usuário (RLS aplica). */
 export function supabaseForUser(token: string): SupabaseClient<Database> {
-  const url = process.env.SUPABASE_URL;
-  const pubKey = process.env.SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !pubKey) {
+  let config;
+  try {
+    config = resolveSupabasePublicRuntimeConfig();
+  } catch {
     throw new SocialServiceError("db_error", "Missing Supabase env", 500);
   }
+  const { url, publishableKey: pubKey } = config;
   return createClient<Database>(url, pubKey, {
     global: {
       fetch: makeAuthedFetch(pubKey, token),

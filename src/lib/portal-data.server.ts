@@ -20,6 +20,7 @@ import type {
   PortalResolveResult,
   PortalSla,
 } from "@/lib/portal-types";
+import { resolveSupabasePublicRuntimeConfig } from "@/integrations/supabase/runtime-config.server";
 
 type RpcError = { message: string } | null;
 type RpcClient = {
@@ -29,9 +30,7 @@ export type SessionContext = { supabase: RpcClient };
 type BasicMetrics = Omit<PortalMetrics, "sla">;
 
 function publicClient(): SupabaseClient {
-  const url = process.env["SUPABASE_URL"];
-  const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
-  if (!url || !key) throw new Error("portal_configuration_unavailable");
+  const { url, publishableKey: key } = resolveSupabasePublicRuntimeConfig();
   const opaque = key.startsWith("sb_");
   return createClient(url, key, {
     auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
@@ -54,7 +53,7 @@ function clientIpHash(): string | null {
     (getRequestHeader("x-forwarded-for") ?? "").split(",")[0];
   const ip = raw.trim();
   if (!ip) return null;
-  const salt = process.env["SUPABASE_PROJECT_ID"] ?? process.env["SUPABASE_URL"] ?? "portal";
+  const salt = resolveSupabasePublicRuntimeConfig().projectRef;
   return createHash("sha256").update(`${salt}:${ip}`).digest("hex");
 }
 

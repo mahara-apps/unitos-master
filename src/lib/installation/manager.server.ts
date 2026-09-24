@@ -7,6 +7,7 @@
  */
 
 import { isMasterInstallation } from "./manager-contract";
+import { readRuntimeEnv } from "@/lib/runtime-env.server";
 
 export class NotMasterInstallationError extends Error {
   code = "installation_manager_indisponivel" as const;
@@ -19,9 +20,9 @@ export class NotMasterInstallationError extends Error {
 /** Lê o ambiente do processo (nunca em escopo de módulo). */
 export function detectMaster(): boolean {
   return isMasterInstallation({
-    supabaseUrl: process.env["SUPABASE_URL"] ?? null,
-    appUrl: process.env["PUBLIC_APP_URL"] ?? null,
-    role: process.env["UNITOS_INSTALLATION_ROLE"] ?? null,
+    supabaseUrl: readRuntimeEnv("SUPABASE_URL"),
+    appUrl: readRuntimeEnv("PUBLIC_APP_URL"),
+    role: readRuntimeEnv("UNITOS_INSTALLATION_ROLE"),
   });
 }
 
