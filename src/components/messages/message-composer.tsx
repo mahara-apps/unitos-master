@@ -131,6 +131,8 @@ export function MessageComposer({
         placeholder={placeholder}
         disabled={disabled}
         className="min-h-[76px]"
+        onSubmit={submit}
+        submitOnEnter
       />
 
       <div className="flex items-center justify-between gap-2">

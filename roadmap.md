@@ -16,6 +16,13 @@
 - [x] Selar e validar o pacote MASTER 1.4.35.
 - [ ] Publicar e propagar somente após autorização explícita.
 
+## Envio de mensagens pelo teclado
+
+- [x] Enviar mensagens com Enter no campo principal.
+- [x] Preservar Shift+Enter para quebra de linha e Enter para selecionar menções abertas.
+- [x] Validar tipos, qualidade e compilação; teste autenticado indisponível por Supabase externo.
+- [x] Manter a alteração no pacote MASTER 1.4.35.
+
 ## Consulta do commit do MASTER no GitHub
 
 - [x] Confirmar o HTTP 403 causado pela ausência de `User-Agent`.

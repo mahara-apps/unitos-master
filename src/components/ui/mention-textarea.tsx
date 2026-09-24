@@ -76,6 +76,8 @@ type Props = {
   className?: string;
   /** Cmd/Ctrl+Enter */
   onSubmit?: () => void;
+  /** Enter envia; Shift+Enter mantém a quebra de linha. */
+  submitOnEnter?: boolean;
   disabled?: boolean;
 };
 
@@ -87,6 +89,7 @@ export function MentionTextarea({
   rows = 2,
   className,
   onSubmit,
+  submitOnEnter = false,
   disabled,
 }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -177,7 +180,13 @@ export function MentionTextarea({
         return;
       }
     }
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && onSubmit) {
+    const shouldSubmit =
+      e.key === "Enter" &&
+      !e.shiftKey &&
+      !e.nativeEvent.isComposing &&
+      onSubmit &&
+      (submitOnEnter || e.metaKey || e.ctrlKey);
+    if (shouldSubmit) {
       e.preventDefault();
       onSubmit();
     }
