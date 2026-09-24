@@ -8,6 +8,14 @@
 - [ ] Executar suíte global e concluir o fluxo MASTER-first da versão 1.4.34.
 - [ ] Publicar e propagar somente após autorização explícita.
 
+## Comentários com menções
+
+- [x] Confirmar que o bloqueio vinha da execução do gatilho com privilégio do usuário.
+- [x] Tornar somente o gatilho `sanitize_mention_body` privilegiado e manter as funções sem acesso direto.
+- [x] Aplicar a correção no MASTER sem ampliar RBAC/RLS.
+- [x] Selar e validar o pacote MASTER 1.4.35.
+- [ ] Publicar e propagar somente após autorização explícita.
+
 ## Consulta do commit do MASTER no GitHub
 
 - [x] Confirmar o HTTP 403 causado pela ausência de `User-Agent`.

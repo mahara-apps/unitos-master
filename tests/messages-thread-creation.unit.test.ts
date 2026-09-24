@@ -43,7 +43,29 @@ describe("criação de conversas", () => {
   });
 
   it("a verificação de instalação cobre a nova função", () => {
-    const verify = readFileSync(join(root, "supabase/install/verify-installation-client.sql"), "utf8");
+    const verify = readFileSync(
+      join(root, "supabase/install/verify-installation-client.sql"),
+      "utf8",
+    );
     expect(verify).toContain("create_message_thread");
+  });
+
+  it("gatilhos limpam menções sem expor a função auxiliar aos usuários", () => {
+    const sql = deltaSql();
+    const fix = sql.slice(
+      sql.lastIndexOf("CREATE OR REPLACE FUNCTION public.sanitize_mention_body"),
+    );
+    expect(fix).toContain("SECURITY DEFINER");
+    expect(fix).toContain(
+      "REVOKE ALL ON FUNCTION public.clean_mention_tokens(text) FROM PUBLIC, anon, authenticated",
+    );
+    expect(fix).toContain(
+      "REVOKE ALL ON FUNCTION public.sanitize_mention_body() FROM PUBLIC, anon, authenticated",
+    );
+    const verify = readFileSync(
+      join(root, "supabase/install/verify-installation-client.sql"),
+      "utf8",
+    );
+    expect(verify).toContain("comentários: limpeza de menções protegida e funcional");
   });
 });

@@ -646,6 +646,11 @@
       "position": 129,
       "file": "20260923110105_11162a73-21e7-4751-aeff-cceae78fd5fa.sql",
       "destination": "client"
+    },
+    {
+      "position": 130,
+      "file": "20260924185816_4cbb5fb4-d018-4392-b24f-44c4dabcc2c3.sql",
+      "destination": "client"
     }
   ]
 }
