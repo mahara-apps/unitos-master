@@ -246,7 +246,9 @@
 - [x] Exibir falha de configuração controlada sem acessar outro ambiente.
 - [x] Endurecer a coerência das variáveis e cobrir erro, vazio e valor válido.
 - [x] Regenerar o pacote MASTER 1.4.39 e sincronizar versão e hash.
-- [x] Concluir guardiões e ensaio de navegação sem tela branca ou carregamento infinito.
+- [x] Concluir guardiões, `master:check` e ensaio de navegação sem tela branca ou carregamento infinito.
+- [x] Confirmar por leitura que não há instalação, atualização ou lease ativo no MASTER.
+- [x] Isolar os ensaios PostgreSQL locais de variáveis vazias herdadas, sem reduzir cobertura.
 - [ ] Reexecutar a suíte global quando a credencial do projeto descartável voltar a reconhecê-lo; bloqueio externo confirmado antes de carregar testes.
 - [ ] Publicar somente após autorização explícita e validar o domínio publicado.
 - [ ] Propagar às instalações somente após autorização separada.
