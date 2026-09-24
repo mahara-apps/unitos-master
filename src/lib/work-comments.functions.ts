@@ -112,7 +112,7 @@ export const addWorkCommentFn = createServerFn({ method: "POST" })
       const { notifyMentionsSafe } = await import("@/lib/mention-notify.server");
       const href = data.jobId
         ? `/projects/${data.projectId}?job=${data.jobId}`
-        : `/projects/${data.projectId}`;
+        : `/projects/${data.projectId}?tab=comments`;
       await notifyMentionsSafe(context.supabase, {
         brandId: data.brandId,
         authorId: context.userId,

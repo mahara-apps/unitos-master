@@ -31,6 +31,13 @@
 - [x] Atualizar contadores em tempo real e marcar leitura somente após carregar o histórico.
 - [x] Validar testes, compilação e fluxo MASTER-first da versão 1.4.36.
 
+## Menções em comentários de projeto
+
+- [x] Sinalizar no fio e no comentário quando o usuário atual foi mencionado.
+- [x] Fazer a notificação abrir diretamente a aba Comentários do projeto.
+- [x] Enviar comentário com Enter, preservando Shift+Enter e seleção de menções.
+- [x] Validar e selar a melhoria no pacote MASTER 1.4.37.
+
 ## Consulta do commit do MASTER no GitHub
 
 - [x] Confirmar o HTTP 403 causado pela ausência de `User-Agent`.

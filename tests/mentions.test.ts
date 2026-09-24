@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveMentions } from "../src/components/ui/mention-textarea";
 import { cleanMentionText } from "../src/lib/mentions";
 import { notifyMentions } from "../src/lib/mention-notify.server";
+import { readFileSync } from "node:fs";
 
 const people = [
   { id: "u1", name: "Ana Paula" },
@@ -22,11 +23,16 @@ describe("resolveMentions", () => {
   });
 });
 
-function clientWithMembers(
-  members: string[],
-  inserted: unknown[],
-  superAdmins: string[] = [],
-) {
+describe("comentários de projeto", () => {
+  it("envia com Enter e sinaliza visualmente a pessoa mencionada", () => {
+    const source = readFileSync("src/components/projects/comment-thread.tsx", "utf8");
+    expect(source).toContain("submitOnEnter");
+    expect(source).toContain("Mencionou você");
+    expect(source).toContain("c.mentions.includes(currentUserId)");
+  });
+});
+
+function clientWithMembers(members: string[], inserted: unknown[], superAdmins: string[] = []) {
   return {
     from: (table: string) => {
       if (table === "brand_members") {
@@ -93,9 +99,7 @@ describe("notifyMentions", () => {
   it("nunca notifica o Super Admin global, mesmo com ID enviado manualmente", async () => {
     const inserted: unknown[] = [];
     const client = clientWithMembers(["u2", "master"], inserted, ["master"]);
-    expect(
-      await notifyMentions(client, { ...base, mentions: ["u2", "master"] }),
-    ).toBe(1);
+    expect(await notifyMentions(client, { ...base, mentions: ["u2", "master"] })).toBe(1);
     const rows = inserted[0] as Array<{ user_id: string }>;
     expect(rows.map((row) => row.user_id)).toEqual(["u2"]);
   });
