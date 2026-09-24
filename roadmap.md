@@ -20,7 +20,8 @@
 
 - [x] Enviar mensagens com Enter no campo principal.
 - [x] Preservar Shift+Enter para quebra de linha e Enter para selecionar menções abertas.
-- [ ] Validar o comportamento no navegador e manter no pacote MASTER 1.4.35.
+- [x] Validar tipos, qualidade e compilação; teste autenticado indisponível por Supabase externo.
+- [x] Manter a alteração no pacote MASTER 1.4.35.
 
 ## Consulta do commit do MASTER no GitHub
 
