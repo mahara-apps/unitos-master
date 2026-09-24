@@ -6207,20 +6207,6 @@ export async function runAutomatedUpdate(input: {
     projectRef: target.projectRef,
     fetchImpl: input.fetchImpl,
   });
-  const operationalUrl = resolveOperationalUrl({
-    customDomain: installation.domain,
-    deploymentUrl: null,
-  });
-  if (!operationalUrl.ok) {
-    return fail("BLOCKED", `URL necessária para configurar autenticação: ${operationalUrl.reason}`);
-  }
-  const authDefaults = await applyInstallationAuthDefaults(management, operationalUrl.origin).catch(
-    (error) => ({ applied: false, detail: error instanceof Error ? error.message : "falha desconhecida" }),
-  );
-  if (!authDefaults.applied) {
-    return fail("BLOCKED", `Autenticação da instalação não confirmada: ${authDefaults.detail}`);
-  }
-
   const masterRepo = (env["UNITOS_MASTER_REPO"] ?? "").trim() || null;
   const repo = resolveInstallationRepo({
     gitRepoUrl: installation.gitRepoUrl ?? null,
@@ -6242,6 +6228,23 @@ export async function runAutomatedUpdate(input: {
     githubToken: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
     fetchImpl: input.fetchImpl,
   });
+  const deployment = await deploy.deploymentUrl();
+  const operationalUrl = resolveOperationalUrl({
+    customDomain: installation.domain,
+    deploymentUrl: deployment.url ?? null,
+  });
+  if (!operationalUrl.ok) {
+    return fail("BLOCKED", `URL necessária para configurar autenticação: ${operationalUrl.reason}`);
+  }
+  const authDefaults = await applyInstallationAuthDefaults(management, operationalUrl.origin).catch(
+    (error) => ({
+      applied: false,
+      detail: error instanceof Error ? error.message : "falha desconhecida",
+    }),
+  );
+  if (!authDefaults.applied) {
+    return fail("BLOCKED", `Autenticação da instalação não confirmada: ${authDefaults.detail}`);
+  }
   const code = createCodeClient({
     token: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
     masterToken:

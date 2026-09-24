@@ -520,7 +520,6 @@ function InviteRow({
         <div className="text-xs text-muted-foreground">
           Papel: <span className="capitalize">{invite.role}</span> · Expira em{" "}
           {fmtDate(invite.expires_at)}
-          {invite.temp_password_sent ? " · senha temporária enviada" : ""}
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -540,16 +539,12 @@ function InviteRow({
         <Button
           size="icon"
           variant="ghost"
-          disabled={isRevoked || invite.temp_password_sent}
+          disabled={isRevoked}
           onClick={() => {
             setEmail(invite.email);
             setEditOpen(true);
           }}
-          title={
-            invite.temp_password_sent
-              ? "Revogue e convide novamente para trocar o e-mail desta conta"
-              : "Editar e-mail e reenviar"
-          }
+          title="Editar e-mail e reenviar"
         >
           <Pencil className="h-4 w-4" />
         </Button>
