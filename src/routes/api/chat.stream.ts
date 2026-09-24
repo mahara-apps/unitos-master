@@ -3,6 +3,7 @@
 // Auth: Bearer token no header Authorization (mesma sessão do client).
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
+import { resolveSupabasePublicRuntimeConfig } from "@/integrations/supabase/runtime-config.server";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import type { BrainContext } from "@/lib/brain/core";
@@ -53,9 +54,13 @@ export const Route = createFileRoute("/api/chat/stream")({
         const token = auth.slice(7);
         if (token.split(".").length !== 3) return new Response("Invalid token", { status: 401 });
 
-        const url = process.env.SUPABASE_URL;
-        const pubKey = process.env.SUPABASE_PUBLISHABLE_KEY;
-        if (!url || !pubKey) return new Response("Missing Supabase env", { status: 500 });
+        let config;
+        try {
+          config = resolveSupabasePublicRuntimeConfig();
+        } catch {
+          return new Response("Missing Supabase env", { status: 500 });
+        }
+        const { url, publishableKey: pubKey } = config;
 
         const supabase = createClient<Database>(url, pubKey, {
           global: {

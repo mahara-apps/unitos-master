@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
+import { resolveSupabasePublicRuntimeConfig } from "@/integrations/supabase/runtime-config.server";
 import { guardClientScope } from "@/lib/http-scope.server";
 import { waitUntil } from "@/lib/wait-until.server";
 
@@ -26,8 +27,7 @@ const BodySchema = z.object({
 });
 
 function buildUserClient(token: string) {
-  const url = process.env["SUPABASE_URL"]!;
-  const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
+  const { url, publishableKey: key } = resolveSupabasePublicRuntimeConfig();
   return createClient<Database>(url, key, {
     global: { headers: { Authorization: `Bearer ${token}`, apikey: key } },
     auth: { storage: undefined, persistSession: false, autoRefreshToken: false },

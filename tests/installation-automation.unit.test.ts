@@ -4,6 +4,7 @@ import {
   assertSecretsAreExclusive,
   automationOutcome,
   buildDeployEnvPlan,
+  buildInstallationRuntimeEnvPlan,
   extractProjectRef,
   resolveAutomationCapability,
   resolveAutomationTarget,
@@ -227,6 +228,7 @@ describe("plano de variáveis do deploy", () => {
     expect(keys).toContain("PUBLIC_APP_URL");
     expect(keys).toContain("CRON_SECRET");
     expect(keys).toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(keys).toContain("SB_SERVICE_ROLE_KEY");
     expect(keys).toContain("SUPABASE_URL");
     expect(keys).toContain("SUPABASE_PROJECT_ID");
     expect(keys).toContain("SUPABASE_PUBLISHABLE_KEY");
@@ -237,6 +239,32 @@ describe("plano de variáveis do deploy", () => {
       plan.entries.find((e) => e.key === "VITE_SUPABASE_URL")?.value,
     );
     expect(plan.entries.find((e) => e.key === "SUPABASE_SERVICE_ROLE_KEY")?.sensitive).toBe(true);
+  });
+
+  it("usa o mesmo contrato mínimo em instalação nova e atualização", () => {
+    const plan = buildInstallationRuntimeEnvPlan(base);
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    expect(plan.entries.map((entry) => entry.key)).toEqual([
+      "PUBLIC_APP_URL",
+      "VITE_PUBLIC_APP_URL",
+      "SUPABASE_URL",
+      "VITE_SUPABASE_URL",
+      "SUPABASE_PROJECT_ID",
+      "VITE_SUPABASE_PROJECT_ID",
+      "SUPABASE_PUBLISHABLE_KEY",
+      "VITE_SUPABASE_PUBLISHABLE_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SB_SERVICE_ROLE_KEY",
+    ]);
+  });
+
+  it("recusa URL e Project Ref Supabase divergentes", () => {
+    const plan = buildInstallationRuntimeEnvPlan({
+      ...base,
+      projectRef: "qrstuvwxyzabcdef",
+    });
+    expect(plan).toMatchObject({ ok: false, reason: expect.stringContaining("divergem") });
   });
 
   it("recusa plano que aponta para o MASTER", () => {

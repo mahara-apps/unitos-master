@@ -18,6 +18,8 @@
  * divergência é registrada — o env é justamente o vetor do vazamento.
  */
 
+import { readRuntimeEnv } from "@/lib/runtime-env.server";
+
 export class AppUrlNotConfiguredError extends Error {
   code = "app_url_nao_configurada" as const;
   constructor() {
@@ -63,7 +65,9 @@ export async function requestOrigin(): Promise<string | null> {
 /** Origem configurada por env — último recurso fora de uma requisição. */
 export function configuredOrigin(): string | null {
   return normalizeOrigin(
-    process.env.PUBLIC_APP_URL ?? process.env.APP_PUBLIC_URL ?? process.env.APP_URL ?? null,
+    readRuntimeEnv("PUBLIC_APP_URL") ??
+      readRuntimeEnv("APP_PUBLIC_URL") ??
+      readRuntimeEnv("APP_URL"),
   );
 }
 
