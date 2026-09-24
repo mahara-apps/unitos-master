@@ -60,6 +60,18 @@ describe("atualização de código da instalação", () => {
     expect(updateBody).toContain("snapshot,");
   });
 
+  it("reconcilia o runtime próprio antes de aplicar qualquer delta", () => {
+    const source = readFileSync("src/lib/installation/automation.server.ts", "utf8");
+    const updateBody = source.slice(source.indexOf("export async function runAutomatedUpdate"));
+    const envGate = updateBody.indexOf("buildInstallationRuntimeEnvPlan");
+    const envWrite = updateBody.indexOf("deploy.setEnv(runtimePlan.entries)");
+    const delta = updateBody.indexOf("applyDatabaseDelta({");
+    expect(envGate).toBeGreaterThan(0);
+    expect(envWrite).toBeGreaterThan(envGate);
+    expect(delta).toBeGreaterThan(envWrite);
+    expect(updateBody).toContain("updateRuntimeConfigFingerprint");
+  });
+
   it("update bem-sucedido com a versão do MASTER deixa a instalação atualizada", () => {
     expect(statusAfterOperation("update", { ok: true, version: "1.0.0" }, "1.0.0")).toBe(
       "up_to_date",
