@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+unset PGPORT
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 TMP_ROOT="$(mktemp -d /tmp/unitos-deterministic-update.XXXXXX)"

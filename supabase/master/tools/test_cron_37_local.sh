@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+unset PGPORT
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 TMP_ROOT="$(mktemp -d /tmp/unitos-cron-37.XXXXXX)"; PGDATA="$TMP_ROOT/data"; SOCKET_DIR="$TMP_ROOT/socket"; PORT="$((57500 + RANDOM % 400))"; LOG="$TMP_ROOT/postgres.log"
 cleanup(){ if test -f "$PGDATA/postmaster.pid"; then setpriv --reuid=1000 --regid=1000 --clear-groups pg_ctl -D "$PGDATA" -m immediate stop >/dev/null 2>&1 || true; fi; rm -rf "$TMP_ROOT"; }; trap cleanup EXIT
