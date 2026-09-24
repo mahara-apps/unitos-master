@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { generateText } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
+import { resolveSupabasePublicRuntimeConfig } from "@/integrations/supabase/runtime-config.server";
 import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
 
 const CHANNELS = ["instagram", "tiktok", "linkedin"] as const;
@@ -29,8 +30,7 @@ const TYPE_LABEL: Record<(typeof CONTENT_TYPES)[number], string> = {
 };
 
 function buildUserClient(token: string) {
-  const url = process.env.SUPABASE_URL!;
-  const key = process.env.SUPABASE_PUBLISHABLE_KEY!;
+  const { url, publishableKey: key } = resolveSupabasePublicRuntimeConfig();
   return createClient<Database>(url, key, {
     global: { headers: { Authorization: `Bearer ${token}`, apikey: key } },
     auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
