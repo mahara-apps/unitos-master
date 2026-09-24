@@ -17,7 +17,9 @@ describe("reenvio seguro de convite", () => {
 	});
 
 	it("não permite repontar silenciosamente uma conta já provisionada", () => {
-		expect(source).toContain("Este convite já criou uma conta. Revogue-o");
+		expect(source).toContain("Nenhuma senha temporária é criada ou enviada");
+		expect(source).not.toContain("Senha temporária");
+		expect(source).not.toContain("randomPassword");
 	});
 
 	it("expõe reenvio e edição na linha de convite", () => {

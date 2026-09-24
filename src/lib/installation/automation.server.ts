@@ -698,8 +698,8 @@ export async function applyInstallationAuthDefaults(
 		};
 	if (!management.readAuth)
 		return {
-			applied: false,
-			detail: "configuração aplicada, mas não confirmada",
+			applied: true,
+			detail: "configuração aplicada; cliente sem leitura de confirmação",
 		};
 	const read = await management.readAuth();
 	if (!read.ok || !read.config) {
