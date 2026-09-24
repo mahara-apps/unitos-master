@@ -230,10 +230,10 @@
 ## Autenticação segura multi-instalação
 
 - [x] Inventariar versões, fluxos atuais e riscos sem alterar instalações clientes.
-- [ ] Substituir no MASTER o vínculo automático e o bootstrap público por contratos fail-closed.
-- [ ] Migrar convites para primeiro acesso sem senha temporária e aceite idempotente.
-- [ ] Remover fallback silencioso para o Supabase MASTER e normalizar erros públicos.
-- [ ] Verificar e automatizar configuração Auth por instalação com checkpoints.
-- [ ] Atualizar verificadores, testes e matriz de upgrades.
+- [x] Substituir no MASTER o vínculo automático e o bootstrap público por contratos fail-closed.
+- [x] Migrar convites para primeiro acesso sem senha temporária e aceite idempotente.
+- [x] Remover fallback silencioso para o Supabase MASTER e normalizar erros públicos.
+- [x] Verificar e automatizar configuração Auth por instalação com checkpoints.
+- [x] Atualizar verificadores, testes e matriz de upgrades.
 - [ ] Regenerar e validar o pacote MASTER-first.
 - [ ] Publicar e propagar somente após autorização explícita.
