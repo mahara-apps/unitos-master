@@ -38,6 +38,7 @@ import {
 	assertSecretsAreExclusive,
 	automationOutcome,
 	buildDeployEnvPlan,
+	buildInstallationRuntimeEnvPlan,
 	GENERATED_SECRET_VARS,
 	type GeneratedSecretVar,
 	resolveAutomationCapability,
@@ -4073,6 +4074,8 @@ export type StageProgress = {
 	updateRelease?: string;
 	/** Banco Client reconciliado integralmente com o manifesto selado. */
 	updateDatabaseReconciled?: boolean;
+	/** Impressão não reversível do contrato de configuração confirmado no deploy. */
+	updateRuntimeConfigFingerprint?: string;
 	/** Verificador final do Client concluiu sem FAIL. */
 	updateValidationPassed?: boolean;
 	/** Release e commit imutáveis fixados para uma instalação nova. */
