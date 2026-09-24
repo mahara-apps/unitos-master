@@ -601,6 +601,7 @@ export type ManagementClient = {
    * simples — quem chama trata a ausência como "não aplicado".
    */
   configureAuth?: (patch: Record<string, unknown>) => Promise<{ ok: boolean; error?: string }>;
+  readAuth?: () => Promise<{ ok: boolean; config?: Record<string, unknown>; error?: string }>;
 };
 
 /**
@@ -609,19 +610,42 @@ export type ManagementClient = {
  * DNS apontado, então o e-mail de confirmação nunca chega e o primeiro acesso
  * (/setup) ficaria preso. Convites e reset continuam disponíveis.
  */
-export const INSTALLATION_AUTH_DEFAULTS = { mailer_autoconfirm: true } as const;
+export function installationAuthDefaults(appUrl: string) {
+  const origin = new URL(appUrl).origin;
+  return {
+    site_url: origin,
+    uri_allow_list: `${origin}/reset-password,${origin}/invite/*`,
+    disable_signup: true,
+    mailer_autoconfirm: true,
+  } as const;
+}
 
 /** Aplica os padrões de auth no destino. Nunca bloqueia a operação. */
 export async function applyInstallationAuthDefaults(
   management: ManagementClient,
+  appUrl: string,
 ): Promise<{ applied: boolean; detail: string }> {
   if (!management.configureAuth) {
     return { applied: false, detail: "cliente de gestão sem suporte a config/auth" };
   }
-  const res = await management.configureAuth({ ...INSTALLATION_AUTH_DEFAULTS });
-  return res.ok
-    ? { applied: true, detail: "confirmação de e-mail desligada no destino" }
-    : { applied: false, detail: res.error ?? "não foi possível ajustar a autenticação" };
+  const expected = installationAuthDefaults(appUrl);
+  const res = await management.configureAuth({ ...expected });
+  if (!res.ok) return { applied: false, detail: res.error ?? "não foi possível ajustar a autenticação" };
+  if (!management.readAuth) return { applied: false, detail: "configuração aplicada, mas não confirmada" };
+  const read = await management.readAuth();
+  if (!read.ok || !read.config) {
+    return { applied: false, detail: read.error ?? "configuração aplicada, mas não confirmada" };
+  }
+  const allowList = String(read.config["uri_allow_list"] ?? "");
+  const matches =
+    read.config["site_url"] === expected.site_url &&
+    read.config["disable_signup"] === true &&
+    read.config["mailer_autoconfirm"] === true &&
+    allowList.includes(`${expected.site_url}/reset-password`) &&
+    allowList.includes(`${expected.site_url}/invite/*`);
+  return matches
+    ? { applied: true, detail: "cadastro fechado e URLs de autenticação confirmadas" }
+    : { applied: false, detail: "a configuração de autenticação não corresponde ao esperado" };
 }
 
 function managementApiError(status: number, body: string, operation: "database" | "keys"): string {
@@ -715,6 +739,19 @@ export function createManagementClient(input: {
   const attempts = RETRY_DELAYS_MS.length;
 
   return {
+    async readAuth() {
+      try {
+        const res = await doFetch(`${base}/config/auth`, { headers });
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          return { ok: false, error: managementApiError(res.status, text, "database") };
+        }
+        const config = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+        return config ? { ok: true, config } : { ok: false, error: "resposta inválida de config/auth" };
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : "falha ao ler config/auth" };
+      }
+    },
     async query(sql) {
       let last = { ok: false, rows: [] as unknown[], error: "sem resposta da Management API" };
       for (let attempt = 0; attempt < attempts; attempt++) {
@@ -3907,15 +3944,7 @@ export async function runAutomatedProvision(input: {
   checks.supabase = "ok";
   // Confirmação de e-mail desligada por padrão: o remetente padrão do Supabase
   // não tem DNS apontado, então o link de confirmação do /setup não chegaria.
-  const authDefaults = await applyInstallationAuthDefaults(management);
-  if (!authDefaults.applied) {
-    pendingNotes.push(`Confirmação de e-mail não pôde ser desligada: ${authDefaults.detail}`);
-  }
-  await mark(
-    "supabase",
-    "done",
-    `projeto ${target.projectRef} acessível${authDefaults.applied ? " · confirmação de e-mail desligada" : ""}`,
-  );
+  await mark("supabase", "done", `projeto ${target.projectRef} acessível`);
 
   /* 3. preflight dos acessos de publicação e repositório, antes de qualquer
    * escrita: negativa de permissão encerra aqui, dizendo o acesso exato que
@@ -4532,6 +4561,14 @@ export async function runAutomatedProvision(input: {
       return finish(null, null);
     }
     url = { origin: resolved.origin, source: resolved.source };
+
+    const authDefaults = await applyInstallationAuthDefaults(management, url.origin);
+    if (!authDefaults.applied) {
+      failures.push(`Autenticação da instalação não confirmada: ${authDefaults.detail}`);
+      await mark("deploy", "error", authDefaults.detail);
+      checks.configuration = "error";
+      return finish(null, null);
+    }
 
     // App Meta oficial do Unitos: propagado do MASTER para a instalação nova,
     // de modo que o modo padrão “Unitos — App Meta oficial” já venha resolvido.
@@ -6170,8 +6207,19 @@ export async function runAutomatedUpdate(input: {
     projectRef: target.projectRef,
     fetchImpl: input.fetchImpl,
   });
-  // Instalações antigas também passam a nascer/ficar sem confirmação de e-mail.
-  await applyInstallationAuthDefaults(management).catch(() => undefined);
+  const operationalUrl = resolveOperationalUrl({
+    customDomain: installation.domain,
+    deploymentUrl: null,
+  });
+  if (!operationalUrl.ok) {
+    return fail("BLOCKED", `URL necessária para configurar autenticação: ${operationalUrl.reason}`);
+  }
+  const authDefaults = await applyInstallationAuthDefaults(management, operationalUrl.origin).catch(
+    (error) => ({ applied: false, detail: error instanceof Error ? error.message : "falha desconhecida" }),
+  );
+  if (!authDefaults.applied) {
+    return fail("BLOCKED", `Autenticação da instalação não confirmada: ${authDefaults.detail}`);
+  }
 
   const masterRepo = (env["UNITOS_MASTER_REPO"] ?? "").trim() || null;
   const repo = resolveInstallationRepo({
