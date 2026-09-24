@@ -227,6 +227,15 @@ describe("plano de variáveis do deploy", () => {
     expect(keys).toContain("PUBLIC_APP_URL");
     expect(keys).toContain("CRON_SECRET");
     expect(keys).toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(keys).toContain("SUPABASE_URL");
+    expect(keys).toContain("SUPABASE_PROJECT_ID");
+    expect(keys).toContain("SUPABASE_PUBLISHABLE_KEY");
+    expect(keys).toContain("VITE_SUPABASE_URL");
+    expect(keys).toContain("VITE_SUPABASE_PROJECT_ID");
+    expect(keys).toContain("VITE_SUPABASE_PUBLISHABLE_KEY");
+    expect(plan.entries.find((e) => e.key === "SUPABASE_URL")?.value).toBe(
+      plan.entries.find((e) => e.key === "VITE_SUPABASE_URL")?.value,
+    );
     expect(plan.entries.find((e) => e.key === "SUPABASE_SERVICE_ROLE_KEY")?.sensitive).toBe(true);
   });
 

@@ -16,7 +16,7 @@ import { useEffect, useMemo, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { normalizeLovableError, reportLovableError } from "../lib/lovable-error-reporting";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseConfigurationError } from "@/integrations/supabase/client";
 import { QueryPersistence } from "@/lib/query-persistence";
 import { resetIdentityState, isIdentityChange } from "@/lib/session-reset";
 
@@ -161,6 +161,7 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
+    if (supabaseConfigurationError) return;
     // `SIGNED_IN` também é emitido quando a sessão do MESMO usuário é
     // restaurada (boot) ou renovada. Tratar isso como troca de identidade
     // apagava workspace/cliente ativos e todo o cache no meio do boot.
@@ -183,6 +184,25 @@ function RootComponent() {
     });
     return () => data.subscription.unsubscribe();
   }, [router, queryClient]);
+
+  if (supabaseConfigurationError) {
+    return (
+      <ThemeProvider>
+        <div className="flex min-h-screen items-center justify-center bg-background px-4">
+          <div className="max-w-md text-center">
+            <h1 className="text-xl font-semibold text-foreground">Configuração indisponível</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Esta instalação não pôde ser iniciada com segurança. Nenhum outro ambiente foi
+              acessado.
+            </p>
+            <Button className="mt-6" onClick={() => window.location.reload()}>
+              Tentar novamente
+            </Button>
+          </div>
+        </div>
+      </ThemeProvider>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>

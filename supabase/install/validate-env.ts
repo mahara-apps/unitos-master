@@ -69,11 +69,18 @@ checks.push({
 const serverRef = (env["SUPABASE_URL"] ?? "").match(/https:\/\/([a-z0-9]+)\.supabase\.co/i)?.[1];
 const clientRef = (env["VITE_SUPABASE_URL"] ?? "").match(/https:\/\/([a-z0-9]+)\.supabase\.co/i)?.[1];
 const declaredRef = (env["VITE_SUPABASE_PROJECT_ID"] ?? "").trim();
-const sameProject = Boolean(serverRef) && serverRef === clientRef && (!declaredRef || declaredRef === serverRef);
+const serverDeclaredRef = (env["SUPABASE_PROJECT_ID"] ?? "").trim();
+const sameProject =
+  Boolean(serverRef) &&
+  serverRef === clientRef &&
+  declaredRef === serverRef &&
+  serverDeclaredRef === serverRef;
 checks.push({
   name: "coerência do projeto Supabase",
   ok: sameProject,
-  detail: sameProject ? `ref=${serverRef}` : "SUPABASE_URL / VITE_SUPABASE_URL / VITE_SUPABASE_PROJECT_ID divergem",
+  detail: sameProject
+    ? `ref=${serverRef}`
+    : "URLs e identificadores públicos/privados do Supabase divergem",
 });
 
 let failed = 0;
