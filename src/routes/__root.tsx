@@ -78,6 +78,11 @@ function ErrorComponent({ error, reset }: { error: unknown; reset: () => void })
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  beforeLoad: () => {
+    if (supabaseConfigurationError) {
+      throw new Error("installation_configuration_unavailable");
+    }
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
