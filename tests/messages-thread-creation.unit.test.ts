@@ -49,7 +49,7 @@ describe("criação de conversas", () => {
 
   it("gatilhos limpam menções sem expor a função auxiliar aos usuários", () => {
     const sql = deltaSql();
-    const fix = sql.slice(sql.lastIndexOf("FUNCTION public.sanitize_mention_body"));
+    const fix = sql.slice(sql.lastIndexOf("CREATE OR REPLACE FUNCTION public.sanitize_mention_body"));
     expect(fix).toContain("SECURITY DEFINER");
     expect(fix).toContain(
       "REVOKE ALL ON FUNCTION public.clean_mention_tokens(text) FROM PUBLIC, anon, authenticated",
