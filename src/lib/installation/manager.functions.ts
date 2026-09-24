@@ -1047,12 +1047,9 @@ export const startInstallationOperationFn = createServerFn({ method: "POST" })
       .single();
     if (updateError) throw updateError;
 
-    const masterUrl =
-      readRuntimeEnv("PUBLIC_APP_URL") ?? readRuntimeEnv("VITE_PUBLIC_APP_URL");
+    const masterUrl = readRuntimeEnv("PUBLIC_APP_URL") ?? readRuntimeEnv("VITE_PUBLIC_APP_URL");
     if (!masterUrl) {
-      throw new Error(
-        "Configuração pública do MASTER indisponível; operação não iniciada.",
-      );
+      throw new Error("Configuração pública do MASTER indisponível; operação não iniciada.");
     }
 
     return {
@@ -2071,19 +2068,19 @@ export const getInstallationSecretsFn = createServerFn({ method: "POST" })
 
 /** Exibe somente o código de ativação solicitado pelo Super Admin do MASTER. */
 export const revealInstallationBootstrapCodeFn = createServerFn({ method: "POST" })
-	.middleware([requireSupabaseAuth])
-	.inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
-	.handler(async ({ data, context }) => {
-		await guard(context);
-		const { readInstallationSecret } = await import("./credentials.server");
-		const code = await readInstallationSecret(
-			context.supabase as never,
-			data.id,
-			"INSTALLATION_BOOTSTRAP_CODE",
-		);
-		if (!code) throw new Error("O código de primeiro acesso ainda não foi preparado.");
-		return { code };
-	});
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await guard(context);
+    const { readInstallationSecret } = await import("./credentials.server");
+    const code = await readInstallationSecret(
+      context.supabase as never,
+      data.id,
+      "INSTALLATION_BOOTSTRAP_CODE",
+    );
+    if (!code) throw new Error("O código de primeiro acesso ainda não foi preparado.");
+    return { code };
+  });
 
 /** Troca um segredo próprio da instalação — ação deliberada, nunca automática. */
 export const rotateInstallationSecretFn = createServerFn({ method: "POST" })
