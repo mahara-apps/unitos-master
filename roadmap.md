@@ -36,7 +36,7 @@
 - [x] Sinalizar no fio e no comentário quando o usuário atual foi mencionado.
 - [x] Fazer a notificação abrir diretamente a aba Comentários do projeto.
 - [x] Enviar comentário com Enter, preservando Shift+Enter e seleção de menções.
-- [ ] Validar e selar a melhoria no pacote MASTER.
+- [x] Validar e selar a melhoria no pacote MASTER 1.4.37.
 
 ## Consulta do commit do MASTER no GitHub
 
