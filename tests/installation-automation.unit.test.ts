@@ -215,10 +215,11 @@ describe("plano de variáveis do deploy", () => {
       BRAND_CREDENTIALS_SECRET: generateInstallationSecret(),
       META_STATE_SECRET: generateInstallationSecret(),
       META_WEBHOOK_VERIFY_TOKEN: generateInstallationSecret(),
+			INSTALLATION_BOOTSTRAP_CODE: generateInstallationSecret(),
     },
   };
 
-  it("inclui URL, chaves do destino e os 4 secrets próprios", () => {
+  it("inclui URL, chaves do destino e os 5 secrets próprios", () => {
     const plan = buildDeployEnvPlan(base);
     expect(plan.ok).toBe(true);
     if (!plan.ok) return;
