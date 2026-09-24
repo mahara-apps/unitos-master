@@ -245,6 +245,7 @@
 - [x] Usar referências estáticas de build e manter isolamento fail-closed.
 - [x] Exibir falha de configuração controlada sem acessar outro ambiente.
 - [x] Endurecer a coerência das variáveis e cobrir erro, vazio e valor válido.
-- [ ] Regenerar e validar o pacote MASTER 1.4.39.
+- [x] Regenerar o pacote MASTER 1.4.39 e sincronizar versão e hash.
+- [ ] Concluir guardiões, suíte global e ensaio de navegação antes de publicar.
 - [ ] Publicar somente após autorização explícita e validar o domínio publicado.
 - [ ] Propagar às instalações somente após autorização separada.
