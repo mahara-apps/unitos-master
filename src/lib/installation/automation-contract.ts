@@ -283,7 +283,7 @@ export const GENERATED_SECRET_VARS = [
   "BRAND_CREDENTIALS_SECRET",
   "META_STATE_SECRET",
   "META_WEBHOOK_VERIFY_TOKEN",
-	"INSTALLATION_BOOTSTRAP_CODE",
+  "INSTALLATION_BOOTSTRAP_CODE",
 ] as const;
 
 export type GeneratedSecretVar = (typeof GENERATED_SECRET_VARS)[number];
@@ -374,9 +374,7 @@ export type InstallationRuntimeEnvInput = {
  * precisam existir antes do build: `VITE_*` é incorporado pelo Vite, enquanto
  * as variantes sem prefixo alimentam o runtime do servidor.
  */
-export function buildInstallationRuntimeEnvPlan(
-  input: InstallationRuntimeEnvInput,
-): DeployEnvPlan {
+export function buildInstallationRuntimeEnvPlan(input: InstallationRuntimeEnvInput): DeployEnvPlan {
   const identity = `${input.appUrl} ${input.supabaseUrl} ${input.projectRef}`;
   if (containsMasterReference(identity)) {
     return { ok: false, reason: "As variáveis apontariam para o MASTER — plano recusado." };
