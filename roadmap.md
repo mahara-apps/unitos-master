@@ -226,3 +226,14 @@
 - [x] Validar a 1.4.30 pelo fluxo MASTER-first, com tipos, qualidade e cenários focados aprovados.
 - [ ] Publicar o MASTER 1.4.30 somente após autorização explícita.
 - [ ] Depois da publicação, permitir nova tentativa na Apex preservando todos os checkpoints confirmados.
+
+## Autenticação segura multi-instalação
+
+- [x] Inventariar versões, fluxos atuais e riscos sem alterar instalações clientes.
+- [ ] Substituir no MASTER o vínculo automático e o bootstrap público por contratos fail-closed.
+- [ ] Migrar convites para primeiro acesso sem senha temporária e aceite idempotente.
+- [ ] Remover fallback silencioso para o Supabase MASTER e normalizar erros públicos.
+- [ ] Verificar e automatizar configuração Auth por instalação com checkpoints.
+- [ ] Atualizar verificadores, testes e matriz de upgrades.
+- [ ] Regenerar e validar o pacote MASTER-first.
+- [ ] Publicar e propagar somente após autorização explícita.
