@@ -119,12 +119,16 @@ export function pickSuccessor(
   const ordered = [...listed].sort(
     (a, b) => (b.created ?? 0) - (a.created ?? 0) || versionScore(b.id) - versionScore(a.id),
   );
-  return compatibleSuccessorCandidates(
-    provider,
-    role,
-    currentId,
-    ordered.filter((model) => !EXCLUDE.some((token) => model.id.toLowerCase().includes(token))).map((model) => model.id),
-  )[0] ?? null;
+  return (
+    compatibleSuccessorCandidates(
+      provider,
+      role,
+      currentId,
+      ordered
+        .filter((model) => !EXCLUDE.some((token) => model.id.toLowerCase().includes(token)))
+        .map((model) => model.id),
+    )[0] ?? null
+  );
 }
 
 /* ------------------------------ the check ----------------------------- */

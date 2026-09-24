@@ -198,9 +198,7 @@ export function nextFallbackModel(
   const chain = MODEL_FALLBACKS[provider][role] ?? [];
   const lower = tried.map((t) => t.toLowerCase());
   return (
-    chain.find(
-      (id) => !lower.includes(id.toLowerCase()) && !isRetiredModel(provider, id),
-    ) ?? null
+    chain.find((id) => !lower.includes(id.toLowerCase()) && !isRetiredModel(provider, id)) ?? null
   );
 }
 

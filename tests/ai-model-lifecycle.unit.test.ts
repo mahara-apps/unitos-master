@@ -44,9 +44,7 @@ describe("ciclo de vida dos modelos de IA", () => {
   });
 
   it("nunca devolve um modelo aposentado mesmo que ainda apareça na cadeia tentada", () => {
-    expect(nextFallbackModel("anthropic", "strategic", ["claude-opus-5-5"])).toBe(
-      "claude-opus-5",
-    );
+    expect(nextFallbackModel("anthropic", "strategic", ["claude-opus-5-5"])).toBe("claude-opus-5");
   });
 
   it("não confunde chave, quota ou rate limit com descontinuação", () => {

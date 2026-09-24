@@ -379,8 +379,11 @@ function withModelInstrumentation(
     let provider = ctx.provider;
     let apiKey = ctx.apiKey;
     let switchedProvider = false;
-    let pendingPromotion: { provider: ProviderName; modelId: string; replacedModelId: string } | null =
-      null;
+    let pendingPromotion: {
+      provider: ProviderName;
+      modelId: string;
+      replacedModelId: string;
+    } | null = null;
     let call = 0;
     for (;;) {
       const modelId = tried[tried.length - 1] ?? base.modelId;
