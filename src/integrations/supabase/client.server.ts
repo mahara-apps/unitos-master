@@ -4,6 +4,10 @@
 // For user-authenticated queries (with RLS), use the auth middleware instead.
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
+import {
+  resolveSupabaseAdminRuntimeConfig,
+  SupabaseRuntimeConfigError,
+} from "./runtime-config.server";
 
 function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
@@ -33,29 +37,23 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 }
 
 function createSupabaseAdminClient() {
-  const SUPABASE_URL = process.env["SUPABASE_URL"]?.trim();
-  // `SUPABASE_*` é prefixo reservado no Lovable Cloud. Em projetos com Supabase
-  // externo, o service role vem em `SB_SERVICE_ROLE_KEY` (nome não-reservado).
-  const SUPABASE_SERVICE_ROLE_KEY =
-    process.env["SUPABASE_SERVICE_ROLE_KEY"]?.trim() || process.env["SB_SERVICE_ROLE_KEY"]?.trim();
-
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    const missing = [
-      ...(!SUPABASE_URL ? ["SUPABASE_URL"] : []),
-      ...(!SUPABASE_SERVICE_ROLE_KEY ? ["SUPABASE_SERVICE_ROLE_KEY (ou SB_SERVICE_ROLE_KEY)"] : []),
-    ];
-
+  let config;
+  try {
+    config = resolveSupabaseAdminRuntimeConfig();
+  } catch (error) {
+    const detail =
+      error instanceof SupabaseRuntimeConfigError
+        ? error.missingOrInvalid.join(", ")
+        : "unknown_configuration_error";
     // Detalhe fica APENAS no log do servidor; a mensagem que chega ao usuário
     // é genérica (nunca expõe nomes de secrets na interface).
-    console.error(
-      `[Supabase] Missing Supabase environment variable(s): ${missing.join(", ")}. Refresh the connected Supabase binding.`,
-    );
+    console.error(`[Supabase] Invalid server runtime configuration: ${detail}.`);
     throw new Error("Não foi possível carregar os dados. Tente novamente.");
   }
 
-  return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  return createClient<Database>(config.url, config.serviceRoleKey, {
     global: {
-      fetch: createSupabaseFetch(SUPABASE_SERVICE_ROLE_KEY),
+      fetch: createSupabaseFetch(config.serviceRoleKey),
     },
     auth: {
       storage: undefined,
