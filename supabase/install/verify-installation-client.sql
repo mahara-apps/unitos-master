@@ -92,6 +92,29 @@ WITH checks AS (
               THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
 
+  SELECT 136, 'comentários: limpeza de menções protegida e funcional',
+         CASE WHEN EXISTS (
+           SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+           WHERE n.nspname = 'public' AND p.proname = 'sanitize_mention_body'
+             AND p.prosecdef
+             AND NOT has_function_privilege('anon', p.oid, 'EXECUTE')
+             AND NOT has_function_privilege('authenticated', p.oid, 'EXECUTE')
+         ) THEN 'gatilho privilegiado e RPCs restritas' ELSE 'configuração insegura ou inoperante' END,
+         CASE WHEN EXISTS (
+           SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+           WHERE n.nspname = 'public' AND p.proname = 'sanitize_mention_body'
+             AND p.prosecdef
+             AND NOT has_function_privilege('anon', p.oid, 'EXECUTE')
+             AND NOT has_function_privilege('authenticated', p.oid, 'EXECUTE')
+         ) AND EXISTS (
+           SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+           WHERE n.nspname = 'public' AND p.proname = 'clean_mention_tokens'
+             AND NOT has_function_privilege('anon', p.oid, 'EXECUTE')
+             AND NOT has_function_privilege('authenticated', p.oid, 'EXECUTE')
+             AND has_function_privilege('service_role', p.oid, 'EXECUTE')
+         ) THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
+
   SELECT 135, 'clientes: cascata pode remover o último pipeline',
          CASE WHEN EXISTS (
            SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
