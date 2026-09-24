@@ -44,6 +44,8 @@ function NotFoundComponent() {
 
 function ErrorComponent({ error, reset }: { error: unknown; reset: () => void }) {
   const normalizedError = useMemo(() => normalizeLovableError(error), [error]);
+  const configurationUnavailable =
+    error instanceof Error && error.message === "installation_configuration_unavailable";
   console.error(normalizedError);
   const router = useRouter();
   useEffect(() => {
@@ -54,10 +56,12 @@ function ErrorComponent({ error, reset }: { error: unknown; reset: () => void })
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          Esta página não carregou
+          {configurationUnavailable ? "Configuração indisponível" : "Esta página não carregou"}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Algo deu errado. Tente novamente ou volte ao início.
+          {configurationUnavailable
+            ? "Esta instalação não pôde ser iniciada com segurança. Nenhum outro ambiente foi acessado."
+            : "Algo deu errado. Tente novamente ou volte ao início."}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <Button
