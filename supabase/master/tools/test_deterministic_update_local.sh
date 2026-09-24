@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
+unset PGDATABASE PGHOST PGPASSWORD PGPORT PGSSLMODE PGUSER
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 TMP_ROOT="$(mktemp -d /tmp/unitos-deterministic-update.XXXXXX)"
-PGDATA="$TMP_ROOT/data"; SOCKET_DIR="$TMP_ROOT/socket"; PORT="$((56000 + RANDOM % 1000))"; LOG="$TMP_ROOT/postgres.log"
+PGDATA="$TMP_ROOT/data"; SOCKET_DIR="$TMP_ROOT/socket"; PORT="$((56000 + ${RANDOM:-0} % 1000))"; LOG="$TMP_ROOT/postgres.log"
 cleanup() { if test -f "$PGDATA/postmaster.pid"; then setpriv --reuid=1000 --regid=1000 --clear-groups pg_ctl -D "$PGDATA" -m immediate stop >/dev/null 2>&1 || true; fi; rm -rf "$TMP_ROOT"; }
 trap cleanup EXIT
 mkdir -p "$PGDATA" "$SOCKET_DIR"; chown -R lovable:lovable "$TMP_ROOT"

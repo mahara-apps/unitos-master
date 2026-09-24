@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+unset PGDATABASE PGHOST PGPASSWORD PGPORT PGSSLMODE PGUSER
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 TMP_ROOT="$(mktemp -d /tmp/unitos-control-plane-release.XXXXXX)"
 PGDATA="$TMP_ROOT/data"; SOCKET_DIR="$TMP_ROOT/socket"; PORT="$((57000 + RANDOM % 500))"; LOG="$TMP_ROOT/postgres.log"
