@@ -29,7 +29,7 @@
 - [x] Exibir contador nas abas, conversas e menu lateral, com limite visual `99+`.
 - [x] Identificar conversas lidas e destacar conversas não lidas na listagem.
 - [x] Atualizar contadores em tempo real e marcar leitura somente após carregar o histórico.
-- [ ] Validar testes, compilação e fluxo MASTER-first da versão 1.4.35.
+- [x] Validar testes, compilação e fluxo MASTER-first da versão 1.4.36.
 
 ## Consulta do commit do MASTER no GitHub
 
