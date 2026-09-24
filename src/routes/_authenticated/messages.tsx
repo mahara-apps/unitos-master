@@ -2,7 +2,7 @@
  * Comunicador interno — layout: lista de conversas + painel da conversa ativa.
  * O escopo já vem autorizado pelo banco (RLS + can_access_message_thread).
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Outlet, useParams } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -14,6 +14,7 @@ import { usePageHeader } from "@/hooks/use-page-header";
 import { useSessionUser } from "@/hooks/use-session-user";
 import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 import { listThreads } from "@/lib/messaging.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/messages")({
   beforeLoad: () => ensureFeatureEnabled("messages"),
@@ -59,6 +60,26 @@ function MessagesLayout() {
     },
     [qc, brandId],
   );
+
+  useEffect(() => {
+    if (!brandId) return;
+    const channel = supabase
+      .channel(`message-list:${brandId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "message_threads",
+          filter: `brand_id=eq.${brandId}`,
+        },
+        refresh,
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [brandId, refresh]);
 
   if (!brandId) {
     return (

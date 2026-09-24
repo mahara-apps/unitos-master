@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { createFileRoute, useParams } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -36,6 +37,10 @@ function MessageThreadPage() {
   });
 
   const thread = (threadsQ.data ?? []).find((t) => t.id === threadId) ?? null;
+  const handleChanged = useCallback(() => {
+    qc.invalidateQueries({ queryKey: ["message-threads", brandId] });
+    qc.invalidateQueries({ queryKey: ["messages-unread", brandId] });
+  }, [brandId, qc]);
 
   if (threadsQ.isPending) {
     return (
@@ -60,10 +65,7 @@ function MessageThreadPage() {
       thread={thread}
       currentUserId={userId ?? ""}
       people={peopleQ.data ?? []}
-      onChanged={() => {
-        qc.invalidateQueries({ queryKey: ["message-threads", brandId] });
-        qc.invalidateQueries({ queryKey: ["messages-unread", brandId] });
-      }}
+      onChanged={handleChanged}
     />
   );
 }
