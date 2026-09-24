@@ -85,7 +85,10 @@ describe("resolveNotificationTarget", () => {
   });
 
   it("aba legada é normalizada", () => {
-    const t = resolveNotificationTarget({ kind: "system", href: `/customers/${CLIENT}?tab=producao` });
+    const t = resolveNotificationTarget({
+      kind: "system",
+      href: `/customers/${CLIENT}?tab=producao`,
+    });
     expect(t.search).toMatchObject({ tab: "trabalho" });
   });
 

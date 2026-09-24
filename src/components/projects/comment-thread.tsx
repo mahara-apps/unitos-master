@@ -151,23 +151,25 @@ export function CommentThread({
 
   return (
     <div className={cn("flex min-h-0 flex-col", className)}>
-      {showHeader ? <div className="flex items-center gap-2 border-b border-border/60 bg-background/40 px-4 py-2.5">
-        <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-        <h3 className="font-mono text-[11px] uppercase tracking-widest text-foreground">
-          Comentários
-        </h3>
-        {entries.length > 0 ? (
-          <span className="rounded-md border border-border/60 bg-background/60 px-1.5 py-0.5 font-mono text-xs tabular-nums text-foreground">
-            {entries.length}
-          </span>
-        ) : null}
-        {myMentions > 0 ? (
-          <Badge tone="blue" className="h-5 gap-1 rounded-full px-2 text-[10px]">
-            <AtSign className="h-3 w-3" />
-            {myMentions === 1 ? "Mencionou você" : `${myMentions} menções a você`}
-          </Badge>
-        ) : null}
-      </div> : null}
+      {showHeader ? (
+        <div className="flex items-center gap-2 border-b border-border/60 bg-background/40 px-4 py-2.5">
+          <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+          <h3 className="font-mono text-[11px] uppercase tracking-widest text-foreground">
+            Comentários
+          </h3>
+          {entries.length > 0 ? (
+            <span className="rounded-md border border-border/60 bg-background/60 px-1.5 py-0.5 font-mono text-xs tabular-nums text-foreground">
+              {entries.length}
+            </span>
+          ) : null}
+          {myMentions > 0 ? (
+            <Badge tone="blue" className="h-5 gap-1 rounded-full px-2 text-[10px]">
+              <AtSign className="h-3 w-3" />
+              {myMentions === 1 ? "Mencionou você" : `${myMentions} menções a você`}
+            </Badge>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="min-h-[220px] flex-1 space-y-3 overflow-y-auto px-4 py-3">
         {listQ.isPending ? (
