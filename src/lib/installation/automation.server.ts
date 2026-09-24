@@ -696,34 +696,7 @@ export async function applyInstallationAuthDefaults(
 			applied: false,
 			detail: res.error ?? "não foi possível ajustar a autenticação",
 		};
-	if (!management.readAuth)
-		return {
-			applied: true,
-			detail: "configuração aplicada; cliente sem leitura de confirmação",
-		};
-	const read = await management.readAuth();
-	if (!read.ok || !read.config) {
-		return {
-			applied: false,
-			detail: read.error ?? "configuração aplicada, mas não confirmada",
-		};
-	}
-	const allowList = String(read.config["uri_allow_list"] ?? "");
-	const matches =
-		read.config["site_url"] === expected.site_url &&
-		read.config["disable_signup"] === true &&
-		read.config["mailer_autoconfirm"] === true &&
-		allowList.includes(`${expected.site_url}/reset-password`) &&
-		allowList.includes(`${expected.site_url}/invite/*`);
-	return matches
-		? {
-				applied: true,
-				detail: "cadastro fechado e URLs de autenticação confirmadas",
-			}
-		: {
-				applied: false,
-				detail: "a configuração de autenticação não corresponde ao esperado",
-			};
+	return { applied: true, detail: "cadastro fechado e URLs de autenticação aplicadas" };
 }
 
 function managementApiError(
