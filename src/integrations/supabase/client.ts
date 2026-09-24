@@ -23,23 +23,19 @@ function readEnv(...keys: string[]): string | undefined {
   return undefined;
 }
 
-/**
- * Fallback da instalação Unitos Master. A URL e a chave publicável (anon) são
- * públicas por definição — ficam aqui apenas para que o build não quebre quando
- * o `.env` não é versionado. Qualquer instalação nova sobrescreve via env.
- */
-const DEFAULT_SUPABASE_URL = "https://tkjbhttylouamqxnbfgv.supabase.co";
-const DEFAULT_SUPABASE_PUBLISHABLE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRramJodHR5bG91YW1xeG5iZmd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNTcyMDcsImV4cCI6MjA5ODczMzIwN30.bRyK6jhVUXU7dAC1BGQbd4bllBm-UgatOOQdkfk1EFA";
+const SUPABASE_URL = readEnv("VITE_SUPABASE_URL", "SUPABASE_URL");
+const SUPABASE_PUBLISHABLE_KEY = readEnv(
+  "VITE_SUPABASE_PUBLISHABLE_KEY",
+  "VITE_SUPABASE_ANON_KEY",
+  "SUPABASE_PUBLISHABLE_KEY",
+  "SUPABASE_ANON_KEY",
+);
 
-const SUPABASE_URL = readEnv("VITE_SUPABASE_URL", "SUPABASE_URL") ?? DEFAULT_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY =
-  readEnv(
-    "VITE_SUPABASE_PUBLISHABLE_KEY",
-    "VITE_SUPABASE_ANON_KEY",
-    "SUPABASE_PUBLISHABLE_KEY",
-    "SUPABASE_ANON_KEY",
-  ) ?? DEFAULT_SUPABASE_PUBLISHABLE_KEY;
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  throw new Error(
+    "Configuração Supabase ausente: esta instalação não pode usar credenciais de outro ambiente.",
+  );
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
