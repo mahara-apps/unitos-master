@@ -651,6 +651,21 @@
       "position": 130,
       "file": "20260924185816_4cbb5fb4-d018-4392-b24f-44c4dabcc2c3.sql",
       "destination": "client"
+    },
+    {
+      "position": 131,
+      "file": "20260924224158_624c7711-334b-4ef3-87ec-eab9661f6adf.sql",
+      "destination": "client"
+    },
+    {
+      "position": 132,
+      "file": "20260924224650_f435ba7e-31ad-4721-8667-a234aa8aecbe.sql",
+      "destination": "client"
+    },
+    {
+      "position": 133,
+      "file": "20260924230137_a99bed1d-0693-4368-8d88-e55406bb4b7a.sql",
+      "destination": "client"
     }
   ]
 }

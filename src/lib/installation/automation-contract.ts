@@ -251,7 +251,8 @@ export function resolveInstallationRepo(input: {
     .replace(/\.git$/i, "")
     .replace(/^\/+|\/+$/g, "");
   const parts = withoutProtocol.split("/").filter(Boolean);
-  const [owner, repo] = parts.length >= 2 ? [parts[0]!, parts[1]!] : ["", ""];
+  const owner = parts.at(0) ?? "";
+  const repo = parts.at(1) ?? "";
   const valid = /^[A-Za-z0-9._-]+$/;
   if (!owner || !repo || !valid.test(owner) || !valid.test(repo)) {
     return {
