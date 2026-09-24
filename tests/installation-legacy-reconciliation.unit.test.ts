@@ -34,7 +34,9 @@ const rows = [...classifications].map(([position, classification]) => ({
 
 describe("reconciliação segura do ledger legado", () => {
   it("inspeciona somente o trecho legado 1–85 dentro do pacote canônico completo", () => {
-    expect(migrations).toHaveLength(87);
+    // O pacote canônico é cumulativo e continua crescendo; a fronteira legada
+    // permanece fixa em 85, sem acoplar este teste ao total atual de migrations.
+    expect(migrations.length).toBeGreaterThanOrEqual(85);
     const sql = buildLegacyReconciliationInspectionSql(migrations);
     expect(sql.match(/SELECT \d+::integer AS position/g)).toHaveLength(18);
     expect(sql).not.toContain("SELECT 86::integer AS position");

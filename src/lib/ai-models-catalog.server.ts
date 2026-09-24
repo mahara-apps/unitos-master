@@ -25,7 +25,9 @@ export const MODEL_CATALOG: Record<ProviderName, Record<ProviderRole, string | n
     image: "gpt-image-1",
   },
   anthropic: {
-    strategic: "claude-opus-4-1",
+    // Mantém o papel estratégico na família Opus. `claude-opus-4-1` foi
+    // retirado do catálogo da Anthropic e não pode voltar como default.
+    strategic: "claude-opus-5-5",
     operational: "claude-sonnet-4-5",
     image: null, // Anthropic não gera imagem
   },
@@ -61,8 +63,23 @@ export const MODEL_FALLBACKS: Record<ProviderName, Record<ProviderRole, string[]
     image: ["gpt-image-1", "dall-e-3"],
   },
   anthropic: {
-    strategic: ["claude-opus-4-1", "claude-sonnet-4-5", "claude-3-7-sonnet-latest"],
-    operational: ["claude-sonnet-4-5", "claude-3-5-haiku-latest"],
+    strategic: [
+      "claude-opus-5-5",
+      "claude-opus-5",
+      "claude-opus-4-8",
+      "claude-opus-4-7",
+      "claude-opus-4-6",
+      "claude-sonnet-5",
+      "claude-sonnet-4-6",
+      "claude-sonnet-4-5",
+    ],
+    operational: [
+      "claude-sonnet-5",
+      "claude-sonnet-4-6",
+      "claude-sonnet-4-5",
+      "claude-haiku-4-5",
+      "claude-haiku-4-5-20251001",
+    ],
     image: [],
   },
   gemini: {
@@ -81,6 +98,19 @@ export const MODEL_FALLBACKS: Record<ProviderName, Record<ProviderRole, string[]
     image: [],
   },
 };
+
+/** IDs confirmados como removidos e proibidos nos defaults/fallbacks. */
+export const RETIRED_MODELS: Readonly<Partial<Record<ProviderName, readonly string[]>>> = {
+  anthropic: ["claude-opus-4-1"],
+  gemini: ["gemini-2.5-pro", "imagen-3.0-generate-002"],
+  groq: ["llama-3.3-70b-versatile"],
+};
+
+export function isRetiredModel(provider: ProviderName, modelId: string): boolean {
+  return (RETIRED_MODELS[provider] ?? []).some(
+    (retired) => retired.toLowerCase() === modelId.toLowerCase(),
+  );
+}
 
 /** Convenience default for legacy call sites. */
 export const DEFAULT_TEXT_MODEL: Record<ProviderName, string> = {
@@ -167,7 +197,62 @@ export function nextFallbackModel(
 ): string | null {
   const chain = MODEL_FALLBACKS[provider][role] ?? [];
   const lower = tried.map((t) => t.toLowerCase());
-  return chain.find((id) => !lower.includes(id.toLowerCase())) ?? null;
+  return (
+    chain.find((id) => !lower.includes(id.toLowerCase()) && !isRetiredModel(provider, id)) ?? null
+  );
+}
+
+/**
+ * Ordena sucessores realmente listados pela conta: primeiro a cadeia aprovada
+ * para o mesmo papel, depois modelos da mesma família/tier. Nunca inclui um ID
+ * aposentado nem uma modalidade incompatível.
+ */
+export function compatibleSuccessorCandidates(
+  provider: ProviderName,
+  role: ProviderRole,
+  currentId: string,
+  listedIds: string[],
+): string[] {
+  const listed = new Map(listedIds.map((id) => [id.toLowerCase(), id]));
+  const chosen: string[] = [];
+  const add = (id: string) => {
+    const actual = listed.get(id.toLowerCase());
+    if (
+      actual &&
+      actual.toLowerCase() !== currentId.toLowerCase() &&
+      !isRetiredModel(provider, actual) &&
+      !chosen.some((candidate) => candidate.toLowerCase() === actual.toLowerCase())
+    ) {
+      chosen.push(actual);
+    }
+  };
+
+  for (const id of MODEL_FALLBACKS[provider][role] ?? []) add(id);
+
+  const current = currentId.toLowerCase();
+  const tier = ["opus", "sonnet", "haiku", "mini", "flash", "pro"].find((name) =>
+    current.includes(name),
+  );
+  const excluded = [
+    "embedding",
+    "embed",
+    "tts",
+    "audio",
+    "realtime",
+    "whisper",
+    "transcribe",
+    "moderation",
+  ];
+  for (const id of listedIds) {
+    const normalized = id.toLowerCase();
+    const isImage = normalized.includes("image") || normalized.includes("imagen");
+    if (excluded.some((token) => normalized.includes(token))) continue;
+    if ((role === "image") !== isImage) continue;
+    if (tier && !normalized.includes(tier)) continue;
+    add(id);
+  }
+
+  return chosen;
 }
 
 /** Grava (upsert) o modelo promovido em runtime e limpa o cache. */
