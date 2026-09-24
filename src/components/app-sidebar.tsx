@@ -245,6 +245,7 @@ export function AppSidebar() {
     retry: false,
   });
   const messagesUnread = unreadQ.data ?? 0;
+  const refetchMessagesUnread = unreadQ.refetch;
   useEffect(() => {
     if (!brandId || !hasSession) return;
     const channel = supabase
@@ -257,13 +258,13 @@ export function AppSidebar() {
           table: "message_threads",
           filter: `brand_id=eq.${brandId}`,
         },
-        () => unreadQ.refetch(),
+        () => refetchMessagesUnread(),
       )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [brandId, hasSession, unreadQ.refetch]);
+  }, [brandId, hasSession, refetchMessagesUnread]);
   const featureEnabled = (key?: string) => {
     if (!key) return true;
     if (isSuper) return true;
