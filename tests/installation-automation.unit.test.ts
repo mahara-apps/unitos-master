@@ -40,6 +40,17 @@ const githubResponse = (url: string): Response | null => {
   return Response.json({ full_name: "acme/unitos-pitada" });
 };
 
+const authConfigResponse = (url: string): Response | null =>
+	url.includes("/config/auth")
+		? Response.json({
+				site_url: "https://unitos-pitada-abc.vercel.app",
+				uri_allow_list:
+					"https://unitos-pitada-abc.vercel.app/reset-password,https://unitos-pitada-abc.vercel.app/invite/*",
+				disable_signup: true,
+				mailer_autoconfirm: true,
+			})
+		: null;
+
 describe("credenciais de gestão do MASTER", () => {
   it("BLOCKED quando as credenciais próprias não existem", () => {
     const cap = resolveAutomationCapability({});
@@ -459,6 +470,8 @@ describe("runAutomatedProvision", () => {
     const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
+      const auth = authConfigResponse(url);
+      if (auth) return auth;
       calls.push(url);
       if (url.includes("/api-keys")) {
         return Response.json([
@@ -513,6 +526,8 @@ describe("runAutomatedProvision", () => {
     const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
+      const auth = authConfigResponse(url);
+      if (auth) return auth;
       if (url.includes("/api-keys")) {
         return Response.json([
           { name: "anon", api_key: "sb_publishable_x" },
@@ -570,6 +585,8 @@ describe("runAutomatedProvision", () => {
     const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
+      const auth = authConfigResponse(url);
+      if (auth) return auth;
       if (url.includes("/api-keys")) {
         return Response.json([
           { name: "anon", api_key: "k" },
@@ -612,6 +629,8 @@ describe("runAutomatedProvision", () => {
     const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
+      const auth = authConfigResponse(url);
+      if (auth) return auth;
       if (url.includes("/api-keys")) {
         return Response.json([
           { name: "anon", api_key: "k" },
@@ -656,6 +675,8 @@ describe("runAutomatedProvision", () => {
     const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
+      const auth = authConfigResponse(url);
+      if (auth) return auth;
       if (url.includes("/api-keys")) {
         return Response.json([
           { name: "anon", api_key: "k" },
@@ -705,6 +726,8 @@ describe("runAutomatedProvision", () => {
     const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
+      const auth = authConfigResponse(url);
+      if (auth) return auth;
       if (url.includes("/api-keys")) {
         return Response.json([
           { name: "anon", api_key: "k" },
@@ -736,6 +759,8 @@ describe("runAutomatedProvision", () => {
     const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
+      const auth = authConfigResponse(url);
+      if (auth) return auth;
       if (url.includes("/api-keys")) {
         return Response.json([
           { name: "anon", api_key: "k" },
@@ -846,6 +871,8 @@ describe("runAutomatedProvision", () => {
     const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
+      const auth = authConfigResponse(url);
+      if (auth) return auth;
       calls.push(url);
       if (url.includes("/api-keys")) {
         return Response.json([

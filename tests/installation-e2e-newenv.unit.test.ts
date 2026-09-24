@@ -140,6 +140,16 @@ function scenario(
     const body = init?.body ? String(init.body) : "";
     calls.push({ url: u, method: init?.method ?? "GET", body });
 
+		if (u.includes("/config/auth")) {
+			return Response.json({
+				site_url: "https://unitos-novo-abc.vercel.app",
+				uri_allow_list:
+					"https://unitos-novo-abc.vercel.app/reset-password,https://unitos-novo-abc.vercel.app/invite/*",
+				disable_signup: true,
+				mailer_autoconfirm: true,
+			});
+		}
+
     if (u.includes("api.github.com")) {
       if (u.endsWith("/repos/mahara-apps/unitos-master")) {
         return Response.json({ is_template: true });
