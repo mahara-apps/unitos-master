@@ -1,5 +1,4 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { format } from "date-fns";
@@ -58,6 +57,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ExpandedModal } from "@/components/ui/expanded-modal";
+import { TaskDialog } from "@/components/content/task-dialog";
 
 import { Separator } from "@/components/ui/separator";
 import { TaskTimerWidget } from "@/components/tasks/task-timer-widget";
@@ -99,7 +99,7 @@ import {
   setTaskArchivedFn,
 } from "@/lib/tasks.functions";
 import { createProject } from "@/lib/projects.functions";
-import { listBrandAssigneesFn } from "@/lib/content.functions";
+import { getPostEditorContextFn, listBrandAssigneesFn } from "@/lib/content.functions";
 import { listClients } from "@/lib/workspace.functions";
 
 // ---------- Style meta ----------
@@ -646,6 +646,7 @@ export function TaskDrawer({
   const del = useServerFn(deleteTaskFn);
   const setArchived = useServerFn(setTaskArchivedFn);
   const listAssignees = useServerFn(listBrandAssigneesFn);
+  const getPostContext = useServerFn(getPostEditorContextFn);
 
   const listedTask = allTasks.find((candidate) => candidate.id === taskId) ?? null;
   const getTask = useServerFn(getTaskFn);
@@ -679,6 +680,14 @@ export function TaskDrawer({
 
   const [comment, setComment] = useState("");
   const [commentMentionIds, setCommentMentionIds] = useState<string[]>([]);
+  const [pieceOpen, setPieceOpen] = useState(false);
+  const postContextQ = useQuery({
+    queryKey: ["post-editor-context", task?.post_id],
+    queryFn: () => getPostContext({ data: { postId: task!.post_id! } }),
+    enabled: !!task?.post_id && pieceOpen,
+    retry: false,
+  });
+  useEffect(() => setPieceOpen(false), [taskId]);
   const refreshTask = () => {
     qc.invalidateQueries({ queryKey: ["task-detail", brandId, taskId] });
     onChanged();
@@ -752,7 +761,9 @@ export function TaskDrawer({
   const priorityMeta = task ? PRIORITY_META[task.priority] : null;
 
   return (
+    <>
     <ExpandedModal
+      nested={pieceOpen}
       open
       onOpenChange={(v) => {
         if (!v) onClose();
@@ -767,11 +778,14 @@ export function TaskDrawer({
         task ? (
           <>
             {task.post_id ? (
-              <Button asChild size="sm" variant="outline" className="h-8">
-                <Link to="/content" search={{ post: task.post_id }} onClick={onClose}>
-                  <FileText className="mr-1.5 h-4 w-4" />
-                  Ver peça
-                </Link>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8"
+                onClick={() => setPieceOpen(true)}
+              >
+                <FileText className="mr-1.5 h-4 w-4" />
+                Ver peça
               </Button>
             ) : null}
             <Button
@@ -1107,6 +1121,29 @@ export function TaskDrawer({
         </>
       )}
     </ExpandedModal>
+    {task?.post_id && postContextQ.data ? (
+      <TaskDialog
+        mode="edit"
+        open={pieceOpen}
+        onOpenChange={setPieceOpen}
+        brandId={postContextQ.data.brandId}
+        clientId={postContextQ.data.clientId}
+        pipelineId={postContextQ.data.pipelineId}
+        stages={postContextQ.data.stages}
+        postId={task.post_id}
+        invalidateKey={["post-editor-context", task.post_id] as const}
+      />
+    ) : null}
+    {pieceOpen && postContextQ.isError ? (
+      <div className="fixed bottom-4 right-4 z-[70] max-w-sm rounded-md border border-destructive/30 bg-background p-3 text-sm shadow-lg">
+        <p className="font-medium">Não foi possível abrir a peça.</p>
+        <p className="mt-1 text-xs text-muted-foreground">{postContextQ.error.message}</p>
+        <Button className="mt-2" size="sm" variant="outline" onClick={() => setPieceOpen(false)}>
+          Fechar
+        </Button>
+      </div>
+    ) : null}
+    </>
   );
 }
 
