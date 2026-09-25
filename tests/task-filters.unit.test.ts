@@ -33,7 +33,9 @@ function task(p: Partial<TaskRow>): TaskRow {
 }
 
 const overdue = task({ id: "overdue", title: "Atrasada", due_at: iso(-2) });
-const today = task({ id: "today", title: "Hoje", due_at: new Date(now + 3600_000).toISOString() });
+const todayAtNoon = new Date(now);
+todayAtNoon.setHours(12, 0, 0, 0);
+const today = task({ id: "today", title: "Hoje", due_at: todayAtNoon.toISOString() });
 const inFive = task({ id: "week", title: "Semana", due_at: iso(5) });
 const noDue = task({ id: "none", title: "Sem prazo" });
 const far = task({ id: "far", title: "Longe", due_at: iso(30) });
