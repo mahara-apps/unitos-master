@@ -51,6 +51,7 @@ import {
   operationPollInterval,
   operationRuntimeState,
   updateSummary,
+  withdrawnReleaseReason,
   type InstallationHealth,
   type InstallationOperationKind,
 } from "@/lib/installation/manager-contract";
@@ -340,9 +341,18 @@ function InstallationDetailPage() {
 
   // Traz o código publicado no MASTER para o deploy da instalação.
   const autoUpdate = useMutation({
-    mutationFn: (input: { commitSha?: string | null; confirmLabel: string }) =>
+    mutationFn: (input: {
+      commitSha?: string | null;
+      confirmLabel: string;
+      retryOfOperationId?: string | null;
+    }) =>
       autoUpdateFn({
-        data: { id, commitSha: input.commitSha ?? null, confirmLabel: input.confirmLabel },
+        data: {
+          id,
+          commitSha: input.commitSha ?? null,
+          confirmLabel: input.confirmLabel,
+          retryOfOperationId: input.retryOfOperationId ?? null,
+        },
       }),
     onSuccess: (result) => {
       if (result.result === "STARTED") {
@@ -514,6 +524,8 @@ function InstallationDetailPage() {
     (op) => op.status === "pending" || op.status === "running" || op.status === "retryable",
   );
   const lastProvision = operations.find((op) => op.kind === "provision" || op.kind === "update");
+  const failedUpdate =
+    operations.find((op) => op.kind === "update" && op.status === "failed") ?? null;
   const lastProvisionOperation = operations.find((op) => op.kind === "provision") ?? null;
   const lastValidate = operations.find((op) => op.kind === "validate");
   const shownProvision =
@@ -555,6 +567,7 @@ function InstallationDetailPage() {
   const updatePending =
     inst.updateAvailable ||
     (!!masterVersion.data?.commitSha && inst.pinnedCommitSha !== masterVersion.data.commitSha);
+  const withdrawnMasterReason = withdrawnReleaseReason(masterVersion.data?.release);
   const openEdit = () => {
     setForm({
       name: inst.name,
@@ -609,7 +622,11 @@ function InstallationDetailPage() {
       if (automated) autoValidate.mutate({ confirmLabel });
       else start.mutate({ kind: "validate", confirmLabel });
     });
-  const updateAction = () => {
+  const updateAction = (retryOfOperationId?: string | null) => {
+    if (withdrawnMasterReason) {
+      toast.error(withdrawnMasterReason);
+      return;
+    }
     if (masterVersion.data?.masterPublished === false) {
       toast.error(
         `Publique o MASTER primeiro: o pacote de código está na versão ${masterVersion.data.repoRelease ?? "—"} e o sistema já está em ${masterVersion.data.release}.`,
@@ -623,6 +640,7 @@ function InstallationDetailPage() {
           autoUpdate.mutate({
             commitSha: masterVersion.data?.commitSha ?? null,
             confirmLabel,
+            retryOfOperationId: retryOfOperationId ?? null,
           }),
         versionDetails(),
       );
@@ -745,7 +763,7 @@ function InstallationDetailPage() {
                   disabled={
                     !!activeOp || autoUpdate.isPending || !canStartOperation("update", inst.status)
                   }
-                  onClick={updateAction}
+                  onClick={() => updateAction()}
                 >
                   <ArrowDownToLine className="mr-2 h-3.5 w-3.5" /> Puxar atualização do MASTER
                 </DropdownMenuItem>
@@ -1264,6 +1282,11 @@ function InstallationDetailPage() {
                   <p className="text-xs font-medium text-destructive">
                     Falhou em: {failedStepLabel(failedProvision.steps)}
                   </p>
+                  {withdrawnMasterReason && (
+                    <p className="mt-1 text-[11px] font-medium text-destructive">
+                      {withdrawnMasterReason}
+                    </p>
+                  )}
                   {failedProvision.summary && (
                     <p className="mt-1 text-[11px] text-muted-foreground">
                       {failedProvision.summary}
@@ -1277,12 +1300,26 @@ function InstallationDetailPage() {
                 </div>
               )}
 
-              {automated && !activeOp && (
+              {automated && !activeOp && lastProvision?.kind === "update" && failedUpdate ? (
+                <Button
+                  size="sm"
+                  disabled={autoUpdate.isPending || Boolean(withdrawnMasterReason)}
+                  onClick={() => updateAction(failedUpdate.id)}
+                >
+                  {autoUpdate.isPending ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <ArrowDownToLine className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  {withdrawnMasterReason ? "Atualização recolhida" : "Retomar atualização"}
+                </Button>
+              ) : automated && !activeOp ? (
                 <Button
                   size="sm"
                   variant={failedProvision ? "default" : "outline"}
                   disabled={
                     autoProvision.isPending ||
+                    Boolean(withdrawnMasterReason) ||
                     (failedProvision
                       ? !retryFailedProvisionAllowed
                       : !canStartOperation("provision", inst.status))
@@ -1305,7 +1342,7 @@ function InstallationDetailPage() {
                   )}
                   {failedProvision ? "Tentar novamente" : "Provisionar automaticamente"}
                 </Button>
-              )}
+              ) : null}
 
               {capability.data && !automated && (
                 <div className="rounded-lg border border-severity-warning/40 bg-severity-warning/5 p-2.5">

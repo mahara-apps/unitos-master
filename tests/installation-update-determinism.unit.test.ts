@@ -5,9 +5,12 @@ import {
   updateRecoveryDecision,
   validateCanonicalUpdateEvidence,
 } from "@/lib/installation/update-contract";
+import { briefingReconciliationCompatibilitySql } from "@/lib/installation/automation.server";
+import { withdrawnReleaseReason } from "@/lib/installation/manager-contract";
 
 const automation = readFileSync("src/lib/installation/automation.server.ts", "utf8");
 const runner = readFileSync("src/lib/installation/runner.server.ts", "utf8");
+const manager = readFileSync("src/lib/installation/manager.functions.ts", "utf8");
 const sql = readFileSync("supabase/master/003_control_plane_deterministic_update.sql", "utf8");
 const NOW = Date.parse("2026-09-20T12:00:00Z");
 
@@ -111,5 +114,26 @@ describe("contrato determinístico de UPDATE", () => {
     expect(sql).not.toMatch(/INSERT\s+INTO\s+supabase_migrations/i);
     expect(sql).toContain("reconciliationState', 'reconciled'");
     expect(sql).toContain("_operation_status = 'success'");
+  });
+
+  it("recolhe a 1.4.38 e limita a ponte ao fingerprint publicado da migration 92", () => {
+    expect(withdrawnReleaseReason("1.4.38")).toContain("recolhida");
+    expect(withdrawnReleaseReason("1.4.39")).toBeNull();
+    const affected = briefingReconciliationCompatibilitySql({
+      file: "20260925005926_294912da-2c88-4927-9af7-98c2e524c156.sql",
+      canonicalSha256: "96e39db3172c98d426f444b652d420b55abbaf5cdd5d58bc39c2e4650d2c83f7",
+    });
+    expect(affected).toContain("create or replace function public.jsonb_object_length");
+    expect(affected).toContain("revoke all on function public.jsonb_object_length");
+    expect(
+      briefingReconciliationCompatibilitySql({
+        file: "20260925005926_294912da-2c88-4927-9af7-98c2e524c156.sql",
+        canonicalSha256: "0".repeat(64),
+      }),
+    ).toBeNull();
+    expect(automation).toContain("withdrawnReleaseReason(input.snapshot.version)");
+    expect(manager).toContain("withdrawnReleaseReason(snapshot.version)");
+    expect(manager).toContain('.eq("status", "failed")');
+    expect(manager).toContain("retryOfOperationId: data.retryOfOperationId ?? null");
   });
 });

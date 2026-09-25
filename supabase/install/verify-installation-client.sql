@@ -126,6 +126,13 @@ WITH checks AS (
          ) THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
 
+  SELECT 138, 'IA: compatibilidade temporária do briefing removida',
+         CASE WHEN to_regprocedure('public.jsonb_object_length(jsonb)') IS NULL
+              THEN 'ausente' ELSE 'presente' END,
+         CASE WHEN to_regprocedure('public.jsonb_object_length(jsonb)') IS NULL
+              THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
+
   SELECT 135, 'clientes: cascata pode remover o último pipeline',
          CASE WHEN EXISTS (
            SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace

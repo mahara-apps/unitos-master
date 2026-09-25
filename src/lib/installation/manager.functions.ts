@@ -860,6 +860,7 @@ export const setInstallationServiceStateFn = createServerFn({ method: "POST" })
         state: z.enum(["active", "suspended"]),
         reason: z.string().max(500).optional(),
         confirmLabel: z.string().min(1),
+        retryOfOperationId: z.string().uuid().nullable().optional(),
       })
       .parse(input),
   )
@@ -1680,6 +1681,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
           .optional()
           .nullable(),
         confirmLabel: z.string().min(1),
+        retryOfOperationId: z.string().uuid().optional().nullable(),
       })
       .parse(input),
   )
@@ -1730,6 +1732,20 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
         `A instalação está em “${INSTALLATION_STATUS_LABEL[record.status]}” e não aceita atualização agora.`,
       );
     }
+    if (data.retryOfOperationId) {
+      const { data: retrySource, error: retryError } = await supabase
+        .from("installation_operations")
+        .select("id")
+        .eq("id", data.retryOfOperationId)
+        .eq("installation_id", data.id)
+        .eq("kind", "update")
+        .eq("status", "failed")
+        .maybeSingle();
+      if (retryError) throw retryError;
+      if (!retrySource) {
+        throw new Error("A atualização informada não é elegível para retomada segura.");
+      }
+    }
 
     await assertNoActiveInstallationOperation(supabase, data.id);
 
@@ -1766,6 +1782,15 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
         reasons: [snapshot.error ?? "não foi possível fixar o pacote autorizado do MASTER"],
       };
     }
+    const { withdrawnReleaseReason } = await import("./manager-contract");
+    const withdrawnReason = withdrawnReleaseReason(snapshot.version);
+    if (withdrawnReason) {
+      return {
+        result: "BLOCKED" as const,
+        operationId: null,
+        reasons: [withdrawnReason],
+      };
+    }
 
     const op = await startAtomicInstallationOperation({
       actorId: context.userId,
@@ -1790,7 +1815,11 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
           ? `${record.pinnedRelease ?? record.currentVersion ?? "?"} · ${record.pinnedCommitSha.slice(0, 7)}`
           : (record.currentVersion ?? null),
         toVersion: `${snapshot.version} · ${targetSha.slice(0, 7)}`,
+        ...(data.retryOfOperationId
+          ? { retryOfOperationId: data.retryOfOperationId, retryReason: "failed_update" as const }
+          : {}),
       },
+      retryOfOperationId: data.retryOfOperationId ?? null,
     });
     await supabase.from("installations").update({ pinned_by: context.userId }).eq("id", data.id);
 
