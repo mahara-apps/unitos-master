@@ -765,7 +765,6 @@ export function TaskDrawer({
     <>
       <ExpandedModal
         open
-        nested={false}
         onOpenChange={(v) => {
           if (!v && !pieceOpen) onClose();
         }}
