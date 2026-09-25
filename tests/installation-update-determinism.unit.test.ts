@@ -10,6 +10,7 @@ import { withdrawnReleaseReason } from "@/lib/installation/manager-contract";
 
 const automation = readFileSync("src/lib/installation/automation.server.ts", "utf8");
 const runner = readFileSync("src/lib/installation/runner.server.ts", "utf8");
+const manager = readFileSync("src/lib/installation/manager.functions.ts", "utf8");
 const sql = readFileSync("supabase/master/003_control_plane_deterministic_update.sql", "utf8");
 const NOW = Date.parse("2026-09-20T12:00:00Z");
 
@@ -130,5 +131,9 @@ describe("contrato determinístico de UPDATE", () => {
         canonicalSha256: "0".repeat(64),
       }),
     ).toBeNull();
+    expect(automation).toContain("withdrawnReleaseReason(input.snapshot.version)");
+    expect(manager).toContain("withdrawnReleaseReason(snapshot.version)");
+    expect(manager).toContain('.eq("status", "failed")');
+    expect(manager).toContain("retryOfOperationId: data.retryOfOperationId ?? null");
   });
 });

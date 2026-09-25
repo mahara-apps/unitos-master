@@ -1731,6 +1731,20 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
         `A instalação está em “${INSTALLATION_STATUS_LABEL[record.status]}” e não aceita atualização agora.`,
       );
     }
+    if (data.retryOfOperationId) {
+      const { data: retrySource, error: retryError } = await supabase
+        .from("installation_operations")
+        .select("id")
+        .eq("id", data.retryOfOperationId)
+        .eq("installation_id", data.id)
+        .eq("kind", "update")
+        .eq("status", "failed")
+        .maybeSingle();
+      if (retryError) throw retryError;
+      if (!retrySource) {
+        throw new Error("A atualização informada não é elegível para retomada segura.");
+      }
+    }
 
     await assertNoActiveInstallationOperation(supabase, data.id);
 
