@@ -124,7 +124,10 @@ export function TaskDialog(props: TaskDialogProps) {
       <SheetContent
         side="right"
         overlayClassName={props.nested ? "z-[70]" : undefined}
-        className={cn("flex h-dvh w-full flex-col gap-0 overflow-hidden border-l border-border/60 bg-background p-0 sm:max-w-[620px]", props.nested && "z-[70]")}
+        className={cn(
+          "flex h-dvh w-full flex-col gap-0 overflow-hidden border-l border-border/60 bg-background p-0 sm:max-w-[620px]",
+          props.nested && "z-[70]",
+        )}
       >
         {props.mode === "edit" ? (
           <Suspense fallback={<LoadingBody />}>
@@ -1284,7 +1287,10 @@ function TaskLayout({
         </Tabs>
       </section>
 
-      <section className="grid grid-cols-1 gap-3 border-t border-border/50 pt-5 sm:grid-cols-2" aria-label="Agenda e configurações">
+      <section
+        className="grid grid-cols-1 gap-3 border-t border-border/50 pt-5 sm:grid-cols-2"
+        aria-label="Agenda e configurações"
+      >
         {mode === "create" ? (
           <div className="space-y-1.5">
             <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
@@ -1318,8 +1324,7 @@ function TaskLayout({
           />
           {mode === "edit" && createdAt ? (
             <p className="text-[11px] text-muted-foreground">
-              Criado em{" "}
-              {formatDateTimeBr(createdAt)}
+              Criado em {formatDateTimeBr(createdAt)}
             </p>
           ) : null}
         </div>
