@@ -281,7 +281,7 @@ function ProjectDetailPage() {
       const boards = await Promise.all(list.map((pipe) => loadBoard({
         data: { brandId: brandId!, clientId: project!.client_id!, pipelineId: pipe.id },
       })));
-      return { stages: boards.flatMap((board) => board.stages) };
+      return { pipelineId: list[0].id, stages: boards.flatMap((board) => board.stages), defaultStages: boards[0]?.stages ?? [] };
     },
   });
 
@@ -1021,8 +1021,8 @@ function ProjectDetailPage() {
           brandId={brandId!}
           clientId={project.client_id}
           pipelineId={pipelineQ.data.pipelineId}
-          stages={pipelineQ.data.stages}
-          defaultStageId={pipelineQ.data.stages[0]?.id}
+          stages={pipelineQ.data.defaultStages}
+          defaultStageId={pipelineQ.data.defaultStages[0]?.id}
           defaultProjectId={projectId}
           invalidateKey={["project", brandId, projectId] as const}
         />
