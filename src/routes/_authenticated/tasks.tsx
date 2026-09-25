@@ -299,7 +299,10 @@ function TasksPage() {
     );
   }
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: invalidateKey });
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ["tasks", brandId] });
+    void qc.invalidateQueries({ queryKey: ["tasks-pending-count", brandId] });
+  };
 
   return (
     <DashboardPageShell>
@@ -380,7 +383,7 @@ function TasksPage() {
         projects={projectsQ.data ?? []}
       />
 
-      {selectedIds.size > 0 && (
+      {selectedIds.size > 0 && view === "list" && (
         <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
           <span className="font-semibold">{selectedIds.size}</span>
           <span className="text-muted-foreground">selecionada(s)</span>

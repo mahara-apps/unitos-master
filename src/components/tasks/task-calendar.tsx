@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { TaskRow } from "@/lib/tasks.functions";
 import { PRIORITY_META, STATUS_META, isOverdue } from "./shared";
+import { isoDateInTz } from "@/lib/timezone";
 
 export function TaskCalendar({
   tasks,
@@ -42,7 +43,7 @@ export function TaskCalendar({
     const map = new Map<string, TaskRow[]>();
     for (const t of tasks) {
       if (!t.due_at) continue;
-      const key = format(new Date(t.due_at), "yyyy-MM-dd");
+      const key = isoDateInTz(new Date(t.due_at));
       const bucket = map.get(key) ?? [];
       bucket.push(t);
       map.set(key, bucket);
@@ -123,7 +124,7 @@ export function TaskCalendar({
                 )}
               </div>
               <div className="space-y-1">
-                {list.slice(0, 3).map((t) => {
+                {list.map((t) => {
                   const p = PRIORITY_META[t.priority];
                   const overdue = isOverdue(t);
                   return (
@@ -146,11 +147,6 @@ export function TaskCalendar({
                     </button>
                   );
                 })}
-                {list.length > 3 && (
-                  <span className="text-[10px] text-muted-foreground">
-                    +{list.length - 3} tarefas
-                  </span>
-                )}
               </div>
             </div>
           );
