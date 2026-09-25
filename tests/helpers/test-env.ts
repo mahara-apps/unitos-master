@@ -7,8 +7,8 @@
  *
  * Configuração confiável (env do runner, não valor vindo do usuário/HTTP):
  *   UNITOS_TEST_ENV=INTEGRATION_TEST_SUITE
- *   UNITOS_REAL_TEST_PROJECT_REF=xemwzgbzpokslnpatqsk
- *   UNITOS_INTEGRATION_TEST_PROJECT_REF=xemwzgbzpokslnpatqsk
+ *   UNITOS_REAL_TEST_PROJECT_REF=pzkcchtmcqkuhhlsbwxf
+ *   UNITOS_INTEGRATION_TEST_PROJECT_REF=pzkcchtmcqkuhhlsbwxf
  *
  * O ref autorizado é versionado. Variável ausente, ref divergente, URL
  * divergente ou propósito genérico falham fechados.
@@ -23,7 +23,7 @@ export type PrivilegedEnvVerdict =
     };
 
 export const INTEGRATION_TEST_SUITE = "INTEGRATION_TEST_SUITE";
-export const INTEGRATION_TEST_PROJECT_REF = "xemwzgbzpokslnpatqsk";
+export const INTEGRATION_TEST_PROJECT_REF = "pzkcchtmcqkuhhlsbwxf";
 export const FORBIDDEN_MASTER_PROJECT_REF = "tkjbhttylouamqxnbfgv";
 
 function projectRefFromUrl(): string | null {

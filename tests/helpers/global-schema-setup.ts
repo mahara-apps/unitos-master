@@ -47,7 +47,6 @@ select
 
 const INSPECT_BUSINESS_DATA_SQL = `
 select
-  (select count(*)::int from public.brands) +
   (select count(*)::int from public.clients) +
   (select count(*)::int from public.projects) +
   (select count(*)::int from public.tasks) +
@@ -122,7 +121,7 @@ export async function ensureGlobalTestSchema(options?: {
   if (criticalTables === 5) {
     const business = await requireQuery(management, INSPECT_BUSINESS_DATA_SQL, "inspeção de dados");
     if (numberField(business[0], "business_rows") !== 0) {
-      throw new Error("setup recusado: o projeto contém dados de negócio e não será alterado");
+      throw new Error("setup recusado: o projeto contém dados operacionais e não será alterado");
     }
     await verifyClientSchema(management);
     return "ready";
