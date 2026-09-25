@@ -30,6 +30,7 @@ import { CreateTaskDialog, TaskDrawer, isOverdue } from "@/components/tasks/shar
 import {
   DEFAULT_VISIBLE_COLUMNS,
   TaskTable,
+  compare,
   type GroupBy,
   type SortDir,
   type SortKey,
@@ -207,6 +208,10 @@ function TasksPage() {
     () => applyFilters(tasks, effectiveFilters, me),
     [tasks, effectiveFilters, me],
   );
+  const sorted = useMemo(() => [...filtered].sort((a, b) => {
+    const result = compare(a, b, sortKey);
+    return (sortDir === "asc" ? result : -result) || a.id.localeCompare(b.id);
+  }), [filtered, sortKey, sortDir]);
 
   const kpis = useMemo(() => {
     const now = Date.now();
@@ -369,7 +374,7 @@ function TasksPage() {
         onSortChange={(k, d) => setSearch({ sort: k, dir: d })}
         columns={columns}
         onColumnsChange={setColumns}
-        tasksToExport={filtered}
+        tasksToExport={sorted}
         assignees={assigneesQ.data ?? []}
         clients={clientsQ.data ?? []}
         projects={projectsQ.data ?? []}
@@ -429,19 +434,19 @@ function TasksPage() {
         </div>
       ) : view === "kanban" || view === "board-assignee" ? (
         <TaskKanban
-          tasks={filtered}
+          tasks={sorted}
           groupMode={view === "board-assignee" ? "assignee" : "status"}
           onOpenTask={(id) => setSearch({ taskId: id })}
           onChanged={invalidate}
         />
       ) : view === "timeline" ? (
-        <TaskTimeline tasks={filtered} onOpenTask={(id) => setSearch({ taskId: id })} />
+        <TaskTimeline tasks={sorted} onOpenTask={(id) => setSearch({ taskId: id })} />
       ) : view === "calendar" ? (
-        <TaskCalendar tasks={filtered} onOpenTask={(id) => setSearch({ taskId: id })} />
+        <TaskCalendar tasks={sorted} onOpenTask={(id) => setSearch({ taskId: id })} />
       ) : (
         <TaskTable
           brandId={brandId}
-          tasks={filtered}
+          tasks={sorted}
           columns={columns}
           groupBy={groupBy}
           sortKey={sortKey}
@@ -481,7 +486,7 @@ function TasksPage() {
           taskId={openTaskId}
           brandId={brandId}
           currentUserId={me}
-          allTasks={filtered}
+          allTasks={sorted}
           onNavigate={(id) => setSearch({ taskId: id })}
           onClose={() => setSearch({ taskId: undefined })}
           onChanged={invalidate}

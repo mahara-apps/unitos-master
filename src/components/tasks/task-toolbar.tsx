@@ -42,6 +42,7 @@ import {
   type TaskStatus,
 } from "@/lib/tasks.functions";
 import { PRIORITY_META, STATUS_META } from "./shared";
+import { addDaysInTz, endOfDayInTz, isoDateInTz, startOfDayInTz } from "@/lib/timezone";
 import type { GroupBy, SortDir, SortKey, VisibleColumns } from "./task-table";
 
 export type TaskFilters = {
@@ -97,11 +98,10 @@ export function applyFilters(
         if (!due) return false;
         if (filters.due === "overdue" && !(due.getTime() < now.getTime() && t.status !== "done"))
           return false;
-        if (filters.due === "today" && due.toDateString() !== now.toDateString()) return false;
+        if (filters.due === "today" && isoDateInTz(due) !== isoDateInTz(now)) return false;
         if (filters.due === "week") {
-          const limit = new Date(now);
-          limit.setDate(limit.getDate() + 7);
-          if (due.getTime() > limit.getTime() || due.getTime() < now.setHours(0, 0, 0, 0))
+          const limit = endOfDayInTz(addDaysInTz(now, 7));
+          if (due.getTime() > limit.getTime() || due.getTime() < startOfDayInTz(now).getTime())
             return false;
         }
       }
