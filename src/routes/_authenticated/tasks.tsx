@@ -107,7 +107,7 @@ function TasksPage() {
   const groupBy: GroupBy = search.groupBy;
   const sortKey: SortKey = search.sort;
   const sortDir: SortDir = search.dir;
-  const openTaskId = search.taskId ?? null;
+  const openTaskId = search.taskId ?? search.task ?? null;
 
   type Search = z.infer<typeof searchSchema>;
   function setSearch(patch: Partial<Search>) {
@@ -394,7 +394,7 @@ function TasksPage() {
       )}
 
       {/* Views body */}
-      {tasksQ.isLoading ? (
+      {tasksQ.isLoading || (workspaceMine && !me) ? (
         <DashboardPanelSurface className="flex h-40 items-center justify-center text-sm text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando tarefas...
         </DashboardPanelSurface>

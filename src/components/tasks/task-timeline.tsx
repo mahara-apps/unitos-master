@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { TaskRow } from "@/lib/tasks.functions";
 import { STATUS_META, TaskAssignee } from "./shared";
+import { isoDateInTz } from "@/lib/timezone";
 
 type Lane = {
   key: string;
@@ -26,7 +27,8 @@ type Lane = {
 const CELL = 40;
 
 function dayIndex(days: Date[], date: Date) {
-  return days.findIndex((d) => isSameDay(d, date));
+  const key = isoDateInTz(date);
+  return days.findIndex((d) => isoDateInTz(new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12))) === key);
 }
 
 /** Barra de uma tarefa dentro da faixa do mês, do início ao prazo. */
@@ -38,9 +40,11 @@ function taskSpan(task: TaskRow, days: Date[]) {
   const last = days[days.length - 1]!;
   const rawStart = start ?? end!;
   const rawEnd = end ?? start!;
-  if (rawEnd < first || rawStart > last) return null;
-  const from = rawStart < first ? 0 : dayIndex(days, rawStart);
-  const to = rawEnd > last ? days.length - 1 : dayIndex(days, rawEnd);
+  const firstKey = `${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, "0")}-${String(first.getDate()).padStart(2, "0")}`;
+  const lastKey = `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, "0")}-${String(last.getDate()).padStart(2, "0")}`;
+  if (isoDateInTz(rawEnd) < firstKey || isoDateInTz(rawStart) > lastKey) return null;
+  const from = isoDateInTz(rawStart) < firstKey ? 0 : dayIndex(days, rawStart);
+  const to = isoDateInTz(rawEnd) > lastKey ? days.length - 1 : dayIndex(days, rawEnd);
   if (from < 0 || to < 0) return null;
   return { from, span: Math.max(1, to - from + 1) };
 }
