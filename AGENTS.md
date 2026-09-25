@@ -33,3 +33,7 @@ o MASTER propaga para as demais instalacoes. Sequencia fixa, sem excecao:
 
 Guardiao automatico: `tests/installation-master-sync.unit.test.ts` e
 `tests/installation-baseline-completeness.unit.test.ts`.
+
+## Fluxo de tarefas e peças
+
+Minhas tarefas consulta o workspace com filtro de responsável no servidor antes do limite; atribuições usam `can_access_client` sem alterar RBAC/RLS, e o quadro move peças só entre etapas do mesmo pipeline via `movePostFn` — preserva escopo, ordenação e estado editorial existente.

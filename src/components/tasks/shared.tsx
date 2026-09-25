@@ -683,7 +683,7 @@ export function TaskDrawer({
   const [pieceOpen, setPieceOpen] = useState(false);
   const postContextQ = useQuery({
     queryKey: ["post-editor-context", task?.post_id],
-    queryFn: () => getPostContext({ data: { postId: task!.post_id! } }),
+    queryFn: () => getPostContext({ data: { postId: task?.post_id ?? "" } }),
     enabled: !!task?.post_id && pieceOpen,
     retry: false,
   });
@@ -766,7 +766,7 @@ export function TaskDrawer({
       <ExpandedModal
         open
         onOpenChange={(v) => {
-          if (!v) onClose();
+          if (!v && !pieceOpen) onClose();
         }}
         size="md"
         title={task?.title ?? "Tarefa"}
@@ -807,7 +807,7 @@ export function TaskDrawer({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  disabled={!prev}
+                  disabled={!prev || pieceOpen}
                   onClick={() => prev && onNavigate(prev.id)}
                   title="Anterior (K)"
                 >
@@ -817,7 +817,7 @@ export function TaskDrawer({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  disabled={!next}
+                  disabled={!next || pieceOpen}
                   onClick={() => next && onNavigate(next.id)}
                   title="Próxima (J)"
                 >
@@ -1124,6 +1124,7 @@ export function TaskDrawer({
       {task?.post_id && postContextQ.data ? (
         <TaskDialog
           mode="edit"
+          nested
           open={pieceOpen}
           onOpenChange={setPieceOpen}
           brandId={postContextQ.data.brandId}
@@ -1131,7 +1132,7 @@ export function TaskDrawer({
           pipelineId={postContextQ.data.pipelineId}
           stages={postContextQ.data.stages}
           postId={task.post_id}
-          invalidateKey={["post-detail", task.post_id] as const}
+          invalidateKey={["project", brandId] as const}
         />
       ) : null}
       {pieceOpen && postContextQ.isError ? (

@@ -277,12 +277,19 @@ function ProjectDetailPage() {
         await ensureDefault({ data: { brandId: brandId!, clientId: project!.client_id! } });
         list = await listPipes({ data: { brandId: brandId!, clientId: project!.client_id! } });
       }
-      const pipe = list[0];
-      if (!pipe) return null;
-      const board = await loadBoard({
-        data: { brandId: brandId!, clientId: project!.client_id!, pipelineId: pipe.id },
-      });
-      return { pipelineId: pipe.id, stages: board.stages };
+      if (list.length === 0) return null;
+      const boards = await Promise.all(
+        list.map((pipe) =>
+          loadBoard({
+            data: { brandId: brandId!, clientId: project!.client_id!, pipelineId: pipe.id },
+          }),
+        ),
+      );
+      return {
+        pipelineId: list[0].id,
+        stages: boards.flatMap((board) => board.stages),
+        defaultStages: boards[0]?.stages ?? [],
+      };
     },
   });
 
@@ -446,8 +453,9 @@ function ProjectDetailPage() {
       stateClassName: TONE_CLASS[itemState(it.post).tone] ?? "",
       scheduledAt: it.post?.scheduled_at ?? it.tasks.due_at ?? null,
       postId: it.post?.id ?? null,
-      stageId: (it.post as { stage_id?: string | null } | null)?.stage_id ?? null,
-      position: (it.post as { position?: number } | null)?.position ?? 0,
+      pipelineId: it.post?.pipeline_id ?? null,
+      stageId: it.post?.stage_id ?? null,
+      position: it.post?.position ?? 0,
       topicId: it.topic_id,
       planId: project.plan?.id ?? null,
       tasksCount: it.tasks.count,
@@ -469,6 +477,7 @@ function ProjectDetailPage() {
         stateClassName: TONE_CLASS[state.tone] ?? "",
         scheduledAt: (p.scheduled_at as string | null) ?? null,
         postId: p.id as string,
+        pipelineId: (p.pipeline_id as string | null) ?? null,
         stageId: (p.stage_id as string | null) ?? null,
         position: (p.position as number | null) ?? 0,
         topicId: null,
@@ -518,6 +527,7 @@ function ProjectDetailPage() {
     dateLabel: d.scheduledAt ? fmtDate(d.scheduledAt) : null,
     outOfPlan: d.outOfPlan,
     postId: d.postId,
+    pipelineId: d.pipelineId ?? null,
     stageId: d.stageId ?? null,
     position: d.position ?? 0,
   }));
@@ -776,6 +786,7 @@ function ProjectDetailPage() {
             onStageChange={(s) => setSearch({ estagio: s ?? undefined })}
             pipelineStages={(pipelineQ.data?.stages ?? []).map((stage) => ({
               id: stage.id,
+              pipelineId: stage.pipeline_id,
               label: stage.label,
               stage: contentStageOf({ stage: stage.key, review_status: null, published_at: null }),
               position: stage.position,
@@ -1022,8 +1033,8 @@ function ProjectDetailPage() {
           brandId={brandId!}
           clientId={project.client_id}
           pipelineId={pipelineQ.data.pipelineId}
-          stages={pipelineQ.data.stages}
-          defaultStageId={pipelineQ.data.stages[0]?.id}
+          stages={pipelineQ.data.defaultStages}
+          defaultStageId={pipelineQ.data.defaultStages[0]?.id}
           defaultProjectId={projectId}
           invalidateKey={["project", brandId, projectId] as const}
         />

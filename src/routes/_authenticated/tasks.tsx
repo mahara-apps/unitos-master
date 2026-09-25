@@ -51,6 +51,22 @@ import { searchSchema, type View } from "@/components/tasks/task-views";
 export { searchSchema };
 
 export const Route = createFileRoute("/_authenticated/tasks")({
+  head: () => ({
+    meta: [
+      { title: "Tarefas | Unitos" },
+      {
+        name: "description",
+        content: "Acompanhe suas tarefas e as atividades dos projetos no Unitos.",
+      },
+      { property: "og:title", content: "Tarefas | Unitos" },
+      {
+        property: "og:description",
+        content: "Acompanhe suas tarefas e as atividades dos projetos no Unitos.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   beforeLoad: () => ensureFeatureEnabled("tasks"),
   component: TasksPage,
   validateSearch: searchSchema,
@@ -153,7 +169,7 @@ function TasksPage() {
 
   // Effective filters: "mine" view forces assigneeId=me
   const effectiveFilters: TaskFilters = useMemo(
-    () => (view === "mine" ? { ...filters, assigneeId: "me" } : filters),
+    () => (view === "mine" ? { ...filters, assigneeId: "me", clientId: "all" } : filters),
     [filters, view],
   );
 

@@ -42,12 +42,14 @@ export type BoardPauta = {
   dateLabel: string | null;
   outOfPlan?: boolean;
   postId: string | null;
+  pipelineId: string | null;
   stageId: string | null;
   position: number;
 };
 
 export type ProjectBoardStage = {
   id: string;
+  pipelineId: string;
   label: string;
   stage: ContentStage;
   position: number;
@@ -124,13 +126,14 @@ function PautaCard({ item, onOpen }: { item: BoardPauta; onOpen: () => void }) {
 }
 
 function DraggablePautaCard({ item, onOpen }: { item: BoardPauta; onOpen: () => void }) {
-  const enabled = !!item.postId && !!item.stageId;
+  const enabled = !!item.postId && !!item.pipelineId && !!item.stageId;
   const drag = useDraggable({ id: item.postId ?? item.key, disabled: !enabled });
   return (
     <div
       ref={drag.setNodeRef}
       {...drag.attributes}
       {...drag.listeners}
+      title={enabled ? "Arraste para mudar de etapa" : undefined}
       className={cn(enabled && "touch-none", drag.isDragging && "opacity-40")}
     >
       <PautaCard item={item} onOpen={onOpen} />
@@ -236,6 +239,15 @@ export function PautaBoard({
     if (moving || !onMoveItem || !event.over) return;
     const postId = String(event.active.id);
     const stageId = String(event.over.id);
+    const active = items.find((item) => item.postId === postId);
+    const target = realStages.find((stage) => stage.id === stageId);
+    if (
+      !active?.pipelineId ||
+      !target ||
+      active.pipelineId !== target.pipelineId ||
+      active.stageId === stageId
+    )
+      return;
     const targetItems = items
       .filter((item) => item.stageId === stageId && item.postId !== postId)
       .sort((a, b) => a.position - b.position);
@@ -327,6 +339,22 @@ export function PautaBoard({
                   onOpenItem={onOpenItem}
                 />
               ))}
+              {filtered.some(
+                (item) => !item.stageId || !realStages.some((s) => s.id === item.stageId),
+              ) ? (
+                <div className="min-w-0 rounded-lg border border-dashed border-border/60 bg-muted/20 p-2">
+                  <p className="px-1 text-[11px] font-medium">Sem etapa no pipeline</p>
+                  <div className="mt-2 space-y-2">
+                    {filtered
+                      .filter(
+                        (item) => !item.stageId || !realStages.some((s) => s.id === item.stageId),
+                      )
+                      .map((item) => (
+                        <PautaCard key={item.key} item={item} onOpen={() => onOpenItem(item.key)} />
+                      ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </DndContext>
         ) : (

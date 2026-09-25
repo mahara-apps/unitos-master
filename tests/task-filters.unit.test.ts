@@ -2,10 +2,15 @@
  * Seção 5 — filtros de tarefas. Usa a função REAL applyFilters usada pela tela,
  * sem mocks nem reimplementação de regra.
  */
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { applyFilters, DEFAULT_FILTERS, type TaskFilters } from "@/components/tasks/task-toolbar";
 import type { TaskRow } from "@/lib/tasks.functions";
 
+vi.useFakeTimers();
+const fixedNow = new Date();
+fixedNow.setHours(9, 0, 0, 0);
+vi.setSystemTime(fixedNow);
+afterAll(() => vi.useRealTimers());
 const now = Date.now();
 const iso = (deltaDays: number) => new Date(now + deltaDays * 86400000).toISOString();
 

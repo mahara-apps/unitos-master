@@ -249,9 +249,10 @@
 
 ## Fluxo integrado de tarefas e peças
 
-- [ ] Fazer “Minhas tarefas” consultar todo o workspace acessível, filtrando o responsável no servidor antes do limite.
-- [ ] Impedir novas atribuições que deixem a tarefa invisível ao responsável, sem ampliar RBAC/RLS.
-- [ ] Abrir a peça vinculada em contexto lateral, mantendo a tarefa e a lista atual no lugar.
-- [ ] Tornar o board de peças do projeto operacional usando os IDs reais do pipeline e `movePostFn`.
-- [ ] Cobrir regressões, validar a suíte global e fechar a entrega pelo protocolo MASTER-first.
+- [x] Fazer “Minhas tarefas” consultar todo o workspace acessível, filtrando o responsável no servidor antes do limite.
+- [x] Impedir novas atribuições que deixem a tarefa invisível ao responsável, sem ampliar RBAC/RLS.
+- [x] Abrir a peça vinculada em contexto lateral, mantendo a tarefa e a lista atual no lugar.
+- [x] Tornar o board de peças do projeto operacional usando os IDs reais do pipeline e `movePostFn`.
+- [x] Validar regressões focadas e selar o pacote 1.4.40 com `bun run master:check`.
+- [ ] Reexecutar a suíte global quando o token administrativo do projeto de testes estiver válido; o acesso atual é recusado antes dos testes.
 - [ ] Publicar e propagar às instalações somente após autorização explícita.

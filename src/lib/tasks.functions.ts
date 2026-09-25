@@ -252,7 +252,6 @@ export const countMyPendingTasksFn = createServerFn({ method: "GET" })
     z
       .object({
         brandId: z.string().uuid(),
-        clientId: z.string().uuid().nullable().optional(),
       })
       .parse(i),
   )
@@ -263,8 +262,8 @@ export const countMyPendingTasksFn = createServerFn({ method: "GET" })
       .eq("brand_id", data.brandId)
       .eq("assignee_id", context.userId)
       .neq("status", "done");
-    // Respeita o escopo do cliente ativo na sidebar.
-    if (data.clientId) q = q.eq("client_id", data.clientId);
+    // O indicador de tarefas pessoais acompanha todos os clientes acessíveis
+    // no workspace, como a visão "Minhas tarefas" (RLS continua aplicada).
     const { count, error } = await q;
     if (error) throw error;
     return { count: count ?? 0 };
@@ -299,8 +298,14 @@ export async function assertAssigneeCanAccessTaskClient(
   supabase: {
     from: (table: string) => {
       select: (columns: string) => {
-        eq: (column: string, value: string) => {
-          eq: (column: string, value: string) => {
+        eq: (
+          column: string,
+          value: string,
+        ) => {
+          eq: (
+            column: string,
+            value: string,
+          ) => {
             maybeSingle: () => Promise<{
               data: { user_id: string } | null;
               error: { message: string } | null;
