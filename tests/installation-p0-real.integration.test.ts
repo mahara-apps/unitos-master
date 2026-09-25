@@ -7,8 +7,8 @@ import {
 } from "@/lib/installation/automation.server";
 import { versionForCompletedOperation } from "@/lib/installation/runner.server";
 
-const TARGET_REF = "xemwzgbzpokslnpatqsk";
-const TARGET_NAME = "descartável2";
+const TARGET_REF = "pzkcchtmcqkuhhlsbwxf";
+const TARGET_NAME = "unitos-new-teste-02";
 const FORBIDDEN_REFS = new Set(["tkjbhttylouamqxnbfgv"]);
 const RUN_KEY = "stage10:p0-real:20260915";
 const TEST_TABLE = "public._unitos_it_stage10_p0";

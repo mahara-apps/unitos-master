@@ -71,13 +71,13 @@ describe("setup do schema da suíte global", () => {
     expect(applyFile).not.toHaveBeenCalled();
   });
 
-  it("recusa dados de negócio existentes", async () => {
+  it("recusa dados operacionais existentes", async () => {
     const target = management([
       [{ public_tables: 100, critical_tables: 5 }],
       [{ business_rows: 2 }],
     ]);
     await expect(ensureGlobalTestSchema({ management: target })).rejects.toThrow(
-      /contém dados de negócio/,
+      /contém dados operacionais/,
     );
   });
 
