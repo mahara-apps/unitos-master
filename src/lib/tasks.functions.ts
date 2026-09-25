@@ -296,7 +296,21 @@ async function assertProjectScope(
 
 /** Valida visibilidade do responsável sem conceder ou alterar acesso. */
 export async function assertAssigneeCanAccessTaskClient(
-  supabase: { from: (table: string) => any; rpc: (fn: never, args?: never) => unknown },
+  supabase: {
+    from: (table: string) => {
+      select: (columns: string) => {
+        eq: (column: string, value: string) => {
+          eq: (column: string, value: string) => {
+            maybeSingle: () => Promise<{
+              data: { user_id: string } | null;
+              error: { message: string } | null;
+            }>;
+          };
+        };
+      };
+    };
+    rpc: (fn: never, args?: never) => unknown;
+  },
   args: { brandId: string; clientId: string | null; assigneeId: string | null | undefined },
 ): Promise<void> {
   if (!args.assigneeId) return;

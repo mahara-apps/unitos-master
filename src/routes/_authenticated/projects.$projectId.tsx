@@ -518,8 +518,8 @@ function ProjectDetailPage() {
     dateLabel: d.scheduledAt ? fmtDate(d.scheduledAt) : null,
     outOfPlan: d.outOfPlan,
     postId: d.postId,
-    stageId: d.stageId,
-    position: d.position,
+    stageId: d.stageId ?? null,
+    position: d.position ?? 0,
   }));
 
   const deadlines: DeadlineEntry[] = pautaDetails
