@@ -278,10 +278,18 @@ function ProjectDetailPage() {
         list = await listPipes({ data: { brandId: brandId!, clientId: project!.client_id! } });
       }
       if (list.length === 0) return null;
-      const boards = await Promise.all(list.map((pipe) => loadBoard({
-        data: { brandId: brandId!, clientId: project!.client_id!, pipelineId: pipe.id },
-      })));
-      return { pipelineId: list[0].id, stages: boards.flatMap((board) => board.stages), defaultStages: boards[0]?.stages ?? [] };
+      const boards = await Promise.all(
+        list.map((pipe) =>
+          loadBoard({
+            data: { brandId: brandId!, clientId: project!.client_id!, pipelineId: pipe.id },
+          }),
+        ),
+      );
+      return {
+        pipelineId: list[0].id,
+        stages: boards.flatMap((board) => board.stages),
+        defaultStages: boards[0]?.stages ?? [],
+      };
     },
   });
 

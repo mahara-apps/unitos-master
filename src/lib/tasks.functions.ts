@@ -299,8 +299,14 @@ export async function assertAssigneeCanAccessTaskClient(
   supabase: {
     from: (table: string) => {
       select: (columns: string) => {
-        eq: (column: string, value: string) => {
-          eq: (column: string, value: string) => {
+        eq: (
+          column: string,
+          value: string,
+        ) => {
+          eq: (
+            column: string,
+            value: string,
+          ) => {
             maybeSingle: () => Promise<{
               data: { user_id: string } | null;
               error: { message: string } | null;
