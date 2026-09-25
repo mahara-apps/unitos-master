@@ -1,7 +1,4 @@
-export type SingleFieldOutputDisposition =
-  | "structured"
-  | "recovered_envelope"
-  | "plain_text";
+export type SingleFieldOutputDisposition = "structured" | "recovered_envelope" | "plain_text";
 
 export type SingleFieldOutput = {
   value: string;
@@ -66,9 +63,7 @@ function parseJsonObject(input: string): Record<string, unknown> | null {
  */
 function recoverMalformedSingleFieldEnvelope(input: string, key: string): string | null {
   const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = input.match(
-    new RegExp(`^\\{\\s*"${escapedKey}"\\s*:\\s*"([\\s\\S]*)"\\s*\\}$`),
-  );
+  const match = input.match(new RegExp(`^\\{\\s*"${escapedKey}"\\s*:\\s*"([\\s\\S]*)"\\s*\\}$`));
   const value = match?.[1]?.trim();
   return value && value.length >= MIN_TEXT_LENGTH ? value : null;
 }

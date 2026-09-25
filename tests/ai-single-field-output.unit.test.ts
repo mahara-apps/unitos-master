@@ -1,25 +1,22 @@
 import { describe, expect, it } from "vitest";
-import {
-  normalizeStoredSingleField,
-  parseSingleFieldOutput,
-} from "@/lib/ai-single-field-output";
+import { normalizeStoredSingleField, parseSingleFieldOutput } from "@/lib/ai-single-field-output";
 
 const LONG_TEXT = "Orientação visual objetiva, detalhada e pronta para o designer.";
 
 describe("parseSingleFieldOutput", () => {
-  it.each(["visual_direction", "script", "caption"])(
-    "aceita JSON válido para %s",
-    (key) => {
-      expect(parseSingleFieldOutput(JSON.stringify({ [key]: LONG_TEXT }), key)).toEqual({
-        value: LONG_TEXT,
-        disposition: "structured",
-      });
-    },
-  );
+  it.each(["visual_direction", "script", "caption"])("aceita JSON válido para %s", (key) => {
+    expect(parseSingleFieldOutput(JSON.stringify({ [key]: LONG_TEXT }), key)).toEqual({
+      value: LONG_TEXT,
+      disposition: "structured",
+    });
+  });
 
   it("aceita JSON em cerca Markdown", () => {
     expect(
-      parseSingleFieldOutput(`\`\`\`json\n${JSON.stringify({ script: LONG_TEXT })}\n\`\`\``, "script"),
+      parseSingleFieldOutput(
+        `\`\`\`json\n${JSON.stringify({ script: LONG_TEXT })}\n\`\`\``,
+        "script",
+      ),
     ).toMatchObject({ value: LONG_TEXT, disposition: "structured" });
   });
 
@@ -60,8 +57,10 @@ describe("parseSingleFieldOutput", () => {
   });
 
   it("preserva acentos, aspas e quebras de linha em PT-BR", () => {
-    const value = 'Direção “clínico-acolhedora”.\nTítulo: Olhar descansado e você.';
-    expect(parseSingleFieldOutput(JSON.stringify({ caption: value }), "caption")?.value).toBe(value);
+    const value = "Direção “clínico-acolhedora”.\nTítulo: Olhar descansado e você.";
+    expect(parseSingleFieldOutput(JSON.stringify({ caption: value }), "caption")?.value).toBe(
+      value,
+    );
   });
 
   it("normaliza legado reconhecido e preserva valor ambíguo byte a byte", () => {

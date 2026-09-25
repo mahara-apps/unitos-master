@@ -8,7 +8,13 @@ describe("apresentação da tela de Conteúdo", () => {
     const route = read("src/routes/_authenticated/content.tsx");
     const toolbar = read("src/components/content/content-toolbar.tsx");
     const queue = read("src/components/content/copy-queue-bar.tsx");
-    for (const label of ["Novo conteúdo", "Novo pipeline", "Renomear pipeline", "Colunas", "Lixeira"]) {
+    for (const label of [
+      "Novo conteúdo",
+      "Novo pipeline",
+      "Renomear pipeline",
+      "Colunas",
+      "Lixeira",
+    ]) {
       expect(route).toContain(label);
     }
     for (const label of ["Filtros", "Selecionar", "Visão Kanban", "Visão em lista"]) {
@@ -19,7 +25,14 @@ describe("apresentação da tela de Conteúdo", () => {
 
   it("mantém Kanban, ações de coluna e hierarquia completa dos cards", () => {
     const board = read("src/components/content/content-board.tsx");
-    for (const label of ["Adicionar coluna", "Nova peça", "Renomear", "Excluir coluna", "Subir arte ou gerar com IA", "Definir "]) {
+    for (const label of [
+      "Adicionar coluna",
+      "Nova peça",
+      "Renomear",
+      "Excluir coluna",
+      "Subir arte ou gerar com IA",
+      "Definir ",
+    ]) {
       expect(board).toContain(label);
     }
     expect(board).toContain("useDraggable");
