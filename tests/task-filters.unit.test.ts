@@ -5,6 +5,8 @@
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { applyFilters, DEFAULT_FILTERS, type TaskFilters } from "@/components/tasks/task-toolbar";
 import type { TaskRow } from "@/lib/tasks.functions";
+import { searchSchema } from "@/components/tasks/task-views";
+import { isoDateInTz } from "@/lib/timezone";
 
 vi.useFakeTimers();
 const fixedNow = new Date();
@@ -47,6 +49,55 @@ const ofClientA = task({
   title: "Do cliente A",
   client_id: "cli-a",
   client_name: "Cliente A",
+});
+
+describe("Filtros e visões compartilhados", () => {
+  it("preserva filtros no endereço ao alternar entre Minhas e Kanban", () => {
+    const search = searchSchema.parse({
+      view: "mine",
+      status: "blocked",
+      assigneeId: "me",
+      due: "none",
+      archive: "all",
+      q: "briefing",
+      hideDone: true,
+    });
+    expect(searchSchema.parse({ ...search, view: "kanban" })).toMatchObject({
+      view: "kanban",
+      status: "blocked",
+      assigneeId: "me",
+      due: "none",
+      archive: "all",
+      q: "briefing",
+      hideDone: true,
+    });
+    expect(searchSchema.parse({ assigneeId: "not-a-uuid", clientId: "invalid" })).toMatchObject({
+      assigneeId: "all",
+      clientId: "all",
+    });
+  });
+
+  it("considera Hoje pelo calendário de Brasília, não pelo relógio do navegador", () => {
+    vi.setSystemTime(new Date("2026-09-26T02:30:00.000Z"));
+    const previousDay = task({ id: "br-today", due_at: "2026-09-26T02:45:00.000Z" });
+    const nextDay = task({ id: "br-tomorrow", due_at: "2026-09-26T03:15:00.000Z" });
+    expect(isoDateInTz(new Date(previousDay.due_at ?? ""))).toBe("2026-09-25");
+    expect(idsOf(applyFilters([previousDay, nextDay], f({ due: "today" }), null))).toEqual([
+      "br-today",
+    ]);
+    vi.setSystemTime(fixedNow);
+  });
+
+  it("a combinação responsável + cliente não inclui outras atribuições", () => {
+    const rows = [
+      task({ id: "mine-a", assignee_id: "mine", client_id: "a" }),
+      task({ id: "mine-b", assignee_id: "mine", client_id: "b" }),
+      task({ id: "other-a", assignee_id: "other", client_id: "a" }),
+    ];
+    expect(idsOf(applyFilters(rows, f({ assigneeId: "me", clientId: "a" }), "mine"))).toEqual([
+      "mine-a",
+    ]);
+  });
 });
 const ofProject = task({
   id: "pj",

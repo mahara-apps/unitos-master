@@ -185,10 +185,25 @@ export const listTasksFn = createServerFn({ method: "GET" })
     if (data.assignedToMe) q = q.eq("assignee_id", context.userId);
     if (archive === "active") q = q.is("archived_at", null);
     else if (archive === "archived") q = q.not("archived_at", "is", null);
-    q = q.limit(500);
-    const { data: rows, error } = await q;
-    if (error) throw error;
-    return enrichTaskRows(context.supabase as never, (rows ?? []) as BaseTaskRow[]);
+    // Supabase/PostgREST may cap each response. Read successive windows so a
+    // matching older task cannot vanish simply because 500 newer tasks exist.
+    const rows: BaseTaskRow[] = [];
+    const pageSize = 400;
+    for (let offset = 0; ; offset += pageSize) {
+      const { data: page, error } = await q
+        .order("id", { ascending: false })
+        .range(offset, offset + pageSize - 1);
+      if (error) throw error;
+      rows.push(...((page ?? []) as BaseTaskRow[]));
+      if (!page || page.length < pageSize) break;
+    }
+    const enriched: TaskRow[] = [];
+    for (let offset = 0; offset < rows.length; offset += pageSize) {
+      enriched.push(
+        ...(await enrichTaskRows(context.supabase as never, rows.slice(offset, offset + pageSize))),
+      );
+    }
+    return enriched;
   });
 
 export const getTaskFn = createServerFn({ method: "GET" })
@@ -261,6 +276,7 @@ export const countMyPendingTasksFn = createServerFn({ method: "GET" })
       .select("id", { count: "exact", head: true })
       .eq("brand_id", data.brandId)
       .eq("assignee_id", context.userId)
+      .is("archived_at", null)
       .neq("status", "done");
     // O indicador de tarefas pessoais acompanha todos os clientes acessíveis
     // no workspace, como a visão "Minhas tarefas" (RLS continua aplicada).

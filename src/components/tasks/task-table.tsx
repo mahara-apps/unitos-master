@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { formatDateBr } from "@/lib/timezone";
+import { addDaysInTz, endOfDayInTz, formatDateBr, startOfDayInTz } from "@/lib/timezone";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -104,7 +104,7 @@ const STATUS_ORDER: Record<TaskStatus, number> = {
   done: 4,
 };
 
-function compare(a: TaskRow, b: TaskRow, key: SortKey): number {
+export function compare(a: TaskRow, b: TaskRow, key: SortKey): number {
   switch (key) {
     case "title":
       return a.title.localeCompare(b.title);
@@ -131,15 +131,12 @@ function dueBucket(t: TaskRow): { key: string; label: string; order: number } {
   if (!t.due_at) return { key: "none", label: "Sem prazo", order: 4 };
   const d = new Date(t.due_at);
   const now = new Date();
-  const startToday = new Date(now);
-  startToday.setHours(0, 0, 0, 0);
-  const endToday = new Date(now);
-  endToday.setHours(23, 59, 59, 999);
+  const startToday = startOfDayInTz(now);
+  const endToday = endOfDayInTz(now);
   if (d.getTime() < startToday.getTime() && t.status !== "done")
     return { key: "overdue", label: "Atrasadas", order: 0 };
   if (d.getTime() <= endToday.getTime()) return { key: "today", label: "Hoje", order: 1 };
-  const week = new Date(endToday);
-  week.setDate(week.getDate() + 7);
+  const week = endOfDayInTz(addDaysInTz(now, 7));
   if (d.getTime() <= week.getTime()) return { key: "week", label: "Próximos 7 dias", order: 2 };
   return { key: "later", label: "Mais adiante", order: 3 };
 }

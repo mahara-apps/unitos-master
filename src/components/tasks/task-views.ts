@@ -34,6 +34,14 @@ export const searchSchema = z.object({
     .catch("created"),
   dir: z.enum(["asc", "desc"]).catch("desc"),
   q: z.string().optional(),
+  status: z.enum(["all", "todo", "in_progress", "review", "blocked", "done"]).catch("all"),
+  priority: z.enum(["all", "low", "medium", "high", "urgent"]).catch("all"),
+  assigneeId: z.union([z.literal("all"), z.literal("me"), z.string().uuid()]).catch("all"),
+  clientId: z.union([z.literal("all"), z.string().uuid()]).catch("all"),
+  projectId: z.union([z.literal("all"), z.string().uuid()]).catch("all"),
+  hideDone: z.boolean().catch(false),
+  due: z.enum(["all", "overdue", "today", "week", "none"]).catch("all"),
+  archive: z.enum(["active", "archived", "all"]).catch("active"),
 });
 
 export type TasksSearch = z.infer<typeof searchSchema>;
