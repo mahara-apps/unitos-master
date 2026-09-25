@@ -4,7 +4,6 @@ import {
   eachDayOfInterval,
   endOfMonth,
   format,
-  isToday,
   startOfMonth,
   subMonths,
 } from "date-fns";

@@ -197,9 +197,10 @@ function TasksPage() {
   });
 
   // Effective filters: "mine" view forces assigneeId=me
-  const effectiveFilters: TaskFilters = view === "mine" ? { ...filters, assigneeId: "me" } : filters;
-
-  const filtered = useMemo(() => applyFilters(tasks, effectiveFilters, me), [tasks, effectiveFilters, me]);
+  const filtered = useMemo(
+    () => applyFilters(tasks, view === "mine" ? { ...filters, assigneeId: "me" } : filters, me),
+    [tasks, search, view, me],
+  );
   const sorted = useMemo(() => [...filtered].sort((a, b) => {
     const result = compare(a, b, sortKey);
     return (sortDir === "asc" ? result : -result) || a.id.localeCompare(b.id);
@@ -228,7 +229,7 @@ function TasksPage() {
     if (filters.due === "today") return "today";
     if (filters.status === "in_progress") return "in_progress";
     if (filters.status === "done") return "done";
-    if (filters.assigneeId === "me" && view !== "mine") return "mine";
+    if (filters.assigneeId === "me" || view === "mine") return "mine";
     if (filters.hideDone) return "open";
     return null;
   }, [filters.assigneeId, filters.due, filters.hideDone, filters.status, view]);
@@ -254,7 +255,7 @@ function TasksPage() {
         setFilters({ ...base, due: "overdue" });
         break;
       case "mine":
-        setSearch({ ...base, q: undefined, view: "mine", assigneeId: "me", clientId: "all", projectId: "all", hideDone: true });
+        setSearch({ view: "mine", assigneeId: "me", clientId: "all", projectId: "all", status: "all", priority: "all", due: "all", hideDone: true, archive: "active", q: undefined });
         break;
       case "today":
         setFilters({ ...base, due: "today" });
