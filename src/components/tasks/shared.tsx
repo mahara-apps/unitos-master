@@ -766,7 +766,7 @@ export function TaskDrawer({
       <ExpandedModal
         open
         onOpenChange={(v) => {
-          if (!v) onClose();
+          if (!v && !pieceOpen) onClose();
         }}
         size="md"
         title={task?.title ?? "Tarefa"}
@@ -807,7 +807,7 @@ export function TaskDrawer({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  disabled={!prev}
+                  disabled={!prev || pieceOpen}
                   onClick={() => prev && onNavigate(prev.id)}
                   title="Anterior (K)"
                 >
@@ -817,7 +817,7 @@ export function TaskDrawer({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  disabled={!next}
+                  disabled={!next || pieceOpen}
                   onClick={() => next && onNavigate(next.id)}
                   title="Próxima (J)"
                 >
@@ -1131,7 +1131,7 @@ export function TaskDrawer({
           pipelineId={postContextQ.data.pipelineId}
           stages={postContextQ.data.stages}
           postId={task.post_id}
-          invalidateKey={["post-detail", task.post_id] as const}
+          invalidateKey={["project", brandId] as const}
         />
       ) : null}
       {pieceOpen && postContextQ.isError ? (

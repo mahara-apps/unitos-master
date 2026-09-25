@@ -277,12 +277,11 @@ function ProjectDetailPage() {
         await ensureDefault({ data: { brandId: brandId!, clientId: project!.client_id! } });
         list = await listPipes({ data: { brandId: brandId!, clientId: project!.client_id! } });
       }
-      const pipe = list[0];
-      if (!pipe) return null;
-      const board = await loadBoard({
+      if (list.length === 0) return null;
+      const boards = await Promise.all(list.map((pipe) => loadBoard({
         data: { brandId: brandId!, clientId: project!.client_id!, pipelineId: pipe.id },
-      });
-      return { pipelineId: pipe.id, stages: board.stages };
+      })));
+      return { stages: boards.flatMap((board) => board.stages) };
     },
   });
 
@@ -446,8 +445,8 @@ function ProjectDetailPage() {
       stateClassName: TONE_CLASS[itemState(it.post).tone] ?? "",
       scheduledAt: it.post?.scheduled_at ?? it.tasks.due_at ?? null,
       postId: it.post?.id ?? null,
-      stageId: (it.post as { stage_id?: string | null } | null)?.stage_id ?? null,
-      position: (it.post as { position?: number } | null)?.position ?? 0,
+      stageId: it.post?.stage_id ?? null,
+      position: it.post?.position ?? 0,
       topicId: it.topic_id,
       planId: project.plan?.id ?? null,
       tasksCount: it.tasks.count,
