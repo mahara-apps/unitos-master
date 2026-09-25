@@ -199,14 +199,11 @@ function TasksPage() {
   });
 
   // Effective filters: "mine" view forces assigneeId=me
-  const effectiveFilters: TaskFilters = useMemo(
-    () => (view === "mine" ? { ...filters, assigneeId: "me" } : filters),
-    [search, view],
-  );
+  const effectiveFilters: TaskFilters = view === "mine" ? { ...filters, assigneeId: "me" } : filters;
 
   const filtered = useMemo(
     () => applyFilters(tasks, effectiveFilters, me),
-    [tasks, effectiveFilters, me],
+    [tasks, search, view, me],
   );
   const sorted = useMemo(() => [...filtered].sort((a, b) => {
     const result = compare(a, b, sortKey);
@@ -239,7 +236,7 @@ function TasksPage() {
     if (filters.assigneeId === "me" && view !== "mine") return "mine";
     if (filters.hideDone) return "open";
     return null;
-  }, [filters, view]);
+  }, [search, view]);
 
   function applyQuick(q: Quick) {
     const base: TaskFilters = {
@@ -247,7 +244,7 @@ function TasksPage() {
       search: filters.search,
       archive: filters.archive,
     };
-    if (activeQuick === q) {
+    if (activeQuick === q && q !== "mine") {
       setFilters(base);
       return;
     }

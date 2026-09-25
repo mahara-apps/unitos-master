@@ -96,7 +96,7 @@ export function TaskCalendar({
           const key = format(day, "yyyy-MM-dd");
           const list = byDay.get(key) ?? [];
           const inMonth = isSameMonth(day, cursor);
-          const today = isToday(day);
+          const today = key === isoDateInTz();
           return (
             <div
               key={key}
