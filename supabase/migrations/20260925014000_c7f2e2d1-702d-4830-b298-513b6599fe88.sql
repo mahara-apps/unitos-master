@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.jsonb_object_length(jsonb);
