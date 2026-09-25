@@ -18,6 +18,15 @@
 - [ ] Reexecutar a suíte global quando o ambiente descartável de integração voltar a estar acessível; atualmente o projeto não é encontrado pelo token.
 - [ ] Publicar e propagar somente após autorização explícita.
 
+## Recuperação segura da atualização 1.4.38
+
+- [x] Confirmar que a Casa 8 permaneceu em 1.4.37 e que a migration 92 não foi confirmada.
+- [x] Recolher a 1.4.38 no servidor e no painel sem apagar a tentativa falha.
+- [x] Criar ponte limitada ao arquivo e fingerprint afetados, removida pela migration seguinte.
+- [ ] Regenerar e validar integralmente o pacote MASTER-first 1.4.39.
+- [ ] Publicar o MASTER somente após autorização explícita.
+- [ ] Retomar primeiro a Casa 8 e liberar as demais instalações somente após validação completa.
+
 ## Comentários com menções
 
 - [x] Confirmar que o bloqueio vinha da execução do gatilho com privilégio do usuário.

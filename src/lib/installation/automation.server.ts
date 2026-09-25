@@ -5323,6 +5323,30 @@ export type DeltaMigration = {
 };
 export const INCREMENTAL_LEDGER_CUTOVER_FILE =
   "20260913124118_9f453a5e-8c5e-4504-9f99-3a8ecfd59eb2.sql";
+const BRIEFING_RECONCILIATION_FILE =
+  "20260925005926_294912da-2c88-4927-9af7-98c2e524c156.sql";
+const BRIEFING_RECONCILIATION_SHA256 =
+  "96e39db3172c98d426f444b652d420b55abbaf5cdd5d58bc39c2e4650d2c83f7";
+
+/**
+ * Ponte fechada para a migration 92 publicada na 1.4.38. A função inexiste no
+ * PostgreSQL, é instalada somente para a identidade canônica afetada e a
+ * migration seguinte a remove. O executor nunca generaliza este reparo.
+ */
+export function briefingReconciliationCompatibilitySql(
+  migration: Pick<DeltaMigration, "file" | "canonicalSha256">,
+): string | null {
+  if (
+    migration.file !== BRIEFING_RECONCILIATION_FILE ||
+    migration.canonicalSha256 !== BRIEFING_RECONCILIATION_SHA256
+  ) {
+    return null;
+  }
+  return [
+    "create or replace function public.jsonb_object_length(value jsonb) returns integer language sql immutable strict set search_path = pg_catalog, public as $$ select count(*)::integer from pg_catalog.jsonb_object_keys(value) $$",
+    "revoke all on function public.jsonb_object_length(jsonb) from public, anon, authenticated",
+  ].join(";\n");
+}
 
 /**
  * Ponte mínima para instalações que já tinham o marcador cumulativo legado.
@@ -6014,6 +6038,16 @@ export async function applyDatabaseDelta(input: {
         ? canonicalState.current.statement_index
         : 0;
     const alreadyApplied = canonicalCurrent;
+    const compatibilitySql = briefingReconciliationCompatibilitySql(migration);
+    if (compatibilitySql) {
+      const compatibility = await management.query(compatibilitySql);
+      if (!compatibility.ok) {
+        return {
+          state: "error",
+          detail: `preparo seguro da migration ${migrationPosition} falhou: ${compatibility.error ?? "erro"}`,
+        };
+      }
+    }
     const prepared = sanitizeBaselineSqlForManagementApi(migration.sql);
     const applied = await applyStatementByStatement(management, prepared.sql, {
       runKey: `${operation.id}:${ledgerLabel}`,

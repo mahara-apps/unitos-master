@@ -1766,6 +1766,15 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
         reasons: [snapshot.error ?? "não foi possível fixar o pacote autorizado do MASTER"],
       };
     }
+    const { withdrawnReleaseReason } = await import("./manager-contract");
+    const withdrawnReason = withdrawnReleaseReason(snapshot.version);
+    if (withdrawnReason) {
+      return {
+        result: "BLOCKED" as const,
+        operationId: null,
+        reasons: [withdrawnReason],
+      };
+    }
 
     const op = await startAtomicInstallationOperation({
       actorId: context.userId,

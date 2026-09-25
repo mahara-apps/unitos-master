@@ -21,7 +21,18 @@ import { MASTER_FORBIDDEN_TOKENS } from "./bootstrap-contract";
  * Subir a cada correção de banco/código propagável: é o que habilita o botão
  * "Atualizar" (que agora também aplica o delta de banco na instalação).
  */
-export const MASTER_RELEASE_VERSION = "1.4.38";
+export const MASTER_RELEASE_VERSION = "1.4.39";
+
+const WITHDRAWN_RELEASE_REASONS: Readonly<Record<string, string>> = {
+  "1.4.38":
+    "A versão 1.4.38 foi recolhida após uma incompatibilidade de banco. Aguarde a versão 1.4.39; repetir agora reproduziria a mesma falha.",
+};
+
+/** Bloqueia somente releases comprovadamente defeituosas, sem inferir por faixa. */
+export function withdrawnReleaseReason(version: string | null | undefined): string | null {
+  if (!version) return null;
+  return WITHDRAWN_RELEASE_REASONS[version] ?? null;
+}
 
 /* ------------------------------------------------------------------ MASTER */
 

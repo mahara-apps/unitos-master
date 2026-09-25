@@ -51,6 +51,7 @@ import {
   operationPollInterval,
   operationRuntimeState,
   updateSummary,
+  withdrawnReleaseReason,
   type InstallationHealth,
   type InstallationOperationKind,
 } from "@/lib/installation/manager-contract";
@@ -555,6 +556,7 @@ function InstallationDetailPage() {
   const updatePending =
     inst.updateAvailable ||
     (!!masterVersion.data?.commitSha && inst.pinnedCommitSha !== masterVersion.data.commitSha);
+  const withdrawnMasterReason = withdrawnReleaseReason(masterVersion.data?.release);
   const openEdit = () => {
     setForm({
       name: inst.name,
@@ -610,6 +612,10 @@ function InstallationDetailPage() {
       else start.mutate({ kind: "validate", confirmLabel });
     });
   const updateAction = () => {
+    if (withdrawnMasterReason) {
+      toast.error(withdrawnMasterReason);
+      return;
+    }
     if (masterVersion.data?.masterPublished === false) {
       toast.error(
         `Publique o MASTER primeiro: o pacote de código está na versão ${masterVersion.data.repoRelease ?? "—"} e o sistema já está em ${masterVersion.data.release}.`,
@@ -1264,6 +1270,11 @@ function InstallationDetailPage() {
                   <p className="text-xs font-medium text-destructive">
                     Falhou em: {failedStepLabel(failedProvision.steps)}
                   </p>
+                  {withdrawnMasterReason && (
+                    <p className="mt-1 text-[11px] font-medium text-destructive">
+                      {withdrawnMasterReason}
+                    </p>
+                  )}
                   {failedProvision.summary && (
                     <p className="mt-1 text-[11px] text-muted-foreground">
                       {failedProvision.summary}
@@ -1283,6 +1294,7 @@ function InstallationDetailPage() {
                   variant={failedProvision ? "default" : "outline"}
                   disabled={
                     autoProvision.isPending ||
+                    Boolean(withdrawnMasterReason) ||
                     (failedProvision
                       ? !retryFailedProvisionAllowed
                       : !canStartOperation("provision", inst.status))
