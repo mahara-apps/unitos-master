@@ -263,8 +263,8 @@ export const countMyPendingTasksFn = createServerFn({ method: "GET" })
       .eq("brand_id", data.brandId)
       .eq("assignee_id", context.userId)
       .neq("status", "done");
-    // Respeita o escopo do cliente ativo na sidebar.
-    if (data.clientId) q = q.eq("client_id", data.clientId);
+    // O indicador de tarefas pessoais acompanha todos os clientes acessíveis
+    // no workspace, como a visão "Minhas tarefas" (RLS continua aplicada).
     const { count, error } = await q;
     if (error) throw error;
     return { count: count ?? 0 };
