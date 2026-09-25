@@ -165,6 +165,18 @@ describe("delta do baseline", () => {
     }
   });
 
+  it("reconcilia somente envelopes inequívocos de briefing visual", () => {
+    const migration =
+      migrationFiles[
+        "../supabase/migrations/20260925005926_294912da-2c88-4927-9af7-98c2e524c156.sql"
+      ];
+    expect(migration).toBeDefined();
+    expect(migration).toContain('jsonb_object_length(parsed) = 1');
+    expect(migration).toContain("design_brief = candidate.design_brief");
+    expect(migration).not.toMatch(/DELETE\s+FROM\s+public\.posts/i);
+    expect(verifySql).toContain("IA: briefing visual sem envelope JSON persistido");
+  });
+
   it("não envia estruturas ou RPCs Control-plane no pacote Client", () => {
     for (const marker of [
       "public.installations",

@@ -115,6 +115,17 @@ WITH checks AS (
          ) THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
 
+  SELECT 137, 'IA: briefing visual sem envelope JSON persistido',
+         (SELECT count(*)::text FROM public.posts
+          WHERE design_brief IS NOT NULL
+            AND btrim(design_brief) ~ '^\{\s*"visual_direction"\s*:'),
+         CASE WHEN NOT EXISTS (
+           SELECT 1 FROM public.posts
+           WHERE design_brief IS NOT NULL
+             AND btrim(design_brief) ~ '^\{\s*"visual_direction"\s*:'
+         ) THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
+
   SELECT 135, 'clientes: cascata pode remover o último pipeline',
          CASE WHEN EXISTS (
            SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
