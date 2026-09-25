@@ -13,7 +13,7 @@
 - [x] Confirmar que o fallback gravava o envelope JSON inteiro como texto.
 - [x] Centralizar a interpretação segura de direção visual, roteiro e legenda.
 - [x] Normalizar a leitura legada sem alterar conteúdo ambíguo.
-- [ ] Criar reconciliação forward-only e idempotente para registros corrigíveis.
+- [x] Criar reconciliação forward-only e idempotente para registros corrigíveis.
 - [ ] Selar e validar o próximo pacote MASTER-first.
 - [ ] Publicar e propagar somente após autorização explícita.
 
