@@ -66,6 +66,7 @@ import { InstallationReadError, readWithBackoff } from "./resilience.server";
 import {
   MASTER_RELEASE_VERSION,
   VALIDATE_STEPS,
+  withdrawnReleaseReason,
   type CheckState,
   type HealthCheckId,
 } from "./manager-contract";
@@ -5936,6 +5937,8 @@ export async function applyDatabaseDelta(input: {
   }
   const validatedSnapshot = await validateCanonicalPackage(operation, input.snapshot);
   if (!validatedSnapshot.ok) return { state: "blocked", detail: validatedSnapshot.error };
+  const withdrawnReason = withdrawnReleaseReason(input.snapshot.version);
+  if (withdrawnReason) return { state: "blocked", detail: withdrawnReason };
   const recoveredManifest = await recoverLegacyCanonicalManifest(input.snapshot);
   if (!recoveredManifest.ok) return { state: "blocked", detail: recoveredManifest.error };
   try {

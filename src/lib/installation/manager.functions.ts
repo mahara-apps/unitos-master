@@ -860,6 +860,7 @@ export const setInstallationServiceStateFn = createServerFn({ method: "POST" })
         state: z.enum(["active", "suspended"]),
         reason: z.string().max(500).optional(),
         confirmLabel: z.string().min(1),
+        retryOfOperationId: z.string().uuid().nullable().optional(),
       })
       .parse(input),
   )
@@ -1799,7 +1800,11 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
           ? `${record.pinnedRelease ?? record.currentVersion ?? "?"} · ${record.pinnedCommitSha.slice(0, 7)}`
           : (record.currentVersion ?? null),
         toVersion: `${snapshot.version} · ${targetSha.slice(0, 7)}`,
+        ...(data.retryOfOperationId
+          ? { retryOfOperationId: data.retryOfOperationId, retryReason: "failed_update" as const }
+          : {}),
       },
+      retryOfOperationId: data.retryOfOperationId ?? null,
     });
     await supabase.from("installations").update({ pinned_by: context.userId }).eq("id", data.id);
 
