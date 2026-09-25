@@ -263,5 +263,6 @@
 - [x] Unificar Minhas tarefas e filtro por responsável entre lista e Kanban, mantendo escopo no servidor.
 - [x] Persistir filtros no endereço e alinhar ordenação, calendário, linha do tempo e datas ao fuso oficial.
 - [x] Remover o teto anterior da consulta e cobrir filtros combinados em testes focados.
-- [ ] Validar pacote MASTER-first 1.4.42 e executar suíte global sem relaxar critérios.
+- [x] Validar pacote MASTER-first 1.4.42 (`master:check`: 201 testes e ensaios PostgreSQL aprovados).
+- [ ] Executar suíte global sem relaxar critérios — bloqueada por token Supabase de testes inválido/revogado antes do início.
 - [ ] Publicar e propagar apenas após autorização explícita.
