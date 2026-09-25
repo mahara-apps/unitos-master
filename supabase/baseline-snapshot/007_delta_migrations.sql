@@ -6075,3 +6075,8 @@ BEGIN
   RAISE NOTICE 'design_brief envelopes corrected: %', corrected_count;
 END
 $migration$;
+
+-- ---------------------------------------------------------------------------
+-- 20260925014000_c7f2e2d1-702d-4830-b298-513b6599fe88.sql
+-- ---------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.jsonb_object_length(jsonb);
