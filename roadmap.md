@@ -257,3 +257,11 @@
 - [x] Validar regressões focadas e selar o pacote 1.4.40 com `bun run master:check`.
 - [ ] Reexecutar a suíte global quando o token administrativo do projeto de testes estiver válido; o acesso atual é recusado antes dos testes.
 - [ ] Publicar e propagar às instalações somente após autorização explícita.
+
+## Auditoria e alinhamento das visões de tarefas
+
+- [x] Unificar Minhas tarefas e filtro por responsável entre lista e Kanban, mantendo escopo no servidor.
+- [x] Persistir filtros no endereço e alinhar ordenação, calendário, linha do tempo e datas ao fuso oficial.
+- [x] Remover o teto anterior da consulta e cobrir filtros combinados em testes focados.
+- [ ] Validar pacote MASTER-first 1.4.42 e executar suíte global sem relaxar critérios.
+- [ ] Publicar e propagar apenas após autorização explícita.
