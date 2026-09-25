@@ -1,79 +1,92 @@
-# Fluxo integrado de tarefas e peças — correção MASTER-first
+# Plano MASTER-first — fluxo integrado de tarefas e peças
 
 ## Objetivo
-Corrigir no MASTER três falhas do mesmo fluxo: tarefas atribuídas que não aparecem em **Minhas tarefas**, quadro de peças do projeto que parece operacional mas não move, e perda de contexto ao abrir uma peça a partir da tarefa. A solução será propagável às demais instalações sem criar rota, tabela, coluna ou relação nova.
 
-## Diagnóstico confirmado
-- **Minhas tarefas** aplica o cliente selecionado antes do filtro de responsável. Assim, tarefas do mesmo workspace em outros clientes acessíveis não chegam à tela.
-- Ser responsável por uma tarefa não concede acesso ao cliente. Para Manager/User, a RLS exige atribuição ao cliente; ela será preservada, sem ampliar acesso.
-- A relação tarefa–peça já existe em `tasks.post_id`; peças sem esse vínculo não serão associadas por título ou por aproximação.
-- O quadro de peças dentro do projeto é apenas visual, embora sua aparência sugira arrastar. O quadro de Conteúdo já possui a movimentação canônica por `stage_id`, validação, ordenação, espelho legado e RLS.
-- **Ver peça** fecha a tarefa e navega para Conteúdo. Já existem drawer de tarefa, detalhe de peça e editor de peça que podem ser reaproveitados.
+Corrigir no MASTER três fricções do mesmo fluxo, preservando dados e regras existentes:
 
-## Solução
+1. “Minhas tarefas” deve mostrar todas as tarefas atribuídas ao usuário dentro do workspace e dos clientes que ele já pode acessar, independentemente do cliente atualmente selecionado.
+2. O quadro de peças do projeto deve deixar claro e funcional o avanço entre etapas permitidas do pipeline.
+3. “Ver peça” deve abrir a peça sem retirar o usuário da tarefa, permitindo voltar e seguir para a próxima peça/tarefa no mesmo contexto.
 
-### 1. Fazer “Minhas tarefas” representar o workspace acessível
-- Na visão **Minhas tarefas**, buscar as tarefas atribuídas ao usuário em todos os clientes do workspace aos quais ele já possui acesso.
-- Manter as demais visões limitadas ao cliente ativo, preservando o comportamento atual.
-- Aplicar o filtro de responsável no servidor, antes do limite da consulta, evitando que uma lista grande exclua tarefas próprias.
-- Manter filtro explícito por cliente na própria tela para o usuário reduzir a lista quando desejar.
-- Não alterar RLS: tarefas de clientes sem acesso continuarão invisíveis.
+## Limites de segurança
 
-### 2. Impedir atribuições que resultem em tarefa invisível
-- Reaproveitar a fonte atual de membros elegíveis e validar, ao criar ou trocar o responsável, se Manager/User possui acesso ao cliente da tarefa.
-- Quando não possuir, bloquear a atribuição com mensagem clara, em vez de salvar uma tarefa que o responsável não consegue abrir.
-- Owner/Admin/Super Admin continuam seguindo a matriz vigente; nenhum papel ou permissão será ampliado.
-- Cobrir criação e edição, inclusive tarefas originadas dentro de projeto/job, para não corrigir apenas uma entrada do fluxo.
+- Não criar tabela, coluna, migration ou rota nova para resolver este fluxo.
+- Reutilizar `tasks.assignee_id`, `tasks.post_id`, estágios e posições já existentes.
+- Reutilizar as funções canônicas de leitura/movimentação de tarefas e peças.
+- Não ampliar RBAC/RLS, não contornar permissões e não alterar autenticação.
+- Não modificar conteúdo editorial nem vínculos existentes durante a atualização.
+- Publicação e propagação somente após validação completa e autorização explícita.
 
-### 3. Manter a tarefa como contexto principal de trabalho
-- Trocar **Ver peça** por abertura contextual da peça ao lado da tarefa, sem navegar para outro módulo e sem fechar a tarefa.
-- Reaproveitar o detalhe/editor já existente; não duplicar formulário de peça.
-- Ao fechar a peça, retornar exatamente à mesma tarefa, lista, filtros e posição.
-- Preservar a navegação entre tarefas; ao avançar para outra tarefa, atualizar ou fechar corretamente a peça associada.
-- Manter **Abrir em Conteúdo** apenas como ação secundária para quem quiser acessar o quadro completo.
-- Tarefa sem `post_id` exibirá somente que não há peça vinculada; não será criado vínculo implícito.
+## Implementação
 
-### 4. Tornar o quadro de peças do projeto realmente operacional
-- Habilitar arrastar somente onde houver `post_id`, `pipeline_id` e `stage_id` reais.
-- Passar ao quadro os IDs reais das colunas e reutilizar a mesma função de movimentação já usada em Conteúdo.
-- Preservar validação de pipeline, ordenação, atualização otimista com reversão em erro, sincronização do estágio legado e RLS.
-- Remover qualquer aparência de arrasto para peças que não possam ser movidas e mostrar o motivo de forma objetiva.
-- Não inventar etapas como “Design”: serão usadas as colunas configuradas no pipeline de cada cliente.
+### 1. Corrigir “Minhas tarefas” na origem
 
-## Testes obrigatórios
-- **Minhas tarefas:** tarefa própria em outro cliente acessível aparece; tarefa de cliente sem acesso não vaza; filtro de cliente continua funcionando; o limite é aplicado depois do filtro de responsável.
-- **Atribuição:** Manager/User sem acesso ao cliente não pode ser escolhido/salvo; perfis autorizados continuam funcionando.
-- **Tarefa + peça:** abrir e fechar peça mantém tarefa e filtros; tarefa sem peça permanece estável; troca entre tarefas não mostra a peça anterior.
-- **Quadro do projeto:** mover entre colunas persiste `stage_id` e posição; erro reverte a interface; coluna de outro pipeline é rejeitada; permissões atuais são respeitadas.
-- **Regressão:** quadro de Conteúdo, projeto, tarefas concluídas/arquivadas, comentários, menções e atalhos atuais continuam funcionando.
-- Rodar testes focados, integração de escopo/RLS e a suíte global sem aumentar timeout, pular testes ou mascarar falhas.
+- Separar a visão pessoal do filtro global de cliente ativo.
+- Consultar tarefas no workspace com filtro de responsável aplicado no servidor, antes do limite da consulta.
+- Manter RLS e os escopos de cliente/projeto como autoridade final: o usuário verá apenas o que já pode acessar.
+- Preservar as demais visões, filtros, arquivamento, busca e paginação atuais.
 
-## Implementação cautelosa
-- Começar pelos testes de regressão que reproduzem os três problemas.
-- Fazer alterações pequenas nos fluxos existentes, sem criar páginas ou caminhos paralelos.
-- Não alterar schema, dados, auth, papéis ou policies. Se surgir necessidade real de banco, interromper e apresentar a evidência antes de qualquer migration.
-- Validar o percurso completo em desktop e mobile: Projeto → tarefa → peça → mover etapa → voltar à tarefa → próxima tarefa.
+### 2. Evitar novas atribuições invisíveis
 
-## Fechamento e propagação MASTER-first
-1. Implementar e validar no MASTER.
-2. Regenerar o pacote com `build_delta.py`, mesmo sem migration nova, e revisar que o banco permaneceu inalterado.
-3. Avançar a versão da release e manter `delta_version.txt` e `MASTER_RELEASE_VERSION` iguais ao SHA gerado.
-4. Conferir `verify-installation.sql`; sem objeto novo, registrar que nenhuma checagem estrutural adicional é necessária.
-5. Executar `bun run master:check` e a suíte global completa.
-6. Com autorização explícita, publicar o MASTER.
-7. Atualizar primeiro uma instalação de validação, conferir tarefas, peça contextual, movimentação, RBAC/RLS e dados existentes.
-8. Só após sucesso, autorizar **Atualizar** nas demais instalações em ondas, com verificação de versão e saúde após cada uma.
+- Nas operações existentes de criar e editar tarefa, validar que o responsável pertence ao workspace e já tem acesso ao cliente associado.
+- Usar o helper/RPC canônico de acesso; não inferir autorização por rótulos de papel.
+- Bloquear apenas a atribuição inconsistente, com mensagem clara, sem conceder acesso automaticamente.
+- Aplicar a mesma validação às tarefas criadas dentro de jobs/projetos.
+
+### 3. Manter a peça no contexto da tarefa
+
+- Trocar a navegação de “Ver peça” pela abertura do editor existente em uma camada lateral sobre a tarefa.
+- Carregar o contexto real da peça — cliente, pipeline e estágios — sob as mesmas políticas de acesso.
+- Ao fechar a peça, retornar exatamente à tarefa aberta, preservando lista, filtros e posição.
+- Suspender atalhos de navegação/fechamento da tarefa enquanto o editor da peça estiver aberto.
+- Exibir carregamento e erro sem fechar a tarefa nem redirecionar para Conteúdo.
+
+### 4. Tornar o quadro do projeto operacional
+
+- Alimentar o quadro com os IDs reais de post, estágio, pipeline e posição já disponíveis.
+- Reutilizar a operação canônica de movimentação de peça, incluindo espelhamento do estágio legado e eventos existentes.
+- Permitir arrastar apenas peças reais e somente quando houver pipeline válido; itens apenas planejados continuam informativos.
+- Ao soltar, calcular posição pelo padrão atual do board de Conteúdo, atualizar otimisticamente quando seguro e reconciliar pelas queries existentes.
+- Se a permissão negar a movimentação, reverter visualmente e mostrar o erro; nunca ampliar acesso para “fazer funcionar”.
+- Quando não houver estágios reais, manter o quadro-resumo sem aparência enganosa de drag-and-drop.
+
+## Validação
+
+### Testes focados
+
+- “Minhas tarefas” ignora o cliente ativo, filtra por responsável no servidor e respeita RLS.
+- As outras visões continuam respeitando o cliente selecionado.
+- Atribuição válida funciona; membro sem acesso ao cliente é recusado sem alterar permissões.
+- “Ver peça” abre e fecha no contexto da tarefa, sem mudança de rota.
+- Atalhos da tarefa não interferem no editor da peça.
+- O quadro move peças entre estágios reais usando a função canônica e mantém a posição correta.
+- Falhas de autorização ou rede não deixam o cartão em estado visual incorreto.
+- Itens sem post ou pipeline não recebem affordance de arrastar.
+
+### Regressão obrigatória
+
+- Typecheck, lint e testes focados sem relaxar timeout ou ignorar falhas.
+- Suíte global completa no ambiente de teste autorizado.
+- Teste autenticado do percurso: projeto → tarefa atribuída → Minhas tarefas → Ver peça → fechar → próxima tarefa → mover peça no projeto.
+- Conferência explícita de que nenhuma migration, tabela, campo ou rota foi adicionada.
+
+## Fechamento e propagação
+
+1. Concluir código e testes no MASTER.
+2. Gerar o delta com `build_delta.py`, mesmo sem migration, conforme o protocolo do repositório.
+3. Sincronizar `delta_version.txt`, `MASTER_RELEASE_VERSION`, SHA e metadados do control-plane.
+4. Atualizar `verify-installation.sql` apenas se houver uma verificação real aplicável; não inventar checagem de schema.
+5. Executar `bun run master:check`, suíte global, typecheck, lint e build.
+6. Atualizar primeiro o ambiente de teste autorizado e repetir o percurso autenticado com dados existentes preservados.
+7. Apresentar evidências e pedir autorização explícita para publicar o MASTER.
+8. Após autorização, propagar em ondas: uma instalação piloto, validação de saúde e fluxo, depois as demais instalações elegíveis.
+9. Em cada ambiente, confirmar versão, publicação, ausência de operação pendente e funcionamento do fluxo sem mudança de RBAC/RLS.
 
 ## Critérios de aceite
-- Toda tarefa atribuída aparece em **Minhas tarefas** quando o usuário tem acesso ao respectivo cliente.
-- Nenhuma atribuição cria uma tarefa invisível ao responsável.
-- A peça abre e pode ser trabalhada sem abandonar a tarefa.
-- O quadro do projeto move peças pelas regras canônicas ou se apresenta claramente como não movível.
-- Nenhum acesso é ampliado e nenhuma instalação recebe tabela, campo, rota ou vínculo artificial.
-- MASTER, pacote, versão e verificações terminam sincronizados antes de qualquer propagação.
 
-## Fora de escopo
-- Redesenhar os módulos de Projetos, Tarefas ou Conteúdo por inteiro.
-- Criar um novo editor de peça, novo Kanban, nova relação no banco ou automação por nome da tarefa.
-- Alterar o comportamento de arquivamento de tarefas concluídas sem uma decisão específica posterior.
-- Publicar ou atualizar instalações sem autorização explícita.
+- Tarefa atribuída aparece em “Minhas tarefas” quando o usuário já possui acesso, independentemente do cliente ativo.
+- Nenhuma atribuição nova cria tarefa invisível para o responsável.
+- A peça abre e fecha dentro do contexto da tarefa, sem redirecionamento.
+- Peças reais podem avançar no quadro do projeto conforme as permissões existentes.
+- Nenhuma nova rota, campo ou migration foi necessária.
+- MASTER e instalações propagadas permanecem sincronizados e passam nas verificações obrigatórias.

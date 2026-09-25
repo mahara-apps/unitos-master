@@ -108,6 +108,36 @@ export const listBrandAssigneesFn = createServerFn({ method: "GET" })
       .sort((a, b) => a.name.localeCompare(b.name));
   });
 
+/** Contexto mínimo para reutilizar o editor de peça fora da rota Conteúdo. */
+export const getPostEditorContextFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ postId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { data: post, error } = await context.supabase
+      .from("posts")
+      .select("brand_id, client_id, pipeline_id")
+      .eq("id", data.postId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!post?.client_id || !post.pipeline_id) {
+      throw new Error("A peça não possui cliente e pipeline válidos.");
+    }
+    const { data: stages, error: stagesError } = await context.supabase
+      .from("content_pipeline_stages")
+      .select(
+        "id,pipeline_id,key,label,color,position,is_terminal,hide_in_portal,enables_approval_link,sla_days,sla_hours",
+      )
+      .eq("pipeline_id", post.pipeline_id)
+      .order("position", { ascending: true });
+    if (stagesError) throw stagesError;
+    return {
+      brandId: post.brand_id as string,
+      clientId: post.client_id as string,
+      pipelineId: post.pipeline_id as string,
+      stages: (stages ?? []) as PipelineStage[],
+    };
+  });
+
 const DEFAULT_STAGES: Array<{
   key: string;
   label: string;

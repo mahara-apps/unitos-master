@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { cleanMentionText } from "@/lib/mentions";
+import { callRpc } from "@/lib/supabase-rpc";
 
 export const TASK_STATUSES = ["todo", "in_progress", "review", "blocked", "done"] as const;
 export const TASK_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
@@ -68,9 +69,15 @@ async function enrichTaskRows(
 ): Promise<TaskRow[]> {
   if (tasks.length === 0) return [];
 
-  const userIds = Array.from(new Set(tasks.map((task) => task.assignee_id).filter(Boolean) as string[]));
-  const clientIds = Array.from(new Set(tasks.map((task) => task.client_id).filter(Boolean) as string[]));
-  const projectIds = Array.from(new Set(tasks.map((task) => task.project_id).filter(Boolean) as string[]));
+  const userIds = Array.from(
+    new Set(tasks.map((task) => task.assignee_id).filter(Boolean) as string[]),
+  );
+  const clientIds = Array.from(
+    new Set(tasks.map((task) => task.client_id).filter(Boolean) as string[]),
+  );
+  const projectIds = Array.from(
+    new Set(tasks.map((task) => task.project_id).filter(Boolean) as string[]),
+  );
   const taskIds = tasks.map((task) => task.id);
 
   const [profilesRes, clientsRes, projectsRes, commentsRes, timeRes, subtasksRes] =
@@ -94,15 +101,25 @@ async function enrichTaskRows(
   }
 
   const profileMap = new Map(
-    ((profilesRes.data ?? []) as Array<{ id: string; full_name: string | null; avatar_url: string | null }>).map(
-      (profile) => [profile.id, profile],
-    ),
+    (
+      (profilesRes.data ?? []) as Array<{
+        id: string;
+        full_name: string | null;
+        avatar_url: string | null;
+      }>
+    ).map((profile) => [profile.id, profile]),
   );
   const clientMap = new Map(
-    ((clientsRes.data ?? []) as Array<{ id: string; name: string }>).map((client) => [client.id, client.name]),
+    ((clientsRes.data ?? []) as Array<{ id: string; name: string }>).map((client) => [
+      client.id,
+      client.name,
+    ]),
   );
   const projectMap = new Map(
-    ((projectsRes.data ?? []) as Array<{ id: string; name: string }>).map((project) => [project.id, project.name]),
+    ((projectsRes.data ?? []) as Array<{ id: string; name: string }>).map((project) => [
+      project.id,
+      project.name,
+    ]),
   );
   const commentCounts = new Map<string, number>();
   for (const comment of (commentsRes.data ?? []) as Array<{ task_id: string }>) {
@@ -149,6 +166,7 @@ export const listTasksFn = createServerFn({ method: "GET" })
       .object({
         brandId: z.string().uuid(),
         clientId: z.string().uuid().nullable().optional(),
+        assignedToMe: z.boolean().optional(),
         // Arquivadas ficam fora da lista ativa por padrão (nunca são excluídas).
         archive: z.enum(["active", "archived", "all"]).optional(),
       })
@@ -162,11 +180,12 @@ export const listTasksFn = createServerFn({ method: "GET" })
         "id, brand_id, client_id, project_id, post_id, title, description, status, priority, assignee_id, due_at, start_date, status_id, done, done_at, archived_at, created_by, created_at, updated_at",
       )
       .eq("brand_id", data.brandId)
-      .order("created_at", { ascending: false })
-      .limit(500);
+      .order("created_at", { ascending: false });
     if (data.clientId) q = q.eq("client_id", data.clientId);
+    if (data.assignedToMe) q = q.eq("assignee_id", context.userId);
     if (archive === "active") q = q.is("archived_at", null);
     else if (archive === "archived") q = q.not("archived_at", "is", null);
+    q = q.limit(500);
     const { data: rows, error } = await q;
     if (error) throw error;
     return enrichTaskRows(context.supabase as never, (rows ?? []) as BaseTaskRow[]);
@@ -275,6 +294,44 @@ async function assertProjectScope(
   }
 }
 
+/** Valida visibilidade do responsável sem conceder ou alterar acesso. */
+export async function assertAssigneeCanAccessTaskClient(
+  supabase: {
+    from: (table: string) => {
+      select: (columns: string) => {
+        eq: (column: string, value: string) => {
+          eq: (column: string, value: string) => {
+            maybeSingle: () => Promise<{
+              data: { user_id: string } | null;
+              error: { message: string } | null;
+            }>;
+          };
+        };
+      };
+    };
+    rpc: (fn: never, args?: never) => unknown;
+  },
+  args: { brandId: string; clientId: string | null; assigneeId: string | null | undefined },
+): Promise<void> {
+  if (!args.assigneeId) return;
+  const { data: membership, error } = await supabase
+    .from("brand_members")
+    .select("user_id")
+    .eq("brand_id", args.brandId)
+    .eq("user_id", args.assigneeId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!membership) throw new Error("Escolha um membro deste workspace como responsável.");
+  if (!args.clientId) return;
+  const { data: allowed, error: accessError } = await callRpc<boolean>(
+    supabase,
+    "can_access_client",
+    { _client_id: args.clientId, _user_id: args.assigneeId },
+  );
+  if (accessError) throw accessError;
+  if (allowed !== true) throw new Error("Este responsável não tem acesso ao cliente da tarefa.");
+}
+
 const CreateTaskInput = z.object({
   brandId: z.string().uuid(),
   title: z.string().trim().min(1).max(200),
@@ -328,6 +385,11 @@ export const createTaskFn = createServerFn({ method: "POST" })
       brandId: data.brandId,
       clientId,
       projectId: data.project_id ?? null,
+    });
+    await assertAssigneeCanAccessTaskClient(context.supabase as never, {
+      brandId: data.brandId,
+      clientId,
+      assigneeId: data.assignee_id,
     });
     const { data: row, error } = await context.supabase
       .from("tasks")
@@ -387,10 +449,14 @@ export const updateTaskFn = createServerFn({ method: "POST" })
       done_at?: string | null;
       archived_at?: string | null;
     };
-    if (patch.project_id !== undefined || patch.client_id !== undefined) {
+    if (
+      patch.project_id !== undefined ||
+      patch.client_id !== undefined ||
+      patch.assignee_id !== undefined
+    ) {
       const { data: current, error: curErr } = await context.supabase
         .from("tasks")
-        .select("brand_id, client_id, project_id")
+        .select("brand_id, client_id, project_id, assignee_id")
         .eq("id", data.taskId)
         .single();
       if (curErr) throw curErr;
@@ -422,6 +488,14 @@ export const updateTaskFn = createServerFn({ method: "POST" })
         brandId,
         clientId: nextClientId,
         projectId: patch.project_id !== undefined ? patch.project_id : nextProjectId,
+      });
+      await assertAssigneeCanAccessTaskClient(context.supabase as never, {
+        brandId,
+        clientId: nextClientId,
+        assigneeId:
+          patch.assignee_id !== undefined
+            ? patch.assignee_id
+            : (current!.assignee_id as string | null),
       });
     }
     if (patch.done === true) {

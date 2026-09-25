@@ -105,15 +105,29 @@ function TasksPage() {
     };
   }, []);
 
-  const invalidateKey = ["tasks", brandId, clientId, filters.archive] as const;
+  const assignedToMe = view === "mine";
+  const queryClientId = assignedToMe ? null : (clientId ?? null);
+  const invalidateKey = [
+    "tasks",
+    brandId,
+    queryClientId,
+    filters.archive,
+    assignedToMe,
+    me,
+  ] as const;
 
   const tasksQ = useQuery({
     queryKey: invalidateKey,
     queryFn: () =>
       listTasks({
-        data: { brandId: brandId!, clientId: clientId ?? null, archive: filters.archive },
+        data: {
+          brandId: brandId!,
+          clientId: queryClientId,
+          archive: filters.archive,
+          assignedToMe,
+        },
       }),
-    enabled: !!brandId,
+    enabled: !!brandId && (!assignedToMe || !!me),
   });
 
   const tasks = useMemo(() => tasksQ.data ?? [], [tasksQ.data]);

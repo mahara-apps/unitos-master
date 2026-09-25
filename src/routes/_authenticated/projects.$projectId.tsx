@@ -54,7 +54,12 @@ import { useActiveContext } from "@/hooks/use-active-context";
 import { listClients } from "@/lib/workspace.functions";
 import { listBrandTeam } from "@/lib/team.functions";
 import { archiveProject, deleteProject, getProject, updateProject } from "@/lib/projects.functions";
-import { listPipelinesFn, ensureDefaultPipelineFn, loadBoardFn } from "@/lib/content.functions";
+import {
+  listPipelinesFn,
+  ensureDefaultPipelineFn,
+  loadBoardFn,
+  movePostFn,
+} from "@/lib/content.functions";
 import { TaskDialog } from "@/components/content/task-dialog";
 import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
@@ -106,7 +111,10 @@ export const Route = createFileRoute("/_authenticated/projects/$projectId")({
       { title: "Detalhe do projeto | Unitos" },
       { name: "description", content: "Acompanhe jobs, pautas, tarefas e etapas do projeto." },
       { property: "og:title", content: "Detalhe do projeto | Unitos" },
-      { property: "og:description", content: "Acompanhe jobs, pautas, tarefas e etapas do projeto." },
+      {
+        property: "og:description",
+        content: "Acompanhe jobs, pautas, tarefas e etapas do projeto.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -221,6 +229,7 @@ function ProjectDetailPage() {
   const listPipes = useServerFn(listPipelinesFn);
   const ensureDefault = useServerFn(ensureDefaultPipelineFn);
   const loadBoard = useServerFn(loadBoardFn);
+  const movePost = useServerFn(movePostFn);
 
   const projectQ = useQuery({
     queryKey: ["project", brandId, projectId],
@@ -303,6 +312,15 @@ function ProjectDetailPage() {
     mutationFn: (patch: Record<string, unknown>) =>
       upd({ data: { brandId: brandId!, projectId, patch } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["project", brandId, projectId] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const movePostMut = useMutation({
+    mutationFn: (v: { postId: string; toStageId: string; toPosition: number }) =>
+      movePost({ data: v }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["project", brandId, projectId] });
+      void qc.invalidateQueries({ queryKey: ["project-pipeline", brandId, project?.client_id] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -428,6 +446,8 @@ function ProjectDetailPage() {
       stateClassName: TONE_CLASS[itemState(it.post).tone] ?? "",
       scheduledAt: it.post?.scheduled_at ?? it.tasks.due_at ?? null,
       postId: it.post?.id ?? null,
+      stageId: (it.post as { stage_id?: string | null } | null)?.stage_id ?? null,
+      position: (it.post as { position?: number } | null)?.position ?? 0,
       topicId: it.topic_id,
       planId: project.plan?.id ?? null,
       tasksCount: it.tasks.count,
@@ -449,6 +469,8 @@ function ProjectDetailPage() {
         stateClassName: TONE_CLASS[state.tone] ?? "",
         scheduledAt: (p.scheduled_at as string | null) ?? null,
         postId: p.id as string,
+        stageId: (p.stage_id as string | null) ?? null,
+        position: (p.position as number | null) ?? 0,
         topicId: null,
         outOfPlan: true,
         planId: null,
@@ -495,6 +517,9 @@ function ProjectDetailPage() {
     coverUrl: d.coverUrl,
     dateLabel: d.scheduledAt ? fmtDate(d.scheduledAt) : null,
     outOfPlan: d.outOfPlan,
+    postId: d.postId,
+    stageId: d.stageId ?? null,
+    position: d.position ?? 0,
   }));
 
   const deadlines: DeadlineEntry[] = pautaDetails
@@ -749,6 +774,16 @@ function ProjectDetailPage() {
             onOpenItem={(key) => setOpenPautaKey(key)}
             stage={search.estagio ?? null}
             onStageChange={(s) => setSearch({ estagio: s ?? undefined })}
+            pipelineStages={(pipelineQ.data?.stages ?? []).map((stage) => ({
+              id: stage.id,
+              label: stage.label,
+              stage: contentStageOf({ stage: stage.key, review_status: null, published_at: null }),
+              position: stage.position,
+            }))}
+            onMoveItem={(postId, stageId, position) =>
+              movePostMut.mutate({ postId, toStageId: stageId, toPosition: position })
+            }
+            moving={movePostMut.isPending}
           />
         </div>
       ) : tab === "overview" ? (
@@ -765,7 +800,12 @@ function ProjectDetailPage() {
           deadlines={deadlines}
           team={team}
           onSelectStage={(stage) =>
-            setSearch({ tab: "jobs", board: "board", pauta: undefined, estagio: stage ?? undefined })
+            setSearch({
+              tab: "jobs",
+              board: "board",
+              pauta: undefined,
+              estagio: stage ?? undefined,
+            })
           }
           onOpenJob={(jobId) => setSearch({ tab: "jobs", job: jobId, board: undefined })}
           onViewJobs={() => setSearch({ tab: "jobs", board: undefined })}
@@ -786,9 +826,7 @@ function ProjectDetailPage() {
             onOpenJobChange={(jobId) => setSearch({ tab: "jobs", job: jobId ?? undefined })}
             onOpenPautas={() => setSearch({ tab: "jobs", board: "board" })}
             onCreatePauta={() => navigate({ to: "/monthly-plan" })}
-            pautasContent={
-              pautasContent
-            }
+            pautasContent={pautasContent}
             pautasCount={items.length + extraPosts.length}
             footer={
               <div className="space-y-3">
