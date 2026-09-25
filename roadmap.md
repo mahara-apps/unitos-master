@@ -14,7 +14,7 @@
 - [x] Centralizar a interpretação segura de direção visual, roteiro e legenda.
 - [x] Normalizar a leitura legada sem alterar conteúdo ambíguo.
 - [x] Criar reconciliação forward-only e idempotente para registros corrigíveis.
-- [ ] Selar e validar o próximo pacote MASTER-first.
+- [x] Selar e validar o pacote MASTER-first 1.4.38.
 - [ ] Publicar e propagar somente após autorização explícita.
 
 ## Comentários com menções
