@@ -249,7 +249,7 @@
 
 ## Fluxo integrado de tarefas e peças
 
-- [ ] Mostrar a peça acompanhando o arraste e destacar apenas destinos válidos no quadro de projeto; validar e manter no pacote MASTER antes de publicar.
+- [x] Mostrar a peça acompanhando o arraste e destacar apenas destinos válidos no quadro de projeto; validar e manter no pacote MASTER 1.4.41 antes de publicar.
 - [x] Fazer “Minhas tarefas” consultar todo o workspace acessível, filtrando o responsável no servidor antes do limite.
 - [x] Impedir novas atribuições que deixem a tarefa invisível ao responsável, sem ampliar RBAC/RLS.
 - [x] Abrir a peça vinculada em contexto lateral, mantendo a tarefa e a lista atual no lugar.
