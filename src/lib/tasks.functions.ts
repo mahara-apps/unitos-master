@@ -252,7 +252,6 @@ export const countMyPendingTasksFn = createServerFn({ method: "GET" })
     z
       .object({
         brandId: z.string().uuid(),
-        clientId: z.string().uuid().nullable().optional(),
       })
       .parse(i),
   )

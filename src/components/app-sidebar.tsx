@@ -178,15 +178,14 @@ export function AppSidebar() {
   const superQ = useIsSuperAdmin();
   const isSuper = !!superQ.data?.isSuperAdmin;
   const { brandId } = useActiveContextOptional();
-  const { clientId } = useActiveContextOptional();
   const hasSession = useHasSession();
   const countPending = useServerFn(countMyPendingTasksFn);
   const pendingQ = useQuery({
-    queryKey: ["tasks-pending-count", brandId, clientId ?? null],
+    queryKey: ["tasks-pending-count", brandId],
     queryFn: async () => {
       try {
         return await countPending({
-          data: { brandId: brandId!, clientId: clientId ?? null },
+          data: { brandId: brandId! },
         });
       } catch {
         // Sem sessão válida (logout/refresh) a chamada é rejeitada: não deve
