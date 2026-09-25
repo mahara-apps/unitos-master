@@ -32,18 +32,21 @@ function dayIndex(days: Date[], date: Date) {
 
 /** Barra de uma tarefa dentro da faixa do mês, do início ao prazo. */
 function taskSpan(task: TaskRow, days: Date[]) {
-  const start = task.start_date ? new Date(`${task.start_date.slice(0, 10)}T12:00:00-03:00`) : null;
+  const start = task.start_date ? new Date(task.start_date) : null;
   const end = task.due_at ? new Date(task.due_at) : null;
   if (!start && !end) return null;
   const first = days[0]!;
   const last = days[days.length - 1]!;
-  const rawStart = start ?? end!;
-  const rawEnd = end ?? start!;
+  const rawStart = start ?? end;
+  const rawEnd = end ?? start;
+  if (!rawStart || !rawEnd) return null;
   const firstKey = format(first, "yyyy-MM-dd");
   const lastKey = format(last, "yyyy-MM-dd");
-  if (isoDateInTz(rawEnd) < firstKey || isoDateInTz(rawStart) > lastKey) return null;
-  const from = isoDateInTz(rawStart) < firstKey ? 0 : dayIndex(days, rawStart);
-  const to = isoDateInTz(rawEnd) > lastKey ? days.length - 1 : dayIndex(days, rawEnd);
+  const startKey = task.start_date?.slice(0, 10) ?? isoDateInTz(rawStart);
+  const endKey = isoDateInTz(rawEnd);
+  if (endKey < firstKey || startKey > lastKey) return null;
+  const from = startKey < firstKey ? 0 : days.findIndex((d) => format(d, "yyyy-MM-dd") === startKey);
+  const to = endKey > lastKey ? days.length - 1 : dayIndex(days, rawEnd);
   if (from < 0 || to < 0) return null;
   return { from, span: Math.max(1, to - from + 1) };
 }
