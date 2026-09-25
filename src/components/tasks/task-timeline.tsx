@@ -4,7 +4,6 @@ import {
   eachDayOfInterval,
   endOfMonth,
   format,
-  isSameDay,
   isToday,
   startOfMonth,
   subMonths,
@@ -28,20 +27,20 @@ const CELL = 40;
 
 function dayIndex(days: Date[], date: Date) {
   const key = isoDateInTz(date);
-  return days.findIndex((d) => isoDateInTz(new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12))) === key);
+  return days.findIndex((d) => format(d, "yyyy-MM-dd") === key);
 }
 
 /** Barra de uma tarefa dentro da faixa do mês, do início ao prazo. */
 function taskSpan(task: TaskRow, days: Date[]) {
-  const start = task.start_date ? new Date(task.start_date) : null;
+  const start = task.start_date ? new Date(`${task.start_date.slice(0, 10)}T12:00:00-03:00`) : null;
   const end = task.due_at ? new Date(task.due_at) : null;
   if (!start && !end) return null;
   const first = days[0]!;
   const last = days[days.length - 1]!;
   const rawStart = start ?? end!;
   const rawEnd = end ?? start!;
-  const firstKey = `${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, "0")}-${String(first.getDate()).padStart(2, "0")}`;
-  const lastKey = `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, "0")}-${String(last.getDate()).padStart(2, "0")}`;
+  const firstKey = format(first, "yyyy-MM-dd");
+  const lastKey = format(last, "yyyy-MM-dd");
   if (isoDateInTz(rawEnd) < firstKey || isoDateInTz(rawStart) > lastKey) return null;
   const from = isoDateInTz(rawStart) < firstKey ? 0 : dayIndex(days, rawStart);
   const to = isoDateInTz(rawEnd) > lastKey ? days.length - 1 : dayIndex(days, rawEnd);
