@@ -126,7 +126,7 @@ function PautaCard({ item, onOpen }: { item: BoardPauta; onOpen: () => void }) {
 }
 
 function DraggablePautaCard({ item, onOpen }: { item: BoardPauta; onOpen: () => void }) {
-  const enabled = !!item.postId && !!item.stageId;
+  const enabled = !!item.postId && !!item.pipelineId && !!item.stageId;
   const drag = useDraggable({ id: item.postId ?? item.key, disabled: !enabled });
   return (
     <div

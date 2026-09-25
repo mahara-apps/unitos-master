@@ -1124,6 +1124,7 @@ export function TaskDrawer({
       {task?.post_id && postContextQ.data ? (
         <TaskDialog
           mode="edit"
+          nested
           open={pieceOpen}
           onOpenChange={setPieceOpen}
           brandId={postContextQ.data.brandId}

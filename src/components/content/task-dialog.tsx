@@ -99,6 +99,7 @@ type CommonProps = {
   pipelineId: string;
   stages: PipelineStage[];
   invalidateKey: readonly unknown[];
+  nested?: boolean;
 };
 
 type CreateProps = CommonProps & {
@@ -122,7 +123,8 @@ export function TaskDialog(props: TaskDialogProps) {
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent
         side="right"
-        className="flex h-dvh w-full flex-col gap-0 overflow-hidden border-l border-border/60 bg-background p-0 sm:max-w-[620px]"
+        overlayClassName={props.nested ? "z-[70]" : undefined}
+        className={cn("flex h-dvh w-full flex-col gap-0 overflow-hidden border-l border-border/60 bg-background p-0 sm:max-w-[620px]", props.nested && "z-[70]")}
       >
         {props.mode === "edit" ? (
           <Suspense fallback={<LoadingBody />}>
