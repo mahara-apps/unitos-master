@@ -20,7 +20,8 @@ import { Button } from "@/components/ui/button";
 import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
-import { listTasksFn, listProjectsFn } from "@/lib/tasks.functions";
+import { listTasksFn, listProjectsFn, countMyPendingTasksFn } from "@/lib/tasks.functions";
+import { isoDateInTz } from "@/lib/timezone";
 import { listBrandAssigneesFn } from "@/lib/content.functions";
 import { listClients } from "@/lib/workspace.functions";
 import { supabase } from "@/integrations/supabase/client";
@@ -91,10 +92,17 @@ function TasksPage() {
   const [me, setMe] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [columns, setColumns] = useState<VisibleColumns>(DEFAULT_VISIBLE_COLUMNS);
-  const [filters, setFilters] = useState<TaskFilters>({
-    ...DEFAULT_FILTERS,
+  const filters: TaskFilters = {
     search: search.q ?? "",
-  });
+    status: search.status,
+    priority: search.priority,
+    assigneeId: search.assigneeId,
+    clientId: search.clientId,
+    projectId: search.projectId,
+    hideDone: search.hideDone,
+    due: search.due,
+    archive: search.archive,
+  };
 
   const view: View = search.view;
   const groupBy: GroupBy = search.groupBy;
@@ -110,6 +118,19 @@ function TasksPage() {
       replace: true,
     });
   }
+  function setFilters(next: TaskFilters) {
+    setSearch({
+      q: next.search || undefined,
+      status: next.status,
+      priority: next.priority,
+      assigneeId: next.assigneeId,
+      clientId: next.clientId,
+      projectId: next.projectId,
+      hideDone: next.hideDone,
+      due: next.due,
+      archive: next.archive,
+    });
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -122,13 +143,15 @@ function TasksPage() {
   }, []);
 
   const assignedToMe = view === "mine";
-  const queryClientId = assignedToMe ? null : (clientId ?? null);
+  // A filter for "me" must use the same workspace-wide scope as "Minhas".
+  const workspaceMine = assignedToMe || filters.assigneeId === "me";
+  const queryClientId = workspaceMine || filters.clientId !== "all" ? null : (clientId ?? null);
   const invalidateKey = [
     "tasks",
     brandId,
     queryClientId,
     filters.archive,
-    assignedToMe,
+    workspaceMine,
     me,
   ] as const;
 
@@ -140,10 +163,17 @@ function TasksPage() {
           brandId: brandId!,
           clientId: queryClientId,
           archive: filters.archive,
-          assignedToMe,
+          assignedToMe: workspaceMine,
         },
       }),
-    enabled: !!brandId && (!assignedToMe || !!me),
+    enabled: !!brandId && (!workspaceMine || !!me),
+  });
+
+  const countMine = useServerFn(countMyPendingTasksFn);
+  const mineQ = useQuery({
+    queryKey: ["tasks-pending-count", brandId],
+    queryFn: () => countMine({ data: { brandId: brandId! } }),
+    enabled: !!brandId,
   });
 
   const tasks = useMemo(() => tasksQ.data ?? [], [tasksQ.data]);
@@ -169,8 +199,8 @@ function TasksPage() {
 
   // Effective filters: "mine" view forces assigneeId=me
   const effectiveFilters: TaskFilters = useMemo(
-    () => (view === "mine" ? { ...filters, assigneeId: "me", clientId: "all" } : filters),
-    [filters, view],
+    () => (view === "mine" ? { ...filters, assigneeId: "me" } : filters),
+    [search, view],
   );
 
   const filtered = useMemo(
@@ -180,23 +210,18 @@ function TasksPage() {
 
   const kpis = useMemo(() => {
     const now = Date.now();
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
     const total = tasks.length;
     const inProgress = tasks.filter((t) => t.status === "in_progress").length;
     const done = tasks.filter((t) => t.status === "done").length;
     const overdue = tasks.filter((t) => isOverdue(t)).length;
-    const mine = me ? tasks.filter((t) => t.assignee_id === me && t.status !== "done").length : 0;
+    const mine = mineQ.data?.count ?? 0;
     const dueToday = tasks.filter((t) => {
       if (!t.due_at || t.status === "done") return false;
-      const time = new Date(t.due_at).getTime();
-      return time >= startOfDay.getTime() && time <= endOfDay.getTime();
+      return isoDateInTz(new Date(t.due_at)) === isoDateInTz();
     }).length;
     const open = tasks.filter((t) => t.status !== "done").length;
     return { total, open, inProgress, done, overdue, mine, dueToday, now };
-  }, [tasks, me]);
+  }, [tasks, mineQ.data]);
 
   // ---------- Filtros rápidos (faixa de indicadores) ----------
   type Quick = "open" | "in_progress" | "overdue" | "mine" | "today" | "done";
@@ -232,7 +257,7 @@ function TasksPage() {
         setFilters({ ...base, due: "overdue" });
         break;
       case "mine":
-        setFilters({ ...base, assigneeId: "me" });
+        setSearch({ view: "mine", assigneeId: "all", clientId: "all", projectId: "all", status: "all", due: "all", hideDone: false });
         break;
       case "today":
         setFilters({ ...base, due: "today" });
@@ -370,6 +395,10 @@ function TasksPage() {
         <DashboardPanelSurface className="flex h-40 items-center justify-center text-sm text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando tarefas...
         </DashboardPanelSurface>
+      ) : tasksQ.isError ? (
+        <DashboardPanelSurface className="px-6 py-10 text-center text-sm text-destructive" role="alert">
+          Não foi possível carregar as tarefas. <Button variant="outline" size="sm" onClick={() => void tasksQ.refetch()}>Tentar novamente</Button>
+        </DashboardPanelSurface>
       ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-border/60 bg-card px-6 py-10 text-center">
           <p className="text-sm text-muted-foreground">
@@ -390,7 +419,7 @@ function TasksPage() {
                 variant="outline"
                 onClick={() => {
                   setFilters(DEFAULT_FILTERS);
-                  setSearch({ q: undefined });
+                   setSearch({ q: undefined });
                 }}
               >
                 Limpar filtros
@@ -427,7 +456,7 @@ function TasksPage() {
         />
       )}
 
-      {!tasksQ.isLoading && tasks.length > 0 ? (
+      {!tasksQ.isLoading && !tasksQ.isError && tasks.length > 0 ? (
         <p className="text-center text-[11px] text-muted-foreground">
           Exibindo {filtered.length} de {tasks.length} tarefa{tasks.length === 1 ? "" : "s"}
         </p>
@@ -440,7 +469,8 @@ function TasksPage() {
           open={createOpen}
           onOpenChange={setCreateOpen}
           onCreated={(id) => {
-            invalidate();
+             invalidate();
+             void qc.invalidateQueries({ queryKey: ["tasks-pending-count", brandId] });
             setSearch({ taskId: id });
           }}
         />
