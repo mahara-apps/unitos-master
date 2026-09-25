@@ -2,10 +2,15 @@
  * Seção 5 — filtros de tarefas. Usa a função REAL applyFilters usada pela tela,
  * sem mocks nem reimplementação de regra.
  */
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { applyFilters, DEFAULT_FILTERS, type TaskFilters } from "@/components/tasks/task-toolbar";
 import type { TaskRow } from "@/lib/tasks.functions";
 
+vi.useFakeTimers();
+const fixedNow = new Date();
+fixedNow.setHours(9, 0, 0, 0);
+vi.setSystemTime(fixedNow);
+afterAll(() => vi.useRealTimers());
 const now = Date.now();
 const iso = (deltaDays: number) => new Date(now + deltaDays * 86400000).toISOString();
 
@@ -33,9 +38,7 @@ function task(p: Partial<TaskRow>): TaskRow {
 }
 
 const overdue = task({ id: "overdue", title: "Atrasada", due_at: iso(-2) });
-const todayAtNoon = new Date(now);
-todayAtNoon.setHours(12, 0, 0, 0);
-const today = task({ id: "today", title: "Hoje", due_at: todayAtNoon.toISOString() });
+const today = task({ id: "today", title: "Hoje", due_at: new Date(now + 3600_000).toISOString() });
 const inFive = task({ id: "week", title: "Semana", due_at: iso(5) });
 const noDue = task({ id: "none", title: "Sem prazo" });
 const far = task({ id: "far", title: "Longe", due_at: iso(30) });
