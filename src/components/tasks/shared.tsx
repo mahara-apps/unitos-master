@@ -745,6 +745,7 @@ export function TaskDrawer({
   // J/K navigation
   useEffect(() => {
     function handler(e: KeyboardEvent) {
+      if (pieceOpen) return;
       if ((e.target as HTMLElement | null)?.matches("input, textarea, [contenteditable]")) return;
       if (e.key === "j" && next) onNavigate(next.id);
       else if (e.key === "k" && prev) onNavigate(prev.id);
@@ -752,7 +753,7 @@ export function TaskDrawer({
     }
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [prev?.id, next?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [prev?.id, next?.id, pieceOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const members = membersQ.data ?? [];
 
