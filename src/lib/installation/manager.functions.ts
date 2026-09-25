@@ -1681,6 +1681,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
           .optional()
           .nullable(),
         confirmLabel: z.string().min(1),
+        retryOfOperationId: z.string().uuid().optional().nullable(),
       })
       .parse(input),
   )

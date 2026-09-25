@@ -763,7 +763,7 @@ function InstallationDetailPage() {
                   disabled={
                     !!activeOp || autoUpdate.isPending || !canStartOperation("update", inst.status)
                   }
-                  onClick={updateAction}
+                  onClick={() => updateAction()}
                 >
                   <ArrowDownToLine className="mr-2 h-3.5 w-3.5" /> Puxar atualização do MASTER
                 </DropdownMenuItem>
