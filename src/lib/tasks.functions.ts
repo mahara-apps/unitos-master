@@ -69,9 +69,15 @@ async function enrichTaskRows(
 ): Promise<TaskRow[]> {
   if (tasks.length === 0) return [];
 
-  const userIds = Array.from(new Set(tasks.map((task) => task.assignee_id).filter(Boolean) as string[]));
-  const clientIds = Array.from(new Set(tasks.map((task) => task.client_id).filter(Boolean) as string[]));
-  const projectIds = Array.from(new Set(tasks.map((task) => task.project_id).filter(Boolean) as string[]));
+  const userIds = Array.from(
+    new Set(tasks.map((task) => task.assignee_id).filter(Boolean) as string[]),
+  );
+  const clientIds = Array.from(
+    new Set(tasks.map((task) => task.client_id).filter(Boolean) as string[]),
+  );
+  const projectIds = Array.from(
+    new Set(tasks.map((task) => task.project_id).filter(Boolean) as string[]),
+  );
   const taskIds = tasks.map((task) => task.id);
 
   const [profilesRes, clientsRes, projectsRes, commentsRes, timeRes, subtasksRes] =
@@ -95,15 +101,25 @@ async function enrichTaskRows(
   }
 
   const profileMap = new Map(
-    ((profilesRes.data ?? []) as Array<{ id: string; full_name: string | null; avatar_url: string | null }>).map(
-      (profile) => [profile.id, profile],
-    ),
+    (
+      (profilesRes.data ?? []) as Array<{
+        id: string;
+        full_name: string | null;
+        avatar_url: string | null;
+      }>
+    ).map((profile) => [profile.id, profile]),
   );
   const clientMap = new Map(
-    ((clientsRes.data ?? []) as Array<{ id: string; name: string }>).map((client) => [client.id, client.name]),
+    ((clientsRes.data ?? []) as Array<{ id: string; name: string }>).map((client) => [
+      client.id,
+      client.name,
+    ]),
   );
   const projectMap = new Map(
-    ((projectsRes.data ?? []) as Array<{ id: string; name: string }>).map((project) => [project.id, project.name]),
+    ((projectsRes.data ?? []) as Array<{ id: string; name: string }>).map((project) => [
+      project.id,
+      project.name,
+    ]),
   );
   const commentCounts = new Map<string, number>();
   for (const comment of (commentsRes.data ?? []) as Array<{ task_id: string }>) {

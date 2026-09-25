@@ -131,11 +131,41 @@ export const updateJobFn = createServerFn({ method: "POST" })
     const patch = { ...data.patch };
     if (typeof patch.description === "string") {
       patch.description = sanitizeHtml(patch.description, {
-        allowedTags: ["p", "br", "strong", "b", "em", "i", "u", "s", "a", "span", "mark", "ul", "ol", "li", "pre", "code", "h2", "h3", "blockquote", "img"],
-        allowedAttributes: { a: ["href", "target", "rel"], span: ["style"], mark: ["style"], img: ["src", "alt", "title"] },
+        allowedTags: [
+          "p",
+          "br",
+          "strong",
+          "b",
+          "em",
+          "i",
+          "u",
+          "s",
+          "a",
+          "span",
+          "mark",
+          "ul",
+          "ol",
+          "li",
+          "pre",
+          "code",
+          "h2",
+          "h3",
+          "blockquote",
+          "img",
+        ],
+        allowedAttributes: {
+          a: ["href", "target", "rel"],
+          span: ["style"],
+          mark: ["style"],
+          img: ["src", "alt", "title"],
+        },
         allowedSchemes: ["https", "mailto"],
-        allowedStyles: { "*": { color: [/^#[0-9a-f]{3,8}$/i], "background-color": [/^#[0-9a-f]{3,8}$/i] } },
-        transformTags: { a: sanitizeHtml.simpleTransform("a", { rel: "noopener noreferrer", target: "_blank" }) },
+        allowedStyles: {
+          "*": { color: [/^#[0-9a-f]{3,8}$/i], "background-color": [/^#[0-9a-f]{3,8}$/i] },
+        },
+        transformTags: {
+          a: sanitizeHtml.simpleTransform("a", { rel: "noopener noreferrer", target: "_blank" }),
+        },
       });
     }
     const { error } = await context.supabase
@@ -366,8 +396,8 @@ export const updateJobTaskFn = createServerFn({ method: "POST" })
           .object({
             title: z.string().trim().min(1).max(200).optional(),
             job_id: z.string().uuid().nullable().optional(),
-             status: z.enum(TASK_STATUSES).optional(),
-             priority: z.enum(TASK_PRIORITIES).optional(),
+            status: z.enum(TASK_STATUSES).optional(),
+            priority: z.enum(TASK_PRIORITIES).optional(),
             assignee_id: z.string().uuid().nullable().optional(),
             estimated_minutes: z.number().int().min(0).nullable().optional(),
             due_at: z.string().nullable().optional(),
@@ -598,7 +628,11 @@ export const getProjectOverviewFn = createServerFn({ method: "GET" })
     const taskStats = new Map<string, { total: number; done: number; participants: Set<string> }>();
     for (const task of tasks) {
       if (!task.job_id || task.archived_at) continue;
-      const current = taskStats.get(task.job_id) ?? { total: 0, done: 0, participants: new Set<string>() };
+      const current = taskStats.get(task.job_id) ?? {
+        total: 0,
+        done: 0,
+        participants: new Set<string>(),
+      };
       current.total += 1;
       if (task.done || task.status === "done") current.done += 1;
       if (task.assignee_id) current.participants.add(task.assignee_id);
@@ -659,7 +693,9 @@ export const getProjectOverviewFn = createServerFn({ method: "GET" })
         minutes: rollup.minutes,
         running: rollup.running,
         participantIds: Array.from(
-          new Set([job.assignee_id, ...(stats?.participants ?? [])].filter((id): id is string => !!id)),
+          new Set(
+            [job.assignee_id, ...(stats?.participants ?? [])].filter((id): id is string => !!id),
+          ),
         ),
       };
     });
@@ -670,14 +706,16 @@ export const getProjectOverviewFn = createServerFn({ method: "GET" })
       running: overviewJobs.some((job) => job.running),
       activity: latestEvents.map((event) => ({
         ...event,
-        actor_name: event.actor_id ? actorNames.get(event.actor_id) ?? null : null,
+        actor_name: event.actor_id ? (actorNames.get(event.actor_id) ?? null) : null,
       })),
     };
   });
 
 export const listJobActivityFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid(), jobId: z.string().uuid() }).parse(i))
+  .inputValidator((i: unknown) =>
+    z.object({ brandId: z.string().uuid(), jobId: z.string().uuid() }).parse(i),
+  )
   .handler(async ({ data, context }): Promise<JobActivity[]> => {
     const { data: taskRows, error: taskError } = await context.supabase
       .from("tasks")
@@ -693,15 +731,29 @@ export const listJobActivityFn = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(200);
     query = taskIds.length
-      ? query.or(`and(entity_type.eq.job,entity_id.eq.${data.jobId}),and(entity_type.eq.task,entity_id.in.(${taskIds.join(",")}))`)
+      ? query.or(
+          `and(entity_type.eq.job,entity_id.eq.${data.jobId}),and(entity_type.eq.task,entity_id.in.(${taskIds.join(",")}))`,
+        )
       : query.eq("entity_type", "job").eq("entity_id", data.jobId);
     const { data: rows, error } = await query;
     if (error) throw error;
-    const events = (rows ?? []) as Array<Omit<JobActivity, "actor_name"> & { entity_id: string | null }>;
-    const actorIds = Array.from(new Set(events.map((event) => event.actor_id).filter((id): id is string => id != null)));
+    const events = (rows ?? []) as Array<
+      Omit<JobActivity, "actor_name"> & { entity_id: string | null }
+    >;
+    const actorIds = Array.from(
+      new Set(events.map((event) => event.actor_id).filter((id): id is string => id != null)),
+    );
     const { data: profiles } = actorIds.length
       ? await context.supabase.from("user_profiles").select("id, full_name").in("id", actorIds)
       : { data: [] };
-    const names = new Map(((profiles ?? []) as Array<{ id: string; full_name: string | null }>).map((profile) => [profile.id, profile.full_name]));
-    return events.map((event) => ({ ...event, actor_name: event.actor_id ? names.get(event.actor_id) ?? null : null }));
+    const names = new Map(
+      ((profiles ?? []) as Array<{ id: string; full_name: string | null }>).map((profile) => [
+        profile.id,
+        profile.full_name,
+      ]),
+    );
+    return events.map((event) => ({
+      ...event,
+      actor_name: event.actor_id ? (names.get(event.actor_id) ?? null) : null,
+    }));
   });

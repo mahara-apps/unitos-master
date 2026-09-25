@@ -46,7 +46,12 @@ export type BoardPauta = {
   position: number;
 };
 
-export type ProjectBoardStage = { id: string; label: string; stage: ContentStage; position: number };
+export type ProjectBoardStage = {
+  id: string;
+  label: string;
+  stage: ContentStage;
+  position: number;
+};
 
 const BOARD_VIEWS = ["board", "list", "matrix"] as const;
 export type BoardView = (typeof BOARD_VIEWS)[number];
@@ -155,7 +160,9 @@ function ProjectStageColumn({
       <div className="mb-2 flex items-center gap-1.5 px-1">
         <span className={cn("h-1.5 w-1.5 rounded-full", token.dot)} />
         <span className="truncate text-[11px] font-medium">{stage.label}</span>
-        <span className="ml-auto text-[11px] tabular-nums text-muted-foreground">{items.length}</span>
+        <span className="ml-auto text-[11px] tabular-nums text-muted-foreground">
+          {items.length}
+        </span>
       </div>
       <div className="space-y-2">
         {items.length === 0 ? (
@@ -325,28 +332,28 @@ export function PautaBoard({
         ) : (
           <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
             {CONTENT_STAGES.map((s) => {
-            const list = byStage.get(s) ?? [];
-            const token = CONTENT_STAGE[s];
-            return (
-              <div key={s} className="min-w-0 rounded-lg border border-border/60 bg-muted/20 p-2">
-                <div className="mb-2 flex items-center gap-1.5 px-1">
-                  <span className={cn("h-1.5 w-1.5 rounded-full", token.dot)} />
-                  <span className="truncate text-[11px] font-medium">{token.label}</span>
-                  <span className="ml-auto text-[11px] tabular-nums text-muted-foreground">
-                    {list.length}
-                  </span>
+              const list = byStage.get(s) ?? [];
+              const token = CONTENT_STAGE[s];
+              return (
+                <div key={s} className="min-w-0 rounded-lg border border-border/60 bg-muted/20 p-2">
+                  <div className="mb-2 flex items-center gap-1.5 px-1">
+                    <span className={cn("h-1.5 w-1.5 rounded-full", token.dot)} />
+                    <span className="truncate text-[11px] font-medium">{token.label}</span>
+                    <span className="ml-auto text-[11px] tabular-nums text-muted-foreground">
+                      {list.length}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {list.length === 0 ? (
+                      <p className="px-1 py-3 text-[11px] text-muted-foreground">Nada aqui.</p>
+                    ) : (
+                      list.map((i) => (
+                        <PautaCard key={i.key} item={i} onOpen={() => onOpenItem(i.key)} />
+                      ))
+                    )}
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  {list.length === 0 ? (
-                    <p className="px-1 py-3 text-[11px] text-muted-foreground">Nada aqui.</p>
-                  ) : (
-                    list.map((i) => (
-                      <PautaCard key={i.key} item={i} onOpen={() => onOpenItem(i.key)} />
-                    ))
-                  )}
-                </div>
-              </div>
-            );
+              );
             })}
           </div>
         )

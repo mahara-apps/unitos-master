@@ -763,386 +763,386 @@ export function TaskDrawer({
 
   return (
     <>
-    <ExpandedModal
-      open
-      onOpenChange={(v) => {
-        if (!v) onClose();
-      }}
-      size="md"
-      title={task?.title ?? "Tarefa"}
-      hideTitle
-      headerClassName="items-center px-4 py-2.5"
-      bodyClassName="p-0"
-      footerClassName="block border-t bg-background px-4 py-3"
-      headerExtra={
-        task ? (
-          <>
-            {task.post_id ? (
+      <ExpandedModal
+        open
+        onOpenChange={(v) => {
+          if (!v) onClose();
+        }}
+        size="md"
+        title={task?.title ?? "Tarefa"}
+        hideTitle
+        headerClassName="items-center px-4 py-2.5"
+        bodyClassName="p-0"
+        footerClassName="block border-t bg-background px-4 py-3"
+        headerExtra={
+          task ? (
+            <>
+              {task.post_id ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8"
+                  onClick={() => setPieceOpen(true)}
+                >
+                  <FileText className="mr-1.5 h-4 w-4" />
+                  Ver peça
+                </Button>
+              ) : null}
               <Button
                 size="sm"
-                variant="outline"
+                variant={isDone ? "secondary" : "default"}
                 className="h-8"
-                onClick={() => setPieceOpen(true)}
+                onClick={() =>
+                  patchMutation.mutate({
+                    taskId,
+                    patch: { done: !isDone, status: isDone ? "todo" : "done" },
+                  })
+                }
               >
-                <FileText className="mr-1.5 h-4 w-4" />
-                Ver peça
+                <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                {isDone ? "Concluída" : "Concluir"}
               </Button>
-            ) : null}
-            <Button
-              size="sm"
-              variant={isDone ? "secondary" : "default"}
-              className="h-8"
-              onClick={() =>
-                patchMutation.mutate({
-                  taskId,
-                  patch: { done: !isDone, status: isDone ? "todo" : "done" },
-                })
-              }
-            >
-              <CheckCircle2 className="mr-1.5 h-4 w-4" />
-              {isDone ? "Concluída" : "Concluir"}
+              <div className="flex items-center gap-0.5">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={!prev}
+                  onClick={() => prev && onNavigate(prev.id)}
+                  title="Anterior (K)"
+                >
+                  <ArrowUp className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={!next}
+                  onClick={() => next && onNavigate(next.id)}
+                  title="Próxima (J)"
+                >
+                  <ArrowDown className="h-4 w-4" />
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => archiveMutation.mutate(!task.archived_at)}>
+                      <Archive className="mr-2 h-4 w-4" />
+                      {task.archived_at ? "Restaurar tarefa" : "Arquivar tarefa"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => {
+                        if (confirm("Excluir esta tarefa?")) removeTask.mutate();
+                      }}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Excluir tarefa
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </>
+          ) : null
+        }
+        footer={
+          task ? (
+            <>
+              <div className="relative">
+                <MentionTextarea
+                  rows={2}
+                  value={comment}
+                  onChange={(next, mentions) => {
+                    setComment(next);
+                    setCommentMentionIds(mentions);
+                  }}
+                  people={members}
+                  onSubmit={() => {
+                    if (comment.trim()) send.mutate();
+                  }}
+                  placeholder="Escreva um comentário. Use @ para mencionar. Cmd/Ctrl+Enter para enviar."
+                  className="min-h-[60px] pr-12"
+                />
+                <Button
+                  size="icon"
+                  className="absolute bottom-2 right-2 h-8 w-8 rounded-full"
+                  onClick={() => send.mutate()}
+                  disabled={!comment.trim() || send.isPending}
+                  aria-label="Enviar comentário"
+                >
+                  {send.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>Criada em {formatDateTimeBr(task.created_at)}</span>
+                <span className="font-mono opacity-70">J/K para navegar · Esc para fechar</span>
+              </div>
+            </>
+          ) : null
+        }
+      >
+        {!task && taskQ.isError ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+            <AlertTriangle className="h-6 w-6 text-destructive" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Não foi possível abrir esta tarefa</p>
+              <p className="text-xs text-muted-foreground">
+                Ela pode ter sido excluída ou estar fora do seu acesso neste workspace.
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={onClose}>
+              Fechar
             </Button>
-            <div className="flex items-center gap-0.5">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                disabled={!prev}
-                onClick={() => prev && onNavigate(prev.id)}
-                title="Anterior (K)"
-              >
-                <ArrowUp className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                disabled={!next}
-                onClick={() => next && onNavigate(next.id)}
-                title="Próxima (J)"
-              >
-                <ArrowDown className="h-4 w-4" />
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => archiveMutation.mutate(!task.archived_at)}>
-                    <Archive className="mr-2 h-4 w-4" />
-                    {task.archived_at ? "Restaurar tarefa" : "Arquivar tarefa"}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="text-destructive focus:text-destructive"
-                    onClick={() => {
-                      if (confirm("Excluir esta tarefa?")) removeTask.mutate();
-                    }}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> Excluir tarefa
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </>
-        ) : null
-      }
-      footer={
-        task ? (
-          <>
-            <div className="relative">
-              <MentionTextarea
-                rows={2}
-                value={comment}
-                onChange={(next, mentions) => {
-                  setComment(next);
-                  setCommentMentionIds(mentions);
-                }}
-                people={members}
-                onSubmit={() => {
-                  if (comment.trim()) send.mutate();
-                }}
-                placeholder="Escreva um comentário. Use @ para mencionar. Cmd/Ctrl+Enter para enviar."
-                className="min-h-[60px] pr-12"
-              />
-              <Button
-                size="icon"
-                className="absolute bottom-2 right-2 h-8 w-8 rounded-full"
-                onClick={() => send.mutate()}
-                disabled={!comment.trim() || send.isPending}
-                aria-label="Enviar comentário"
-              >
-                {send.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-            <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
-              <span>
-                Criada em {formatDateTimeBr(task.created_at)}
-              </span>
-              <span className="font-mono opacity-70">J/K para navegar · Esc para fechar</span>
-            </div>
-          </>
-        ) : null
-      }
-    >
-      {!task && taskQ.isError ? (
-        <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-          <AlertTriangle className="h-6 w-6 text-destructive" />
-          <div className="space-y-1">
-            <p className="text-sm font-medium">Não foi possível abrir esta tarefa</p>
-            <p className="text-xs text-muted-foreground">
-              Ela pode ter sido excluída ou estar fora do seu acesso neste workspace.
-            </p>
           </div>
-          <Button variant="outline" size="sm" onClick={onClose}>
+        ) : !task ? (
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando...
+          </div>
+        ) : (
+          <>
+            {/* Body (scrollable) */}
+            <div className="flex-1 overflow-y-auto">
+              {/* Title */}
+              <div className="px-6 pb-3 pt-5">
+                <Input
+                  value={draft.title ?? task.title}
+                  onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
+                  onBlur={() => {
+                    if (draft.title && draft.title !== task.title) {
+                      patchMutation.mutate({ taskId, patch: { title: draft.title.trim() } });
+                    }
+                  }}
+                  className={cn(
+                    "h-auto border-0 bg-transparent px-0 py-1 text-xl font-semibold leading-tight shadow-none focus-visible:ring-0",
+                    isDone && "text-muted-foreground line-through",
+                  )}
+                />
+              </div>
+
+              {/* Metadata grid */}
+              <div className="px-6 pb-6">
+                <dl className="grid grid-cols-[120px_1fr] items-center gap-x-4 gap-y-1 text-sm">
+                  <MetaRow label="Responsável">
+                    <AssigneePicker
+                      brandId={brandId}
+                      value={task.assignee_id}
+                      onChange={(id) =>
+                        patchMutation.mutate({ taskId, patch: { assignee_id: id } })
+                      }
+                      compact
+                    />
+                  </MetaRow>
+
+                  <MetaRow label="Prazo">
+                    <DuePicker
+                      value={task.due_at}
+                      onChange={(iso) => patchMutation.mutate({ taskId, patch: { due_at: iso } })}
+                    />
+                  </MetaRow>
+
+                  <MetaRow label="Status">
+                    <Select
+                      value={task.status}
+                      onValueChange={(v) =>
+                        patchMutation.mutate({
+                          taskId,
+                          patch: { status: v as TaskStatus, done: v === "done" },
+                        })
+                      }
+                    >
+                      <SelectTrigger
+                        className={cn(
+                          "h-7 w-auto gap-1.5 border px-2.5 text-xs font-medium",
+                          statusMeta?.badge,
+                        )}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TASK_STATUSES.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {STATUS_META[s].label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </MetaRow>
+
+                  <MetaRow label="Prioridade">
+                    <Select
+                      value={task.priority}
+                      onValueChange={(v) =>
+                        patchMutation.mutate({ taskId, patch: { priority: v as TaskPriority } })
+                      }
+                    >
+                      <SelectTrigger
+                        className={cn(
+                          "h-7 w-auto gap-1.5 border px-2.5 text-xs font-medium",
+                          priorityMeta?.badge,
+                        )}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TASK_PRIORITIES.map((p) => (
+                          <SelectItem key={p} value={p}>
+                            {PRIORITY_META[p].label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </MetaRow>
+
+                  <MetaRow label="Conta">
+                    <ClientPicker
+                      brandId={brandId}
+                      value={task.client_id}
+                      onChange={(id) =>
+                        patchMutation.mutate({
+                          taskId,
+                          patch: { client_id: id, project_id: null },
+                        })
+                      }
+                    />
+                  </MetaRow>
+
+                  <MetaRow label="Projeto">
+                    <ProjectPicker
+                      brandId={brandId}
+                      clientId={task.client_id}
+                      value={task.project_id}
+                      onChange={(id) => patchMutation.mutate({ taskId, patch: { project_id: id } })}
+                    />
+                  </MetaRow>
+                </dl>
+              </div>
+
+              <Separator />
+
+              {/* Timesheet · Play / Pause / Stop */}
+              <div className="space-y-2 px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-semibold">Timesheet</h3>
+                </div>
+                <TaskTimerWidget brandId={brandId} taskId={task.id} />
+              </div>
+
+              <Separator />
+
+              {/* Subtasks */}
+              <div className="px-6 py-5">
+                <SubtasksSection taskId={task.id} />
+              </div>
+
+              <Separator />
+
+              {/* Description */}
+              <div className="space-y-1.5 px-6 py-5">
+                <label className="text-xs font-medium text-muted-foreground">Descrição</label>
+                <Textarea
+                  rows={4}
+                  placeholder="Adicione contexto, checklist e links..."
+                  value={draft.description ?? task.description ?? ""}
+                  onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
+                  onBlur={() => {
+                    const val = (draft.description ?? "").trim();
+                    if ((task.description ?? "") !== val) {
+                      patchMutation.mutate({ taskId, patch: { description: val || null } });
+                    }
+                  }}
+                  className="resize-none border-transparent bg-transparent px-2 text-sm shadow-none hover:border-border focus-visible:border-border focus-visible:bg-background"
+                />
+              </div>
+
+              <Separator />
+
+              {/* Comments */}
+              <div className="space-y-3 px-6 py-5">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-semibold">Discussão</h3>
+                  <Badge variant="secondary" className="text-[10px]">
+                    {commentsQ.data?.length ?? 0}
+                  </Badge>
+                </div>
+                {commentsQ.isLoading ? (
+                  <div className="text-xs text-muted-foreground">Carregando comentários...</div>
+                ) : (commentsQ.data ?? []).length === 0 ? (
+                  <p className="rounded border border-dashed p-3 text-center text-xs text-muted-foreground">
+                    Sem comentários. Use @ para mencionar alguém do time.
+                  </p>
+                ) : (
+                  <ul className="space-y-3">
+                    {(commentsQ.data ?? []).map((c) => (
+                      <li key={c.id} className="flex gap-3">
+                        <TaskAssignee name={c.author_name} avatarUrl={c.author_avatar} size={28} />
+                        <div className="flex-1 rounded-md border bg-muted/30 px-3 py-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium">
+                              {displayName(
+                                {
+                                  full_name: c.author_name,
+                                  email: members.find((m) => m.id === c.author_id)?.email ?? null,
+                                },
+                                "Alguém",
+                              )}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {formatDateTimeBr(c.created_at)}
+                              {c.author_id === currentUserId ? (
+                                <button
+                                  className="ml-2 text-muted-foreground hover:text-destructive"
+                                  onClick={() => removeComment.mutate(c.id)}
+                                  aria-label="Excluir comentário"
+                                >
+                                  <Trash2 className="inline h-3 w-3" />
+                                </button>
+                              ) : null}
+                            </span>
+                          </div>
+                          <p className="mt-1 whitespace-pre-wrap text-sm">
+                            <MentionText text={c.body} people={members} />
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </ExpandedModal>
+      {task?.post_id && postContextQ.data ? (
+        <TaskDialog
+          mode="edit"
+          open={pieceOpen}
+          onOpenChange={setPieceOpen}
+          brandId={postContextQ.data.brandId}
+          clientId={postContextQ.data.clientId}
+          pipelineId={postContextQ.data.pipelineId}
+          stages={postContextQ.data.stages}
+          postId={task.post_id}
+          invalidateKey={["post-detail", task.post_id] as const}
+        />
+      ) : null}
+      {pieceOpen && postContextQ.isError ? (
+        <div className="fixed bottom-4 right-4 z-[70] max-w-sm rounded-md border border-destructive/30 bg-background p-3 text-sm shadow-lg">
+          <p className="font-medium">Não foi possível abrir a peça.</p>
+          <p className="mt-1 text-xs text-muted-foreground">{postContextQ.error.message}</p>
+          <Button className="mt-2" size="sm" variant="outline" onClick={() => setPieceOpen(false)}>
             Fechar
           </Button>
         </div>
-      ) : !task ? (
-        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando...
-        </div>
-      ) : (
-        <>
-          {/* Body (scrollable) */}
-          <div className="flex-1 overflow-y-auto">
-            {/* Title */}
-            <div className="px-6 pb-3 pt-5">
-              <Input
-                value={draft.title ?? task.title}
-                onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
-                onBlur={() => {
-                  if (draft.title && draft.title !== task.title) {
-                    patchMutation.mutate({ taskId, patch: { title: draft.title.trim() } });
-                  }
-                }}
-                className={cn(
-                  "h-auto border-0 bg-transparent px-0 py-1 text-xl font-semibold leading-tight shadow-none focus-visible:ring-0",
-                  isDone && "text-muted-foreground line-through",
-                )}
-              />
-            </div>
-
-            {/* Metadata grid */}
-            <div className="px-6 pb-6">
-              <dl className="grid grid-cols-[120px_1fr] items-center gap-x-4 gap-y-1 text-sm">
-                <MetaRow label="Responsável">
-                  <AssigneePicker
-                    brandId={brandId}
-                    value={task.assignee_id}
-                    onChange={(id) => patchMutation.mutate({ taskId, patch: { assignee_id: id } })}
-                    compact
-                  />
-                </MetaRow>
-
-                <MetaRow label="Prazo">
-                  <DuePicker
-                    value={task.due_at}
-                    onChange={(iso) => patchMutation.mutate({ taskId, patch: { due_at: iso } })}
-                  />
-                </MetaRow>
-
-                <MetaRow label="Status">
-                  <Select
-                    value={task.status}
-                    onValueChange={(v) =>
-                      patchMutation.mutate({
-                        taskId,
-                        patch: { status: v as TaskStatus, done: v === "done" },
-                      })
-                    }
-                  >
-                    <SelectTrigger
-                      className={cn(
-                        "h-7 w-auto gap-1.5 border px-2.5 text-xs font-medium",
-                        statusMeta?.badge,
-                      )}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TASK_STATUSES.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {STATUS_META[s].label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </MetaRow>
-
-                <MetaRow label="Prioridade">
-                  <Select
-                    value={task.priority}
-                    onValueChange={(v) =>
-                      patchMutation.mutate({ taskId, patch: { priority: v as TaskPriority } })
-                    }
-                  >
-                    <SelectTrigger
-                      className={cn(
-                        "h-7 w-auto gap-1.5 border px-2.5 text-xs font-medium",
-                        priorityMeta?.badge,
-                      )}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TASK_PRIORITIES.map((p) => (
-                        <SelectItem key={p} value={p}>
-                          {PRIORITY_META[p].label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </MetaRow>
-
-                <MetaRow label="Conta">
-                  <ClientPicker
-                    brandId={brandId}
-                    value={task.client_id}
-                    onChange={(id) =>
-                      patchMutation.mutate({
-                        taskId,
-                        patch: { client_id: id, project_id: null },
-                      })
-                    }
-                  />
-                </MetaRow>
-
-                <MetaRow label="Projeto">
-                  <ProjectPicker
-                    brandId={brandId}
-                    clientId={task.client_id}
-                    value={task.project_id}
-                    onChange={(id) => patchMutation.mutate({ taskId, patch: { project_id: id } })}
-                  />
-                </MetaRow>
-              </dl>
-            </div>
-
-            <Separator />
-
-            {/* Timesheet · Play / Pause / Stop */}
-            <div className="space-y-2 px-6 py-4">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-semibold">Timesheet</h3>
-              </div>
-              <TaskTimerWidget brandId={brandId} taskId={task.id} />
-            </div>
-
-            <Separator />
-
-            {/* Subtasks */}
-            <div className="px-6 py-5">
-              <SubtasksSection taskId={task.id} />
-            </div>
-
-            <Separator />
-
-            {/* Description */}
-            <div className="space-y-1.5 px-6 py-5">
-              <label className="text-xs font-medium text-muted-foreground">Descrição</label>
-              <Textarea
-                rows={4}
-                placeholder="Adicione contexto, checklist e links..."
-                value={draft.description ?? task.description ?? ""}
-                onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
-                onBlur={() => {
-                  const val = (draft.description ?? "").trim();
-                  if ((task.description ?? "") !== val) {
-                    patchMutation.mutate({ taskId, patch: { description: val || null } });
-                  }
-                }}
-                className="resize-none border-transparent bg-transparent px-2 text-sm shadow-none hover:border-border focus-visible:border-border focus-visible:bg-background"
-              />
-            </div>
-
-            <Separator />
-
-            {/* Comments */}
-            <div className="space-y-3 px-6 py-5">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-semibold">Discussão</h3>
-                <Badge variant="secondary" className="text-[10px]">
-                  {commentsQ.data?.length ?? 0}
-                </Badge>
-              </div>
-              {commentsQ.isLoading ? (
-                <div className="text-xs text-muted-foreground">Carregando comentários...</div>
-              ) : (commentsQ.data ?? []).length === 0 ? (
-                <p className="rounded border border-dashed p-3 text-center text-xs text-muted-foreground">
-                  Sem comentários. Use @ para mencionar alguém do time.
-                </p>
-              ) : (
-                <ul className="space-y-3">
-                  {(commentsQ.data ?? []).map((c) => (
-                    <li key={c.id} className="flex gap-3">
-                      <TaskAssignee name={c.author_name} avatarUrl={c.author_avatar} size={28} />
-                      <div className="flex-1 rounded-md border bg-muted/30 px-3 py-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium">
-                            {displayName(
-                              {
-                                full_name: c.author_name,
-                                email: members.find((m) => m.id === c.author_id)?.email ?? null,
-                              },
-                              "Alguém",
-                            )}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {formatDateTimeBr(c.created_at)}
-                            {c.author_id === currentUserId ? (
-                              <button
-                                className="ml-2 text-muted-foreground hover:text-destructive"
-                                onClick={() => removeComment.mutate(c.id)}
-                                aria-label="Excluir comentário"
-                              >
-                                <Trash2 className="inline h-3 w-3" />
-                              </button>
-                            ) : null}
-                          </span>
-                        </div>
-                        <p className="mt-1 whitespace-pre-wrap text-sm">
-                          <MentionText text={c.body} people={members} />
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-    </ExpandedModal>
-    {task?.post_id && postContextQ.data ? (
-      <TaskDialog
-        mode="edit"
-        open={pieceOpen}
-        onOpenChange={setPieceOpen}
-        brandId={postContextQ.data.brandId}
-        clientId={postContextQ.data.clientId}
-        pipelineId={postContextQ.data.pipelineId}
-        stages={postContextQ.data.stages}
-        postId={task.post_id}
-        invalidateKey={["post-detail", task.post_id] as const}
-      />
-    ) : null}
-    {pieceOpen && postContextQ.isError ? (
-      <div className="fixed bottom-4 right-4 z-[70] max-w-sm rounded-md border border-destructive/30 bg-background p-3 text-sm shadow-lg">
-        <p className="font-medium">Não foi possível abrir a peça.</p>
-        <p className="mt-1 text-xs text-muted-foreground">{postContextQ.error.message}</p>
-        <Button className="mt-2" size="sm" variant="outline" onClick={() => setPieceOpen(false)}>
-          Fechar
-        </Button>
-      </div>
-    ) : null}
+      ) : null}
     </>
   );
 }

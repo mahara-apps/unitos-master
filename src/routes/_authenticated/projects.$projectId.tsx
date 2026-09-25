@@ -111,7 +111,10 @@ export const Route = createFileRoute("/_authenticated/projects/$projectId")({
       { title: "Detalhe do projeto | Unitos" },
       { name: "description", content: "Acompanhe jobs, pautas, tarefas e etapas do projeto." },
       { property: "og:title", content: "Detalhe do projeto | Unitos" },
-      { property: "og:description", content: "Acompanhe jobs, pautas, tarefas e etapas do projeto." },
+      {
+        property: "og:description",
+        content: "Acompanhe jobs, pautas, tarefas e etapas do projeto.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -797,7 +800,12 @@ function ProjectDetailPage() {
           deadlines={deadlines}
           team={team}
           onSelectStage={(stage) =>
-            setSearch({ tab: "jobs", board: "board", pauta: undefined, estagio: stage ?? undefined })
+            setSearch({
+              tab: "jobs",
+              board: "board",
+              pauta: undefined,
+              estagio: stage ?? undefined,
+            })
           }
           onOpenJob={(jobId) => setSearch({ tab: "jobs", job: jobId, board: undefined })}
           onViewJobs={() => setSearch({ tab: "jobs", board: undefined })}
@@ -818,9 +826,7 @@ function ProjectDetailPage() {
             onOpenJobChange={(jobId) => setSearch({ tab: "jobs", job: jobId ?? undefined })}
             onOpenPautas={() => setSearch({ tab: "jobs", board: "board" })}
             onCreatePauta={() => navigate({ to: "/monthly-plan" })}
-            pautasContent={
-              pautasContent
-            }
+            pautasContent={pautasContent}
             pautasCount={items.length + extraPosts.length}
             footer={
               <div className="space-y-3">
