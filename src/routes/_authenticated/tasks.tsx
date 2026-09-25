@@ -153,7 +153,7 @@ function TasksPage() {
 
   // Effective filters: "mine" view forces assigneeId=me
   const effectiveFilters: TaskFilters = useMemo(
-    () => (view === "mine" ? { ...filters, assigneeId: "me" } : filters),
+    () => (view === "mine" ? { ...filters, assigneeId: "me", clientId: "all" } : filters),
     [filters, view],
   );
 

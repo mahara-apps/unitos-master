@@ -683,7 +683,7 @@ export function TaskDrawer({
   const [pieceOpen, setPieceOpen] = useState(false);
   const postContextQ = useQuery({
     queryKey: ["post-editor-context", task?.post_id],
-    queryFn: () => getPostContext({ data: { postId: task!.post_id! } }),
+    queryFn: () => getPostContext({ data: { postId: task?.post_id ?? "" } }),
     enabled: !!task?.post_id && pieceOpen,
     retry: false,
   });
@@ -765,6 +765,7 @@ export function TaskDrawer({
     <>
       <ExpandedModal
         open
+        nested={false}
         onOpenChange={(v) => {
           if (!v && !pieceOpen) onClose();
         }}
