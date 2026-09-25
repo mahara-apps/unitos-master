@@ -8,7 +8,6 @@ import {
   format,
   isSameDay,
   isSameMonth,
-  isToday,
   startOfMonth,
   startOfWeek,
   subMonths,

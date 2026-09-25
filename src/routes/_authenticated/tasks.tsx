@@ -13,7 +13,6 @@ import {
   User as UserIcon,
   Loader2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { Button } from "@/components/ui/button";
@@ -24,7 +23,6 @@ import { listTasksFn, listProjectsFn, countMyPendingTasksFn } from "@/lib/tasks.
 import { isoDateInTz } from "@/lib/timezone";
 import { listBrandAssigneesFn } from "@/lib/content.functions";
 import { listClients } from "@/lib/workspace.functions";
-import { supabase } from "@/integrations/supabase/client";
 import { getCachedUser } from "@/lib/auth-cache";
 import { CreateTaskDialog, TaskDrawer, isOverdue } from "@/components/tasks/shared";
 import {

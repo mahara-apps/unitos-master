@@ -274,6 +274,7 @@ export const countMyPendingTasksFn = createServerFn({ method: "GET" })
       .select("id", { count: "exact", head: true })
       .eq("brand_id", data.brandId)
       .eq("assignee_id", context.userId)
+      .is("archived_at", null)
       .neq("status", "done");
     // O indicador de tarefas pessoais acompanha todos os clientes acessíveis
     // no workspace, como a visão "Minhas tarefas" (RLS continua aplicada).
