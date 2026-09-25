@@ -54,9 +54,15 @@ export const Route = createFileRoute("/_authenticated/tasks")({
   head: () => ({
     meta: [
       { title: "Tarefas | Unitos" },
-      { name: "description", content: "Acompanhe suas tarefas e as atividades dos projetos no Unitos." },
+      {
+        name: "description",
+        content: "Acompanhe suas tarefas e as atividades dos projetos no Unitos.",
+      },
       { property: "og:title", content: "Tarefas | Unitos" },
-      { property: "og:description", content: "Acompanhe suas tarefas e as atividades dos projetos no Unitos." },
+      {
+        property: "og:description",
+        content: "Acompanhe suas tarefas e as atividades dos projetos no Unitos.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
