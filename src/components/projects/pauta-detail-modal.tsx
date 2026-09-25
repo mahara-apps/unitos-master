@@ -49,6 +49,7 @@ export type PautaDetailItem = {
   postId: string | null;
   /** Estágio operacional real da peça, quando ela já existe. */
   stageId?: string | null;
+  pipelineId?: string | null;
   /** Posição real na coluna do pipeline. */
   position?: number;
   /** Tópico da pauta mensal (ausente em peças criadas fora da pauta). */

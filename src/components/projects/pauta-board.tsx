@@ -42,12 +42,14 @@ export type BoardPauta = {
   dateLabel: string | null;
   outOfPlan?: boolean;
   postId: string | null;
+  pipelineId: string | null;
   stageId: string | null;
   position: number;
 };
 
 export type ProjectBoardStage = {
   id: string;
+  pipelineId: string;
   label: string;
   stage: ContentStage;
   position: number;
@@ -238,7 +240,8 @@ export function PautaBoard({
     const postId = String(event.active.id);
     const stageId = String(event.over.id);
     const active = items.find((item) => item.postId === postId);
-    if (!active || !realStages.some((stage) => stage.id === stageId) || active.stageId === stageId) return;
+    const target = realStages.find((stage) => stage.id === stageId);
+    if (!active?.pipelineId || !target || active.pipelineId !== target.pipelineId || active.stageId === stageId) return;
     const targetItems = items
       .filter((item) => item.stageId === stageId && item.postId !== postId)
       .sort((a, b) => a.position - b.position);

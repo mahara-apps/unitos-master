@@ -445,6 +445,7 @@ function ProjectDetailPage() {
       stateClassName: TONE_CLASS[itemState(it.post).tone] ?? "",
       scheduledAt: it.post?.scheduled_at ?? it.tasks.due_at ?? null,
       postId: it.post?.id ?? null,
+      pipelineId: it.post?.pipeline_id ?? null,
       stageId: it.post?.stage_id ?? null,
       position: it.post?.position ?? 0,
       topicId: it.topic_id,
@@ -468,6 +469,7 @@ function ProjectDetailPage() {
         stateClassName: TONE_CLASS[state.tone] ?? "",
         scheduledAt: (p.scheduled_at as string | null) ?? null,
         postId: p.id as string,
+        pipelineId: (p.pipeline_id as string | null) ?? null,
         stageId: (p.stage_id as string | null) ?? null,
         position: (p.position as number | null) ?? 0,
         topicId: null,
@@ -517,6 +519,7 @@ function ProjectDetailPage() {
     dateLabel: d.scheduledAt ? fmtDate(d.scheduledAt) : null,
     outOfPlan: d.outOfPlan,
     postId: d.postId,
+    pipelineId: d.pipelineId ?? null,
     stageId: d.stageId ?? null,
     position: d.position ?? 0,
   }));
@@ -775,6 +778,7 @@ function ProjectDetailPage() {
             onStageChange={(s) => setSearch({ estagio: s ?? undefined })}
             pipelineStages={(pipelineQ.data?.stages ?? []).map((stage) => ({
               id: stage.id,
+              pipelineId: stage.pipeline_id,
               label: stage.label,
               stage: contentStageOf({ stage: stage.key, review_status: null, published_at: null }),
               position: stage.position,
