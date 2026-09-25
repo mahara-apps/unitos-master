@@ -15,6 +15,7 @@
 - [x] Normalizar a leitura legada sem alterar conteúdo ambíguo.
 - [x] Criar reconciliação forward-only e idempotente para registros corrigíveis.
 - [x] Selar e validar o pacote MASTER-first 1.4.38.
+- [ ] Reexecutar a suíte global quando o ambiente descartável de integração voltar a estar acessível; atualmente o projeto não é encontrado pelo token.
 - [ ] Publicar e propagar somente após autorização explícita.
 
 ## Comentários com menções
