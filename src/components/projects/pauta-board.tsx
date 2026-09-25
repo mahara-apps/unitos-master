@@ -6,6 +6,7 @@
  */
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   useDraggable,
   useDroppable,
@@ -134,7 +135,10 @@ function DraggablePautaCard({ item, onOpen }: { item: BoardPauta; onOpen: () => 
       {...drag.attributes}
       {...drag.listeners}
       title={enabled ? "Arraste para mudar de etapa" : undefined}
-      className={cn(enabled && "touch-none", drag.isDragging && "opacity-40")}
+      className={cn(
+        enabled && "cursor-grab touch-none active:cursor-grabbing",
+        drag.isDragging && "opacity-40",
+      )}
     >
       <PautaCard item={item} onOpen={onOpen} />
     </div>
@@ -145,19 +149,22 @@ function ProjectStageColumn({
   stage,
   items,
   onOpenItem,
+  activePipelineId,
 }: {
   stage: ProjectBoardStage;
   items: BoardPauta[];
   onOpenItem: (key: string) => void;
+  activePipelineId: string | null;
 }) {
   const drop = useDroppable({ id: stage.id });
   const token = CONTENT_STAGE[stage.stage];
+  const validTarget = activePipelineId === stage.pipelineId;
   return (
     <div
       ref={drop.setNodeRef}
       className={cn(
         "min-w-0 rounded-lg border border-border/60 bg-muted/20 p-2 transition-colors",
-        drop.isOver && "border-primary/60 bg-primary/5",
+        drop.isOver && validTarget && "border-primary/60 bg-primary/10 ring-2 ring-primary/40",
       )}
     >
       <div className="mb-2 flex items-center gap-1.5 px-1">
@@ -203,6 +210,7 @@ export function PautaBoard({
 }) {
   const [channel, setChannel] = useState("all");
   const [unit, setUnit] = useState("all");
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   const channels = useMemo(
     () => Array.from(new Set(items.map((i) => i.channelLabel).filter(Boolean) as string[])).sort(),
@@ -235,7 +243,9 @@ export function PautaBoard({
     [pipelineStages],
   );
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const activeItem = activeId ? (filtered.find((item) => item.postId === activeId) ?? null) : null;
   function handleDragEnd(event: DragEndEvent) {
+    setActiveId(null);
     if (moving || !onMoveItem || !event.over) return;
     const postId = String(event.active.id);
     const stageId = String(event.over.id);
@@ -329,7 +339,12 @@ export function PautaBoard({
         />
       ) : view === "board" ? (
         realStages.length > 0 ? (
-          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+          <DndContext
+            sensors={sensors}
+            onDragStart={(event) => setActiveId(String(event.active.id))}
+            onDragEnd={handleDragEnd}
+            onDragCancel={() => setActiveId(null)}
+          >
             <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
               {realStages.map((realStage) => (
                 <ProjectStageColumn
@@ -337,6 +352,7 @@ export function PautaBoard({
                   stage={realStage}
                   items={filtered.filter((item) => item.stageId === realStage.id)}
                   onOpenItem={onOpenItem}
+                  activePipelineId={activeItem?.pipelineId ?? null}
                 />
               ))}
               {filtered.some(
@@ -356,6 +372,13 @@ export function PautaBoard({
                 </div>
               ) : null}
             </div>
+            <DragOverlay>
+              {activeItem ? (
+                <div className="pointer-events-none cursor-grabbing shadow-lg">
+                  <PautaCard item={activeItem} onOpen={() => {}} />
+                </div>
+              ) : null}
+            </DragOverlay>
           </DndContext>
         ) : (
           <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
