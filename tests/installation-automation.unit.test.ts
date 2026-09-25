@@ -4,7 +4,6 @@ import {
   assertSecretsAreExclusive,
   automationOutcome,
   buildDeployEnvPlan,
-  buildInstallationRuntimeEnvPlan,
   extractProjectRef,
   resolveAutomationCapability,
   resolveAutomationTarget,
@@ -40,17 +39,6 @@ const githubResponse = (url: string): Response | null => {
   if (url.includes("/git/refs")) return Response.json({ ok: true });
   return Response.json({ full_name: "acme/unitos-pitada" });
 };
-
-const authConfigResponse = (url: string): Response | null =>
-  url.includes("/config/auth")
-    ? Response.json({
-        site_url: "https://unitos-pitada-abc.vercel.app",
-        uri_allow_list:
-          "https://unitos-pitada-abc.vercel.app/reset-password,https://unitos-pitada-abc.vercel.app/invite/*",
-        disable_signup: true,
-        mailer_autoconfirm: true,
-      })
-    : null;
 
 describe("credenciais de gestão do MASTER", () => {
   it("BLOCKED quando as credenciais próprias não existem", () => {
@@ -216,11 +204,10 @@ describe("plano de variáveis do deploy", () => {
       BRAND_CREDENTIALS_SECRET: generateInstallationSecret(),
       META_STATE_SECRET: generateInstallationSecret(),
       META_WEBHOOK_VERIFY_TOKEN: generateInstallationSecret(),
-      INSTALLATION_BOOTSTRAP_CODE: generateInstallationSecret(),
     },
   };
 
-  it("inclui URL, chaves do destino e os 5 secrets próprios", () => {
+  it("inclui URL, chaves do destino e os 4 secrets próprios", () => {
     const plan = buildDeployEnvPlan(base);
     expect(plan.ok).toBe(true);
     if (!plan.ok) return;
@@ -228,43 +215,7 @@ describe("plano de variáveis do deploy", () => {
     expect(keys).toContain("PUBLIC_APP_URL");
     expect(keys).toContain("CRON_SECRET");
     expect(keys).toContain("SUPABASE_SERVICE_ROLE_KEY");
-    expect(keys).toContain("SB_SERVICE_ROLE_KEY");
-    expect(keys).toContain("SUPABASE_URL");
-    expect(keys).toContain("SUPABASE_PROJECT_ID");
-    expect(keys).toContain("SUPABASE_PUBLISHABLE_KEY");
-    expect(keys).toContain("VITE_SUPABASE_URL");
-    expect(keys).toContain("VITE_SUPABASE_PROJECT_ID");
-    expect(keys).toContain("VITE_SUPABASE_PUBLISHABLE_KEY");
-    expect(plan.entries.find((e) => e.key === "SUPABASE_URL")?.value).toBe(
-      plan.entries.find((e) => e.key === "VITE_SUPABASE_URL")?.value,
-    );
     expect(plan.entries.find((e) => e.key === "SUPABASE_SERVICE_ROLE_KEY")?.sensitive).toBe(true);
-  });
-
-  it("usa o mesmo contrato mínimo em instalação nova e atualização", () => {
-    const plan = buildInstallationRuntimeEnvPlan(base);
-    expect(plan.ok).toBe(true);
-    if (!plan.ok) return;
-    expect(plan.entries.map((entry) => entry.key)).toEqual([
-      "PUBLIC_APP_URL",
-      "VITE_PUBLIC_APP_URL",
-      "SUPABASE_URL",
-      "VITE_SUPABASE_URL",
-      "SUPABASE_PROJECT_ID",
-      "VITE_SUPABASE_PROJECT_ID",
-      "SUPABASE_PUBLISHABLE_KEY",
-      "VITE_SUPABASE_PUBLISHABLE_KEY",
-      "SUPABASE_SERVICE_ROLE_KEY",
-      "SB_SERVICE_ROLE_KEY",
-    ]);
-  });
-
-  it("recusa URL e Project Ref Supabase divergentes", () => {
-    const plan = buildInstallationRuntimeEnvPlan({
-      ...base,
-      projectRef: "qrstuvwxyzabcdef",
-    });
-    expect(plan).toMatchObject({ ok: false, reason: expect.stringContaining("divergem") });
   });
 
   it("recusa plano que aponta para o MASTER", () => {
@@ -508,8 +459,6 @@ describe("runAutomatedProvision", () => {
     const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
-      const auth = authConfigResponse(url);
-      if (auth) return auth;
       calls.push(url);
       if (url.includes("/api-keys")) {
         return Response.json([
@@ -564,8 +513,6 @@ describe("runAutomatedProvision", () => {
     const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
-      const auth = authConfigResponse(url);
-      if (auth) return auth;
       if (url.includes("/api-keys")) {
         return Response.json([
           { name: "anon", api_key: "sb_publishable_x" },
@@ -623,8 +570,6 @@ describe("runAutomatedProvision", () => {
     const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
-      const auth = authConfigResponse(url);
-      if (auth) return auth;
       if (url.includes("/api-keys")) {
         return Response.json([
           { name: "anon", api_key: "k" },
@@ -667,8 +612,6 @@ describe("runAutomatedProvision", () => {
     const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
-      const auth = authConfigResponse(url);
-      if (auth) return auth;
       if (url.includes("/api-keys")) {
         return Response.json([
           { name: "anon", api_key: "k" },
@@ -713,8 +656,6 @@ describe("runAutomatedProvision", () => {
     const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
-      const auth = authConfigResponse(url);
-      if (auth) return auth;
       if (url.includes("/api-keys")) {
         return Response.json([
           { name: "anon", api_key: "k" },
@@ -764,8 +705,6 @@ describe("runAutomatedProvision", () => {
     const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
-      const auth = authConfigResponse(url);
-      if (auth) return auth;
       if (url.includes("/api-keys")) {
         return Response.json([
           { name: "anon", api_key: "k" },
@@ -797,8 +736,6 @@ describe("runAutomatedProvision", () => {
     const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
-      const auth = authConfigResponse(url);
-      if (auth) return auth;
       if (url.includes("/api-keys")) {
         return Response.json([
           { name: "anon", api_key: "k" },
@@ -909,8 +846,6 @@ describe("runAutomatedProvision", () => {
     const fetchImpl = vi.fn(async (url: string, init?: { body?: unknown }) => {
       const gh = githubResponse(url);
       if (gh) return gh;
-      const auth = authConfigResponse(url);
-      if (auth) return auth;
       calls.push(url);
       if (url.includes("/api-keys")) {
         return Response.json([

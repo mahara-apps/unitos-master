@@ -27,7 +27,6 @@ import {
   getInstallationCredentialsFn,
   getInstallationSecretsFn,
   rotateInstallationSecretFn,
-  revealInstallationBootstrapCodeFn,
   saveInstallationCredentialsFn,
   testInstallationCredentialsFn,
 } from "@/lib/installation/manager.functions";
@@ -479,9 +478,7 @@ function InstallationSecretsSection({ installationId }: { installationId: string
   const qc = useQueryClient();
   const listFn = useServerFn(getInstallationSecretsFn);
   const rotateFn = useServerFn(rotateInstallationSecretFn);
-	const revealBootstrapFn = useServerFn(revealInstallationBootstrapCodeFn);
   const [pending, setPending] = useState<string | null>(null);
-	const [bootstrapCode, setBootstrapCode] = useState<string | null>(null);
 
   const secrets = useQuery({
     queryKey: ["installation-secrets", installationId],
@@ -512,37 +509,6 @@ function InstallationSecretsSection({ installationId }: { installationId: string
         Criadas uma única vez e reaproveitadas em toda atualização. Troque apenas se souber o
         impacto.
       </p>
-			<div className="flex flex-wrap items-center gap-2 border-b pb-2">
-				<Button
-					size="sm"
-					variant="outline"
-					onClick={async () => {
-						try {
-							const result = await revealBootstrapFn({ data: { id: installationId } });
-							setBootstrapCode(result.code);
-						} catch (error) {
-							toast.error(error instanceof Error ? error.message : "Código indisponível.");
-						}
-					}}
-				>
-					Mostrar código de primeiro acesso
-				</Button>
-				{bootstrapCode && (
-					<>
-						<code className="rounded bg-muted px-2 py-1 text-xs">{bootstrapCode}</code>
-						<Button
-							size="sm"
-							variant="ghost"
-							onClick={() => {
-								void navigator.clipboard.writeText(bootstrapCode);
-								toast.success("Código copiado.");
-							}}
-						>
-							Copiar
-						</Button>
-					</>
-				)}
-			</div>
       {secrets.isPending ? (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando…

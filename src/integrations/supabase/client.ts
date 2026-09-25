@@ -1,32 +1,45 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 import { createRememberStorage } from "./remember-storage";
-import { resolveBrowserSupabaseConfig } from "./client-config";
 
 /**
  * Cliente Supabase do navegador.
  *
  * A instância é resolvida SOMENTE por variáveis de ambiente, para que cada
  * instalação (agência) aponte para o seu próprio projeto Supabase sem nenhuma
- * credencial fixa no código. As referências precisam ser estáticas para que o
- * Vite injete `import.meta.env.VITE_*` no bundle do navegador.
+ * credencial fixa no código. No Vite/TanStack Start o build injeta
+ * `import.meta.env.VITE_*`; durante o SSR (Vercel/Worker) também aceitamos os
+ * equivalentes sem prefixo, disponíveis em `process.env`.
  */
-const browserConfig = resolveBrowserSupabaseConfig({
-  url: import.meta.env.VITE_SUPABASE_URL,
-  publishableKey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-  legacyAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-  projectId: import.meta.env.VITE_SUPABASE_PROJECT_ID,
-});
+function readEnv(...keys: string[]): string | undefined {
+  const viteEnv =
+    (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
+  const nodeEnv: Record<string, string | undefined> =
+    typeof process !== "undefined" && process.env ? process.env : {};
+  for (const key of keys) {
+    const value = viteEnv[key] ?? nodeEnv[key];
+    if (typeof value === "string" && value.trim().length > 0) return value.trim();
+  }
+  return undefined;
+}
 
-export const supabaseConfigurationError = browserConfig.ok ? null : browserConfig.reason;
+/**
+ * Fallback da instalação Unitos Master. A URL e a chave publicável (anon) são
+ * públicas por definição — ficam aqui apenas para que o build não quebre quando
+ * o `.env` não é versionado. Qualquer instalação nova sobrescreve via env.
+ */
+const DEFAULT_SUPABASE_URL = "https://tkjbhttylouamqxnbfgv.supabase.co";
+const DEFAULT_SUPABASE_PUBLISHABLE_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRramJodHR5bG91YW1xeG5iZmd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNTcyMDcsImV4cCI6MjA5ODczMzIwN30.bRyK6jhVUXU7dAC1BGQbd4bllBm-UgatOOQdkfk1EFA";
 
-// A instância inválida existe apenas para manter imports determinísticos até a
-// raiz renderizar o bloqueio controlado. Nenhuma tela pode usá-la: o root gate
-// encerra a árvore antes dos efeitos e loaders protegidos.
-const SUPABASE_URL = browserConfig.ok ? browserConfig.url : "https://configuration.invalid";
-const SUPABASE_PUBLISHABLE_KEY = browserConfig.ok
-  ? browserConfig.publishableKey
-  : "configuration-missing";
+const SUPABASE_URL = readEnv("VITE_SUPABASE_URL", "SUPABASE_URL") ?? DEFAULT_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY =
+  readEnv(
+    "VITE_SUPABASE_PUBLISHABLE_KEY",
+    "VITE_SUPABASE_ANON_KEY",
+    "SUPABASE_PUBLISHABLE_KEY",
+    "SUPABASE_ANON_KEY",
+  ) ?? DEFAULT_SUPABASE_PUBLISHABLE_KEY;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";

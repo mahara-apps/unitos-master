@@ -501,7 +501,7 @@ WITH checks AS (
                'client_ad_accounts','project_participants','user_login_events','work_comments',
                 'work_links','work_statuses','client_automation_attempts',
                  'client_automation_dates','client_automation_dispatches','client_automation_rules',
-                   'project_job_counters','system_events','installation_bootstrap_state'
+                  'project_job_counters','system_events'
              ]) AS t
              WHERE to_regclass('public.' || t) IS NULL
            ) faltando
@@ -517,29 +517,10 @@ WITH checks AS (
              'client_ad_accounts','project_participants','user_login_events','work_comments',
               'work_links','work_statuses','client_automation_attempts',
                'client_automation_dates','client_automation_dispatches','client_automation_rules',
-                 'project_job_counters','system_events','installation_bootstrap_state'
+                'project_job_counters','system_events'
            ]) AS t
            WHERE to_regclass('public.' || t) IS NULL
          ) THEN 'PASS' ELSE 'FAIL' END
-
-  UNION ALL
-  SELECT 137, 'autenticação: bootstrap único e cadastro sem vínculo automático',
-         CASE WHEN to_regclass('public.installation_bootstrap_state') IS NULL
-              THEN 'bootstrap ausente' ELSE 'bootstrap e funções presentes' END,
-         CASE WHEN to_regclass('public.installation_bootstrap_state') IS NOT NULL
-                   AND to_regprocedure('public.prepare_installation_bootstrap(text,timestamp with time zone)') IS NOT NULL
-                   AND to_regprocedure('public.complete_installation_bootstrap_service(uuid,text,text,text)') IS NOT NULL
-                   AND NOT has_table_privilege('anon', 'public.installation_bootstrap_state', 'SELECT')
-                   AND NOT has_table_privilege('authenticated', 'public.installation_bootstrap_state', 'SELECT')
-                   AND NOT has_function_privilege('anon', 'public.complete_installation_bootstrap_service(uuid,text,text,text)', 'EXECUTE')
-                   AND NOT has_function_privilege('authenticated', 'public.complete_installation_bootstrap_service(uuid,text,text,text)', 'EXECUTE')
-                   AND EXISTS (
-                     SELECT 1 FROM pg_proc p
-                     WHERE p.oid = 'public.handle_new_user()'::regprocedure
-                       AND p.prosecdef
-                       AND p.prosrc NOT ILIKE '%brand_members%'
-                   )
-              THEN 'PASS' ELSE 'FAIL' END
 
   UNION ALL
   SELECT 85, 'auditoria operacional: tabela, RLS, política, retenção e escopo protegidos',

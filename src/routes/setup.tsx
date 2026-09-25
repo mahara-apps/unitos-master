@@ -1,232 +1,202 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
-import { Loader2, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import { LoginLogo } from "@/components/brand/login-logo";
 import { Button } from "@/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { completeInstallationBootstrap } from "@/lib/bootstrap.functions";
 import { callRpc } from "@/lib/supabase-rpc";
 
 /**
  * Primeira configuração da instalação.
  *
- * Aparece somente enquanto a instalação aguarda o bootstrap autorizado pelo
- * MASTER. O código de ativação é de uso único e expira.
+ * Aparece SOMENTE enquanto a instalação não tem nenhum usuário interno. O
+ * primeiro usuário criado se torna Super Admin e o workspace único da
+ * instalação é criado automaticamente no banco (trigger `handle_new_user`).
  */
 export const Route = createFileRoute("/setup")({
-	ssr: false,
-	component: SetupPage,
-	head: () => ({
-		meta: [
-			{ title: "Primeira configuração — Crie o Super Admin" },
-			{
-				name: "description",
-				content:
-					"Crie o Super Admin desta instalação para liberar o primeiro acesso e o workspace único.",
-			},
-			{
-				property: "og:title",
-				content: "Primeira configuração — Crie o Super Admin",
-			},
-			{
-				property: "og:description",
-				content: "Primeiro acesso de uma instalação Unitos recém-provisionada.",
-			},
-			{ property: "og:type", content: "website" },
-			{ name: "twitter:card", content: "summary" },
-		],
-	}),
+  ssr: false,
+  component: SetupPage,
+  head: () => ({
+    meta: [
+      { title: "Primeira configuração — Crie o Super Admin" },
+      {
+        name: "description",
+        content:
+          "Crie o Super Admin desta instalação para liberar o primeiro acesso e o workspace único.",
+      },
+      { property: "og:title", content: "Primeira configuração — Crie o Super Admin" },
+      {
+        property: "og:description",
+        content: "Primeiro acesso de uma instalação Unitos recém-provisionada.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
 });
 
-type SetupState = {
-	needs_super_admin?: boolean;
-	has_workspace?: boolean;
-	bootstrap_available?: boolean;
-} | null;
+type SetupState = { needs_super_admin?: boolean; has_workspace?: boolean } | null;
 
 function SetupPage() {
-	const navigate = useNavigate();
-	const completeBootstrap = useServerFn(completeInstallationBootstrap);
-	const [checking, setChecking] = useState(true);
-	const [submitting, setSubmitting] = useState(false);
-	const [fullName, setFullName] = useState("");
-	const [workspaceName, setWorkspaceName] = useState("");
-	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
-	const [activationCode, setActivationCode] = useState("");
-	const [available, setAvailable] = useState(false);
+  const navigate = useNavigate();
+  const [checking, setChecking] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-	useEffect(() => {
-		let cancelled = false;
-		void (async () => {
-			const { data } = await callRpc<SetupState>(
-				supabase,
-				"installation_setup_state",
-			);
-			if (cancelled) return;
-			if (data && data.needs_super_admin === false) {
-				navigate({ to: "/login", replace: true });
-				return;
-			}
-			setAvailable(Boolean(data?.bootstrap_available));
-			setChecking(false);
-		})();
-		return () => {
-			cancelled = true;
-		};
-	}, [navigate]);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { data } = await callRpc<SetupState>(supabase, "installation_setup_state");
+      if (cancelled) return;
+      if (data && data.needs_super_admin === false) {
+        navigate({ to: "/login", replace: true });
+        return;
+      }
+      setChecking(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
 
-	const submit = async (event: React.FormEvent) => {
-		event.preventDefault();
-		if (password.length < 8) {
-			toast.error("Use uma senha com pelo menos 8 caracteres.");
-			return;
-		}
-		setSubmitting(true);
-		try {
-			await completeBootstrap({
-				data: { activationCode, fullName, workspaceName, email, password },
-			});
-			const { error } = await supabase.auth.signInWithPassword({
-				email: email.trim(),
-				password,
-			});
-			if (error) throw error;
-			toast.success("Super Admin criado. Workspace da instalação disponível.");
-			navigate({ to: "/dashboard", replace: true });
-		} catch {
-			toast.error(
-				"Não foi possível concluir a ativação. Confira o código e tente novamente.",
-			);
-		} finally {
-			setSubmitting(false);
-		}
-	};
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (password.length < 8) {
+      toast.error("Use uma senha com pelo menos 8 caracteres.");
+      return;
+    }
+    setSubmitting(true);
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        data: {
+          full_name: fullName.trim(),
+          role: "super_admin",
+          workspace_name: workspaceName.trim() || fullName.trim(),
+        },
+      },
+    });
+    if (error) {
+      setSubmitting(false);
+      toast.error(error.message);
+      return;
+    }
+    // Instalações novas nascem sem confirmação de e-mail. Se o projeto ainda
+    // exigir confirmação, entramos direto com a senha em vez de deixar o
+    // primeiro acesso preso esperando um e-mail que não chega.
+    if (!data.session) {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (signInError) {
+        setSubmitting(false);
+        toast.error(
+          "Super Admin criado, mas este projeto ainda exige confirmação de e-mail. Desative a confirmação de e-mail no Supabase e entre pela tela de login.",
+        );
+        return;
+      }
+    }
+    setSubmitting(false);
+    toast.success("Super Admin criado. Workspace da instalação disponível.");
+    navigate({ to: "/dashboard", replace: true });
 
-	if (checking) {
-		return (
-			<main className="grid min-h-screen place-items-center bg-background">
-				<div className="flex items-center gap-2 text-sm text-muted-foreground">
-					<Loader2 className="h-4 w-4 animate-spin" /> Verificando esta
-					instalação…
-				</div>
-			</main>
-		);
-	}
+  };
 
-	return (
-		<main className="grid min-h-screen place-items-center bg-background px-6 py-14">
-			<div className="w-full max-w-md space-y-6">
-				<LoginLogo />
-				<Card>
-					<CardHeader>
-						<CardTitle className="flex items-center gap-2 text-base">
-							<ShieldCheck className="h-4 w-4 text-primary" /> Crie o Super
-							Admin desta instalação
-						</CardTitle>
-						<CardDescription>
-							Use o código emitido pelo MASTER para criar o único primeiro
-							acesso desta instalação.
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<form className="space-y-4" onSubmit={submit}>
-							<div className="space-y-1.5">
-								<Label htmlFor="setup-code">Código de ativação</Label>
-								<PasswordInput
-									id="setup-code"
-									value={activationCode}
-									onChange={(e) => setActivationCode(e.target.value)}
-									required
-									minLength={24}
-									autoComplete="off"
-								/>
-							</div>
-							<div className="space-y-1.5">
-								<Label htmlFor="setup-name">Seu nome</Label>
-								<Input
-									id="setup-name"
-									value={fullName}
-									onChange={(e) => setFullName(e.target.value)}
-									required
-									autoComplete="name"
-								/>
-							</div>
-							<div className="space-y-1.5">
-								<Label htmlFor="setup-workspace">Nome do workspace</Label>
-								<Input
-									id="setup-workspace"
-									value={workspaceName}
-									onChange={(e) => setWorkspaceName(e.target.value)}
-									placeholder="Ex.: Pitada Digital"
-									required
-								/>
-								<p className="text-[11px] text-muted-foreground">
-									Cada instalação tem exatamente 1 workspace — ele é criado
-									agora e não pode ser trocado depois.
-								</p>
-							</div>
-							<div className="space-y-1.5">
-								<Label htmlFor="setup-email">E-mail</Label>
-								<Input
-									id="setup-email"
-									type="email"
-									value={email}
-									onChange={(e) => setEmail(e.target.value)}
-									required
-									autoComplete="email"
-								/>
-							</div>
-							<div className="space-y-1.5">
-								<Label htmlFor="setup-password">Senha</Label>
-								<PasswordInput
-									id="setup-password"
-									value={password}
-									onChange={(e) => setPassword(e.target.value)}
-									required
-									minLength={8}
-									autoComplete="new-password"
-								/>
-							</div>
-							<Button
-								type="submit"
-								className="w-full"
-								disabled={
-									submitting || !available || activationCode.length < 24
-								}
-							>
-								{submitting && (
-									<Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-								)}
-								Criar Super Admin
-							</Button>
-							{!available ? (
-								<p className="text-xs text-destructive">
-									A ativação ainda não foi liberada pelo MASTER ou o código
-									expirou.
-								</p>
-							) : null}
-							<p className="text-[11px] text-muted-foreground">
-								Meta, Resend, Evolution/WhatsApp e IA são configuráveis depois e
-								não bloqueiam o uso da instalação.
-							</p>
-						</form>
-					</CardContent>
-				</Card>
-			</div>
-		</main>
-	);
+  if (checking) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-background">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Verificando esta instalação…
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="grid min-h-screen place-items-center bg-background px-6 py-14">
+      <div className="w-full max-w-md space-y-6">
+        <LoginLogo />
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldCheck className="h-4 w-4 text-primary" /> Crie o Super Admin desta instalação
+            </CardTitle>
+            <CardDescription>
+              Esta instalação está operacional e ainda não tem usuários. O primeiro acesso criado
+              aqui se torna Super Admin e recebe o workspace único da instalação.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-4" onSubmit={submit}>
+              <div className="space-y-1.5">
+                <Label htmlFor="setup-name">Seu nome</Label>
+                <Input
+                  id="setup-name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                  autoComplete="name"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="setup-workspace">Nome do workspace</Label>
+                <Input
+                  id="setup-workspace"
+                  value={workspaceName}
+                  onChange={(e) => setWorkspaceName(e.target.value)}
+                  placeholder="Ex.: Pitada Digital"
+                  required
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Cada instalação tem exatamente 1 workspace — ele é criado agora e não pode ser
+                  trocado depois.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="setup-email">E-mail</Label>
+                <Input
+                  id="setup-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="setup-password">Senha</Label>
+                <PasswordInput
+                  id="setup-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={submitting}>
+                {submitting && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                Criar Super Admin
+              </Button>
+              <p className="text-[11px] text-muted-foreground">
+                Meta, Resend, Evolution/WhatsApp e IA são configuráveis depois e não bloqueiam o uso
+                da instalação.
+              </p>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </main>
+  );
 }

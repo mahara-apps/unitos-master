@@ -18,34 +18,23 @@
  *   - todo texto persistido passa por `sanitize()` (redaction de segredos).
  */
 
-import { runtimeEnv } from "@/lib/runtime-env.server";
-import { formatDateTimeBr } from "@/lib/timezone";
 import baseline000 from "../../../supabase/baseline-snapshot/000_extensions.sql?raw";
 import baseline001 from "../../../supabase/baseline-snapshot/001_initial_schema.sql?raw";
-import baseline003 from "../../../supabase/baseline-snapshot/003_storage_buckets.sql?raw";
-import baseline004 from "../../../supabase/baseline-snapshot/004_seeds.sql?raw";
 import baseline005 from "../../../supabase/baseline-snapshot/005_auth_trigger.sql?raw";
-import baseline006 from "../../../supabase/baseline-snapshot/006_storage_policies.sql?raw";
 import baseline007 from "../../../supabase/baseline-snapshot/007_delta_migrations.sql?raw";
 import deltaManifest from "../../../supabase/baseline-snapshot/tools/delta_manifest.txt?raw";
 import deltaVersion from "../../../supabase/baseline-snapshot/tools/delta_version.txt?raw";
+import baseline003 from "../../../supabase/baseline-snapshot/003_storage_buckets.sql?raw";
+import baseline006 from "../../../supabase/baseline-snapshot/006_storage_policies.sql?raw";
+import baseline004 from "../../../supabase/baseline-snapshot/004_seeds.sql?raw";
 import install010 from "../../../supabase/install/010_installation_identity.sql?raw";
 import install011 from "../../../supabase/install/011_brain_stats_init.sql?raw";
 import install020 from "../../../supabase/install/020_cron.sql?raw";
 import verifySql from "../../../supabase/install/verify-installation-client.sql?raw";
-import {
-  type AutomationOutcome,
-  assertSecretsAreExclusive,
-  automationOutcome,
-  buildDeployEnvPlan,
-  buildInstallationRuntimeEnvPlan,
-  GENERATED_SECRET_VARS,
-  type GeneratedSecretVar,
-  resolveAutomationCapability,
-  resolveAutomationTarget,
-  resolveInstallationRepo,
-  resolveOperationalUrl,
-} from "./automation-contract";
+
+import { runtimeEnv } from "@/lib/runtime-env.server";
+import { formatDateTimeBr } from "@/lib/timezone";
+
 import {
   explicitDropFunctionSignature,
   prepareVerificationSql,
@@ -55,27 +44,38 @@ import {
   summarizeVerificationRows,
 } from "./baseline-sql";
 import { containsMasterReference } from "./bootstrap-contract";
-import { createHash } from "node:crypto";
 import {
-  buildLegacyPromotionInventory,
-  buildLegacyReconciliationInspectionSql,
-  type LegacyPromotion,
-  legacyEvidenceBlockReason,
-  normalizeLegacyEvidenceRows,
-} from "./legacy-reconciliation";
-import {
-  type CheckState,
-  type HealthCheckId,
-  MASTER_RELEASE_VERSION,
-  VALIDATE_STEPS,
-} from "./manager-contract";
-import { InstallationReadError, readWithBackoff } from "./resilience.server";
+  GENERATED_SECRET_VARS,
+  assertSecretsAreExclusive,
+  automationOutcome,
+  buildDeployEnvPlan,
+  resolveAutomationCapability,
+  resolveAutomationTarget,
+  resolveInstallationRepo,
+  resolveOperationalUrl,
+  type AutomationOutcome,
+  type GeneratedSecretVar,
+} from "./automation-contract";
 import {
   applyProgressReport,
   finalizeOperation,
-  type OperationRow,
   sanitize,
+  type OperationRow,
 } from "./runner.server";
+import { InstallationReadError, readWithBackoff } from "./resilience.server";
+import {
+  MASTER_RELEASE_VERSION,
+  VALIDATE_STEPS,
+  type CheckState,
+  type HealthCheckId,
+} from "./manager-contract";
+import {
+  buildLegacyPromotionInventory,
+  buildLegacyReconciliationInspectionSql,
+  legacyEvidenceBlockReason,
+  type LegacyPromotion,
+  normalizeLegacyEvidenceRows,
+} from "./legacy-reconciliation";
 
 /* --------------------------------------------------------------- utilidades */
 
@@ -93,10 +93,7 @@ type OperationControlClient = {
         column: string,
         value: string,
       ) => {
-        maybeSingle: () => Promise<{
-          data?: OperationControlState | null;
-          error?: unknown;
-        }>;
+        maybeSingle: () => Promise<{ data?: OperationControlState | null; error?: unknown }>;
       };
     };
   };
@@ -299,9 +296,7 @@ export async function hardenHelperTables(management: {
  * erros de "objeto já existe". Qualquer outro erro aborta e é reportado.
  */
 export async function applyStatementByStatement(
-  management: {
-    query: (sql: string) => Promise<{ ok: boolean; rows: unknown[]; error?: string }>;
-  },
+  management: { query: (sql: string) => Promise<{ ok: boolean; rows: unknown[]; error?: string }> },
   sql: string,
   options?: {
     onProgress?: (processed: number, total: number) => Promise<void> | void;
@@ -316,13 +311,7 @@ export async function applyStatementByStatement(
     completionPostcondition?: { predicateSql: string; errorMessage: string };
   },
 ): Promise<
-  | {
-      ok: true;
-      skipped: number;
-      processed: number;
-      total: number;
-      complete: boolean;
-    }
+  | { ok: true; skipped: number; processed: number; total: number; complete: boolean }
   | { ok: false; error?: string; processed?: number; total?: number }
 > {
   const statements = splitSqlStatements(sql);
@@ -395,11 +384,7 @@ export async function applyStatementByStatement(
     canonicalIndex < 0 ||
     canonicalIndex > statements.length
   ) {
-    return {
-      ok: false,
-      error: "Checkpoint canônico contém um índice inválido.",
-      processed,
-    };
+    return { ok: false, error: "Checkpoint canônico contém um índice inválido.", processed };
   }
   from = canonicalIndex;
   processed = canonicalIndex;
@@ -410,20 +395,13 @@ export async function applyStatementByStatement(
 
   for (let start = from; start < stopAt; start += batchSize) {
     if (await options?.isCancelled?.()) {
-      return {
-        ok: false,
-        error: "Operação cancelada pelo Super Admin.",
-        processed,
-      };
+      return { ok: false, error: "Operação cancelada pelo Super Admin.", processed };
     }
     const batch = statements.slice(start, Math.min(start + batchSize, stopAt));
     // `ALTER TYPE ... ADD VALUE` não pode rodar dentro de bloco/função: o
     // Postgres recusa com 25001/0A000. Esses statements saem do bloco protegido
     // e vão isolados, na mesma ordem, tolerando "já existe".
-    const segments: Array<{
-      kind: "guarded" | "enum" | "procedural";
-      statements: string[];
-    }> = [];
+    const segments: Array<{ kind: "guarded" | "enum" | "procedural"; statements: string[] }> = [];
     for (const statement of batch) {
       const isEnumAdd = /^\s*alter\s+type\b[\s\S]*\badd\s+value\b/i.test(statement);
       // Um bloco DO já possui sua própria fronteira PL/pgSQL. Envolvê-lo no
@@ -623,11 +601,6 @@ export type ManagementClient = {
    * simples — quem chama trata a ausência como "não aplicado".
    */
   configureAuth?: (patch: Record<string, unknown>) => Promise<{ ok: boolean; error?: string }>;
-  readAuth?: () => Promise<{
-    ok: boolean;
-    config?: Record<string, unknown>;
-    error?: string;
-  }>;
 };
 
 /**
@@ -636,35 +609,19 @@ export type ManagementClient = {
  * DNS apontado, então o e-mail de confirmação nunca chega e o primeiro acesso
  * (/setup) ficaria preso. Convites e reset continuam disponíveis.
  */
-export function installationAuthDefaults(appUrl: string) {
-  const origin = new URL(appUrl).origin;
-  return {
-    site_url: origin,
-    uri_allow_list: `${origin}/reset-password,${origin}/invite/*`,
-    disable_signup: true,
-    mailer_autoconfirm: true,
-  } as const;
-}
+export const INSTALLATION_AUTH_DEFAULTS = { mailer_autoconfirm: true } as const;
 
 /** Aplica os padrões de auth no destino. Nunca bloqueia a operação. */
 export async function applyInstallationAuthDefaults(
   management: ManagementClient,
-  appUrl: string,
 ): Promise<{ applied: boolean; detail: string }> {
   if (!management.configureAuth) {
-    return {
-      applied: false,
-      detail: "cliente de gestão sem suporte a config/auth",
-    };
+    return { applied: false, detail: "cliente de gestão sem suporte a config/auth" };
   }
-  const expected = installationAuthDefaults(appUrl);
-  const res = await management.configureAuth({ ...expected });
-  if (!res.ok)
-    return {
-      applied: false,
-      detail: res.error ?? "não foi possível ajustar a autenticação",
-    };
-  return { applied: true, detail: "cadastro fechado e URLs de autenticação aplicadas" };
+  const res = await management.configureAuth({ ...INSTALLATION_AUTH_DEFAULTS });
+  return res.ok
+    ? { applied: true, detail: "confirmação de e-mail desligada no destino" }
+    : { applied: false, detail: res.error ?? "não foi possível ajustar a autenticação" };
 }
 
 function managementApiError(status: number, body: string, operation: "database" | "keys"): string {
@@ -717,11 +674,7 @@ export function extractSupabaseApiKeys(body: unknown): {
     typeof value === "string" && value.trim() ? value.trim() : undefined;
 
   if (Array.isArray(body)) {
-    const rows = body as Array<{
-      name?: string;
-      type?: string;
-      api_key?: string;
-    }>;
+    const rows = body as Array<{ name?: string; type?: string; api_key?: string }>;
     const find = (name: string) =>
       clean(rows.find((k) => k?.name === name || k?.type === name)?.api_key);
     return {
@@ -762,33 +715,8 @@ export function createManagementClient(input: {
   const attempts = RETRY_DELAYS_MS.length;
 
   return {
-    async readAuth() {
-      try {
-        const res = await doFetch(`${base}/config/auth`, { headers });
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          return {
-            ok: false,
-            error: managementApiError(res.status, text, "database"),
-          };
-        }
-        const config = (await res.json().catch(() => null)) as Record<string, unknown> | null;
-        return config
-          ? { ok: true, config }
-          : { ok: false, error: "resposta inválida de config/auth" };
-      } catch (error) {
-        return {
-          ok: false,
-          error: error instanceof Error ? error.message : "falha ao ler config/auth",
-        };
-      }
-    },
     async query(sql) {
-      let last = {
-        ok: false,
-        rows: [] as unknown[],
-        error: "sem resposta da Management API",
-      };
+      let last = { ok: false, rows: [] as unknown[], error: "sem resposta da Management API" };
       for (let attempt = 0; attempt < attempts; attempt++) {
         const controller = new AbortController();
         // Precisa expirar ANTES do limite do runtime. Um timeout de 60s não
@@ -803,11 +731,7 @@ export function createManagementClient(input: {
           });
           if (!res.ok) {
             const text = await res.text().catch(() => "");
-            last = {
-              ok: false,
-              rows: [],
-              error: managementApiError(res.status, text, "database"),
-            };
+            last = { ok: false, rows: [], error: managementApiError(res.status, text, "database") };
             if (!isRetryableManagementStatus(res.status)) return last;
           } else {
             try {
@@ -844,15 +768,11 @@ export function createManagementClient(input: {
       return last;
     },
     async keys() {
-      let last: {
-        ok: boolean;
-        publishableKey?: string;
-        serviceRoleKey?: string;
-        error?: string;
-      } = {
-        ok: false,
-        error: "sem resposta da Management API",
-      };
+      let last: { ok: boolean; publishableKey?: string; serviceRoleKey?: string; error?: string } =
+        {
+          ok: false,
+          error: "sem resposta da Management API",
+        };
       // A revelação das chaves novas (`reveal=true`) exige privilégio maior do
       // que a simples leitura. Um token que só enxerga as chaves legadas
       // (anon/service_role) responde 403 ali e 200 nos outros caminhos — então
@@ -863,10 +783,7 @@ export function createManagementClient(input: {
             const res = await doFetch(`${base}${path}`, { headers });
             if (!res.ok) {
               const text = await res.text().catch(() => "");
-              last = {
-                ok: false,
-                error: managementApiError(res.status, text, "keys"),
-              };
+              last = { ok: false, error: managementApiError(res.status, text, "keys") };
               if (!isRetryableManagementStatus(res.status)) break;
             } else {
               const body = (await res.json().catch(() => null)) as unknown;
@@ -902,10 +819,7 @@ export function createManagementClient(input: {
           });
           if (res.ok) return { ok: true };
           const text = await res.text().catch(() => "");
-          last = {
-            ok: false,
-            error: managementApiError(res.status, text, "database"),
-          };
+          last = { ok: false, error: managementApiError(res.status, text, "database") };
           if (!isRetryableManagementStatus(res.status)) return last;
         } catch (e) {
           const aborted = e instanceof Error && e.name === "AbortError";
@@ -931,10 +845,7 @@ export async function validateSupabaseProjectKeys(input: {
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const origin = input.supabaseUrl.trim().replace(/\/+$/, "");
   if (!/^https:\/\/[a-z0-9]{16,}\.supabase\.co$/i.test(origin)) {
-    return {
-      ok: false,
-      error: "URL do Supabase inválida para validar as chaves.",
-    };
+    return { ok: false, error: "URL do Supabase inválida para validar as chaves." };
   }
   const doFetch = input.fetchImpl ?? fetch;
   const check = async (key: string, label: string) => {
@@ -988,11 +899,7 @@ export type DeployClient = {
     projectName?: string;
   }>;
   /** Redeploy da producao — necessario para que as variaveis gravadas valham. */
-  redeploy: () => Promise<{
-    ok: boolean;
-    deploymentId?: string;
-    error?: string;
-  }>;
+  redeploy: () => Promise<{ ok: boolean; deploymentId?: string; error?: string }>;
   /**
    * Desliga (ou religa) o build automatico da branch de producao no projeto de
    * deploy. Instalacoes externas NAO podem publicar sozinhas a cada commit no
@@ -1104,13 +1011,7 @@ export function confirmVercelGithubLink(
   body: VercelProjectLinkBody | VercelGitLink | null | undefined,
   expectedRepo: string,
   expectedBranch = "main",
-): {
-  confirmed: boolean;
-  present: boolean;
-  repo: string;
-  branch: string;
-  reason?: string;
-} {
+): { confirmed: boolean; present: boolean; repo: string; branch: string; reason?: string } {
   const container = body && ("link" in body || "gitRepository" in body) ? body : null;
   const link = (container?.gitRepository ?? container?.link ?? body ?? {}) as VercelGitLink;
   const repo = (
@@ -1124,13 +1025,7 @@ export function confirmVercelGithubLink(
   const expected = expectedRepo.trim().toLowerCase();
 
   if (!present) {
-    return {
-      confirmed: false,
-      present: false,
-      repo,
-      branch,
-      reason: "vínculo GitHub ausente",
-    };
+    return { confirmed: false, present: false, repo, branch, reason: "vínculo GitHub ausente" };
   }
   if (type !== "github") {
     return {
@@ -1213,10 +1108,7 @@ export function validateReadyDeploymentCommit(
   expectedCommit: string,
 ): { ok: true } | { ok: false; reason: string } {
   if (deployment.state !== "READY") {
-    return {
-      ok: false,
-      reason: `deployment ainda não está READY (${deployment.state})`,
-    };
+    return { ok: false, reason: `deployment ainda não está READY (${deployment.state})` };
   }
   const expected = expectedCommit.trim().toLowerCase();
   const observed = deployment.commitSha?.trim().toLowerCase() ?? "";
@@ -1227,48 +1119,6 @@ export function validateReadyDeploymentCommit(
     };
   }
   return { ok: true };
-}
-
-/**
- * READY na hospedagem só comprova o build. A atualização apenas pode ser
- * promovida depois de a rota pública de login responder sem a tela fail-closed
- * de configuração. Não envia cookies, tokens ou qualquer credencial.
- */
-export async function verifyPublishedLogin(input: {
-  origin: string;
-  fetchImpl?: Fetcher;
-}): Promise<{ ok: true } | { ok: false; reason: string }> {
-  const doFetch = input.fetchImpl ?? fetch;
-  const url = `${input.origin.replace(/\/+$/, "")}/login`;
-  try {
-    const response = await doFetch(url, {
-      headers: { accept: "text/html" },
-      redirect: "follow",
-    });
-    const body = await response.text().catch(() => "");
-    if (!response.ok) {
-      return {
-        ok: false,
-        reason: `login público respondeu HTTP ${response.status}`,
-      };
-    }
-    if (
-      /Configuração indisponível|installation_configuration_unavailable|configuration\.invalid/i.test(
-        body,
-      )
-    ) {
-      return {
-        ok: false,
-        reason: "login público bloqueado por configuração da instalação",
-      };
-    }
-    return { ok: true };
-  } catch (error) {
-    return {
-      ok: false,
-      reason: `login público inacessível: ${error instanceof Error ? error.message : "falha de rede"}`,
-    };
-  }
 }
 
 /**
@@ -1481,10 +1331,7 @@ export function createCodeClient(input: {
   };
   const headers = { ...baseHeaders, authorization: `Bearer ${input.token}` };
   const masterToken = (input.masterToken ?? "").trim() || input.token;
-  const masterHeaders = {
-    ...baseHeaders,
-    authorization: `Bearer ${masterToken}`,
-  };
+  const masterHeaders = { ...baseHeaders, authorization: `Bearer ${masterToken}` };
   /**
    * Só LEITURA (GET) do repositório do MASTER usa o token do MASTER. Escritas
    * em `/repos/{master}/generate` cria no destino e continua com o token da
@@ -1583,15 +1430,8 @@ export function createCodeClient(input: {
 
   const readMasterFileAtCommit = async (path: string, sha: string) => {
     const res = await api(`/repos/${master}/contents/${path}?ref=${encodeURIComponent(sha)}`);
-    if (!res.ok)
-      return {
-        ok: false as const,
-        error: await fail(res, `ler ${path} no MASTER`),
-      };
-    const body = (await res.json().catch(() => ({}))) as {
-      content?: string;
-      encoding?: string;
-    };
+    if (!res.ok) return { ok: false as const, error: await fail(res, `ler ${path} no MASTER`) };
+    const body = (await res.json().catch(() => ({}))) as { content?: string; encoding?: string };
     const content =
       body.encoding === "base64" && body.content
         ? new TextDecoder().decode(
@@ -1645,21 +1485,14 @@ export function createCodeClient(input: {
       }
     },
     async permissions() {
-      const checks: Array<{
-        label: string;
-        ok: boolean;
-        detail: string;
-        area: "code";
-      }> = [];
+      const checks: Array<{ label: string; ok: boolean; detail: string; area: "code" }> = [];
       const push = (label: string, ok: boolean, detail: string) =>
         checks.push({ label, ok, detail, area: "code" as const });
       try {
         const quota = await rawApi("/rate_limit");
         if (quota.ok) {
           const body = (await quota.json().catch(() => ({}))) as {
-            resources?: {
-              core?: { remaining?: number; limit?: number; reset?: number };
-            };
+            resources?: { core?: { remaining?: number; limit?: number; reset?: number } };
           };
           const core = body.resources?.core ?? {};
           const remaining = core.remaining ?? 0;
@@ -1700,10 +1533,7 @@ export function createCodeClient(input: {
              * publicação usa. */
             const probe = await api(`/repos/${target}/git/blobs`, {
               method: "POST",
-              body: JSON.stringify({
-                content: "unitos-preflight",
-                encoding: "utf-8",
-              }),
+              body: JSON.stringify({ content: "unitos-preflight", encoding: "utf-8" }),
             });
             push(
               "Gravação no repositório da instalação",
@@ -1773,16 +1603,12 @@ export function createCodeClient(input: {
           // legado. Qualquer outro conteúdo é preservado. O repositório técnico
           // nunca é excluído: ele é renomeado e arquivado como backup.
           const head = await api(`/repos/${target}/git/ref/heads/${branch}`);
-          const headBody = (await head.json().catch(() => ({}))) as {
-            object?: { sha?: string };
-          };
+          const headBody = (await head.json().catch(() => ({}))) as { object?: { sha?: string } };
           const headSha = headBody.object?.sha;
           const tree = headSha
             ? await api(`/repos/${target}/git/trees/${headSha}?recursive=1`)
             : new Response("branch ausente", { status: 404 });
-          const treeBody = (await tree.json().catch(() => ({}))) as {
-            tree?: TreeEntry[];
-          };
+          const treeBody = (await tree.json().catch(() => ({}))) as { tree?: TreeEntry[] };
           const files = (treeBody.tree ?? []).filter((entry) => entry.type === "blob");
           const onlyReadme = files.length === 1 && files[0]?.path === "README.md";
           let knownSeed = false;
@@ -1804,20 +1630,11 @@ export function createCodeClient(input: {
               decoded ===
               `# ${input.repo}\n\nInstalação Unitos. Código publicado a partir do MASTER.\n`;
           }
-          if (!knownSeed)
-            return {
-              ok: true,
-              created: false,
-              via: "existing",
-              commitSha: headSha,
-            };
+          if (!knownSeed) return { ok: true, created: false, via: "existing", commitSha: headSha };
 
           const masterInfo = await api(`/repos/${master}`);
           if (!masterInfo.ok) {
-            return {
-              ok: false,
-              error: await fail(masterInfo, `ler o template ${master}`),
-            };
+            return { ok: false, error: await fail(masterInfo, `ler o template ${master}`) };
           }
           const masterBody = (await masterInfo.json().catch(() => ({}))) as {
             is_template?: boolean;
@@ -1914,9 +1731,7 @@ export function createCodeClient(input: {
                 true,
               );
               if (generatedHead.ok) {
-                const body = (await generatedHead.json().catch(() => ({}))) as {
-                  sha?: string;
-                };
+                const body = (await generatedHead.json().catch(() => ({}))) as { sha?: string };
                 if (body.sha) {
                   return {
                     ok: true,
@@ -1994,9 +1809,7 @@ export function createCodeClient(input: {
           for (let attempt = 0; attempt < 12; attempt += 1) {
             const generatedHead = await api(`/repos/${target}/commits/${branch}`, undefined, true);
             if (generatedHead.ok) {
-              const body = (await generatedHead.json().catch(() => ({}))) as {
-                sha?: string;
-              };
+              const body = (await generatedHead.json().catch(() => ({}))) as { sha?: string };
               if (body.sha) {
                 return {
                   ok: true,
@@ -2014,18 +1827,12 @@ export function createCodeClient(input: {
             error: `A cópia completa de ${master} foi solicitada, mas a branch ${branch} de ${target} ainda não ficou disponível. O backup técnico ${backupTarget} permanece arquivado. Tente retomar em alguns instantes.`,
           };
         } else if (existing.status !== 404) {
-          return {
-            ok: false,
-            error: await fail(existing, `consultar o repositório ${target}`),
-          };
+          return { ok: false, error: await fail(existing, `consultar o repositório ${target}`) };
         }
 
         const masterInfo = await api(`/repos/${master}`);
         if (!masterInfo.ok) {
-          return {
-            ok: false,
-            error: await fail(masterInfo, `ler o template ${master}`),
-          };
+          return { ok: false, error: await fail(masterInfo, `ler o template ${master}`) };
         }
         const masterBody = (await masterInfo.json().catch(() => ({}))) as {
           is_template?: boolean;
@@ -2063,9 +1870,7 @@ export function createCodeClient(input: {
         for (let attempt = 0; attempt < 12; attempt += 1) {
           const head = await api(`/repos/${target}/commits/${branch}`, undefined, true);
           if (head.ok) {
-            const body = (await head.json().catch(() => ({}))) as {
-              sha?: string;
-            };
+            const body = (await head.json().catch(() => ({}))) as { sha?: string };
             if (body.sha) {
               return {
                 ok: true,
@@ -2089,11 +1894,7 @@ export function createCodeClient(input: {
     async masterHeadSha() {
       try {
         const res = await api(`/repos/${master}/commits/${branch}`);
-        if (!res.ok)
-          return {
-            ok: false,
-            error: await fail(res, "ler o commit do MASTER"),
-          };
+        if (!res.ok) return { ok: false, error: await fail(res, "ler o commit do MASTER") };
         const body = (await res.json().catch(() => ({}))) as { sha?: string };
         if (!body.sha) return { ok: false, error: "commit do MASTER não retornado" };
         return { ok: true, sha: body.sha };
@@ -2109,11 +1910,7 @@ export function createCodeClient(input: {
         if (!file.ok) return file;
         const raw = file.content;
         const match = /^\s*version\s*=\s*(\S+)\s*$/m.exec(raw);
-        if (!match?.[1])
-          return {
-            ok: false,
-            error: "versão do pacote não encontrada no commit",
-          };
+        if (!match?.[1]) return { ok: false, error: "versão do pacote não encontrada no commit" };
         return { ok: true, version: match[1] };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
@@ -2135,10 +1932,7 @@ export function createCodeClient(input: {
           .exec(versionFile.content)?.[1]
           ?.toLowerCase();
         if (!version || !declaredSha)
-          return {
-            ok: false,
-            error: "metadados do pacote autorizado estão incompletos",
-          };
+          return { ok: false, error: "metadados do pacote autorizado estão incompletos" };
         const digest = await crypto.subtle.digest(
           "SHA-256",
           new TextEncoder().encode(deltaFile.content),
@@ -2147,16 +1941,10 @@ export function createCodeClient(input: {
           .map((byte) => byte.toString(16).padStart(2, "0"))
           .join("");
         if (actualSha !== declaredSha)
-          return {
-            ok: false,
-            error: "assinatura do pacote autorizado não confere",
-          };
+          return { ok: false, error: "assinatura do pacote autorizado não confere" };
         const total = splitDeltaMigrations(deltaFile.content).length;
         if (total === 0)
-          return {
-            ok: false,
-            error: "pacote autorizado não contém migrations válidas",
-          };
+          return { ok: false, error: "pacote autorizado não contém migrations válidas" };
         const manifestCheck = await validateDeltaManifest(manifestFile.content, deltaFile.content);
         if (!manifestCheck.ok) return { ok: false, error: manifestCheck.error };
         return {
@@ -2176,24 +1964,16 @@ export function createCodeClient(input: {
       try {
         const headRes = await api(`/repos/${target}/commits/${branch}`);
         if (!headRes.ok) {
-          return {
-            ok: false,
-            error: await fail(headRes, "ler o commit da instalação"),
-          };
+          return { ok: false, error: await fail(headRes, "ler o commit da instalação") };
         }
-        const headBody = (await headRes.json().catch(() => ({}))) as {
-          sha?: string;
-        };
+        const headBody = (await headRes.json().catch(() => ({}))) as { sha?: string };
         if (!headBody.sha) return { ok: false, error: "commit da instalação não retornado" };
         const path = "supabase/baseline-snapshot/tools/delta_version.txt";
         const res = await api(
           `/repos/${target}/contents/${path}?ref=${encodeURIComponent(headBody.sha)}`,
         );
         if (!res.ok) {
-          return {
-            ok: false,
-            error: await fail(res, "ler a versão publicada na instalação"),
-          };
+          return { ok: false, error: await fail(res, "ler a versão publicada na instalação") };
         }
         const body = (await res.json().catch(() => ({}))) as {
           content?: string;
@@ -2224,33 +2004,20 @@ export function createCodeClient(input: {
       // por API do plano gratuito.
       try {
         const refRes = await api(`/repos/${target}/git/ref/heads/${branch}`);
-        if (!refRes.ok)
-          return {
-            ok: false,
-            error: await fail(refRes, "ler a branch do destino"),
-          };
-        const refBody = (await refRes.json().catch(() => ({}))) as {
-          object?: { sha?: string };
-        };
+        if (!refRes.ok) return { ok: false, error: await fail(refRes, "ler a branch do destino") };
+        const refBody = (await refRes.json().catch(() => ({}))) as { object?: { sha?: string } };
         const headSha = refBody.object?.sha;
         if (!headSha) return { ok: false, error: "HEAD do destino não retornado" };
 
         const commitRes = await api(`/repos/${target}/git/commits/${headSha}`);
         if (!commitRes.ok) {
-          return {
-            ok: false,
-            error: await fail(commitRes, "ler o commit do destino"),
-          };
+          return { ok: false, error: await fail(commitRes, "ler o commit do destino") };
         }
         const commitBody = (await commitRes.json().catch(() => ({}))) as {
           tree?: { sha?: string };
         };
         const treeSha = commitBody.tree?.sha;
-        if (!treeSha)
-          return {
-            ok: false,
-            error: "árvore do commit do destino não retornada",
-          };
+        if (!treeSha) return { ok: false, error: "árvore do commit do destino não retornada" };
 
         const created = await api(`/repos/${target}/git/commits`, {
           method: "POST",
@@ -2262,10 +2029,7 @@ export function createCodeClient(input: {
           }),
         });
         if (!created.ok)
-          return {
-            ok: false,
-            error: await fail(created, "criar o commit de publicação"),
-          };
+          return { ok: false, error: await fail(created, "criar o commit de publicação") };
         const newSha = ((await created.json().catch(() => ({}))) as { sha?: string }).sha;
         if (!newSha) return { ok: false, error: "commit de publicação não retornado" };
 
@@ -2274,10 +2038,7 @@ export function createCodeClient(input: {
           body: JSON.stringify({ sha: newSha, force: false }),
         });
         if (!updated.ok)
-          return {
-            ok: false,
-            error: await fail(updated, "atualizar a branch do destino"),
-          };
+          return { ok: false, error: await fail(updated, "atualizar a branch do destino") };
         return { ok: true, commitSha: newSha };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
@@ -2317,10 +2078,7 @@ export function createCodeClient(input: {
         const tree = async (repo: string, ref: string) => {
           const res = await api(`/repos/${repo}/git/trees/${ref}?recursive=1`, undefined, true);
           if (!res.ok)
-            return {
-              ok: false as const,
-              error: await fail(res, `ler a árvore de ${repo}`),
-            };
+            return { ok: false as const, error: await fail(res, `ler a árvore de ${repo}`) };
           const body = (await res.json().catch(() => ({}))) as {
             sha?: string;
             tree?: TreeEntry[];
@@ -2338,9 +2096,7 @@ export function createCodeClient(input: {
         const readHead = async () => {
           const res = await api(`/repos/${target}/git/ref/heads/${branch}`);
           if (res.ok) {
-            const body = (await res.json().catch(() => ({}))) as {
-              object?: { sha?: string };
-            };
+            const body = (await res.json().catch(() => ({}))) as { object?: { sha?: string } };
             return { ok: true as const, sha: body.object?.sha ?? null };
           }
           if (res.status === 404 || res.status === 409) return { ok: true as const, sha: null };
@@ -2370,10 +2126,7 @@ export function createCodeClient(input: {
             }),
           });
           if (!seed.ok && seed.status !== 422) {
-            return {
-              ok: false,
-              error: await fail(seed, `inicializar ${target}`),
-            };
+            return { ok: false, error: await fail(seed, `inicializar ${target}`) };
           }
           const again = await readHead();
           if (!again.ok) return { ok: false, error: again.error };
@@ -2463,9 +2216,7 @@ export function createCodeClient(input: {
                   batchError = await fail(created, `publicar ${file.path} em ${target}`);
                   return;
                 }
-                const json = (await created.json().catch(() => ({}))) as {
-                  sha?: string;
-                };
+                const json = (await created.json().catch(() => ({}))) as { sha?: string };
                 if (json.sha) blobMap[file.sha ?? ""] = json.sha;
                 copied += 1;
                 // 5%–90% da etapa: cópia dos arquivos que diferem.
@@ -2504,10 +2255,7 @@ export function createCodeClient(input: {
           for (const file of changed) {
             const mapped = blobMap[file.sha ?? ""];
             if (!mapped) {
-              return {
-                ok: false,
-                error: `blob de ${file.path} não publicado em ${target}`,
-              };
+              return { ok: false, error: `blob de ${file.path} não publicado em ${target}` };
             }
             entries.push({
               path: file.path,
@@ -2558,13 +2306,8 @@ export function createCodeClient(input: {
         if (!treeSha) {
           const newTree = await buildTree(entries);
           if (!newTree.ok)
-            return {
-              ok: false,
-              error: await fail(newTree, `montar a árvore de ${target}`),
-            };
-          const treeJson = (await newTree.json().catch(() => ({}))) as {
-            sha?: string;
-          };
+            return { ok: false, error: await fail(newTree, `montar a árvore de ${target}`) };
+          const treeJson = (await newTree.json().catch(() => ({}))) as { sha?: string };
           treeSha = treeJson.sha ?? null;
         }
         if (!treeSha) return { ok: false, error: `árvore de ${target} não retornada` };
@@ -2579,13 +2322,8 @@ export function createCodeClient(input: {
           }),
         });
         if (!commit.ok)
-          return {
-            ok: false,
-            error: await fail(commit, `criar o commit em ${target}`),
-          };
-        const commitJson = (await commit.json().catch(() => ({}))) as {
-          sha?: string;
-        };
+          return { ok: false, error: await fail(commit, `criar o commit em ${target}`) };
+        const commitJson = (await commit.json().catch(() => ({}))) as { sha?: string };
 
         const refPath = `/repos/${target}/git/refs`;
         const update = parent
@@ -2595,10 +2333,7 @@ export function createCodeClient(input: {
             })
           : await api(refPath, {
               method: "POST",
-              body: JSON.stringify({
-                ref: `refs/heads/${branch}`,
-                sha: commitJson.sha,
-              }),
+              body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: commitJson.sha }),
             });
         if (!update.ok) {
           return {
@@ -2606,11 +2341,7 @@ export function createCodeClient(input: {
             error: await fail(update, `atualizar a branch ${branch} de ${target}`),
           };
         }
-        return {
-          ok: true,
-          commitSha: commitJson.sha,
-          changed: changed.length + removed.length,
-        };
+        return { ok: true, commitSha: commitJson.sha, changed: changed.length + removed.length };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
       }
@@ -2698,9 +2429,9 @@ export function createDeployClient(input: {
     const personalMatch = await discoverEquivalent(resolvedTeamId);
     if (personalMatch) return personalMatch;
 
-    const teams = await doFetch("https://api.vercel.com/v2/teams?limit=100", {
-      headers,
-    }).catch(() => null);
+    const teams = await doFetch("https://api.vercel.com/v2/teams?limit=100", { headers }).catch(
+      () => null,
+    );
     if (!teams?.ok) return initial;
     const payload = (await teams.json().catch(() => ({}))) as {
       teams?: Array<{ id?: string }>;
@@ -2776,9 +2507,7 @@ export function createDeployClient(input: {
   const resolveCreationTeam = async (checkpointTeam?: string | null) => {
     const expected = (checkpointTeam ?? resolvedTeamId ?? "").trim();
     if (expected) return { ok: true as const, teamId: expected };
-    const user = await doFetch("https://api.vercel.com/v2/user", {
-      headers,
-    }).catch(() => null);
+    const user = await doFetch("https://api.vercel.com/v2/user", { headers }).catch(() => null);
     if (!user?.ok) {
       return {
         ok: false as const,
@@ -2804,10 +2533,7 @@ export function createDeployClient(input: {
     async ensureProject(repo, checkpoint) {
       const expectedRepo = repo.trim().toLowerCase();
       if (!expectedRepo || !expectedRepo.includes("/")) {
-        return {
-          ok: false,
-          error: "repositório GitHub inválido para criar o projeto Vercel",
-        };
+        return { ok: false, error: "repositório GitHub inválido para criar o projeto Vercel" };
       }
       try {
         // Compatibilidade com projetos existentes cadastrados antes de o team
@@ -2964,10 +2690,7 @@ export function createDeployClient(input: {
           repositoryLinked: linkConfirmation.confirmed,
         };
       } catch (error) {
-        return {
-          ok: false,
-          error: error instanceof Error ? error.message : "falha na Vercel",
-        };
+        return { ok: false, error: error instanceof Error ? error.message : "falha na Vercel" };
       }
     },
     async deploymentUrl() {
@@ -2988,10 +2711,7 @@ export function createDeployClient(input: {
           body.alias?.[0]?.domain ??
           (body.name ? `${body.name}.vercel.app` : undefined);
         if (!candidate) {
-          return {
-            ok: false,
-            error: "o deploy ainda não expôs uma URL pública",
-          };
+          return { ok: false, error: "o deploy ainda não expôs uma URL pública" };
         }
         return {
           ok: true,
@@ -3009,20 +2729,14 @@ export function createDeployClient(input: {
           { headers },
         );
         if (!list.ok) {
-          return {
-            ok: false,
-            error: `HTTP ${list.status} ao listar deployments`,
-          };
+          return { ok: false, error: `HTTP ${list.status} ao listar deployments` };
         }
         const body = (await list.json().catch(() => ({}))) as {
           deployments?: Array<{ uid?: string; name?: string }>;
         };
         const latest = body.deployments?.[0];
         if (!latest?.uid) {
-          return {
-            ok: false,
-            error: "nenhum deployment de producao encontrado para redeploy",
-          };
+          return { ok: false, error: "nenhum deployment de producao encontrado para redeploy" };
         }
         const res = await doFetch(`https://api.vercel.com/v13/deployments?${qs("forceNew=1")}`, {
           method: "POST",
@@ -3040,10 +2754,7 @@ export function createDeployClient(input: {
             error: `HTTP ${res.status} ao disparar redeploy (${text.slice(0, 200)})`,
           };
         }
-        const created = (await res.json().catch(() => ({}))) as {
-          id?: string;
-          uid?: string;
-        };
+        const created = (await res.json().catch(() => ({}))) as { id?: string; uid?: string };
         return { ok: true, deploymentId: created.id ?? created.uid };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
@@ -3124,11 +2835,7 @@ export function createDeployClient(input: {
           {
             method: "POST",
             headers,
-            body: JSON.stringify({
-              type: "github",
-              repo: slug,
-              gitBranch: "main",
-            }),
+            body: JSON.stringify({ type: "github", repo: slug, gitBranch: "main" }),
           },
         );
         if (!linked.ok) {
@@ -3143,9 +2850,7 @@ export function createDeployClient(input: {
           {
             method: "PATCH",
             headers,
-            body: JSON.stringify({
-              gitRepository: { productionBranch: "main" },
-            }),
+            body: JSON.stringify({ gitRepository: { productionBranch: "main" } }),
           },
         );
         if (!branchUpdate.ok) {
@@ -3224,10 +2929,7 @@ export function createDeployClient(input: {
 
         let body = await readProject();
         if (!body) {
-          return {
-            ok: false,
-            error: "não foi possível consultar o projeto de deploy",
-          };
+          return { ok: false, error: "não foi possível consultar o projeto de deploy" };
         }
 
         // O projeto precisa apontar para o repositório DA INSTALAÇÃO (o código
@@ -3265,9 +2967,7 @@ export function createDeployClient(input: {
             },
           }).catch(() => null);
           if (gh?.ok) {
-            const ghBody = (await gh.json().catch(() => ({}))) as {
-              id?: number;
-            };
+            const ghBody = (await gh.json().catch(() => ({}))) as { id?: number };
             if (ghBody.id) repoId = ghBody.id;
           }
         }
@@ -3313,16 +3013,8 @@ export function createDeployClient(input: {
             },
           );
           if (created.ok) {
-            const json = (await created.json().catch(() => ({}))) as {
-              id?: string;
-              uid?: string;
-            };
-            return {
-              ok: true,
-              deploymentId: json.id ?? json.uid,
-              source: "git" as const,
-              ref,
-            };
+            const json = (await created.json().catch(() => ({}))) as { id?: string; uid?: string };
+            return { ok: true, deploymentId: json.id ?? json.uid, source: "git" as const, ref };
           }
           const text = await created.text().catch(() => "");
           const quota = parseDeployQuotaError(created.status, text);
@@ -3371,9 +3063,7 @@ export function createDeployClient(input: {
           { headers },
         );
         if (read.ok) {
-          const body = (await read.json().catch(() => ({}))) as {
-            verified?: boolean;
-          };
+          const body = (await read.json().catch(() => ({}))) as { verified?: boolean };
           return { ok: true, added: false, verified: body.verified === true };
         }
         const created = await doFetch(
@@ -3390,9 +3080,7 @@ export function createDeployClient(input: {
             error: `HTTP ${created.status} ao atribuir o domínio ${host} (${text.slice(0, 200)})`,
           };
         }
-        const body = (await created.json().catch(() => ({}))) as {
-          verified?: boolean;
-        };
+        const body = (await created.json().catch(() => ({}))) as { verified?: boolean };
         return { ok: true, added: true, verified: body.verified === true };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
@@ -3408,10 +3096,7 @@ export function createDeployClient(input: {
           { headers },
         );
         if (!res.ok) {
-          return {
-            ok: false,
-            error: `HTTP ${res.status} ao consultar o deployment`,
-          };
+          return { ok: false, error: `HTTP ${res.status} ao consultar o deployment` };
         }
         const body = (await res.json().catch(() => ({}))) as {
           readyState?: string;
@@ -3444,10 +3129,7 @@ export function createDeployClient(input: {
           { headers },
         );
         if (!res.ok) {
-          return {
-            ok: false,
-            error: `HTTP ${res.status} ao localizar o build disparado pelo Git`,
-          };
+          return { ok: false, error: `HTTP ${res.status} ao localizar o build disparado pelo Git` };
         }
         const body = (await res.json().catch(() => ({}))) as {
           deployments?: Array<{
@@ -3591,11 +3273,7 @@ export type AutomationRunResult = Omit<AutomationOutcome, "result"> & {
   warnings?: boolean;
   appUrl: string | null;
   urlSource: "custom_domain" | "deploy" | null;
-  steps: {
-    id: string;
-    state: CheckState | "done" | "error";
-    detail: string | null;
-  }[];
+  steps: { id: string; state: CheckState | "done" | "error"; detail: string | null }[];
 };
 
 /* ------------------------------------------------- checkpoint do baseline */
@@ -3617,10 +3295,7 @@ export async function verifyVectorExtensionPostcondition(management: {
     `SELECT (${VECTOR_EXTENSION_POSTCONDITION.predicateSql}) AS vector_ready`,
   );
   if (!result.ok) {
-    return {
-      ok: false,
-      error: result.error ?? VECTOR_EXTENSION_POSTCONDITION.errorMessage,
-    };
+    return { ok: false, error: result.error ?? VECTOR_EXTENSION_POSTCONDITION.errorMessage };
   }
   const row = result.rows.find(
     (value): value is Record<string, unknown> => !!value && typeof value === "object",
@@ -3675,10 +3350,7 @@ export async function readBaselineProgress(
           c: string,
           v: string,
         ) => {
-          maybeSingle: () => Promise<{
-            data?: { detail?: unknown } | null;
-            error?: unknown;
-          }>;
+          maybeSingle: () => Promise<{ data?: { detail?: unknown } | null; error?: unknown }>;
         };
       };
     };
@@ -3793,8 +3465,6 @@ export type StageProgress = {
   updateRelease?: string;
   /** Banco Client reconciliado integralmente com o manifesto selado. */
   updateDatabaseReconciled?: boolean;
-  /** Impressão não reversível do contrato de configuração confirmado no deploy. */
-  updateRuntimeConfigFingerprint?: string;
   /** Verificador final do Client concluiu sem FAIL. */
   updateValidationPassed?: boolean;
   /** Release e commit imutáveis fixados para uma instalação nova. */
@@ -3827,10 +3497,7 @@ export async function readStageProgress(
             c: string,
             v: string,
           ) => {
-            maybeSingle: () => Promise<{
-              data?: { detail?: unknown } | null;
-              error?: unknown;
-            }>;
+            maybeSingle: () => Promise<{ data?: { detail?: unknown } | null; error?: unknown }>;
           };
         };
       };
@@ -3889,10 +3556,7 @@ export async function saveStageProgress(
     _steps: fresh.steps ?? [],
     _detail: {
       ...detail,
-      stageProgress: {
-        ...((detail.stageProgress ?? {}) as StageProgress),
-        ...patch,
-      },
+      stageProgress: { ...((detail.stageProgress ?? {}) as StageProgress), ...patch },
     },
     _current_step: null,
     _summary: null,
@@ -3971,10 +3635,7 @@ export function withRepoWriteHint(detail: string, repoSlug: string): string {
  */
 export async function preflightAccess(input: {
   management?: ManagementClient | null;
-  suppliedKeys?: {
-    publishableKey?: string | null;
-    serviceRoleKey?: string | null;
-  } | null;
+  suppliedKeys?: { publishableKey?: string | null; serviceRoleKey?: string | null } | null;
   deploy?: DeployClient | null;
   code?: CodeClient | null;
   projectRef?: string | null;
@@ -4050,12 +3711,7 @@ export async function preflightAccess(input: {
     for (const item of permissions) {
       // "Criação rápida pelo template" é conveniência: não bloqueia a operação.
       if (/template/i.test(item.label)) {
-        checks.push({
-          area: "code",
-          label: item.label,
-          ok: item.ok,
-          detail: item.detail,
-        });
+        checks.push({ area: "code", label: item.label, ok: item.ok, detail: item.detail });
         continue;
       }
       note("code", item.label, item.ok, item.detail);
@@ -4238,11 +3894,7 @@ export async function runAutomatedProvision(input: {
     keys.ok && keys.publishableKey && keys.serviceRoleKey
       ? keys
       : suppliedPublishable && suppliedServiceRole
-        ? {
-            ok: true,
-            publishableKey: suppliedPublishable,
-            serviceRoleKey: suppliedServiceRole,
-          }
+        ? { ok: true, publishableKey: suppliedPublishable, serviceRoleKey: suppliedServiceRole }
         : keys;
   if (!resolvedKeys.ok || !resolvedKeys.publishableKey || !resolvedKeys.serviceRoleKey) {
     blocked.push(
@@ -4255,7 +3907,15 @@ export async function runAutomatedProvision(input: {
   checks.supabase = "ok";
   // Confirmação de e-mail desligada por padrão: o remetente padrão do Supabase
   // não tem DNS apontado, então o link de confirmação do /setup não chegaria.
-  await mark("supabase", "done", `projeto ${target.projectRef} acessível`);
+  const authDefaults = await applyInstallationAuthDefaults(management);
+  if (!authDefaults.applied) {
+    pendingNotes.push(`Confirmação de e-mail não pôde ser desligada: ${authDefaults.detail}`);
+  }
+  await mark(
+    "supabase",
+    "done",
+    `projeto ${target.projectRef} acessível${authDefaults.applied ? " · confirmação de e-mail desligada" : ""}`,
+  );
 
   /* 3. preflight dos acessos de publicação e repositório, antes de qualquer
    * escrita: negativa de permissão encerra aqui, dizendo o acesso exato que
@@ -4343,9 +4003,7 @@ export async function runAutomatedProvision(input: {
     }
     provisionCommitSha = masterHead.sha;
     if (!codeStage.codeSourceSha) {
-      await saveStageProgress(client, operation, {
-        codeSourceSha: masterHead.sha,
-      });
+      await saveStageProgress(client, operation, { codeSourceSha: masterHead.sha });
     }
     const [sourceRelease, installedRelease] = await Promise.all([
       provisionRelease
@@ -4495,9 +4153,7 @@ export async function runAutomatedProvision(input: {
         return finish(null, null);
       }
     }
-    await saveStageProgress(client, operation, {
-      provisionRepositoryLinked: true,
-    });
+    await saveStageProgress(client, operation, { provisionRepositoryLinked: true });
     repositoryLinked = true;
   }
   const autoDeployOn = await deploy.setAutoDeploy(true);
@@ -4533,30 +4189,15 @@ export async function runAutomatedProvision(input: {
         key: `000_extensions:${deltaFingerprint(baseline000)}`,
         sql: baseline000,
       },
-      {
-        id: "database",
-        label: "001_initial_schema",
-        key: "001_initial_schema",
-        sql: baseline001,
-      },
-      {
-        id: "database",
-        label: "005_auth_trigger",
-        key: "005_auth_trigger",
-        sql: baseline005,
-      },
+      { id: "database", label: "001_initial_schema", key: "001_initial_schema", sql: baseline001 },
+      { id: "database", label: "005_auth_trigger", key: "005_auth_trigger", sql: baseline005 },
       {
         id: "database",
         label: UPDATE_DELTA_LABEL,
         key: deltaProgressKey(baseline007),
         sql: baseline007,
       },
-      {
-        id: "storage",
-        label: "003_storage_buckets",
-        key: "003_storage_buckets",
-        sql: baseline003,
-      },
+      { id: "storage", label: "003_storage_buckets", key: "003_storage_buckets", sql: baseline003 },
       {
         id: "storage",
         label: "006_storage_policies",
@@ -4640,10 +4281,7 @@ export async function runAutomatedProvision(input: {
             rpc: (
               name: string,
               args: Record<string, unknown>,
-            ) => Promise<{
-              data?: unknown;
-              error?: { message?: string } | null;
-            }>;
+            ) => Promise<{ data?: unknown; error?: { message?: string } | null }>;
           };
           const { data: sealed, error: sealError } = await rpc.rpc(
             "seal_installation_operation_baseline",
@@ -4837,10 +4475,7 @@ export async function runAutomatedProvision(input: {
       checks.secrets = "error";
       return finish(null, null);
     }
-    const isolation = assertSecretsAreExclusive({
-      generated: secrets,
-      masterEnv: env,
-    });
+    const isolation = assertSecretsAreExclusive({ generated: secrets, masterEnv: env });
     if (!isolation.ok) {
       failures.push(isolation.reason);
       await mark("secrets", "error", isolation.reason);
@@ -4854,20 +4489,6 @@ export async function runAutomatedProvision(input: {
     if (!vault.ok) {
       failures.push(`CRON_SECRET não gravado no Vault do destino: ${vault.error ?? ""}`.trim());
       await mark("secrets", "error", "set_cron_secret falhou");
-      checks.secrets = "error";
-      return finish(null, null);
-    }
-    const bootstrapHash = createHash("sha256")
-      .update(secrets.INSTALLATION_BOOTSTRAP_CODE)
-      .digest("hex");
-    const bootstrap = await management.query(
-      `select public.prepare_installation_bootstrap('${sqlLiteral(bootstrapHash)}'::text, now() + interval '7 days')`,
-    );
-    if (!bootstrap.ok && !/installation_already_initialized/i.test(bootstrap.error ?? "")) {
-      failures.push(
-        `Código de primeiro acesso não preparado: ${bootstrap.error ?? "erro desconhecido"}`,
-      );
-      await mark("secrets", "error", "primeiro acesso não preparado");
       checks.secrets = "error";
       return finish(null, null);
     }
@@ -4911,14 +4532,6 @@ export async function runAutomatedProvision(input: {
       return finish(null, null);
     }
     url = { origin: resolved.origin, source: resolved.source };
-
-    const authDefaults = await applyInstallationAuthDefaults(management, url.origin);
-    if (!authDefaults.applied) {
-      failures.push(`Autenticação da instalação não confirmada: ${authDefaults.detail}`);
-      await mark("deploy", "error", authDefaults.detail);
-      checks.configuration = "error";
-      return finish(null, null);
-    }
 
     // App Meta oficial do Unitos: propagado do MASTER para a instalação nova,
     // de modo que o modo padrão “Unitos — App Meta oficial” já venha resolvido.
@@ -5060,9 +4673,7 @@ export async function runAutomatedProvision(input: {
         if (!fallbackCommit && provisionCommitSha) {
           const existingByCommit = await deploy.findProductionDeployment(provisionCommitSha);
           if (!existingByCommit.ok) {
-            await saveStageProgress(client, operation, {
-              provisionDeploymentState: "QUEUED",
-            });
+            await saveStageProgress(client, operation, { provisionDeploymentState: "QUEUED" });
             await mark("deploy", "running", existingByCommit.error ?? "aguardando a hospedagem");
             return {
               result: "RUNNING",
@@ -5120,9 +4731,7 @@ export async function runAutomatedProvision(input: {
         } else if (fallbackCommit) {
           const located = await deploy.findProductionDeployment(fallbackCommit);
           if (!located.ok) {
-            await saveStageProgress(client, operation, {
-              provisionDeploymentState: "QUEUED",
-            });
+            await saveStageProgress(client, operation, { provisionDeploymentState: "QUEUED" });
             await mark("deploy", "running", located.error ?? "aguardando a hospedagem");
             return {
               result: "RUNNING",
@@ -5155,12 +4764,7 @@ export async function runAutomatedProvision(input: {
             provisionDeploymentCommit: fallbackCommit,
             provisionDeploymentState: located.state ?? "QUEUED",
           });
-          redeployed = {
-            ok: true,
-            deploymentId,
-            source: "git",
-            ref: fallbackCommit,
-          };
+          redeployed = { ok: true, deploymentId, source: "git", ref: fallbackCommit };
           publishNote = `publicação pelo Git (${cause})`;
         } else {
           publishNote = "publicação pendente";
@@ -5282,13 +4886,7 @@ export async function runAutomatedProvision(input: {
     }
     if (deploymentResult.timedOut || deploymentResult.state !== "READY") {
       await mark("deploy", "running", `deployment em andamento (${deploymentResult.state})`);
-      return {
-        result: "RUNNING",
-        reasons: [],
-        appUrl: url.origin,
-        urlSource: url.source,
-        steps,
-      };
+      return { result: "RUNNING", reasons: [], appUrl: url.origin, urlSource: url.source, steps };
     }
     const readyProof = validateReadyDeploymentCommit(deploymentResult, expectedDeploymentCommit);
     if (!readyProof.ok) {
@@ -5438,11 +5036,7 @@ export async function runAutomatedProvision(input: {
  * consegue afirmar que a instalação está PRONTA.
  */
 export async function readFirstAccessState(management: {
-  query: (sql: string) => Promise<{
-    ok: boolean;
-    rows: readonly unknown[];
-    error?: string | null;
-  }>;
+  query: (sql: string) => Promise<{ ok: boolean; rows: readonly unknown[]; error?: string | null }>;
 }): Promise<{ superAdmin: CheckState; workspace: CheckState; detail: string }> {
   const res = await management.query(
     "select (public.installation_setup_state()->>'has_super_admin')::boolean as has_super_admin," +
@@ -5534,11 +5128,7 @@ export function classifyVerificationHealthCheck(checkName: string): HealthCheckI
   return classifyVerificationTarget(checkName).health;
 }
 
-type VerificationRow = {
-  status: string;
-  check_name: string;
-  observed: string | null;
-};
+type VerificationRow = { status: string; check_name: string; observed: string | null };
 
 function normalizeVerificationRows(rows: readonly unknown[]): VerificationRow[] {
   return rows
@@ -5563,11 +5153,7 @@ export async function runAutomatedValidate(input: {
   installation: AutomationInstallation;
   env?: Record<string, string | undefined>;
   fetchImpl?: Fetcher;
-}): Promise<{
-  result: "PASS" | "FAIL" | "BLOCKED";
-  reasons: string[];
-  total: number;
-}> {
+}): Promise<{ result: "PASS" | "FAIL" | "BLOCKED"; reasons: string[]; total: number }> {
   const env = input.env ?? runtimeEnv();
   const { client, operation, installation } = input;
   const stepIds = VALIDATE_STEPS.map((s) => s.id);
@@ -5829,10 +5415,7 @@ async function seedDeltaLedger(
   // Este helper cria somente a estrutura. Backfill por presunção é proibido:
   // uma migration só entra no ledger após execução confirmada pelo executor.
   if (migrations.length > 0) {
-    return {
-      ok: false,
-      error: "backfill sem evidência verificável foi bloqueado",
-    };
+    return { ok: false, error: "backfill sem evidência verificável foi bloqueado" };
   }
   return { ok: true };
 }
@@ -5887,16 +5470,10 @@ export async function validateDeltaManifest(
     const migration = migrations[index];
     const entry = entries[index];
     if (!migration || !entry || entry.file !== migration.file) {
-      return {
-        ok: false,
-        error: `manifesto fora de ordem na posição ${index + 1}`,
-      };
+      return { ok: false, error: `manifesto fora de ordem na posição ${index + 1}` };
     }
     if (!/^[0-9a-f]{64}$/.test(entry.fingerprint)) {
-      return {
-        ok: false,
-        error: `manifesto sem SHA-256 válido para ${migration.file}`,
-      };
+      return { ok: false, error: `manifesto sem SHA-256 válido para ${migration.file}` };
     }
     const digest = await crypto.subtle.digest(
       "SHA-256",
@@ -5906,10 +5483,7 @@ export async function validateDeltaManifest(
       .map((byte) => byte.toString(16).padStart(2, "0"))
       .join("");
     if (entry.fingerprint !== actual) {
-      return {
-        ok: false,
-        error: `integridade da migration não confere: ${migration.file}`,
-      };
+      return { ok: false, error: `integridade da migration não confere: ${migration.file}` };
     }
   }
   return { ok: true };
@@ -5990,10 +5564,7 @@ export async function recoverLegacyCanonicalManifest(
   const generatedCheck = await validateDeltaManifest(generated, snapshot.sql);
   if (!generatedCheck.ok) return generatedCheck;
   if (generated !== deltaManifest) {
-    return {
-      ok: false,
-      error: "manifesto recuperado diverge do manifesto oficial do MASTER",
-    };
+    return { ok: false, error: "manifesto recuperado diverge do manifesto oficial do MASTER" };
   }
   return { ok: true, manifest: generated };
 }
@@ -6014,16 +5585,10 @@ export function validateOperationPackageSnapshot(
     };
   }
   if (operation.baseline_id !== operationPackageIdentity(snapshot)) {
-    return {
-      ok: false,
-      error: "identidade do pacote divergiu da autorização da operação",
-    };
+    return { ok: false, error: "identidade do pacote divergiu da autorização da operação" };
   }
   if (operation.baseline_hash !== snapshot.sha256) {
-    return {
-      ok: false,
-      error: "assinatura do pacote divergiu da autorização da operação",
-    };
+    return { ok: false, error: "assinatura do pacote divergiu da autorização da operação" };
   }
   return { ok: true };
 }
@@ -6138,10 +5703,7 @@ async function readCanonicalMigrationProgress(
             order: (
               column: string,
               options: { ascending: boolean },
-            ) => Promise<{
-              data?: unknown[] | null;
-              error?: { message?: string } | null;
-            }>;
+            ) => Promise<{ data?: unknown[] | null; error?: { message?: string } | null }>;
           };
         };
       };
@@ -6240,10 +5802,7 @@ async function reconcileLegacyMigrationMarker(
 ): Promise<{ ok: false; detail: string } | { ok: true; promotions: LegacyPromotion[] }> {
   const inspection = await management.query(buildLegacyReconciliationInspectionSql(migrations));
   if (!inspection.ok)
-    return {
-      ok: false,
-      detail: `inspeção legada falhou: ${inspection.error ?? "erro"}`,
-    };
+    return { ok: false, detail: `inspeção legada falhou: ${inspection.error ?? "erro"}` };
   const inspected = normalizeLegacyEvidenceRows(inspection.rows);
   const rpc = client as never as {
     rpc: (
@@ -6261,10 +5820,7 @@ async function reconcileLegacyMigrationMarker(
       detail: `RPC Control-plane de evidências indisponível ou incompatível: ${storedResponse.error.message ?? "erro desconhecido"}`,
     };
   if (!Array.isArray(storedResponse.data)) {
-    return {
-      ok: false,
-      detail: "RPC Control-plane de evidências retornou contrato inválido",
-    };
+    return { ok: false, detail: "RPC Control-plane de evidências retornou contrato inválido" };
   }
   let stored: ReturnType<typeof normalizeLegacyEvidenceRows>;
   try {
@@ -6309,10 +5865,7 @@ async function reconcileLegacyMigrationMarker(
     };
   const blockReason = legacyEvidenceBlockReason(evidence);
   if (blockReason) return { ok: false, detail: blockReason };
-  return {
-    ok: true,
-    promotions: buildLegacyPromotionInventory(evidence, migrations),
-  };
+  return { ok: true, promotions: buildLegacyPromotionInventory(evidence, migrations) };
 }
 
 /**
@@ -6344,10 +5897,7 @@ export async function applyDatabaseDelta(input: {
 
   const managementToken = (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim();
   if (!managementToken) {
-    return {
-      state: "blocked",
-      detail: "credencial de gestão do Supabase indisponível no MASTER",
-    };
+    return { state: "blocked", detail: "credencial de gestão do Supabase indisponível no MASTER" };
   }
 
   const management = createManagementClient({
@@ -6358,10 +5908,7 @@ export async function applyDatabaseDelta(input: {
 
   let migrations = splitDeltaMigrations(input.snapshot.sql);
   if (migrations.length === 0) {
-    return {
-      state: "error",
-      detail: "pacote de migrations do MASTER está sem marcadores válidos",
-    };
+    return { state: "error", detail: "pacote de migrations do MASTER está sem marcadores válidos" };
   }
   const validatedSnapshot = await validateCanonicalPackage(operation, input.snapshot);
   if (!validatedSnapshot.ok) return { state: "blocked", detail: validatedSnapshot.error };
@@ -6445,11 +5992,7 @@ export async function applyDatabaseDelta(input: {
     (item) => !canonicalCompleted.has(`${item.file}:${item.fingerprint}`),
   );
   if (!migration) {
-    return {
-      state: "done",
-      detail: "banco já está na versão do MASTER",
-      percent: 100,
-    };
+    return { state: "done", detail: "banco já está na versão do MASTER", percent: 100 };
   }
 
   const now = input.now ?? Date.now;
@@ -6489,10 +6032,7 @@ export async function applyDatabaseDelta(input: {
         applied.total ?? splitSqlStatements(prepared.sql).length,
         false,
       );
-      return {
-        state: "error",
-        detail: `atualização do banco falhou: ${applied.error ?? "erro"}`,
-      };
+      return { state: "error", detail: `atualização do banco falhou: ${applied.error ?? "erro"}` };
     }
 
     if (!applied.complete) {
@@ -6600,10 +6140,7 @@ export async function runAutomatedUpdate(input: {
   /** Tempo máximo aguardando o build ficar READY. */
   waitMs?: number;
   sleep?: (ms: number) => Promise<void>;
-}): Promise<{
-  result: "PASS" | "PENDING" | "FAIL" | "BLOCKED";
-  reasons: string[];
-}> {
+}): Promise<{ result: "PASS" | "PENDING" | "FAIL" | "BLOCKED"; reasons: string[] }> {
   const env = input.env ?? runtimeEnv();
   const { client, operation, installation } = input;
 
@@ -6633,6 +6170,9 @@ export async function runAutomatedUpdate(input: {
     projectRef: target.projectRef,
     fetchImpl: input.fetchImpl,
   });
+  // Instalações antigas também passam a nascer/ficar sem confirmação de e-mail.
+  await applyInstallationAuthDefaults(management).catch(() => undefined);
+
   const masterRepo = (env["UNITOS_MASTER_REPO"] ?? "").trim() || null;
   const repo = resolveInstallationRepo({
     gitRepoUrl: installation.gitRepoUrl ?? null,
@@ -6654,14 +6194,6 @@ export async function runAutomatedUpdate(input: {
     githubToken: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
     fetchImpl: input.fetchImpl,
   });
-  const deployment = await deploy.deploymentUrl();
-  const operationalUrl = resolveOperationalUrl({
-    customDomain: installation.domain,
-    deploymentUrl: deployment.url ?? null,
-  });
-  if (!operationalUrl.ok) {
-    return fail("BLOCKED", `URL necessária para configurar autenticação: ${operationalUrl.reason}`);
-  }
   const code = createCodeClient({
     token: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
     masterToken:
@@ -6748,57 +6280,6 @@ export async function runAutomatedUpdate(input: {
     );
   }
 
-  /* O contrato de runtime/browser da PRÓPRIA instalação é reaplicado antes de
-   * qualquer alteração no banco. Isso corrige projetos antigos sem `VITE_*` e
-   * impede publicar um bundle que não consiga abrir login. */
-  const managedKeys = await management.keys();
-  const publishableKey =
-    (managedKeys.ok ? managedKeys.publishableKey : null) ??
-    (env["UNITOS_SUPABASE_PUBLISHABLE_KEY"] ?? "").trim();
-  const serviceRoleKey =
-    (managedKeys.ok ? managedKeys.serviceRoleKey : null) ??
-    (env["UNITOS_SUPABASE_SERVICE_ROLE_KEY"] ?? "").trim();
-  const runtimePlan = buildInstallationRuntimeEnvPlan({
-    appUrl: operationalUrl.origin,
-    supabaseUrl: installation.supabaseUrl ?? `https://${target.projectRef}.supabase.co`,
-    publishableKey,
-    serviceRoleKey,
-    projectRef: target.projectRef,
-  });
-  if (!runtimePlan.ok) {
-    return fail("BLOCKED", `Configuração da instalação recusada: ${runtimePlan.reason}`);
-  }
-  const runtimeConfigFingerprint = createHash("sha256")
-    .update(
-      runtimePlan.entries
-        .map((entry) => `${entry.key}\u0000${entry.value}`)
-        .sort()
-        .join("\u0001"),
-    )
-    .digest("hex");
-  if (checkpoint.updateRuntimeConfigFingerprint !== runtimeConfigFingerprint) {
-    const envResult = await deploy.setEnv(runtimePlan.entries);
-    if (!envResult.ok || envResult.applied !== runtimePlan.entries.length) {
-      return fail(
-        "BLOCKED",
-        `Configuração do deploy não reconciliada: ${envResult.error ?? "aplicação incompleta"}`,
-      );
-    }
-    await saveStageProgress(client, operation, {
-      updateRuntimeConfigFingerprint: runtimeConfigFingerprint,
-    });
-  }
-
-  const authDefaults = await applyInstallationAuthDefaults(management, operationalUrl.origin).catch(
-    (error) => ({
-      applied: false,
-      detail: error instanceof Error ? error.message : "falha desconhecida",
-    }),
-  );
-  if (!authDefaults.applied) {
-    return fail("BLOCKED", `Autenticação da instalação não confirmada: ${authDefaults.detail}`);
-  }
-
   /* Banco antes do código, mas somente depois do preflight completo. */
   await report(client, operation, "database", "running");
   const delta = await applyDatabaseDelta({
@@ -6817,9 +6298,7 @@ export async function runAutomatedUpdate(input: {
     return { result: "PENDING", reasons: [delta.detail] };
   }
   await report(client, operation, "database", "done", delta.detail, 100);
-  await saveStageProgress(client, operation, {
-    updateDatabaseReconciled: true,
-  });
+  await saveStageProgress(client, operation, { updateDatabaseReconciled: true });
 
   // Checkpoints antigos podem apontar para uma tentativa REST recusada. Só um
   // deployment associado ao commit de push Git pode ser retomado.
@@ -6865,9 +6344,7 @@ export async function runAutomatedUpdate(input: {
     }
   }
   if (publishedRelease !== checkpoint.updateRelease) {
-    await saveStageProgress(client, operation, {
-      updateRelease: publishedRelease,
-    });
+    await saveStageProgress(client, operation, { updateRelease: publishedRelease });
   }
 
   // A instalação constrói o SEU repositório: a versão autorizada do MASTER é
@@ -6947,10 +6424,7 @@ export async function runAutomatedUpdate(input: {
    */
   const finishByGitPush = async (
     cause: string,
-  ): Promise<{
-    result: "PASS" | "PENDING" | "FAIL" | "BLOCKED";
-    reasons: string[];
-  }> => {
+  ): Promise<{ result: "PASS" | "PENDING" | "FAIL" | "BLOCKED"; reasons: string[] }> => {
     await deploy.setAutoDeploy(true);
     // Um commit vazio produz um SHA inequívoco para localizar o build criado
     // pelo webhook Git. O checkpoint evita novos nudges em cada retomada.
@@ -6987,10 +6461,7 @@ export async function runAutomatedUpdate(input: {
           "running",
           located.error ?? "aguardando a hospedagem",
         );
-        return {
-          result: "PENDING",
-          reasons: [located.error ?? "aguardando a hospedagem"],
-        };
+        return { result: "PENDING", reasons: [located.error ?? "aguardando a hospedagem"] };
       }
       deploymentId = located.deploymentId ?? null;
       if (!deploymentId) {
@@ -7006,9 +6477,7 @@ export async function runAutomatedUpdate(input: {
           reasons: [located.error ?? "aguardando a hospedagem detectar o novo commit"],
         };
       }
-      await saveStageProgress(client, operation, {
-        updateDeploymentId: deploymentId,
-      });
+      await saveStageProgress(client, operation, { updateDeploymentId: deploymentId });
     }
 
     await report(client, operation, "code", "done", "código publicado no repositório");
@@ -7019,9 +6488,7 @@ export async function runAutomatedUpdate(input: {
       waitMs: input.waitMs,
       sleep: input.sleep,
       onObserved: async () =>
-        saveStageProgress(client, operation, {
-          updateDeploymentId: deploymentId,
-        }),
+        saveStageProgress(client, operation, { updateDeploymentId: deploymentId }),
     });
     const pushState = polled.state;
     const pushUrl = polled.url;
@@ -7040,12 +6507,8 @@ export async function runAutomatedUpdate(input: {
     }
     if (pushState !== "READY") {
       const startedAt = Date.parse(
-        ((
-          operation as unknown as {
-            started_at?: string | null;
-            created_at?: string | null;
-          }
-        ).started_at ??
+        ((operation as unknown as { started_at?: string | null; created_at?: string | null })
+          .started_at ??
           (operation as unknown as { created_at?: string | null }).created_at ??
           "") as string,
       );
@@ -7064,21 +6527,7 @@ export async function runAutomatedUpdate(input: {
         "running",
         `build disparado pelo Git em andamento (${pushState})`,
       );
-      return {
-        result: "PENDING",
-        reasons: [`build disparado pelo Git em ${pushState}`],
-      };
-    }
-    const loginProbe = await verifyPublishedLogin({
-      origin: operationalUrl.origin,
-      ...(input.fetchImpl ? { fetchImpl: input.fetchImpl } : {}),
-    });
-    if (!loginProbe.ok) {
-      return fail(
-        "FAIL",
-        `a hospedagem marcou READY, mas ${loginProbe.reason}; a versão não foi promovida`,
-        "validation",
-      );
+      return { result: "PENDING", reasons: [`build disparado pelo Git em ${pushState}`] };
     }
     await report(
       client,
@@ -7106,9 +6555,7 @@ export async function runAutomatedUpdate(input: {
       );
     }
     await report(client, operation, "validation", "done", `${pushSummary.total} verificações PASS`);
-    await saveStageProgress(client, operation, {
-      updateValidationPassed: true,
-    });
+    await saveStageProgress(client, operation, { updateValidationPassed: true });
     await report(
       client,
       operation,

@@ -251,8 +251,7 @@ export function resolveInstallationRepo(input: {
     .replace(/\.git$/i, "")
     .replace(/^\/+|\/+$/g, "");
   const parts = withoutProtocol.split("/").filter(Boolean);
-  const owner = parts.at(0) ?? "";
-  const repo = parts.at(1) ?? "";
+  const [owner, repo] = parts.length >= 2 ? [parts[0]!, parts[1]!] : ["", ""];
   const valid = /^[A-Za-z0-9._-]+$/;
   if (!owner || !repo || !valid.test(owner) || !valid.test(repo)) {
     return {
@@ -283,7 +282,6 @@ export const GENERATED_SECRET_VARS = [
   "BRAND_CREDENTIALS_SECRET",
   "META_STATE_SECRET",
   "META_WEBHOOK_VERIFY_TOKEN",
-  "INSTALLATION_BOOTSTRAP_CODE",
 ] as const;
 
 export type GeneratedSecretVar = (typeof GENERATED_SECRET_VARS)[number];
@@ -361,64 +359,6 @@ export type DeployEnvEntry = { key: string; value: string; sensitive: boolean };
 
 export type DeployEnvPlan = { ok: true; entries: DeployEnvEntry[] } | { ok: false; reason: string };
 
-export type InstallationRuntimeEnvInput = {
-  appUrl: string;
-  supabaseUrl: string;
-  publishableKey: string;
-  serviceRoleKey: string;
-  projectRef: string;
-};
-
-/**
- * Contrato mínimo compartilhado por instalação nova e atualização. Estes pares
- * precisam existir antes do build: `VITE_*` é incorporado pelo Vite, enquanto
- * as variantes sem prefixo alimentam o runtime do servidor.
- */
-export function buildInstallationRuntimeEnvPlan(input: InstallationRuntimeEnvInput): DeployEnvPlan {
-  const identity = `${input.appUrl} ${input.supabaseUrl} ${input.projectRef}`;
-  if (containsMasterReference(identity)) {
-    return { ok: false, reason: "As variáveis apontariam para o MASTER — plano recusado." };
-  }
-  const url = classifyOperationalUrl(input.appUrl);
-  if (!url.ok) return { ok: false, reason: url.reason };
-
-  let supabaseProjectRef: string | null = null;
-  try {
-    const parsed = new URL(input.supabaseUrl);
-    supabaseProjectRef =
-      parsed.protocol === "https:"
-        ? (parsed.hostname.match(/^([a-z0-9]+)\.supabase\.co$/i)?.[1]?.toLowerCase() ?? null)
-        : null;
-  } catch {
-    supabaseProjectRef = null;
-  }
-  if (!supabaseProjectRef) {
-    return { ok: false, reason: "URL do Supabase destino inválida — plano recusado." };
-  }
-  if (supabaseProjectRef !== input.projectRef.trim().toLowerCase()) {
-    return {
-      ok: false,
-      reason: "URL e identificador do projeto Supabase destino divergem — plano recusado.",
-    };
-  }
-
-  const entries: DeployEnvEntry[] = [
-    { key: "PUBLIC_APP_URL", value: url.origin, sensitive: false },
-    { key: "VITE_PUBLIC_APP_URL", value: url.origin, sensitive: false },
-    { key: "SUPABASE_URL", value: input.supabaseUrl, sensitive: false },
-    { key: "VITE_SUPABASE_URL", value: input.supabaseUrl, sensitive: false },
-    { key: "SUPABASE_PROJECT_ID", value: input.projectRef, sensitive: false },
-    { key: "VITE_SUPABASE_PROJECT_ID", value: input.projectRef, sensitive: false },
-    { key: "SUPABASE_PUBLISHABLE_KEY", value: input.publishableKey, sensitive: false },
-    { key: "VITE_SUPABASE_PUBLISHABLE_KEY", value: input.publishableKey, sensitive: false },
-    { key: "SUPABASE_SERVICE_ROLE_KEY", value: input.serviceRoleKey, sensitive: true },
-    { key: "SB_SERVICE_ROLE_KEY", value: input.serviceRoleKey, sensitive: true },
-  ];
-  const empty = entries.find((entry) => !entry.value.trim());
-  if (empty) return { ok: false, reason: `Variável ${empty.key} sem valor — plano recusado.` };
-  return { ok: true, entries };
-}
-
 /**
  * Plano de variáveis que o MASTER grava no projeto de deploy da instalação.
  * Só variáveis da PRÓPRIA instalação entram aqui.
@@ -441,11 +381,24 @@ export function buildDeployEnvPlan(input: {
     businessConfigId?: string | null;
   } | null;
 }): DeployEnvPlan {
-  const runtimePlan = buildInstallationRuntimeEnvPlan(input);
-  if (!runtimePlan.ok) return runtimePlan;
-  const entries = [...runtimePlan.entries];
+  const identity = `${input.appUrl} ${input.supabaseUrl} ${input.projectRef}`;
+  if (containsMasterReference(identity)) {
+    return { ok: false, reason: "As variáveis apontariam para o MASTER — plano recusado." };
+  }
   const url = classifyOperationalUrl(input.appUrl);
   if (!url.ok) return { ok: false, reason: url.reason };
+
+  const entries: DeployEnvEntry[] = [
+    { key: "PUBLIC_APP_URL", value: url.origin, sensitive: false },
+    { key: "VITE_PUBLIC_APP_URL", value: url.origin, sensitive: false },
+    { key: "SUPABASE_URL", value: input.supabaseUrl, sensitive: false },
+    { key: "VITE_SUPABASE_URL", value: input.supabaseUrl, sensitive: false },
+    { key: "SUPABASE_PROJECT_ID", value: input.projectRef, sensitive: false },
+    { key: "VITE_SUPABASE_PROJECT_ID", value: input.projectRef, sensitive: false },
+    { key: "SUPABASE_PUBLISHABLE_KEY", value: input.publishableKey, sensitive: false },
+    { key: "VITE_SUPABASE_PUBLISHABLE_KEY", value: input.publishableKey, sensitive: false },
+    { key: "SUPABASE_SERVICE_ROLE_KEY", value: input.serviceRoleKey, sensitive: true },
+  ];
 
   for (const name of GENERATED_SECRET_VARS) {
     const value = (input.secrets[name] ?? "").trim();

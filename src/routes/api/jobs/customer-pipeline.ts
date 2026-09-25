@@ -5,7 +5,6 @@ import { createClient } from "@supabase/supabase-js";
 import { generateText } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
-import { resolveSupabasePublicRuntimeConfig } from "@/integrations/supabase/runtime-config.server";
 import { getBrandAiModelAdmin, describeProviderAttempts } from "@/lib/ai-provider.server";
 import {
   classifyAiError,
@@ -60,7 +59,8 @@ function nextStep(step: Step): Step | null {
 }
 
 function buildUserClient(token: string) {
-  const { url, publishableKey: key } = resolveSupabasePublicRuntimeConfig();
+  const url = process.env.SUPABASE_URL!;
+  const key = process.env.SUPABASE_PUBLISHABLE_KEY!;
   return createClient<Database>(url, key, {
     global: { headers: { Authorization: `Bearer ${token}`, apikey: key } },
     auth: { storage: undefined, persistSession: false, autoRefreshToken: false },

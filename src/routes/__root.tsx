@@ -16,7 +16,7 @@ import { useEffect, useMemo, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { normalizeLovableError, reportLovableError } from "../lib/lovable-error-reporting";
-import { supabase, supabaseConfigurationError } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { QueryPersistence } from "@/lib/query-persistence";
 import { resetIdentityState, isIdentityChange } from "@/lib/session-reset";
 
@@ -44,8 +44,6 @@ function NotFoundComponent() {
 
 function ErrorComponent({ error, reset }: { error: unknown; reset: () => void }) {
   const normalizedError = useMemo(() => normalizeLovableError(error), [error]);
-  const configurationUnavailable =
-    error instanceof Error && error.message === "installation_configuration_unavailable";
   console.error(normalizedError);
   const router = useRouter();
   useEffect(() => {
@@ -56,12 +54,10 @@ function ErrorComponent({ error, reset }: { error: unknown; reset: () => void })
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          {configurationUnavailable ? "Configuração indisponível" : "Esta página não carregou"}
+          Esta página não carregou
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {configurationUnavailable
-            ? "Esta instalação não pôde ser iniciada com segurança. Nenhum outro ambiente foi acessado."
-            : "Algo deu errado. Tente novamente ou volte ao início."}
+          Algo deu errado. Tente novamente ou volte ao início.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <Button
@@ -82,11 +78,6 @@ function ErrorComponent({ error, reset }: { error: unknown; reset: () => void })
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  beforeLoad: () => {
-    if (supabaseConfigurationError) {
-      throw new Error("installation_configuration_unavailable");
-    }
-  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -170,7 +161,6 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
-    if (supabaseConfigurationError) return;
     // `SIGNED_IN` também é emitido quando a sessão do MESMO usuário é
     // restaurada (boot) ou renovada. Tratar isso como troca de identidade
     // apagava workspace/cliente ativos e todo o cache no meio do boot.
@@ -193,25 +183,6 @@ function RootComponent() {
     });
     return () => data.subscription.unsubscribe();
   }, [router, queryClient]);
-
-  if (supabaseConfigurationError) {
-    return (
-      <ThemeProvider>
-        <div className="flex min-h-screen items-center justify-center bg-background px-4">
-          <div className="max-w-md text-center">
-            <h1 className="text-xl font-semibold text-foreground">Configuração indisponível</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Esta instalação não pôde ser iniciada com segurança. Nenhum outro ambiente foi
-              acessado.
-            </p>
-            <Button className="mt-6" onClick={() => window.location.reload()}>
-              Tentar novamente
-            </Button>
-          </div>
-        </div>
-      </ThemeProvider>
-    );
-  }
 
   return (
     <QueryClientProvider client={queryClient}>

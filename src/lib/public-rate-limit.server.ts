@@ -1,6 +1,5 @@
 import { createHash } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { readRuntimeEnv } from "@/lib/runtime-env.server";
 
 /**
  * Rate limit das SUPERFÍCIES PÚBLICAS (fase 10F.2).
@@ -24,7 +23,7 @@ export function clientIp(request: Request): string {
 }
 
 export function rateKey(scope: string, ip: string): string {
-  const salt = readRuntimeEnv("CRON_SECRET") ?? "unitos-public-surface";
+  const salt = process.env["CRON_SECRET"] ?? "unitos-public-surface";
   return `${scope}:${createHash("sha256").update(`${ip}|${salt}`).digest("hex").slice(0, 40)}`;
 }
 

@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-unset PGDATABASE PGHOST PGPASSWORD PGPORT PGSSLMODE PGUSER
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 TMP_ROOT="$(mktemp -d /tmp/unitos-master-recovery.XXXXXX)"

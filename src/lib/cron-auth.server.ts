@@ -9,8 +9,6 @@
  * (usado pelos jobs do pg_cron).
  */
 
-import { readRuntimeEnv } from "@/lib/runtime-env.server";
-
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
@@ -25,7 +23,7 @@ function timingSafeEqual(a: string, b: string): boolean {
  * que o handler deve devolver imediatamente.
  */
 export function assertCronRequest(request: Request): Response | null {
-  const expected = readRuntimeEnv("CRON_SECRET");
+  const expected = process.env["CRON_SECRET"]?.trim();
   if (!expected) {
     console.error("[cron] CRON_SECRET ausente no runtime do servidor");
     return new Response(JSON.stringify({ error: "cron_secret_missing" }), {

@@ -1,8 +1,4 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import {
-  hasSupabaseServiceRuntimeKey,
-  resolveSupabasePublicRuntimeConfig,
-} from "@/integrations/supabase/runtime-config.server";
 
 /**
  * Resolução de escopo do portal (cliente + marca), única para os dois modos.
@@ -27,7 +23,13 @@ type RpcClient = {
 };
 
 function publishableClient(): SupabaseClient {
-  const { url, publishableKey: key } = resolveSupabasePublicRuntimeConfig();
+  const url = process.env["SUPABASE_URL"];
+  const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
+  if (!url || !key) {
+    throw new Error(
+      "Missing Supabase environment variable(s): SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY.",
+    );
+  }
   const isOpaque = key.startsWith("sb_publishable_") || key.startsWith("sb_secret_");
   return createClient(url, key, {
     auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
@@ -74,7 +76,9 @@ export async function resolveSessionScope(
 
 /** True quando a chave de serviço está configurada no ambiente. */
 export function hasServiceKey(): boolean {
-  return hasSupabaseServiceRuntimeKey();
+  return Boolean(
+    process.env["SUPABASE_SERVICE_ROLE_KEY"]?.trim() || process.env["SB_SERVICE_ROLE_KEY"]?.trim(),
+  );
 }
 
 /** Client privilegiado usado depois do escopo estar resolvido e validado. */

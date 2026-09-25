@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { readRuntimeEnv } from "@/lib/runtime-env.server";
 import { assertSuperAdmin, resolveIsSuperAdmin } from "@/lib/super-admin";
 import { assertConfirmLabel, type CriticalActionKey } from "@/lib/critical-actions";
 import type { RpcClient } from "@/lib/access-guard";
@@ -1047,10 +1046,10 @@ export const startInstallationOperationFn = createServerFn({ method: "POST" })
       .single();
     if (updateError) throw updateError;
 
-    const masterUrl = readRuntimeEnv("PUBLIC_APP_URL") ?? readRuntimeEnv("VITE_PUBLIC_APP_URL");
-    if (!masterUrl) {
-      throw new Error("Configuração pública do MASTER indisponível; operação não iniciada.");
-    }
+    const masterUrl =
+      process.env["PUBLIC_APP_URL"] ??
+      process.env["VITE_PUBLIC_APP_URL"] ??
+      "https://unitos-master.lovable.app";
 
     return {
       installation: mapInstallation(updated),
@@ -2065,22 +2064,6 @@ export const getInstallationSecretsFn = createServerFn({ method: "POST" })
     const { GENERATED_SECRET_VARS } = await import("./automation-contract");
     return getInstallationSecretsStatus(context.supabase as never, data.id, GENERATED_SECRET_VARS);
   });
-
-/** Exibe somente o código de ativação solicitado pelo Super Admin do MASTER. */
-export const revealInstallationBootstrapCodeFn = createServerFn({ method: "POST" })
-	.middleware([requireSupabaseAuth])
-	.inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
-	.handler(async ({ data, context }) => {
-		await guard(context);
-		const { readInstallationSecret } = await import("./credentials.server");
-		const code = await readInstallationSecret(
-			context.supabase as never,
-			data.id,
-			"INSTALLATION_BOOTSTRAP_CODE",
-		);
-		if (!code) throw new Error("O código de primeiro acesso ainda não foi preparado.");
-		return { code };
-	});
 
 /** Troca um segredo próprio da instalação — ação deliberada, nunca automática. */
 export const rotateInstallationSecretFn = createServerFn({ method: "POST" })
