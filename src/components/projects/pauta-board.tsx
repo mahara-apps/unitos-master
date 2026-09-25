@@ -43,6 +43,7 @@ export type BoardPauta = {
   outOfPlan?: boolean;
   postId: string | null;
   stageId: string | null;
+  position: number;
 };
 
 export type ProjectBoardStage = { id: string; label: string; stage: ContentStage; position: number };
@@ -228,8 +229,11 @@ export function PautaBoard({
     if (moving || !onMoveItem || !event.over) return;
     const postId = String(event.active.id);
     const stageId = String(event.over.id);
-    const targetItems = items.filter((item) => item.stageId === stageId);
-    onMoveItem(postId, stageId, targetItems.length);
+    const targetItems = items
+      .filter((item) => item.stageId === stageId && item.postId !== postId)
+      .sort((a, b) => a.position - b.position);
+    const lastPosition = targetItems.at(-1)?.position ?? -1024;
+    onMoveItem(postId, stageId, lastPosition + 1024);
   }
 
   return (
@@ -306,21 +310,21 @@ export function PautaBoard({
         />
       ) : view === "board" ? (
         realStages.length > 0 ? (
-        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-          <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-            {realStages.map((realStage) => (
-              <ProjectStageColumn
-                key={realStage.id}
-                stage={realStage}
-                items={filtered.filter((item) => item.stageId === realStage.id)}
-                onOpenItem={onOpenItem}
-              />
-            ))}
-          </div>
-        </DndContext>
+          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+            <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+              {realStages.map((realStage) => (
+                <ProjectStageColumn
+                  key={realStage.id}
+                  stage={realStage}
+                  items={filtered.filter((item) => item.stageId === realStage.id)}
+                  onOpenItem={onOpenItem}
+                />
+              ))}
+            </div>
+          </DndContext>
         ) : (
           <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-          {CONTENT_STAGES.map((s) => {
+            {CONTENT_STAGES.map((s) => {
             const list = byStage.get(s) ?? [];
             const token = CONTENT_STAGE[s];
             return (
@@ -343,7 +347,7 @@ export function PautaBoard({
                 </div>
               </div>
             );
-          })}
+            })}
           </div>
         )
       ) : view === "list" ? (

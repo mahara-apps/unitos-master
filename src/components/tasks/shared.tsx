@@ -763,7 +763,6 @@ export function TaskDrawer({
   return (
     <>
     <ExpandedModal
-      nested={pieceOpen}
       open
       onOpenChange={(v) => {
         if (!v) onClose();
@@ -1131,7 +1130,7 @@ export function TaskDrawer({
         pipelineId={postContextQ.data.pipelineId}
         stages={postContextQ.data.stages}
         postId={task.post_id}
-        invalidateKey={["post-editor-context", task.post_id] as const}
+        invalidateKey={["post-detail", task.post_id] as const}
       />
     ) : null}
     {pieceOpen && postContextQ.isError ? (

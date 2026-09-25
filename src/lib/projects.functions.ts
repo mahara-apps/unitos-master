@@ -159,6 +159,9 @@ export type ProjectPlanItem = {
   post: {
     id: string;
     stage: string | null;
+    stage_id: string | null;
+    pipeline_id: string | null;
+    position: number;
     review_status: string | null;
     published_at: string | null;
     scheduled_at: string | null;
@@ -315,6 +318,9 @@ export const getProject = createServerFn({ method: "GET" })
             ? {
                 id: post.id,
                 stage: stageOf(post as { stage_id?: string | null; stage?: string | null }),
+                stage_id: (post.stage_id as string | null) ?? null,
+                pipeline_id: (post.pipeline_id as string | null) ?? null,
+                position: (post.position as number | null) ?? 0,
                 review_status: (post.review_status as string | null) ?? null,
                 published_at: (post.published_at as string | null) ?? null,
                 scheduled_at: (post.scheduled_at as string | null) ?? null,

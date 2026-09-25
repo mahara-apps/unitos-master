@@ -444,6 +444,7 @@ function ProjectDetailPage() {
       scheduledAt: it.post?.scheduled_at ?? it.tasks.due_at ?? null,
       postId: it.post?.id ?? null,
       stageId: (it.post as { stage_id?: string | null } | null)?.stage_id ?? null,
+      position: (it.post as { position?: number } | null)?.position ?? 0,
       topicId: it.topic_id,
       planId: project.plan?.id ?? null,
       tasksCount: it.tasks.count,
@@ -466,6 +467,7 @@ function ProjectDetailPage() {
         scheduledAt: (p.scheduled_at as string | null) ?? null,
         postId: p.id as string,
         stageId: (p.stage_id as string | null) ?? null,
+        position: (p.position as number | null) ?? 0,
         topicId: null,
         outOfPlan: true,
         planId: null,
@@ -514,6 +516,7 @@ function ProjectDetailPage() {
     outOfPlan: d.outOfPlan,
     postId: d.postId,
     stageId: d.stageId,
+    position: d.position,
   }));
 
   const deadlines: DeadlineEntry[] = pautaDetails
