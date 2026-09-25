@@ -1,7 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { TASK_PRIORITIES, TASK_STATUSES, type TaskPriority, type TaskStatus } from "@/lib/tasks.functions";
+import {
+  assertAssigneeCanAccessTaskClient,
+  TASK_PRIORITIES,
+  TASK_STATUSES,
+  type TaskPriority,
+  type TaskStatus,
+} from "@/lib/tasks.functions";
 import type { Json } from "@/integrations/supabase/types";
 import sanitizeHtml from "sanitize-html";
 import { callRpc } from "@/lib/supabase-rpc";
@@ -314,23 +320,32 @@ export const createJobTaskFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     // fetch project brand/client for consistency
-    const { data: proj } = await context.supabase
+    const { data: proj, error: projectError } = await context.supabase
       .from("projects")
-      .select("client_id")
+      .select("brand_id, client_id")
       .eq("id", data.projectId)
       .maybeSingle();
+    if (projectError) throw projectError;
+    if (!proj || proj.brand_id !== data.brandId) throw new Error("Projeto não encontrado.");
+    const clientId = (proj as { client_id: string | null }).client_id ?? null;
+    const assigneeId = data.assigneeId ?? context.userId;
+    await assertAssigneeCanAccessTaskClient(context.supabase as never, {
+      brandId: data.brandId,
+      clientId,
+      assigneeId,
+    });
     const { data: row, error } = await context.supabase
       .from("tasks")
       .insert({
         brand_id: data.brandId,
-        client_id: (proj as { client_id: string | null } | null)?.client_id ?? null,
+        client_id: clientId,
         project_id: data.projectId,
         job_id: data.jobId ?? null,
         title: data.title,
         due_at: data.due_at ?? null,
         status: "todo",
         priority: "medium",
-        assignee_id: data.assigneeId ?? context.userId,
+        assignee_id: assigneeId,
         estimated_minutes: data.estimatedMinutes ?? null,
         created_by: context.userId,
       } as never)
@@ -367,6 +382,21 @@ export const updateJobTaskFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     // Concluir = marca conclusão e arquiva; reabrir desfaz os dois.
     const patch: Record<string, unknown> = { ...data.patch };
+    if (data.patch.assignee_id !== undefined) {
+      const { data: task, error: taskError } = await context.supabase
+        .from("tasks")
+        .select("brand_id, client_id")
+        .eq("id", data.taskId)
+        .eq("brand_id", data.brandId)
+        .maybeSingle();
+      if (taskError) throw taskError;
+      if (!task) throw new Error("Tarefa não encontrada.");
+      await assertAssigneeCanAccessTaskClient(context.supabase as never, {
+        brandId: data.brandId,
+        clientId: (task.client_id as string | null) ?? null,
+        assigneeId: data.patch.assignee_id,
+      });
+    }
     if (patch.done === true) {
       patch.status = "done";
       patch.done_at = new Date().toISOString();

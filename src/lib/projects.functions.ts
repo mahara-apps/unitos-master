@@ -202,7 +202,7 @@ export const getProject = createServerFn({ method: "GET" })
     const { data: postRows } = await context.supabase
       .from("posts")
       .select(
-        "id, title, stage, stage_id, review_status, published_at, scheduled_at, channels, cover_url, created_at, updated_at, monthly_plan_topic_id, assignee_id, format",
+        "id, title, stage, stage_id, pipeline_id, position, review_status, published_at, scheduled_at, channels, cover_url, created_at, updated_at, monthly_plan_topic_id, assignee_id, format",
       )
       .eq("brand_id", data.brandId)
       .eq("project_id", data.projectId)

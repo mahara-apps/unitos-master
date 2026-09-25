@@ -1,8 +1,18 @@
 /**
  * Board de pautas do job de conteúdo — kanban pelos seis estágios do ciclo,
  * com visões Board / Lista / Matriz e filtros por rede e unidade.
- * Apenas apresentação: os itens já vêm normalizados pela tela do projeto.
+ * Os itens já vêm normalizados pela tela do projeto; a visão Board permite
+ * mover somente peças que possuem IDs reais de post e estágio do pipeline.
  */
+import {
+  DndContext,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 import { useMemo, useState } from "react";
 import { Image as ImageIcon, Kanban, LayoutGrid, List as ListIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +41,11 @@ export type BoardPauta = {
   coverUrl: string | null;
   dateLabel: string | null;
   outOfPlan?: boolean;
+  postId: string | null;
+  stageId: string | null;
 };
+
+export type ProjectBoardStage = { id: string; label: string; stage: ContentStage; position: number };
 
 const BOARD_VIEWS = ["board", "list", "matrix"] as const;
 export type BoardView = (typeof BOARD_VIEWS)[number];
@@ -103,6 +117,58 @@ function PautaCard({ item, onOpen }: { item: BoardPauta; onOpen: () => void }) {
   );
 }
 
+function DraggablePautaCard({ item, onOpen }: { item: BoardPauta; onOpen: () => void }) {
+  const enabled = !!item.postId && !!item.stageId;
+  const drag = useDraggable({ id: item.postId ?? item.key, disabled: !enabled });
+  return (
+    <div
+      ref={drag.setNodeRef}
+      {...drag.attributes}
+      {...drag.listeners}
+      className={cn(enabled && "touch-none", drag.isDragging && "opacity-40")}
+    >
+      <PautaCard item={item} onOpen={onOpen} />
+    </div>
+  );
+}
+
+function ProjectStageColumn({
+  stage,
+  items,
+  onOpenItem,
+}: {
+  stage: ProjectBoardStage;
+  items: BoardPauta[];
+  onOpenItem: (key: string) => void;
+}) {
+  const drop = useDroppable({ id: stage.id });
+  const token = CONTENT_STAGE[stage.stage];
+  return (
+    <div
+      ref={drop.setNodeRef}
+      className={cn(
+        "min-w-0 rounded-lg border border-border/60 bg-muted/20 p-2 transition-colors",
+        drop.isOver && "border-primary/60 bg-primary/5",
+      )}
+    >
+      <div className="mb-2 flex items-center gap-1.5 px-1">
+        <span className={cn("h-1.5 w-1.5 rounded-full", token.dot)} />
+        <span className="truncate text-[11px] font-medium">{stage.label}</span>
+        <span className="ml-auto text-[11px] tabular-nums text-muted-foreground">{items.length}</span>
+      </div>
+      <div className="space-y-2">
+        {items.length === 0 ? (
+          <p className="px-1 py-3 text-[11px] text-muted-foreground">Nada aqui.</p>
+        ) : (
+          items.map((item) => (
+            <DraggablePautaCard key={item.key} item={item} onOpen={() => onOpenItem(item.key)} />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function PautaBoard({
   items,
   onOpenItem,
@@ -110,6 +176,9 @@ export function PautaBoard({
   onViewChange,
   stage = null,
   onStageChange,
+  pipelineStages = [],
+  onMoveItem,
+  moving = false,
 }: {
   items: BoardPauta[];
   onOpenItem: (key: string) => void;
@@ -117,6 +186,9 @@ export function PautaBoard({
   onViewChange: (v: BoardView) => void;
   stage?: ContentStage | null;
   onStageChange?: (s: ContentStage | null) => void;
+  pipelineStages?: ProjectBoardStage[];
+  onMoveItem?: (postId: string, stageId: string, position: number) => void;
+  moving?: boolean;
 }) {
   const [channel, setChannel] = useState("all");
   const [unit, setUnit] = useState("all");
@@ -147,6 +219,18 @@ export function PautaBoard({
     for (const i of filtered) map.get(i.stage)!.push(i);
     return map;
   }, [filtered]);
+  const realStages = useMemo(
+    () => pipelineStages.slice().sort((a, b) => a.position - b.position),
+    [pipelineStages],
+  );
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  function handleDragEnd(event: DragEndEvent) {
+    if (moving || !onMoveItem || !event.over) return;
+    const postId = String(event.active.id);
+    const stageId = String(event.over.id);
+    const targetItems = items.filter((item) => item.stageId === stageId);
+    onMoveItem(postId, stageId, targetItems.length);
+  }
 
   return (
     <div className="space-y-3">
@@ -221,7 +305,21 @@ export function PautaBoard({
           text="Nenhum item de pauta para os filtros escolhidos."
         />
       ) : view === "board" ? (
-        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        realStages.length > 0 ? (
+        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+          <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+            {realStages.map((realStage) => (
+              <ProjectStageColumn
+                key={realStage.id}
+                stage={realStage}
+                items={filtered.filter((item) => item.stageId === realStage.id)}
+                onOpenItem={onOpenItem}
+              />
+            ))}
+          </div>
+        </DndContext>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
           {CONTENT_STAGES.map((s) => {
             const list = byStage.get(s) ?? [];
             const token = CONTENT_STAGE[s];
@@ -246,7 +344,8 @@ export function PautaBoard({
               </div>
             );
           })}
-        </div>
+          </div>
+        )
       ) : view === "list" ? (
         <div className="divide-y divide-border/60 overflow-hidden rounded-lg border border-border/60">
           {filtered.map((i) => {
