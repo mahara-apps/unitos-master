@@ -8,6 +8,15 @@
 - [ ] Executar suíte global e concluir o fluxo MASTER-first da versão 1.4.34.
 - [ ] Publicar e propagar somente após autorização explícita.
 
+## Briefing visual de IA canônico
+
+- [x] Confirmar que o fallback gravava o envelope JSON inteiro como texto.
+- [x] Centralizar a interpretação segura de direção visual, roteiro e legenda.
+- [x] Normalizar a leitura legada sem alterar conteúdo ambíguo.
+- [ ] Criar reconciliação forward-only e idempotente para registros corrigíveis.
+- [ ] Selar e validar o próximo pacote MASTER-first.
+- [ ] Publicar e propagar somente após autorização explícita.
+
 ## Comentários com menções
 
 - [x] Confirmar que o bloqueio vinha da execução do gatilho com privilégio do usuário.

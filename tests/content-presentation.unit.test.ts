@@ -54,4 +54,11 @@ describe("apresentação da tela de Conteúdo", () => {
       expect(editor).toContain(label);
     }
   });
+
+  it("normaliza briefings visuais legados nos dois pontos de leitura", () => {
+    const editor = read("src/components/content/task-dialog.tsx");
+    const pauta = read("src/components/projects/pauta-detail-modal.tsx");
+    expect(editor).toContain('normalizeStoredSingleField(post.design_brief, "visual_direction")');
+    expect(pauta).toContain('normalizeStoredSingleField(post.design_brief, "visual_direction")');
+  });
 });

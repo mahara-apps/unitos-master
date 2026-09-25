@@ -8,6 +8,11 @@ import { buildBrandContextBlueprint } from "@/lib/ai-agents.functions";
 import { loadBriefingContext } from "@/lib/monthly-plan-context.server";
 import { loadBrainAgentContext } from "@/lib/brain/agent-context.server";
 import { loadStrategyContext } from "@/lib/monthly-plan-strategy.server";
+import {
+  normalizeStoredSingleField,
+  parseSingleFieldOutput,
+  type SingleFieldOutputDisposition,
+} from "@/lib/ai-single-field-output";
 
 /** Tempo após o qual uma geração marcada como em andamento é considerada presa. */
 const STALE_LOCK_MS = 10 * 60 * 1000;
@@ -88,81 +93,8 @@ type RunTrace = {
   fallbackProvider: string | null;
   /** Resumo `provedor/modelo#tentativa:resultado → …` da chamada real. */
   providerTrace: string | null;
+  outputDisposition: SingleFieldOutputDisposition | null;
 };
-
-/**
- * Escapa quebras de linha e tabs literais que aparecem DENTRO de strings JSON.
- * Modelos frequentemente devolvem roteiros com `\n` reais, o que invalida o
- * JSON — a estrutura está correta, só a serialização está errada.
- */
-function repairJsonStringLiterals(input: string): string {
-  let out = "";
-  let inString = false;
-  let escaped = false;
-  for (const ch of input) {
-    if (escaped) {
-      out += ch;
-      escaped = false;
-      continue;
-    }
-    if (ch === "\\") {
-      out += ch;
-      escaped = true;
-      continue;
-    }
-    if (ch === '"') {
-      inString = !inString;
-      out += ch;
-      continue;
-    }
-    if (inString && (ch === "\n" || ch === "\r" || ch === "\t")) {
-      out += ch === "\n" ? "\\n" : ch === "\r" ? "\\r" : "\\t";
-      continue;
-    }
-    out += ch;
-  }
-  return out;
-}
-
-/**
- * Extrai o primeiro objeto JSON de uma resposta em texto, tolerando cercas de
- * código, comentários antes/depois e quebras de linha literais dentro das
- * strings. Devolve `null` se não houver JSON aproveitável.
- */
-function extractJsonObject(text: string): unknown {
-  const cleaned = (text ?? "")
-    .replace(/```(?:json)?/gi, "")
-    .replace(/```/g, "")
-    .trim();
-  if (!cleaned) return null;
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  if (start === -1 || end <= start) return null;
-  const candidate = cleaned.slice(start, end + 1);
-  try {
-    return JSON.parse(candidate);
-  } catch {
-    try {
-      return JSON.parse(repairJsonStringLiterals(candidate));
-    } catch {
-      return null;
-    }
-  }
-}
-
-/**
- * Último recurso para agentes de campo textual único (roteiro, direção
- * visual): o modelo escreveu o conteúdo pedido, mas em prosa, sem JSON.
- * Usa o próprio texto como valor do campo — nunca inventa conteúdo.
- */
-function coerceSingleField(text: string, key: string): unknown | null {
-  const cleaned = (text ?? "")
-    .replace(/```(?:json)?/gi, "")
-    .replace(/```/g, "")
-    .trim();
-  if (cleaned.length < 20) return null;
-  return { [key]: cleaned };
-}
 
 /**
  * Chamada estruturada agnóstica de provedor: pede JSON no prompt e valida o
@@ -194,20 +126,18 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
     model: null,
     fallbackProvider: null,
     providerTrace: null,
+    outputDisposition: null,
   };
 
   const parseAny = (text: string): z.infer<T> | null => {
-    const raw = extractJsonObject(text);
-    if (raw !== null) {
-      const parsed = opts.schema.safeParse(raw);
-      if (parsed.success) return parsed.data as z.infer<T>;
-    }
-    if (opts.textFallbackKey) {
-      const coerced = coerceSingleField(text, opts.textFallbackKey);
-      if (coerced !== null) {
-        const parsed = opts.schema.safeParse(coerced);
-        if (parsed.success) return parsed.data as z.infer<T>;
-      }
+    if (!opts.textFallbackKey) return null;
+    const siblings = opts.textFallbackKey === "caption" ? ["reasoning_summary"] : [];
+    const field = parseSingleFieldOutput(text, opts.textFallbackKey, siblings);
+    if (!field) return null;
+    const parsed = opts.schema.safeParse({ [opts.textFallbackKey]: field.value });
+    if (parsed.success) {
+      trace.outputDisposition = field.disposition;
+      return parsed.data as z.infer<T>;
     }
     return null;
   };
@@ -225,6 +155,7 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
         model: handle.modelId,
         fallbackProvider: handle.fallbackProvider,
         providerTrace: null,
+        outputDisposition: null,
       };
       const res = await generateText({
         model: handle.model,
@@ -310,6 +241,7 @@ async function logAttempt(
         model: info.trace?.model ?? null,
         fallback_provider: info.trace?.fallbackProvider ?? null,
         provider_trace: info.trace?.providerTrace ?? null,
+        output_disposition: info.trace?.outputDisposition ?? null,
         completed_steps: info.completedSteps ?? null,
         context_parts: info.contextParts ?? null,
         degraded: info.degraded?.length ? info.degraded : null,
@@ -519,7 +451,10 @@ export async function generatePostContent(
   ].filter(Boolean);
 
   const needsScript = isVideoFormat(format, post.channels);
-  const needsVisual = !needsScript && !(post.design_brief ?? "").trim();
+  const storedDesignBrief = post.design_brief
+    ? normalizeStoredSingleField(post.design_brief, "visual_direction").trim()
+    : "";
+  const needsVisual = !needsScript && !storedDesignBrief;
 
   const agentIds = [
     "copywriter_senior",
@@ -719,7 +654,9 @@ export async function generatePostContent(
       prompt:
         `${contextBlock}\n\n` +
         (scriptText ? `Roteiro aprovado desta peça:\n${scriptText}\n\n` : "") +
-        (patch.design_brief ? `Direção visual:\n${patch.design_brief as string}\n\n` : "") +
+        (patch.design_brief || storedDesignBrief
+          ? `Direção visual:\n${String(patch.design_brief ?? storedDesignBrief)}\n\n`
+          : "") +
         `Escreva a LEGENDA FINAL desta peça, pronta para publicar em ${channel} (${format}).\n` +
         `A legenda deve ser um texto único e contínuo contendo: abertura de impacto, desenvolvimento, ` +
         `argumentos, chamada para ação e hashtags no final. Use emojis somente quando fizer sentido para a marca. ` +

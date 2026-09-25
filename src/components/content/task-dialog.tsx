@@ -78,6 +78,7 @@ import {
   toLocalInputValue as tzToLocalInputValue,
 } from "@/lib/post-schedule-display";
 import { type PlacementFormat } from "@/lib/placements.functions";
+import { normalizeStoredSingleField } from "@/lib/ai-single-field-output";
 import { listProjects } from "@/lib/projects.functions";
 import { FolderKanban } from "lucide-react";
 import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
@@ -894,7 +895,7 @@ function EditBody({
                 <FileText className="h-3.5 w-3.5" /> Briefing visual (IA)
               </Label>
               <DashboardPanelSurface className="bg-background/60 p-3 text-sm whitespace-pre-wrap">
-                {post.design_brief}
+                {normalizeStoredSingleField(post.design_brief, "visual_direction")}
               </DashboardPanelSurface>
             </div>
           ) : null}

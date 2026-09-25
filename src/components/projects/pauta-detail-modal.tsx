@@ -29,6 +29,7 @@ import { listTasksFn, updateTaskFn, type TaskRow } from "@/lib/tasks.functions";
 import { getPautaDetailFn, type PautaDetail } from "@/lib/projects.functions";
 import { contentFormatLabel } from "@/lib/content-formats";
 import { APP_TIMEZONE } from "@/lib/timezone";
+import { normalizeStoredSingleField } from "@/lib/ai-single-field-output";
 import { AssigneePicker, type TeamOption } from "./assignee-picker";
 import { StatusPicker } from "./status-picker";
 import { CommentThread } from "./comment-thread";
@@ -549,7 +550,9 @@ export function PautaDetailModal({
             ) : null}
             {post?.design_brief ? (
               <Field label="Brief de design">
-                <LongText text={post.design_brief} />
+                <LongText
+                  text={normalizeStoredSingleField(post.design_brief, "visual_direction")}
+                />
               </Field>
             ) : null}
           </div>
