@@ -7,8 +7,8 @@ describe("arraste das peças no quadro do projeto", () => {
   it("mostra a peça acompanhando o cursor e indica somente destinos do mesmo pipeline", () => {
     expect(board).toContain("<DragOverlay>");
     expect(board).toContain("<PautaCard item={activeItem}");
-    expect(board).toContain('onDragStart={(event) => setActiveId(String(event.active.id))}');
-    expect(board).toContain('onDragCancel={() => setActiveId(null)}');
+    expect(board).toContain("onDragStart={(event) => setActiveId(String(event.active.id))}");
+    expect(board).toContain("onDragCancel={() => setActiveId(null)}");
     expect(board).toContain('drag.isDragging && "opacity-40"');
     expect(board).toContain("activePipelineId === stage.pipelineId");
     expect(board).toContain("drop.isOver && validTarget");

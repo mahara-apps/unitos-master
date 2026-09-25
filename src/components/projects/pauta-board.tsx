@@ -135,7 +135,10 @@ function DraggablePautaCard({ item, onOpen }: { item: BoardPauta; onOpen: () => 
       {...drag.attributes}
       {...drag.listeners}
       title={enabled ? "Arraste para mudar de etapa" : undefined}
-      className={cn(enabled && "cursor-grab touch-none active:cursor-grabbing", drag.isDragging && "opacity-40")}
+      className={cn(
+        enabled && "cursor-grab touch-none active:cursor-grabbing",
+        drag.isDragging && "opacity-40",
+      )}
     >
       <PautaCard item={item} onOpen={onOpen} />
     </div>
