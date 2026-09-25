@@ -199,10 +199,7 @@ function TasksPage() {
   // Effective filters: "mine" view forces assigneeId=me
   const effectiveFilters: TaskFilters = view === "mine" ? { ...filters, assigneeId: "me" } : filters;
 
-  const filtered = useMemo(
-    () => applyFilters(tasks, effectiveFilters, me),
-    [tasks, search, view, me],
-  );
+  const filtered = useMemo(() => applyFilters(tasks, effectiveFilters, me), [tasks, effectiveFilters, me]);
   const sorted = useMemo(() => [...filtered].sort((a, b) => {
     const result = compare(a, b, sortKey);
     return (sortDir === "asc" ? result : -result) || a.id.localeCompare(b.id);
@@ -234,7 +231,7 @@ function TasksPage() {
     if (filters.assigneeId === "me" && view !== "mine") return "mine";
     if (filters.hideDone) return "open";
     return null;
-  }, [search, view]);
+  }, [filters.assigneeId, filters.due, filters.hideDone, filters.status, view]);
 
   function applyQuick(q: Quick) {
     const base: TaskFilters = {
@@ -257,7 +254,7 @@ function TasksPage() {
         setFilters({ ...base, due: "overdue" });
         break;
       case "mine":
-        setSearch({ view: "mine", assigneeId: "all", clientId: "all", projectId: "all", status: "all", due: "all", hideDone: false });
+        setSearch({ ...base, q: undefined, view: "mine", assigneeId: "me", clientId: "all", projectId: "all", hideDone: true });
         break;
       case "today":
         setFilters({ ...base, due: "today" });
@@ -356,15 +353,12 @@ function TasksPage() {
       </PageKpiGrid>
 
       {/* Views */}
-      <TaskViewSwitcher value={view} onChange={(v) => setSearch({ view: v })} />
+      <TaskViewSwitcher value={view} onChange={(v) => setSearch({ view: v, ...(view === "mine" && v !== "mine" ? { assigneeId: "me" } : {}) })} />
 
       {/* Toolbar */}
       <TaskToolbar
         filters={filters}
-        onFiltersChange={(next) => {
-          setFilters(next);
-          setSearch({ q: next.search || undefined });
-        }}
+        onFiltersChange={setFilters}
         groupBy={groupBy}
         onGroupByChange={(g) => setSearch({ groupBy: g })}
         sortKey={sortKey}
@@ -422,7 +416,6 @@ function TasksPage() {
                 variant="outline"
                 onClick={() => {
                   setFilters(DEFAULT_FILTERS);
-                   setSearch({ q: undefined });
                 }}
               >
                 Limpar filtros
@@ -472,8 +465,7 @@ function TasksPage() {
           open={createOpen}
           onOpenChange={setCreateOpen}
           onCreated={(id) => {
-             invalidate();
-             void qc.invalidateQueries({ queryKey: ["tasks-pending-count", brandId] });
+            invalidate();
             setSearch({ taskId: id });
           }}
         />
