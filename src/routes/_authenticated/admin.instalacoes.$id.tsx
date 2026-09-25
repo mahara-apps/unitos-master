@@ -524,7 +524,8 @@ function InstallationDetailPage() {
     (op) => op.status === "pending" || op.status === "running" || op.status === "retryable",
   );
   const lastProvision = operations.find((op) => op.kind === "provision" || op.kind === "update");
-  const failedUpdate = operations.find((op) => op.kind === "update" && op.status === "failed") ?? null;
+  const failedUpdate =
+    operations.find((op) => op.kind === "update" && op.status === "failed") ?? null;
   const lastProvisionOperation = operations.find((op) => op.kind === "provision") ?? null;
   const lastValidate = operations.find((op) => op.kind === "validate");
   const shownProvision =
