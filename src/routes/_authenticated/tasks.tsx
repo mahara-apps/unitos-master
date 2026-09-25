@@ -201,10 +201,14 @@ function TasksPage() {
     () => applyFilters(tasks, view === "mine" ? { ...filters, assigneeId: "me" } : filters, me),
     [tasks, search, view, me],
   );
-  const sorted = useMemo(() => [...filtered].sort((a, b) => {
-    const result = compare(a, b, sortKey);
-    return (sortDir === "asc" ? result : -result) || a.id.localeCompare(b.id);
-  }), [filtered, sortKey, sortDir]);
+  const sorted = useMemo(
+    () =>
+      [...filtered].sort((a, b) => {
+        const result = compare(a, b, sortKey);
+        return (sortDir === "asc" ? result : -result) || a.id.localeCompare(b.id);
+      }),
+    [filtered, sortKey, sortDir],
+  );
 
   const kpis = useMemo(() => {
     const now = Date.now();
@@ -255,7 +259,18 @@ function TasksPage() {
         setFilters({ ...base, due: "overdue" });
         break;
       case "mine":
-        setSearch({ view: "mine", assigneeId: "me", clientId: "all", projectId: "all", status: "all", priority: "all", due: "all", hideDone: true, archive: "active", q: undefined });
+        setSearch({
+          view: "mine",
+          assigneeId: "me",
+          clientId: "all",
+          projectId: "all",
+          status: "all",
+          priority: "all",
+          due: "all",
+          hideDone: true,
+          archive: "active",
+          q: undefined,
+        });
         break;
       case "today":
         setFilters({ ...base, due: "today" });
@@ -354,7 +369,12 @@ function TasksPage() {
       </PageKpiGrid>
 
       {/* Views */}
-      <TaskViewSwitcher value={view} onChange={(v) => setSearch({ view: v, ...(view === "mine" && v !== "mine" ? { assigneeId: "me" } : {}) })} />
+      <TaskViewSwitcher
+        value={view}
+        onChange={(v) =>
+          setSearch({ view: v, ...(view === "mine" && v !== "mine" ? { assigneeId: "me" } : {}) })
+        }
+      />
 
       {/* Toolbar */}
       <TaskToolbar
@@ -394,8 +414,14 @@ function TasksPage() {
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando tarefas...
         </DashboardPanelSurface>
       ) : tasksQ.isError ? (
-        <DashboardPanelSurface className="px-6 py-10 text-center text-sm text-destructive" role="alert">
-          Não foi possível carregar as tarefas. <Button variant="outline" size="sm" onClick={() => void tasksQ.refetch()}>Tentar novamente</Button>
+        <DashboardPanelSurface
+          className="px-6 py-10 text-center text-sm text-destructive"
+          role="alert"
+        >
+          Não foi possível carregar as tarefas.{" "}
+          <Button variant="outline" size="sm" onClick={() => void tasksQ.refetch()}>
+            Tentar novamente
+          </Button>
         </DashboardPanelSurface>
       ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-border/60 bg-card px-6 py-10 text-center">

@@ -54,15 +54,26 @@ const ofClientA = task({
 describe("Filtros e visões compartilhados", () => {
   it("preserva filtros no endereço ao alternar entre Minhas e Kanban", () => {
     const search = searchSchema.parse({
-      view: "mine", status: "blocked", assigneeId: "me", due: "none",
-      archive: "all", q: "briefing", hideDone: true,
+      view: "mine",
+      status: "blocked",
+      assigneeId: "me",
+      due: "none",
+      archive: "all",
+      q: "briefing",
+      hideDone: true,
     });
     expect(searchSchema.parse({ ...search, view: "kanban" })).toMatchObject({
-      view: "kanban", status: "blocked", assigneeId: "me", due: "none",
-      archive: "all", q: "briefing", hideDone: true,
+      view: "kanban",
+      status: "blocked",
+      assigneeId: "me",
+      due: "none",
+      archive: "all",
+      q: "briefing",
+      hideDone: true,
     });
     expect(searchSchema.parse({ assigneeId: "not-a-uuid", clientId: "invalid" })).toMatchObject({
-      assigneeId: "all", clientId: "all",
+      assigneeId: "all",
+      clientId: "all",
     });
   });
 
@@ -71,7 +82,9 @@ describe("Filtros e visões compartilhados", () => {
     const previousDay = task({ id: "br-today", due_at: "2026-09-26T02:45:00.000Z" });
     const nextDay = task({ id: "br-tomorrow", due_at: "2026-09-26T03:15:00.000Z" });
     expect(isoDateInTz(new Date(previousDay.due_at ?? ""))).toBe("2026-09-25");
-    expect(idsOf(applyFilters([previousDay, nextDay], f({ due: "today" }), null))).toEqual(["br-today"]);
+    expect(idsOf(applyFilters([previousDay, nextDay], f({ due: "today" }), null))).toEqual([
+      "br-today",
+    ]);
     vi.setSystemTime(fixedNow);
   });
 
@@ -81,7 +94,9 @@ describe("Filtros e visões compartilhados", () => {
       task({ id: "mine-b", assignee_id: "mine", client_id: "b" }),
       task({ id: "other-a", assignee_id: "other", client_id: "a" }),
     ];
-    expect(idsOf(applyFilters(rows, f({ assigneeId: "me", clientId: "a" }), "mine"))).toEqual(["mine-a"]);
+    expect(idsOf(applyFilters(rows, f({ assigneeId: "me", clientId: "a" }), "mine"))).toEqual([
+      "mine-a",
+    ]);
   });
 });
 const ofProject = task({

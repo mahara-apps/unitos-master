@@ -34,9 +34,9 @@ function taskSpan(task: TaskRow, days: Date[]) {
   const start = task.start_date ? new Date(task.start_date) : null;
   const end = task.due_at ? new Date(task.due_at) : null;
   if (!start && !end) return null;
-   const first = days[0];
-   const last = days[days.length - 1];
-   if (!first || !last) return null;
+  const first = days[0];
+  const last = days[days.length - 1];
+  if (!first || !last) return null;
   const rawStart = start ?? end;
   const rawEnd = end ?? start;
   if (!rawStart || !rawEnd) return null;
@@ -45,7 +45,8 @@ function taskSpan(task: TaskRow, days: Date[]) {
   const startKey = task.start_date?.slice(0, 10) ?? isoDateInTz(rawStart);
   const endKey = isoDateInTz(rawEnd);
   if (endKey < firstKey || startKey > lastKey) return null;
-  const from = startKey < firstKey ? 0 : days.findIndex((d) => format(d, "yyyy-MM-dd") === startKey);
+  const from =
+    startKey < firstKey ? 0 : days.findIndex((d) => format(d, "yyyy-MM-dd") === startKey);
   const to = endKey > lastKey ? days.length - 1 : dayIndex(days, rawEnd);
   if (from < 0 || to < 0) return null;
   return { from, span: Math.max(1, to - from + 1) };
@@ -135,7 +136,7 @@ export function TaskTimeline({
                     className={cn(
                       "shrink-0 border-r border-border/40 py-1 text-center",
                       weekend && "bg-muted/40",
-                       format(d, "yyyy-MM-dd") === isoDateInTz() && "bg-primary/10",
+                      format(d, "yyyy-MM-dd") === isoDateInTz() && "bg-primary/10",
                     )}
                   >
                     <div className="text-[11px] font-medium leading-tight">{format(d, "d")}</div>
@@ -173,7 +174,7 @@ export function TaskTimeline({
                           className={cn(
                             "shrink-0 border-r border-border/30",
                             weekend && "bg-muted/30",
-                             format(d, "yyyy-MM-dd") === isoDateInTz() && "bg-primary/5",
+                            format(d, "yyyy-MM-dd") === isoDateInTz() && "bg-primary/5",
                           )}
                         />
                       );
@@ -182,8 +183,8 @@ export function TaskTimeline({
 
                   <div className="relative space-y-1 py-2">
                     {lane.tasks.map((t) => {
-                       const span = taskSpan(t, days);
-                       if (!span) return null;
+                      const span = taskSpan(t, days);
+                      if (!span) return null;
                       const meta = STATUS_META[t.status];
                       return (
                         <button

@@ -199,7 +199,9 @@ export const listTasksFn = createServerFn({ method: "GET" })
     }
     const enriched: TaskRow[] = [];
     for (let offset = 0; offset < rows.length; offset += pageSize) {
-      enriched.push(...(await enrichTaskRows(context.supabase as never, rows.slice(offset, offset + pageSize))));
+      enriched.push(
+        ...(await enrichTaskRows(context.supabase as never, rows.slice(offset, offset + pageSize))),
+      );
     }
     return enriched;
   });
