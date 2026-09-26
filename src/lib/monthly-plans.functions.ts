@@ -88,6 +88,7 @@ export type PlanAiModelOption = {
   modelId: string;
   label: string;
   primary: boolean;
+  role: "primary" | "fallback" | "connected";
 };
 
 export type MonthlyPlan = {
@@ -297,6 +298,12 @@ export const listPlanAiModelsFn = createServerFn({ method: "POST" })
         ...option,
         label: `${option.provider} · ${option.modelId}`,
         primary: option.provider === primary,
+        role:
+          option.provider === primary
+            ? ("primary" as const)
+            : option.provider === fallback
+              ? ("fallback" as const)
+              : ("connected" as const),
       }));
   });
 
