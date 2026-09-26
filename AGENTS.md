@@ -38,7 +38,7 @@ Guardiao automatico: `tests/installation-master-sync.unit.test.ts` e
 
 ## Atualizações múltiplas
 
-Remessas usam batchId/posição/total; o próximo update só sai após reconciliação. Ledger usa `deltaFingerprint`; SHA-256 global fica no baseline.
+Remessas usam batchId/posição/total; próximo update só após reconciliação. Ledger usa `deltaFingerprint`; SHA-256 fica no baseline. Promoção do Control-plane lê a versão do contrato selado, não uma versão fixa, para impedir promoção histórica.
 
 Minhas tarefas consulta o workspace com filtro de responsável no servidor antes do limite; atribuições usam `can_access_client` sem alterar RBAC/RLS, e o quadro move peças só entre etapas do mesmo pipeline via `movePostFn` — preserva escopo, ordenação e estado editorial existente.
 

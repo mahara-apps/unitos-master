@@ -109,5 +109,13 @@ describe("seis desbloqueios operacionais do Control-plane 1.4.27", () => {
     );
     expect(releaseTool).toContain("LOCAL_CONTRACT_SHA256");
     expect(releaseTool).toContain("hash informado diverge do contrato local selado");
+    expect(releaseTool).toContain("verify_control_plane_compatibility.py");
+    expect(releaseTool).toContain("['releaseVersion']");
+    expect(releaseTool).toContain("EXPECTED_AUTHORIZATION=\"PROMOTE_VALIDATED_CONTROL_PLANE_${TARGET_RELEASE//./_}_ONLY\"");
+    expect(releaseTool).toContain("--set target_release=\"$TARGET_RELEASE\"");
+    expect(releaseTool).toContain(":'target_release', :'target_commit', :'contract_sha'");
+    expect(releaseTool).toContain("EXPECTED=\"$TARGET_RELEASE,$TARGET_RELEASE,");
+    expect(releaseTool).not.toMatch(/PROMOTE_VALIDATED_CONTROL_PLANE_1\.4\.30_ONLY/);
+    expect(releaseTool).not.toMatch(/'1\.4\.30', :'target_commit'/);
   });
 });

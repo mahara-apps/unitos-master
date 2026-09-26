@@ -4,12 +4,20 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 EXPECTED_REF="tkjbhttylouamqxnbfgv"
 if [[ "$#" -ne 0 ]]; then echo "Bloqueado: promoção do Control-plane não aceita argumentos" >&2; exit 2; fi
 python3 "$ROOT/supabase/master/tools/verify_control_plane_compatibility.py"
-if [[ "${UNITOS_CONTROL_PLANE_PROMOTION:-}" != "PROMOTE_VALIDATED_CONTROL_PLANE_1.4.30_ONLY" ]]; then echo "Bloqueado: autorização específica da promoção ausente" >&2; exit 2; fi
+TARGET_RELEASE="$(python3 - "$ROOT/supabase/master/control-plane-contract.json" <<'PY'
+import json, sys
+with open(sys.argv[1], encoding='utf-8') as contract:
+    print(json.load(contract)['releaseVersion'])
+PY
+)"
+if [[ ! "$TARGET_RELEASE" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "Bloqueado: versão selada inválida" >&2; exit 2; fi
+EXPECTED_AUTHORIZATION="PROMOTE_VALIDATED_CONTROL_PLANE_${TARGET_RELEASE//./_}_ONLY"
+if [[ "${UNITOS_CONTROL_PLANE_PROMOTION:-}" != "$EXPECTED_AUTHORIZATION" ]]; then echo "Bloqueado: autorização específica da versão selada ausente" >&2; exit 2; fi
 for name in MASTER_DATABASE_URL UNITOS_CONTROL_PLANE_EXPECTED_GENERATION UNITOS_CONTROL_PLANE_TARGET_COMMIT_SHA UNITOS_CONTROL_PLANE_CONTRACT_SHA256 UNITOS_CONTROL_PLANE_PROMOTED_BY; do
   if [[ -z "${!name:-}" ]]; then echo "Bloqueado: $name ausente" >&2; exit 2; fi
 done
-if [[ "${MASTER_PROJECT_REF:-}" != "$EXPECTED_REF" || ! "${UNITOS_CONTROL_PLANE_EXPECTED_GENERATION}" =~ ^[0-9]+$ || ! "${UNITOS_CONTROL_PLANE_CONTRACT_SHA256}" =~ ^[0-9a-f]{64}$ ]]; then
-  echo "Bloqueado: identidade, geração ou hash do contrato inválido" >&2; exit 2
+if [[ "${MASTER_PROJECT_REF:-}" != "$EXPECTED_REF" || ! "${UNITOS_CONTROL_PLANE_EXPECTED_GENERATION}" =~ ^[0-9]+$ || ! "${UNITOS_CONTROL_PLANE_CONTRACT_SHA256}" =~ ^[0-9a-f]{64}$ || ! "${UNITOS_CONTROL_PLANE_TARGET_COMMIT_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "Bloqueado: identidade, geração, commit ou hash do contrato inválido" >&2; exit 2
 fi
 LOCAL_CONTRACT_SHA256="$(sha256sum "$ROOT/supabase/master/control-plane-contract.json" | awk '{print $1}')"
 if [[ "$UNITOS_CONTROL_PLANE_CONTRACT_SHA256" != "$LOCAL_CONTRACT_SHA256" ]]; then
@@ -35,11 +43,12 @@ if [[ "$GENERATION" != "$UNITOS_CONTROL_PLANE_EXPECTED_GENERATION" ]]; then echo
 psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --set generation="$GENERATION" \
   --set current="$CURRENT" --set pinned="$PINNED" --set commit="$COMMIT" \
   --set target_commit="$UNITOS_CONTROL_PLANE_TARGET_COMMIT_SHA" \
-  --set contract_sha="$UNITOS_CONTROL_PLANE_CONTRACT_SHA256" --set actor="$UNITOS_CONTROL_PLANE_PROMOTED_BY" <<'SQL'
+  --set contract_sha="$UNITOS_CONTROL_PLANE_CONTRACT_SHA256" --set actor="$UNITOS_CONTROL_PLANE_PROMOTED_BY" \
+  --set target_release="$TARGET_RELEASE" <<'SQL'
 BEGIN;
 SELECT public.promote_control_plane_release(
   :'generation'::bigint, nullif(:'current',''), nullif(:'pinned',''), nullif(:'commit',''),
-  '1.4.30', :'target_commit', :'contract_sha',
+  :'target_release', :'target_commit', :'contract_sha',
   '{"contractValidated":true,"freezeValidated":true,"executorValidated":true,"recoveryValidated":true,"ledgerValidated":true}'::jsonb,
   :'actor'
 );
@@ -47,6 +56,6 @@ COMMIT;
 SQL
 
 FINAL="$(psql "$MASTER_DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 --tuples-only --no-align --command "SELECT concat_ws(',',current_version,pinned_release,pinned_commit_sha,contract_sha256,generation) FROM public.control_plane_release_state WHERE singleton IS TRUE;")"
-EXPECTED="1.4.30,1.4.30,$UNITOS_CONTROL_PLANE_TARGET_COMMIT_SHA,$UNITOS_CONTROL_PLANE_CONTRACT_SHA256,$((GENERATION + 1))"
+EXPECTED="$TARGET_RELEASE,$TARGET_RELEASE,$UNITOS_CONTROL_PLANE_TARGET_COMMIT_SHA,$UNITOS_CONTROL_PLANE_CONTRACT_SHA256,$((GENERATION + 1))"
 if [[ "$FINAL" != "$EXPECTED" ]]; then echo "Falha: promoção atômica do Control-plane não foi confirmada" >&2; exit 1; fi
-echo "Control-plane 1.4.30 promovido atomicamente e validado"
+echo "Control-plane $TARGET_RELEASE promovido atomicamente e validado"
