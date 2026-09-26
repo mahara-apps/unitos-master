@@ -1,0 +1,21 @@
+# Eliminar a divergência de URL da NXT
+
+## Resultado
+- O endereço oficial escolhido permanece **https://unitosnxt.vercel.app** (sem hífen). O retorno Meta correspondente é **https://unitosnxt.vercel.app/api/public/meta/callback**.
+- A conferência só exibirá “configurado” quando o endereço do cadastro, a configuração aplicada no site, a identidade da instalação, os links agendados e o retorno Meta estiverem coerentes. Nenhuma outra instalação será alterada.
+
+## Situação confirmada
+- O cadastro da NXT no MASTER aponta para `unitosnxt.vercel.app`; não há operação ativa registrada. O projeto de deploy identificado é `unitos-nxt`.
+- A leitura direta do projeto de deploy respondeu com sucesso: **ambos** os domínios estão atribuídos e verificados, mas `PUBLIC_APP_URL`, `VITE_PUBLIC_APP_URL` e `META_REDIRECT_URI` ainda apontam para **unitos-nxt.vercel.app** (com hífen), nos ambientes de produção, prévia e desenvolvimento. Os dois endereços retornam a tela de login; isso por si só não comprova identidade, banco ou funcionamento do callback.
+- Editar o endereço no painel atualiza apenas o cadastro do MASTER. A inspeção consulta os valores do projeto de deploy, sem corrigi-los. A identidade `installation.app_url` e os agendamentos do banco da NXT ainda precisam de leitura direta antes de qualquer troca.
+
+## Execução segura
+1. **Pré-verificação somente leitura:** confirmar que os dois domínios servem o mesmo projeto e deployment de produção, identificar o banco da NXT, ler `installation.app_url`, os destinos reais dos cron jobs e as configurações de retorno Meta disponíveis. Registrar os valores anteriores e bloquear a troca se houver operação concorrente, vínculo incerto ou divergência não explicada.
+2. **Correção definitiva no MASTER:** criar uma ação explícita e restrita à instalação selecionada para sincronizar o endereço, separada da edição simples do cadastro. Mostrar comparação antes/depois, exigir confirmação e reaproveitar a autorização de Super Admin existente. Nunca sincronizar silenciosamente ao salvar, nem reprovisionar ou relançar migrations para trocar URL.
+3. **Aplicação à NXT:** atualizar somente as três URLs públicas do projeto de deploy correto, mantendo as demais credenciais; garantir que o endereço sem hífen continue atribuído. Gerar um novo deployment de produção pelo fluxo Git permitido e comprovar que ele usa os novos valores, especialmente o valor embutido no navegador. Só então alinhar `installation.app_url` e os destinos dos cron jobs da própria NXT de forma idempotente, preservando seus segredos e agendamentos. Se alguma etapa falhar, manter o estado como pendente e restaurar os valores anteriores alterados quando for seguro fazê-lo.
+4. **Validação real:** conferir novamente cadastro, projeto e deployment ativos, identidade e cron no banco; testar login, `/setup` quando pertinente, início e retorno Meta, e endpoints agendados sem disparar tarefas de produção indevidamente. Confirmar o callback exato no App Meta; se o acesso ao painel Meta não estiver disponível, deixar essa etapa visivelmente pendente, sem anunciar conclusão falsa. Não tomar HTTP 200 isolado como prova de funcionamento.
+5. **Cobertura e distribuição:** adicionar testes para repetição segura, falha parcial, concorrência e isolamento entre instalações; executar a suíte global sem relaxar critérios. Seguir MASTER-first: regenerar delta, sincronizar versão/hash, verificar instalação e executar `bun run master:check`. Preservar RBAC, RLS, autenticação, usuários e dados. **Não publicar o MASTER nem propagar para outras instalações sem autorização explícita separada.**
+
+## Detalhes técnicos
+- Reutilizar o cliente de deploy e a consulta de gerenciamento já existentes; validar projeto e instalação antes de qualquer escrita. Não usar uma escrita “best effort” após salvar o cadastro, pois isso deixaria divergência oculta.
+- Uma alteração de variável da Vercel não altera o deployment já ativo; a confirmação deve distinguir valor configurado no projeto de valor efetivamente publicado. A rotina de cron deve validar a origem contra `installation.app_url` e alterar apenas os jobs pertencentes à NXT.
