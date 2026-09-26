@@ -93,7 +93,7 @@ export async function getBrandProviderKey(
 ): Promise<BrandProviderKey> {
   const { data: conn, error: connErr } = await supabase
     .from("brand_connections")
-    .select("text_provider, image_provider, providers")
+    .select("text_provider, text_fallback_provider, image_provider, providers")
     .eq("brand_id", brandId)
     .maybeSingle();
   if (connErr) throw connErr;
@@ -115,6 +115,7 @@ export async function getBrandProviderKey(
     kind === "text"
       ? orderedUsableTextProviders({
           primary: selected,
+          fallback: conn?.text_fallback_provider,
           providers,
           credentialProviders: (credentialRows ?? []).map((row) => row.provider),
         }).find(allowed)
