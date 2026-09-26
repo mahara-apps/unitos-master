@@ -266,3 +266,13 @@
 - [x] Validar pacote MASTER-first 1.4.42 (`master:check`: 201 testes e ensaios PostgreSQL aprovados).
 - [ ] Executar suíte global sem relaxar critérios — bloqueada por token Supabase de testes inválido/revogado antes do início.
 - [ ] Publicar e propagar apenas após autorização explícita.
+
+## URL operacional e callback Meta da NXT
+
+- [x] Conferir em leitura os dois domínios e as URLs públicas configuradas no deploy.
+- [x] Corrigir no MASTER a inspeção somente leitura e a indicação de divergência entre cadastro e deploy.
+- [ ] Conferir o banco e cron da NXT diretamente; bloqueado por falta de acesso de leitura ao destino.
+- [ ] Sincronizar as URLs efetivas da NXT apenas após validação integral e autorização de escrita.
+- [ ] Selar o pacote MASTER-first; bloqueado por duas migrations administrativas ainda sem classificação no mapa de destinos.
+- [ ] Executar a suíte global; bloqueada por token de testes inválido.
+- [ ] Publicar o MASTER e propagar apenas após autorização explícita.

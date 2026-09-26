@@ -7,6 +7,7 @@ import {
   metaIntegrationState,
   metaRedirectUriFor,
   normalizeOriginCandidate,
+  operationalUrlState,
 } from "@/lib/installation/readiness-contract";
 
 describe("domínio salvo sem esquema", () => {
@@ -25,6 +26,22 @@ describe("domínio salvo sem esquema", () => {
 
   it("mantém URL temporária de deploy como pendente", () => {
     expect(customDomainState("https://unitos-taveira.vercel.app")).toBe("pending");
+  });
+});
+
+describe("sincronização da URL operacional", () => {
+  const registered = "unitosnxt.vercel.app";
+  it("não confunde cadastro novo com URLs antigas no deploy", () => {
+    const result = operationalUrlState({ registered, deployed: "https://unitos-nxt.vercel.app", browser: "https://unitos-nxt.vercel.app" });
+    expect(result.state).toBe("pending");
+    expect(result.detail).toContain("https://unitosnxt.vercel.app");
+  });
+  it("não confirma quando falta acesso a uma das URLs", () => {
+    expect(operationalUrlState({ registered, deployed: null, browser: registered }).state).toBe("pending");
+  });
+  it("aceita URLs iguais, mas conserva a indicação de domínio temporário", () => {
+    expect(operationalUrlState({ registered, deployed: registered, browser: registered }).state).toBe("pending");
+    expect(operationalUrlState({ registered: "app.example.com", deployed: "https://app.example.com", browser: "https://app.example.com" }).state).toBe("configured");
   });
 });
 

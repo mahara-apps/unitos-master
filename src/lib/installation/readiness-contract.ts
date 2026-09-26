@@ -293,6 +293,28 @@ export function metaRedirectUriFor(origin: string | null | undefined): string | 
   return url.ok ? `${url.origin}/api/public/meta/callback` : null;
 }
 
+/** O cadastro não representa uma troca efetiva enquanto as URLs do deploy divergem. */
+export function operationalUrlState(input: {
+  registered: string | null | undefined;
+  deployed: string | null | undefined;
+  browser: string | null | undefined;
+}): IntegrationStateReport {
+  const expected = classifyOperationalUrl(input.registered);
+  if (!expected.ok) return { state: "pending", detail: expected.reason };
+  const deployed = classifyOperationalUrl(input.deployed);
+  const browser = classifyOperationalUrl(input.browser);
+  if (!deployed.ok || !browser.ok) {
+    return { state: "pending", detail: `Cadastro ${expected.origin}; não foi possível confirmar os endereços do sistema no deploy.` };
+  }
+  if (deployed.origin !== expected.origin || browser.origin !== expected.origin) {
+    return { state: "pending", detail: `Cadastro ${expected.origin}; sistema no deploy ${deployed.origin}; navegador ${browser.origin}. Sincronização pendente.` };
+  }
+  return {
+    state: expected.kind === "custom" ? "configured" : "pending",
+    detail: `Endereço cadastrado e configurado no deploy: ${expected.origin}. ${expected.kind === "temporary" ? "Domínio temporário." : ""}`.trim(),
+  };
+}
+
 export type IntegrationStateReport = {
   state: OptionalState;
   /** Motivo/ação em pt-BR — vira tooltip na tela. */

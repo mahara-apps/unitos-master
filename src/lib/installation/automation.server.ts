@@ -978,6 +978,14 @@ export type DeployClient = {
     error?: string;
   }>;
 
+  /** Consulta a atribuição do domínio sem tentar criá-lo. */
+  inspectDomain: (domain: string) => Promise<{
+    ok: boolean;
+    assigned: boolean;
+    verified: boolean;
+    error?: string;
+  }>;
+
   setEnv: (
     entries: readonly { key: string; value: string; sensitive: boolean }[],
   ) => Promise<{ ok: boolean; applied: number; error?: string }>;
@@ -3049,6 +3057,22 @@ export function createDeployClient(input: {
       }
     },
 
+    async inspectDomain(domain) {
+      const host = (domain ?? "").trim().replace(/^https?:\/\//i, "").replace(/\/.*$/, "");
+      if (!host) return { ok: false, assigned: false, verified: false, error: "domínio vazio" };
+      try {
+        const read = await doFetch(
+          `https://api.vercel.com/v9/projects/${projectPath()}/domains/${encodeURIComponent(host)}?${qs()}`.replace(/\?$/, ""),
+          { headers },
+        );
+        if (read.status === 404) return { ok: true, assigned: false, verified: false };
+        if (!read.ok) return { ok: false, assigned: false, verified: false, error: `HTTP ${read.status} ao consultar domínio` };
+        const body = (await read.json().catch(() => ({}))) as { verified?: boolean };
+        return { ok: true, assigned: true, verified: body.verified === true };
+      } catch (error) {
+        return { ok: false, assigned: false, verified: false, error: (error as Error).message };
+      }
+    },
     async ensureDomain(domain) {
       const host = (domain ?? "")
         .trim()

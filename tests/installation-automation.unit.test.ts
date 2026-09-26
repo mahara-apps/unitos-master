@@ -959,6 +959,20 @@ describe("clientes de gestão", () => {
     expect(seen[0]).toContain("upsert=true");
   });
 
+  it("confere o domínio sem enviar nenhuma escrita ao deploy", async () => {
+    const methods: string[] = [];
+    const client = createDeployClient({
+      token: "t",
+      project: "nxt",
+      fetchImpl: (async (_url: string, init?: RequestInit) => {
+        methods.push(init?.method ?? "GET");
+        return Response.json({ verified: true });
+      }) as never,
+    });
+    expect(await client.inspectDomain("https://unitosnxt.vercel.app")).toEqual({ ok: true, assigned: true, verified: true });
+    expect(methods).toEqual(["GET"]);
+  });
+
   it("consulta o commit do MASTER com User-Agent na leitura autenticada e pública", async () => {
     const headersSeen: Array<Record<string, string>> = [];
     const client = createDeployClient({

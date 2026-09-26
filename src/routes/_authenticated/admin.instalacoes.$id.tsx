@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -230,6 +230,7 @@ function InstallationDetailPage() {
     run: (confirmLabel: string) => void;
   } | null>(null);
   const [integrations, setIntegrations] = useState<IntegrationsInspection | null>(null);
+  const inspectionGeneration = useRef(0);
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState<EditForm>(EMPTY_FORM);
   // Token do cliente: vazio MANTÉM o token guardado (nunca apaga sem querer).
@@ -415,8 +416,12 @@ function InstallationDetailPage() {
   // Conferência das integrações: leitura sob demanda (o MASTER consulta o
   // projeto de deploy). Nada é gravado no destino e nenhum segredo é lido.
   const inspect = useMutation({
-    mutationFn: () => inspectFn({ data: { id } }),
-    onSuccess: (result) => {
+    mutationFn: async () => {
+      const generation = inspectionGeneration.current;
+      return { result: await inspectFn({ data: { id } }), generation };
+    },
+    onSuccess: ({ result, generation }) => {
+      if (generation !== inspectionGeneration.current) return;
       setIntegrations(result);
       if (result.ok) toast.success("Integrações conferidas.");
       else toast.warning(result.reason ?? "Não foi possível conferir as integrações.");
@@ -451,6 +456,8 @@ function InstallationDetailPage() {
         },
       }),
     onSuccess: () => {
+      inspectionGeneration.current += 1;
+      setIntegrations(null);
       toast.success(
         editToken.trim()
           ? "Dados e acesso do Supabase atualizados."
@@ -1033,6 +1040,14 @@ function InstallationDetailPage() {
               {integrations && !integrations.ok && integrations.reason && (
                 <p className="text-[11px] text-severity-warning">{integrations.reason}</p>
               )}
+              {integrations && (
+                <div className="space-y-1 text-[11px] text-muted-foreground">
+                  <p>Endereço cadastrado: {integrations.appUrl ?? "não informado"}</p>
+                  <p>Endereço configurado no servidor: {integrations.deployedAppUrl ?? "não confirmado"}</p>
+                  <p>Endereço configurado no navegador: {integrations.browserAppUrl ?? "não confirmado"}</p>
+                  <p>Retorno Meta configurado: {integrations.metaRedirectUri ?? "não confirmado"}</p>
+                </div>
+              )}
               <DataGrid columns={3}>
                 {OPTIONAL_CONFIG.map((item) => {
                   const state = readiness.optional[item.id];
@@ -1054,7 +1069,7 @@ function InstallationDetailPage() {
               </DataGrid>
               {integrations?.expectedMetaRedirectUri && (
                 <p className="text-[11px] text-muted-foreground">
-                  Endereço de retorno do Meta desta instalação:{" "}
+                  Endereço de retorno esperado para o Meta (confira a divergência acima):{" "}
                   <code className="rounded bg-muted px-1 py-0.5">
                     {integrations.expectedMetaRedirectUri}
                   </code>{" "}
@@ -1569,8 +1584,9 @@ function InstallationDetailPage() {
           <DialogHeader>
             <DialogTitle>Editar dados da instalação</DialogTitle>
             <DialogDescription>
-              Atualize o domínio quando o definitivo for informado. Alterar aqui não redeploya:
-              depois da troca, rode “Validar” para reconferir o núcleo.
+              Atualize o domínio quando o definitivo for informado. Alterar aqui muda só o
+              cadastro; não altera as URLs do sistema, o retorno Meta nem os agendamentos.
+              Depois da troca, use “Conferir integrações” para ver as divergências.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
