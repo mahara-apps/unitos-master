@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -230,6 +230,7 @@ function InstallationDetailPage() {
     run: (confirmLabel: string) => void;
   } | null>(null);
   const [integrations, setIntegrations] = useState<IntegrationsInspection | null>(null);
+  const inspectionGeneration = useRef(0);
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState<EditForm>(EMPTY_FORM);
   // Token do cliente: vazio MANTÉM o token guardado (nunca apaga sem querer).
@@ -415,8 +416,9 @@ function InstallationDetailPage() {
   // Conferência das integrações: leitura sob demanda (o MASTER consulta o
   // projeto de deploy). Nada é gravado no destino e nenhum segredo é lido.
   const inspect = useMutation({
-    mutationFn: () => inspectFn({ data: { id } }),
-    onSuccess: (result) => {
+    mutationFn: async () => ({ result: await inspectFn({ data: { id } }), generation: inspectionGeneration.current }),
+    onSuccess: ({ result, generation }) => {
+      if (generation !== inspectionGeneration.current) return;
       setIntegrations(result);
       if (result.ok) toast.success("Integrações conferidas.");
       else toast.warning(result.reason ?? "Não foi possível conferir as integrações.");
@@ -451,6 +453,7 @@ function InstallationDetailPage() {
         },
       }),
     onSuccess: () => {
+      inspectionGeneration.current += 1;
       setIntegrations(null);
       toast.success(
         editToken.trim()
@@ -1578,8 +1581,9 @@ function InstallationDetailPage() {
           <DialogHeader>
             <DialogTitle>Editar dados da instalação</DialogTitle>
             <DialogDescription>
-              Atualize o domínio quando o definitivo for informado. Alterar aqui não redeploya:
-              depois da troca, rode “Validar” para reconferir o núcleo.
+              Atualize o domínio quando o definitivo for informado. Alterar aqui muda só o
+              cadastro; não altera as URLs do sistema, o retorno Meta nem os agendamentos.
+              Depois da troca, use “Conferir integrações” para ver as divergências.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">

@@ -2571,7 +2571,7 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
       domainVerified: false,
       metaRedirectUri: null,
       expectedMetaRedirectUri: metaRedirectUriFor(record.domain),
-      superAdminSetupUrl: appUrl ? `${appUrl}/setup` : null,
+       superAdminSetupUrl: null,
       items: [domainItem],
       checkedAt,
     });
@@ -2662,7 +2662,7 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
       domainVerified,
       metaRedirectUri,
       expectedMetaRedirectUri: meta.expectedRedirectUri ?? null,
-      superAdminSetupUrl: appUrl ? `${appUrl}/setup` : null,
+      superAdminSetupUrl: urlState.state === "configured" ? `${appUrl}/setup` : null,
       items,
       checkedAt,
     };
