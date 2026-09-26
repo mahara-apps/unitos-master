@@ -129,6 +129,31 @@ SQL
 # do commit; não reaplica migrations nem reabre a operação encerrada.
 "${PSQL[@]}" --tuples-only --no-align -c "SELECT (public.set_installation_operations_freeze(true,'ensaio de reparo','teste',4)->>'frozen')" | grep -qx true
 EXPECTED_HASH="$(printf 'b%.0s' {1..64})"
+
+# Controle divergente: autorização com hash diferente falha sem promover.
+WRONG_HASH="$(printf 'c%.0s' {1..64})"
+if "${PSQL[@]}" --set=operation_id="${FIRST_OPERATION}" --set=batch_id="${BATCH_ID}" \
+  --set=expected_release="1.4.44" --set=expected_commit="abcdef1234567890" \
+  --set=expected_hash="${WRONG_HASH}" --set=expected_total=2 \
+  --set=operator="teste-local" --file "$ROOT/supabase/master/reconcile-completed-batch-predecessor.sql" >/dev/null 2>&1; then
+  echo "reparo deveria rejeitar identidade divergente" >&2; exit 1
+fi
+"${PSQL[@]}" --tuples-only --no-align -c "SELECT concat_ws(',',reconciled_at IS NULL,pinned_release) FROM public.installation_operations op JOIN public.installations i ON i.id=op.installation_id WHERE op.id='${FIRST_OPERATION}'" | grep -qx 't,1.4.43'
+
+# Controle de ausência real: ledger incompleto falha sem fabricar evidência.
+EMPTY_INSTALLATION="00000000-0000-0000-0000-000000000025"
+EMPTY_OPERATION="00000000-0000-0000-0000-000000000026"
+EMPTY_BATCH="00000000-0000-0000-0000-000000000027"
+"${PSQL[@]}" -c "SELECT public.set_installation_operations_freeze(false,'prepara controle vazio','teste',5); INSERT INTO public.installations(id,status,current_version,pinned_release,pinned_commit_sha) VALUES ('${EMPTY_INSTALLATION}','up_to_date','1.4.44','1.4.43','old-commit'); INSERT INTO public.installation_operations(id,installation_id,kind,status,fencing_token,baseline_id,baseline_hash,detail,steps,reconciled_at) VALUES ('${EMPTY_OPERATION}','${EMPTY_INSTALLATION}','update','success',1,'1.4.44:abcdef1234567890:2',repeat('b',64),jsonb_build_object('automated','true','batchId','${EMPTY_BATCH}','batchPosition',1,'batchTotal',1,'stageProgress',jsonb_build_object('updateRelease','1.4.44','codeSourceSha','abcdef1234567890','codeDone',true,'updateDatabaseReconciled',true,'updateValidationPassed',true)),'[{\"state\":\"done\"},{\"state\":\"done\"},{\"state\":\"done\"},{\"state\":\"done\"},{\"state\":\"done\"}]',NULL); SELECT public.set_installation_operations_freeze(true,'executa controle vazio','teste',6);" >/dev/null
+if "${PSQL[@]}" --set=operation_id="${EMPTY_OPERATION}" --set=batch_id="${EMPTY_BATCH}" \
+  --set=expected_release="1.4.44" --set=expected_commit="abcdef1234567890" \
+  --set=expected_hash="${EXPECTED_HASH}" --set=expected_total=2 \
+  --set=operator="teste-local" --file "$ROOT/supabase/master/reconcile-completed-batch-predecessor.sql" >/dev/null 2>&1; then
+  echo "reparo deveria rejeitar ledger ausente" >&2; exit 1
+fi
+"${PSQL[@]}" --tuples-only --no-align -c "SELECT concat_ws(',',reconciled_at IS NULL,pinned_release) FROM public.installation_operations op JOIN public.installations i ON i.id=op.installation_id WHERE op.id='${EMPTY_OPERATION}'" | grep -qx 't,1.4.43'
+
+# Controle válido derivado do incidente.
 "${PSQL[@]}" --set=operation_id="${FIRST_OPERATION}" --set=batch_id="${BATCH_ID}" \
   --set=expected_release="1.4.44" --set=expected_commit="abcdef1234567890" \
   --set=expected_hash="${EXPECTED_HASH}" --set=expected_total=2 \
@@ -136,7 +161,7 @@ EXPECTED_HASH="$(printf 'b%.0s' {1..64})"
 "${PSQL[@]}" --tuples-only --no-align -c "SELECT concat_ws(',',reconciled_at IS NOT NULL,detail->>'reconciliationState') FROM public.installation_operations WHERE id='${FIRST_OPERATION}'" | grep -qx 't,reconciled'
 "${PSQL[@]}" --tuples-only --no-align -c "SELECT concat_ws(',',pinned_release,pinned_commit_sha) FROM public.installations WHERE id='${FIRST_INSTALLATION}'" | grep -qx '1.4.44,abcdef1234567890'
 "${PSQL[@]}" --tuples-only --no-align -c "SELECT frozen::text FROM public.installation_operations_freeze WHERE singleton" | grep -qx true
-"${PSQL[@]}" --tuples-only --no-align -c "SELECT (public.set_installation_operations_freeze(false,'libera ensaio','teste',7)->>'frozen')" | grep -qx false
+"${PSQL[@]}" --tuples-only --no-align -c "SELECT (public.set_installation_operations_freeze(false,'libera ensaio','teste',9)->>'frozen')" | grep -qx false
 "${PSQL[@]}" --tuples-only --no-align -c "SELECT count(*) FROM public.claim_stale_installation_operations('worker-b',3,180) WHERE id='${SECOND_OPERATION}'" | grep -qx 1
 
 echo "deterministic update PostgreSQL local: PASS"
