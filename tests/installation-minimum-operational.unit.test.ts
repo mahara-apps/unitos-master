@@ -13,6 +13,7 @@ import {
   computeReadiness,
   customDomainState,
   isTemporaryDeployUrl,
+  operationalUrlState,
   validateAppUrlSwitch,
 } from "@/lib/installation/readiness-contract";
 import { classifySecretSource } from "@/lib/installation/preflight-contract";
@@ -89,6 +90,16 @@ describe("núcleo da instalação", () => {
 });
 
 describe("URL operacional", () => {
+  it("não confirma URL quando identidade ou cron não foram lidos", () => {
+    expect(operationalUrlState({ registered: "https://app.pitada.com.br", deployed: "https://app.pitada.com.br", browser: "https://app.pitada.com.br", installation: null, cronOrigins: null }).state).toBe("pending");
+  });
+
+  it("exige cron e identidade alinhados antes de anunciar o domínio configurado", () => {
+    const base = { registered: "https://app.pitada.com.br", deployed: "https://app.pitada.com.br", browser: "https://app.pitada.com.br" };
+    expect(operationalUrlState({ ...base, installation: "https://old.example.com", cronOrigins: ["https://app.pitada.com.br"] }).state).toBe("pending");
+    expect(operationalUrlState({ ...base, installation: base.registered, cronOrigins: ["https://old.example.com"] }).state).toBe("pending");
+    expect(operationalUrlState({ ...base, installation: base.registered, cronOrigins: [base.registered] }).state).toBe("configured");
+  });
   it("URL temporária do deploy é aceita", () => {
     const url = classifyOperationalUrl("https://unitos-pitada-abc.vercel.app");
     expect(url).toEqual({
