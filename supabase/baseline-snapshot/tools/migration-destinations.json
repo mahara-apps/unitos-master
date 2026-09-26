@@ -661,6 +661,11 @@
       "position": 132,
       "file": "20260925014000_c7f2e2d1-702d-4830-b298-513b6599fe88.sql",
       "destination": "client"
+    },
+    {
+      "position": 133,
+      "file": "20260926000110_9dd01346-d184-44c4-b765-bf75cdb159bb.sql",
+      "destination": "control-plane"
     }
   ]
 }

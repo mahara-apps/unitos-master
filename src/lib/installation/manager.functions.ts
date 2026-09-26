@@ -84,6 +84,9 @@ export type InstallationRecord = {
 };
 
 export type OperationDetail = {
+  batchId?: string;
+  batchPosition?: number;
+  batchTotal?: number;
   releaseVersion?: string;
   /** Operação terminal de provisionamento que originou esta nova tentativa. */
   retryOfOperationId?: string;
@@ -500,9 +503,20 @@ export const listInstallationsFn = createServerFn({ method: "POST" })
       .select("*")
       .order("created_at", { ascending: false });
     if (error) throw error;
+    const { data: batchRows, error: batchError } = await context.supabase
+      .from("installation_operations")
+      .select("id,installation_id,status,detail,summary,created_at,reconciled_at")
+      .eq("kind", "update")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (batchError) throw batchError;
     return {
       releaseVersion: MASTER_RELEASE_VERSION,
       installations: (data ?? []).map(mapInstallation),
+      batchOperations: (batchRows ?? []).filter((row) => {
+        const detail = row.detail as Record<string, unknown> | null;
+        return typeof detail?.batchId === "string";
+      }),
     };
   });
 
@@ -1682,11 +1696,107 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
           .nullable(),
         confirmLabel: z.string().min(1),
         retryOfOperationId: z.string().uuid().optional().nullable(),
+        batchIds: z.array(z.string().uuid()).min(2).max(20).optional(),
+        batchId: z.string().uuid().optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
     await mutationGuard(context);
+    if (data.batchIds) {
+      if (!data.batchId || data.retryOfOperationId || data.id !== data.batchIds[0] ||
+          new Set(data.batchIds).size !== data.batchIds.length) {
+        throw new Error("Seleção da remessa inválida.");
+      }
+      const supabase = context.supabase as never as { from: (table: string) => any };
+      const { data: existing, error: existingError } = await supabase.from("installation_operations")
+        .select("id,installation_id,status,detail")
+        .eq("kind", "update").contains("detail", { batchId: data.batchId });
+      if (existingError) throw existingError;
+      if (existing?.length) {
+        const items = existing.map((row: any) => ({ id: row.installation_id as string, operationId: row.id as string, status: row.status as string }));
+        if (existing.some((row: any) => !data.batchIds?.includes(row.installation_id) || row.detail?.batchTotal !== data.batchIds?.length)) {
+          throw new Error("Esta remessa já pertence a outra seleção.");
+        }
+        return { result: "BATCH" as const, operationId: null, reasons: ["Remessa já registrada; consulte o andamento."], items };
+      }
+      const { data: targets, error: targetsError } = await supabase.from("installations")
+        .select("*").in("id", data.batchIds);
+      if (targetsError) throw targetsError;
+      const rows = new Map((targets ?? []).map((row: any) => [row.id as string, row]));
+      if (rows.size !== data.batchIds.length) throw new Error("A lista de instalações mudou. Revise a seleção.");
+      for (const id of data.batchIds) {
+        const record = mapInstallation(rows.get(id));
+        if (!record.deployProject || !canStartOperation("update", record.status) ||
+            record.activeOperationId || !record.updateAvailable) {
+          throw new Error(`A instalação ${record.name} não está disponível para atualização. Revise a lista.`);
+        }
+        await assertNoActiveInstallationOperation(supabase, id);
+      }
+      assertConfirmLabel(data.confirmLabel, `ATUALIZAR ${data.batchIds.length} INSTALAÇÕES`);
+      const { resolveInstallationEnv } = await import("./credentials.server");
+      const { resolveAutomationCapability } = await import("./automation-contract");
+      const { createCodeClient, DEFAULT_MASTER_REPO } = await import("./automation.server");
+      const environments = [];
+      for (const id of data.batchIds) {
+        const env = await resolveInstallationEnv(supabase as never, id);
+        const capability = resolveAutomationCapability(env);
+        if (!capability.vercel.available) throw new Error(`${mapInstallation(rows.get(id)).name}: publicação indisponível.`);
+        environments.push(env);
+      }
+      const env = environments[0];
+      const masterRepoSlug = (env["UNITOS_MASTER_REPO"] ?? "").trim() || DEFAULT_MASTER_REPO;
+      const [masterOwner, masterName] = masterRepoSlug.split("/");
+      const masterCode = createCodeClient({
+        token: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(), masterToken: masterGithubToken(),
+        owner: masterOwner ?? "", repo: masterName ?? "", masterRepo: masterRepoSlug,
+      });
+      const head = await masterCode.masterHeadSha();
+      if (!head.ok || !head.sha) throw new Error(head.error ?? "Não foi possível conferir o MASTER publicado.");
+      if (data.commitSha && data.commitSha !== head.sha) throw new Error("O commit publicado mudou. Revise a seleção.");
+      const snapshot = await masterCode.releaseSnapshotAtCommit(head.sha);
+      const { withdrawnReleaseReason } = await import("./manager-contract");
+      if (!snapshot.ok || !snapshot.version || !snapshot.sha256 || !snapshot.total ||
+          snapshot.version !== MASTER_RELEASE_VERSION || withdrawnReleaseReason(snapshot.version)) {
+        throw new Error(snapshot.error ?? "O pacote publicado não corresponde à versão do MASTER.");
+      }
+      const { logCriticalAction } = await import("@/lib/critical-audit.server");
+      await logCriticalAction(context.supabase as never, {
+        action: "installation.update", actorId: context.userId, targetId: data.id,
+        targetLabel: `Remessa de ${data.batchIds.length} instalações`,
+        impact: { batchId: data.batchId, targets: data.batchIds, commitSha: head.sha, targetVersion: snapshot.version },
+      });
+      const items: Array<{ id: string; operationId: string; status: string }> = [];
+      const reasons: string[] = [];
+      for (const [index, id] of data.batchIds.entries()) {
+        try {
+          const currentHead = await masterCode.masterHeadSha();
+          if (!currentHead.ok || currentHead.sha !== head.sha) throw new Error("O MASTER mudou durante o preparo.");
+          const record = mapInstallation(rows.get(id));
+          const op = await startAtomicInstallationOperation({
+            actorId: context.userId, installationId: id, kind: "update",
+            summary: "Atualização em fila autorizada no MASTER.", steps: initialSteps("update"),
+            baselineId: `${snapshot.version}:${head.sha}:${snapshot.total}`, baselineHash: snapshot.sha256,
+            detail: {
+              releaseVersion: snapshot.version, executed: true, automated: true,
+              targetCommitSha: head.sha,
+              packageSnapshot: { version: snapshot.version, commitSha: head.sha, sha256: snapshot.sha256, totalMigrations: snapshot.total },
+              fromVersion: record.pinnedRelease ?? record.currentVersion,
+              toVersion: `${snapshot.version} · ${head.sha.slice(0, 7)}`,
+              batchId: data.batchId, batchPosition: index + 1, batchTotal: data.batchIds.length,
+            },
+          });
+          items.push({ id, operationId: op.id as string, status: "pending" });
+          const { error: pinError } = await supabase.from("installations")
+            .update({ pinned_by: context.userId }).eq("id", id);
+          if (pinError) throw pinError;
+        } catch (cause) {
+          reasons.push(`${mapInstallation(rows.get(id)).name}: ${cause instanceof Error ? cause.message : "preparo não confirmado"}. A fila está parada para revisão.`);
+          break;
+        }
+      }
+      return { result: "BATCH" as const, operationId: null, reasons, items };
+    }
     await assertCriticalInstallationConfirm(
       context,
       data.id,
