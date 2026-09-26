@@ -266,3 +266,10 @@
 - [x] Validar pacote MASTER-first 1.4.42 (`master:check`: 201 testes e ensaios PostgreSQL aprovados).
 - [ ] Executar suíte global sem relaxar critérios — bloqueada por token Supabase de testes inválido/revogado antes do início.
 - [ ] Publicar e propagar apenas após autorização explícita.
+
+## Atualização múltipla controlada
+
+- [x] Enfileirar seleções confirmadas duas vezes no MASTER, reaproveitando operações individuais e travas existentes.
+- [x] Restringir o executor à próxima instalação somente depois da conclusão comprovada da anterior, sem mudar a concorrência das demais operações.
+- [ ] Validar regressões, sincronizar pacote MASTER 1.4.43 e testar em ambiente descartável antes de publicação.
+- [ ] Publicar e propagar apenas após autorização explícita.
