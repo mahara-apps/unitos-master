@@ -92,6 +92,7 @@ describe("núcleo da instalação", () => {
 describe("URL operacional", () => {
   it("não confirma URL quando identidade ou cron não foram lidos", () => {
     expect(operationalUrlState({ registered: "https://app.pitada.com.br", deployed: "https://app.pitada.com.br", browser: "https://app.pitada.com.br", installation: null, cronOrigins: null }).state).toBe("pending");
+    expect(operationalUrlState({ registered: "https://app.pitada.com.br", deployed: "https://app.pitada.com.br", browser: "https://app.pitada.com.br", installation: "https://app.pitada.com.br", cronOrigins: [] }).state).toBe("pending");
   });
 
   it("exige cron e identidade alinhados antes de anunciar o domínio configurado", () => {

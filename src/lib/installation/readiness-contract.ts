@@ -311,10 +311,10 @@ export function operationalUrlState(input: {
   if (deployed.origin !== expected.origin || browser.origin !== expected.origin) {
     return { state: "pending", detail: `Cadastro ${expected.origin}; sistema no deploy ${deployed.origin}; navegador ${browser.origin}. Sincronização pendente.` };
   }
-  if (input.installation === null || input.cronOrigins === null) {
+  if (input.installation == null || input.cronOrigins == null || input.cronOrigins.length === 0) {
     return { state: "pending", detail: `Cadastro e deploy em ${expected.origin}; identidade interna ou agendamentos não confirmados.` };
   }
-  if (input.installation !== undefined && originOf(input.installation) !== expected.origin) {
+  if (originOf(input.installation) !== expected.origin) {
     return { state: "pending", detail: `Cadastro e deploy em ${expected.origin}; identidade interna em ${input.installation || "não informada"}. Sincronização pendente.` };
   }
   if (input.cronOrigins?.some((origin) => origin !== expected.origin)) {

@@ -2628,6 +2628,10 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
         installationAppUrl = typeof identityRow.app_url === "string" ? identityRow.app_url : null;
         cronOrigins = Array.isArray(jobRow.origins) && jobRow.origins.every((v) => typeof v === "string") ? jobRow.origins : null;
         cronJobCount = typeof jobRow.total === "number" ? jobRow.total : null;
+        if (cronJobCount === null || cronJobCount <= 0 || cronOrigins === null || cronOrigins.includes("")) {
+          destinationReadError = "Agendamentos HTTP ausentes ou incompletos.";
+          cronOrigins = null;
+        }
       } else {
         destinationReadError = identity.error ?? jobs.error ?? "Leitura da identidade ou dos agendamentos incompleta.";
       }
@@ -2660,7 +2664,7 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
       appUrl: record.domain,
       appType: "unitos",
     });
-    if (domainItem.state !== "configured") {
+    if (domainItem.state !== "configured" && meta.state === "configured") {
       meta.state = "pending";
       meta.detail += " A sincronização completa do endereço da instalação ainda não foi comprovada.";
     }
