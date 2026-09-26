@@ -44,4 +44,4 @@ Filtros e visões de Tarefas compartilham o estado do endereço; a listagem perc
 
 Inspeção de instalação compara cadastro, deploy e navegador somente em leitura; cadastro não é endereço efetivo antes da sincronização.
 
-IA utilizável exige conexão e chave; seletores e executores ordenam principal, fallback e demais conexões pela mesma regra.
+IA exige conexão e chave; seleção e execução usam a mesma ordem. Pauta mensal roda em segundo plano via `ai_jobs`.

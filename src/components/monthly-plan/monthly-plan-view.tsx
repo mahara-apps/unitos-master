@@ -261,12 +261,6 @@ export function MonthlyPlanView({
 
   const qc = useQueryClient();
 
-  useEffect(() => {
-    return () => {
-      if (stepTimer.current) clearInterval(stepTimer.current);
-    };
-  }, []);
-
   /* -------- ESTADO 1: geração -------- */
   if (!planId) {
     return (
