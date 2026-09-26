@@ -5,6 +5,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertSuperAdmin, resolveIsSuperAdmin } from "@/lib/super-admin";
 import { assertConfirmLabel, type CriticalActionKey } from "@/lib/critical-actions";
 import type { RpcClient } from "@/lib/access-guard";
+import { installationServerError } from "./serializable-error";
 
 import {
   INSTALLATION_STATUS_LABEL,
@@ -313,7 +314,7 @@ export async function assertNoActiveInstallationOperation(
     .eq("installation_id", installationId)
     .in("status", ["pending", "running", "retryable"])
     .maybeSingle();
-  if (error) throw error;
+  if (error) throw installationServerError(error);
   if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
 }
 
@@ -344,7 +345,7 @@ async function assertCriticalInstallationConfirm(
     .select("id,name")
     .eq("id", installationId)
     .maybeSingle();
-  if (error) throw error;
+  if (error) throw installationServerError(error);
   const row = data as { id: string; name: string } | null;
   if (!row) throw new Error("Instalação não encontrada.");
   assertConfirmLabel(confirmLabel, row.name);
@@ -771,9 +772,9 @@ export const getInstallationFn = createServerFn({ method: "POST" })
         .order("created_at", { ascending: false })
         .limit(50),
     ]);
-    if (error) throw error;
+    if (error) throw installationServerError(error);
     if (!row) throw new Error("Instalação não encontrada.");
-    if (ops.error) throw ops.error;
+    if (ops.error) throw installationServerError(ops.error);
     const operationRows = ops.data ?? [];
     const operationIds = operationRows.map((operation) => operation.id);
     const [migrations, attempts] = operationIds.length
@@ -798,8 +799,8 @@ export const getInstallationFn = createServerFn({ method: "POST" })
           { data: [], error: null },
           { data: [], error: null },
         ];
-    if (migrations.error) throw migrations.error;
-    if (attempts.error) throw attempts.error;
+    if (migrations.error) throw installationServerError(migrations.error);
+    if (attempts.error) throw installationServerError(attempts.error);
     const migrationsByOperation = new Map<string, MigrationEvidence[]>();
     for (const migration of migrations.data ?? []) {
       const current = migrationsByOperation.get(migration.operation_id) ?? [];
@@ -1686,144 +1687,150 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    await mutationGuard(context);
-    await assertCriticalInstallationConfirm(
-      context,
-      data.id,
-      data.confirmLabel,
-      "installation.update",
-      { commitSha: data.commitSha ?? null, targetVersion: MASTER_RELEASE_VERSION },
-    );
-
-    const supabase = context.supabase as never as {
-      from: (table: string) => any;
-    };
-
-    const { resolveAutomationCapability } = await import("./automation-contract");
-    const { resolveInstallationEnv } = await import("./credentials.server");
-    const env = await resolveInstallationEnv(supabase as never, data.id);
-    const capability = resolveAutomationCapability(env);
-    if (!capability.vercel.available) {
-      return {
-        result: "BLOCKED" as const,
-        operationId: null,
-        reasons: [capability.vercel.reason ?? "token de deploy indisponível no MASTER"],
-      };
-    }
-
-    const { data: current, error: readError } = await supabase
-      .from("installations")
-      .select("*")
-      .eq("id", data.id)
-      .maybeSingle();
-    if (readError) throw readError;
-    if (!current) throw new Error("Instalação não encontrada.");
-
-    const record = mapInstallation(current);
-    if (!record.deployProject) {
-      return {
-        result: "BLOCKED" as const,
-        operationId: null,
-        reasons: ["a instalação não tem projeto de deploy configurado"],
-      };
-    }
-    if (!canStartOperation("update", record.status)) {
-      throw new Error(
-        `A instalação está em “${INSTALLATION_STATUS_LABEL[record.status]}” e não aceita atualização agora.`,
+    try {
+      await mutationGuard(context);
+      await assertCriticalInstallationConfirm(
+        context,
+        data.id,
+        data.confirmLabel,
+        "installation.update",
+        { commitSha: data.commitSha ?? null, targetVersion: MASTER_RELEASE_VERSION },
       );
-    }
-    if (data.retryOfOperationId) {
-      const { data: retrySource, error: retryError } = await supabase
-        .from("installation_operations")
-        .select("id")
-        .eq("id", data.retryOfOperationId)
-        .eq("installation_id", data.id)
-        .eq("kind", "update")
-        .eq("status", "failed")
-        .maybeSingle();
-      if (retryError) throw retryError;
-      if (!retrySource) {
-        throw new Error("A atualização informada não é elegível para retomada segura.");
+
+      const supabase = context.supabase as never as {
+        from: (table: string) => any;
+      };
+
+      const { resolveAutomationCapability } = await import("./automation-contract");
+      const { resolveInstallationEnv } = await import("./credentials.server");
+      const env = await resolveInstallationEnv(supabase as never, data.id);
+      const capability = resolveAutomationCapability(env);
+      if (!capability.vercel.available) {
+        return {
+          result: "BLOCKED" as const,
+          operationId: null,
+          reasons: [capability.vercel.reason ?? "token de deploy indisponível no MASTER"],
+        };
       }
-    }
 
-    await assertNoActiveInstallationOperation(supabase, data.id);
+      const { data: current, error: readError } = await supabase
+        .from("installations")
+        .select("*")
+        .eq("id", data.id)
+        .maybeSingle();
+      if (readError) throw installationServerError(readError);
+      if (!current) throw new Error("Instalação não encontrada.");
 
-    // A autorização precisa apontar para o ponto ATUAL do código do MASTER.
-    // Aceitar um ponto antigo (por exemplo o commit já fixado na instalação)
-    // faz a operação ser barrada como "MASTER não publicado" e nada sobe.
-    const { createCodeClient, DEFAULT_MASTER_REPO } = await import("./automation.server");
-    const masterRepoSlug = (env["UNITOS_MASTER_REPO"] ?? "").trim() || DEFAULT_MASTER_REPO;
-    const [masterOwner, masterName] = masterRepoSlug.split("/");
-    const masterCode = createCodeClient({
-      token: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
-      masterToken: masterGithubToken(),
-      owner: masterOwner ?? "",
-      repo: masterName ?? "",
-      masterRepo: masterRepoSlug,
-    });
-    const head = await masterCode.masterHeadSha();
-    if (!head.ok || !head.sha) {
-      return {
-        result: "BLOCKED" as const,
-        operationId: null,
-        reasons: [
-          head.error ??
-            "não foi possível ler o ponto atual do código do MASTER — configure o acesso de leitura ao repositório e publique o MASTER novamente",
-        ],
-      };
-    }
-    const targetSha = head.sha;
-    const snapshot = await masterCode.releaseSnapshotAtCommit(targetSha);
-    if (!snapshot.ok || !snapshot.version || !snapshot.sha256 || !snapshot.total) {
-      return {
-        result: "BLOCKED" as const,
-        operationId: null,
-        reasons: [snapshot.error ?? "não foi possível fixar o pacote autorizado do MASTER"],
-      };
-    }
-    const { withdrawnReleaseReason } = await import("./manager-contract");
-    const withdrawnReason = withdrawnReleaseReason(snapshot.version);
-    if (withdrawnReason) {
-      return {
-        result: "BLOCKED" as const,
-        operationId: null,
-        reasons: [withdrawnReason],
-      };
-    }
+      const record = mapInstallation(current);
+      if (!record.deployProject) {
+        return {
+          result: "BLOCKED" as const,
+          operationId: null,
+          reasons: ["a instalação não tem projeto de deploy configurado"],
+        };
+      }
+      if (!canStartOperation("update", record.status)) {
+        throw new Error(
+          `A instalação está em “${INSTALLATION_STATUS_LABEL[record.status]}” e não aceita atualização agora.`,
+        );
+      }
+      if (data.retryOfOperationId) {
+        const { data: retrySource, error: retryError } = await supabase
+          .from("installation_operations")
+          .select("id")
+          .eq("id", data.retryOfOperationId)
+          .eq("installation_id", data.id)
+          .eq("kind", "update")
+          .eq("status", "failed")
+          .maybeSingle();
+        if (retryError) throw installationServerError(retryError);
+        if (!retrySource) {
+          throw new Error("A atualização informada não é elegível para retomada segura.");
+        }
+      }
 
-    const op = await startAtomicInstallationOperation({
-      actorId: context.userId,
-      installationId: data.id,
-      kind: "update",
-      summary: "Atualização de código disparada pelo MASTER.",
-      steps: initialSteps("update"),
-      baselineId: `${snapshot.version}:${targetSha}:${snapshot.total}`,
-      baselineHash: snapshot.sha256,
-      detail: {
-        releaseVersion: snapshot.version,
-        executed: true,
-        automated: true,
-        targetCommitSha: targetSha,
-        packageSnapshot: {
-          version: snapshot.version,
-          commitSha: targetSha,
-          sha256: snapshot.sha256,
-          totalMigrations: snapshot.total,
+      await assertNoActiveInstallationOperation(supabase, data.id);
+
+      // A autorização precisa apontar para o ponto ATUAL do código do MASTER.
+      // Aceitar um ponto antigo (por exemplo o commit já fixado na instalação)
+      // faz a operação ser barrada como "MASTER não publicado" e nada sobe.
+      const { createCodeClient, DEFAULT_MASTER_REPO } = await import("./automation.server");
+      const masterRepoSlug = (env["UNITOS_MASTER_REPO"] ?? "").trim() || DEFAULT_MASTER_REPO;
+      const [masterOwner, masterName] = masterRepoSlug.split("/");
+      const masterCode = createCodeClient({
+        token: (env["UNITOS_GITHUB_TOKEN"] ?? "").trim(),
+        masterToken: masterGithubToken(),
+        owner: masterOwner ?? "",
+        repo: masterName ?? "",
+        masterRepo: masterRepoSlug,
+      });
+      const head = await masterCode.masterHeadSha();
+      if (!head.ok || !head.sha) {
+        return {
+          result: "BLOCKED" as const,
+          operationId: null,
+          reasons: [
+            head.error ??
+              "não foi possível ler o ponto atual do código do MASTER — configure o acesso de leitura ao repositório e publique o MASTER novamente",
+          ],
+        };
+      }
+      const targetSha = head.sha;
+      const snapshot = await masterCode.releaseSnapshotAtCommit(targetSha);
+      if (!snapshot.ok || !snapshot.version || !snapshot.sha256 || !snapshot.total) {
+        return {
+          result: "BLOCKED" as const,
+          operationId: null,
+          reasons: [snapshot.error ?? "não foi possível fixar o pacote autorizado do MASTER"],
+        };
+      }
+      const { withdrawnReleaseReason } = await import("./manager-contract");
+      const withdrawnReason = withdrawnReleaseReason(snapshot.version);
+      if (withdrawnReason) {
+        return {
+          result: "BLOCKED" as const,
+          operationId: null,
+          reasons: [withdrawnReason],
+        };
+      }
+
+      const op = await startAtomicInstallationOperation({
+        actorId: context.userId,
+        installationId: data.id,
+        kind: "update",
+        summary: "Atualização de código disparada pelo MASTER.",
+        steps: initialSteps("update"),
+        baselineId: `${snapshot.version}:${targetSha}:${snapshot.total}`,
+        baselineHash: snapshot.sha256,
+        detail: {
+          releaseVersion: snapshot.version,
+          executed: true,
+          automated: true,
+          targetCommitSha: targetSha,
+          packageSnapshot: {
+            version: snapshot.version,
+            commitSha: targetSha,
+            sha256: snapshot.sha256,
+            totalMigrations: snapshot.total,
+          },
+          fromVersion: record.pinnedCommitSha
+            ? `${record.pinnedRelease ?? record.currentVersion ?? "?"} · ${record.pinnedCommitSha.slice(0, 7)}`
+            : (record.currentVersion ?? null),
+          toVersion: `${snapshot.version} · ${targetSha.slice(0, 7)}`,
+          ...(data.retryOfOperationId
+            ? { retryOfOperationId: data.retryOfOperationId, retryReason: "failed_update" as const }
+            : {}),
         },
-        fromVersion: record.pinnedCommitSha
-          ? `${record.pinnedRelease ?? record.currentVersion ?? "?"} · ${record.pinnedCommitSha.slice(0, 7)}`
-          : (record.currentVersion ?? null),
-        toVersion: `${snapshot.version} · ${targetSha.slice(0, 7)}`,
-        ...(data.retryOfOperationId
-          ? { retryOfOperationId: data.retryOfOperationId, retryReason: "failed_update" as const }
-          : {}),
-      },
-      retryOfOperationId: data.retryOfOperationId ?? null,
-    });
-    await supabase.from("installations").update({ pinned_by: context.userId }).eq("id", data.id);
+        retryOfOperationId: data.retryOfOperationId ?? null,
+      });
+      await supabase.from("installations").update({ pinned_by: context.userId }).eq("id", data.id);
 
-    return { result: "STARTED" as const, operationId: op.id as string, reasons: [] as string[] };
+      return { result: "STARTED" as const, operationId: op.id as string, reasons: [] as string[] };
+    } catch (error) {
+      // PostgREST and credential helpers can throw plain objects; the server
+      // function transport only supports Error instances at this boundary.
+      throw installationServerError(error);
+    }
   });
 
 /**
