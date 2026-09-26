@@ -1687,6 +1687,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    try {
     await mutationGuard(context);
     await assertCriticalInstallationConfirm(
       context,
@@ -1825,6 +1826,11 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
     await supabase.from("installations").update({ pinned_by: context.userId }).eq("id", data.id);
 
     return { result: "STARTED" as const, operationId: op.id as string, reasons: [] as string[] };
+    } catch (error) {
+      // PostgREST and credential helpers can throw plain objects; the server
+      // function transport only supports Error instances at this boundary.
+      throw installationServerError(error);
+    }
   });
 
 /**
