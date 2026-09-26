@@ -273,6 +273,7 @@
 - [x] Corrigir no MASTER a inspeção somente leitura e a indicação de divergência entre cadastro e deploy.
 - [ ] Conferir o banco e cron da NXT diretamente; bloqueado por falta de acesso de leitura ao destino.
 - [ ] Sincronizar as URLs efetivas da NXT apenas após validação integral e autorização de escrita.
-- [ ] Selar o pacote MASTER-first; bloqueado por duas migrations administrativas ainda sem classificação no mapa de destinos.
+- [x] Classificar as duas migrations administrativas pontuais como excluídas dos pacotes reproduzíveis, sem propagá-las às instalações nem reaplicá-las no bootstrap do control-plane.
+- [x] Selar o pacote MASTER-first e comprovar que as operações administrativas ficaram fora do delta Client (`master:check` aprovado; 93 migrations Client preservadas).
 - [ ] Executar a suíte global; bloqueada por token de testes inválido.
 - [ ] Publicar o MASTER e propagar apenas após autorização explícita.
