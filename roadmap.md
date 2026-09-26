@@ -280,6 +280,6 @@
 
 ## Modelos de IA na geração de pauta
 
-- [ ] Unificar a lista de conexões de texto utilizáveis entre seletor e execução.
-- [ ] Mostrar carregamento, erro e ausência real de modelos separadamente.
+- [x] Unificar a lista de conexões de texto utilizáveis entre seletor e execução.
+- [x] Mostrar carregamento, erro e ausência real de modelos separadamente.
 - [ ] Validar o fluxo na NXT e concluir o pacote MASTER-first sem publicar.
