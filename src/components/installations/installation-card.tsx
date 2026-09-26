@@ -28,11 +28,20 @@ const HEALTH_STATE: Record<InstallationHealth, VisualState> = {
 
 export function InstallationCard({
   installation,
+  selection,
 }: {
   installation: InstallationRecord;
+  selection?: { checked: boolean; onChange: (checked: boolean) => void; disabled: boolean };
 }) {
   const i = installation;
   return (
+    <div className="relative min-w-0">
+      {selection && (
+        <label className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded bg-background px-1 py-0.5 text-xs font-medium" onClick={(event) => event.stopPropagation()}>
+          <input type="checkbox" checked={selection.checked} disabled={selection.disabled} onChange={(event) => selection.onChange(event.target.checked)} aria-label={`Selecionar ${i.name} para atualização`} className="accent-primary" />
+          Selecionar
+        </label>
+      )}
     <Link
       to="/admin/instalacoes/$id"
       params={{ id: i.id }}
@@ -42,7 +51,7 @@ export function InstallationCard({
       )}
     >
       <Card className="cursor-pointer transition hover:border-primary/40 hover:shadow-sm">
-        <CardContent className="space-y-3 p-4">
+        <CardContent className={cn("space-y-3 p-4", selection && "pt-12")}>
         <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
           <div className="min-w-0 space-y-1.5">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -87,5 +96,6 @@ export function InstallationCard({
         </CardContent>
       </Card>
     </Link>
+    </div>
   );
 }
