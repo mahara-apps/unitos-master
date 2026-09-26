@@ -1,6 +1,6 @@
 {
   "bootstrapFile": "bootstrap-control-plane.sql",
-  "bootstrapSha256": "7d7f745d388514b9ae6dca57fd0d697fc5b86f578f3be2831ad8f52a2bdcc737",
+  "bootstrapSha256": "cd3fe3a78046b92d6c5448e4008b4e85e6ea0f83c0594a4f187c85753098d582",
   "controlPlaneMigrations": 34,
   "controlPlaneReleaseFile": "004_control_plane_release_promotion.sql",
   "controlPlaneReleaseSha256": "061624028d4cb5710f23da08693d2b56bf23255f772f253a24c3ddd373d14ef2",
