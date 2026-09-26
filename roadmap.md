@@ -277,3 +277,10 @@
 - [x] Selar o pacote MASTER-first e comprovar que as operações administrativas ficaram fora do delta Client (`master:check` aprovado; 93 migrations Client preservadas).
 - [ ] Executar a suíte global; bloqueada por token de testes inválido.
 - [ ] Publicar o MASTER e propagar apenas após autorização explícita.
+
+## Modelos de IA na geração de pauta
+
+- [x] Unificar a lista de conexões de texto utilizáveis entre seletor e execução.
+- [x] Mostrar carregamento, erro e ausência real de modelos separadamente.
+- [x] Validar a configuração real da NXT (Groq e Gemini utilizáveis) e concluir o pacote MASTER-first 1.4.44 sem publicar.
+- [ ] Publicar o MASTER e autorizar a atualização da NXT somente após autorização explícita separada.
