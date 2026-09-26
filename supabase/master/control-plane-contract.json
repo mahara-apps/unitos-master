@@ -17,7 +17,7 @@
     "normalize_legacy_installation_operations(integer)",
     "promote_control_plane_release(bigint,text,text,text,text,text,text,jsonb,text)"
   ],
-  "releaseVersion": "1.4.44",
+  "releaseVersion": "1.4.45",
   "schemaVersion": 1,
   "tables": [
     "installation_operations_freeze",
