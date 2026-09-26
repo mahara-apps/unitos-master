@@ -2572,7 +2572,7 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
       metaRedirectUri: null,
       expectedMetaRedirectUri: metaRedirectUriFor(record.domain),
        superAdminSetupUrl: null,
-      items: [domainItem],
+      items: [{ ...domainItem, state: "pending", detail: `Cadastro ${appUrl ?? "não informado"}; configuração ativa não confirmada. ${reason}` }],
       checkedAt,
     });
 
