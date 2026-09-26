@@ -451,6 +451,7 @@ function InstallationDetailPage() {
         },
       }),
     onSuccess: () => {
+      setIntegrations(null);
       toast.success(
         editToken.trim()
           ? "Dados e acesso do Supabase atualizados."
@@ -1032,6 +1033,14 @@ function InstallationDetailPage() {
               </p>
               {integrations && !integrations.ok && integrations.reason && (
                 <p className="text-[11px] text-severity-warning">{integrations.reason}</p>
+              )}
+              {integrations && (
+                <div className="space-y-1 text-[11px] text-muted-foreground">
+                  <p>Endereço cadastrado: {integrations.appUrl ?? "não informado"}</p>
+                  <p>Endereço configurado no servidor: {integrations.deployedAppUrl ?? "não confirmado"}</p>
+                  <p>Endereço configurado no navegador: {integrations.browserAppUrl ?? "não confirmado"}</p>
+                  <p>Retorno Meta configurado: {integrations.metaRedirectUri ?? "não confirmado"}</p>
+                </div>
               )}
               <DataGrid columns={3}>
                 {OPTIONAL_CONFIG.map((item) => {

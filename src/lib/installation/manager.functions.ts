@@ -2509,6 +2509,8 @@ export type IntegrationsInspection = {
   /** Motivo em pt-BR quando a leitura não foi possível (sem credenciais etc.). */
   reason: string | null;
   appUrl: string | null;
+  deployedAppUrl: string | null;
+  browserAppUrl: string | null;
   domainAssigned: boolean;
   domainVerified: boolean;
   metaRedirectUri: string | null;
@@ -2534,6 +2536,7 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
       customDomainState,
       classifyOperationalUrl,
       metaIntegrationState,
+      operationalUrlState,
       envIntegrationState,
       metaRedirectUriFor,
     } = await import("./readiness-contract");
@@ -2562,6 +2565,8 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
       ok: false,
       reason,
       appUrl,
+      deployedAppUrl: null,
+      browserAppUrl: null,
       domainAssigned: false,
       domainVerified: false,
       metaRedirectUri: null,
@@ -2589,24 +2594,28 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
       teamId: (env["UNITOS_VERCEL_TEAM_ID"] ?? "").trim() || null,
     });
 
-    const listed = await deploy.listEnv(["META_REDIRECT_URI"]);
+    const listed = await deploy.listEnv(["META_REDIRECT_URI", "PUBLIC_APP_URL", "VITE_PUBLIC_APP_URL"]);
     if (!listed.ok) {
       return blockedResult(listed.error ?? "Falha ao consultar as variáveis do deploy.");
     }
     const keys = listed.keys ?? [];
     const metaRedirectUri = listed.plain?.["META_REDIRECT_URI"] ?? null;
+    const deployedAppUrl = listed.plain?.["PUBLIC_APP_URL"] ?? null;
+    const browserAppUrl = listed.plain?.["VITE_PUBLIC_APP_URL"] ?? null;
+    const urlState = operationalUrlState({ registered: record.domain, deployed: deployedAppUrl, browser: browserAppUrl });
+    domainItem.state = urlState.state;
+    domainItem.detail = urlState.detail;
 
     let domainAssigned = false;
     let domainVerified = false;
     if (url.ok && url.kind === "custom") {
-      const domain = await deploy.ensureDomain(url.origin);
-      domainAssigned = domain.ok;
-      domainVerified = domain.ok && domain.verified === true;
-      domainItem.detail = domain.ok
-        ? `URL operacional ${url.origin} — domínio ${domainVerified ? "verificado" : "atribuído, aguardando verificação de DNS"}.`
-        : `Domínio ${url.origin} não pôde ser confirmado no deploy: ${domain.error ?? "erro desconhecido"}.`;
-      if (!domain.ok) domainItem.state = "pending";
-      else if (!domainVerified) domainItem.state = "pending";
+      const domain = await deploy.inspectDomain(url.origin);
+      domainAssigned = domain.ok && domain.assigned;
+      domainVerified = domainAssigned && domain.verified;
+      domainItem.detail += domain.ok
+        ? ` Domínio ${domainVerified ? "verificado" : domainAssigned ? "atribuído, aguardando verificação" : "não atribuído"}.`
+        : ` Não foi possível confirmar o domínio: ${domain.error ?? "erro desconhecido"}.`;
+      if (!domainVerified) domainItem.state = "pending";
     }
 
     const meta = metaIntegrationState({
@@ -2647,6 +2656,8 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
       ok: true,
       reason: null,
       appUrl,
+      deployedAppUrl,
+      browserAppUrl,
       domainAssigned,
       domainVerified,
       metaRedirectUri,
