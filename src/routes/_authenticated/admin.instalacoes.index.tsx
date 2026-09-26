@@ -336,7 +336,7 @@ function AdminInstallationsPage() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button size="sm" variant="outline" disabled={selected.length < 2 || masterVersion.data?.masterPublished !== true || !masterVersion.data.commitSha} onClick={() => setReviewOpen(true)}>
+          <Button size="sm" variant="outline" disabled={selected.length < 2 || selected.length > 20 || masterVersion.data?.masterPublished !== true || !masterVersion.data.commitSha} onClick={() => setReviewOpen(true)}>
             <ListChecks className="mr-2 h-4 w-4" /> Atualizar selecionadas ({selected.length})
           </Button>
           <Button
@@ -469,7 +469,7 @@ function AdminInstallationsPage() {
             <InstallationCard
               key={i.id}
               installation={i}
-              selection={{ checked: selectedIds.includes(i.id), disabled: !eligible(i), onChange: (checked) => setSelectedIds((previous) => checked ? [...previous, i.id] : previous.filter((id) => id !== i.id)) }}
+              selection={{ checked: selectedIds.includes(i.id), disabled: !eligible(i) || (selected.length >= 20 && !selectedIds.includes(i.id)), onChange: (checked) => setSelectedIds((previous) => checked ? [...previous, i.id] : previous.filter((id) => id !== i.id)) }}
             />
           ))}
         </div>
@@ -477,14 +477,14 @@ function AdminInstallationsPage() {
 
       <Dialog open={reviewOpen} onOpenChange={(open) => { if (!open) closeApproval(); else setReviewOpen(true); }}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Revisar atualizações</DialogTitle><DialogDescription>Uma instalação por vez. A próxima só começa quando a anterior terminar com sucesso.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>Revisar atualizações</DialogTitle><DialogDescription>Até 20 instalações, uma por vez. A próxima só começa quando a anterior terminar com sucesso.</DialogDescription></DialogHeader>
           <ul className="max-h-72 space-y-2 overflow-auto text-sm">
             {selected.map((i, index) => <li key={i.id} className="flex items-center justify-between gap-2 border-b py-2">
               <span>{index + 1}. {i.name}<span className="block text-xs text-muted-foreground">{i.pinnedRelease ?? i.currentVersion ?? "Sem versão"} → {masterVersion.data?.repoRelease} · {masterVersion.data?.commitSha?.slice(0, 7)}</span></span>
               <Button size="icon" variant="ghost" aria-label={`Remover ${i.name}`} onClick={() => setSelectedIds((previous) => previous.filter((id) => id !== i.id))}><XCircle className="h-4 w-4" /></Button>
             </li>)}
           </ul>
-          <DialogFooter><Button variant="ghost" onClick={closeApproval}>Cancelar</Button><Button disabled={selected.length < 2 || masterVersion.data?.masterPublished !== true || !masterVersion.data.commitSha} onClick={() => {
+          <DialogFooter><Button variant="ghost" onClick={closeApproval}>Cancelar</Button><Button disabled={selected.length < 2 || selected.length > 20 || masterVersion.data?.masterPublished !== true || !masterVersion.data.commitSha} onClick={() => {
             setApprovedIds(selected.map((i) => i.id));
             setApprovedCommit(masterVersion.data?.commitSha ?? null);
             setBatchId(crypto.randomUUID());
