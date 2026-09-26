@@ -40,6 +40,8 @@ Minhas tarefas consulta o workspace com filtro de responsável no servidor antes
 
 Filtros e visões de Tarefas compartilham o estado do endereço; a listagem percorre páginas ordenadas sob RLS em vez de truncar a primeira janela, para que tarefas antigas continuem encontráveis.
 
-## Inspeção de endereço de instalação
+## Regras canônicas
 
-A conferência de integrações consulta domínio e URLs do deploy somente em leitura, compara-as ao cadastro e não apresenta endereço cadastrado como efetivo antes da sincronização; evita alterações involuntárias e links de outra origem.
+Inspeção de instalação compara cadastro, deploy e navegador somente em leitura; cadastro não é endereço efetivo antes da sincronização.
+
+IA utilizável exige conexão e chave; seletores e executores ordenam principal, fallback e demais conexões pela mesma regra.

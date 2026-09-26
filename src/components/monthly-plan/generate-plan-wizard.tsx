@@ -43,6 +43,7 @@ import {
   type PlanOrganizationInput,
 } from "@/lib/monthly-plans.functions";
 import type { PlanVolumetry } from "./volumetry-cards";
+import { describeError } from "@/lib/errors";
 
 export type GenerateSelection = {
   channel: PlanChannel;
@@ -118,7 +119,8 @@ export function GeneratePlanWizard({
     queryKey: ["monthly-plan", "ai-models", brandId],
     queryFn: () => listModels({ data: { brandId } }),
     enabled: open,
-    staleTime: 60_000,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
   const models = modelsQ.data ?? [];
 
@@ -169,10 +171,17 @@ export function GeneratePlanWizard({
   }, [open, volumetry, channels]);
 
   useEffect(() => {
-    if (!open || selectedModelKey || models.length === 0) return;
+    if (!open || models.length === 0) return;
+    const stillAvailable = models.some(
+      (model) => `${model.provider}:${model.modelId}` === selectedModelKey,
+    );
+    if (stillAvailable) return;
     const preferred = models.find((model) => model.primary) ?? models[0];
     if (preferred) setSelectedModelKey(`${preferred.provider}:${preferred.modelId}`);
   }, [models, open, selectedModelKey]);
+
+  const modelsError = modelsQ.error ? describeError(modelsQ.error) : null;
+  const noUsableModel = !modelsQ.isLoading && !modelsQ.isError && models.length === 0;
 
   const qtyOf = (c: string) => sumChannelBreakdown(fmtQty[c]);
   const activeChannels = channels.filter((c) => enabled[c] && qtyOf(c) > 0);
@@ -332,11 +341,21 @@ export function GeneratePlanWizard({
                     <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       Modelo de IA
                     </label>
-                    <Select value={selectedModelKey} onValueChange={setSelectedModelKey}>
+                    <Select
+                      value={selectedModelKey}
+                      onValueChange={setSelectedModelKey}
+                      disabled={modelsQ.isLoading || modelsQ.isError || models.length === 0}
+                    >
                       <SelectTrigger className="h-10">
                         <SelectValue
                           placeholder={
-                            modelsQ.isLoading ? "Carregando modelos…" : "Modelo configurado"
+                            modelsQ.isLoading
+                              ? "Carregando modelos…"
+                              : modelsQ.isError
+                                ? "Não foi possível carregar"
+                                : noUsableModel
+                                  ? "Nenhum modelo disponível"
+                                  : "Selecione um modelo"
                           }
                         />
                       </SelectTrigger>
@@ -352,9 +371,31 @@ export function GeneratePlanWizard({
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-[11px] text-muted-foreground">
-                      Somente modelos das conexões ativas deste workspace são exibidos.
-                    </p>
+                    {modelsError ? (
+                      <div
+                        role="alert"
+                        className="flex items-start justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
+                      >
+                        <span>{modelsError}</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 shrink-0"
+                          onClick={() => modelsQ.refetch()}
+                        >
+                          Tentar novamente
+                        </Button>
+                      </div>
+                    ) : noUsableModel ? (
+                      <p role="alert" className="text-xs text-destructive">
+                        Nenhuma conexão de IA utilizável. Revise as chaves e os provedores em Conexões.
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground">
+                        Somente modelos das conexões ativas deste workspace são exibidos.
+                      </p>
+                    )}
                   </div>
 
                   <div className="h-px bg-border/60" />
@@ -549,7 +590,15 @@ export function GeneratePlanWizard({
                 {step < STEPS.length - 1 ? (
                   <Button
                     className="gap-1"
-                    disabled={(step === 0 && !organization) || (step === 1 && total === 0)}
+                    disabled={
+                      (step === 0 &&
+                        (!organization ||
+                          modelsQ.isLoading ||
+                          modelsQ.isError ||
+                          models.length === 0 ||
+                          !selectedModelKey)) ||
+                      (step === 1 && total === 0)
+                    }
                     onClick={() => setStep(step + 1)}
                   >
                     Continuar <ArrowRight className="h-4 w-4" />

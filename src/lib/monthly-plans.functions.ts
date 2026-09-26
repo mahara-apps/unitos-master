@@ -37,7 +37,8 @@ import {
 } from "@/lib/monthly-plan-lock.server";
 import { runPlanGeneration } from "@/lib/monthly-plan-generate.server";
 import { countGeneratedThisMonth } from "@/lib/monthly-plan-generated-count.server";
-import { PROVIDER_CAPABILITIES, type ProviderName } from "@/lib/ai-capabilities";
+import type { ProviderName } from "@/lib/ai-capabilities";
+import { orderedUsableTextProviders } from "@/lib/ai-provider-availability";
 
 /* ---------- Types ---------- */
 
@@ -268,16 +269,21 @@ export const listPlanAiModelsFn = createServerFn({ method: "POST" })
       .maybeSingle();
     if (error) throw error;
 
+    const { data: credentialRows, error: credentialsError } = await context.supabase
+      .from("brand_api_credentials")
+      .select("provider")
+      .eq("brand_id", data.brandId);
+    if (credentialsError) throw credentialsError;
+
     const providers = (connection?.providers ?? {}) as Record<string, { connected?: boolean }>;
     const primary = connection?.text_provider as ProviderName | null | undefined;
     const fallback = connection?.text_fallback_provider as ProviderName | null | undefined;
-    const available = [primary, fallback].filter(
-      (provider, index, all): provider is ProviderName =>
-        !!provider &&
-        all.indexOf(provider) === index &&
-        provider in PROVIDER_CAPABILITIES &&
-        providers[provider]?.connected === true,
-    );
+    const available = orderedUsableTextProviders({
+      primary,
+      fallback,
+      providers,
+      credentialProviders: (credentialRows ?? []).map((row) => row.provider),
+    });
     const { resolveModel } = await import("@/lib/ai-models-catalog.server");
     const options = await Promise.all(
       available.map(async (provider) => ({
