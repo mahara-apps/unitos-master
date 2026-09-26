@@ -147,6 +147,14 @@ WITH expected_tables(name) AS (VALUES
     CASE WHEN count(*)=1 AND bool_and(singleton) AND min(generation)>=0 THEN 'PASS' ELSE 'FAIL' END
   FROM public.control_plane_release_state
   UNION ALL
+  SELECT 16, 'Master: fila de UPDATE aguarda reconciliação do predecessor',
+    CASE WHEN position('batchPosition' in pg_get_functiondef('public.claim_stale_installation_operations(text,integer,integer)'::regprocedure))>0
+      THEN 'gate de remessa presente' ELSE 'claim sem gate de remessa' END,
+    CASE WHEN position('batchPosition' in pg_get_functiondef('public.claim_stale_installation_operations(text,integer,integer)'::regprocedure))>0
+      AND position('predecessor.reconciled_at IS NULL' in pg_get_functiondef('public.claim_stale_installation_operations(text,integer,integer)'::regprocedure))>0
+      AND position('target.pinned_commit_sha IS DISTINCT FROM' in pg_get_functiondef('public.claim_stale_installation_operations(text,integer,integer)'::regprocedure))>0
+      THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
   SELECT 11, 'Master: cron installation-provision-resume', coalesce((SELECT schedule FROM cron.job WHERE jobname='installation-provision-resume' LIMIT 1),'ausente'),
     CASE WHEN EXISTS (SELECT 1 FROM cron.job WHERE jobname='installation-provision-resume' AND command LIKE '%/api/public/cron/installation-resume%' AND command LIKE '%x-cron-secret%') THEN 'PASS' ELSE 'FAIL' END
 )

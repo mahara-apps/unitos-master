@@ -271,5 +271,6 @@
 
 - [x] Enfileirar seleções confirmadas duas vezes no MASTER, reaproveitando operações individuais e travas existentes.
 - [x] Restringir o executor à próxima instalação somente depois da conclusão comprovada da anterior, sem mudar a concorrência das demais operações.
-- [ ] Validar regressões, sincronizar pacote MASTER 1.4.43 e testar em ambiente descartável antes de publicação.
+- [x] Sincronizar pacote MASTER 1.4.43 e executar master:check (testes e ensaios PostgreSQL locais aprovados).
+- [ ] Validar a suíte global e testar a fila em ambiente descartável antes de publicação — token de testes inválido/revogado.
 - [ ] Publicar e propagar apenas após autorização explícita.

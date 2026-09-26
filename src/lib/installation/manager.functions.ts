@@ -1703,6 +1703,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await mutationGuard(context);
+    if (data.batchId && !data.batchIds) throw new Error("Seleção da remessa inválida.");
     if (data.batchIds) {
       if (!data.batchId || data.retryOfOperationId || data.id !== data.batchIds[0] ||
           new Set(data.batchIds).size !== data.batchIds.length) {
@@ -1715,7 +1716,11 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
       if (existingError) throw existingError;
       if (existing?.length) {
         const items = existing.map((row: any) => ({ id: row.installation_id as string, operationId: row.id as string, status: row.status as string }));
-        if (existing.some((row: any) => !data.batchIds?.includes(row.installation_id) || row.detail?.batchTotal !== data.batchIds?.length)) {
+        if (existing.some((row: any) =>
+          !Number.isInteger(row.detail?.batchPosition) ||
+          data.batchIds?.[row.detail.batchPosition - 1] !== row.installation_id ||
+          row.detail?.batchTotal !== data.batchIds?.length
+        )) {
           throw new Error("Esta remessa já pertence a outra seleção.");
         }
         return { result: "BATCH" as const, operationId: null, reasons: ["Remessa já registrada; consulte o andamento."], items };

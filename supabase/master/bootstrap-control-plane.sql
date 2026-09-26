@@ -3337,7 +3337,7 @@ $$;
 REVOKE ALL ON FUNCTION public.start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamptz,uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.start_durable_installation_operation(uuid,uuid,text,text,jsonb,jsonb,integer,text,text,text,timestamptz,uuid) TO service_role;
 
--- MIGRATION 20260926000110_9dd01346-d184-44c4-b765-bf75cdb159bb.sql
+-- MIGRATION 20260926000807_b1b8a035-5e5f-423d-9f46-2b571b51209b.sql
 CREATE OR REPLACE FUNCTION public.claim_stale_installation_operations(_owner text, _limit integer DEFAULT 3, _lease_seconds integer DEFAULT 180)
 RETURNS SETOF public.installation_operations LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
