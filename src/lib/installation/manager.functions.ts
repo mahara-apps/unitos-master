@@ -292,7 +292,7 @@ export async function resolveInstallationManagerAccess(
 }
 
 export function resolveOperationRowsRead<T>(result: { data?: T[] | null; error?: unknown }): T[] {
-  if (result.error) throw result.error;
+  if (result.error) throw installationServerError(result.error);
   return result.data ?? [];
 }
 
@@ -452,7 +452,7 @@ export async function reconcileStuckOperations(context: { supabase: unknown }): 
       .select("id, active_operation_id, status")
       .not("active_operation_id", "is", null)
       .limit(50);
-    if (pendingError) throw pendingError;
+    if (pendingError) throw installationServerError(pendingError);
     for (const row of (pending ?? []) as Array<{
       id: string;
       active_operation_id: string;
@@ -462,7 +462,7 @@ export async function reconcileStuckOperations(context: { supabase: unknown }): 
         .select("status, summary")
         .eq("id", row.active_operation_id)
         .maybeSingle();
-      if (operationError) throw operationError;
+      if (operationError) throw installationServerError(operationError);
       const status = (op as { status?: string } | null)?.status ?? null;
       if (status === "pending" || status === "running" || status === "retryable") continue;
       await db
@@ -500,7 +500,7 @@ export const listInstallationsFn = createServerFn({ method: "POST" })
       .from("installations")
       .select("*")
       .order("created_at", { ascending: false });
-    if (error) throw error;
+    if (error) throw installationServerError(error);
     return {
       releaseVersion: MASTER_RELEASE_VERSION,
       installations: (data ?? []).map(mapInstallation),
@@ -667,7 +667,7 @@ export const createInstallationFn = createServerFn({ method: "POST" })
     if (error) {
       if ((error as { code?: string }).code === "23505")
         throw new Error("Já existe uma instalação com este nome.");
-      throw error;
+      throw installationServerError(error);
     }
 
     try {
@@ -753,7 +753,7 @@ export const updateInstallationFn = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .select("*")
       .single();
-    if (error) throw error;
+    if (error) throw installationServerError(error);
     return mapInstallation(row);
   });
 
@@ -841,7 +841,7 @@ export const deleteInstallationFn = createServerFn({ method: "POST" })
       "installation.delete",
     );
     const { error } = await context.supabase.from("installations").delete().eq("id", data.id);
-    if (error) throw error;
+    if (error) throw installationServerError(error);
     return { ok: true as const };
   });
 
@@ -884,7 +884,7 @@ export const setInstallationServiceStateFn = createServerFn({ method: "POST" })
       .select("*")
       .eq("id", data.id)
       .maybeSingle();
-    if (readError) throw readError;
+    if (readError) throw installationServerError(readError);
     if (!current) throw new Error("Instalação não encontrada.");
     const record = mapInstallation(current);
     if (!record.supabaseProjectRef) {
@@ -962,7 +962,7 @@ export const startInstallationOperationFn = createServerFn({ method: "POST" })
       .select("*")
       .eq("id", data.id)
       .maybeSingle();
-    if (readError) throw readError;
+    if (readError) throw installationServerError(readError);
     if (!current) throw new Error("Instalação não encontrada.");
 
     const record = mapInstallation(current);
@@ -1033,7 +1033,7 @@ export const startInstallationOperationFn = createServerFn({ method: "POST" })
     if (opError) {
       if ((opError as { code?: string }).code === "23505")
         throw new Error("Já existe uma operação em andamento nesta instalação.");
-      throw opError;
+      throw installationServerError(opError);
     }
 
     const { data: updated, error: updateError } = await context.supabase
@@ -1046,7 +1046,7 @@ export const startInstallationOperationFn = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .select("*")
       .single();
-    if (updateError) throw updateError;
+    if (updateError) throw installationServerError(updateError);
 
     const masterUrl =
       process.env["PUBLIC_APP_URL"] ??
@@ -1088,7 +1088,7 @@ export const completeInstallationOperationFn = createServerFn({ method: "POST" }
       .select("*")
       .eq("id", data.operationId)
       .maybeSingle();
-    if (error) throw error;
+    if (error) throw installationServerError(error);
     if (!op) throw new Error("Operação não encontrada.");
     await assertCriticalInstallationConfirm(
       context,
@@ -1112,7 +1112,7 @@ export const completeInstallationOperationFn = createServerFn({ method: "POST" }
       .select("*")
       .eq("id", op.installation_id)
       .single();
-    if (readError) throw readError;
+    if (readError) throw installationServerError(readError);
     return mapInstallation(updated);
   });
 
@@ -1129,7 +1129,7 @@ export const cancelInstallationOperationFn = createServerFn({ method: "POST" })
       .select("*")
       .eq("id", data.operationId)
       .maybeSingle();
-    if (error) throw error;
+    if (error) throw installationServerError(error);
     if (!op) throw new Error("Operação não encontrada.");
     await assertCriticalInstallationConfirm(
       context,
@@ -1170,7 +1170,7 @@ export const refreshInstallationHealthFn = createServerFn({ method: "POST" })
       .select("*")
       .eq("id", data.id)
       .maybeSingle();
-    if (error) throw error;
+    if (error) throw installationServerError(error);
     if (!row) throw new Error("Instalação não encontrada.");
 
     const { probeInstallationHealth } = await import("./runner.server");
@@ -1193,7 +1193,7 @@ export const refreshInstallationHealthFn = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .select("*")
       .single();
-    if (updateError) throw updateError;
+    if (updateError) throw installationServerError(updateError);
     return mapInstallation(updated);
   });
 
@@ -1324,7 +1324,7 @@ async function openAutomatedProvision(
     .select("*")
     .eq("id", installationId)
     .maybeSingle();
-  if (readError) throw readError;
+  if (readError) throw installationServerError(readError);
   if (!current) throw new Error("Instalação não encontrada.");
 
   const record = mapInstallation(current);
@@ -1365,8 +1365,8 @@ async function openAutomatedProvision(
         .eq("status", "success")
         .limit(1),
     ]);
-    if (latestResult.error) throw latestResult.error;
-    if (successfulResult.error) throw successfulResult.error;
+    if (latestResult.error) throw installationServerError(latestResult.error);
+    if (successfulResult.error) throw installationServerError(successfulResult.error);
     if (latestResult.data) {
       retrySource = {
         id: String(latestResult.data.id),
@@ -1507,7 +1507,7 @@ export const runAutomatedValidateFn = createServerFn({ method: "POST" })
       .select("*")
       .eq("id", data.id)
       .maybeSingle();
-    if (readError) throw readError;
+    if (readError) throw installationServerError(readError);
     if (!current) throw new Error("Instalação não encontrada.");
 
     const record = mapInstallation(current);
@@ -1575,7 +1575,7 @@ export const restartAutomatedProvisionFn = createServerFn({ method: "POST" })
       .in("status", ["pending", "running", "retryable"])
       .order("created_at", { ascending: false })
       .limit(1);
-    if (error) throw error;
+    if (error) throw installationServerError(error);
 
     const op = (live ?? [])[0];
     if (op) {
@@ -1861,7 +1861,7 @@ export const syncInstallationVersionFn = createServerFn({ method: "POST" })
       .select("*")
       .eq("id", data.id)
       .maybeSingle();
-    if (readError) throw readError;
+    if (readError) throw installationServerError(readError);
     if (!current) throw new Error("Instalação não encontrada.");
     const record = mapInstallation(current);
 
@@ -1966,7 +1966,7 @@ export const saveInstallationCredentialsFn = createServerFn({ method: "POST" })
         .select("supabase_project_ref, supabase_url")
         .eq("id", data.id)
         .maybeSingle();
-      if (installationError) throw installationError;
+      if (installationError) throw installationServerError(installationError);
       if (!installation) throw new Error("Instalação não encontrada.");
       installationIdentity = installation;
     }
@@ -2049,7 +2049,7 @@ export const propagateMasterGithubTokenFn = createServerFn({ method: "POST" })
       .from("installations")
       .select("id,name")
       .order("name", { ascending: true });
-    if (error) throw error;
+    if (error) throw installationServerError(error);
     const installations = (rows ?? []) as { id: string; name: string }[];
     if (installations.length === 0) {
       return { total: 0, updated: 0, failed: 0, results: [] as GithubTokenPropagationItem[] };
@@ -2182,7 +2182,7 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
       .select("*")
       .eq("id", data.id)
       .maybeSingle();
-    if (error) throw error;
+    if (error) throw installationServerError(error);
     if (!current) throw new Error("Instalação não encontrada.");
     const record = mapInstallation(current);
 
@@ -2267,7 +2267,7 @@ export const testInstallationCredentialsFn = createServerFn({ method: "POST" })
         .from("installations")
         .update({ deploy_project: resolvedDeployProject })
         .eq("id", data.id);
-      if (deployNameError) throw deployNameError;
+      if (deployNameError) throw installationServerError(deployNameError);
     }
 
     // 404 na Vercel = o projeto não existe no escopo desse token (conta pessoal
@@ -2393,7 +2393,7 @@ export const adoptInstallationRepositoryFn = createServerFn({ method: "POST" })
       .select("*")
       .eq("id", data.id)
       .maybeSingle();
-    if (error) throw error;
+    if (error) throw installationServerError(error);
     if (!current) throw new Error("Instalação não encontrada.");
     const record = mapInstallation(current);
 
@@ -2556,7 +2556,7 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
       .select("*")
       .eq("id", data.id)
       .maybeSingle();
-    if (error) throw error;
+    if (error) throw installationServerError(error);
     if (!row) throw new Error("Instalação não encontrada.");
     const record = mapInstallation(row);
 
