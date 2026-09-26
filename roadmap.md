@@ -274,3 +274,8 @@
 - [x] Sincronizar pacote MASTER 1.4.43 e executar master:check (testes e ensaios PostgreSQL locais aprovados).
 - [ ] Validar a suíte global e testar a fila em ambiente descartável antes de publicação — token de testes inválido/revogado.
 - [ ] Publicar e propagar apenas após autorização explícita.
+
+## Sincronização geral de versões
+
+- [ ] Implementar depois o botão “Sincronizar versões” para enfileirar todas as instalações aptas, conforme plano arquivado.
+- [ ] Preservar dupla confirmação, execução sequencial, exclusões justificadas e validação MASTER-first antes de publicar.
