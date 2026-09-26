@@ -285,7 +285,7 @@
 - [x] Auditar remessa, cron, claims, leases, checkpoints e selos sem alterar o estado remoto.
 - [x] Corrigir no MASTER a incompatibilidade entre o fingerprint produzido e a finalização atômica.
 - [x] Criar reconciliação transacional e fail-closed para o predecessor concluído com evidência integral.
-- [ ] Reproduzir o incidente e aprovar os controles PostgreSQL, testes focados e guardiões MASTER-first.
+- [x] Reproduzir o incidente e aprovar os controles PostgreSQL, testes focados e guardiões MASTER-first (203 testes e ensaios aprovados no MASTER 1.4.44).
 - [ ] Executar a suíte global sem relaxar critérios.
 - [ ] Publicar o MASTER somente após autorização explícita.
 - [ ] Instalar o contrato e retomar a remessa somente após autorização explícita separada.
