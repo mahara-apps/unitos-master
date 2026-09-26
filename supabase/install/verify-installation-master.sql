@@ -132,8 +132,8 @@ WITH expected_tables(name) AS (VALUES
       AND position('_minimum_position <> 1' in pg_get_functiondef('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'::regprocedure))>0
       AND position('_maximum_position <> _package_total' in pg_get_functiondef('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'::regprocedure))>0
       AND position('_distinct_positions <> _package_total' in pg_get_functiondef('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'::regprocedure))>0
-      AND position("fingerprint !~ '^[0-9a-z]+-[0-9a-z]+-[0-9a-z]+$'" in pg_get_functiondef('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'::regprocedure))>0
-      AND position("fingerprint !~ '^[0-9a-f]{64}$'" in pg_get_functiondef('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'::regprocedure))=0
+      AND position($needle$fingerprint !~ '^[0-9a-z]+-[0-9a-z]+-[0-9a-z]+$'$needle$ in pg_get_functiondef('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'::regprocedure))>0
+      AND position($needle$fingerprint !~ '^[0-9a-f]{64}$'$needle$ in pg_get_functiondef('public.finalize_installation_operation(uuid,text,bigint,text,text,text,jsonb,jsonb,text,text,jsonb,text,boolean,boolean)'::regprocedure))=0
       THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
   SELECT 13, 'Master: triggers fail-closed nas tabelas operacionais', count(*)::text || '/8',
