@@ -289,3 +289,12 @@
 - [ ] Executar a suíte global sem relaxar critérios.
 - [ ] Publicar o MASTER somente após autorização explícita.
 - [ ] Instalar o contrato e retomar a remessa somente após autorização explícita separada.
+
+## Fechamento operacional da recuperação 1.4.45
+
+- [x] Substituir a versão histórica fixa do comando de promoção pela versão do contrato selado, com autorização específica e testes.
+- [x] Regenerar e validar o pacote MASTER-first 1.4.45 (206 testes e ensaios PostgreSQL locais aprovados).
+- [ ] Executar a suíte global sem relaxar critérios — bloqueada antes dos testes por token de gestão do projeto de integração inválido/revogado.
+- [ ] Publicar a 1.4.45 somente após autorização explícita independente.
+- [ ] Congelar o Control-plane, instalar e promover o contrato somente após autorização própria.
+- [ ] Reconciliar apenas a NXT após autorização própria; liberar e acompanhar a fila após nova autorização.
