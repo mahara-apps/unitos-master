@@ -15,6 +15,7 @@ import {
 } from "./ai-models-catalog.server";
 
 import { IMAGE_PROVIDERS, supportsKind } from "./ai-capabilities";
+import { orderedUsableTextProviders } from "./ai-provider-availability";
 import { classifyAiError, unwrapAiError } from "./ai-failures.server";
 import { isRecoverableFailure, logAiFailure, logAiRetry, redactAiDetail } from "./ai-observability";
 import { recordAiUsage, type AiUsageContext } from "./ai-usage.server";
@@ -104,12 +105,24 @@ export async function getBrandProviderKey(
   const providers = (conn?.providers ?? {}) as Record<string, { connected?: boolean } | undefined>;
   const allowed = (p: string): p is ProviderName => !only || (only as string[]).includes(p);
 
+  const { data: credentialRows, error: credentialListError } = await supabase
+    .from("brand_api_credentials")
+    .select("provider")
+    .eq("brand_id", brandId);
+  if (credentialListError) throw credentialListError;
+
   const provider: ProviderName | undefined =
-    selected && providers[selected]?.connected && allowed(selected)
-      ? selected
-      : (Object.entries(providers).find(([k, v]) => v?.connected && allowed(k))?.[0] as
-          | ProviderName
-          | undefined);
+    kind === "text"
+      ? orderedUsableTextProviders({
+          primary: selected,
+          providers,
+          credentialProviders: (credentialRows ?? []).map((row) => row.provider),
+        }).find(allowed)
+      : selected && providers[selected]?.connected && allowed(selected)
+        ? selected
+        : (Object.entries(providers).find(([k, v]) => v?.connected && allowed(k))?.[0] as
+            | ProviderName
+            | undefined);
 
   if (!provider) {
     throw new Error(
@@ -635,9 +648,38 @@ export async function getBrandAiCandidates(
   }
 
   await assertBudget(supabase, brandId, usage);
-  const credentials: BrandProviderKey[] = [primary];
-  const fallback = await getBrandFallbackProviderKey(supabase, brandId, primary.provider);
-  if (fallback) credentials.push(fallback);
+  const { data: connection, error: connectionError } = await supabase
+    .from("brand_connections")
+    .select("text_provider, text_fallback_provider, providers")
+    .eq("brand_id", brandId)
+    .maybeSingle();
+  if (connectionError) throw connectionError;
+  const { data: credentialRows, error: credentialRowsError } = await supabase
+    .from("brand_api_credentials")
+    .select("provider, ciphertext")
+    .eq("brand_id", brandId);
+  if (credentialRowsError) throw credentialRowsError;
+
+  const orderedProviders = orderedUsableTextProviders({
+    primary: connection?.text_provider,
+    fallback: connection?.text_fallback_provider,
+    providers: connection?.providers as Record<string, { connected?: boolean }> | null,
+    credentialProviders: (credentialRows ?? []).map((row) => row.provider),
+  });
+  const credentials: BrandProviderKey[] = [];
+  for (const provider of orderedProviders) {
+    if (provider === primary.provider) {
+      credentials.push(primary);
+      continue;
+    }
+    const row = (credentialRows ?? []).find((item) => item.provider === provider);
+    if (!row?.ciphertext) continue;
+    try {
+      credentials.push({ provider, apiKey: await decryptCredential(row.ciphertext) });
+    } catch (err) {
+      console.warn("[ai-provider] conexão secundária ilegível", provider, err);
+    }
+  }
 
   if (selected) {
     const selectedCredential = credentials.find((item) => item.provider === selected.provider);
