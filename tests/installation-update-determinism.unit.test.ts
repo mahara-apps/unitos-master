@@ -12,9 +12,26 @@ const automation = readFileSync("src/lib/installation/automation.server.ts", "ut
 const runner = readFileSync("src/lib/installation/runner.server.ts", "utf8");
 const manager = readFileSync("src/lib/installation/manager.functions.ts", "utf8");
 const sql = readFileSync("supabase/master/003_control_plane_deterministic_update.sql", "utf8");
+const batchClaim = readFileSync("supabase/migrations/20260926000807_b1b8a035-5e5f-423d-9f46-2b571b51209b.sql", "utf8");
 const NOW = Date.parse("2026-09-20T12:00:00Z");
 
 describe("contrato determinístico de UPDATE", () => {
+  it("remessa preserva duas confirmações, limite e autorização no servidor", () => {
+    expect(manager).toContain('z.array(z.string().uuid()).min(2).max(20)');
+    expect(manager).toContain('assertConfirmLabel(data.confirmLabel, `ATUALIZAR ${data.batchIds.length} INSTALAÇÕES`)');
+    expect(manager).toContain('new Set(data.batchIds).size !== data.batchIds.length');
+    expect(manager).toContain('data.batchIds?.[row.detail.batchPosition - 1] !== row.installation_id');
+    expect(manager).toContain('await assertNoActiveInstallationOperation(supabase, id)');
+    expect(manager).toContain('currentHead.sha !== head.sha');
+  });
+
+  it("claim da fila exige todos os membros e reconciliação do predecessor", () => {
+    expect(batchClaim).toContain("op.detail->>'batchId' IS NULL");
+    expect(batchClaim).toContain("count(*) FROM public.installation_operations member");
+    expect(batchClaim).toContain("predecessor.status <> 'success' OR predecessor.reconciled_at IS NULL");
+    expect(batchClaim).toContain("target.pinned_commit_sha IS DISTINCT FROM split_part(predecessor.baseline_id,':',2)");
+    expect(batchClaim).toContain("FOR UPDATE OF op SKIP LOCKED LIMIT _limit");
+  });
   const evidence = {
     targetRelease: "1.4.17",
     targetCommitSha: "abcdef1234567890",
