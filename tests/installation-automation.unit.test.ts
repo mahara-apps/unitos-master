@@ -973,6 +973,20 @@ describe("clientes de gestão", () => {
     expect(methods).toEqual(["GET"]);
   });
 
+  it("não confunde valores de URLs diferentes entre ambientes de deploy", async () => {
+    const client = createDeployClient({
+      token: "t",
+      project: "nxt",
+      fetchImpl: (async () => Response.json({ envs: [
+        { key: "PUBLIC_APP_URL", type: "plain", value: "https://unitosnxt.vercel.app", target: ["production", "preview"] },
+        { key: "PUBLIC_APP_URL", type: "plain", value: "https://unitos-nxt.vercel.app", target: ["development"] },
+        { key: "META_REDIRECT_URI", type: "plain", value: "https://unitosnxt.vercel.app/api/public/meta/callback", target: ["production", "preview", "development"] },
+      ] })) as never,
+    });
+    const result = await client.listEnv(["PUBLIC_APP_URL", "META_REDIRECT_URI"]);
+    expect(result.conflictingKeys).toEqual(["PUBLIC_APP_URL"]);
+  });
+
   it("consulta o commit do MASTER com User-Agent na leitura autenticada e pública", async () => {
     const headersSeen: Array<Record<string, string>> = [];
     const client = createDeployClient({

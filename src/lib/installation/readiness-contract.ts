@@ -298,6 +298,8 @@ export function operationalUrlState(input: {
   registered: string | null | undefined;
   deployed: string | null | undefined;
   browser: string | null | undefined;
+  installation?: string | null;
+  cronOrigins?: readonly string[] | null;
 }): IntegrationStateReport {
   const expected = classifyOperationalUrl(input.registered);
   if (!expected.ok) return { state: "pending", detail: expected.reason };
@@ -308,6 +310,15 @@ export function operationalUrlState(input: {
   }
   if (deployed.origin !== expected.origin || browser.origin !== expected.origin) {
     return { state: "pending", detail: `Cadastro ${expected.origin}; sistema no deploy ${deployed.origin}; navegador ${browser.origin}. Sincronização pendente.` };
+  }
+  if (input.installation == null || input.cronOrigins == null || input.cronOrigins.length === 0) {
+    return { state: "pending", detail: `Cadastro e deploy em ${expected.origin}; identidade interna ou agendamentos não confirmados.` };
+  }
+  if (originOf(input.installation) !== expected.origin) {
+    return { state: "pending", detail: `Cadastro e deploy em ${expected.origin}; identidade interna em ${input.installation || "não informada"}. Sincronização pendente.` };
+  }
+  if (input.cronOrigins?.some((origin) => origin !== expected.origin)) {
+    return { state: "pending", detail: `Cadastro e deploy em ${expected.origin}; agendamentos apontam para ${input.cronOrigins.join(", ")}. Sincronização pendente.` };
   }
   return {
     state: expected.kind === "custom" ? "configured" : "pending",

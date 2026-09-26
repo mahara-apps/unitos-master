@@ -2511,6 +2511,9 @@ export type IntegrationsInspection = {
   appUrl: string | null;
   deployedAppUrl: string | null;
   browserAppUrl: string | null;
+  installationAppUrl: string | null;
+  cronOrigins: string[] | null;
+  cronJobCount: number | null;
   domainAssigned: boolean;
   domainVerified: boolean;
   metaRedirectUri: string | null;
@@ -2567,6 +2570,9 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
       appUrl,
       deployedAppUrl: null,
       browserAppUrl: null,
+      installationAppUrl: null,
+      cronOrigins: null,
+      cronJobCount: null,
       domainAssigned: false,
       domainVerified: false,
       metaRedirectUri: null,
@@ -2602,9 +2608,43 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
     const metaRedirectUri = listed.plain?.["META_REDIRECT_URI"] ?? null;
     const deployedAppUrl = listed.plain?.["PUBLIC_APP_URL"] ?? null;
     const browserAppUrl = listed.plain?.["VITE_PUBLIC_APP_URL"] ?? null;
-    const urlState = operationalUrlState({ registered: record.domain, deployed: deployedAppUrl, browser: browserAppUrl });
+    // Management API do PRÓPRIO destino, com token próprio quando BYOK.
+    // Consulta apenas origens dos comandos cron; nunca retorna comandos nem chaves.
+    let installationAppUrl: string | null = null;
+    let cronOrigins: string[] | null = null;
+    let cronJobCount: number | null = null;
+    let destinationReadError: string | null = null;
+    const { extractProjectRef } = await import("./automation-contract");
+    const projectRef = extractProjectRef(record);
+    const managementToken = (env["UNITOS_SUPABASE_MANAGEMENT_TOKEN"] ?? "").trim();
+    if (projectRef && managementToken) {
+      const { createManagementClient } = await import("./automation.server");
+      const management = createManagementClient({ token: managementToken, projectRef });
+      const identity = await management.query("select app_url from public.installation where id = true");
+      const jobs = await management.query("select count(*) filter (where command ~ 'https?://')::int as total, coalesce(array_agg(distinct substring(command from 'https?://[a-zA-Z0-9._:-]+')) filter (where command ~ 'https?://'), array[]::text[]) as origins from cron.job");
+      if (identity.ok && jobs.ok && identity.rows.length === 1 && jobs.rows.length === 1) {
+        const identityRow = identity.rows[0] as { app_url?: unknown };
+        const jobRow = jobs.rows[0] as { total?: unknown; origins?: unknown };
+        installationAppUrl = typeof identityRow.app_url === "string" ? identityRow.app_url : null;
+        cronOrigins = Array.isArray(jobRow.origins) && jobRow.origins.every((v) => typeof v === "string") ? jobRow.origins : null;
+        cronJobCount = typeof jobRow.total === "number" ? jobRow.total : null;
+        if (cronJobCount === null || cronJobCount <= 0 || cronOrigins === null || cronOrigins.includes("")) {
+          destinationReadError = "Agendamentos HTTP ausentes ou incompletos.";
+          cronOrigins = null;
+        }
+      } else {
+        destinationReadError = identity.error ?? jobs.error ?? "Leitura da identidade ou dos agendamentos incompleta.";
+      }
+    } else {
+      destinationReadError = "Token de gestão ou projeto Supabase da instalação indisponível.";
+    }
+    const urlState = operationalUrlState({ registered: record.domain, deployed: deployedAppUrl, browser: browserAppUrl, installation: installationAppUrl, cronOrigins });
     domainItem.state = urlState.state;
-    domainItem.detail = urlState.detail;
+    domainItem.detail = `${urlState.detail}${destinationReadError ? ` Não foi possível conferir a instalação: ${destinationReadError}` : ""}`;
+    if (listed.conflictingKeys?.length) {
+      domainItem.state = "pending";
+      domainItem.detail += ` Variáveis diferentes ou incompletas entre ambientes do deploy: ${listed.conflictingKeys.join(", ")}.`;
+    }
 
     let domainAssigned = false;
     let domainVerified = false;
@@ -2624,6 +2664,10 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
       appUrl: record.domain,
       appType: "unitos",
     });
+    if (domainItem.state !== "configured" && meta.state === "configured") {
+      meta.state = "pending";
+      meta.detail += " A sincronização completa do endereço da instalação ainda não foi comprovada.";
+    }
 
     const items: IntegrationInspection[] = [
       domainItem,
@@ -2658,11 +2702,14 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
       appUrl,
       deployedAppUrl,
       browserAppUrl,
+      installationAppUrl,
+      cronOrigins,
+      cronJobCount,
       domainAssigned,
       domainVerified,
       metaRedirectUri,
       expectedMetaRedirectUri: meta.expectedRedirectUri ?? null,
-      superAdminSetupUrl: appUrl && deployedAppUrl === appUrl && browserAppUrl === appUrl ? `${appUrl}/setup` : null,
+      superAdminSetupUrl: appUrl && domainItem.state === "configured" && metaRedirectUri === metaRedirectUriFor(record.domain) ? `${appUrl}/setup` : null,
       items,
       checkedAt,
     };

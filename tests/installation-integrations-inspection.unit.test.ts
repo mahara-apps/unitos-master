@@ -41,7 +41,7 @@ describe("sincronização da URL operacional", () => {
   });
   it("aceita URLs iguais, mas conserva a indicação de domínio temporário", () => {
     expect(operationalUrlState({ registered, deployed: registered, browser: registered }).state).toBe("pending");
-    expect(operationalUrlState({ registered: "app.example.com", deployed: "https://app.example.com", browser: "https://app.example.com" }).state).toBe("configured");
+    expect(operationalUrlState({ registered: "app.example.com", deployed: "https://app.example.com", browser: "https://app.example.com", installation: "https://app.example.com", cronOrigins: ["https://app.example.com"] }).state).toBe("configured");
   });
 });
 

@@ -1045,6 +1045,8 @@ function InstallationDetailPage() {
                   <p>Endereço cadastrado: {integrations.appUrl ?? "não informado"}</p>
                   <p>Endereço configurado no servidor: {integrations.deployedAppUrl ?? "não confirmado"}</p>
                   <p>Endereço configurado no navegador: {integrations.browserAppUrl ?? "não confirmado"}</p>
+                  <p>Identidade interna da instalação: {integrations.installationAppUrl ?? "não confirmada"}</p>
+                  <p>Agendamentos HTTP: {integrations.cronOrigins === null ? "não confirmados" : `${integrations.cronJobCount ?? 0} agendamentos; origens ${integrations.cronOrigins.join(", ") || "nenhuma"}`}</p>
                   <p>Retorno Meta configurado: {integrations.metaRedirectUri ?? "não confirmado"}</p>
                 </div>
               )}
