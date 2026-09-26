@@ -292,3 +292,10 @@
 - [x] Cobrir a conversão com teste e manter o fluxo de atualização sem executar qualquer operação na NXT.
 - [ ] Confirmar em sessão autenticada a origem exata do aviso Seroval; não foi reproduzido sem iniciar uma atualização.
 - [ ] Publicar a correção e atualizar a NXT somente mediante autorizações explícitas separadas.
+
+## Aviso Seroval após atualização
+
+- [x] Conferir registros da tentativa concluída e localizar erros ainda lançados sem conversão no gerenciador e executor.
+- [ ] Converter respostas de falha na fronteira das operações e testar a serialização.
+- [ ] Validar pacote MASTER-first e investigar a versão fixada divergente sem modificar a NXT.
+- [ ] Publicar/propagar somente mediante autorização explícita separada.

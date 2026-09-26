@@ -15,4 +15,15 @@ describe("erros de instalação na fronteira das server functions", () => {
     expect(installationServerError(native)).toBe(native);
     expect(installationServerError({ unexpected: true }).message).toBe("Falha ao consultar a instalação.");
   });
+
+  it("remove propriedades incompatíveis de erros do provedor", async () => {
+    class ProviderError extends Error {
+      code = "42501";
+      cause = { payload: new WeakMap() };
+    }
+    const error = installationServerError(new ProviderError("Acesso recusado"));
+    expect(error.message).toBe("Acesso recusado (42501)");
+    expect("cause" in error).toBe(false);
+    await expect(toCrossJSONAsync(error)).resolves.toBeDefined();
+  });
 });
