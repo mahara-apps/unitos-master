@@ -3533,7 +3533,7 @@ BEGIN
 END $unitos_freeze_postcondition$;
 
 -- MASTER DETERMINISTIC UPDATE
--- MASTER 1.4.17: finalização atômica e determinística de UPDATE.
+-- MASTER 1.4.44: finalização atômica e determinística de UPDATE.
 -- Control-plane only. Nunca incluir no pacote Client.
 
 CREATE OR REPLACE FUNCTION public.finalize_installation_operation(
@@ -3620,7 +3620,10 @@ BEGIN
              OR statement_index <> total_statements
              OR total_statements < 0
              OR migration_file !~ '^[0-9]{14}_[A-Za-z0-9_-]+\.sql$'
-             OR fingerprint !~ '^[0-9a-f]{64}$')
+              -- O SHA-256 canônico do pacote é baseline_hash. O ledger usa
+              -- a identidade operacional determinística emitida pelo mesmo
+              -- executor; formatos desconhecidos continuam fail-closed.
+              OR fingerprint !~ '^[0-9a-z]+-[0-9a-z]+-[0-9a-z]+$')
        ) THEN
       RAISE EXCEPTION 'Ledger canônico do UPDATE incompleto ou inconsistente' USING ERRCODE = '55000';
     END IF;

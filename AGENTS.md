@@ -38,7 +38,7 @@ Guardiao automatico: `tests/installation-master-sync.unit.test.ts` e
 
 ## Atualizações múltiplas
 
-Remessas no MASTER usam `detail.batchId/batchPosition/batchTotal` em operações de update; o claim só libera o item seguinte após o anterior reconciliar a versão e o commit, para conservar as travas e o fluxo individual.
+Remessas usam batchId/posição/total; o próximo update só sai após reconciliação. Ledger usa `deltaFingerprint`; SHA-256 global fica no baseline.
 
 Minhas tarefas consulta o workspace com filtro de responsável no servidor antes do limite; atribuições usam `can_access_client` sem alterar RBAC/RLS, e o quadro move peças só entre etapas do mesmo pipeline via `movePostFn` — preserva escopo, ordenação e estado editorial existente.
 

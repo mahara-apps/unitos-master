@@ -12,6 +12,12 @@ const automation = readFileSync("src/lib/installation/automation.server.ts", "ut
 const runner = readFileSync("src/lib/installation/runner.server.ts", "utf8");
 const manager = readFileSync("src/lib/installation/manager.functions.ts", "utf8");
 const sql = readFileSync("supabase/master/003_control_plane_deterministic_update.sql", "utf8");
+const installer = readFileSync("supabase/master/install-deterministic-update.sql", "utf8");
+const verifier = readFileSync("supabase/install/verify-installation-master.sql", "utf8");
+const repair = readFileSync(
+  "supabase/master/reconcile-completed-batch-predecessor.sql",
+  "utf8",
+);
 const batchClaim = readFileSync("supabase/migrations/20260926000807_b1b8a035-5e5f-423d-9f46-2b571b51209b.sql", "utf8");
 const NOW = Date.parse("2026-09-20T12:00:00Z");
 
@@ -118,12 +124,35 @@ describe("contrato determinístico de UPDATE", () => {
     expect(sql).toContain("_minimum_position <> 1");
     expect(sql).toContain("_maximum_position <> _package_total");
     expect(sql).toContain("_distinct_positions <> _package_total");
-    expect(sql).toContain("fingerprint !~ '^[0-9a-f]{64}$'");
+    expect(sql).toContain("fingerprint !~ '^[0-9a-z]+-[0-9a-z]+-[0-9a-z]+$'");
+    expect(sql).not.toContain("fingerprint !~ '^[0-9a-f]{64}$'");
     expect(sql).toContain("baseline_hash");
     expect(sql).toContain("updateDatabaseReconciled");
     expect(sql).toContain("updateValidationPassed");
     expect(sql).toContain("Evidência canônica do UPDATE incompleta ou divergente");
     expect(sql).toContain("Ledger canônico do UPDATE incompleto ou inconsistente");
+  });
+
+  it("impede reinstalar o contrato incompatível e verifica o formato produzido", () => {
+    for (const source of [installer, verifier]) {
+      expect(source).toContain("fingerprint !~ '^[0-9a-z]+-[0-9a-z]+-[0-9a-z]+$'");
+      expect(source).toContain("fingerprint !~ '^[0-9a-f]{64}$'");
+    }
+  });
+
+  it("reconcilia predecessor concluído somente com autorização e evidência exatas", () => {
+    expect(repair).toContain("status IS DISTINCT FROM 'success'");
+    expect(repair).toContain("reconciled_at IS NOT NULL");
+    expect(repair).toContain("baseline_id IS DISTINCT FROM");
+    expect(repair).toContain("baseline_hash IS DISTINCT FROM");
+    expect(repair).toContain("_completed_migrations <> _authorization.expected_total");
+    expect(repair).toContain("_minimum_position <> 1");
+    expect(repair).toContain("_maximum_position <> _authorization.expected_total");
+    expect(repair).toContain("_distinct_positions <> _authorization.expected_total");
+    expect(repair).toContain("a.status = 'running'");
+    expect(repair).toContain("set_installation_operations_freeze(false");
+    expect(repair).toContain("set_installation_operations_freeze(true");
+    expect(repair).not.toMatch(/DELETE\s+FROM/i);
   });
 
   it("mantém uma única promoção e não inventa histórico", () => {

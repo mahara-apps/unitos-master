@@ -41,6 +41,8 @@ BEGIN
      OR position('_minimum_position <> 1' in _definition)=0
      OR position('_maximum_position <> _package_total' in _definition)=0
      OR position('_distinct_positions <> _package_total' in _definition)=0
+      OR position($needle$fingerprint !~ '^[0-9a-z]+-[0-9a-z]+-[0-9a-z]+$'$needle$ in _definition)=0
+      OR position($needle$fingerprint !~ '^[0-9a-f]{64}$'$needle$ in _definition)>0
      OR position('pinned_release = CASE' in _definition)=0
      OR position('pinned_commit_sha = CASE' in _definition)=0 THEN
     RAISE EXCEPTION 'Pós-condição do executor determinístico falhou' USING ERRCODE='55000';
