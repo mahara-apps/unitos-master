@@ -268,7 +268,7 @@ function AdminInstallationsPage() {
     ["up_to_date", "update_available", "attention", "error"].includes(i.status);
   const selected = visible.filter((i) => selectedIds.includes(i.id) && eligible(i));
   const batches = Object.entries(
-    (list.data?.batchOperations ?? []).reduce<Record<string, typeof list.data.batchOperations>>((groups, op) => {
+    (list.data?.batchOperations ?? []).reduce<Record<string, NonNullable<typeof list.data>["batchOperations"]>>((groups, op) => {
       const detail = op.detail as { batchId?: string } | null;
       if (detail?.batchId) (groups[detail.batchId] ??= []).push(op);
       return groups;
