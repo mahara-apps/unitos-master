@@ -39,3 +39,7 @@ Guardiao automatico: `tests/installation-master-sync.unit.test.ts` e
 Minhas tarefas consulta o workspace com filtro de responsável no servidor antes do limite; atribuições usam `can_access_client` sem alterar RBAC/RLS, e o quadro move peças só entre etapas do mesmo pipeline via `movePostFn` — preserva escopo, ordenação e estado editorial existente.
 
 Filtros e visões de Tarefas compartilham o estado do endereço; a listagem percorre páginas ordenadas sob RLS em vez de truncar a primeira janela, para que tarefas antigas continuem encontráveis.
+
+## Inspeção de endereço de instalação
+
+A conferência de integrações consulta domínio e URLs do deploy somente em leitura, compara-as ao cadastro e não apresenta endereço cadastrado como efetivo antes da sincronização; evita alterações involuntárias e links de outra origem.
