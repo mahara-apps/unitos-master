@@ -772,9 +772,9 @@ export const getInstallationFn = createServerFn({ method: "POST" })
         .order("created_at", { ascending: false })
         .limit(50),
     ]);
-    if (error) throw error;
+    if (error) throw installationServerError(error);
     if (!row) throw new Error("Instalação não encontrada.");
-    if (ops.error) throw ops.error;
+    if (ops.error) throw installationServerError(ops.error);
     const operationRows = ops.data ?? [];
     const operationIds = operationRows.map((operation) => operation.id);
     const [migrations, attempts] = operationIds.length
@@ -799,8 +799,8 @@ export const getInstallationFn = createServerFn({ method: "POST" })
           { data: [], error: null },
           { data: [], error: null },
         ];
-    if (migrations.error) throw migrations.error;
-    if (attempts.error) throw attempts.error;
+    if (migrations.error) throw installationServerError(migrations.error);
+    if (attempts.error) throw installationServerError(attempts.error);
     const migrationsByOperation = new Map<string, MigrationEvidence[]>();
     for (const migration of migrations.data ?? []) {
       const current = migrationsByOperation.get(migration.operation_id) ?? [];
@@ -1717,7 +1717,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
       .select("*")
       .eq("id", data.id)
       .maybeSingle();
-    if (readError) throw readError;
+    if (readError) throw installationServerError(readError);
     if (!current) throw new Error("Instalação não encontrada.");
 
     const record = mapInstallation(current);
@@ -1742,7 +1742,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
         .eq("kind", "update")
         .eq("status", "failed")
         .maybeSingle();
-      if (retryError) throw retryError;
+      if (retryError) throw installationServerError(retryError);
       if (!retrySource) {
         throw new Error("A atualização informada não é elegível para retomada segura.");
       }
