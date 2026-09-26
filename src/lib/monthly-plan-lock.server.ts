@@ -31,7 +31,14 @@ type LockRow = LeaseJob & { id: string; created_at: string };
 
 export async function acquirePlanGenerationLock(
   supabase: SupabaseClient,
-  args: { brandId: string; clientId: string; userId: string; period: string },
+  args: {
+    brandId: string;
+    clientId: string;
+    userId: string;
+    period: string;
+    input?: Record<string, unknown>;
+    subtitle?: string;
+  },
 ): Promise<PlanLock> {
   const nowMs = Date.now();
   const nowIso = new Date(nowMs).toISOString();
@@ -44,10 +51,11 @@ export async function acquirePlanGenerationLock(
       user_id: args.userId,
       kind: LOCK_KIND,
       title: "Gerando pauta mensal",
+      subtitle: args.subtitle ?? null,
       status: "running",
       started_at: nowIso,
       step_label: "Gerando pauta",
-      input: { period: args.period, lock: true },
+      input: { period: args.period, lock: true, ...(args.input ?? {}) },
       lease_owner: owner,
       lease_expires_at: leaseExpiryIso(LEASE_SECONDS, nowMs),
       heartbeat_at: nowIso,
@@ -132,7 +140,7 @@ export function startPlanLockHeartbeat(
 export async function releasePlanGenerationLock(
   supabase: SupabaseClient,
   jobId: string,
-  outcome: { ok: boolean; error?: string; planId?: string },
+  outcome: { ok: boolean; error?: string; planId?: string; targetRoute?: string },
 ): Promise<void> {
   try {
     await supabase
@@ -145,6 +153,7 @@ export async function releasePlanGenerationLock(
         // Libera a lease: o job terminou e não deve mais ser considerado ativo.
         lease_owner: null,
         lease_expires_at: null,
+        target_route: outcome.targetRoute ?? null,
         ...(outcome.planId ? { result: { monthly_plan_id: outcome.planId } } : {}),
       })
       .eq("id", jobId);

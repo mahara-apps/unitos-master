@@ -41,7 +41,7 @@ import { resolvePlanBriefingVersion } from "@/lib/monthly-plan-briefing.server";
 import type { FailureKind } from "@/lib/ai-failures.server";
 import type {
   GenerateFailureCode,
-  GenerateMonthlyPlanResult,
+  GenerateMonthlyPlanCompletedResult,
   MonthlyPlan,
   MonthlyPlanTopic,
 } from "@/lib/monthly-plans.functions";
@@ -127,7 +127,7 @@ export async function runPlanGeneration(args: {
   period: string;
   /** Job da trava — usado para progresso, etapa e checkpoint de retomada. */
   jobId?: string | null;
-}): Promise<GenerateMonthlyPlanResult> {
+}): Promise<GenerateMonthlyPlanCompletedResult> {
   const { supabase, userId, input, period } = args;
   const jobId = args.jobId ?? null;
   const scope = { brandId: input.brandId, clientId: input.clientId, userId };
