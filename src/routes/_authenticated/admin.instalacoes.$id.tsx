@@ -416,7 +416,10 @@ function InstallationDetailPage() {
   // Conferência das integrações: leitura sob demanda (o MASTER consulta o
   // projeto de deploy). Nada é gravado no destino e nenhum segredo é lido.
   const inspect = useMutation({
-    mutationFn: async () => ({ result: await inspectFn({ data: { id } }), generation: inspectionGeneration.current }),
+    mutationFn: async () => {
+      const generation = inspectionGeneration.current;
+      return { result: await inspectFn({ data: { id } }), generation };
+    },
     onSuccess: ({ result, generation }) => {
       if (generation !== inspectionGeneration.current) return;
       setIntegrations(result);
