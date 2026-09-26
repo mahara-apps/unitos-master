@@ -1,0 +1,1 @@
+-- Read-only validation placeholder; do not execute.
