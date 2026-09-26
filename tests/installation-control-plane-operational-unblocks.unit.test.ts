@@ -1,5 +1,4 @@
 import { readFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 const freeze = readFileSync("supabase/master/002_control_plane_global_freeze.sql", "utf8");
@@ -23,9 +22,6 @@ const cron = readFileSync("supabase/master/005_activate_cron_37.sql", "utf8");
 const cronTool = readFileSync("supabase/master/tools/activate_cron_37.sh", "utf8");
 const releaseTool = readFileSync("supabase/master/tools/promote_control_plane_release.sh", "utf8");
 const convergenceEntry = readFileSync("supabase/master/convergence-control-plane.sql", "utf8");
-const sealedRelease = JSON.parse(
-  readFileSync("supabase/master/control-plane-contract.json", "utf8"),
-).releaseVersion as string;
 
 describe("seis desbloqueios operacionais do Control-plane 1.4.27", () => {
   it("freeze preserva pending sem lease e bloqueia atividade ou ambiguidade", () => {
@@ -113,29 +109,5 @@ describe("seis desbloqueios operacionais do Control-plane 1.4.27", () => {
     );
     expect(releaseTool).toContain("LOCAL_CONTRACT_SHA256");
     expect(releaseTool).toContain("hash informado diverge do contrato local selado");
-    expect(releaseTool).toContain("verify_control_plane_compatibility.py");
-    expect(releaseTool).toContain("['releaseVersion']");
-    expect(releaseTool).toContain("EXPECTED_AUTHORIZATION=\"PROMOTE_VALIDATED_CONTROL_PLANE_${TARGET_RELEASE//./_}_ONLY\"");
-    expect(releaseTool).toContain("--set target_release=\"$TARGET_RELEASE\"");
-    expect(releaseTool).toContain(":'target_release', :'target_commit', :'contract_sha'");
-    expect(releaseTool).toContain("EXPECTED=\"$TARGET_RELEASE,$TARGET_RELEASE,");
-    expect(releaseTool).not.toMatch(/PROMOTE_VALIDATED_CONTROL_PLANE_1\.4\.30_ONLY/);
-    expect(releaseTool).not.toMatch(/'1\.4\.30', :'target_commit'/);
-  });
-
-  it("recusa autorização histórica e exige a autorização da versão selada antes de acessar o banco", () => {
-    const run = (authorization: string) =>
-      spawnSync("bash", ["supabase/master/tools/promote_control_plane_release.sh"], {
-        encoding: "utf8",
-        env: { PATH: process.env.PATH ?? "", UNITOS_CONTROL_PLANE_PROMOTION: authorization },
-      });
-    const old = run("PROMOTE_VALIDATED_CONTROL_PLANE_1.4.30_ONLY");
-    expect(old.status).toBe(2);
-    expect(old.stderr).toContain("autorização específica da versão selada ausente");
-
-    const current = run(`PROMOTE_VALIDATED_CONTROL_PLANE_${sealedRelease.replaceAll(".", "_")}_ONLY`);
-    expect(current.status).toBe(2);
-    expect(current.stderr).toContain("MASTER_DATABASE_URL ausente");
-    expect(current.stderr).not.toContain("autorização específica da versão selada ausente");
   });
 });

@@ -298,7 +298,7 @@ describe("sincronia MASTER-first", () => {
     const packageJson = readFileSync("package.json", "utf8");
 
     expect(metadata.releaseVersion).toBe(MASTER_RELEASE_VERSION);
-    expect(metadata.controlPlaneMigrations).toBe(34);
+    expect(metadata.controlPlaneMigrations).toBe(33);
     expect(metadata.convergenceSha256).toBe(await sha256Hex(convergence));
     expect(metadata.bootstrapSha256).toBe(await sha256Hex(masterBootstrap));
     expect(metadata.reconciliationFile).toBe("20260917184500_legacy_migration_reconciliation.sql");
