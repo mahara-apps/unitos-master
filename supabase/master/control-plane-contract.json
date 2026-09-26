@@ -1,13 +1,13 @@
 {
   "files": {
     "002_control_plane_global_freeze.sql": "5a9f653033c17159318b68f39fc9117a135f71bf8b08cb80584618653d30d23e",
-    "003_control_plane_deterministic_update.sql": "f057d5ad05d96a1159f3c7ccfb1ced489b4735f816113bea0c5a56ede26db038",
+    "003_control_plane_deterministic_update.sql": "af3bc23bbb02b0825738b2733826df8e4d27b0eefd3b4f49fb4a67df8eead0f5",
     "004_control_plane_release_promotion.sql": "061624028d4cb5710f23da08693d2b56bf23255f772f253a24c3ddd373d14ef2",
     "005_activate_cron_37.sql": "66ff31d8b3e9e42ff1211a0c31a80a0ed653dab34f4c1dcfbeb67bebcc29c642",
     "deterministic-update-install-preflight.sql": "b674eb507a03a8e63153c582c8bac14d00486c4004d96d9f247159548d304436",
     "global-freeze-install-preflight.sql": "0abbfe06e0cef06d981eb54c3423f00514cbc3ed50af4fd621fd65779bd015f8",
     "install-control-plane-release.sql": "ad287f7048c15a00dc518335bc8362ccc868d2209ad616d9bea984b65ed5ceaf",
-    "install-deterministic-update.sql": "ea1ef77d567e40f6f5d09047a38efcf6aee0627b590ff17d63116f6610c35988"
+    "install-deterministic-update.sql": "c07259b905af65a075bb67b3f5af84b602898ac41a9cf804accb1b83af742a7f"
   },
   "functions": [
     "read_installation_operations_freeze()",
