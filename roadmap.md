@@ -285,3 +285,10 @@
 - [x] Validar a configuração real da NXT (Groq e Gemini utilizáveis) e concluir o pacote MASTER-first 1.4.44 sem publicar.
 - [x] Tornar visíveis as etapas Escopo, Canais e Formatos e distinguir modelos conectados de fallback no pacote 1.4.45.
 - [ ] Publicar o MASTER e autorizar a atualização da NXT somente após autorização explícita separada.
+
+## Resposta da atualização de instalação
+
+- [x] Converter falhas PostgREST na leitura, confirmação e autorização de update em erros serializáveis na fronteira das server functions.
+- [x] Cobrir a conversão com teste e manter o fluxo de atualização sem executar qualquer operação na NXT.
+- [ ] Confirmar em sessão autenticada a origem exata do aviso Seroval; não foi reproduzido sem iniciar uma atualização.
+- [ ] Publicar a correção e atualizar a NXT somente mediante autorizações explícitas separadas.
