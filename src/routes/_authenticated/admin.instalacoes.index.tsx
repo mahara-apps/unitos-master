@@ -14,6 +14,7 @@ import {
   Search,
   Server,
   XCircle,
+  ListChecks,
 } from "lucide-react";
 
 import {
@@ -21,6 +22,7 @@ import {
   getInstallationManagerAccessFn,
   getMasterVersionFn,
   listInstallationsFn,
+  runAutomatedUpdateFn,
   propagateMasterGithubTokenFn,
   PROPAGATE_GITHUB_TOKEN_CONFIRM_LABEL,
   type GithubTokenPropagationItem,
@@ -45,6 +47,7 @@ import {
 } from "@/components/ui/dialog";
 import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import { InstallationCard } from "@/components/installations/installation-card";
+import { CriticalConfirmDialog } from "@/components/ui/critical-confirm-dialog";
 import { MasterPublishedState } from "@/components/installations/master-published-state";
 import { cn } from "@/lib/utils";
 
@@ -133,6 +136,7 @@ function AdminInstallationsPage() {
   const listFn = useServerFn(listInstallationsFn);
   const createFn = useServerFn(createInstallationFn);
   const masterVersionFn = useServerFn(getMasterVersionFn);
+  const updateFn = useServerFn(runAutomatedUpdateFn);
 
   const access = useQuery({
     queryKey: ["installation-manager-access"],
@@ -146,6 +150,7 @@ function AdminInstallationsPage() {
     queryFn: () => listFn(undefined),
     enabled: available,
     retry: false,
+    refetchInterval: 5000,
   });
 
   // Versão que existe no pacote publicado do MASTER: quando fica atrás do
@@ -162,6 +167,12 @@ function AdminInstallationsPage() {
   const [createStep, setCreateStep] = useState<1 | 2 | 3>(1);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [approvedIds, setApprovedIds] = useState<string[]>([]);
+  const [approvedCommit, setApprovedCommit] = useState<string | null>(null);
+  const [batchId, setBatchId] = useState<string | null>(null);
   const [propagateOpen, setPropagateOpen] = useState(false);
   const [propagateConfirm, setPropagateConfirm] = useState("");
   const [propagateResults, setPropagateResults] = useState<GithubTokenPropagationItem[] | null>(
@@ -252,6 +263,40 @@ function AdminInstallationsPage() {
           (i.domain ?? "").toLowerCase().includes(term)),
     );
   }, [installations, search, filter]);
+  const eligible = (i: InstallationRecord) =>
+    i.updateAvailable && !!i.deployProject && !i.activeOperationId &&
+    ["up_to_date", "update_available", "attention", "error"].includes(i.status);
+  const selected = visible.filter((i) => selectedIds.includes(i.id) && eligible(i));
+  const batches = Object.entries(
+    (list.data?.batchOperations ?? []).reduce<Record<string, typeof list.data.batchOperations>>((groups, op) => {
+      const detail = op.detail as { batchId?: string } | null;
+      if (detail?.batchId) (groups[detail.batchId] ??= []).push(op);
+      return groups;
+    }, {}),
+  ).slice(0, 5);
+  const closeApproval = () => {
+    setReviewOpen(false);
+    setConfirmOpen(false);
+    setApprovedIds([]);
+    setApprovedCommit(null);
+    setBatchId(null);
+    setSelectedIds([]);
+  };
+  const batchUpdate = useMutation({
+    mutationFn: () => {
+      if (!batchId || !approvedCommit || approvedIds.length < 2) throw new Error("Revise a seleção.");
+      return updateFn({ data: {
+        id: approvedIds[0], batchIds: approvedIds, batchId,
+        commitSha: approvedCommit, confirmLabel: `ATUALIZAR ${approvedIds.length} INSTALAÇÕES`,
+      } });
+    },
+    onSuccess: (result) => {
+      closeApproval();
+      void qc.invalidateQueries({ queryKey: ["installations"] });
+      if (result.result === "BATCH") toast.info(result.reasons.length ? result.reasons.join(" ") : `${result.items.length} instalações colocadas em fila.`);
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   if (access.isLoading) {
     return (
@@ -291,6 +336,9 @@ function AdminInstallationsPage() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <Button size="sm" variant="outline" disabled={selected.length < 2 || masterVersion.data?.masterPublished !== true || !masterVersion.data.commitSha} onClick={() => setReviewOpen(true)}>
+            <ListChecks className="mr-2 h-4 w-4" /> Atualizar selecionadas ({selected.length})
+          </Button>
           <Button
             size="sm"
             variant="outline"
@@ -321,6 +369,27 @@ function AdminInstallationsPage() {
         />
         <PageKpi icon={<AlertTriangle />} label="Atenção" value={kpis.problems} status="danger" />
       </PageKpiGrid>
+
+      {batches.map(([id, operations]) => {
+        const ordered = [...operations].sort((a, b) => Number((a.detail as { batchPosition?: number })?.batchPosition ?? 0) - Number((b.detail as { batchPosition?: number })?.batchPosition ?? 0));
+        const total = Number((ordered[0]?.detail as { batchTotal?: number })?.batchTotal ?? ordered.length);
+        const stopped = ordered.some((op) => ["failed", "blocked", "manual_review"].includes(op.status));
+        return <section key={id} className="space-y-2 border-b border-border pb-4" aria-label={`Remessa de ${total} instalações`}>
+          <h3 className="text-sm font-semibold">Atualização em fila · {ordered.filter((op) => op.status === "success").length} de {total} concluídas {stopped ? "· interrompida" : ""}</h3>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {ordered.map((op) => {
+              const installation = installations.find((i) => i.id === op.installation_id);
+              const position = Number((op.detail as { batchPosition?: number })?.batchPosition ?? 0);
+              const label = op.status === "success" ? "Concluída" : ["failed", "blocked", "manual_review"].includes(op.status) ? "Falhou / bloqueada" : stopped && op.status === "pending" ? "Aguardando decisão" : op.status === "running" ? "Executando" : "Aguardando";
+              return <div key={op.id} className="flex items-center justify-between gap-2 border border-border p-3 text-sm">
+                <span className="min-w-0 truncate">{position}. {installation?.name ?? "Instalação"} · {label}</span>
+                <Button asChild size="sm" variant="ghost"><Link to="/admin/instalacoes/$id" params={{ id: op.installation_id }}>Detalhes <ArrowRight className="ml-1 h-3 w-3" /></Link></Button>
+              </div>;
+            })}
+          </div>
+          {ordered.length < total && <p className="text-xs text-destructive">{total - ordered.length} instalação(ões) não preparada(s). Revise antes de qualquer nova tentativa.</p>}
+        </section>;
+      })}
 
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <div className="relative min-w-0">
@@ -400,10 +469,35 @@ function AdminInstallationsPage() {
             <InstallationCard
               key={i.id}
               installation={i}
+              selection={{ checked: selectedIds.includes(i.id), disabled: !eligible(i), onChange: (checked) => setSelectedIds((previous) => checked ? [...previous, i.id] : previous.filter((id) => id !== i.id)) }}
             />
           ))}
         </div>
       )}
+
+      <Dialog open={reviewOpen} onOpenChange={(open) => { if (!open) closeApproval(); else setReviewOpen(true); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Revisar atualizações</DialogTitle><DialogDescription>Uma instalação por vez. A próxima só começa quando a anterior terminar com sucesso.</DialogDescription></DialogHeader>
+          <ul className="max-h-72 space-y-2 overflow-auto text-sm">
+            {selected.map((i, index) => <li key={i.id} className="flex items-center justify-between gap-2 border-b py-2">
+              <span>{index + 1}. {i.name}<span className="block text-xs text-muted-foreground">{i.pinnedRelease ?? i.currentVersion ?? "Sem versão"} → {masterVersion.data?.repoRelease} · {masterVersion.data?.commitSha?.slice(0, 7)}</span></span>
+              <Button size="icon" variant="ghost" aria-label={`Remover ${i.name}`} onClick={() => setSelectedIds((previous) => previous.filter((id) => id !== i.id))}><XCircle className="h-4 w-4" /></Button>
+            </li>)}
+          </ul>
+          <DialogFooter><Button variant="ghost" onClick={closeApproval}>Cancelar</Button><Button disabled={selected.length < 2 || masterVersion.data?.masterPublished !== true || !masterVersion.data.commitSha} onClick={() => {
+            setApprovedIds(selected.map((i) => i.id));
+            setApprovedCommit(masterVersion.data?.commitSha ?? null);
+            setBatchId(crypto.randomUUID());
+            setReviewOpen(false); setConfirmOpen(true);
+          }}>Revisar e continuar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <CriticalConfirmDialog open={confirmOpen} onOpenChange={(open) => { if (!open) closeApproval(); }} title="Confirmar atualização múltipla" impact="As instalações serão atualizadas em sequência; uma falha interrompe a fila." confirmText={`ATUALIZAR ${approvedIds.length} INSTALAÇÕES`} details={[{ label: "Instalações", value: approvedIds.map((id) => installations.find((i) => i.id === id)?.name ?? id).join(", ") }, { label: "Versão", value: masterVersion.data?.repoRelease ?? "—" }, { label: "Commit", value: approvedCommit?.slice(0, 7) ?? "—" }]} pending={batchUpdate.isPending} actionLabel="Iniciar fila" onConfirm={() => {
+        if (approvedIds.some((id) => !selected.some((i) => i.id === id)) || selected.length !== approvedIds.length || masterVersion.data?.commitSha !== approvedCommit || masterVersion.data?.masterPublished !== true) {
+          closeApproval(); toast.error("A lista ou a versão mudou. Revise novamente."); return;
+        }
+        batchUpdate.mutate();
+      }} />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-[600px]">
