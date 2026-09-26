@@ -38,4 +38,13 @@ describe("apresentação das pautas", () => {
     expect(functions).toContain("listPlanAiModelsFn");
     expect(agent).toContain("opts.selectedModel");
   });
+
+  it("torna as três etapas explícitas e distingue modelos conectados de fallback", () => {
+    const wizard = read("src/components/monthly-plan/generate-plan-wizard.tsx");
+    const functions = read("src/lib/monthly-plans.functions.ts");
+    expect(wizard).toContain('aria-label="Etapas da geração"');
+    expect(wizard).toContain('"Formatos"');
+    expect(wizard).toContain('" · conectado"');
+    expect(functions).toContain('role: "primary" | "fallback" | "connected"');
+  });
 });

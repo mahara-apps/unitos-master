@@ -259,14 +259,30 @@ export function GeneratePlanWizard({
               </SheetDescription>
             </SheetHeader>
 
-            <div className="flex gap-1.5 px-6 pt-4">
+            <ol aria-label="Etapas da geração" className="grid grid-cols-3 gap-2 px-6 pt-4">
               {STEPS.map((s, i) => (
-                <div
+                <li
                   key={s}
-                  className={`h-1 flex-1 rounded-full ${i <= step ? "bg-ai" : "bg-muted"}`}
-                />
+                  aria-current={i === step ? "step" : undefined}
+                  className="min-w-0"
+                >
+                  <div
+                    className={`h-1 rounded-full ${i <= step ? "bg-ai" : "bg-muted"}`}
+                  />
+                  <div
+                    className={`mt-1.5 truncate text-[11px] font-medium ${
+                      i === step
+                        ? "text-ai"
+                        : i < step
+                          ? "text-foreground"
+                          : "text-muted-foreground"
+                    }`}
+                  >
+                    {i + 1}. {s === "Volumetria por formato" ? "Formatos" : s}
+                  </div>
+                </li>
               ))}
-            </div>
+            </ol>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-6 py-3">
               {step === 0 ? (
@@ -366,7 +382,11 @@ export function GeneratePlanWizard({
                             value={`${model.provider}:${model.modelId}`}
                           >
                             {model.label}
-                            {model.primary ? " · padrão" : " · fallback"}
+                            {model.role === "primary"
+                              ? " · padrão"
+                              : model.role === "fallback"
+                                ? " · fallback"
+                                : " · conectado"}
                           </SelectItem>
                         ))}
                       </SelectContent>

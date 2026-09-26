@@ -283,4 +283,5 @@
 - [x] Unificar a lista de conexões de texto utilizáveis entre seletor e execução.
 - [x] Mostrar carregamento, erro e ausência real de modelos separadamente.
 - [x] Validar a configuração real da NXT (Groq e Gemini utilizáveis) e concluir o pacote MASTER-first 1.4.44 sem publicar.
+- [x] Tornar visíveis as etapas Escopo, Canais e Formatos e distinguir modelos conectados de fallback no pacote 1.4.45.
 - [ ] Publicar o MASTER e autorizar a atualização da NXT somente após autorização explícita separada.
