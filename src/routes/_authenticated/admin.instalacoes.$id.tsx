@@ -1069,7 +1069,7 @@ function InstallationDetailPage() {
               </DataGrid>
               {integrations?.expectedMetaRedirectUri && (
                 <p className="text-[11px] text-muted-foreground">
-                  Endereço de retorno do Meta desta instalação:{" "}
+                  Endereço de retorno esperado para o Meta (confira a divergência acima):{" "}
                   <code className="rounded bg-muted px-1 py-0.5">
                     {integrations.expectedMetaRedirectUri}
                   </code>{" "}

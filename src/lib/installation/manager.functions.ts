@@ -2662,7 +2662,7 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
       domainVerified,
       metaRedirectUri,
       expectedMetaRedirectUri: meta.expectedRedirectUri ?? null,
-      superAdminSetupUrl: urlState.state === "configured" ? `${appUrl}/setup` : null,
+      superAdminSetupUrl: appUrl && deployedAppUrl === appUrl && browserAppUrl === appUrl ? `${appUrl}/setup` : null,
       items,
       checkedAt,
     };
