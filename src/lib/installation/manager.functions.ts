@@ -5,6 +5,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertSuperAdmin, resolveIsSuperAdmin } from "@/lib/super-admin";
 import { assertConfirmLabel, type CriticalActionKey } from "@/lib/critical-actions";
 import type { RpcClient } from "@/lib/access-guard";
+import { installationServerError } from "./serializable-error";
 
 import {
   INSTALLATION_STATUS_LABEL,
@@ -313,7 +314,7 @@ export async function assertNoActiveInstallationOperation(
     .eq("installation_id", installationId)
     .in("status", ["pending", "running", "retryable"])
     .maybeSingle();
-  if (error) throw error;
+  if (error) throw installationServerError(error);
   if (active) throw new Error("Já existe uma operação em andamento nesta instalação.");
 }
 
@@ -344,7 +345,7 @@ async function assertCriticalInstallationConfirm(
     .select("id,name")
     .eq("id", installationId)
     .maybeSingle();
-  if (error) throw error;
+  if (error) throw installationServerError(error);
   const row = data as { id: string; name: string } | null;
   if (!row) throw new Error("Instalação não encontrada.");
   assertConfirmLabel(confirmLabel, row.name);
