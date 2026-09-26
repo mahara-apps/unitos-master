@@ -27,6 +27,7 @@ import {
   type InstallationOperationKind,
   type OperationStep,
 } from "./manager-contract";
+import { installationServerError } from "./serializable-error";
 
 /* ----------------------------------------------------------------- token */
 
@@ -192,7 +193,7 @@ export async function heartbeatOperation(client: AnyClient, op: OperationRow): P
     _fencing_token: op.fencing_token,
     _lease_seconds: AUTOMATION_LEASE_SECONDS,
   });
-  if (error) throw error;
+  if (error) throw installationServerError(error);
   return data === true;
 }
 
@@ -237,7 +238,7 @@ export async function yieldOperation(
     _fencing_token: op.fencing_token ?? -1,
     _delay_seconds: delaySeconds,
   });
-  if (error) throw error;
+  if (error) throw installationServerError(error);
   if (data !== true) throw new InstallationLeaseLostError();
 }
 
@@ -262,7 +263,7 @@ export async function deferOperation(
       retryDelaySeconds: delaySeconds,
     },
   });
-  if (error) throw error;
+  if (error) throw installationServerError(error);
   if (data !== true) throw new InstallationLeaseLostError();
 }
 
@@ -288,7 +289,7 @@ export async function retryOperation(
     _summary: sanitize(summary),
     _error_detail: { attempt, retryDelaySeconds: delaySeconds },
   });
-  if (error) throw error;
+  if (error) throw installationServerError(error);
   if (data !== true) throw new InstallationLeaseLostError();
 }
 
@@ -340,7 +341,7 @@ export async function applyProgressReport(
     .select("steps, detail")
     .eq("id", op.id)
     .maybeSingle();
-  if (readError) throw readError;
+  if (readError) throw installationServerError(readError);
   if (!fresh) throw new Error("Operação não encontrada durante o checkpoint.");
   const base = readSteps(fresh.steps);
   const steps = applyStepReport(base, {
@@ -360,7 +361,7 @@ export async function applyProgressReport(
     _summary: null,
     _metrics: { lastProgressAt: new Date().toISOString() },
   });
-  if (error) throw error;
+  if (error) throw installationServerError(error);
   if (saved !== true) throw new InstallationLeaseLostError();
   return steps;
 }
@@ -396,7 +397,7 @@ export async function finalizeOperation(
     .select("steps, detail")
     .eq("id", op.id)
     .maybeSingle();
-  if (progressError) throw progressError;
+  if (progressError) throw installationServerError(progressError);
   if (!fresh) throw new Error("Operação não encontrada durante a finalização.");
   const persisted = readSteps(fresh.steps);
   const expectedStepIds = new Set(stepsFor(kind).map((step) => step.id));
@@ -423,7 +424,7 @@ export async function finalizeOperation(
     .select("health_checks, pinned_release, current_version")
     .eq("id", op.installation_id)
     .maybeSingle();
-  if (installationError) throw installationError;
+  if (installationError) throw installationServerError(installationError);
   if (!installation) throw new Error("Instalação não encontrada durante a finalização.");
 
   const checks = normalizeHealthChecks(installation?.health_checks);
@@ -489,7 +490,7 @@ export async function finalizeOperation(
       _touch_provisioned: kind !== "validate" && acceptedSuccess,
       _touch_validated: kind === "validate",
     });
-    if (error) throw error;
+    if (error) throw installationServerError(error);
     if (closed !== true) throw new InstallationLeaseLostError();
     return;
   }
@@ -519,12 +520,12 @@ export async function finalizeOperation(
     .in("status", ["pending", "running", "retryable"])
     .select("id")
     .maybeSingle();
-  if (opError) throw opError;
+  if (opError) throw installationServerError(opError);
   if (!closed) throw new InstallationLeaseLostError();
   const { error: instError } = await client
     .from("installations")
     .update(patch)
     .eq("id", op.installation_id)
     .eq("active_operation_id", op.id);
-  if (instError) throw instError;
+  if (instError) throw installationServerError(instError);
 }

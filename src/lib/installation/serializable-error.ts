@@ -1,6 +1,14 @@
 /** PostgREST may return an error-shaped object that cannot cross a server-function boundary. */
 export function installationServerError(value: unknown): Error {
-  if (value instanceof Error) return value;
+  // SDK Error subclasses can carry non-serializable properties (including cause).
+  // Preserve ordinary errors, but strip provider-specific fields at the RPC boundary.
+  if (value instanceof Error) {
+    if (value.constructor === Error && !('cause' in value)) return value;
+    const code = 'code' in value && typeof value.code === 'string' && value.code.trim()
+      ? ` (${value.code})`
+      : '';
+    return new Error(`${value.message}${code}`);
+  }
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
     const message = typeof record.message === "string" && record.message.trim()
