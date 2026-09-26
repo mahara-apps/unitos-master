@@ -999,6 +999,7 @@ export type DeployClient = {
     ok: boolean;
     keys?: string[];
     plain?: Record<string, string>;
+    conflictingKeys?: string[];
     error?: string;
   }>;
 };
@@ -3257,19 +3258,28 @@ export function createDeployClient(input: {
           };
         }
         const body = (await res.json().catch(() => ({}))) as {
-          envs?: { key?: string; type?: string; value?: string }[];
+          envs?: { key?: string; type?: string; value?: string; target?: string[] | string }[];
         };
         const envs = body.envs ?? [];
         const keys = Array.from(new Set(envs.map((e) => e.key ?? "").filter(Boolean)));
         const wanted = new Set(plainKeys);
         const plain: Record<string, string> = {};
+        const conflictingKeys: string[] = [];
         for (const e of envs) {
           // Só valores plain e só das chaves pedidas: nada cifrado é exposto.
           if (e.key && wanted.has(e.key) && e.type === "plain" && typeof e.value === "string") {
+            if (e.key in plain && plain[e.key] !== e.value) conflictingKeys.push(e.key);
             plain[e.key] = e.value;
           }
         }
-        return { ok: true, keys, plain };
+        for (const key of wanted) {
+          const matching = envs.filter((e) => e.key === key && e.type === "plain" && typeof e.value === "string");
+          const targets = new Set(matching.flatMap((e) => Array.isArray(e.target) ? e.target : e.target ? [e.target] : []));
+          if (["production", "preview", "development"].some((target) => !targets.has(target))) {
+            conflictingKeys.push(key);
+          }
+        }
+        return { ok: true, keys, plain, conflictingKeys: Array.from(new Set(conflictingKeys)) };
       } catch (e) {
         return { ok: false, error: (e as Error).message };
       }

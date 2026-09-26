@@ -2621,7 +2621,7 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
       const { createManagementClient } = await import("./automation.server");
       const management = createManagementClient({ token: managementToken, projectRef });
       const identity = await management.query("select app_url from public.installation where id = true");
-      const jobs = await management.query("select count(*)::int as total, coalesce(array_agg(distinct substring(command from 'https?://[a-zA-Z0-9._:-]+')) filter (where command ~ 'https?://'), array[]::text[]) as origins from cron.job");
+      const jobs = await management.query("select count(*) filter (where command ~ 'https?://')::int as total, coalesce(array_agg(distinct substring(command from 'https?://[a-zA-Z0-9._:-]+')) filter (where command ~ 'https?://'), array[]::text[]) as origins from cron.job");
       if (identity.ok && jobs.ok && identity.rows.length === 1 && jobs.rows.length === 1) {
         const identityRow = identity.rows[0] as { app_url?: unknown };
         const jobRow = jobs.rows[0] as { total?: unknown; origins?: unknown };
@@ -2637,6 +2637,10 @@ export const inspectInstallationIntegrationsFn = createServerFn({ method: "POST"
     const urlState = operationalUrlState({ registered: record.domain, deployed: deployedAppUrl, browser: browserAppUrl, installation: installationAppUrl, cronOrigins });
     domainItem.state = urlState.state;
     domainItem.detail = `${urlState.detail}${destinationReadError ? ` Não foi possível conferir a instalação: ${destinationReadError}` : ""}`;
+    if (listed.conflictingKeys?.length) {
+      domainItem.state = "pending";
+      domainItem.detail += ` Variáveis diferentes ou incompletas entre ambientes do deploy: ${listed.conflictingKeys.join(", ")}.`;
+    }
 
     let domainAssigned = false;
     let domainVerified = false;
