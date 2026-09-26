@@ -299,3 +299,11 @@
 - [x] Converter respostas de falha na fronteira das operações e testar a serialização.
 - [ ] Validar pacote MASTER-first e investigar a versão fixada divergente sem modificar a NXT.
 - [ ] Publicar/propagar somente mediante autorização explícita separada.
+
+## Geração de pauta em segundo plano
+
+- [x] Escolher e aplicar o painel lateral em duas etapas: Escopo e Conteúdo.
+- [x] Registrar a geração em `ai_jobs` e devolver o controle sem bloquear o painel.
+- [x] Preservar trava, heartbeat, retomada, seleção completa e destino da pauta concluída.
+- [x] Validar testes focados, TypeScript e pacote MASTER-first 1.4.48.
+- [ ] Publicar/propagar somente mediante autorização explícita separada.

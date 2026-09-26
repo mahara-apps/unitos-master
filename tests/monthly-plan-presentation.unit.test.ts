@@ -39,12 +39,21 @@ describe("apresentação das pautas", () => {
     expect(agent).toContain("opts.selectedModel");
   });
 
-  it("torna as três etapas explícitas e distingue modelos conectados de fallback", () => {
+  it("torna as duas etapas explícitas e distingue modelos conectados de fallback", () => {
     const wizard = read("src/components/monthly-plan/generate-plan-wizard.tsx");
     const functions = read("src/lib/monthly-plans.functions.ts");
     expect(wizard).toContain('aria-label="Etapas da geração"');
-    expect(wizard).toContain('"Formatos"');
+    expect(wizard).toContain('"Conteúdo"');
     expect(wizard).toContain('" · conectado"');
     expect(functions).toContain('role: "primary" | "fallback" | "connected"');
+  });
+
+  it("registra a geração em segundo plano e mantém o drawer fechável", () => {
+    const wizard = read("src/components/monthly-plan/generate-plan-wizard.tsx");
+    const functions = read("src/lib/monthly-plans.functions.ts");
+    expect(wizard).not.toContain("pending ? null : onOpenChange");
+    expect(wizard).toContain("A geração continuará em segundo plano");
+    expect(functions).toContain("waitUntil(");
+    expect(functions).toContain("targetRoute: `/monthly-plan/");
   });
 });

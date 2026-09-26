@@ -39,6 +39,7 @@ import { runPlanGeneration } from "@/lib/monthly-plan-generate.server";
 import { countGeneratedThisMonth } from "@/lib/monthly-plan-generated-count.server";
 import type { ProviderName } from "@/lib/ai-capabilities";
 import { orderedUsableTextProviders } from "@/lib/ai-provider-availability";
+import { waitUntil } from "@/lib/wait-until.server";
 
 /* ---------- Types ---------- */
 
@@ -69,7 +70,7 @@ export type GenerateFailureCode =
   | "generation_in_progress"
   | "briefing_version_invalid";
 
-export type GenerateMonthlyPlanResult =
+export type GenerateMonthlyPlanCompletedResult =
   | { ok: true; data: MonthlyPlanWithTopics; resumed?: boolean }
   | {
       ok: false;
@@ -82,6 +83,10 @@ export type GenerateMonthlyPlanResult =
       code: "overage_not_authorized";
       overage: Array<{ channel: PlanChannel; quota: number; requested: number; overage: number }>;
     };
+
+export type GenerateMonthlyPlanResult =
+  | { ok: true; queued: true; jobId: string }
+  | Exclude<GenerateMonthlyPlanCompletedResult, { ok: true }>;
 
 export type PlanAiModelOption = {
   provider: ProviderName;
@@ -312,50 +317,64 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => GenerateInput.parse(i))
   .handler(async ({ data, context }): Promise<GenerateMonthlyPlanResult> => {
     const period = currentPeriodMonth();
+    const requestedTotal = (data.selection ?? []).reduce((sum, item) => sum + item.quantity, 0);
     // Trava server-side: uma geração por marca + cliente + período.
     const lock = await acquirePlanGenerationLock(context.supabase, {
       brandId: data.brandId,
       clientId: data.clientId,
       userId: context.userId,
       period,
+      subtitle: requestedTotal > 0 ? `${requestedTotal} peças` : undefined,
+      input: {
+        theme: data.theme,
+        briefingId: data.briefingId ?? null,
+        selectedModel: data.selectedModel ?? null,
+        selection: data.selection ?? null,
+        organization: data.organization,
+      },
     });
     if ("conflict" in lock) return { ok: false, code: "generation_in_progress" };
-    // Renova a lease durante toda a geração: o reaper só encerra jobs cuja
-    // validade expirou de fato, nunca uma geração legítima em andamento.
-    const stopHeartbeat = startPlanLockHeartbeat(context.supabase, lock);
-    try {
-      const result = await runPlanGeneration({
-        supabase: context.supabase,
-        userId: context.userId,
-        input: data,
-        period,
-        jobId: lock.jobId,
-      });
-      await releasePlanGenerationLock(context.supabase, lock.jobId, {
-        ok: result.ok,
-        ...(result.ok ? { planId: result.data.plan.id } : { error: result.code }),
-      });
-      // Projeto resolvido só após a geração dar certo — nunca sobra projeto órfão.
-      if (result.ok) {
-        await linkPlanToProject(context.supabase as PlanSupabaseClient, {
-          planId: result.data.plan.id,
-          brandId: data.brandId,
-          clientId: data.clientId,
-          userId: context.userId,
-          organization: data.organization,
-        });
-      }
-      return result;
-    } catch (err) {
-      await releasePlanGenerationLock(context.supabase, lock.jobId, {
-        ok: false,
-        // Erros do PostgREST são objetos simples: `String(err)` gerava "[object Object]".
-        error: errorToMessage(err) || "unknown_error",
-      });
-      throw err;
-    } finally {
-      stopHeartbeat();
-    }
+    waitUntil(
+      (async () => {
+        const stopHeartbeat = startPlanLockHeartbeat(context.supabase, lock);
+        try {
+          const result = await runPlanGeneration({
+            supabase: context.supabase,
+            userId: context.userId,
+            input: data,
+            period,
+            jobId: lock.jobId,
+          });
+          if (result.ok) {
+            await linkPlanToProject(context.supabase as PlanSupabaseClient, {
+              planId: result.data.plan.id,
+              brandId: data.brandId,
+              clientId: data.clientId,
+              userId: context.userId,
+              organization: data.organization,
+            });
+            await releasePlanGenerationLock(context.supabase, lock.jobId, {
+              ok: true,
+              planId: result.data.plan.id,
+              targetRoute: `/monthly-plan/${result.data.plan.id}`,
+            });
+          } else {
+            await releasePlanGenerationLock(context.supabase, lock.jobId, {
+              ok: false,
+              error: result.code,
+            });
+          }
+        } catch (err) {
+          await releasePlanGenerationLock(context.supabase, lock.jobId, {
+            ok: false,
+            error: errorToMessage(err) || "unknown_error",
+          });
+        } finally {
+          stopHeartbeat();
+        }
+      })(),
+    );
+    return { ok: true, queued: true, jobId: lock.jobId };
   });
 
 /* ---------- Volumetria (pré-geração) ---------- */

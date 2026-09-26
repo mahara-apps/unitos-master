@@ -60,7 +60,7 @@ export type OverageItem = {
   overage: number;
 };
 
-const STEPS = ["Escopo", "Canais", "Volumetria por formato"] as const;
+const STEPS = ["Escopo", "Conteúdo"] as const;
 
 export function GeneratePlanWizard({
   open,
@@ -69,8 +69,7 @@ export function GeneratePlanWizard({
   clientId,
   volumetry,
   briefings,
-  pending,
-  loadingMessage,
+  submitting,
   generationError,
   onGenerate,
   onRequestOverage,
@@ -89,8 +88,7 @@ export function GeneratePlanWizard({
     current?: boolean;
   }>;
 
-  pending: boolean;
-  loadingMessage: string;
+  submitting: boolean;
   generationError?: string | null;
   onGenerate: (input: {
     theme: string;
@@ -237,29 +235,24 @@ export function GeneratePlanWizard({
   };
 
   return (
-    <Sheet open={open} onOpenChange={(v) => (pending ? null : onOpenChange(v))}>
-      <SheetContent className="flex h-dvh w-full flex-col overflow-hidden p-0 sm:max-w-xl">
-        {pending ? (
-          <div className="flex flex-col items-center gap-3 py-10 text-center">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            <p className="text-sm font-medium">{loadingMessage}</p>
-            <p className="text-xs text-muted-foreground">
-              Gerando {total} peças — isso pode levar até um minuto.
-            </p>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        className="flex h-dvh w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-[34rem]"
+        overlayClassName="bg-foreground/20 backdrop-blur-[2px]"
+      >
+        <SheetHeader className="border-b border-border/60 px-6 py-5 pr-12">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <div>
+              <SheetTitle>Gerar nova pauta</SheetTitle>
+              <SheetDescription>Configure o escopo, os canais e os formatos</SheetDescription>
+            </div>
           </div>
-        ) : (
-          <>
-            <SheetHeader className="border-b border-border/60 bg-ai/5 px-6 py-5 pr-12">
-              <div className="flex items-center gap-2 text-ai">
-                <Sparkles className="h-5 w-5" />
-                <SheetTitle>Gerar pauta com IA</SheetTitle>
-              </div>
-              <SheetDescription>
-                Passo {step + 1} de {STEPS.length} · {STEPS[step]}
-              </SheetDescription>
-            </SheetHeader>
+        </SheetHeader>
 
-            <ol aria-label="Etapas da geração" className="grid grid-cols-3 gap-2 px-6 pt-4">
+            <ol aria-label="Etapas da geração" className="grid grid-cols-2 gap-3 px-6 pt-5">
               {STEPS.map((s, i) => (
                 <li
                   key={s}
@@ -278,13 +271,13 @@ export function GeneratePlanWizard({
                           : "text-muted-foreground"
                     }`}
                   >
-                    {i + 1}. {s === "Volumetria por formato" ? "Formatos" : s}
+                    {i + 1}. {s}
                   </div>
                 </li>
               ))}
             </ol>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-3">
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
               {step === 0 ? (
                 <div className="space-y-4 py-2">
                   <div className="space-y-2">
@@ -436,10 +429,13 @@ export function GeneratePlanWizard({
               ) : null}
 
               {step === 1 ? (
-                <div className="space-y-2 py-2">
-                  <p className="text-xs text-muted-foreground">
-                    Selecione os canais e as quantidades que a IA deve gerar.
-                  </p>
+                <div className="space-y-4 py-2">
+                  <div>
+                    <h3 className="text-sm font-semibold">Canais e formatos</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Ative os canais e distribua a quantidade entre os formatos.
+                    </p>
+                  </div>
                   {channels.map((c) => {
                     const quota = volumetry?.monthlyQuota[c] ?? 0;
                     const generated = volumetry?.generatedThisMonth[c] ?? 0;
@@ -447,111 +443,64 @@ export function GeneratePlanWizard({
                     return (
                       <div
                         key={c}
-                        className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/20 p-3"
+                        className={`rounded-lg border p-4 transition-colors ${
+                          enabled[c] ? "border-primary/30 bg-primary/[0.025]" : "border-border/60"
+                        }`}
                       >
-                        <Checkbox
-                          checked={!!enabled[c]}
-                          onCheckedChange={(v) => setEnabled((p) => ({ ...p, [c]: !!v }))}
-                          aria-label={PLAN_CHANNEL_LABEL[c]}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium">{PLAN_CHANNEL_LABEL[c]}</div>
-                          <div className="text-[11px] text-muted-foreground tabular-nums">
-                            cota {quota}/mês · {generated} gerados · {available} disponíveis
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={!!enabled[c]}
+                            onCheckedChange={(v) => setEnabled((p) => ({ ...p, [c]: !!v }))}
+                            aria-label={PLAN_CHANNEL_LABEL[c]}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-semibold">{PLAN_CHANNEL_LABEL[c]}</div>
+                            <div className="text-[11px] text-muted-foreground tabular-nums">
+                              {generated} geradas · {available} disponíveis de {quota}
+                            </div>
                           </div>
+                          <span className="text-xs font-semibold tabular-nums">
+                            {enabled[c] ? qtyOf(c) : 0} peças
+                          </span>
                         </div>
-                        <span className="text-xs font-semibold tabular-nums text-foreground/80">
-                          {qtyOf(c)} peças
-                        </span>
+                        {enabled[c] ? (
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            {formatsForChannel(c).map((f) => (
+                              <div
+                                key={f}
+                                className="flex min-h-10 items-center justify-between gap-3 rounded-md bg-muted/60 px-3 py-2"
+                              >
+                                <span className="text-xs font-medium">{CONTENT_FORMAT_LABEL[f]}</span>
+                                <Stepper
+                                  value={fmtQty[c]?.[f] ?? 0}
+                                  min={0}
+                                  max={60}
+                                  label={`${CONTENT_FORMAT_LABEL[f]} em ${PLAN_CHANNEL_LABEL[c]}`}
+                                  onChange={(n) => setFormatQty(c, f, n)}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                     );
                   })}
-                  <div className="flex items-center justify-between border-t border-border/60 pt-3 text-xs">
-                    <span className="text-muted-foreground">Total a gerar</span>
-                    <span className="font-medium tabular-nums">{total} peças</span>
-                  </div>
-                  {overageItems.length ? (
-                    <p className="text-[11px] text-amber-400">
-                      Excede a volumetria em:{" "}
-                      {overageItems
-                        .map((it) => `${PLAN_CHANNEL_LABEL[it.channel]} (+${it.overage})`)
-                        .join(", ")}
-                      .{" "}
-                      {overageAllowed
-                        ? "Você pode gerar acima da volumetria; o excedente será registrado."
-                        : "Será necessário solicitar liberação do gestor."}
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {step === 2 ? (
-                <div className="space-y-3 py-2">
-                  <p className="text-xs text-muted-foreground">
-                    Defina quantas peças por formato a IA deve gerar em cada canal.
-                  </p>
-                  {channels
-                    .filter((c) => enabled[c])
-                    .map((c) => (
-                      <div key={c} className="rounded-lg border border-border/60 bg-muted/20 p-3">
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="text-sm font-medium">{PLAN_CHANNEL_LABEL[c]}</span>
-                          <span className="text-[11px] text-muted-foreground tabular-nums">
-                            {qtyOf(c)} peças
-                          </span>
-                        </div>
-                        <div className="space-y-1.5">
-                          {formatsForChannel(c).map((f) => (
-                            <div
-                              key={f}
-                              className="flex items-center justify-between gap-3 rounded-md border border-border/40 bg-background/40 px-2.5 py-1.5"
-                            >
-                              <span className="text-xs">{CONTENT_FORMAT_LABEL[f]}</span>
-                              <Stepper
-                                value={fmtQty[c]?.[f] ?? 0}
-                                min={0}
-                                max={60}
-                                label={`${CONTENT_FORMAT_LABEL[f]} em ${PLAN_CHANNEL_LABEL[c]}`}
-                                onChange={(n) => setFormatQty(c, f, n)}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  {missingFormats.length ? (
-                    <p className="text-[11px] text-amber-400">
-                      Selecione ao menos um formato para:{" "}
-                      {missingFormats.map((c) => PLAN_CHANNEL_LABEL[c]).join(", ")}.
-                    </p>
-                  ) : null}
                   {overageItems.length ? (
                     <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
-                      <div className="flex gap-2 text-xs text-amber-400">
+                      <div className="flex gap-2 text-xs text-amber-600 dark:text-amber-400">
                         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                         <div>
                           <p className="font-medium">
-                            {overageAllowed
-                              ? "Excedente de volumetria (liberado)"
-                              : "Excedente de volumetria"}
+                            {overageAllowed ? "Excedente liberado" : "Excedente de volumetria"}
                           </p>
-                          <ul className="mt-1 space-y-0.5 tabular-nums">
-                            {overageItems.map((it) => (
-                              <li key={it.channel}>
-                                {PLAN_CHANNEL_LABEL[it.channel]}: {it.requested} pedidas ·{" "}
-                                {it.quota} disponíveis · +{it.overage} excedente
-                              </li>
-                            ))}
-                          </ul>
+                          <p className="mt-1 tabular-nums">
+                            {overageItems
+                              .map((it) => `${PLAN_CHANNEL_LABEL[it.channel]} +${it.overage}`)
+                              .join(" · ")}
+                          </p>
                         </div>
                       </div>
-                      {overageAllowed ? (
-                        <p className="text-[11px] text-muted-foreground">
-                          {volumetry?.canBypassOverage
-                            ? "Seu nível de acesso permite gerar acima da volumetria. O excedente fica registrado no histórico de Produção."
-                            : "Volumetria livre está ativa para este cliente. O excedente fica registrado no histórico de Produção."}
-                        </p>
-                      ) : (
+                      {!overageAllowed ? (
                         <>
                           <Input
                             value={justification}
@@ -566,14 +515,18 @@ export function GeneratePlanWizard({
                             onClick={() => onRequestOverage?.(overageItems, justification.trim())}
                             className="gap-1.5"
                           >
-                            {requestingOverage ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : null}
+                            {requestingOverage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                             Solicitar liberação
                           </Button>
                         </>
-                      )}
+                      ) : null}
                     </div>
+                  ) : null}
+                  {missingFormats.length ? (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                      Selecione ao menos um formato para:{" "}
+                      {missingFormats.map((c) => PLAN_CHANNEL_LABEL[c]).join(", ")}.
+                    </p>
                   ) : null}
                   {generationError ? (
                     <div
@@ -588,10 +541,12 @@ export function GeneratePlanWizard({
               ) : null}
             </div>
 
-            <div className="border-t border-border/60 bg-background px-6 py-3">
-              <div className="mb-3 flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-xs">
-                <span className="text-muted-foreground">Total selecionado</span>
-                <span className="font-semibold tabular-nums">{total} peças</span>
+            <div className="border-t border-border/60 bg-muted/30 px-6 py-4">
+              <div className="mb-3 flex items-center justify-between px-1 text-xs">
+                <span className="text-muted-foreground">
+                  Total estimado <strong className="ml-1 text-foreground tabular-nums">{total} peças</strong>
+                </span>
+                <span className="font-medium text-primary">Continua em segundo plano</span>
               </div>
               <SheetFooter className="gap-2 sm:justify-between sm:space-x-0">
                 <Button
@@ -610,7 +565,7 @@ export function GeneratePlanWizard({
                 {step < STEPS.length - 1 ? (
                   <Button
                     className="gap-1"
-                    disabled={
+                    disabled={submitting ||
                       (step === 0 &&
                         (!organization ||
                           modelsQ.isLoading ||
@@ -628,6 +583,7 @@ export function GeneratePlanWizard({
                     variant="ai"
                     className="gap-2"
                     disabled={
+                      submitting ||
                       !organization ||
                       total === 0 ||
                       missingFormats.length > 0 ||
@@ -635,13 +591,19 @@ export function GeneratePlanWizard({
                     }
                     onClick={submit}
                   >
-                    <Sparkles className="h-4 w-4" /> Gerar {total} peças
+                    {submitting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                    {submitting ? "Iniciando…" : `Gerar ${total} peças`}
                   </Button>
                 )}
               </SheetFooter>
+              <p className="mt-3 text-center text-[11px] text-muted-foreground">
+                A geração continuará em segundo plano mesmo se você fechar este painel.
+              </p>
             </div>
-          </>
-        )}
       </SheetContent>
     </Sheet>
   );

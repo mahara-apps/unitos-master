@@ -407,10 +407,9 @@ export function BriefingWorkspace({
         toast.error(describeError(new Error(res.code)));
         return;
       }
-      toast.success("Pauta gerada — revise e aprove.");
-      qc.invalidateQueries({ queryKey: ["monthly-plans"] });
+       toast.success("Geração iniciada em segundo plano.");
+       qc.invalidateQueries({ queryKey: ["ai_jobs"] });
       setIdeasOpen(false);
-      void navigate({ to: "/monthly-plan/$planId", params: { planId: res.data.plan.id } });
     } catch (e) {
       toast.error(describeError(e));
     } finally {

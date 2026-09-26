@@ -1,7 +1,7 @@
 import { useLocation, useNavigate, useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -92,15 +92,6 @@ import {
 } from "@/lib/monthly-plans.functions";
 
 /* --------------------------------------------------------------- */
-
-const LOADING_MESSAGES = [
-  "Analisando briefing…",
-  "Mapeando ganchos estratégicos…",
-  "Balanceando formatos de conteúdo…",
-  "Escrevendo títulos com personalidade…",
-  "Alinhando com o tom de voz da marca…",
-  "Finalizando a pauta…",
-];
 
 /**
  * Shell da pauta. Quando embutida no Painel do Cliente o padding externo já
@@ -206,9 +197,7 @@ export function MonthlyPlanView({
   });
 
   const generate = useServerFn(generateMonthlyPlanFn);
-  const [loadingStep, setLoadingStep] = useState(0);
   const [generationError, setGenerationError] = useState<string | null>(null);
-  const stepTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const generateM = useMutation({
     mutationFn: (input: {
@@ -234,14 +223,6 @@ export function MonthlyPlanView({
       }),
     onMutate: () => {
       setGenerationError(null);
-      setLoadingStep(0);
-      stepTimer.current = setInterval(() => {
-        setLoadingStep((s) => (s + 1) % LOADING_MESSAGES.length);
-      }, 1800);
-    },
-    onSettled: () => {
-      if (stepTimer.current) clearInterval(stepTimer.current);
-      stepTimer.current = null;
     },
     onSuccess: (result: GenerateMonthlyPlanResult) => {
       if (!result.ok) {
@@ -258,12 +239,12 @@ export function MonthlyPlanView({
         });
         return;
       }
-      const res = result.data;
-      qc.setQueryData(["monthly-plan", res.plan.id], res);
-      qc.invalidateQueries({ queryKey: ["monthly-plans", "list", brandId, clientId] });
       setGenerationError(null);
       setWizardOpen(false);
-      setPlanId(res.plan.id);
+      void qc.invalidateQueries({ queryKey: ["ai_jobs"] });
+      toast.success("Geração iniciada em segundo plano", {
+        description: "Você pode continuar usando o sistema e acompanhar o progresso no topo.",
+      });
     },
 
     onError: (err) => {
@@ -279,12 +260,6 @@ export function MonthlyPlanView({
   });
 
   const qc = useQueryClient();
-
-  useEffect(() => {
-    return () => {
-      if (stepTimer.current) clearInterval(stepTimer.current);
-    };
-  }, []);
 
   /* -------- ESTADO 1: geração -------- */
   if (!planId) {
@@ -363,8 +338,7 @@ export function MonthlyPlanView({
           clientId={clientId}
           volumetry={volumetry}
           briefings={briefingsQ.data ?? []}
-          pending={generateM.isPending}
-          loadingMessage={LOADING_MESSAGES[loadingStep] ?? LOADING_MESSAGES[0]!}
+          submitting={generateM.isPending}
           generationError={generationError}
           onGenerate={(input) => generateM.mutate(input)}
           requestingOverage={overageM.isPending}
