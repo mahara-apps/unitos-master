@@ -305,5 +305,5 @@
 - [x] Escolher e aplicar o painel lateral em duas etapas: Escopo e Conteúdo.
 - [x] Registrar a geração em `ai_jobs` e devolver o controle sem bloquear o painel.
 - [x] Preservar trava, heartbeat, retomada, seleção completa e destino da pauta concluída.
-- [ ] Validar testes focados, preview responsivo e pacote MASTER-first.
+- [x] Validar testes focados, TypeScript e pacote MASTER-first 1.4.48.
 - [ ] Publicar/propagar somente mediante autorização explícita separada.
