@@ -307,3 +307,12 @@
 - [x] Preservar trava, heartbeat, retomada, seleção completa e destino da pauta concluída.
 - [x] Validar testes focados, TypeScript e pacote MASTER-first 1.4.48.
 - [ ] Publicar/propagar somente mediante autorização explícita separada.
+
+## Modelos reutilizáveis e duplicação de projetos
+
+- [ ] Concluir criação e gestão de modelos no MASTER, com seleção explícita de textos padrão.
+- [ ] Duplicar projeto pelo menu, usando `COPIA - nome`, sem histórico, pauta, peças ou horas.
+- [ ] Revalidar responsáveis e envolvidos sem conceder acesso novo.
+- [ ] Cobrir repetição segura, rollback e cópia estrutural em testes focados.
+- [ ] Selar a nova versão pelo fluxo MASTER-first.
+- [ ] Publicar e atualizar instalações somente com autorizações explícitas separadas.
