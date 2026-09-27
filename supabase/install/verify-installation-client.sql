@@ -519,7 +519,7 @@ WITH checks AS (
                'client_ad_accounts','project_participants','user_login_events','work_comments',
                 'work_links','work_statuses','client_automation_attempts',
                  'client_automation_dates','client_automation_dispatches','client_automation_rules',
-                  'project_job_counters','system_events'
+                  'project_job_counters','system_events','project_duplication_requests'
              ]) AS t
              WHERE to_regclass('public.' || t) IS NULL
            ) faltando
@@ -535,7 +535,7 @@ WITH checks AS (
              'client_ad_accounts','project_participants','user_login_events','work_comments',
               'work_links','work_statuses','client_automation_attempts',
                'client_automation_dates','client_automation_dispatches','client_automation_rules',
-                'project_job_counters','system_events'
+                'project_job_counters','system_events','project_duplication_requests'
            ]) AS t
            WHERE to_regclass('public.' || t) IS NULL
          ) THEN 'PASS' ELSE 'FAIL' END

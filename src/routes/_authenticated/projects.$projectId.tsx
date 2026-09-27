@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   Archive,
   ArchiveRestore,
+  Copy,
   ExternalLink,
   FileText,
   Image as ImageIcon,
@@ -72,6 +73,7 @@ import { StatusPicker } from "@/components/projects/status-picker";
 import { AssigneePicker } from "@/components/projects/assignee-picker";
 import { ProjectHeader } from "@/components/projects/project-header";
 import { setProjectArchivedFn } from "@/lib/projects.functions";
+import { duplicateProjectFn } from "@/lib/project-duplication.functions";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { z } from "zod";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -224,6 +226,7 @@ function ProjectDetailPage() {
   const upd = useServerFn(updateProject);
   const arch = useServerFn(archiveProject);
   const del = useServerFn(deleteProject);
+  const duplicate = useServerFn(duplicateProjectFn);
   const clientsFn = useServerFn(listClients);
   const teamFn = useServerFn(listBrandTeam);
   const listPipes = useServerFn(listPipelinesFn);
@@ -302,6 +305,8 @@ function ProjectDetailPage() {
   const [color, setColor] = useState<string>(COLORS[0]);
   const [goals, setGoals] = useState<string>("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmDuplicate, setConfirmDuplicate] = useState(false);
+  const [duplicateRequestId, setDuplicateRequestId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!project) return;
@@ -361,6 +366,24 @@ function ProjectDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const duplicateMut = useMutation({
+    mutationFn: (requestId: string) => duplicate({ data: { brandId: brandId!, projectId, requestId } }),
+    onSuccess: ({ id }) => {
+      setConfirmDuplicate(false);
+      setDuplicateRequestId(null);
+      toast.success("Projeto duplicado");
+      void qc.invalidateQueries({ queryKey: ["projects", brandId] });
+      navigate({ to: "/projects/$projectId", params: { projectId: id } });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const confirmProjectDuplicate = () => {
+    if (duplicateMut.isPending || !brandId) return;
+    const requestId = duplicateRequestId ?? crypto.randomUUID();
+    setDuplicateRequestId(requestId);
+    duplicateMut.mutate(requestId);
+  };
+
   usePageHeader(
     {
       title: project?.name ?? "Projeto",
@@ -384,6 +407,9 @@ function ProjectDetailPage() {
               <DropdownMenuItem onClick={() => setOpenSettings(true)}>
                 <Settings2 className="mr-2 h-4 w-4" /> Configurações do projeto
               </DropdownMenuItem>
+              {canEditProject && <DropdownMenuItem onClick={() => setConfirmDuplicate(true)}>
+                <Copy className="mr-2 h-4 w-4" /> Duplicar projeto
+              </DropdownMenuItem>}
               <DropdownMenuItem onClick={() => archMut.mutate()} disabled={archMut.isPending}>
                 <Archive className="mr-2 h-4 w-4" /> Arquivar
               </DropdownMenuItem>
@@ -710,6 +736,9 @@ function ProjectDetailPage() {
                 <DropdownMenuItem onClick={() => setOpenSettings(true)}>
                   <Settings2 className="mr-2 h-4 w-4" /> Configurações do projeto
                 </DropdownMenuItem>
+                {canEditProject && <DropdownMenuItem onClick={() => setConfirmDuplicate(true)}>
+                  <Copy className="mr-2 h-4 w-4" /> Duplicar projeto
+                </DropdownMenuItem>}
                 {project.status === "archived" ? (
                   <DropdownMenuItem
                     onClick={() => restoreMut.mutate()}
@@ -1021,6 +1050,23 @@ function ProjectDetailPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={() => delMut.mutate()}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmDuplicate} onOpenChange={setConfirmDuplicate}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Duplicar projeto?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O novo projeto se chamará COPIA - {project?.name}. Jobs, tarefas, subtarefas, datas e pessoas com acesso serão copiados. Pautas, peças, comentários, horas e progresso não serão copiados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={duplicateMut.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmProjectDuplicate} disabled={duplicateMut.isPending}>
+              {duplicateMut.isPending ? "Duplicando..." : "Duplicar"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

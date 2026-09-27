@@ -1,0 +1,3 @@
+ALTER FUNCTION public.duplicate_project(uuid,uuid,uuid) SECURITY INVOKER;
+GRANT UPDATE (duplicated_project_id) ON public.project_duplication_requests TO authenticated;
+CREATE POLICY "duplication requests own completion" ON public.project_duplication_requests FOR UPDATE TO authenticated USING (created_by=auth.uid() AND public.can_access_project(source_project_id,auth.uid())) WITH CHECK (created_by=auth.uid() AND public.can_access_project(source_project_id,auth.uid()));
