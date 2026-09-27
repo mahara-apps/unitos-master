@@ -7996,6 +7996,8 @@ export type Database = {
       }
       project_templates: {
         Row: {
+          archived_at: string | null
+          blueprint: Json | null
           brand_id: string | null
           created_at: string
           created_by: string | null
@@ -8004,9 +8006,12 @@ export type Database = {
           id: string
           is_system: boolean
           name: string
+          source_client_id: string | null
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
+          blueprint?: Json | null
           brand_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -8015,9 +8020,12 @@ export type Database = {
           id?: string
           is_system?: boolean
           name: string
+          source_client_id?: string | null
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
+          blueprint?: Json | null
           brand_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -8026,6 +8034,7 @@ export type Database = {
           id?: string
           is_system?: boolean
           name?: string
+          source_client_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -8041,6 +8050,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_templates_source_client_id_fkey"
+            columns: ["source_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -10099,6 +10115,17 @@ export type Database = {
           _verified_at: string
         }
         Returns: undefined
+      }
+      save_project_template: {
+        Args: {
+          _blueprint: Json
+          _brand_id: string
+          _description: string
+          _name: string
+          _source_project_id?: string
+          _template_id: string
+        }
+        Returns: string
       }
       seal_installation_operation_baseline: {
         Args: {
