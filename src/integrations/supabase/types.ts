@@ -7747,6 +7747,65 @@ export type Database = {
           },
         ]
       }
+      project_duplication_requests: {
+        Row: {
+          brand_id: string
+          created_at: string
+          created_by: string
+          duplicated_project_id: string | null
+          id: string
+          request_id: string
+          source_project_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          created_by: string
+          duplicated_project_id?: string | null
+          id?: string
+          request_id: string
+          source_project_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          created_by?: string
+          duplicated_project_id?: string | null
+          id?: string
+          request_id?: string
+          source_project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_duplication_requests_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "project_duplication_requests_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_duplication_requests_duplicated_project_id_fkey"
+            columns: ["duplicated_project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_duplication_requests_source_project_id_fkey"
+            columns: ["source_project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_job_counters: {
         Row: {
           brand_id: string
@@ -9729,6 +9788,10 @@ export type Database = {
       derive_relationships_from_event: {
         Args: { _event_id: string }
         Returns: number
+      }
+      duplicate_project: {
+        Args: { _brand_id: string; _project_id: string; _request_id: string }
+        Returns: string
       }
       duplicate_project_job: {
         Args: { _brand_id: string; _job_id: string }
