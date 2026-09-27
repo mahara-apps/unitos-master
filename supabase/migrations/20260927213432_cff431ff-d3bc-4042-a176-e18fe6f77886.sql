@@ -1,0 +1,1 @@
+ALTER FUNCTION public.save_project_template(uuid,uuid,text,text,jsonb,uuid) SECURITY INVOKER;
