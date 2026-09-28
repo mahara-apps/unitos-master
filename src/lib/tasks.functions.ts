@@ -232,6 +232,90 @@ export const getTaskFn = createServerFn({ method: "GET" })
     return task;
   });
 
+/** Confirma a atribuição da tarefa de produção sem sincronizar a peça. */
+export const confirmProductionTaskFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      brandId: z.string().uuid(),
+      projectId: z.string().uuid(),
+      postId: z.string().uuid(),
+      assigneeId: z.string().uuid().nullable(),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }): Promise<{ id: string; created: boolean }> => {
+    const { assertProjectScope: assertAccessibleProject } = await import("@/lib/access-guard");
+    await assertAccessibleProject(context.supabase as never, context.userId, data.projectId);
+    const { data: project, error: projectError } = await context.supabase
+      .from("projects")
+      .select("brand_id, client_id")
+      .eq("id", data.projectId)
+      .maybeSingle();
+    if (projectError) throw projectError;
+    if (!project || project.brand_id !== data.brandId || !project.client_id) {
+      throw new Error("Projeto ou cliente não disponível para esta tarefa.");
+    }
+    const { data: post, error: postError } = await context.supabase
+      .from("posts")
+      .select("id, title, scheduled_at")
+      .eq("id", data.postId)
+      .eq("brand_id", data.brandId)
+      .eq("project_id", data.projectId)
+      .eq("client_id", project.client_id)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (postError) throw postError;
+    if (!post) throw new Error("Peça não encontrada neste projeto.");
+
+    const readExisting = async () => {
+      const { data: existing, error } = await context.supabase
+        .from("tasks")
+        .select("id")
+        .eq("brand_id", data.brandId)
+        .eq("project_id", data.projectId)
+        .eq("post_id", data.postId)
+        .maybeSingle();
+      if (error) throw error;
+      return existing?.id ?? null;
+    };
+    const existingId = await readExisting();
+    if (existingId) return { id: existingId, created: false };
+
+    await assertAssigneeCanAccessTaskClient(context.supabase as never, {
+      brandId: data.brandId,
+      clientId: project.client_id,
+      assigneeId: data.assigneeId,
+    });
+    const { data: inserted, error: insertError } = await context.supabase
+      .from("tasks")
+      .insert({
+        brand_id: data.brandId,
+        client_id: project.client_id,
+        project_id: data.projectId,
+        post_id: data.postId,
+        title: `Produzir: ${(post.title ?? "Peça").trim()}`.slice(0, 200),
+        description: "Tarefa de produção confirmada pela equipe.",
+        status: "todo",
+        priority: "medium",
+        assignee_id: data.assigneeId,
+        due_at: post.scheduled_at ?? null,
+        created_by: context.userId,
+      })
+      .select("id")
+      .single();
+    if (insertError) {
+      // O índice único tasks_post_production_unique resolve confirmações
+      // concorrentes; só conflito real de unicidade permite reler a vencedora.
+      if (insertError.code === "23505") {
+        const winner = await readExisting();
+        if (winner) return { id: winner, created: false };
+      }
+      throw insertError;
+    }
+    if (!inserted) throw new Error("Resposta inválida ao criar tarefa de produção.");
+    return { id: inserted.id, created: true };
+  });
+
 export type TaskProjectOption = {
   id: string;
   name: string;
