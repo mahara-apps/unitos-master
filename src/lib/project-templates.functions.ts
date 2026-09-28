@@ -170,7 +170,7 @@ export const deleteTemplateFn = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ brandId: z.string().uuid(), templateId: z.string().uuid(), confirmation: z.string() }).parse(input))
   .handler(async ({ data, context }) => {
     const { data: id, error } = await callRpc<string>(context.supabase, "delete_project_template", { _brand_id: data.brandId, _template_id: data.templateId, _confirmation: data.confirmation });
-    if (error || !id) throw new Error(error?.code === "23503" ? "Este modelo possui registros de criação. Arquive-o em vez de excluir." : error?.message ?? "Modelo indisponível.");
+    if (error || !id) throw new Error(error?.message?.includes("23503") || error?.message?.includes("creation records") ? "Este modelo possui registros de criação. Arquive-o em vez de excluir." : error?.message ?? "Modelo indisponível.");
     return { id };
   });
 
