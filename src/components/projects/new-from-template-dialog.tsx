@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Layers, Sparkles } from "lucide-react";
 import {
@@ -105,14 +106,15 @@ export function NewFromTemplateDialog({ open, onOpenChange, brandId }: Props) {
                 </div>
               )}
               {templates.map((t) => (
-                <button
+                <Button
                   key={t.id}
                   type="button"
+                  variant="outline"
                   onClick={() => {
                     setTemplateId(t.id);
                     if (!name) setName(t.name);
                   }}
-                  className={`rounded-lg border p-3 text-left transition ${
+                  className={`h-auto w-full justify-start rounded-md p-3 text-left transition ${
                     templateId === t.id
                       ? "border-primary bg-primary/5"
                       : "border-border/60 hover:border-border"
@@ -135,7 +137,7 @@ export function NewFromTemplateDialog({ open, onOpenChange, brandId }: Props) {
                   <div className="mt-2 text-[10px] text-muted-foreground">
                     {t.jobs_count ?? 0} jobs · {t.tasks_count ?? 0} tarefas
                   </div>
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -171,6 +173,7 @@ export function NewFromTemplateDialog({ open, onOpenChange, brandId }: Props) {
         </div>
 
         <DialogFooter>
+          <Button variant="ghost" asChild><Link to="/projects/models" onClick={() => onOpenChange(false)}>Gerenciar modelos</Link></Button>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
