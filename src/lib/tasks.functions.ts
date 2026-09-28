@@ -316,6 +316,42 @@ export const confirmProductionTaskFn = createServerFn({ method: "POST" })
     return { id: inserted.id, created: true };
   });
 
+/** Lista somente os membros que já podem receber uma tarefa neste cliente. */
+export const listProductionAssigneeIdsFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ brandId: z.string().uuid(), projectId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }): Promise<string[]> => {
+    const { assertProjectScope: assertAccessibleProject } = await import("@/lib/access-guard");
+    await assertAccessibleProject(context.supabase as never, context.userId, data.projectId);
+    const { data: project, error: projectError } = await context.supabase
+      .from("projects")
+      .select("brand_id, client_id")
+      .eq("id", data.projectId)
+      .maybeSingle();
+    if (projectError) throw projectError;
+    if (!project || project.brand_id !== data.brandId || !project.client_id) {
+      throw new Error("Projeto ou cliente não disponível.");
+    }
+    const { data: members, error: membersError } = await context.supabase
+      .from("brand_members")
+      .select("user_id")
+      .eq("brand_id", data.brandId);
+    if (membersError) throw membersError;
+    if (!members) throw new Error("Resposta inválida ao consultar a equipe.");
+    const eligible: string[] = [];
+    for (const member of members) {
+      const { data: allowed, error } = await callRpc<boolean>(context.supabase as never, "can_access_client", {
+        _client_id: project.client_id,
+        _user_id: member.user_id,
+      });
+      if (error) throw error;
+      if (allowed === true) eligible.push(member.user_id);
+    }
+    return eligible;
+  });
+
 export type TaskProjectOption = {
   id: string;
   name: string;
