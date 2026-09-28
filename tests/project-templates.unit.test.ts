@@ -5,6 +5,7 @@ const source = readFileSync("src/lib/project-templates.functions.ts", "utf8");
 const dialog = readFileSync("src/components/projects/new-from-template-dialog.tsx", "utf8");
 const models = readFileSync("src/routes/_authenticated/projects.models.tsx", "utf8");
 const migrations = [
+  "supabase/migrations/20260928004126_a3b8f3f4-41df-4cff-9f55-86c8916f0e7c.sql",
   "supabase/migrations/20260928004322_7707cf99-e209-4147-a370-cbf5f9663684.sql",
   "supabase/migrations/20260928004649_5a9beab8-4348-4437-b7ec-55716bc2620d.sql",
   "supabase/migrations/20260928005017_ab27812d-f011-46da-ba3c-6474bc1399de.sql",
