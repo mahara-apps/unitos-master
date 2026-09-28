@@ -311,8 +311,10 @@
 ## Modelos reutilizáveis e duplicação de projetos
 
 - [x] Conferir o estado da prévia após relato de tela aparentemente parada; respondeu HTTP 200 e último build OK.
-- [ ] Implementar gestão administrativa dos modelos conforme plano aprovado: lista, editor, autorização e exclusão segura.
-- [ ] Validar a gestão no pacote MASTER-first e solicitar autorização antes de publicar ou atualizar instalações.
+- [x] Implementar lista e editor dedicados, autorização administrativa e exclusão segura dos modelos no MASTER.
+- [ ] Validar fluxos completos com sessão autenticada e todos os papéis; bloqueio: prévia usa Supabase externo sem sessão de teste gerenciada.
+- [ ] Executar suíte global sem relaxamentos; bloqueio: credencial QA externa responde Invalid API key.
+- [x] Validar testes focados, tipos e pacote MASTER-first 1.4.53.
 - [x] Exibir "Duplicar projeto" nos dois menus do projeto para operadores elegíveis; a autorização permanece no servidor e nas políticas.
 - [x] Concluir criação e gestão de modelos no MASTER, com seleção explícita de textos padrão.
 - [x] Duplicar projeto pelo menu, usando `COPIA - nome`, sem histórico, pauta, peças ou horas.
