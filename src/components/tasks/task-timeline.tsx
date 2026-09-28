@@ -60,6 +60,7 @@ export function TaskTimeline({
   onOpenTask: (id: string) => void;
 }) {
   const [cursor, setCursor] = useState(() => new Date());
+  const undated = tasks.filter((task) => !task.start_date && !task.due_at);
 
   const days = useMemo(
     () => eachDayOfInterval({ start: startOfMonth(cursor), end: endOfMonth(cursor) }),
@@ -91,6 +92,14 @@ export function TaskTimeline({
 
   return (
     <div className="rounded-xl border border-border/60 bg-card">
+      {undated.length > 0 ? (
+        <div className="border-b border-border/60 p-3 text-xs text-muted-foreground">
+          <span className="font-medium">Sem data ({undated.length})</span>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {undated.map((task) => <Button key={task.id} size="sm" variant="outline" onClick={() => onOpenTask(task.id)}>{task.title}</Button>)}
+          </div>
+        </div>
+      ) : null}
       <header className="flex items-center justify-center gap-3 border-b border-border/60 px-4 py-3">
         <Button
           size="icon"
