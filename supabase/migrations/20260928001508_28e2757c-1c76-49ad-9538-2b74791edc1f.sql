@@ -1,0 +1,1 @@
+ALTER FUNCTION public.save_project_template(uuid,uuid,text,text,jsonb,uuid) SECURITY DEFINER; REVOKE ALL ON FUNCTION public.save_project_template(uuid,uuid,text,text,jsonb,uuid) FROM PUBLIC, anon; GRANT EXECUTE ON FUNCTION public.save_project_template(uuid,uuid,text,text,jsonb,uuid) TO authenticated;
