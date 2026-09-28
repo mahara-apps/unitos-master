@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.save_project_template(uuid,uuid,text,text,jsonb,uuid) TO authenticated; REVOKE INSERT, UPDATE, DELETE ON public.project_templates FROM authenticated; REVOKE INSERT, UPDATE, DELETE ON public.project_template_jobs FROM authenticated; REVOKE INSERT, UPDATE, DELETE ON public.project_template_tasks FROM authenticated;
