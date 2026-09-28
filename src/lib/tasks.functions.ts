@@ -195,7 +195,8 @@ export const listTasksFn = createServerFn({ method: "GET" })
         .range(offset, offset + pageSize - 1);
       if (error) throw error;
       rows.push(...((page ?? []) as BaseTaskRow[]));
-      if (!page || page.length < pageSize) break;
+      if (!page) throw new Error("Resposta inválida ao carregar tarefas.");
+      if (page.length < pageSize) break;
     }
     const enriched: TaskRow[] = [];
     for (let offset = 0; offset < rows.length; offset += pageSize) {

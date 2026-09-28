@@ -8,7 +8,7 @@
  *  - a legenda é escrita pelos MESMOS agentes de conteúdo (`post-agents`), com
  *    a peça nascendo no primeiro estágio de Produção — nunca agendada nem
  *    publicada, então a aprovação do cliente continua valendo adiante;
- *  - tarefa de produção criada junto, igual à materialização da pauta.
+ *  - tarefa de produção criada depois de confirmação explícita no projeto.
  *
  * Nada é privilegiado: todas as escritas usam o client do usuário (RLS).
  */
@@ -130,19 +130,6 @@ export const quickPostFn = createServerFn({ method: "POST" })
       .single();
     if (insErr) throw insErr;
     const postId = (inserted as unknown as { id: string }).id;
-
-    // Tarefa de produção — mesmo padrão da materialização da pauta.
-    await sb.from("tasks").insert({
-      brand_id: data.brandId,
-      client_id: data.clientId,
-      project_id: data.projectId,
-      post_id: postId,
-      title: `Produzir: ${title}`.slice(0, 200),
-      description: "Tarefa criada automaticamente pela criação expressa de peça.",
-      status: "todo",
-      priority: "medium",
-      created_by: context.userId,
-    } as never);
 
     // Redação pelos agentes — aguardada, para a prévia já voltar pronta.
     let copyError: string | null = null;

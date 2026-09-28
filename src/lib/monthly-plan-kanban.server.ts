@@ -236,8 +236,8 @@ export async function materializePlanToKanban(
     insertedPosts = (data ?? []) as unknown[];
   }
 
-  // Uma tarefa de produção por peça da pauta (idempotente: inclui peças já
-  // existentes que ainda não tenham tarefa, e nunca duplica).
+  // A peça é criada sem atribuir tarefa em nome de outra pessoa. A tarefa de
+  // produção nasce somente após confirmação na tela do projeto.
   const topicIds = list.map((t) => t.id);
   const { data: planPosts } = await sb
     .from("posts")
@@ -269,38 +269,13 @@ export async function materializePlanToKanban(
 
   if (allPlanPosts.length > 0) {
     const postIds = allPlanPosts.map((p) => p.id);
-    const { data: existingTasks } = await sb.from("tasks").select("post_id").in("post_id", postIds);
-    const withTask = new Set(
-      ((existingTasks ?? []) as unknown as { post_id: string | null }[])
-        .map((t) => t.post_id)
-        .filter(Boolean) as string[],
-    );
-
-    const taskRows = allPlanPosts
-      .filter((p) => !withTask.has(p.id))
-      .map((p) => ({
-        brand_id: args.brandId,
-        client_id: args.clientId,
-        project_id: projectId,
-        post_id: p.id,
-        title: `Produzir: ${(p.title ?? "Peça").trim()}`.slice(0, 200),
-        description: "Tarefa criada automaticamente após a aprovação da pauta pelo cliente.",
-        status: "todo",
-        priority: "medium",
-        // Prazo somente quando a peça já tem data de publicação definida.
-        due_at: p.scheduled_at ?? null,
-        created_by: args.userId,
-      }));
-
-    // Não bloqueia a materialização das peças caso a criação de tarefas falhe.
-    if (taskRows.length > 0) await sb.from("tasks").insert(taskRows as never);
-
     // Tarefas antigas da pauta sem projeto herdam o projeto da pauta.
-    await sb
+    const { error: taskLinkError } = await sb
       .from("tasks")
       .update({ project_id: projectId } as never)
       .in("post_id", postIds)
       .is("project_id", null);
+    if (taskLinkError) throw taskLinkError;
   }
 
   // Orquestração dos agentes (agent_prompts): cada peça nova nasce com a
