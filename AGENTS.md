@@ -35,7 +35,7 @@ Update falha abre nova operação com pacote publicado e reconcilia ledger; nunc
 
 ## Fluxo de tarefas e peças
 
-Minhas tarefas filtra responsável antes do limite; atribuições usam `can_access_client` sem mudar RBAC/RLS; peças movem só no mesmo pipeline via `movePostFn`.
+Minhas tarefas filtra responsável antes do limite; atribuições usam `can_access_client`. Peças movem via `movePostFn` no pipeline; tarefa de produção exige confirmação (donos independentes).
 
 Filtros e visões de Tarefas usam o endereço; listagem pagina sob RLS para achar tarefas antigas.
 
