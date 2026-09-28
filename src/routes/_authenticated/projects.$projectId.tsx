@@ -407,9 +407,9 @@ function ProjectDetailPage() {
               <DropdownMenuItem onClick={() => setOpenSettings(true)}>
                 <Settings2 className="mr-2 h-4 w-4" /> Configurações do projeto
               </DropdownMenuItem>
-              {canEditProject && <DropdownMenuItem onClick={() => setConfirmDuplicate(true)}>
+              <DropdownMenuItem onClick={() => setConfirmDuplicate(true)}>
                 <Copy className="mr-2 h-4 w-4" /> Duplicar projeto
-              </DropdownMenuItem>}
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => archMut.mutate()} disabled={archMut.isPending}>
                 <Archive className="mr-2 h-4 w-4" /> Arquivar
               </DropdownMenuItem>
@@ -736,9 +736,9 @@ function ProjectDetailPage() {
                 <DropdownMenuItem onClick={() => setOpenSettings(true)}>
                   <Settings2 className="mr-2 h-4 w-4" /> Configurações do projeto
                 </DropdownMenuItem>
-                {canEditProject && <DropdownMenuItem onClick={() => setConfirmDuplicate(true)}>
+                <DropdownMenuItem onClick={() => setConfirmDuplicate(true)}>
                   <Copy className="mr-2 h-4 w-4" /> Duplicar projeto
-                </DropdownMenuItem>}
+                </DropdownMenuItem>
                 {project.status === "archived" ? (
                   <DropdownMenuItem
                     onClick={() => restoreMut.mutate()}

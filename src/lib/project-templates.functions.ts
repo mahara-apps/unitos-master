@@ -113,12 +113,11 @@ export const archiveTemplateFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ brandId: z.string().uuid(), templateId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { data: row, error } = await context.supabase.from("project_templates")
-      .update({ archived_at: new Date().toISOString() }).eq("id", data.templateId)
-      .eq("brand_id", data.brandId).eq("is_system", false).is("archived_at", null)
-      .select("id").single();
-    if (error || !row) throw new Error(error?.message ?? "Modelo indisponível.");
-    return { id: row.id };
+    const { data: id, error } = await callRpc<string>(context.supabase, "archive_project_template", {
+      _brand_id: data.brandId, _template_id: data.templateId,
+    });
+    if (error || !id) throw new Error(error?.message ?? "Modelo indisponível.");
+    return { id };
   });
 
 export const captureProjectTemplateFn = createServerFn({ method: "GET" })

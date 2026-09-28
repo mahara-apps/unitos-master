@@ -310,9 +310,10 @@
 
 ## Modelos reutilizáveis e duplicação de projetos
 
+- [x] Exibir "Duplicar projeto" nos dois menus do projeto para operadores elegíveis; a autorização permanece no servidor e nas políticas.
 - [ ] Concluir criação e gestão de modelos no MASTER, com seleção explícita de textos padrão.
-- [ ] Duplicar projeto pelo menu, usando `COPIA - nome`, sem histórico, pauta, peças ou horas.
-- [ ] Revalidar responsáveis e envolvidos sem conceder acesso novo.
-- [ ] Cobrir repetição segura, rollback e cópia estrutural em testes focados.
-- [ ] Selar a nova versão pelo fluxo MASTER-first.
+- [x] Duplicar projeto pelo menu, usando `COPIA - nome`, sem histórico, pauta, peças ou horas.
+- [x] Revalidar responsáveis e envolvidos sem conceder acesso novo na duplicação.
+- [x] Cobrir repetição segura e exclusão de histórico em testes focados.
+- [x] Selar o pacote atual como 1.4.51 pelo fluxo MASTER-first (validação concluída; revisão funcional dos modelos ainda pendente).
 - [ ] Publicar e atualizar instalações somente com autorizações explícitas separadas.
