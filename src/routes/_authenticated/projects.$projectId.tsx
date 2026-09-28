@@ -367,7 +367,8 @@ function ProjectDetailPage() {
   });
 
   const duplicateMut = useMutation({
-    mutationFn: (requestId: string) => duplicate({ data: { brandId: brandId!, projectId, requestId } }),
+    mutationFn: (requestId: string) =>
+      duplicate({ data: { brandId: brandId!, projectId, requestId } }),
     onSuccess: ({ id }) => {
       setConfirmDuplicate(false);
       setDuplicateRequestId(null);
@@ -486,6 +487,7 @@ function ProjectDetailPage() {
       planId: project.plan?.id ?? null,
       tasksCount: it.tasks.count,
       assigneeName: it.tasks.assignee_name,
+      postAssigneeId: it.post?.assignee_id ?? null,
     })),
     ...extraPosts.map((p) => {
       const state = itemState({
@@ -511,6 +513,7 @@ function ProjectDetailPage() {
         planId: null,
         tasksCount: 0,
         assigneeName: null,
+        postAssigneeId: (p.assignee_id as string | null) ?? null,
       };
     }),
   ];
@@ -895,8 +898,8 @@ function ProjectDetailPage() {
         onOpenChange={(o) => !o && setOpenPautaKey(null)}
         brandId={brandId!}
         projectId={projectId}
-        clientId={project.client_id ?? null}
         item={pautaDetails.find((d) => d.key === openPautaKey) ?? null}
+        projectName={project.name}
         team={team}
         currentUserId={userId}
         canEdit={canEditProject}
@@ -1059,7 +1062,9 @@ function ProjectDetailPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Duplicar projeto?</AlertDialogTitle>
             <AlertDialogDescription>
-              O novo projeto se chamará COPIA - {project?.name}. Jobs, tarefas, subtarefas, datas e pessoas com acesso serão copiados. Pautas, peças, comentários, horas e progresso não serão copiados.
+              O novo projeto se chamará COPIA - {project?.name}. Jobs, tarefas, subtarefas, datas e
+              pessoas com acesso serão copiados. Pautas, peças, comentários, horas e progresso não
+              serão copiados.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -108,6 +108,7 @@ function TasksPage() {
   const sortKey: SortKey = search.sort;
   const sortDir: SortDir = search.dir;
   const openTaskId = search.taskId ?? search.task ?? null;
+  const previousView = useRef<View | null>(null);
 
   type Search = z.infer<typeof searchSchema>;
   function setSearch(patch: Partial<Search>) {
@@ -130,6 +131,20 @@ function TasksPage() {
       archive: next.archive,
     });
   }
+
+  useEffect(() => {
+    if (view === "mine" && previousView.current !== "mine") {
+      const clean = { ...DEFAULT_FILTERS, assigneeId: "me" as const, hideDone: true };
+      if (
+        Object.keys(clean).some(
+          (key) => filters[key as keyof TaskFilters] !== clean[key as keyof TaskFilters],
+        )
+      ) {
+        setFilters(clean);
+      }
+    }
+    previousView.current = view;
+  }, [view]); // Entering Minhas clears inherited filters; changes inside Minhas remain intentional.
 
   useEffect(() => {
     let cancelled = false;
@@ -372,7 +387,12 @@ function TasksPage() {
       <TaskViewSwitcher
         value={view}
         onChange={(v) =>
-          setSearch({ view: v, ...(view === "mine" && v !== "mine" ? { assigneeId: "me" } : {}) })
+          v === "mine"
+            ? applyQuick("mine")
+            : setSearch({
+                view: v,
+                ...(view === "mine" ? { assigneeId: "all", hideDone: false } : {}),
+              })
         }
       />
 
@@ -427,13 +447,15 @@ function TasksPage() {
         <div className="rounded-xl border border-border/60 bg-card px-6 py-10 text-center">
           <p className="text-sm text-muted-foreground">
             {tasks.length === 0
-              ? "Comece criando a primeira tarefa."
+              ? view === "mine"
+                ? "Você não tem tarefas atribuídas em aberto."
+                : "Comece criando a primeira tarefa."
               : activeQuick === "overdue"
                 ? "Nenhuma tarefa atrasada."
                 : "Você não tem tarefas neste filtro."}
           </p>
           <div className="mt-3 flex justify-center gap-2">
-            {tasks.length === 0 ? (
+            {tasks.length === 0 && view !== "mine" ? (
               <Button size="sm" onClick={() => setCreateOpen(true)}>
                 <Plus className="mr-1.5 h-4 w-4" /> Nova tarefa
               </Button>
@@ -442,7 +464,11 @@ function TasksPage() {
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  setFilters(DEFAULT_FILTERS);
+                  setFilters(
+                    view === "mine"
+                      ? { ...DEFAULT_FILTERS, assigneeId: "me", hideDone: true }
+                      : DEFAULT_FILTERS,
+                  );
                 }}
               >
                 Limpar filtros

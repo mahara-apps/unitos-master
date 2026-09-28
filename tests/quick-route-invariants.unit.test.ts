@@ -9,6 +9,8 @@ import { readFileSync } from "node:fs";
 const plans = readFileSync("src/lib/monthly-plans.functions.ts", "utf8");
 const quick = readFileSync("src/lib/quick-content.functions.ts", "utf8");
 const submit = readFileSync("src/lib/monthly-plan-submit.server.ts", "utf8");
+const materializer = readFileSync("src/lib/monthly-plan-kanban.server.ts", "utf8");
+const tasks = readFileSync("src/lib/tasks.functions.ts", "utf8");
 
 describe("pauta expressa", () => {
   it("usa a mesma geração com trava de concorrência", () => {
@@ -43,6 +45,11 @@ describe("ponto único de encaminhamento", () => {
     expect(waived).toBeGreaterThan(-1);
     expect(materialize).toBeGreaterThan(waived);
   });
+
+  it("não atribui tarefa silenciosamente ao aprovar a pauta", () => {
+    expect(materializer).not.toMatch(/\.from\("tasks"\)\s*\.insert\(/);
+    expect(materializer).toContain('"tasks"'); // mantém reconciliação de tarefas antigas
+  });
 });
 
 describe("peça expressa", () => {
@@ -63,5 +70,23 @@ describe("peça expressa", () => {
   it("nasce em estágio não terminal, sem agendamento", () => {
     expect(quick).toContain("!s.is_terminal");
     expect(quick).not.toContain("scheduled_at");
+  });
+
+  it("não cria tarefa sem confirmação na peça expressa", () => {
+    expect(quick).not.toMatch(/\.from\("tasks"\)\s*\.insert\(/);
+  });
+});
+
+describe("confirmação da tarefa de produção", () => {
+  it("valida projeto, peça e acesso do responsável antes de inserir", () => {
+    const fn = tasks.slice(
+      tasks.indexOf("export const confirmProductionTaskFn"),
+      tasks.indexOf("export type TaskProjectOption"),
+    );
+    expect(fn).toContain("assertAccessibleProject");
+    expect(fn).toContain("assertAssigneeCanAccessTaskClient");
+    expect(fn).toContain('eq("post_id", data.postId)');
+    expect(fn).toContain("insert({");
+    expect(fn).toContain('insertError.code === "23505"');
   });
 });

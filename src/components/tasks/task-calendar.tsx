@@ -28,6 +28,7 @@ export function TaskCalendar({
   onOpenTask: (id: string) => void;
 }) {
   const [cursor, setCursor] = useState(() => new Date());
+  const undated = tasks.filter((task) => !task.due_at);
 
   const monthStart = startOfMonth(cursor);
   const monthEnd = endOfMonth(cursor);
@@ -57,6 +58,18 @@ export function TaskCalendar({
 
   return (
     <div className="rounded-xl border border-border/60 bg-card">
+      {undated.length > 0 ? (
+        <div className="border-b border-border/60 p-3 text-xs text-muted-foreground">
+          <span className="font-medium">Sem prazo ({undated.length})</span>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {undated.map((task) => (
+              <Button key={task.id} size="sm" variant="outline" onClick={() => onOpenTask(task.id)}>
+                {task.title}
+              </Button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <header className="flex items-center justify-between border-b border-border/60 px-4 py-3">
         <h2 className="text-sm font-semibold capitalize">
           {format(cursor, "MMMM 'de' yyyy", { locale: ptBR })}
