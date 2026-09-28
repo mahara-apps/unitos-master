@@ -8012,6 +8012,78 @@ export type Database = {
           },
         ]
       }
+      project_template_requests: {
+        Row: {
+          brand_id: string
+          client_id: string | null
+          created_at: string
+          created_by: string
+          id: string
+          project_id: string | null
+          project_name: string
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          client_id?: string | null
+          created_at?: string
+          created_by: string
+          id: string
+          project_id?: string | null
+          project_name: string
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          project_id?: string | null
+          project_name?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_template_requests_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "project_template_requests_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_template_requests_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_template_requests_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_template_requests_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "project_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_template_tasks: {
         Row: {
           created_at: string
@@ -9902,6 +9974,16 @@ export type Database = {
           _brand_id: string
           _client_id: string
           _project_name: string
+          _template_id: string
+        }
+        Returns: string
+      }
+      instantiate_project_template_once: {
+        Args: {
+          _brand_id: string
+          _client_id: string
+          _project_name: string
+          _request_id: string
           _template_id: string
         }
         Returns: string
