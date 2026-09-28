@@ -9420,6 +9420,10 @@ export type Database = {
         Args: { _brand_id?: string; _user_id: string }
         Returns: string
       }
+      archive_project_template: {
+        Args: { _brand_id: string; _template_id: string }
+        Returns: string
+      }
       block_unusable_scheduled_social_posts: {
         Args: never
         Returns: {
