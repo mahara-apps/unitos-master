@@ -1,0 +1,1 @@
+ALTER FUNCTION public.can_manage_project_templates(uuid,uuid) SECURITY INVOKER;
