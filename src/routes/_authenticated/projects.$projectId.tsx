@@ -486,6 +486,7 @@ function ProjectDetailPage() {
       planId: project.plan?.id ?? null,
       tasksCount: it.tasks.count,
       assigneeName: it.tasks.assignee_name,
+      postAssigneeId: it.post?.assignee_id ?? null,
     })),
     ...extraPosts.map((p) => {
       const state = itemState({
@@ -511,6 +512,7 @@ function ProjectDetailPage() {
         planId: null,
         tasksCount: 0,
         assigneeName: null,
+        postAssigneeId: (p.assignee_id as string | null) ?? null,
       };
     }),
   ];
@@ -897,6 +899,7 @@ function ProjectDetailPage() {
         projectId={projectId}
         clientId={project.client_id ?? null}
         item={pautaDetails.find((d) => d.key === openPautaKey) ?? null}
+        projectName={project.name}
         team={team}
         currentUserId={userId}
         canEdit={canEditProject}

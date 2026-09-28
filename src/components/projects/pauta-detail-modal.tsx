@@ -12,7 +12,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { ArrowLeft, ExternalLink, Image as ImageIcon } from "lucide-react";
+import { ExternalLink, Image as ImageIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,8 +25,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { listTasksFn, updateTaskFn, type TaskRow } from "@/lib/tasks.functions";
-import { confirmProductionTaskFn, listProductionAssigneeIdsFn } from "@/lib/tasks.functions";
+import { listTasksFn, updateTaskFn, confirmProductionTaskFn, listProductionAssigneeIdsFn, type TaskRow } from "@/lib/tasks.functions";
 import { getPautaDetailFn, type PautaDetail } from "@/lib/projects.functions";
 import { contentFormatLabel } from "@/lib/content-formats";
 import { APP_TIMEZONE } from "@/lib/timezone";
@@ -307,7 +306,6 @@ export function PautaDetailModal({
   team,
   currentUserId,
   canEdit,
-  onOpenTask,
   projectName,
   variant = "modal",
 }: {
@@ -320,8 +318,6 @@ export function PautaDetailModal({
   team: TeamOption[];
   currentUserId?: string | null;
   canEdit: boolean;
-  /** Abre o drawer de tarefa (mesmo usado na lista de tarefas do job). */
-  onOpenTask?: (taskId: string) => void;
   projectName?: string;
   /** "drawer" = painel lateral (padrão da área Projetos); "modal" = legado. */
   variant?: "modal" | "drawer";
@@ -343,9 +339,9 @@ export function PautaDetailModal({
   }, [item?.postId]);
 
   const tasksQ = useQuery({
-    queryKey: ["tasks", brandId, clientId ?? null, "all"],
+    queryKey: ["tasks", brandId, null, "all"],
     enabled: open && !!brandId,
-    queryFn: () => listTasks({ data: { brandId, clientId: clientId ?? null, archive: "all" } }),
+    queryFn: () => listTasks({ data: { brandId, clientId: null, archive: "all" } }),
   });
   const eligibleQ = useQuery({
     queryKey: ["production-assignees", brandId, projectId],
@@ -758,7 +754,7 @@ export function PautaDetailModal({
                   key={t.id}
                   title={t.title}
                   done={t.done}
-                  onOpen={() => { setOpenedTaskId(t.id); onOpenTask?.(t.id); }}
+                  onOpen={() => setOpenedTaskId(t.id)}
                   assignee={
                     <span className="hidden text-[11px] text-muted-foreground sm:inline">
                       {team.find((m) => m.user_id === t.assignee_id)?.full_name ?? "Sem dono"}
