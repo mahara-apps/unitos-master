@@ -311,7 +311,7 @@
 ## Modelos reutilizáveis e duplicação de projetos
 
 - [x] Exibir "Duplicar projeto" nos dois menus do projeto para operadores elegíveis; a autorização permanece no servidor e nas políticas.
-- [ ] Concluir criação e gestão de modelos no MASTER, com seleção explícita de textos padrão.
+- [x] Concluir criação e gestão de modelos no MASTER, com seleção explícita de textos padrão.
 - [x] Duplicar projeto pelo menu, usando `COPIA - nome`, sem histórico, pauta, peças ou horas.
 - [x] Revalidar responsáveis e envolvidos sem conceder acesso novo na duplicação.
 - [x] Cobrir repetição segura e exclusão de histórico em testes focados.
