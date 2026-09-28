@@ -10276,17 +10276,6 @@ export type Database = {
         }
         Returns: string
       }
-      save_project_template_checked_base: {
-        Args: {
-          _blueprint: Json
-          _brand_id: string
-          _description: string
-          _name: string
-          _source_project_id?: string
-          _template_id: string
-        }
-        Returns: string
-      }
       seal_installation_operation_baseline: {
         Args: {
           _baseline_hash: string
