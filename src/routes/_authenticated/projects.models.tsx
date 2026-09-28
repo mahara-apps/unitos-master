@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useBlocker, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useBlocker, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -34,7 +34,7 @@ export const Route = createFileRoute("/_authenticated/projects/models")({
     { property: "og:description", content: "Crie e gerencie modelos reutilizáveis de projetos." },
     { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" },
   ] }),
-  component: ProjectModelsPage,
+  component: () => <Outlet />,
 });
 
 export function ProjectModelsPage({ mode = "list", initialTemplateId }: { mode?: "list" | "new" | "edit"; initialTemplateId?: string }) {
