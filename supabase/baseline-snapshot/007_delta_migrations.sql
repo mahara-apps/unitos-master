@@ -6375,3 +6375,49 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.duplicate_project(uuid,uuid,uuid) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.duplicate_project(uuid,uuid,uuid) TO authenticated,service_role;
+
+-- ---------------------------------------------------------------------------
+-- 20260928001357_5a6d4165-bbb1-4327-9640-66aafbc4468f.sql
+-- ---------------------------------------------------------------------------
+GRANT EXECUTE ON FUNCTION public.save_project_template(uuid,uuid,text,text,jsonb,uuid) TO authenticated; REVOKE INSERT, UPDATE, DELETE ON public.project_templates FROM authenticated; REVOKE INSERT, UPDATE, DELETE ON public.project_template_jobs FROM authenticated; REVOKE INSERT, UPDATE, DELETE ON public.project_template_tasks FROM authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 20260928001508_28e2757c-1c76-49ad-9538-2b74791edc1f.sql
+-- ---------------------------------------------------------------------------
+ALTER FUNCTION public.save_project_template(uuid,uuid,text,text,jsonb,uuid) SECURITY DEFINER; REVOKE ALL ON FUNCTION public.save_project_template(uuid,uuid,text,text,jsonb,uuid) FROM PUBLIC, anon; GRANT EXECUTE ON FUNCTION public.save_project_template(uuid,uuid,text,text,jsonb,uuid) TO authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 20260928001601_69c197d1-991f-488d-a154-26d5b2621875.sql
+-- ---------------------------------------------------------------------------
+ALTER FUNCTION public.save_project_template(uuid,uuid,text,text,jsonb,uuid) SECURITY INVOKER; GRANT SELECT, INSERT, UPDATE ON public.project_templates TO authenticated; GRANT SELECT ON public.project_template_jobs, public.project_template_tasks TO authenticated; REVOKE DELETE ON public.project_templates, public.project_template_jobs, public.project_template_tasks FROM authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 20260928002104_464e2467-53f4-4fb7-b097-3e668ad5e240.sql
+-- ---------------------------------------------------------------------------
+ALTER FUNCTION public.save_project_template(uuid,uuid,text,text,jsonb,uuid) SECURITY DEFINER;
+REVOKE ALL ON FUNCTION public.save_project_template(uuid,uuid,text,text,jsonb,uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.save_project_template(uuid,uuid,text,text,jsonb,uuid) TO authenticated;
+CREATE OR REPLACE FUNCTION public.archive_project_template(_brand_id uuid, _template_id uuid)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE _uid uuid := auth.uid(); _id uuid;
+BEGIN
+ IF _uid IS NULL OR NOT public.is_brand_member(_brand_id,_uid) OR public.app_access_role(_uid,_brand_id) NOT IN ('super_admin','admin','manager','user') THEN RAISE EXCEPTION 'Forbidden' USING ERRCODE='42501'; END IF;
+ UPDATE public.project_templates t SET archived_at=now() WHERE t.id=_template_id AND t.brand_id=_brand_id AND NOT t.is_system AND t.archived_at IS NULL AND (t.source_client_id IS NULL OR public.can_access_client(t.source_client_id,_uid)) RETURNING t.id INTO _id;
+ IF _id IS NULL THEN RAISE EXCEPTION 'Template unavailable' USING ERRCODE='42501'; END IF;
+ RETURN _id;
+END $$;
+REVOKE ALL ON FUNCTION public.archive_project_template(uuid,uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.archive_project_template(uuid,uuid) TO authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 20260928002648_0dda744a-d14e-4ef6-af8d-f1a82675905e.sql
+-- ---------------------------------------------------------------------------
+ALTER FUNCTION public.save_project_template(uuid,uuid,text,text,jsonb,uuid) SECURITY INVOKER;
+ALTER FUNCTION public.archive_project_template(uuid,uuid) SECURITY INVOKER;
+GRANT SELECT, INSERT, UPDATE ON public.project_templates TO authenticated;
+GRANT SELECT ON public.project_template_jobs, public.project_template_tasks TO authenticated;
+REVOKE DELETE ON public.project_templates FROM authenticated;
+DROP POLICY IF EXISTS "project_templates insert brand" ON public.project_templates;
+CREATE POLICY "project_templates insert brand" ON public.project_templates FOR INSERT TO authenticated WITH CHECK (NOT is_system AND brand_id IS NOT NULL AND public.is_brand_member(brand_id,auth.uid()) AND public.app_access_role(auth.uid(),brand_id) IN ('super_admin','admin','manager','user') AND (source_client_id IS NULL AND public.app_access_role(auth.uid(),brand_id) IN ('super_admin','admin') OR source_client_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.clients c WHERE c.id=source_client_id AND c.brand_id=project_templates.brand_id) AND public.can_access_client(source_client_id,auth.uid())));
+DROP POLICY IF EXISTS "project_templates update brand" ON public.project_templates;
+CREATE POLICY "project_templates update brand" ON public.project_templates FOR UPDATE TO authenticated USING (NOT is_system AND brand_id IS NOT NULL AND public.is_brand_member(brand_id,auth.uid()) AND public.app_access_role(auth.uid(),brand_id) IN ('super_admin','admin','manager','user') AND (source_client_id IS NULL OR public.can_access_client(source_client_id,auth.uid()))) WITH CHECK (NOT is_system AND brand_id IS NOT NULL AND public.is_brand_member(brand_id,auth.uid()) AND public.app_access_role(auth.uid(),brand_id) IN ('super_admin','admin','manager','user') AND (source_client_id IS NULL AND public.app_access_role(auth.uid(),brand_id) IN ('super_admin','admin') OR source_client_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.clients c WHERE c.id=source_client_id AND c.brand_id=project_templates.brand_id) AND public.can_access_client(source_client_id,auth.uid())));
