@@ -31,8 +31,7 @@ o MASTER propaga para as demais instalacoes. Sequencia fixa, sem excecao:
    saude ficarem fora de sincronia.
 6. Publicar o MASTER e autorizar "Atualizar" em cada instalacao.
 
-Guardiao automatico: `tests/installation-master-sync.unit.test.ts` e
-`tests/installation-baseline-completeness.unit.test.ts`.
+ACL cliente: revogar privilégios perigosos de anon em tabelas novas; defaults podem ser herdados.
 
 ## Fluxo de tarefas e peças
 
