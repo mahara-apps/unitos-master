@@ -48,4 +48,4 @@ IA exige conexão e chave; seleção e execução usam a mesma ordem. Pauta mens
 
 Duplicação usa RPC transacional idempotente; não copia histórico nem vínculos editoriais.
 
-Modelos guardam estrutura/textos selecionados; criação idempotente revalida pessoas e omite datas/histórico.
+Modelos: textos selecionados, criação sem histórico; gestão só Owner/Admin/Super Admin via RPC/RLS para evitar escalada.

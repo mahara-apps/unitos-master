@@ -541,12 +541,22 @@ WITH checks AS (
          ) THEN 'PASS' ELSE 'FAIL' END
 
   UNION ALL
-  SELECT 81, 'modelos: funções seguras e criação única existem',
+   SELECT 81, 'modelos: gestão administrativa e criação única existem',
          concat_ws(', ',
            CASE WHEN to_regprocedure('public.save_project_template(uuid,uuid,text,text,jsonb,uuid)') IS NULL THEN 'salvar ausente' END,
+            CASE WHEN to_regprocedure('public.can_manage_project_templates(uuid,uuid)') IS NULL THEN 'permissão ausente' END,
+            CASE WHEN to_regprocedure('public.archive_project_template(uuid,uuid)') IS NULL THEN 'arquivar ausente' END,
+            CASE WHEN to_regprocedure('public.restore_project_template(uuid,uuid)') IS NULL THEN 'restaurar ausente' END,
+            CASE WHEN to_regprocedure('public.delete_project_template(uuid,uuid,text)') IS NULL THEN 'excluir ausente' END,
            CASE WHEN to_regprocedure('public.instantiate_project_template(uuid,uuid,uuid,text)') IS NULL THEN 'criar ausente' END,
            CASE WHEN to_regprocedure('public.instantiate_project_template_once(uuid,uuid,uuid,text,uuid)') IS NULL THEN 'criação única ausente' END),
          CASE WHEN to_regprocedure('public.save_project_template(uuid,uuid,text,text,jsonb,uuid)') IS NOT NULL
+                    AND to_regprocedure('public.can_manage_project_templates(uuid,uuid)') IS NOT NULL
+                    AND to_regprocedure('public.archive_project_template(uuid,uuid)') IS NOT NULL
+                    AND to_regprocedure('public.restore_project_template(uuid,uuid)') IS NOT NULL
+                    AND to_regprocedure('public.delete_project_template(uuid,uuid,text)') IS NOT NULL
+                    AND NOT has_table_privilege('authenticated','public.project_template_jobs','INSERT,UPDATE,DELETE')
+                    AND NOT has_table_privilege('authenticated','public.project_template_tasks','INSERT,UPDATE,DELETE')
                    AND to_regprocedure('public.instantiate_project_template(uuid,uuid,uuid,text)') IS NOT NULL
                    AND to_regprocedure('public.instantiate_project_template_once(uuid,uuid,uuid,text,uuid)') IS NOT NULL
               THEN 'PASS' ELSE 'FAIL' END
