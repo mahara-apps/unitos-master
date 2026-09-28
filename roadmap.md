@@ -6,6 +6,7 @@
 - [x] Identificar tabelas e privilégios que reprovaram a validação final da unitos-new-teste-02.
 - [x] Corrigir no MASTER sem alterar dados, RBAC ou RLS.
 - [x] Selar pacote MASTER 1.4.55; reproduzir ACL herdada e correção repetível em PostgreSQL descartável; corrigir retry indevido de update e validar com master:check.
+- [ ] Executar suíte global; bloqueio: token de acesso Supabase do projeto QA rejeitado na inspeção inicial de schema, sem alterar os testes.
 - [ ] Consultar ACLs da instalação afetada diretamente em leitura; bloqueio: sem conexão autorizada ao banco da instalação neste ambiente.
 - [ ] Publicar MASTER e retomar atualização somente com autorizações explícitas separadas; verificar validação final e versão registrada na instalação.
 
