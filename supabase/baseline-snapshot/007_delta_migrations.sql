@@ -6701,3 +6701,11 @@ ALTER FUNCTION public.can_manage_project_templates(uuid,uuid) SECURITY INVOKER;
 CREATE OR REPLACE FUNCTION public.can_manage_project_templates(_brand_id uuid,_user_id uuid DEFAULT auth.uid()) RETURNS boolean LANGUAGE sql STABLE SECURITY INVOKER SET search_path=public AS $fn$ SELECT _brand_id IS NOT NULL AND auth.uid() IS NOT NULL AND _user_id=auth.uid() AND (public.is_super_admin(auth.uid()) OR (public.is_brand_member(_brand_id,auth.uid()) AND public.app_access_role(auth.uid(),_brand_id)='admin')) $fn$;
 DROP POLICY IF EXISTS "project_templates read visible" ON public.project_templates;
 CREATE POLICY "project_templates read visible" ON public.project_templates FOR SELECT TO authenticated USING (is_system OR (brand_id IS NOT NULL AND public.is_brand_member(brand_id,auth.uid()) AND (archived_at IS NULL OR public.can_manage_project_templates(brand_id,auth.uid())) AND (source_client_id IS NULL OR public.can_access_client(source_client_id,auth.uid()))));
+
+-- ---------------------------------------------------------------------------
+-- 20260928020655_d1e488d6-5fae-4b14-a247-721b6047a57b.sql
+-- ---------------------------------------------------------------------------
+-- Revoga somente capacidades administrativas herdadas pelo papel anônimo nas duas tabelas de controle criadas após o endurecimento de privilégios.
+-- Não altera grants de authenticated/service_role, RLS, dados nem os registros da operação.
+REVOKE MAINTAIN, TRUNCATE, TRIGGER, REFERENCES ON TABLE public.project_duplication_requests FROM anon;
+REVOKE MAINTAIN, TRUNCATE, TRIGGER, REFERENCES ON TABLE public.project_template_requests FROM anon;
