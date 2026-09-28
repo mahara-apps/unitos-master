@@ -181,7 +181,7 @@ export function ProjectOverview(props: Props) {
             title="Resumo de tasks"
             action={
               <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setNewJobOpen(true)}>
-                <Plus className="h-3.5 w-3.5" /> Novo job
+                <Plus className="h-3.5 w-3.5" /> Nova task
               </Button>
             }
           />

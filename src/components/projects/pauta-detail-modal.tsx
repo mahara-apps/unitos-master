@@ -5,7 +5,7 @@
  *
  * SOMENTE LEITURA para o conteúdo da peça (briefing, legenda, agendamento, rede,
  * formato, local de postagem). Os únicos controles editáveis são os que já
- * existiam: dono e status da tarefa de produção.
+ * existiam: dono e status da sub-task de produção.
  */
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -698,7 +698,7 @@ export function PautaDetailModal({
           </div>
         </Section>
 
-        {/* Execução: estes controles alteram a tarefa, nunca a peça. */}
+        {/* Execução: estes controles alteram a sub-task, nunca a peça. */}
         <Section title="Execução">
           <div className="flex flex-wrap items-end gap-3 border-t border-border/60 pt-3">
             <Field label="Responsável pela sub-task">
@@ -726,7 +726,7 @@ export function PautaDetailModal({
             ) : null}
             {!primary && item.postId && !tasksQ.isLoading && !tasksQ.isError && canEdit ? (
               <Button variant="outline" size="sm" onClick={() => setConfirming(true)}>
-                Criar tarefa de produção
+                Criar sub-task de produção
               </Button>
             ) : null}
           </div>
@@ -777,7 +777,7 @@ export function PautaDetailModal({
           </section>
         ) : null}
 
-        {/* Tarefas de produção ligadas ao item */}
+        {/* Sub-tasks de produção ligadas ao item */}
         <Section title="Sub-tasks de produção">
           {tasksQ.isLoading ? (
             <div className="space-y-2">

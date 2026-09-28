@@ -54,7 +54,7 @@ export function ProjectTasksPanel({
       <div className="flex items-center justify-between border-b border-border/60 bg-background/40 px-4 py-2.5">
         <div className="flex items-center gap-2">
           <h3 className="font-mono text-[11px] uppercase tracking-widest text-foreground">
-            Tarefas
+            Sub-tasks
           </h3>
           <span className="rounded-md border border-border/60 bg-background/60 px-1.5 py-0.5 font-mono text-xs tabular-nums text-foreground">
             {tasks.length}

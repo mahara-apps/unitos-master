@@ -1,5 +1,5 @@
 /**
- * Cadastro de status de trabalho por escopo (projeto / job / tarefa).
+ * Cadastro de status de trabalho por escopo (projeto / task / sub-task).
  * Sem status cadastrados, as telas continuam usando os status embutidos.
  */
 import { createFileRoute } from "@tanstack/react-router";
@@ -43,12 +43,12 @@ export const Route = createFileRoute("/_authenticated/settings/work-statuses")({
       {
         name: "description",
         content:
-          "Cadastre os status usados em projetos, jobs e tarefas da sua workspace no Unitos.",
+          "Cadastre os status usados em projetos, tasks e sub-tasks da sua workspace no Unitos.",
       },
       { property: "og:title", content: "Status de trabalho · Unitos" },
       {
         property: "og:description",
-        content: "Configure status próprios para projetos, jobs e tarefas.",
+        content: "Configure status próprios para projetos, tasks e sub-tasks.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -58,8 +58,8 @@ export const Route = createFileRoute("/_authenticated/settings/work-statuses")({
 
 const SCOPE_LABEL: Record<WorkStatusScope, string> = {
   project: "Projetos",
-  job: "Jobs",
-  task: "Tarefas",
+  job: "Tasks",
+  task: "Sub-tasks",
 };
 
 const DEFAULT_COLOR = "#8b5cf6";

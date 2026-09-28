@@ -15,8 +15,8 @@ const taskTimer = fs.readFileSync("src/components/tasks/task-timer-widget.tsx", 
 const visualState = fs.readFileSync("src/components/projects/work-item-visual-state.tsx", "utf8");
 const styles = fs.readFileSync("src/styles.css", "utf8");
 
-describe("gestão de jobs e tarefas no projeto", () => {
-  it("separa Jobs e Pautas e agrupa jobs em três colunas", () => {
+describe("gestão de tasks e sub-tasks no projeto", () => {
+  it("separa Tasks e Pautas e agrupa tasks em três colunas", () => {
     expect(list).toContain('value="none"');
     expect(list).toContain('value="status"');
     expect(list).toContain('value="assignee"');
@@ -25,7 +25,7 @@ describe("gestão de jobs e tarefas no projeto", () => {
     expect(jobs).toContain("JobListView");
   });
 
-  it("abre o job em modal central e aceita link direto", () => {
+  it("abre a task em modal central e aceita link direto", () => {
     expect(detail).toContain("<Dialog");
     expect(detail).not.toContain("<Sheet");
     expect(detail).toContain("max-w-[1440px]");
@@ -43,7 +43,7 @@ describe("gestão de jobs e tarefas no projeto", () => {
     expect(route).toContain("tab: z.enum(PROJECT_TABS).optional()");
   });
 
-  it("oferece status pesquisável, timer direto e subtarefas", () => {
+  it("oferece status pesquisável, timer direto e checklist", () => {
     expect(jobs).toContain('scope="task"');
     expect(jobs).toContain('placeholder="+ status"');
     expect(jobs).toContain("JobTimerWidget");
@@ -81,16 +81,16 @@ describe("gestão de jobs e tarefas no projeto", () => {
 
   it("oferece linhas densas, busca por número e criação contextual", () => {
     expect(list).toContain("Buscar nome ou número");
-    expect(list).toContain("Adicionar um job");
+    expect(list).toContain("Adicionar uma task");
     expect(list).toContain("DueDateChip");
     expect(list).toContain("StatusPicker");
     expect(list).toContain("job-status:");
     expect(list).toContain("Agrupar:");
     expect(list).toContain("text-work-done");
     expect(list).toContain("border-dashed");
-    expect(jobs).toContain("Jobs & Pautas");
+    expect(jobs).toContain("Tasks & Pautas");
     expect(list).toContain("compactPill selectionOnly");
-    expect(list).toContain('aria-label="Buscar jobs"');
+    expect(list).toContain('aria-label="Buscar tasks"');
     expect(list).toContain('useState(false)');
   });
 
@@ -127,7 +127,7 @@ describe("gestão de jobs e tarefas no projeto", () => {
     expect(route).toContain('tab === "overview"');
     expect(route).toContain("<ProjectOverview");
     expect(overview).toContain("PageKpiGrid");
-    expect(overview).toContain("Resumo de jobs");
+    expect(overview).toContain("Resumo de tasks");
     expect(overview).toContain("Pipeline de conteúdo");
     expect(overview).toContain("Atividade recente");
     expect(jobFns).toContain("getProjectOverviewFn");
