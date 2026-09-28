@@ -135,7 +135,11 @@ function TasksPage() {
   useEffect(() => {
     if (view === "mine" && previousView.current !== "mine") {
       const clean = { ...DEFAULT_FILTERS, assigneeId: "me" as const, hideDone: true };
-      if (Object.keys(clean).some((key) => filters[key as keyof TaskFilters] !== clean[key as keyof TaskFilters])) {
+      if (
+        Object.keys(clean).some(
+          (key) => filters[key as keyof TaskFilters] !== clean[key as keyof TaskFilters],
+        )
+      ) {
         setFilters(clean);
       }
     }
@@ -385,7 +389,10 @@ function TasksPage() {
         onChange={(v) =>
           v === "mine"
             ? applyQuick("mine")
-            : setSearch({ view: v, ...(view === "mine" ? { assigneeId: "all", hideDone: false } : {}) })
+            : setSearch({
+                view: v,
+                ...(view === "mine" ? { assigneeId: "all", hideDone: false } : {}),
+              })
         }
       />
 
@@ -439,14 +446,16 @@ function TasksPage() {
       ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-border/60 bg-card px-6 py-10 text-center">
           <p className="text-sm text-muted-foreground">
-             {tasks.length === 0
-               ? view === "mine" ? "Você não tem tarefas atribuídas em aberto." : "Comece criando a primeira tarefa."
+            {tasks.length === 0
+              ? view === "mine"
+                ? "Você não tem tarefas atribuídas em aberto."
+                : "Comece criando a primeira tarefa."
               : activeQuick === "overdue"
                 ? "Nenhuma tarefa atrasada."
                 : "Você não tem tarefas neste filtro."}
           </p>
           <div className="mt-3 flex justify-center gap-2">
-             {tasks.length === 0 && view !== "mine" ? (
+            {tasks.length === 0 && view !== "mine" ? (
               <Button size="sm" onClick={() => setCreateOpen(true)}>
                 <Plus className="mr-1.5 h-4 w-4" /> Nova tarefa
               </Button>
@@ -455,7 +464,11 @@ function TasksPage() {
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                   setFilters(view === "mine" ? { ...DEFAULT_FILTERS, assigneeId: "me", hideDone: true } : DEFAULT_FILTERS);
+                  setFilters(
+                    view === "mine"
+                      ? { ...DEFAULT_FILTERS, assigneeId: "me", hideDone: true }
+                      : DEFAULT_FILTERS,
+                  );
                 }}
               >
                 Limpar filtros

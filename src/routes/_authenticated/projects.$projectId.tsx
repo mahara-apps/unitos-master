@@ -367,7 +367,8 @@ function ProjectDetailPage() {
   });
 
   const duplicateMut = useMutation({
-    mutationFn: (requestId: string) => duplicate({ data: { brandId: brandId!, projectId, requestId } }),
+    mutationFn: (requestId: string) =>
+      duplicate({ data: { brandId: brandId!, projectId, requestId } }),
     onSuccess: ({ id }) => {
       setConfirmDuplicate(false);
       setDuplicateRequestId(null);
@@ -1061,7 +1062,9 @@ function ProjectDetailPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Duplicar projeto?</AlertDialogTitle>
             <AlertDialogDescription>
-              O novo projeto se chamará COPIA - {project?.name}. Jobs, tarefas, subtarefas, datas e pessoas com acesso serão copiados. Pautas, peças, comentários, horas e progresso não serão copiados.
+              O novo projeto se chamará COPIA - {project?.name}. Jobs, tarefas, subtarefas, datas e
+              pessoas com acesso serão copiados. Pautas, peças, comentários, horas e progresso não
+              serão copiados.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

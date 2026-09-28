@@ -25,7 +25,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { listTasksFn, updateTaskFn, confirmProductionTaskFn, listProductionAssigneeIdsFn, type TaskRow } from "@/lib/tasks.functions";
+import {
+  listTasksFn,
+  updateTaskFn,
+  confirmProductionTaskFn,
+  listProductionAssigneeIdsFn,
+  type TaskRow,
+} from "@/lib/tasks.functions";
 import { getPautaDetailFn, type PautaDetail } from "@/lib/projects.functions";
 import { contentFormatLabel } from "@/lib/content-formats";
 import { APP_TIMEZONE } from "@/lib/timezone";
@@ -372,9 +378,10 @@ export function PautaDetailModal({
 
   const primary = tasks[0] ?? null;
   const eligibleTeam = team.filter((member) => eligibleQ.data?.includes(member.user_id));
-  const suggestedAssignee = item?.postAssigneeId && eligibleQ.data?.includes(item.postAssigneeId)
-    ? item.postAssigneeId
-    : null;
+  const suggestedAssignee =
+    item?.postAssigneeId && eligibleQ.data?.includes(item.postAssigneeId)
+      ? item.postAssigneeId
+      : null;
   useEffect(() => {
     if (confirming && eligibleQ.isSuccess) setChosenAssignee(suggestedAssignee);
   }, [confirming, eligibleQ.isSuccess, suggestedAssignee, item?.postId]);
@@ -392,9 +399,10 @@ export function PautaDetailModal({
     onError: (e: Error) => toast.error(e.message),
   });
   const confirmMut = useMutation({
-    mutationFn: () => confirmProduction({
-      data: { brandId, projectId, postId: item?.postId ?? "", assigneeId: chosenAssignee },
-    }),
+    mutationFn: () =>
+      confirmProduction({
+        data: { brandId, projectId, postId: item?.postId ?? "", assigneeId: chosenAssignee },
+      }),
     onSuccess: ({ id, created }) => {
       invalidate();
       setConfirming(false);
@@ -425,7 +433,9 @@ export function PautaDetailModal({
     <PautaShell
       variant={variant}
       open={open}
-      onOpenChange={(next) => { if (!openedTaskId) onOpenChange(next); }}
+      onOpenChange={(next) => {
+        if (!openedTaskId) onOpenChange(next);
+      }}
       title={item.title}
       description={
         [projectName, "Pauta", channelText, formatText].filter(Boolean).join(" › ") ||
@@ -518,7 +528,12 @@ export function PautaDetailModal({
           </div>
         ) : null}
         {detailQ.isError ? (
-          <p role="alert" className="text-sm text-destructive">Não foi possível carregar a peça. <Button variant="outline" size="sm" onClick={() => void detailQ.refetch()}>Tentar novamente</Button></p>
+          <p role="alert" className="text-sm text-destructive">
+            Não foi possível carregar a peça.{" "}
+            <Button variant="outline" size="sm" onClick={() => void detailQ.refetch()}>
+              Tentar novamente
+            </Button>
+          </p>
         ) : null}
 
         {/* Local de postagem */}
@@ -672,62 +687,92 @@ export function PautaDetailModal({
         <Section title="Peça">
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <Field label="Responsável pela peça">
-              <span>{team.find((member) => member.user_id === item.postAssigneeId)?.full_name ?? "Sem responsável"}</span>
+              <span>
+                {team.find((member) => member.user_id === item.postAssigneeId)?.full_name ??
+                  "Sem responsável"}
+              </span>
             </Field>
-            <Field label="Etapa da peça"><span>{item.stateLabel}</span></Field>
+            <Field label="Etapa da peça">
+              <span>{item.stateLabel}</span>
+            </Field>
           </div>
         </Section>
 
         {/* Execução: estes controles alteram a tarefa, nunca a peça. */}
         <Section title="Execução">
-        <div className="flex flex-wrap items-end gap-3 border-t border-border/60 pt-3">
-          <Field label="Responsável pela tarefa">
-            <AssigneePicker
-              value={primary?.assignee_id ?? null}
-              options={team}
-              disabled={ownerDisabled}
-              onChange={(userId) =>
-                primary && patchMut.mutate({ taskId: primary.id, patch: { assignee_id: userId } })
-              }
-            />
-          </Field>
-          {primary ? (
-            <Field label="Status da tarefa">
-              <StatusPicker
-                brandId={brandId}
-                scope="task"
-                value={primary.status_id}
-                disabled={!canEdit || patchMut.isPending}
-                onChange={(statusId) =>
-                  patchMut.mutate({ taskId: primary.id, patch: { status_id: statusId } })
+          <div className="flex flex-wrap items-end gap-3 border-t border-border/60 pt-3">
+            <Field label="Responsável pela tarefa">
+              <AssigneePicker
+                value={primary?.assignee_id ?? null}
+                options={team}
+                disabled={ownerDisabled}
+                onChange={(userId) =>
+                  primary && patchMut.mutate({ taskId: primary.id, patch: { assignee_id: userId } })
                 }
               />
             </Field>
-          ) : null}
-          {!primary && item.postId && !tasksQ.isLoading && !tasksQ.isError && canEdit ? (
-            <Button variant="outline" size="sm" onClick={() => setConfirming(true)}>
-              Criar tarefa de produção
-            </Button>
-          ) : null}
-        </div>
+            {primary ? (
+              <Field label="Status da tarefa">
+                <StatusPicker
+                  brandId={brandId}
+                  scope="task"
+                  value={primary.status_id}
+                  disabled={!canEdit || patchMut.isPending}
+                  onChange={(statusId) =>
+                    patchMut.mutate({ taskId: primary.id, patch: { status_id: statusId } })
+                  }
+                />
+              </Field>
+            ) : null}
+            {!primary && item.postId && !tasksQ.isLoading && !tasksQ.isError && canEdit ? (
+              <Button variant="outline" size="sm" onClick={() => setConfirming(true)}>
+                Criar tarefa de produção
+              </Button>
+            ) : null}
+          </div>
         </Section>
 
         {confirming && item.postId ? (
           <section className="space-y-3 border-y border-border/60 py-4">
             <h4 className="text-sm font-semibold">Confirmar tarefa de produção</h4>
             <p className="text-xs text-muted-foreground">
-              {item.title} · {projectName ?? "Projeto"} · Prazo: {formatShortDate(post?.scheduled_at ?? null) ?? "sem prazo"}
+              {item.title} · {projectName ?? "Projeto"} · Prazo:{" "}
+              {formatShortDate(post?.scheduled_at ?? null) ?? "sem prazo"}
             </p>
-            {eligibleQ.isLoading ? <p className="text-xs">Carregando responsáveis…</p> : eligibleQ.isError ? (
-              <p role="alert" className="text-xs text-destructive">Não foi possível verificar a equipe. <Button variant="outline" size="sm" onClick={() => void eligibleQ.refetch()}>Tentar novamente</Button></p>
+            {eligibleQ.isLoading ? (
+              <p className="text-xs">Carregando responsáveis…</p>
+            ) : eligibleQ.isError ? (
+              <p role="alert" className="text-xs text-destructive">
+                Não foi possível verificar a equipe.{" "}
+                <Button variant="outline" size="sm" onClick={() => void eligibleQ.refetch()}>
+                  Tentar novamente
+                </Button>
+              </p>
             ) : (
               <Field label="Responsável pela tarefa">
-                <AssigneePicker value={chosenAssignee} options={eligibleTeam} onChange={setChosenAssignee} />
+                <AssigneePicker
+                  value={chosenAssignee}
+                  options={eligibleTeam}
+                  onChange={setChosenAssignee}
+                />
               </Field>
             )}
             <div className="flex gap-2">
-              <Button size="sm" disabled={!eligibleQ.isSuccess || confirmMut.isPending} onClick={() => confirmMut.mutate()}>Confirmar criação</Button>
-              <Button size="sm" variant="ghost" disabled={confirmMut.isPending} onClick={() => setConfirming(false)}>Cancelar</Button>
+              <Button
+                size="sm"
+                disabled={!eligibleQ.isSuccess || confirmMut.isPending}
+                onClick={() => confirmMut.mutate()}
+              >
+                Confirmar criação
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={confirmMut.isPending}
+                onClick={() => setConfirming(false)}
+              >
+                Cancelar
+              </Button>
             </div>
           </section>
         ) : null}
@@ -740,7 +785,12 @@ export function PautaDetailModal({
               <Skeleton className="h-10 w-full" />
             </div>
           ) : tasksQ.isError ? (
-            <p role="alert" className="text-sm text-destructive">Não foi possível carregar as tarefas. <Button variant="outline" size="sm" onClick={() => void tasksQ.refetch()}>Tentar novamente</Button></p>
+            <p role="alert" className="text-sm text-destructive">
+              Não foi possível carregar as tarefas.{" "}
+              <Button variant="outline" size="sm" onClick={() => void tasksQ.refetch()}>
+                Tentar novamente
+              </Button>
+            </p>
           ) : tasks.length === 0 ? (
             <div className="rounded-lg border border-border/60">
               <PanelEmptyState

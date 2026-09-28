@@ -79,11 +79,14 @@ describe("peça expressa", () => {
 
 describe("confirmação da tarefa de produção", () => {
   it("valida projeto, peça e acesso do responsável antes de inserir", () => {
-    const fn = tasks.slice(tasks.indexOf("export const confirmProductionTaskFn"), tasks.indexOf("export type TaskProjectOption"));
+    const fn = tasks.slice(
+      tasks.indexOf("export const confirmProductionTaskFn"),
+      tasks.indexOf("export type TaskProjectOption"),
+    );
     expect(fn).toContain("assertAccessibleProject");
     expect(fn).toContain("assertAssigneeCanAccessTaskClient");
     expect(fn).toContain('eq("post_id", data.postId)');
-    expect(fn).toContain('insert({');
+    expect(fn).toContain("insert({");
     expect(fn).toContain('insertError.code === "23505"');
   });
 });

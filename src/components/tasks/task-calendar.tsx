@@ -62,7 +62,11 @@ export function TaskCalendar({
         <div className="border-b border-border/60 p-3 text-xs text-muted-foreground">
           <span className="font-medium">Sem prazo ({undated.length})</span>
           <div className="mt-2 flex flex-wrap gap-2">
-            {undated.map((task) => <Button key={task.id} size="sm" variant="outline" onClick={() => onOpenTask(task.id)}>{task.title}</Button>)}
+            {undated.map((task) => (
+              <Button key={task.id} size="sm" variant="outline" onClick={() => onOpenTask(task.id)}>
+                {task.title}
+              </Button>
+            ))}
           </div>
         </div>
       ) : null}

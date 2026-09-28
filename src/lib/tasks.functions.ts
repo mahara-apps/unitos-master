@@ -236,12 +236,14 @@ export const getTaskFn = createServerFn({ method: "GET" })
 export const confirmProductionTaskFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({
-      brandId: z.string().uuid(),
-      projectId: z.string().uuid(),
-      postId: z.string().uuid(),
-      assigneeId: z.string().uuid().nullable(),
-    }).parse(input),
+    z
+      .object({
+        brandId: z.string().uuid(),
+        projectId: z.string().uuid(),
+        postId: z.string().uuid(),
+        assigneeId: z.string().uuid().nullable(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }): Promise<{ id: string; created: boolean }> => {
     const { assertProjectScope: assertAccessibleProject } = await import("@/lib/access-guard");
@@ -275,7 +277,10 @@ export const confirmProductionTaskFn = createServerFn({ method: "POST" })
         .eq("post_id", data.postId)
         .maybeSingle();
       if (error) throw error;
-      if (existing && (existing.project_id !== data.projectId || existing.client_id !== project.client_id)) {
+      if (
+        existing &&
+        (existing.project_id !== data.projectId || existing.client_id !== project.client_id)
+      ) {
         throw new Error("Esta peça já está vinculada a uma tarefa em outro projeto ou cliente.");
       }
       return existing?.id ?? null;
@@ -344,10 +349,14 @@ export const listProductionAssigneeIdsFn = createServerFn({ method: "GET" })
     if (!members) throw new Error("Resposta inválida ao consultar a equipe.");
     const eligible: string[] = [];
     for (const member of members) {
-      const { data: allowed, error } = await callRpc<boolean>(context.supabase as never, "can_access_client", {
-        _client_id: project.client_id,
-        _user_id: member.user_id,
-      });
+      const { data: allowed, error } = await callRpc<boolean>(
+        context.supabase as never,
+        "can_access_client",
+        {
+          _client_id: project.client_id,
+          _user_id: member.user_id,
+        },
+      );
       if (error) throw error;
       if (allowed === true) eligible.push(member.user_id);
     }
