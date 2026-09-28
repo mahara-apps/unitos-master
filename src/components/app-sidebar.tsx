@@ -94,12 +94,9 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
     ],
   },
   {
-    label: "Trabalho",
+    label: "Gestão",
     items: [
-      { title: "Calendário", url: "/calendar", icon: CalendarDays, featureKey: "calendar" },
       { title: "Projetos", url: "/projects", icon: FolderKanban, featureKey: "projects" },
-      { title: "Pautas", url: "/monthly-plan", icon: ScrollText, featureKey: "monthly_plan" },
-      { title: "Conteúdo", url: "/content", icon: KanbanSquare, featureKey: "blog_post" },
       {
         title: "Tarefas",
         url: "/tasks",
@@ -107,6 +104,14 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
         featureKey: "tasks",
         badge: "tasks-pending",
       },
+    ],
+  },
+  {
+    label: "Produção",
+    items: [
+      { title: "Calendário", url: "/calendar", icon: CalendarDays, featureKey: "calendar" },
+      { title: "Pautas", url: "/monthly-plan", icon: ScrollText, featureKey: "monthly_plan" },
+      { title: "Conteúdo", url: "/content", icon: KanbanSquare, featureKey: "blog_post" },
       { title: "Mídia paga", url: "/media-plans", icon: Target, featureKey: "midia_paga" },
     ],
   },

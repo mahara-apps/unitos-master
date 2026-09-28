@@ -345,3 +345,10 @@
 - [x] Cobrir repetição segura e exclusão de histórico em testes focados.
 - [x] Selar o pacote atual como 1.4.51 pelo fluxo MASTER-first (validação concluída; revisão funcional dos modelos ainda pendente).
 - [ ] Publicar e atualizar instalações somente com autorizações explícitas separadas.
+
+## Menu lateral: Gestão e Produção
+
+- [x] Criar Gestão após Visão e mover Projetos e Tarefas sem alterar rotas, permissões ou contadores.
+- [x] Renomear Trabalho para Produção e manter Calendário, Pautas, Conteúdo e Mídia paga.
+- [x] Validar testes e selar o pacote MASTER-first 1.4.58; a prévia autenticada externa não permite inspeção automatizada.
+- [ ] Publicar o MASTER somente após autorização explícita.
