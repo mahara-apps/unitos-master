@@ -277,7 +277,8 @@
 
 - [x] Preservar dados e renomear somente a interface para Projeto > Task > Sub-task > Checklist.
 - [x] Manter Pautas e Minhas tarefas sem mudança de escopo ou comportamento.
-- [ ] Validar rótulos, testes e pacote MASTER-first; publicação e instalações exigem autorizações separadas.
+- [x] Validar rótulos, testes e pacote MASTER-first 1.4.57.
+- [ ] Publicar o MASTER e atualizar instalações somente mediante autorizações separadas.
 
 ## Auditoria e alinhamento das visões de tarefas
 
