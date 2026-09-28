@@ -270,12 +270,14 @@ export const confirmProductionTaskFn = createServerFn({ method: "POST" })
     const readExisting = async () => {
       const { data: existing, error } = await context.supabase
         .from("tasks")
-        .select("id")
+        .select("id, project_id, client_id")
         .eq("brand_id", data.brandId)
-        .eq("project_id", data.projectId)
         .eq("post_id", data.postId)
         .maybeSingle();
       if (error) throw error;
+      if (existing && (existing.project_id !== data.projectId || existing.client_id !== project.client_id)) {
+        throw new Error("Esta peça já está vinculada a uma tarefa em outro projeto ou cliente.");
+      }
       return existing?.id ?? null;
     };
     const existingId = await readExisting();
