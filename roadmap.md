@@ -262,7 +262,8 @@
 ## Fluxo integrado de tarefas e peças
 
 - [x] No MASTER 1.4.56, exigir confirmação e responsável elegível antes da tarefa de produção, separar responsabilidade da peça e da tarefa e limpar filtros herdados ao entrar em Minhas tarefas; não alterar RBAC/RLS.
-- [ ] Executar suíte global e percursos autenticados antes de autorizar publicação; publicação e instalações exigem autorizações separadas.
+- [x] `master:check` passou (203 testes) e suíte local passou (1444 testes); pacote 1.4.56 sincronizado sem migration nova, sem checagem de banco nova no verificador.
+- [ ] Executar suíte global e percursos autenticados antes de autorizar publicação; bloqueio: a suíte de integração exige ambiente de teste declarado e a prévia Supabase externa não fornece sessão autenticada. Publicação e instalações exigem autorizações separadas.
 - [x] Mostrar a peça acompanhando o arraste e destacar apenas destinos válidos no quadro de projeto; validar e manter no pacote MASTER 1.4.41 antes de publicar.
 - [x] Fazer “Minhas tarefas” consultar todo o workspace acessível, filtrando o responsável no servidor antes do limite.
 - [x] Impedir novas atribuições que deixem a tarefa invisível ao responsável, sem ampliar RBAC/RLS.
