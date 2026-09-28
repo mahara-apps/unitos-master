@@ -88,6 +88,24 @@ export const instantiateTemplateFn = createServerFn({ method: "POST" })
     return { projectId: projectId ?? "" };
   });
 
+export const reviewTemplateFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ brandId: z.string().uuid(), templateId: z.string().uuid(), clientId: z.string().uuid().nullable() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: model, error } = await context.supabase.from("project_templates").select("id,blueprint,source_client_id,is_system,brand_id").eq("id", data.templateId).is("archived_at",null).single();
+    if (error || !model || (!model.is_system && model.brand_id !== data.brandId) || (model.source_client_id && model.source_client_id !== data.clientId)) throw new Error("Modelo indisponível para este cliente.");
+    const blueprint = model.blueprint && typeof model.blueprint === "object" && !Array.isArray(model.blueprint) ? model.blueprint as Record<string, unknown> : {};
+    const jobs = Array.isArray(blueprint.jobs) ? blueprint.jobs as Array<{assigneeId?: string;tasks?: Array<{assigneeId?: string}>}> : [];
+    const people = [...new Set([blueprint.ownerId, ...(Array.isArray(blueprint.participants) ? blueprint.participants : []), ...jobs.flatMap(j => [j.assigneeId,...(j.tasks ?? []).map(t => t.assigneeId)]), ...(Array.isArray(blueprint.directTasks) ? (blueprint.directTasks as Array<{assigneeId?: string}>).map(t => t.assigneeId) : [])].filter((p): p is string => typeof p === "string" && z.string().uuid().safeParse(p).success))];
+    const checks = await Promise.all(people.map(async person => {
+      if (!data.clientId) return false;
+      const { data: allowed, error: accessError } = await callRpc<boolean>(context.supabase, "can_access_client", { _client_id: data.clientId, _user_id: person });
+      if (accessError) throw new Error(accessError.message);
+      return allowed === true;
+    }));
+    return { texts: Array.isArray(blueprint.texts) ? blueprint.texts.length : 0, ineligible: checks.filter(ok => !ok).length };
+  });
+
 export const saveTemplateFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({
