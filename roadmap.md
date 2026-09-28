@@ -350,4 +350,5 @@
 
 - [x] Criar Gestão após Visão e mover Projetos e Tarefas sem alterar rotas, permissões ou contadores.
 - [x] Renomear Trabalho para Produção e manter Calendário, Pautas, Conteúdo e Mídia paga.
-- [ ] Validar a prévia, os testes e o pacote MASTER-first; publicação exige autorização explícita.
+- [x] Validar testes e selar o pacote MASTER-first 1.4.58; a prévia autenticada externa não permite inspeção automatizada.
+- [ ] Publicar o MASTER somente após autorização explícita.
