@@ -187,7 +187,6 @@ function TasksPage() {
   });
 
   const tasks = useMemo(() => tasksQ.data ?? [], [tasksQ.data]);
-  const enteringMine = view === "mine" && previousView.current !== "mine";
 
   const assigneesQ = useQuery({
     queryKey: ["brand-assignees", brandId],
@@ -423,7 +422,7 @@ function TasksPage() {
       )}
 
       {/* Views body */}
-      {tasksQ.isLoading || (workspaceMine && !me) || enteringMine ? (
+      {tasksQ.isLoading || (workspaceMine && !me) ? (
         <DashboardPanelSurface className="flex h-40 items-center justify-center text-sm text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando tarefas...
         </DashboardPanelSurface>

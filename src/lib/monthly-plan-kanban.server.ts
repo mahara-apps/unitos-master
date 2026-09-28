@@ -239,13 +239,14 @@ export async function materializePlanToKanban(
   // A peça é criada sem atribuir tarefa em nome de outra pessoa. A tarefa de
   // produção nasce somente após confirmação na tela do projeto.
   const topicIds = list.map((t) => t.id);
-  const { data: planPosts } = await sb
+  const { data: planPosts, error: planPostsError } = await sb
     .from("posts")
     .select("id, title, copy, scheduled_at, monthly_plan_topic_id")
     .in(
       "monthly_plan_topic_id",
       topicIds.length > 0 ? topicIds : ["00000000-0000-0000-0000-000000000000"],
     );
+  if (planPostsError) throw planPostsError;
   const allPlanPosts = (planPosts ?? []) as unknown as Array<{
     id: string;
     title: string | null;
@@ -257,7 +258,7 @@ export async function materializePlanToKanban(
   // Backfill de vínculo: peças antigas da pauta sem projeto passam a apontar
   // para o projeto da pauta (validação no backend, não só na UI).
   if (allPlanPosts.length > 0) {
-    await sb
+    const { error: postLinkError } = await sb
       .from("posts")
       .update({ project_id: projectId, pipeline_id: pipelineId } as never)
       .in(
@@ -265,6 +266,7 @@ export async function materializePlanToKanban(
         allPlanPosts.map((p) => p.id),
       )
       .is("project_id", null);
+    if (postLinkError) throw postLinkError;
   }
 
   if (allPlanPosts.length > 0) {
