@@ -5,7 +5,7 @@
 - [ ] Auditar ledger/ACL no destino e ensaiar fluxo completo com estado equivalente antes de liberar; bloqueio: leitura direta do banco da instalação ainda não comprovada.
 - [x] Identificar tabelas e privilégios que reprovaram a validação final da unitos-new-teste-02.
 - [x] Corrigir no MASTER sem alterar dados, RBAC ou RLS.
-- [x] Selar pacote MASTER 1.4.54; reproduzir ACL herdada e correção repetível em PostgreSQL descartável; master:check passou.
+- [x] Selar pacote MASTER 1.4.55; reproduzir ACL herdada e correção repetível em PostgreSQL descartável; corrigir retry indevido de update e validar com master:check.
 - [ ] Consultar ACLs da instalação afetada diretamente em leitura; bloqueio: sem conexão autorizada ao banco da instalação neste ambiente.
 - [ ] Publicar MASTER e retomar atualização somente com autorizações explícitas separadas; verificar validação final e versão registrada na instalação.
 

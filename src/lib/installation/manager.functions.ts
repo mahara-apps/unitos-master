@@ -1738,7 +1738,9 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
         // O RPC só herda checkpoints de provision do mesmo pacote. Updates
         // corrigidos usam outro snapshot: o ledger Client reconcilia migrations
         // confirmadas em uma operação nova, preservando a tentativa anterior.
-        throw new Error("Esta atualização não pode ser retomada. Autorize uma nova atualização após publicar o MASTER corrigido.");
+        throw new Error(
+          "Esta atualização não pode ser retomada. Autorize uma nova atualização após publicar o MASTER corrigido.",
+        );
       }
 
       await assertNoActiveInstallationOperation(supabase, data.id);
