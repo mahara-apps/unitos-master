@@ -46,4 +46,6 @@ Inspeção de instalação compara cadastro, deploy e navegador somente em leitu
 
 IA exige conexão e chave; seleção e execução usam a mesma ordem. Pauta mensal roda em segundo plano via `ai_jobs`.
 
-Duplicação de projeto usa RPC invoker transacional e solicitação idempotente; não copia histórico nem vínculos editoriais, preservando escopo e integridade.
+Duplicação usa RPC transacional idempotente; não copia histórico nem vínculos editoriais.
+
+Modelos guardam estrutura/textos selecionados; criação idempotente revalida pessoas e omite datas/histórico.
