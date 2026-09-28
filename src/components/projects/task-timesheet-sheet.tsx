@@ -52,12 +52,12 @@ type Props = {
     status?: TaskStatus;
     priority?: TaskPriority;
   } | null;
-  /** Caminho da hierarquia (Cliente › Projeto › Job) mostrado no topo. */
+  /** Caminho da hierarquia (Cliente › Projeto › Task) mostrado no topo. */
   breadcrumb?: string;
-  /** Equipe da workspace para escolher o responsável (1 por tarefa). */
+  /** Equipe da workspace para escolher o responsável (1 por sub-task). */
   team?: TeamOption[];
   currentUserId?: string | null;
-  /** Concluir/reabrir a tarefa a partir do próprio detalhe. */
+  /** Concluir/reabrir a sub-task a partir do próprio detalhe. */
   onToggleDone?: () => void;
   taskDone?: boolean;
 };

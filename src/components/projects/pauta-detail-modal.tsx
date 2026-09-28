@@ -1,5 +1,5 @@
 /**
- * Modal de resumo de um item de pauta (job virtual "Pautas") dentro da tela do
+ * Modal de resumo de um item de pauta dentro da tela do
  * projeto. Objetivo: gestão sem trocar de página — a ida para Conteúdo passa a
  * ser uma saída opcional no rodapé.
  *

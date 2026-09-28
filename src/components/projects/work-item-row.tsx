@@ -1,5 +1,5 @@
 /**
- * Linha densa compartilhada por JOB e TAREFA — mesma anatomia nos dois níveis
+ * Linha densa compartilhada por TASK e SUB-TASK — mesma anatomia nos dois níveis
  * para leitura previsível:
  *   ○  Nome            ☰ 5   0/5   [avatar]   30/10   (Status)   ⋮
  * Componente apenas de apresentação: nenhuma query própria.
@@ -41,7 +41,7 @@ export type WorkItemRowProps = {
   onToggleDone?: () => void;
   onOpen?: () => void;
   selected?: boolean;
-  /** Ponto de cor à esquerda do nome (job). */
+  /** Ponto de cor à esquerda do nome (task). */
   color?: string | null;
   /** Contagem de subitens (☰ 5). */
   subCount?: number | null;

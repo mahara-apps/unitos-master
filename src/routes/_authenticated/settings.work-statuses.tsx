@@ -308,7 +308,7 @@ function WorkStatusesPage() {
   usePageHeader(
     {
       title: "Status de trabalho",
-      subtitle: "Projetos, jobs e tarefas",
+      subtitle: "Projetos, tasks e sub-tasks",
     },
     [],
   );
@@ -327,7 +327,7 @@ function WorkStatusesPage() {
   return (
     <DashboardPageShell>
       <p className="text-sm text-muted-foreground">
-        Os status abaixo aparecem nos seletores de projeto, job e tarefa. Marcar “conta como
+        Os status abaixo aparecem nos seletores de projeto, task e sub-task. Marcar “conta como
         concluído” ajuda os relatórios a entenderem o fim do trabalho.
       </p>
       {WORK_STATUS_SCOPES.map((scope) => (
