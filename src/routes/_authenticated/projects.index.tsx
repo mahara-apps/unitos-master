@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -566,6 +566,7 @@ function ProjectsIndexPage() {
       subtitle: "Gerencie seus projetos e acompanhe o progresso das publicações.",
       actions: (
         <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="h-9"><Link to="/projects/models"><Layers className="mr-2 size-4" /> Modelos</Link></Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" className="h-9">
