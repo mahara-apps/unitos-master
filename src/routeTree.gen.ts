@@ -97,6 +97,7 @@ import { Route as AuthenticatedAdminMetaRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAdminInstalacoesRouteImport } from './routes/_authenticated/admin.instalacoes'
 import { Route as AuthenticatedAdminIdentidadeRouteImport } from './routes/_authenticated/admin.identidade'
 import { Route as AuthenticatedAdminAmbienteRouteImport } from './routes/_authenticated/admin.ambiente'
+import { Route as AuthenticatedProjectsModelsIndexRouteImport } from './routes/_authenticated/projects.models.index'
 import { Route as AuthenticatedAdminInstalacoesIndexRouteImport } from './routes/_authenticated/admin.instalacoes.index'
 import { Route as ApiSocialTopPostsConnectionIdRouteImport } from './routes/api/social/top-posts/$connectionId'
 import { Route as ApiSocialDashboardConnectionIdRouteImport } from './routes/api/social/dashboard/$connectionId'
@@ -602,6 +603,12 @@ const AuthenticatedAdminAmbienteRoute =
     path: '/ambiente',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedProjectsModelsIndexRoute =
+  AuthenticatedProjectsModelsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedProjectsModelsRoute,
+  } as any)
 const AuthenticatedAdminInstalacoesIndexRoute =
   AuthenticatedAdminInstalacoesIndexRouteImport.update({
     id: '/',
@@ -907,6 +914,7 @@ export interface FileRoutesByFullPath {
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
   '/api/social/top-posts/$connectionId': typeof ApiSocialTopPostsConnectionIdRoute
   '/admin/instalacoes/': typeof AuthenticatedAdminInstalacoesIndexRoute
+  '/projects/models/': typeof AuthenticatedProjectsModelsIndexRoute
   '/api/public/hooks/evolution/$token': typeof ApiPublicHooksEvolutionTokenRoute
   '/api/social/posts/$postId/analytics': typeof ApiSocialPostsPostIdAnalyticsRoute
 }
@@ -943,7 +951,6 @@ export interface FileRoutesByTo {
   '/messages/$threadId': typeof AuthenticatedMessagesThreadIdRoute
   '/monthly-plan/$planId': typeof AuthenticatedMonthlyPlanPlanIdRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
-  '/projects/models': typeof AuthenticatedProjectsModelsRouteWithChildren
   '/settings/access-log': typeof AuthenticatedSettingsAccessLogRoute
   '/settings/ai-limits': typeof AuthenticatedSettingsAiLimitsRoute
   '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
@@ -1018,6 +1025,7 @@ export interface FileRoutesByTo {
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
   '/api/social/top-posts/$connectionId': typeof ApiSocialTopPostsConnectionIdRoute
   '/admin/instalacoes': typeof AuthenticatedAdminInstalacoesIndexRoute
+  '/projects/models': typeof AuthenticatedProjectsModelsIndexRoute
   '/api/public/hooks/evolution/$token': typeof ApiPublicHooksEvolutionTokenRoute
   '/api/social/posts/$postId/analytics': typeof ApiSocialPostsPostIdAnalyticsRoute
 }
@@ -1141,6 +1149,7 @@ export interface FileRoutesById {
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
   '/api/social/top-posts/$connectionId': typeof ApiSocialTopPostsConnectionIdRoute
   '/_authenticated/admin/instalacoes/': typeof AuthenticatedAdminInstalacoesIndexRoute
+  '/_authenticated/projects/models/': typeof AuthenticatedProjectsModelsIndexRoute
   '/api/public/hooks/evolution/$token': typeof ApiPublicHooksEvolutionTokenRoute
   '/api/social/posts/$postId/analytics': typeof ApiSocialPostsPostIdAnalyticsRoute
 }
@@ -1263,6 +1272,7 @@ export interface FileRouteTypes {
     | '/api/social/dashboard/$connectionId'
     | '/api/social/top-posts/$connectionId'
     | '/admin/instalacoes/'
+    | '/projects/models/'
     | '/api/public/hooks/evolution/$token'
     | '/api/social/posts/$postId/analytics'
   fileRoutesByTo: FileRoutesByTo
@@ -1299,7 +1309,6 @@ export interface FileRouteTypes {
     | '/messages/$threadId'
     | '/monthly-plan/$planId'
     | '/projects/$projectId'
-    | '/projects/models'
     | '/settings/access-log'
     | '/settings/ai-limits'
     | '/settings/branding'
@@ -1374,6 +1383,7 @@ export interface FileRouteTypes {
     | '/api/social/dashboard/$connectionId'
     | '/api/social/top-posts/$connectionId'
     | '/admin/instalacoes'
+    | '/projects/models'
     | '/api/public/hooks/evolution/$token'
     | '/api/social/posts/$postId/analytics'
   id:
@@ -1496,6 +1506,7 @@ export interface FileRouteTypes {
     | '/api/social/dashboard/$connectionId'
     | '/api/social/top-posts/$connectionId'
     | '/_authenticated/admin/instalacoes/'
+    | '/_authenticated/projects/models/'
     | '/api/public/hooks/evolution/$token'
     | '/api/social/posts/$postId/analytics'
   fileRoutesById: FileRoutesById
@@ -2163,6 +2174,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminAmbienteRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/projects/models/': {
+      id: '/_authenticated/projects/models/'
+      path: '/'
+      fullPath: '/projects/models/'
+      preLoaderRoute: typeof AuthenticatedProjectsModelsIndexRouteImport
+      parentRoute: typeof AuthenticatedProjectsModelsRoute
+    }
     '/_authenticated/admin/instalacoes/': {
       id: '/_authenticated/admin/instalacoes/'
       path: '/'
@@ -2528,6 +2546,7 @@ const AuthenticatedMonthlyPlanRouteWithChildren =
 interface AuthenticatedProjectsModelsRouteChildren {
   AuthenticatedProjectsModelsTemplateIdRoute: typeof AuthenticatedProjectsModelsTemplateIdRoute
   AuthenticatedProjectsModelsNewRoute: typeof AuthenticatedProjectsModelsNewRoute
+  AuthenticatedProjectsModelsIndexRoute: typeof AuthenticatedProjectsModelsIndexRoute
 }
 
 const AuthenticatedProjectsModelsRouteChildren: AuthenticatedProjectsModelsRouteChildren =
@@ -2535,6 +2554,8 @@ const AuthenticatedProjectsModelsRouteChildren: AuthenticatedProjectsModelsRoute
     AuthenticatedProjectsModelsTemplateIdRoute:
       AuthenticatedProjectsModelsTemplateIdRoute,
     AuthenticatedProjectsModelsNewRoute: AuthenticatedProjectsModelsNewRoute,
+    AuthenticatedProjectsModelsIndexRoute:
+      AuthenticatedProjectsModelsIndexRoute,
   }
 
 const AuthenticatedProjectsModelsRouteWithChildren =
