@@ -637,7 +637,7 @@ WITH checks AS (
               ) THEN 'PASS' ELSE 'FAIL' END
 
   UNION ALL
-  SELECT 83, 'segurança: anon sem privilégios perigosos em tabelas',
+   SELECT 83, 'segurança: anon sem privilégios perigosos em tabelas',
          coalesce((
            SELECT string_agg(table_schema || '.' || table_name || ':' || privilege_type, ', ' ORDER BY table_schema, table_name, privilege_type)
            FROM information_schema.role_table_grants

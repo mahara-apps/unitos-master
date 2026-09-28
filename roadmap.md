@@ -1,3 +1,10 @@
+## Recuperação da validação de segurança nas instalações
+
+- [x] Identificar tabelas e privilégios que reprovaram a validação final da unitos-new-teste-02.
+- [x] Corrigir no MASTER sem alterar dados, RBAC ou RLS.
+- [ ] Selar o pacote MASTER, testar privilégios herdados e conferir a retomada idempotente em ambiente de teste.
+- [ ] Consultar ACLs da instalação afetada diretamente em leitura e aguardar autorizações separadas para publicar e retomar.
+
 ## Substituição segura de modelos de IA
 
 - [x] Remover modelos descontinuados dos defaults e fallbacks compilados.
