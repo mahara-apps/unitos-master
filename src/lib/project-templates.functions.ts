@@ -14,23 +14,23 @@ export type ProjectTemplate = {
   blueprint?: Json | null;
   archived_at?: string | null;
   source_client_id?: string | null;
+  updated_at?: string | null;
   jobs_count?: number;
   tasks_count?: number;
 };
 
 export const listTemplatesFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid() }).parse(i))
+  .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid(), includeArchived: z.boolean().optional() }).parse(i))
   .handler(async ({ data, context }): Promise<ProjectTemplate[]> => {
     const { data: rows, error } = await context.supabase
       .from("project_templates")
-      .select("id, brand_id, name, description, icon, is_system, blueprint, archived_at, source_client_id")
+       .select("id, brand_id, name, description, icon, is_system, blueprint, archived_at, source_client_id, updated_at")
       .or(`is_system.eq.true,brand_id.eq.${data.brandId}`)
-      .is("archived_at", null)
       .order("is_system", { ascending: false })
       .order("name", { ascending: true });
     if (error) throw error;
-    const templates = (rows ?? []) as ProjectTemplate[];
+     const templates = ((rows ?? []) as ProjectTemplate[]).filter(t => data.includeArchived || !t.archived_at);
     if (templates.length === 0) return [];
     const ids = templates.map((t) => t.id);
     const { data: jobs, error: jobsError } = await context.supabase
@@ -121,6 +121,8 @@ export const saveTemplateFn = createServerFn({ method: "POST" })
     }),
   }).parse(input))
   .handler(async ({ data, context }) => {
+      const { data: allowed, error: permissionError } = await callRpc<boolean>(context.supabase, "can_manage_project_templates", { _brand_id: data.brandId, _user_id: context.userId });
+      if (permissionError || allowed !== true) throw new Error("Apenas Owner, Admin ou Super Admin podem gerenciar modelos.");
      if (data.blueprint.texts.some(text => Boolean(text.sourceId) !== Boolean(text.sourceKind) || (text.level === "job" && (text.jobIndex === undefined || !data.blueprint.jobs[text.jobIndex])) || (text.level === "task" && (text.taskIndex === undefined || text.taskIndex < 0 || text.taskIndex >= data.blueprint.jobs.reduce((n, job) => n + job.tasks.length, 0) + (data.blueprint.directTasks?.length ?? 0))))) throw new Error("Destino ou origem de texto inválido.");
      const clean = (value: string | null) => value?.replace(/<[^>]*>/g, "").trim() ?? null;
      const blueprint = { ...data.blueprint, description: clean(data.blueprint.description), jobs: data.blueprint.jobs.map(j => ({ ...j, description: clean(j.description), tasks: j.tasks.map(t => ({ ...t, description: clean(t.description) })) })), directTasks: data.blueprint.directTasks?.map(t => ({ ...t, description: clean(t.description) })), texts: data.blueprint.texts.map(t => ({ ...t, body: clean(t.body) ?? "" })) };
@@ -142,6 +144,33 @@ export const archiveTemplateFn = createServerFn({ method: "POST" })
       _brand_id: data.brandId, _template_id: data.templateId,
     });
     if (error || !id) throw new Error(error?.message ?? "Modelo indisponível.");
+    return { id };
+  });
+
+export const canManageTemplatesFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ brandId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: allowed, error } = await callRpc<boolean>(context.supabase, "can_manage_project_templates", { _brand_id: data.brandId, _user_id: context.userId });
+    if (error) throw new Error(error.message);
+    return allowed === true;
+  });
+
+export const restoreTemplateFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ brandId: z.string().uuid(), templateId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: id, error } = await callRpc<string>(context.supabase, "restore_project_template", { _brand_id: data.brandId, _template_id: data.templateId });
+    if (error || !id) throw new Error(error?.message ?? "Modelo indisponível.");
+    return { id };
+  });
+
+export const deleteTemplateFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ brandId: z.string().uuid(), templateId: z.string().uuid(), confirmation: z.string() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: id, error } = await callRpc<string>(context.supabase, "delete_project_template", { _brand_id: data.brandId, _template_id: data.templateId, _confirmation: data.confirmation });
+    if (error || !id) throw new Error(error?.code === "23503" ? "Este modelo possui registros de criação. Arquive-o em vez de excluir." : error?.message ?? "Modelo indisponível.");
     return { id };
   });
 
