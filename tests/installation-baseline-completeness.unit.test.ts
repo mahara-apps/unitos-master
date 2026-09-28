@@ -140,6 +140,20 @@ describe("delta do baseline", () => {
     }
   });
 
+  it("revoga ACLs perigosas herdadas nas tabelas criadas depois do endurecimento", () => {
+    const correction = migrationFiles[
+      "../supabase/migrations/20260928020655_d1e488d6-5fae-4b14-a247-721b6047a57b.sql"
+    ];
+    expect(correction).toBeDefined();
+    for (const table of ["project_duplication_requests", "project_template_requests"]) {
+      const revoke = `REVOKE MAINTAIN, TRUNCATE, TRIGGER, REFERENCES ON TABLE public.${table} FROM anon;`;
+      expect(correction).toContain(revoke);
+      expect(sanitizeBaselineSqlForManagementApi(correction).sql).toContain(revoke);
+      expect(delta).toContain(revoke);
+    }
+    expect(verifySql).toContain("grantee = 'anon'");
+  });
+
   it("credencial de e-mail revoga acesso direto e endurece tabelas futuras", () => {
     const hardening =
       migrationFiles[

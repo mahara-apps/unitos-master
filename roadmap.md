@@ -1,3 +1,11 @@
+## Recuperação da validação de segurança nas instalações
+
+- [x] Identificar tabelas e privilégios que reprovaram a validação final da unitos-new-teste-02.
+- [x] Corrigir no MASTER sem alterar dados, RBAC ou RLS.
+- [x] Selar pacote MASTER 1.4.54; reproduzir ACL herdada e correção repetível em PostgreSQL descartável; master:check passou.
+- [ ] Consultar ACLs da instalação afetada diretamente em leitura; bloqueio: sem conexão autorizada ao banco da instalação neste ambiente.
+- [ ] Publicar MASTER e retomar atualização somente com autorizações explícitas separadas; verificar validação final e versão registrada na instalação.
+
 ## Substituição segura de modelos de IA
 
 - [x] Remover modelos descontinuados dos defaults e fallbacks compilados.
