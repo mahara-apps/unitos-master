@@ -17,8 +17,7 @@ Ver DESIGN_SYSTEM.md secao 3.0.
 
 ## MASTER-first (regra obrigatoria)
 
-Nenhuma alteracao do sistema esta concluida enquanto nao estiver no pacote que
-o MASTER propaga para as demais instalacoes. Sequencia fixa, sem excecao:
+Toda alteracao exige pacote MASTER propagavel, nesta sequencia:
 
 1. Aplicar a alteracao no MASTER (migration/seed/codigo).
 2. Regenerar o pacote: `python3 supabase/baseline-snapshot/tools/build_delta.py`.
@@ -32,6 +31,7 @@ o MASTER propaga para as demais instalacoes. Sequencia fixa, sem excecao:
 6. Publicar o MASTER e autorizar "Atualizar" em cada instalacao.
 
 ACL cliente: revogar privilégios perigosos de anon em tabelas novas; defaults podem ser herdados.
+Update falha abre nova operação com pacote publicado e reconcilia ledger; nunca faz retry de provision.
 
 ## Fluxo de tarefas e peças
 
