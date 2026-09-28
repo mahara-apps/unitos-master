@@ -711,6 +711,31 @@
       "position": 142,
       "file": "20260928000945_54133f19-7bcd-46a5-a721-e0b40ee42d7e.sql",
       "destination": "client"
+    },
+    {
+      "position": 143,
+      "file": "20260928001357_5a6d4165-bbb1-4327-9640-66aafbc4468f.sql",
+      "destination": "client"
+    },
+    {
+      "position": 144,
+      "file": "20260928001508_28e2757c-1c76-49ad-9538-2b74791edc1f.sql",
+      "destination": "client"
+    },
+    {
+      "position": 145,
+      "file": "20260928001601_69c197d1-991f-488d-a154-26d5b2621875.sql",
+      "destination": "client"
+    },
+    {
+      "position": 146,
+      "file": "20260928002104_464e2467-53f4-4fb7-b097-3e668ad5e240.sql",
+      "destination": "client"
+    },
+    {
+      "position": 147,
+      "file": "20260928002648_0dda744a-d14e-4ef6-af8d-f1a82675905e.sql",
+      "destination": "client"
     }
   ]
 }
