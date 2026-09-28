@@ -2,8 +2,9 @@
 
 - [x] Identificar tabelas e privilégios que reprovaram a validação final da unitos-new-teste-02.
 - [x] Corrigir no MASTER sem alterar dados, RBAC ou RLS.
-- [ ] Selar o pacote MASTER, testar privilégios herdados e conferir a retomada idempotente em ambiente de teste.
-- [ ] Consultar ACLs da instalação afetada diretamente em leitura e aguardar autorizações separadas para publicar e retomar.
+- [x] Selar pacote MASTER 1.4.54; reproduzir ACL herdada e correção repetível em PostgreSQL descartável; master:check passou.
+- [ ] Consultar ACLs da instalação afetada diretamente em leitura; bloqueio: sem conexão autorizada ao banco da instalação neste ambiente.
+- [ ] Publicar MASTER e retomar atualização somente com autorizações explícitas separadas; verificar validação final e versão registrada na instalação.
 
 ## Substituição segura de modelos de IA
 
