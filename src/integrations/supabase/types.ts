@@ -9617,6 +9617,10 @@ export type Database = {
         Args: { _brand_id: string; _client_id: string; _user_id: string }
         Returns: boolean
       }
+      can_manage_project_templates: {
+        Args: { _brand_id: string; _user_id?: string }
+        Returns: boolean
+      }
       can_read_ad_account: {
         Args: { _ad_account_id: string; _brand_id: string; _user_id: string }
         Returns: boolean
@@ -9853,6 +9857,10 @@ export type Database = {
           _summary: string
         }
         Returns: boolean
+      }
+      delete_project_template: {
+        Args: { _brand_id: string; _confirmation: string; _template_id: string }
+        Returns: string
       }
       derive_post_stage: {
         Args: {
@@ -10238,6 +10246,10 @@ export type Database = {
       remove_installation_email_configuration: {
         Args: never
         Returns: undefined
+      }
+      restore_project_template: {
+        Args: { _brand_id: string; _template_id: string }
+        Returns: string
       }
       retry_installation_operation: {
         Args: {
