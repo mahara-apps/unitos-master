@@ -6694,3 +6694,10 @@ GRANT EXECUTE ON FUNCTION public.delete_project_template(uuid,uuid,text) TO auth
 -- 20260928013437_f05b1686-ee2e-4b5c-ac0f-fc03fa43db82.sql
 -- ---------------------------------------------------------------------------
 ALTER FUNCTION public.can_manage_project_templates(uuid,uuid) SECURITY INVOKER;
+
+-- ---------------------------------------------------------------------------
+-- 20260928013858_903164d8-e054-42f2-a15a-1bb51815a2d2.sql
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.can_manage_project_templates(_brand_id uuid,_user_id uuid DEFAULT auth.uid()) RETURNS boolean LANGUAGE sql STABLE SECURITY INVOKER SET search_path=public AS $fn$ SELECT _brand_id IS NOT NULL AND auth.uid() IS NOT NULL AND _user_id=auth.uid() AND (public.is_super_admin(auth.uid()) OR (public.is_brand_member(_brand_id,auth.uid()) AND public.app_access_role(auth.uid(),_brand_id)='admin')) $fn$;
+DROP POLICY IF EXISTS "project_templates read visible" ON public.project_templates;
+CREATE POLICY "project_templates read visible" ON public.project_templates FOR SELECT TO authenticated USING (is_system OR (brand_id IS NOT NULL AND public.is_brand_member(brand_id,auth.uid()) AND (archived_at IS NULL OR public.can_manage_project_templates(brand_id,auth.uid())) AND (source_client_id IS NULL OR public.can_access_client(source_client_id,auth.uid()))));

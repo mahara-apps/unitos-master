@@ -97,6 +97,7 @@ import { Route as AuthenticatedAdminMetaRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAdminInstalacoesRouteImport } from './routes/_authenticated/admin.instalacoes'
 import { Route as AuthenticatedAdminIdentidadeRouteImport } from './routes/_authenticated/admin.identidade'
 import { Route as AuthenticatedAdminAmbienteRouteImport } from './routes/_authenticated/admin.ambiente'
+import { Route as AuthenticatedProjectsModelsIndexRouteImport } from './routes/_authenticated/projects.models.index'
 import { Route as AuthenticatedAdminInstalacoesIndexRouteImport } from './routes/_authenticated/admin.instalacoes.index'
 import { Route as ApiSocialTopPostsConnectionIdRouteImport } from './routes/api/social/top-posts/$connectionId'
 import { Route as ApiSocialDashboardConnectionIdRouteImport } from './routes/api/social/dashboard/$connectionId'
@@ -120,6 +121,8 @@ import { Route as ApiPublicCronInstallationResumeRouteImport } from './routes/ap
 import { Route as ApiPublicCronImportWorkerRouteImport } from './routes/api/public/cron/import-worker'
 import { Route as ApiPublicCronImportReaperRouteImport } from './routes/api/public/cron/import-reaper'
 import { Route as ApiPublicApprovalTokenRouteImport } from './routes/api/public/approval.$token'
+import { Route as AuthenticatedProjectsModelsNewRouteImport } from './routes/_authenticated/projects.models.new'
+import { Route as AuthenticatedProjectsModelsTemplateIdRouteImport } from './routes/_authenticated/projects.models.$templateId'
 import { Route as AuthenticatedCustomersCustomerIdPautaRouteImport } from './routes/_authenticated/customers.$customerId.pauta'
 import { Route as AuthenticatedCustomersCustomerIdMediaPlanRouteImport } from './routes/_authenticated/customers.$customerId.media-plan'
 import { Route as AuthenticatedCustomersCustomerIdBriefingRouteImport } from './routes/_authenticated/customers.$customerId.briefing'
@@ -600,6 +603,12 @@ const AuthenticatedAdminAmbienteRoute =
     path: '/ambiente',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedProjectsModelsIndexRoute =
+  AuthenticatedProjectsModelsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedProjectsModelsRoute,
+  } as any)
 const AuthenticatedAdminInstalacoesIndexRoute =
   AuthenticatedAdminInstalacoesIndexRouteImport.update({
     id: '/',
@@ -733,6 +742,18 @@ const ApiPublicApprovalTokenRoute = ApiPublicApprovalTokenRouteImport.update({
   path: '/api/public/approval/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedProjectsModelsNewRoute =
+  AuthenticatedProjectsModelsNewRouteImport.update({
+    id: '/new',
+    path: '/new',
+    getParentRoute: () => AuthenticatedProjectsModelsRoute,
+  } as any)
+const AuthenticatedProjectsModelsTemplateIdRoute =
+  AuthenticatedProjectsModelsTemplateIdRouteImport.update({
+    id: '/$templateId',
+    path: '/$templateId',
+    getParentRoute: () => AuthenticatedProjectsModelsRoute,
+  } as any)
 const AuthenticatedCustomersCustomerIdPautaRoute =
   AuthenticatedCustomersCustomerIdPautaRouteImport.update({
     id: '/pauta',
@@ -818,7 +839,7 @@ export interface FileRoutesByFullPath {
   '/messages/$threadId': typeof AuthenticatedMessagesThreadIdRoute
   '/monthly-plan/$planId': typeof AuthenticatedMonthlyPlanPlanIdRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
-  '/projects/models': typeof AuthenticatedProjectsModelsRoute
+  '/projects/models': typeof AuthenticatedProjectsModelsRouteWithChildren
   '/settings/access-log': typeof AuthenticatedSettingsAccessLogRoute
   '/settings/ai-limits': typeof AuthenticatedSettingsAiLimitsRoute
   '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
@@ -868,6 +889,8 @@ export interface FileRoutesByFullPath {
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/customers/$customerId/pauta': typeof AuthenticatedCustomersCustomerIdPautaRoute
+  '/projects/models/$templateId': typeof AuthenticatedProjectsModelsTemplateIdRoute
+  '/projects/models/new': typeof AuthenticatedProjectsModelsNewRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/cron/import-reaper': typeof ApiPublicCronImportReaperRoute
   '/api/public/cron/import-worker': typeof ApiPublicCronImportWorkerRoute
@@ -891,6 +914,7 @@ export interface FileRoutesByFullPath {
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
   '/api/social/top-posts/$connectionId': typeof ApiSocialTopPostsConnectionIdRoute
   '/admin/instalacoes/': typeof AuthenticatedAdminInstalacoesIndexRoute
+  '/projects/models/': typeof AuthenticatedProjectsModelsIndexRoute
   '/api/public/hooks/evolution/$token': typeof ApiPublicHooksEvolutionTokenRoute
   '/api/social/posts/$postId/analytics': typeof ApiSocialPostsPostIdAnalyticsRoute
 }
@@ -927,7 +951,6 @@ export interface FileRoutesByTo {
   '/messages/$threadId': typeof AuthenticatedMessagesThreadIdRoute
   '/monthly-plan/$planId': typeof AuthenticatedMonthlyPlanPlanIdRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
-  '/projects/models': typeof AuthenticatedProjectsModelsRoute
   '/settings/access-log': typeof AuthenticatedSettingsAccessLogRoute
   '/settings/ai-limits': typeof AuthenticatedSettingsAiLimitsRoute
   '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
@@ -977,6 +1000,8 @@ export interface FileRoutesByTo {
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/customers/$customerId/pauta': typeof AuthenticatedCustomersCustomerIdPautaRoute
+  '/projects/models/$templateId': typeof AuthenticatedProjectsModelsTemplateIdRoute
+  '/projects/models/new': typeof AuthenticatedProjectsModelsNewRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/cron/import-reaper': typeof ApiPublicCronImportReaperRoute
   '/api/public/cron/import-worker': typeof ApiPublicCronImportWorkerRoute
@@ -1000,6 +1025,7 @@ export interface FileRoutesByTo {
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
   '/api/social/top-posts/$connectionId': typeof ApiSocialTopPostsConnectionIdRoute
   '/admin/instalacoes': typeof AuthenticatedAdminInstalacoesIndexRoute
+  '/projects/models': typeof AuthenticatedProjectsModelsIndexRoute
   '/api/public/hooks/evolution/$token': typeof ApiPublicHooksEvolutionTokenRoute
   '/api/social/posts/$postId/analytics': typeof ApiSocialPostsPostIdAnalyticsRoute
 }
@@ -1048,7 +1074,7 @@ export interface FileRoutesById {
   '/_authenticated/messages/$threadId': typeof AuthenticatedMessagesThreadIdRoute
   '/_authenticated/monthly-plan/$planId': typeof AuthenticatedMonthlyPlanPlanIdRoute
   '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
-  '/_authenticated/projects/models': typeof AuthenticatedProjectsModelsRoute
+  '/_authenticated/projects/models': typeof AuthenticatedProjectsModelsRouteWithChildren
   '/_authenticated/settings/access-log': typeof AuthenticatedSettingsAccessLogRoute
   '/_authenticated/settings/ai-limits': typeof AuthenticatedSettingsAiLimitsRoute
   '/_authenticated/settings/branding': typeof AuthenticatedSettingsBrandingRoute
@@ -1098,6 +1124,8 @@ export interface FileRoutesById {
   '/_authenticated/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/_authenticated/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/_authenticated/customers/$customerId/pauta': typeof AuthenticatedCustomersCustomerIdPautaRoute
+  '/_authenticated/projects/models/$templateId': typeof AuthenticatedProjectsModelsTemplateIdRoute
+  '/_authenticated/projects/models/new': typeof AuthenticatedProjectsModelsNewRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/cron/import-reaper': typeof ApiPublicCronImportReaperRoute
   '/api/public/cron/import-worker': typeof ApiPublicCronImportWorkerRoute
@@ -1121,6 +1149,7 @@ export interface FileRoutesById {
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
   '/api/social/top-posts/$connectionId': typeof ApiSocialTopPostsConnectionIdRoute
   '/_authenticated/admin/instalacoes/': typeof AuthenticatedAdminInstalacoesIndexRoute
+  '/_authenticated/projects/models/': typeof AuthenticatedProjectsModelsIndexRoute
   '/api/public/hooks/evolution/$token': typeof ApiPublicHooksEvolutionTokenRoute
   '/api/social/posts/$postId/analytics': typeof ApiSocialPostsPostIdAnalyticsRoute
 }
@@ -1218,6 +1247,8 @@ export interface FileRouteTypes {
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/media-plan'
     | '/customers/$customerId/pauta'
+    | '/projects/models/$templateId'
+    | '/projects/models/new'
     | '/api/public/approval/$token'
     | '/api/public/cron/import-reaper'
     | '/api/public/cron/import-worker'
@@ -1241,6 +1272,7 @@ export interface FileRouteTypes {
     | '/api/social/dashboard/$connectionId'
     | '/api/social/top-posts/$connectionId'
     | '/admin/instalacoes/'
+    | '/projects/models/'
     | '/api/public/hooks/evolution/$token'
     | '/api/social/posts/$postId/analytics'
   fileRoutesByTo: FileRoutesByTo
@@ -1277,7 +1309,6 @@ export interface FileRouteTypes {
     | '/messages/$threadId'
     | '/monthly-plan/$planId'
     | '/projects/$projectId'
-    | '/projects/models'
     | '/settings/access-log'
     | '/settings/ai-limits'
     | '/settings/branding'
@@ -1327,6 +1358,8 @@ export interface FileRouteTypes {
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/media-plan'
     | '/customers/$customerId/pauta'
+    | '/projects/models/$templateId'
+    | '/projects/models/new'
     | '/api/public/approval/$token'
     | '/api/public/cron/import-reaper'
     | '/api/public/cron/import-worker'
@@ -1350,6 +1383,7 @@ export interface FileRouteTypes {
     | '/api/social/dashboard/$connectionId'
     | '/api/social/top-posts/$connectionId'
     | '/admin/instalacoes'
+    | '/projects/models'
     | '/api/public/hooks/evolution/$token'
     | '/api/social/posts/$postId/analytics'
   id:
@@ -1447,6 +1481,8 @@ export interface FileRouteTypes {
     | '/_authenticated/customers/$customerId/briefing'
     | '/_authenticated/customers/$customerId/media-plan'
     | '/_authenticated/customers/$customerId/pauta'
+    | '/_authenticated/projects/models/$templateId'
+    | '/_authenticated/projects/models/new'
     | '/api/public/approval/$token'
     | '/api/public/cron/import-reaper'
     | '/api/public/cron/import-worker'
@@ -1470,6 +1506,7 @@ export interface FileRouteTypes {
     | '/api/social/dashboard/$connectionId'
     | '/api/social/top-posts/$connectionId'
     | '/_authenticated/admin/instalacoes/'
+    | '/_authenticated/projects/models/'
     | '/api/public/hooks/evolution/$token'
     | '/api/social/posts/$postId/analytics'
   fileRoutesById: FileRoutesById
@@ -2137,6 +2174,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminAmbienteRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/projects/models/': {
+      id: '/_authenticated/projects/models/'
+      path: '/'
+      fullPath: '/projects/models/'
+      preLoaderRoute: typeof AuthenticatedProjectsModelsIndexRouteImport
+      parentRoute: typeof AuthenticatedProjectsModelsRoute
+    }
     '/_authenticated/admin/instalacoes/': {
       id: '/_authenticated/admin/instalacoes/'
       path: '/'
@@ -2297,6 +2341,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/public/approval/$token'
       preLoaderRoute: typeof ApiPublicApprovalTokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/projects/models/new': {
+      id: '/_authenticated/projects/models/new'
+      path: '/new'
+      fullPath: '/projects/models/new'
+      preLoaderRoute: typeof AuthenticatedProjectsModelsNewRouteImport
+      parentRoute: typeof AuthenticatedProjectsModelsRoute
+    }
+    '/_authenticated/projects/models/$templateId': {
+      id: '/_authenticated/projects/models/$templateId'
+      path: '/$templateId'
+      fullPath: '/projects/models/$templateId'
+      preLoaderRoute: typeof AuthenticatedProjectsModelsTemplateIdRouteImport
+      parentRoute: typeof AuthenticatedProjectsModelsRoute
     }
     '/_authenticated/customers/$customerId/pauta': {
       id: '/_authenticated/customers/$customerId/pauta'
@@ -2485,15 +2543,36 @@ const AuthenticatedMonthlyPlanRouteWithChildren =
     AuthenticatedMonthlyPlanRouteChildren,
   )
 
+interface AuthenticatedProjectsModelsRouteChildren {
+  AuthenticatedProjectsModelsTemplateIdRoute: typeof AuthenticatedProjectsModelsTemplateIdRoute
+  AuthenticatedProjectsModelsNewRoute: typeof AuthenticatedProjectsModelsNewRoute
+  AuthenticatedProjectsModelsIndexRoute: typeof AuthenticatedProjectsModelsIndexRoute
+}
+
+const AuthenticatedProjectsModelsRouteChildren: AuthenticatedProjectsModelsRouteChildren =
+  {
+    AuthenticatedProjectsModelsTemplateIdRoute:
+      AuthenticatedProjectsModelsTemplateIdRoute,
+    AuthenticatedProjectsModelsNewRoute: AuthenticatedProjectsModelsNewRoute,
+    AuthenticatedProjectsModelsIndexRoute:
+      AuthenticatedProjectsModelsIndexRoute,
+  }
+
+const AuthenticatedProjectsModelsRouteWithChildren =
+  AuthenticatedProjectsModelsRoute._addFileChildren(
+    AuthenticatedProjectsModelsRouteChildren,
+  )
+
 interface AuthenticatedProjectsRouteChildren {
   AuthenticatedProjectsProjectIdRoute: typeof AuthenticatedProjectsProjectIdRoute
-  AuthenticatedProjectsModelsRoute: typeof AuthenticatedProjectsModelsRoute
+  AuthenticatedProjectsModelsRoute: typeof AuthenticatedProjectsModelsRouteWithChildren
   AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
 }
 
 const AuthenticatedProjectsRouteChildren: AuthenticatedProjectsRouteChildren = {
   AuthenticatedProjectsProjectIdRoute: AuthenticatedProjectsProjectIdRoute,
-  AuthenticatedProjectsModelsRoute: AuthenticatedProjectsModelsRoute,
+  AuthenticatedProjectsModelsRoute:
+    AuthenticatedProjectsModelsRouteWithChildren,
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
 }
 
