@@ -310,6 +310,7 @@
 
 ## Modelos reutilizáveis e duplicação de projetos
 
+- [ ] Checar novamente o relato de prévia travada no painel e informar o resultado ao usuário.
 - [x] Conferir o estado da prévia após relato de tela aparentemente parada; respondeu HTTP 200 e último build OK.
 - [x] Implementar lista e editor dedicados, autorização administrativa e exclusão segura dos modelos no MASTER.
 - [ ] Validar fluxos completos com sessão autenticada e todos os papéis; bloqueio: prévia usa Supabase externo sem sessão de teste gerenciada.
