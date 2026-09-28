@@ -30,6 +30,7 @@ import {
   type ProjectTemplate,
 } from "@/lib/project-templates.functions";
 import { listClients } from "@/lib/workspace.functions";
+import { reviewTemplateFn } from "@/lib/project-templates.functions";
 
 type Props = {
   open: boolean;
@@ -42,6 +43,7 @@ export function NewFromTemplateDialog({ open, onOpenChange, brandId }: Props) {
   const listFn = useServerFn(listTemplatesFn);
   const clientsFn = useServerFn(listClients);
   const instFn = useServerFn(instantiateTemplateFn);
+  const reviewFn = useServerFn(reviewTemplateFn);
 
   const templatesQ = useQuery({
     queryKey: ["project-templates", brandId],
@@ -57,18 +59,22 @@ export function NewFromTemplateDialog({ open, onOpenChange, brandId }: Props) {
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [clientId, setClientId] = useState<string | null>(null);
+  const [requestId, setRequestId] = useState(() => crypto.randomUUID());
 
   const clients = (clientsQ.data ?? []) as Array<{ id: string; name: string }>;
   const templates: ProjectTemplate[] = templatesQ.data ?? [];
+  const selected = templates.find(t => t.id === templateId);
+  const review = useQuery({ queryKey: ["project-template-review",brandId,templateId,clientId], queryFn: () => reviewFn({ data: { brandId, templateId: templateId ?? "", clientId } }), enabled: open && !!templateId });
 
   const mut = useMutation({
     mutationFn: () =>
       instFn({
         data: {
-          templateId: templateId!,
+          templateId: templateId ?? "",
           brandId,
           clientId,
           projectName: name.trim(),
+          requestId,
         },
       }),
     onSuccess: ({ projectId }) => {
@@ -77,6 +83,7 @@ export function NewFromTemplateDialog({ open, onOpenChange, brandId }: Props) {
       setTemplateId(null);
       setName("");
       setClientId(null);
+       setRequestId(crypto.randomUUID());
       navigate({ to: "/projects/$projectId", params: { projectId } });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -125,6 +132,7 @@ export function NewFromTemplateDialog({ open, onOpenChange, brandId }: Props) {
                       <Layers className="h-4 w-4 text-muted-foreground" />
                       <div className="text-sm font-medium">{t.name}</div>
                     </div>
+           {selected && <div className="space-y-2 border-y border-border py-4 text-sm"><p className="font-medium">Revisão · {selected.name}</p><p>{selected.jobs_count ?? 0} jobs · {selected.tasks_count ?? 0} tarefas · {review.data?.texts ?? 0} textos padrão</p><p>Cliente: {clients.find(c => c.id === clientId)?.name ?? "Sem cliente"}</p>{review.isLoading && <p className="text-muted-foreground">Conferindo pessoas...</p>}{review.isError && <p role="alert" className="text-destructive">Não foi possível revisar o modelo. Tente novamente.</p>}{review.data && <p className={review.data.ineligible > 0 ? "text-destructive" : "text-muted-foreground"}>{review.data.ineligible > 0 ? `${review.data.ineligible} pessoas sem acesso ao cliente; ficarão sem atribuição. ` : "Pessoas aptas verificadas. "}Sem datas, horas ou histórico.</p>}</div>}
                     {t.is_system && (
                       <Badge variant="secondary" className="text-[10px]">
                         Sistema
@@ -179,7 +187,7 @@ export function NewFromTemplateDialog({ open, onOpenChange, brandId }: Props) {
           </Button>
           <Button
             onClick={() => mut.mutate()}
-            disabled={!templateId || !name.trim() || mut.isPending}
+            disabled={!templateId || name.trim().length < 2 || mut.isPending || !review.data || review.isFetching}
           >
             Criar projeto
           </Button>
