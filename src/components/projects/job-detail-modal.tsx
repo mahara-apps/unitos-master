@@ -1,8 +1,8 @@
 /**
- * Janela central do JOB — mesma anatomia da referência de gestão de projetos:
+ * Janela central da TASK — mesma anatomia da referência de gestão de projetos:
  *   [Concluir] [responsável] [datas] [status] ⋮ ✕
  *   Título                                    Cliente › Projeto
- *   ┌ tarefas / briefing ──────┬ abas de contexto ┐
+ *   ┌ sub-tasks / briefing ────┬ abas de contexto ┐
  * Componente apenas de apresentação: conteúdo e ações vêm por slots.
  */
 import type { ReactNode } from "react";

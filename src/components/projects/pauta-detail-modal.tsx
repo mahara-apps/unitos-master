@@ -1,11 +1,11 @@
 /**
- * Modal de resumo de um item de pauta (job virtual "Pautas") dentro da tela do
+ * Modal de resumo de um item de pauta dentro da tela do
  * projeto. Objetivo: gestão sem trocar de página — a ida para Conteúdo passa a
  * ser uma saída opcional no rodapé.
  *
  * SOMENTE LEITURA para o conteúdo da peça (briefing, legenda, agendamento, rede,
  * formato, local de postagem). Os únicos controles editáveis são os que já
- * existiam: dono e status da tarefa de produção.
+ * existiam: dono e status da sub-task de produção.
  */
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -407,7 +407,7 @@ export function PautaDetailModal({
       invalidate();
       setConfirming(false);
       setOpenedTaskId(id);
-      if (created) toast.success("Tarefa de produção criada");
+      if (created) toast.success("Sub-task de produção criada");
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -698,10 +698,10 @@ export function PautaDetailModal({
           </div>
         </Section>
 
-        {/* Execução: estes controles alteram a tarefa, nunca a peça. */}
+        {/* Execução: estes controles alteram a sub-task, nunca a peça. */}
         <Section title="Execução">
           <div className="flex flex-wrap items-end gap-3 border-t border-border/60 pt-3">
-            <Field label="Responsável pela tarefa">
+            <Field label="Responsável pela sub-task">
               <AssigneePicker
                 value={primary?.assignee_id ?? null}
                 options={team}
@@ -712,7 +712,7 @@ export function PautaDetailModal({
               />
             </Field>
             {primary ? (
-              <Field label="Status da tarefa">
+              <Field label="Status da sub-task">
                 <StatusPicker
                   brandId={brandId}
                   scope="task"
@@ -726,7 +726,7 @@ export function PautaDetailModal({
             ) : null}
             {!primary && item.postId && !tasksQ.isLoading && !tasksQ.isError && canEdit ? (
               <Button variant="outline" size="sm" onClick={() => setConfirming(true)}>
-                Criar tarefa de produção
+                Criar sub-task de produção
               </Button>
             ) : null}
           </div>
@@ -734,7 +734,7 @@ export function PautaDetailModal({
 
         {confirming && item.postId ? (
           <section className="space-y-3 border-y border-border/60 py-4">
-            <h4 className="text-sm font-semibold">Confirmar tarefa de produção</h4>
+            <h4 className="text-sm font-semibold">Confirmar sub-task de produção</h4>
             <p className="text-xs text-muted-foreground">
               {item.title} · {projectName ?? "Projeto"} · Prazo:{" "}
               {formatShortDate(post?.scheduled_at ?? null) ?? "sem prazo"}
@@ -749,7 +749,7 @@ export function PautaDetailModal({
                 </Button>
               </p>
             ) : (
-              <Field label="Responsável pela tarefa">
+              <Field label="Responsável pela sub-task">
                 <AssigneePicker
                   value={chosenAssignee}
                   options={eligibleTeam}
@@ -777,8 +777,8 @@ export function PautaDetailModal({
           </section>
         ) : null}
 
-        {/* Tarefas de produção ligadas ao item */}
-        <Section title="Tarefas de produção">
+        {/* Sub-tasks de produção ligadas ao item */}
+        <Section title="Sub-tasks de produção">
           {tasksQ.isLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-10 w-full" />
@@ -786,7 +786,7 @@ export function PautaDetailModal({
             </div>
           ) : tasksQ.isError ? (
             <p role="alert" className="text-sm text-destructive">
-              Não foi possível carregar as tarefas.{" "}
+              Não foi possível carregar as sub-tasks.{" "}
               <Button variant="outline" size="sm" onClick={() => void tasksQ.refetch()}>
                 Tentar novamente
               </Button>
@@ -794,7 +794,7 @@ export function PautaDetailModal({
           ) : tasks.length === 0 ? (
             <div className="rounded-lg border border-border/60">
               <PanelEmptyState
-                text="Nenhuma tarefa de produção vinculada a este item ainda."
+                text="Nenhuma sub-task de produção vinculada a este item ainda."
                 icon={null}
               />
             </div>
@@ -831,7 +831,7 @@ export function PautaDetailModal({
             />
           ) : (
             <p className="text-[11px] text-muted-foreground">
-              As observações ficam disponíveis quando o item vira tarefa de produção.
+              As observações ficam disponíveis quando o item vira sub-task de produção.
             </p>
           )}
         </Section>

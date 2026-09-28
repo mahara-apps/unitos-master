@@ -33,11 +33,9 @@ Toda alteracao exige pacote MASTER propagavel, nesta sequencia:
 ACL cliente: revogar privilégios perigosos de anon em tabelas novas; defaults podem ser herdados.
 Update falha abre nova operação com pacote publicado e reconcilia ledger; nunca faz retry de provision.
 
-## Fluxo de tarefas e peças
+## Tarefas e peças
 
-Minhas tarefas filtra responsável antes do limite; atribuições usam `can_access_client`. Peças movem via `movePostFn` no pipeline; tarefa de produção exige confirmação (donos independentes).
-
-Filtros e visões de Tarefas usam o endereço; listagem pagina sob RLS para achar tarefas antigas.
+Minhas tarefas filtra responsável antes do limite e pagina sob RLS; atribuições usam `can_access_client`. Peças movem via `movePostFn`; produção exige confirmação (donos independentes). Em Projetos, UI: Projeto > Task > Sub-task > Checklist; nomes internos não mudam.
 
 ## Regras canônicas
 

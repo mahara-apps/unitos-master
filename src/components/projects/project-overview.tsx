@@ -75,7 +75,7 @@ function activityLabel(event: ProjectOverviewActivity) {
     completed: "concluiu",
     reopened: "reabriu",
   };
-  const entities: Record<string, string> = { project: "o projeto", job: "um job", task: "uma tarefa" };
+  const entities: Record<string, string> = { project: "o projeto", job: "uma task", task: "uma sub-task" };
   return `${actions[event.verb] ?? event.verb.replaceAll("_", " ")} ${entities[event.entity_type] ?? "um item"}`;
 }
 
@@ -157,7 +157,7 @@ export function ProjectOverview(props: Props) {
           value={overviewQ.isLoading ? "—" : formatMinutes(overview?.totalMinutes ?? 0)}
           icon={<Clock3 />}
           status={overview?.running ? "success" : "neutral"}
-          description={overview?.running ? "timer em andamento" : "horas somadas dos jobs"}
+          description={overview?.running ? "timer em andamento" : "horas somadas das tasks"}
         />
         <PageKpi
           label="Prazo"
@@ -178,17 +178,17 @@ export function ProjectOverview(props: Props) {
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         <DashboardPanelSurface className="min-w-0">
           <SectionHeader
-            title="Resumo de jobs"
+            title="Resumo de tasks"
             action={
               <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setNewJobOpen(true)}>
-                <Plus className="h-3.5 w-3.5" /> Novo job
+                <Plus className="h-3.5 w-3.5" /> Nova task
               </Button>
             }
           />
           {overviewQ.isLoading ? (
             <div className="space-y-2 p-4"><Skeleton className="h-14" /><Skeleton className="h-14" /><Skeleton className="h-14" /></div>
           ) : jobs.length === 0 ? (
-            <div className="grid min-h-44 place-items-center px-5 text-center text-xs text-muted-foreground">Nenhum job ativo neste projeto.</div>
+            <div className="grid min-h-44 place-items-center px-5 text-center text-xs text-muted-foreground">Nenhuma task ativa neste projeto.</div>
           ) : (
             <div className="divide-y divide-border/60">
               {jobs.map((job) => {
@@ -219,7 +219,7 @@ export function ProjectOverview(props: Props) {
             </div>
           )}
           <div className="flex justify-end border-t border-border/60 px-4 py-2.5">
-            <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={props.onViewJobs}>Ver todos os jobs <ArrowRight className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={props.onViewJobs}>Ver todas as tasks <ArrowRight className="h-3.5 w-3.5" /></Button>
           </div>
         </DashboardPanelSurface>
 
@@ -263,10 +263,10 @@ export function ProjectOverview(props: Props) {
 
       <Dialog open={newJobOpen} onOpenChange={setNewJobOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Novo job</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Nova task</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <Input autoFocus value={newJobName} onChange={(event) => setNewJobName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && newJobName.trim()) createMut.mutate(); }} placeholder="Nome do job" />
-            <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setNewJobOpen(false)}>Cancelar</Button><Button onClick={() => createMut.mutate()} disabled={!newJobName.trim() || createMut.isPending}><Plus className="mr-1.5 h-4 w-4" />Criar job</Button></div>
+            <Input autoFocus value={newJobName} onChange={(event) => setNewJobName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && newJobName.trim()) createMut.mutate(); }} placeholder="Nome da task" />
+            <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setNewJobOpen(false)}>Cancelar</Button><Button onClick={() => createMut.mutate()} disabled={!newJobName.trim() || createMut.isPending}><Plus className="mr-1.5 h-4 w-4" />Criar task</Button></div>
           </div>
         </DialogContent>
       </Dialog>

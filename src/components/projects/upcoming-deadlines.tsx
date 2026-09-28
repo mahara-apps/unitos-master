@@ -1,5 +1,5 @@
 /**
- * Próximos prazos do projeto — jobs, tarefas e itens de pauta com data,
+ * Próximos prazos do projeto — tasks, sub-tasks e itens de pauta com data,
  * ordenados do mais próximo para o mais distante. Apenas apresentação.
  */
 import { CalendarClock } from "lucide-react";

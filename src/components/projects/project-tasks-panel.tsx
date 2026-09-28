@@ -54,7 +54,7 @@ export function ProjectTasksPanel({
       <div className="flex items-center justify-between border-b border-border/60 bg-background/40 px-4 py-2.5">
         <div className="flex items-center gap-2">
           <h3 className="font-mono text-[11px] uppercase tracking-widest text-foreground">
-            Tarefas
+            Sub-tasks
           </h3>
           <span className="rounded-md border border-border/60 bg-background/60 px-1.5 py-0.5 font-mono text-xs tabular-nums text-foreground">
             {tasks.length}
@@ -64,14 +64,14 @@ export function ProjectTasksPanel({
           ) : null}
         </div>
         <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-[11px]">
-          <Link to="/tasks">Ver em Tarefas</Link>
+          <Link to="/tasks">Ver em Minhas tarefas</Link>
         </Button>
       </div>
 
       {tasks.length === 0 ? (
         <PanelEmptyState
           icon={<CheckSquare className="h-4 w-4" />}
-          text="As tarefas de produção são criadas automaticamente quando o cliente aprova a pauta."
+          text="As sub-tasks de produção aparecem após a confirmação na pauta."
         />
       ) : (
         <div className="divide-y divide-border/60">

@@ -91,14 +91,14 @@ type ProjectTab = (typeof PROJECT_TABS)[number];
 
 const TAB_LABELS: Record<ProjectTab, string> = {
   overview: "Visão geral",
-  jobs: "Jobs & Pautas",
+  jobs: "Tasks & Pautas",
   comments: "Comentários",
   links: "Anexos",
 };
 
 const projectSearchSchema = z.object({
   tab: z.enum(PROJECT_TABS).optional(),
-  /** Job aberto no painel lateral. */
+  /** Task aberta no painel lateral. */
   job: z.string().uuid().optional(),
   /** Item de pauta aberto no painel lateral. */
   pauta: z.string().optional(),
@@ -111,11 +111,11 @@ export const Route = createFileRoute("/_authenticated/projects/$projectId")({
   head: () => ({
     meta: [
       { title: "Detalhe do projeto | Unitos" },
-      { name: "description", content: "Acompanhe jobs, pautas, tarefas e etapas do projeto." },
+      { name: "description", content: "Acompanhe tasks, pautas, sub-tasks e etapas do projeto." },
       { property: "og:title", content: "Detalhe do projeto | Unitos" },
       {
         property: "og:description",
-        content: "Acompanhe jobs, pautas, tarefas e etapas do projeto.",
+        content: "Acompanhe tasks, pautas, sub-tasks e etapas do projeto.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -573,7 +573,7 @@ function ProjectDetailPage() {
       onOpen: () => setOpenPautaKey(d.key),
     }));
 
-  // Conteúdo do job virtual "Pautas" (nível 2 da hierarquia).
+  // Conteúdo virtual "Pautas", preservado fora da nova nomenclatura operacional.
   const pautasContent = (
     <div>
       <div className="flex items-center justify-between border-b border-border/60 bg-background/40 px-4 py-2.5">
@@ -645,7 +645,7 @@ function ProjectDetailPage() {
                     <>
                       <span>·</span>
                       <span>
-                        {d.tasksCount} {d.tasksCount === 1 ? "tarefa" : "tarefas"}
+                        {d.tasksCount} {d.tasksCount === 1 ? "sub-task" : "sub-tasks"}
                       </span>
                     </>
                   ) : null}
@@ -794,7 +794,7 @@ function ProjectDetailPage() {
           <WorkLinks target="project" targetId={projectId} readOnly={!canEditProject} />
         </DashboardPanelSurface>
       ) : boardOpen ? (
-        /* Board de pautas — nível "job de conteúdo" aberto in-place */
+        /* Board de pautas aberto in-place, sem alterar a nomenclatura editorial. */
         <div className="space-y-4">
           <DashboardPanelSurface>
             <div className="border-b border-border/60 px-4 py-3">
@@ -856,7 +856,7 @@ function ProjectDetailPage() {
         />
       ) : (
         <div className="min-w-0 space-y-4">
-          {/* Níveis 2 e 3 — JOBS › TAREFAS (a pauta é um job de conteúdo na mesma lista) */}
+          {/* Níveis 2 e 3 — TASKS › SUB-TASKS; Pautas permanece como área editorial. */}
           <JobsPanel
             brandId={brandId!}
             projectId={projectId}
@@ -1062,7 +1062,7 @@ function ProjectDetailPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Duplicar projeto?</AlertDialogTitle>
             <AlertDialogDescription>
-              O novo projeto se chamará COPIA - {project?.name}. Jobs, tarefas, subtarefas, datas e
+              O novo projeto se chamará COPIA - {project?.name}. Tasks, sub-tasks, checklists, datas e
               pessoas com acesso serão copiados. Pautas, peças, comentários, horas e progresso não
               serão copiados.
             </AlertDialogDescription>

@@ -52,12 +52,12 @@ type Props = {
     status?: TaskStatus;
     priority?: TaskPriority;
   } | null;
-  /** Caminho da hierarquia (Cliente › Projeto › Job) mostrado no topo. */
+  /** Caminho da hierarquia (Cliente › Projeto › Task) mostrado no topo. */
   breadcrumb?: string;
-  /** Equipe da workspace para escolher o responsável (1 por tarefa). */
+  /** Equipe da workspace para escolher o responsável (1 por sub-task). */
   team?: TeamOption[];
   currentUserId?: string | null;
-  /** Concluir/reabrir a tarefa a partir do próprio detalhe. */
+  /** Concluir/reabrir a sub-task a partir do próprio detalhe. */
   onToggleDone?: () => void;
   taskDone?: boolean;
 };
@@ -158,7 +158,7 @@ export function TaskTimesheetSheet({
       open={open}
       onOpenChange={onOpenChange}
       size="lg"
-      title={task?.title ?? "Tarefa"}
+      title={task?.title ?? "Sub-task"}
       description={breadcrumb}
       headerExtra={
         task && onToggleDone ? (
@@ -197,7 +197,7 @@ export function TaskTimesheetSheet({
                 metaMut.mutate({ status, done: status === "done" })
               }
             >
-              <SelectTrigger className="h-8 w-[145px]" aria-label="Estado da tarefa">
+              <SelectTrigger className="h-8 w-[145px]" aria-label="Estado da sub-task">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -212,7 +212,7 @@ export function TaskTimesheetSheet({
               value={task.priority ?? "medium"}
               onValueChange={(priority) => metaMut.mutate({ priority })}
             >
-              <SelectTrigger className="h-8 w-[120px]" aria-label="Prioridade da tarefa">
+              <SelectTrigger className="h-8 w-[120px]" aria-label="Prioridade da sub-task">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -266,7 +266,7 @@ export function TaskTimesheetSheet({
                   level="task"
                   taskId={task.id}
                   currentUserId={currentUserId}
-                  placeholder="Observação sobre esta tarefa…"
+                  placeholder="Observação sobre esta sub-task…"
                 />
               </div>
             </TabsContent>
