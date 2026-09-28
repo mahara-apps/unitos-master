@@ -1,7 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useBlocker, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowDown, ArrowUp, Archive, Copy, Plus, Trash2, MoreHorizontal, RotateCcw, Search, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,8 @@ export const Route = createFileRoute("/_authenticated/projects/models")({
   component: ProjectModelsPage,
 });
 
-function ProjectModelsPage() {
+export function ProjectModelsPage({ mode = "list", initialTemplateId }: { mode?: "list" | "new" | "edit"; initialTemplateId?: string }) {
+  const navigate = useNavigate();
   const { brandId } = useActiveContext();
   const qc = useQueryClient();
   const list = useServerFn(listTemplatesFn);
@@ -53,8 +54,8 @@ function ProjectModelsPage() {
   const [confirmDelete, setConfirmDelete] = useState<ProjectTemplate | null>(null);
   const [confirmation, setConfirmation] = useState("");
   const [dirty, setDirty] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [templateId, setTemplateId] = useState<string | null>(null);
+  const [editing, setEditing] = useState(mode !== "list");
+  const [templateId, setTemplateId] = useState<string | null>(initialTemplateId ?? null);
   const [sourceProjectId, setSourceProjectId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -65,22 +66,27 @@ function ProjectModelsPage() {
   const templatesQ = useQuery({ queryKey: ["project-templates", brandId], queryFn: () => list({ data: { brandId: brandId ?? "", includeArchived: true } }), enabled: !!brandId });
   const permissionQ = useQuery({ queryKey: ["manage-project-templates", brandId], queryFn: () => permissionFn({ data: { brandId: brandId ?? "" } }), enabled: !!brandId });
   useUnsavedGuard(editing && dirty);
+  useBlocker({ shouldBlockFn: () => editing && dirty && !window.confirm("Descartar alterações não salvas?"), enableBeforeUnload: false });
   const projectsQ = useQuery({ queryKey: ["template-source-projects", brandId], queryFn: () => projectsFn({ data: { brandId: brandId ?? "" } }), enabled: !!brandId && editing && permissionQ.data === true });
-   const save = useMutation({ mutationFn: () => saveFn({ data: { brandId: brandId ?? "", templateId, sourceProjectId, name, description: description || null, blueprint: { ...blueprint, texts: [...blueprint.texts, ...candidates.filter(c => c.selected).map(c => ({ level: c.level, kind: "comment" as const, body: c.body, jobIndex: c.jobIndex, taskIndex: c.taskIndex, sourceId: c.id, sourceKind: c.sourceKind }))] } } }), onSuccess: () => { toast.success("Modelo salvo"); setDirty(false); setEditing(false); qc.invalidateQueries({ queryKey: ["project-templates", brandId] }); }, onError: (e: Error) => toast.error(e.message) });
+    const save = useMutation({ mutationFn: () => saveFn({ data: { brandId: brandId ?? "", templateId, sourceProjectId, name, description: description || null, blueprint: { ...blueprint, texts: [...blueprint.texts, ...candidates.filter(c => c.selected).map(c => ({ level: c.level, kind: "comment" as const, body: c.body, jobIndex: c.jobIndex, taskIndex: c.taskIndex, sourceId: c.id, sourceKind: c.sourceKind }))] } } }), onSuccess: () => { toast.success("Modelo salvo"); setDirty(false); setEditing(false); qc.invalidateQueries({ queryKey: ["project-templates", brandId] }); void navigate({ to: "/projects/models" }); }, onError: (e: Error) => toast.error(e.message) });
    const capture = useMutation({ mutationFn: (projectId: string) => captureFn({ data: { brandId: brandId ?? "", projectId } }), onSuccess: ({ project, blueprint: captured, candidates: sourceTexts, truncated: limited }) => { setSourceProjectId(project.id); setName(project.name); setBlueprint({ ...captured, directTasks: captured.directTasks ?? [] } as Blueprint); setTruncated(limited); setCandidates(sourceTexts.filter(c => c.level !== "job" || ("jobIndex" in c && (c.jobIndex ?? -1) >= 0)).filter(c => c.level !== "task" || ("taskIndex" in c && (c.taskIndex ?? -1) >= 0)).map(c => ({ ...c, selected: false }))); setDirty(true); }, onError: (e: Error) => toast.error(e.message) });
   const archive = useMutation({ mutationFn: (id: string) => archiveFn({ data: { brandId: brandId ?? "", templateId: id } }), onSuccess: () => { toast.success("Modelo arquivado"); qc.invalidateQueries({ queryKey: ["project-templates", brandId] }); }, onError: (e: Error) => toast.error(e.message) });
    const restore = useMutation({ mutationFn: (id: string) => restoreFn({ data: { brandId: brandId ?? "", templateId: id } }), onSuccess: () => { toast.success("Modelo restaurado"); qc.invalidateQueries({ queryKey: ["project-templates", brandId] }); }, onError: (e: Error) => toast.error(e.message) });
    const remove = useMutation({ mutationFn: () => deleteFn({ data: { brandId: brandId ?? "", templateId: confirmDelete?.id ?? "", confirmation } }), onSuccess: () => { toast.success("Modelo excluído"); setConfirmDelete(null); setConfirmation(""); qc.invalidateQueries({ queryKey: ["project-templates", brandId] }); }, onError: (e: Error) => toast.error(e.message) });
-   const closeEditor = () => { if (dirty && !window.confirm("Descartar alterações não salvas?")) return; setDirty(false); setEditing(false); };
-   const startNew = () => { setTemplateId(null); setSourceProjectId(null); setName(""); setDescription(""); setBlueprint(emptyBlueprint()); setCandidates([]); setTruncated(false); setDirty(false); setEditing(true); };
-   const openTemplate = (t: ProjectTemplate, duplicate = false) => { setTemplateId(duplicate ? null : t.id); setSourceProjectId(null); setName(duplicate ? `Cópia de ${t.name}` : t.name); setDescription(t.description ?? ""); setBlueprint(t.blueprint && typeof t.blueprint === "object" && !Array.isArray(t.blueprint) ? { ...emptyBlueprint(), ...t.blueprint as Blueprint } : emptyBlueprint()); setCandidates([]); setTruncated(false); setDirty(false); setEditing(true); };
-  const updateJob = (index: number, patch: Partial<Job>) => setBlueprint(b => ({ ...b, jobs: b.jobs.map((j, i) => i === index ? { ...j, ...patch } : j) }));
-  const moveJob = (index: number, offset: number) => setBlueprint(b => { const jobs = [...b.jobs]; const target = index + offset; if (target < 0 || target >= jobs.length) return b; [jobs[index], jobs[target]] = [jobs[target], jobs[index]]; return { ...b, jobs, texts: b.texts.map(t => t.jobIndex === index ? { ...t, jobIndex: target } : t.jobIndex === target ? { ...t, jobIndex: index } : t) }; });
-  const moveTask = (jobIndex: number, index: number, offset: number) => setBlueprint(b => { const jobs = [...b.jobs]; const job = jobs[jobIndex]; const tasks = [...job.tasks]; const target = index + offset; if (target < 0 || target >= tasks.length) return b; [tasks[index], tasks[target]] = [tasks[target], tasks[index]]; jobs[jobIndex] = { ...job, tasks }; return { ...b, jobs }; });
+    const closeEditor = () => { if (dirty && !window.confirm("Descartar alterações não salvas?")) return; setDirty(false); void navigate({ to: "/projects/models" }); };
+    const openTemplate = (t: ProjectTemplate, duplicate = false) => { setTemplateId(duplicate ? null : t.id); setSourceProjectId(null); setName(duplicate ? `Cópia de ${t.name}` : t.name); setDescription(t.description ?? ""); setBlueprint(t.blueprint && typeof t.blueprint === "object" && !Array.isArray(t.blueprint) ? { ...emptyBlueprint(), ...t.blueprint as Blueprint, texts: ((t.blueprint as Blueprint).texts ?? []).map(({ sourceId, sourceKind, ...text }) => text) } : emptyBlueprint()); setCandidates([]); setTruncated(false); setDirty(duplicate); setEditing(true); };
+   useEffect(() => {
+     if (mode !== "edit" || !initialTemplateId || !templatesQ.data || permissionQ.data !== true) return;
+     const template = templatesQ.data.find(t => t.id === initialTemplateId && !t.is_system && !t.archived_at);
+     if (template && name === "") openTemplate(template);
+   }, [mode, initialTemplateId, templatesQ.data, permissionQ.data]);
+   const updateJob = (index: number, patch: Partial<Job>) => { setDirty(true); setBlueprint(b => ({ ...b, jobs: b.jobs.map((j, i) => i === index ? { ...j, ...patch } : j) })); };
+   const moveJob = (index: number, offset: number) => { setDirty(true); setBlueprint(b => { const jobs = [...b.jobs]; const target = index + offset; if (target < 0 || target >= jobs.length) return b; [jobs[index], jobs[target]] = [jobs[target], jobs[index]]; return { ...b, jobs, texts: b.texts.map(t => t.jobIndex === index ? { ...t, jobIndex: target } : t.jobIndex === target ? { ...t, jobIndex: index } : t) }; }); };
+   const moveTask = (jobIndex: number, index: number, offset: number) => { setDirty(true); setBlueprint(b => { const jobs = [...b.jobs]; const job = jobs[jobIndex]; const tasks = [...job.tasks]; const target = index + offset; if (target < 0 || target >= tasks.length) return b; [tasks[index], tasks[target]] = [tasks[target], tasks[index]]; jobs[jobIndex] = { ...job, tasks }; return { ...b, jobs }; }); };
   if (!brandId) return <DashboardPageShell><p className="text-muted-foreground">Selecione um workspace.</p></DashboardPageShell>;
-   const visible = (templatesQ.data ?? []).filter(t => filter === "system" ? t.is_system : filter === "archived" ? !t.is_system && !!t.archived_at : !t.is_system && !t.archived_at).filter(t => t.name.toLocaleLowerCase("pt-BR").includes(search.trim().toLocaleLowerCase("pt-BR")));
+    const visible = (templatesQ.data ?? []).filter(t => filter === "system" ? t.is_system : filter === "archived" ? !t.is_system && !!t.archived_at : !t.is_system && !t.archived_at).filter(t => t.name.toLocaleLowerCase("pt-BR").includes(search.trim().toLocaleLowerCase("pt-BR")));
   return <DashboardPageShell>
-    <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="ghost" asChild><Link to="/projects"><ArrowLeft className="mr-2 size-4" /> Projetos</Link></Button>{!editing && permissionQ.data === true && <Button onClick={startNew}><Plus className="mr-2 size-4" /> Novo modelo</Button>}</div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="ghost" asChild><Link to={editing ? "/projects/models" : "/projects"}><ArrowLeft className="mr-2 size-4" /> {editing ? "Modelos" : "Projetos"}</Link></Button>{!editing && permissionQ.data === true && <Button asChild><Link to="/projects/models/new"><Plus className="mr-2 size-4" /> Novo modelo</Link></Button>}</div>
     {!editing ? <div className="space-y-5">
       <div className="space-y-1"><h1 className="text-2xl font-semibold">Modelos de projeto</h1><p className="text-sm text-muted-foreground">Estruturas disponíveis neste workspace.</p></div>
       <div className="flex flex-wrap items-center gap-3 border-b border-border pb-4"><div className="relative min-w-48 flex-1 sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/><Input aria-label="Buscar modelos" placeholder="Buscar modelos" className="pl-9" value={search} onChange={e => setSearch(e.target.value)} /></div><div className="flex gap-1" role="group" aria-label="Filtrar modelos">{([['active','Ativos'],['archived','Arquivados'],['system','Sistema']] as const).map(([key,label]) => <Button key={key} size="sm" variant={filter === key ? "secondary" : "ghost"} onClick={() => setFilter(key)}>{label}</Button>)}</div></div>
