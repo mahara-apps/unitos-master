@@ -301,7 +301,6 @@ export function PautaDetailModal({
   onOpenChange,
   brandId,
   projectId,
-  clientId,
   item,
   team,
   currentUserId,
@@ -313,7 +312,6 @@ export function PautaDetailModal({
   onOpenChange: (o: boolean) => void;
   brandId: string;
   projectId: string;
-  clientId: string | null;
   item: PautaDetailItem | null;
   team: TeamOption[];
   currentUserId?: string | null;
@@ -379,7 +377,7 @@ export function PautaDetailModal({
     : null;
   useEffect(() => {
     if (confirming && eligibleQ.isSuccess) setChosenAssignee(suggestedAssignee);
-  }, [confirming, eligibleQ.isSuccess, suggestedAssignee]);
+  }, [confirming, eligibleQ.isSuccess, suggestedAssignee, item?.postId]);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["tasks", brandId] });
@@ -427,7 +425,7 @@ export function PautaDetailModal({
     <PautaShell
       variant={variant}
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(next) => { if (!openedTaskId) onOpenChange(next); }}
       title={item.title}
       description={
         [projectName, "Pauta", channelText, formatText].filter(Boolean).join(" › ") ||
@@ -518,6 +516,9 @@ export function PautaDetailModal({
             <Skeleton className="h-16 w-full" />
             <Skeleton className="h-24 w-full" />
           </div>
+        ) : null}
+        {detailQ.isError ? (
+          <p role="alert" className="text-sm text-destructive">Não foi possível carregar a peça. <Button variant="outline" size="sm" onClick={() => void detailQ.refetch()}>Tentar novamente</Button></p>
         ) : null}
 
         {/* Local de postagem */}
@@ -715,7 +716,7 @@ export function PautaDetailModal({
           <section className="space-y-3 border-y border-border/60 py-4">
             <h4 className="text-sm font-semibold">Confirmar tarefa de produção</h4>
             <p className="text-xs text-muted-foreground">
-              {item.title} · {projectName ?? "Projeto"} · Prazo: {formatShortDate(item.scheduledAt) ?? "sem prazo"}
+              {item.title} · {projectName ?? "Projeto"} · Prazo: {formatShortDate(post?.scheduled_at ?? null) ?? "sem prazo"}
             </p>
             {eligibleQ.isLoading ? <p className="text-xs">Carregando responsáveis…</p> : eligibleQ.isError ? (
               <p role="alert" className="text-xs text-destructive">Não foi possível verificar a equipe. <Button variant="outline" size="sm" onClick={() => void eligibleQ.refetch()}>Tentar novamente</Button></p>

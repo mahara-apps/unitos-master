@@ -897,7 +897,6 @@ function ProjectDetailPage() {
         onOpenChange={(o) => !o && setOpenPautaKey(null)}
         brandId={brandId!}
         projectId={projectId}
-        clientId={project.client_id ?? null}
         item={pautaDetails.find((d) => d.key === openPautaKey) ?? null}
         projectName={project.name}
         team={team}
