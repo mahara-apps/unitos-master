@@ -111,7 +111,6 @@ export function NewFromTemplateDialog({ open, onOpenChange, brandId }: Props) {
                 <div className="col-span-full rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
                   Nenhum modelo disponível ainda.
                 </div>
-         {selected && <div className="space-y-2 border-y border-border py-4 text-sm"><p className="font-medium">Revisão · {selected.name}</p><p>{selected.jobs_count ?? 0} jobs · {selected.tasks_count ?? 0} tarefas · {review.data?.texts ?? 0} textos padrão</p><p>Cliente: {clients.find(c => c.id === clientId)?.name ?? "Sem cliente"}</p>{review.isLoading && <p className="text-muted-foreground">Conferindo pessoas...</p>}{review.isError && <p role="alert" className="text-destructive">Não foi possível revisar o modelo. Tente novamente.</p>}{review.data && <p className={review.data.ineligible > 0 ? "text-destructive" : "text-muted-foreground"}>{review.data.ineligible > 0 ? `${review.data.ineligible} pessoas sem acesso ao cliente; ficarão sem atribuição. ` : "Pessoas aptas verificadas. "}Sem datas, horas ou histórico.</p>}</div>}
               )}
               {templates.map((t) => (
                 <Button
@@ -133,6 +132,7 @@ export function NewFromTemplateDialog({ open, onOpenChange, brandId }: Props) {
                       <Layers className="h-4 w-4 text-muted-foreground" />
                       <div className="text-sm font-medium">{t.name}</div>
                     </div>
+           {selected && <div className="space-y-2 border-y border-border py-4 text-sm"><p className="font-medium">Revisão · {selected.name}</p><p>{selected.jobs_count ?? 0} jobs · {selected.tasks_count ?? 0} tarefas · {review.data?.texts ?? 0} textos padrão</p><p>Cliente: {clients.find(c => c.id === clientId)?.name ?? "Sem cliente"}</p>{review.isLoading && <p className="text-muted-foreground">Conferindo pessoas...</p>}{review.isError && <p role="alert" className="text-destructive">Não foi possível revisar o modelo. Tente novamente.</p>}{review.data && <p className={review.data.ineligible > 0 ? "text-destructive" : "text-muted-foreground"}>{review.data.ineligible > 0 ? `${review.data.ineligible} pessoas sem acesso ao cliente; ficarão sem atribuição. ` : "Pessoas aptas verificadas. "}Sem datas, horas ou histórico.</p>}</div>}
                     {t.is_system && (
                       <Badge variant="secondary" className="text-[10px]">
                         Sistema
