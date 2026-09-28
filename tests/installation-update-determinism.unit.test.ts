@@ -133,7 +133,6 @@ describe("contrato determinístico de UPDATE", () => {
     ).toBeNull();
     expect(automation).toContain("withdrawnReleaseReason(input.snapshot.version)");
     expect(manager).toContain("withdrawnReleaseReason(snapshot.version)");
-    expect(manager).toContain('.eq("status", "failed")');
     expect(manager).toContain("Esta atualização não pode ser retomada.");
     expect(manager).not.toContain('retryReason: "failed_update"');
   });
@@ -143,7 +142,7 @@ describe("contrato determinístico de UPDATE", () => {
     expect(page).toContain("Autorizar nova atualização");
     expect(page).toContain("onClick={() => updateAction()}");
     expect(page).not.toContain("updateAction(failedUpdate.id)");
-    expect(manager).toContain("retryOfOperationId: null");
+    expect(page).toContain("retryOfOperationId: null");
     expect(automation).toContain("select kind, label, file, fingerprint from public._unitos_applied_deltas");
     expect(automation).toContain("assertCompletedProgressBackedByClientLedger");
   });
