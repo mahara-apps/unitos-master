@@ -629,7 +629,7 @@ function InstallationDetailPage() {
       if (automated) autoValidate.mutate({ confirmLabel });
       else start.mutate({ kind: "validate", confirmLabel });
     });
-  const updateAction = (retryOfOperationId?: string | null) => {
+  const updateAction = () => {
     if (withdrawnMasterReason) {
       toast.error(withdrawnMasterReason);
       return;
@@ -647,7 +647,7 @@ function InstallationDetailPage() {
           autoUpdate.mutate({
             commitSha: masterVersion.data?.commitSha ?? null,
             confirmLabel,
-            retryOfOperationId: retryOfOperationId ?? null,
+            retryOfOperationId: null,
           }),
         versionDetails(),
       );
@@ -1317,18 +1317,18 @@ function InstallationDetailPage() {
                 </div>
               )}
 
-              {automated && !activeOp && lastProvision?.kind === "update" && failedUpdate ? (
+              {automated && !activeOp && lastProvision?.id === failedUpdate?.id ? (
                 <Button
                   size="sm"
                   disabled={autoUpdate.isPending || Boolean(withdrawnMasterReason)}
-                  onClick={() => updateAction(failedUpdate.id)}
+                  onClick={() => updateAction()}
                 >
                   {autoUpdate.isPending ? (
                     <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                   ) : (
                     <ArrowDownToLine className="mr-1.5 h-3.5 w-3.5" />
                   )}
-                  {withdrawnMasterReason ? "Atualização recolhida" : "Retomar atualização"}
+                  {withdrawnMasterReason ? "Atualização recolhida" : "Autorizar nova atualização"}
                 </Button>
               ) : automated && !activeOp ? (
                 <Button

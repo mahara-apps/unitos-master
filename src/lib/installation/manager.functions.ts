@@ -1735,18 +1735,10 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
         );
       }
       if (data.retryOfOperationId) {
-        const { data: retrySource, error: retryError } = await supabase
-          .from("installation_operations")
-          .select("id")
-          .eq("id", data.retryOfOperationId)
-          .eq("installation_id", data.id)
-          .eq("kind", "update")
-          .eq("status", "failed")
-          .maybeSingle();
-        if (retryError) throw installationServerError(retryError);
-        if (!retrySource) {
-          throw new Error("A atualização informada não é elegível para retomada segura.");
-        }
+        // O RPC só herda checkpoints de provision do mesmo pacote. Updates
+        // corrigidos usam outro snapshot: o ledger Client reconcilia migrations
+        // confirmadas em uma operação nova, preservando a tentativa anterior.
+        throw new Error("Esta atualização não pode ser retomada. Autorize uma nova atualização após publicar o MASTER corrigido.");
       }
 
       await assertNoActiveInstallationOperation(supabase, data.id);
@@ -1817,11 +1809,7 @@ export const runAutomatedUpdateFn = createServerFn({ method: "POST" })
             ? `${record.pinnedRelease ?? record.currentVersion ?? "?"} · ${record.pinnedCommitSha.slice(0, 7)}`
             : (record.currentVersion ?? null),
           toVersion: `${snapshot.version} · ${targetSha.slice(0, 7)}`,
-          ...(data.retryOfOperationId
-            ? { retryOfOperationId: data.retryOfOperationId, retryReason: "failed_update" as const }
-            : {}),
         },
-        retryOfOperationId: data.retryOfOperationId ?? null,
       });
       await supabase.from("installations").update({ pinned_by: context.userId }).eq("id", data.id);
 

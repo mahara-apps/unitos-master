@@ -134,6 +134,17 @@ describe("contrato determinístico de UPDATE", () => {
     expect(automation).toContain("withdrawnReleaseReason(input.snapshot.version)");
     expect(manager).toContain("withdrawnReleaseReason(snapshot.version)");
     expect(manager).toContain('.eq("status", "failed")');
-    expect(manager).toContain("retryOfOperationId: data.retryOfOperationId ?? null");
+    expect(manager).toContain("Esta atualização não pode ser retomada.");
+    expect(manager).not.toContain('retryReason: "failed_update"');
+  });
+
+  it("não herda update de pacote diferente e reconcilia pelo ledger Client", () => {
+    const page = readFileSync("src/routes/_authenticated/admin.instalacoes.$id.tsx", "utf8");
+    expect(page).toContain("Autorizar nova atualização");
+    expect(page).toContain("onClick={() => updateAction()}");
+    expect(page).not.toContain("updateAction(failedUpdate.id)");
+    expect(manager).toContain("retryOfOperationId: null");
+    expect(automation).toContain("select kind, label, file, fingerprint from public._unitos_applied_deltas");
+    expect(automation).toContain("assertCompletedProgressBackedByClientLedger");
   });
 });
