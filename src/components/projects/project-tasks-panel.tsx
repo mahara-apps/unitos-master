@@ -64,14 +64,14 @@ export function ProjectTasksPanel({
           ) : null}
         </div>
         <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-[11px]">
-          <Link to="/tasks">Ver em Tarefas</Link>
+          <Link to="/tasks">Ver em Minhas tarefas</Link>
         </Button>
       </div>
 
       {tasks.length === 0 ? (
         <PanelEmptyState
           icon={<CheckSquare className="h-4 w-4" />}
-          text="As tarefas de produção são criadas automaticamente quando o cliente aprova a pauta."
+          text="As sub-tasks de produção aparecem após a confirmação na pauta."
         />
       ) : (
         <div className="divide-y divide-border/60">

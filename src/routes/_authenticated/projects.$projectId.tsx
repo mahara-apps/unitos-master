@@ -91,7 +91,7 @@ type ProjectTab = (typeof PROJECT_TABS)[number];
 
 const TAB_LABELS: Record<ProjectTab, string> = {
   overview: "Visão geral",
-  jobs: "Jobs & Pautas",
+  jobs: "Tasks & Pautas",
   comments: "Comentários",
   links: "Anexos",
 };
@@ -111,11 +111,11 @@ export const Route = createFileRoute("/_authenticated/projects/$projectId")({
   head: () => ({
     meta: [
       { title: "Detalhe do projeto | Unitos" },
-      { name: "description", content: "Acompanhe jobs, pautas, tarefas e etapas do projeto." },
+      { name: "description", content: "Acompanhe tasks, pautas, sub-tasks e etapas do projeto." },
       { property: "og:title", content: "Detalhe do projeto | Unitos" },
       {
         property: "og:description",
-        content: "Acompanhe jobs, pautas, tarefas e etapas do projeto.",
+        content: "Acompanhe tasks, pautas, sub-tasks e etapas do projeto.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -645,7 +645,7 @@ function ProjectDetailPage() {
                     <>
                       <span>·</span>
                       <span>
-                        {d.tasksCount} {d.tasksCount === 1 ? "tarefa" : "tarefas"}
+                        {d.tasksCount} {d.tasksCount === 1 ? "sub-task" : "sub-tasks"}
                       </span>
                     </>
                   ) : null}
@@ -1062,7 +1062,7 @@ function ProjectDetailPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Duplicar projeto?</AlertDialogTitle>
             <AlertDialogDescription>
-              O novo projeto se chamará COPIA - {project?.name}. Jobs, tarefas, subtarefas, datas e
+              O novo projeto se chamará COPIA - {project?.name}. Tasks, sub-tasks, checklists, datas e
               pessoas com acesso serão copiados. Pautas, peças, comentários, horas e progresso não
               serão copiados.
             </AlertDialogDescription>
