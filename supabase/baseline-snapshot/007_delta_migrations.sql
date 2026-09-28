@@ -6421,3 +6421,198 @@ DROP POLICY IF EXISTS "project_templates insert brand" ON public.project_templat
 CREATE POLICY "project_templates insert brand" ON public.project_templates FOR INSERT TO authenticated WITH CHECK (NOT is_system AND brand_id IS NOT NULL AND public.is_brand_member(brand_id,auth.uid()) AND public.app_access_role(auth.uid(),brand_id) IN ('super_admin','admin','manager','user') AND (source_client_id IS NULL AND public.app_access_role(auth.uid(),brand_id) IN ('super_admin','admin') OR source_client_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.clients c WHERE c.id=source_client_id AND c.brand_id=project_templates.brand_id) AND public.can_access_client(source_client_id,auth.uid())));
 DROP POLICY IF EXISTS "project_templates update brand" ON public.project_templates;
 CREATE POLICY "project_templates update brand" ON public.project_templates FOR UPDATE TO authenticated USING (NOT is_system AND brand_id IS NOT NULL AND public.is_brand_member(brand_id,auth.uid()) AND public.app_access_role(auth.uid(),brand_id) IN ('super_admin','admin','manager','user') AND (source_client_id IS NULL OR public.can_access_client(source_client_id,auth.uid()))) WITH CHECK (NOT is_system AND brand_id IS NOT NULL AND public.is_brand_member(brand_id,auth.uid()) AND public.app_access_role(auth.uid(),brand_id) IN ('super_admin','admin','manager','user') AND (source_client_id IS NULL AND public.app_access_role(auth.uid(),brand_id) IN ('super_admin','admin') OR source_client_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.clients c WHERE c.id=source_client_id AND c.brand_id=project_templates.brand_id) AND public.can_access_client(source_client_id,auth.uid())));
+
+-- ---------------------------------------------------------------------------
+-- 20260928003648_0215a428-74fc-455f-8508-b6d38511dadb.sql
+-- ---------------------------------------------------------------------------
+CREATE TABLE public.project_template_requests (
+  id uuid PRIMARY KEY,
+  brand_id uuid NOT NULL REFERENCES public.brands(id),
+  template_id uuid NOT NULL REFERENCES public.project_templates(id),
+  client_id uuid REFERENCES public.clients(id),
+  project_name text NOT NULL,
+  created_by uuid NOT NULL,
+  project_id uuid REFERENCES public.projects(id),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT SELECT, INSERT, UPDATE ON public.project_template_requests TO authenticated;
+GRANT ALL ON public.project_template_requests TO service_role;
+ALTER TABLE public.project_template_requests ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "template requests own read" ON public.project_template_requests FOR SELECT TO authenticated USING (created_by=auth.uid() AND public.is_brand_member(brand_id,auth.uid()));
+CREATE POLICY "template requests own insert" ON public.project_template_requests FOR INSERT TO authenticated WITH CHECK (created_by=auth.uid() AND project_id IS NULL AND public.is_brand_member(brand_id,auth.uid()) AND (client_id IS NULL OR public.can_access_client(client_id,auth.uid())));
+CREATE POLICY "template requests own update" ON public.project_template_requests FOR UPDATE TO authenticated USING (created_by=auth.uid() AND public.is_brand_member(brand_id,auth.uid())) WITH CHECK (created_by=auth.uid() AND public.is_brand_member(brand_id,auth.uid()) AND (client_id IS NULL OR public.can_access_client(client_id,auth.uid())));
+CREATE OR REPLACE FUNCTION public.instantiate_project_template_once(_template_id uuid,_brand_id uuid,_client_id uuid,_project_name text,_request_id uuid) RETURNS uuid LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $$
+DECLARE _uid uuid:=auth.uid(); _existing public.project_template_requests%ROWTYPE; _new uuid; _normalized text:=trim(_project_name);
+BEGIN
+ IF _uid IS NULL OR _request_id IS NULL OR NOT public.is_brand_member(_brand_id,_uid) THEN RAISE EXCEPTION 'Forbidden' USING ERRCODE='42501'; END IF;
+ IF length(_normalized) NOT BETWEEN 2 AND 120 THEN RAISE EXCEPTION 'Invalid project name'; END IF;
+ IF _client_id IS NOT NULL AND NOT public.can_access_client(_client_id,_uid) THEN RAISE EXCEPTION 'Client out of scope' USING ERRCODE='42501'; END IF;
+ SELECT * INTO _existing FROM public.project_template_requests WHERE id=_request_id FOR UPDATE;
+ IF FOUND THEN
+  IF _existing.created_by IS DISTINCT FROM _uid OR _existing.template_id IS DISTINCT FROM _template_id OR _existing.brand_id IS DISTINCT FROM _brand_id OR _existing.client_id IS DISTINCT FROM _client_id OR _existing.project_name IS DISTINCT FROM _normalized THEN RAISE EXCEPTION 'Request already used for another project' USING ERRCODE='23505'; END IF;
+  IF _existing.project_id IS NOT NULL THEN RETURN _existing.project_id; END IF;
+ ELSE
+  INSERT INTO public.project_template_requests(id,brand_id,template_id,client_id,project_name,created_by) VALUES(_request_id,_brand_id,_template_id,_client_id,_normalized,_uid);
+ END IF;
+ _new:=public.instantiate_project_template(_template_id,_brand_id,_client_id,_normalized);
+ UPDATE public.project_template_requests SET project_id=_new,updated_at=now() WHERE id=_request_id AND created_by=_uid;
+ RETURN _new;
+END $$;
+REVOKE ALL ON FUNCTION public.instantiate_project_template_once(uuid,uuid,uuid,text,uuid) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.instantiate_project_template_once(uuid,uuid,uuid,text,uuid) TO authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 20260928004009_b6e88af8-c54a-458d-a1d0-8937acd02f8c.sql
+-- ---------------------------------------------------------------------------
+ALTER FUNCTION public.save_project_template(uuid,uuid,text,text,jsonb,uuid) RENAME TO save_project_template_checked_base;
+REVOKE ALL ON FUNCTION public.save_project_template_checked_base(uuid,uuid,text,text,jsonb,uuid) FROM PUBLIC,anon,authenticated;
+CREATE FUNCTION public.save_project_template(_brand_id uuid,_template_id uuid,_name text,_description text,_blueprint jsonb,_source_project_id uuid DEFAULT NULL) RETURNS uuid LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $fn$
+DECLARE _text jsonb; _source uuid; _kind text; _client uuid; _uid uuid:=auth.uid();
+BEGIN
+ IF _uid IS NULL THEN RAISE EXCEPTION 'Forbidden' USING ERRCODE='42501'; END IF;
+ IF _source_project_id IS NOT NULL THEN
+  SELECT p.client_id INTO _client FROM public.projects p WHERE p.id=_source_project_id AND p.brand_id=_brand_id AND public.can_access_project(p.id,_uid);
+  IF NOT FOUND THEN RAISE EXCEPTION 'Project out of scope' USING ERRCODE='42501'; END IF;
+  FOR _text IN SELECT value FROM jsonb_array_elements(coalesce(_blueprint->'texts','[]'::jsonb)) LOOP
+   _source:=nullif(_text->>'sourceId','')::uuid; _kind:=_text->>'sourceKind';
+   IF _source IS NULL OR NOT (
+    (_kind='work_comment' AND EXISTS (SELECT 1 FROM public.work_comments c WHERE c.id=_source AND c.project_id=_source_project_id AND c.brand_id=_brand_id)) OR
+    (_kind='task_comment' AND EXISTS (SELECT 1 FROM public.task_comments c JOIN public.tasks t ON t.id=c.task_id WHERE c.id=_source AND t.project_id=_source_project_id AND c.brand_id=_brand_id AND public.can_access_task(t.id,_uid))) OR
+    (_kind='client_briefing' AND EXISTS (SELECT 1 FROM public.client_briefings b WHERE b.id=_source AND b.client_id=_client AND public.can_access_client(b.client_id,_uid))) OR
+    (_kind='brand_briefing' AND EXISTS (SELECT 1 FROM public.brand_briefings b WHERE b.id=_source AND b.client_id=_client AND b.brand_id=_brand_id AND public.can_access_client(b.client_id,_uid)))
+   ) THEN RAISE EXCEPTION 'Source text out of scope' USING ERRCODE='42501'; END IF;
+  END LOOP;
+ END IF;
+ RETURN public.save_project_template_checked_base(_brand_id,_template_id,_name,_description,_blueprint,_source_project_id);
+END $fn$;
+REVOKE ALL ON FUNCTION public.save_project_template(uuid,uuid,text,text,jsonb,uuid) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.save_project_template(uuid,uuid,text,text,jsonb,uuid) TO authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 20260928004126_a3b8f3f4-41df-4cff-9f55-86c8916f0e7c.sql
+-- ---------------------------------------------------------------------------
+DO $migration$
+DECLARE _definition text; _old text; _new text;
+BEGIN
+ _definition:=pg_get_functiondef('public.instantiate_project_template(uuid,uuid,uuid,text)'::regprocedure);
+ _old:=substring(_definition from 'FOR _text IN SELECT value FROM jsonb_array_elements\(_t\.blueprint -> ''texts''\) LOOP[\s\S]*?END LOOP;');
+ IF _old IS NULL THEN _old:=substring(_definition from 'FOR _text IN SELECT value FROM jsonb_array_elements\(_t\.blueprint->''texts''\) LOOP[\s\S]*?END LOOP;'); END IF;
+ IF _old IS NULL THEN RAISE EXCEPTION 'Expected template text loop not found'; END IF;
+ _new:=$body$FOR _text IN SELECT value FROM jsonb_array_elements(_t.blueprint->'texts') LOOP
+    IF length(trim(coalesce(_text->>'body',''))) = 0 THEN CONTINUE; END IF;
+    IF _text->>'level'='project' THEN
+      UPDATE public.projects SET description=concat_ws(E'\n\n',nullif(description,''),_text->>'body') WHERE id=_new;
+    ELSIF _text->>'level'='job' AND coalesce((_text->>'jobIndex')::int,-1)+1 BETWEEN 1 AND coalesce(array_length(_job_ids,1),0) THEN
+      UPDATE public.project_jobs SET description=concat_ws(E'\n\n',nullif(description,''),_text->>'body') WHERE id=_job_ids[(_text->>'jobIndex')::int+1];
+    ELSIF _text->>'level'='task' AND coalesce((_text->>'taskIndex')::int,-1)+1 BETWEEN 1 AND coalesce(array_length(_task_ids,1),0) THEN
+      UPDATE public.tasks SET description=concat_ws(E'\n\n',nullif(description,''),_text->>'body') WHERE id=_task_ids[(_text->>'taskIndex')::int+1];
+    END IF;
+   END LOOP;$body$;
+ EXECUTE replace(_definition,_old,_new);
+END $migration$;
+
+-- ---------------------------------------------------------------------------
+-- 20260928004244_06276abe-ae00-452e-919c-b7c1f1cece4e.sql
+-- ---------------------------------------------------------------------------
+DO $migration$
+DECLARE _definition text; _anchor text; _addition text;
+BEGIN
+ _definition:=pg_get_functiondef('public.instantiate_project_template(uuid,uuid,uuid,text)'::regprocedure);
+ _anchor:='FOR _person IN SELECT jsonb_array_elements_text(_t.blueprint -> ''participants'') LOOP';
+ IF position(_anchor in _definition)=0 THEN _anchor:='FOR _person IN SELECT jsonb_array_elements_text(_t.blueprint->''participants'') LOOP'; END IF;
+ IF position(_anchor in _definition)=0 THEN RAISE EXCEPTION 'Expected participants loop not found'; END IF;
+ _addition:=$body$FOR _task IN SELECT value FROM jsonb_array_elements(coalesce(_t.blueprint->'directTasks','[]'::jsonb)) LOOP
+    _k:=_k+1; _assignee:=nullif(_task->>'assigneeId','')::uuid;
+    IF _assignee IS NOT NULL AND _client_id IS NOT NULL AND NOT public.can_access_client(_client_id,_assignee) THEN _assignee:=NULL; END IF;
+    INSERT INTO public.tasks(brand_id,client_id,project_id,job_id,title,description,priority,estimated_minutes,position,status,created_by,assignee_id)
+    VALUES(_brand_id,_client_id,_new,NULL,_task->>'title',_task->>'description',coalesce(_task->>'priority','medium')::public.task_priority,nullif(_task->>'estimatedMinutes','')::int,_k-1,'todo',_uid,_assignee) RETURNING id INTO _task_id;
+    _task_ids:=array_append(_task_ids,_task_id);
+   END LOOP;
+   $body$;
+ EXECUTE replace(_definition,_anchor,_addition || _anchor);
+END $migration$;
+
+-- ---------------------------------------------------------------------------
+-- 20260928004322_7707cf99-e209-4147-a370-cbf5f9663684.sql
+-- ---------------------------------------------------------------------------
+DO $migration$
+DECLARE _definition text; _guard text;
+BEGIN
+ _definition:=pg_get_functiondef('public.save_project_template_checked_base(uuid,uuid,text,text,jsonb,uuid)'::regprocedure);
+ IF position('BEGIN' in _definition)=0 THEN RAISE EXCEPTION 'Expected function body'; END IF;
+ _guard:=$body$
+ IF _source_project_id IS NOT NULL THEN
+  FOR _item IN SELECT value FROM jsonb_array_elements(coalesce(_blueprint->'texts','[]'::jsonb)) LOOP
+   IF _item ? 'sourceId' THEN
+    IF NOT (
+     ((_item->>'sourceKind')='work_comment' AND EXISTS (SELECT 1 FROM public.work_comments c WHERE c.id=(_item->>'sourceId')::uuid AND c.project_id=_source_project_id AND c.brand_id=_brand_id)) OR
+     ((_item->>'sourceKind')='task_comment' AND EXISTS (SELECT 1 FROM public.task_comments c JOIN public.tasks t ON t.id=c.task_id WHERE c.id=(_item->>'sourceId')::uuid AND t.project_id=_source_project_id AND c.brand_id=_brand_id AND public.can_access_task(t.id,_uid))) OR
+     ((_item->>'sourceKind')='client_briefing' AND EXISTS (SELECT 1 FROM public.client_briefings b JOIN public.projects p ON p.client_id=b.client_id WHERE b.id=(_item->>'sourceId')::uuid AND p.id=_source_project_id AND public.can_access_client(b.client_id,_uid))) OR
+     ((_item->>'sourceKind')='brand_briefing' AND EXISTS (SELECT 1 FROM public.brand_briefings b JOIN public.projects p ON p.client_id=b.client_id WHERE b.id=(_item->>'sourceId')::uuid AND p.id=_source_project_id AND b.brand_id=_brand_id AND public.can_access_client(b.client_id,_uid)))
+    ) THEN RAISE EXCEPTION 'Source text out of scope' USING ERRCODE='42501'; END IF;
+   END IF;
+  END LOOP;
+ END IF;
+ $body$;
+ _definition:=replace(_definition,'BEGIN', 'BEGIN' || _guard);
+ EXECUTE replace(_definition,'save_project_template_checked_base','save_project_template');
+END $migration$;
+DROP FUNCTION public.save_project_template_checked_base(uuid,uuid,text,text,jsonb,uuid);
+REVOKE ALL ON FUNCTION public.save_project_template(uuid,uuid,text,text,jsonb,uuid) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.save_project_template(uuid,uuid,text,text,jsonb,uuid) TO authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 20260928004526_cde4840a-3895-40b2-acc6-c7689e46fccf.sql
+-- ---------------------------------------------------------------------------
+REVOKE INSERT, UPDATE ON public.project_template_requests FROM authenticated;
+DROP POLICY IF EXISTS "template requests own insert" ON public.project_template_requests;
+DROP POLICY IF EXISTS "template requests own update" ON public.project_template_requests;
+ALTER FUNCTION public.instantiate_project_template_once(uuid,uuid,uuid,text,uuid) SECURITY DEFINER;
+REVOKE ALL ON FUNCTION public.instantiate_project_template_once(uuid,uuid,uuid,text,uuid) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.instantiate_project_template_once(uuid,uuid,uuid,text,uuid) TO authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 20260928004649_5a9beab8-4348-4437-b7ec-55716bc2620d.sql
+-- ---------------------------------------------------------------------------
+ALTER FUNCTION public.instantiate_project_template_once(uuid,uuid,uuid,text,uuid) SECURITY INVOKER;
+GRANT INSERT ON public.project_template_requests TO authenticated;
+CREATE POLICY "template requests own completed insert" ON public.project_template_requests FOR INSERT TO authenticated WITH CHECK (created_by=auth.uid() AND project_id IS NOT NULL AND public.is_brand_member(brand_id,auth.uid()) AND EXISTS (SELECT 1 FROM public.projects p WHERE p.id=project_id AND p.brand_id=project_template_requests.brand_id AND p.client_id IS NOT DISTINCT FROM project_template_requests.client_id AND p.name=project_name AND p.owner_id=auth.uid() AND public.can_access_project(p.id,auth.uid())));
+CREATE OR REPLACE FUNCTION public.instantiate_project_template_once(_template_id uuid,_brand_id uuid,_client_id uuid,_project_name text,_request_id uuid) RETURNS uuid LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $fn$
+DECLARE _uid uuid:=auth.uid(); _existing public.project_template_requests%ROWTYPE; _new uuid; _normalized text:=trim(_project_name);
+BEGIN
+ IF _uid IS NULL OR _request_id IS NULL OR NOT public.is_brand_member(_brand_id,_uid) THEN RAISE EXCEPTION 'Forbidden' USING ERRCODE='42501'; END IF;
+ IF length(_normalized) NOT BETWEEN 2 AND 120 THEN RAISE EXCEPTION 'Invalid project name'; END IF;
+ IF _client_id IS NOT NULL AND NOT public.can_access_client(_client_id,_uid) THEN RAISE EXCEPTION 'Client out of scope' USING ERRCODE='42501'; END IF;
+ SELECT * INTO _existing FROM public.project_template_requests WHERE id=_request_id;
+ IF FOUND THEN
+  IF _existing.created_by IS DISTINCT FROM _uid OR _existing.template_id IS DISTINCT FROM _template_id OR _existing.brand_id IS DISTINCT FROM _brand_id OR _existing.client_id IS DISTINCT FROM _client_id OR _existing.project_name IS DISTINCT FROM _normalized THEN RAISE EXCEPTION 'Request already used for another project' USING ERRCODE='23505'; END IF;
+  IF _existing.project_id IS NOT NULL THEN RETURN _existing.project_id; END IF;
+ END IF;
+ _new:=public.instantiate_project_template(_template_id,_brand_id,_client_id,_normalized);
+ INSERT INTO public.project_template_requests(id,brand_id,template_id,client_id,project_name,created_by,project_id) VALUES(_request_id,_brand_id,_template_id,_client_id,_normalized,_uid,_new);
+ RETURN _new;
+END $fn$;
+REVOKE ALL ON FUNCTION public.instantiate_project_template_once(uuid,uuid,uuid,text,uuid) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.instantiate_project_template_once(uuid,uuid,uuid,text,uuid) TO authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 20260928005017_ab27812d-f011-46da-ba3c-6474bc1399de.sql
+-- ---------------------------------------------------------------------------
+DROP POLICY IF EXISTS "template requests own completed insert" ON public.project_template_requests;
+CREATE POLICY "template requests own completed insert" ON public.project_template_requests FOR INSERT TO authenticated WITH CHECK (created_by=auth.uid() AND project_id IS NOT NULL AND public.is_brand_member(brand_id,auth.uid()) AND EXISTS (SELECT 1 FROM public.projects p WHERE p.id=project_id AND p.brand_id=project_template_requests.brand_id AND p.client_id IS NOT DISTINCT FROM project_template_requests.client_id AND p.name=project_name AND public.can_access_project(p.id,auth.uid())));
+DO $migration$
+DECLARE _definition text;
+BEGIN
+ _definition:=pg_get_functiondef('public.instantiate_project_template(uuid,uuid,uuid,text)'::regprocedure);
+ IF position('FOR _task IN SELECT value FROM jsonb_array_elements(coalesce(_t.blueprint->''directTasks'',''[]''::jsonb)) LOOP' in _definition)=0 THEN RAISE EXCEPTION 'Direct task loop not found'; END IF;
+ _definition:=replace(_definition,'FOR _task IN SELECT value FROM jsonb_array_elements(coalesce(_t.blueprint->''directTasks'',''[]''::jsonb)) LOOP','_k:=0;' || chr(10) || '   FOR _task IN SELECT value FROM jsonb_array_elements(coalesce(_t.blueprint->''directTasks'',''[]''::jsonb)) LOOP');
+ EXECUTE _definition;
+END $migration$;
+DO $migration$
+DECLARE _definition text;
+BEGIN
+ _definition:=pg_get_functiondef('public.save_project_template(uuid,uuid,text,text,jsonb,uuid)'::regprocedure);
+ _definition:=replace(_definition,'IF _item ? ''sourceId'' THEN','IF (_item->>''kind'')=''comment'' AND (NOT (_item ? ''sourceId'') OR NOT (_item ? ''sourceKind'')) THEN RAISE EXCEPTION ''Missing source text proof'' USING ERRCODE=''42501''; END IF;' || chr(10) || '   IF _item ? ''sourceId'' THEN');
+ EXECUTE _definition;
+END $migration$;
