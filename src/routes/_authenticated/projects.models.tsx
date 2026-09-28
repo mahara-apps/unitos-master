@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useBlocker, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowDown, ArrowUp, Archive, Copy, Plus, Trash2, MoreHorizontal, RotateCcw, Search, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ export const Route = createFileRoute("/_authenticated/projects/models")({
 
 export function ProjectModelsPage({ mode = "list", initialTemplateId }: { mode?: "list" | "new" | "edit"; initialTemplateId?: string }) {
   const navigate = useNavigate();
+  const leavingAfterSave = useRef(false);
   const { brandId } = useActiveContext();
   const qc = useQueryClient();
   const list = useServerFn(listTemplatesFn);
@@ -66,14 +67,14 @@ export function ProjectModelsPage({ mode = "list", initialTemplateId }: { mode?:
   const templatesQ = useQuery({ queryKey: ["project-templates", brandId], queryFn: () => list({ data: { brandId: brandId ?? "", includeArchived: true } }), enabled: !!brandId });
   const permissionQ = useQuery({ queryKey: ["manage-project-templates", brandId], queryFn: () => permissionFn({ data: { brandId: brandId ?? "" } }), enabled: !!brandId });
   useUnsavedGuard(editing && dirty);
-  useBlocker({ shouldBlockFn: () => editing && dirty && !window.confirm("Descartar alterações não salvas?"), enableBeforeUnload: false });
+  useBlocker({ shouldBlockFn: () => editing && dirty && !leavingAfterSave.current && !window.confirm("Descartar alterações não salvas?"), enableBeforeUnload: false });
   const projectsQ = useQuery({ queryKey: ["template-source-projects", brandId], queryFn: () => projectsFn({ data: { brandId: brandId ?? "" } }), enabled: !!brandId && editing && permissionQ.data === true });
-    const save = useMutation({ mutationFn: () => saveFn({ data: { brandId: brandId ?? "", templateId, sourceProjectId, name, description: description || null, blueprint: { ...blueprint, texts: [...blueprint.texts, ...candidates.filter(c => c.selected).map(c => ({ level: c.level, kind: "comment" as const, body: c.body, jobIndex: c.jobIndex, taskIndex: c.taskIndex, sourceId: c.id, sourceKind: c.sourceKind }))] } } }), onSuccess: () => { toast.success("Modelo salvo"); setDirty(false); setEditing(false); qc.invalidateQueries({ queryKey: ["project-templates", brandId] }); void navigate({ to: "/projects/models" }); }, onError: (e: Error) => toast.error(e.message) });
+    const save = useMutation({ mutationFn: () => saveFn({ data: { brandId: brandId ?? "", templateId, sourceProjectId, name, description: description || null, blueprint: { ...blueprint, texts: [...blueprint.texts, ...candidates.filter(c => c.selected).map(c => ({ level: c.level, kind: "comment" as const, body: c.body, jobIndex: c.jobIndex, taskIndex: c.taskIndex, sourceId: c.id, sourceKind: c.sourceKind }))] } } }), onSuccess: () => { toast.success("Modelo salvo"); leavingAfterSave.current = true; setDirty(false); setEditing(false); qc.invalidateQueries({ queryKey: ["project-templates", brandId] }); void navigate({ to: "/projects/models" }); }, onError: (e: Error) => toast.error(e.message) });
    const capture = useMutation({ mutationFn: (projectId: string) => captureFn({ data: { brandId: brandId ?? "", projectId } }), onSuccess: ({ project, blueprint: captured, candidates: sourceTexts, truncated: limited }) => { setSourceProjectId(project.id); setName(project.name); setBlueprint({ ...captured, directTasks: captured.directTasks ?? [] } as Blueprint); setTruncated(limited); setCandidates(sourceTexts.filter(c => c.level !== "job" || ("jobIndex" in c && (c.jobIndex ?? -1) >= 0)).filter(c => c.level !== "task" || ("taskIndex" in c && (c.taskIndex ?? -1) >= 0)).map(c => ({ ...c, selected: false }))); setDirty(true); }, onError: (e: Error) => toast.error(e.message) });
   const archive = useMutation({ mutationFn: (id: string) => archiveFn({ data: { brandId: brandId ?? "", templateId: id } }), onSuccess: () => { toast.success("Modelo arquivado"); qc.invalidateQueries({ queryKey: ["project-templates", brandId] }); }, onError: (e: Error) => toast.error(e.message) });
    const restore = useMutation({ mutationFn: (id: string) => restoreFn({ data: { brandId: brandId ?? "", templateId: id } }), onSuccess: () => { toast.success("Modelo restaurado"); qc.invalidateQueries({ queryKey: ["project-templates", brandId] }); }, onError: (e: Error) => toast.error(e.message) });
    const remove = useMutation({ mutationFn: () => deleteFn({ data: { brandId: brandId ?? "", templateId: confirmDelete?.id ?? "", confirmation } }), onSuccess: () => { toast.success("Modelo excluído"); setConfirmDelete(null); setConfirmation(""); qc.invalidateQueries({ queryKey: ["project-templates", brandId] }); }, onError: (e: Error) => toast.error(e.message) });
-    const closeEditor = () => { if (dirty && !window.confirm("Descartar alterações não salvas?")) return; setDirty(false); void navigate({ to: "/projects/models" }); };
+    const closeEditor = () => { if (dirty && !window.confirm("Descartar alterações não salvas?")) return; leavingAfterSave.current = true; setDirty(false); void navigate({ to: "/projects/models" }); };
     const openTemplate = (t: ProjectTemplate, duplicate = false) => { setTemplateId(duplicate ? null : t.id); setSourceProjectId(null); setName(duplicate ? `Cópia de ${t.name}` : t.name); setDescription(t.description ?? ""); setBlueprint(t.blueprint && typeof t.blueprint === "object" && !Array.isArray(t.blueprint) ? { ...emptyBlueprint(), ...t.blueprint as Blueprint, texts: ((t.blueprint as Blueprint).texts ?? []).map(({ sourceId, sourceKind, ...text }) => text) } : emptyBlueprint()); setCandidates([]); setTruncated(false); setDirty(duplicate); setEditing(true); };
    useEffect(() => {
      if (mode !== "edit" || !initialTemplateId || !templatesQ.data || permissionQ.data !== true) return;

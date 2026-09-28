@@ -120,6 +120,8 @@ import { Route as ApiPublicCronInstallationResumeRouteImport } from './routes/ap
 import { Route as ApiPublicCronImportWorkerRouteImport } from './routes/api/public/cron/import-worker'
 import { Route as ApiPublicCronImportReaperRouteImport } from './routes/api/public/cron/import-reaper'
 import { Route as ApiPublicApprovalTokenRouteImport } from './routes/api/public/approval.$token'
+import { Route as AuthenticatedProjectsModelsNewRouteImport } from './routes/_authenticated/projects.models.new'
+import { Route as AuthenticatedProjectsModelsTemplateIdRouteImport } from './routes/_authenticated/projects.models.$templateId'
 import { Route as AuthenticatedCustomersCustomerIdPautaRouteImport } from './routes/_authenticated/customers.$customerId.pauta'
 import { Route as AuthenticatedCustomersCustomerIdMediaPlanRouteImport } from './routes/_authenticated/customers.$customerId.media-plan'
 import { Route as AuthenticatedCustomersCustomerIdBriefingRouteImport } from './routes/_authenticated/customers.$customerId.briefing'
@@ -733,6 +735,18 @@ const ApiPublicApprovalTokenRoute = ApiPublicApprovalTokenRouteImport.update({
   path: '/api/public/approval/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedProjectsModelsNewRoute =
+  AuthenticatedProjectsModelsNewRouteImport.update({
+    id: '/new',
+    path: '/new',
+    getParentRoute: () => AuthenticatedProjectsModelsRoute,
+  } as any)
+const AuthenticatedProjectsModelsTemplateIdRoute =
+  AuthenticatedProjectsModelsTemplateIdRouteImport.update({
+    id: '/$templateId',
+    path: '/$templateId',
+    getParentRoute: () => AuthenticatedProjectsModelsRoute,
+  } as any)
 const AuthenticatedCustomersCustomerIdPautaRoute =
   AuthenticatedCustomersCustomerIdPautaRouteImport.update({
     id: '/pauta',
@@ -818,7 +832,7 @@ export interface FileRoutesByFullPath {
   '/messages/$threadId': typeof AuthenticatedMessagesThreadIdRoute
   '/monthly-plan/$planId': typeof AuthenticatedMonthlyPlanPlanIdRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
-  '/projects/models': typeof AuthenticatedProjectsModelsRoute
+  '/projects/models': typeof AuthenticatedProjectsModelsRouteWithChildren
   '/settings/access-log': typeof AuthenticatedSettingsAccessLogRoute
   '/settings/ai-limits': typeof AuthenticatedSettingsAiLimitsRoute
   '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
@@ -868,6 +882,8 @@ export interface FileRoutesByFullPath {
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/customers/$customerId/pauta': typeof AuthenticatedCustomersCustomerIdPautaRoute
+  '/projects/models/$templateId': typeof AuthenticatedProjectsModelsTemplateIdRoute
+  '/projects/models/new': typeof AuthenticatedProjectsModelsNewRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/cron/import-reaper': typeof ApiPublicCronImportReaperRoute
   '/api/public/cron/import-worker': typeof ApiPublicCronImportWorkerRoute
@@ -927,7 +943,7 @@ export interface FileRoutesByTo {
   '/messages/$threadId': typeof AuthenticatedMessagesThreadIdRoute
   '/monthly-plan/$planId': typeof AuthenticatedMonthlyPlanPlanIdRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
-  '/projects/models': typeof AuthenticatedProjectsModelsRoute
+  '/projects/models': typeof AuthenticatedProjectsModelsRouteWithChildren
   '/settings/access-log': typeof AuthenticatedSettingsAccessLogRoute
   '/settings/ai-limits': typeof AuthenticatedSettingsAiLimitsRoute
   '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
@@ -977,6 +993,8 @@ export interface FileRoutesByTo {
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/customers/$customerId/pauta': typeof AuthenticatedCustomersCustomerIdPautaRoute
+  '/projects/models/$templateId': typeof AuthenticatedProjectsModelsTemplateIdRoute
+  '/projects/models/new': typeof AuthenticatedProjectsModelsNewRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/cron/import-reaper': typeof ApiPublicCronImportReaperRoute
   '/api/public/cron/import-worker': typeof ApiPublicCronImportWorkerRoute
@@ -1048,7 +1066,7 @@ export interface FileRoutesById {
   '/_authenticated/messages/$threadId': typeof AuthenticatedMessagesThreadIdRoute
   '/_authenticated/monthly-plan/$planId': typeof AuthenticatedMonthlyPlanPlanIdRoute
   '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
-  '/_authenticated/projects/models': typeof AuthenticatedProjectsModelsRoute
+  '/_authenticated/projects/models': typeof AuthenticatedProjectsModelsRouteWithChildren
   '/_authenticated/settings/access-log': typeof AuthenticatedSettingsAccessLogRoute
   '/_authenticated/settings/ai-limits': typeof AuthenticatedSettingsAiLimitsRoute
   '/_authenticated/settings/branding': typeof AuthenticatedSettingsBrandingRoute
@@ -1098,6 +1116,8 @@ export interface FileRoutesById {
   '/_authenticated/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/_authenticated/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/_authenticated/customers/$customerId/pauta': typeof AuthenticatedCustomersCustomerIdPautaRoute
+  '/_authenticated/projects/models/$templateId': typeof AuthenticatedProjectsModelsTemplateIdRoute
+  '/_authenticated/projects/models/new': typeof AuthenticatedProjectsModelsNewRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/cron/import-reaper': typeof ApiPublicCronImportReaperRoute
   '/api/public/cron/import-worker': typeof ApiPublicCronImportWorkerRoute
@@ -1218,6 +1238,8 @@ export interface FileRouteTypes {
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/media-plan'
     | '/customers/$customerId/pauta'
+    | '/projects/models/$templateId'
+    | '/projects/models/new'
     | '/api/public/approval/$token'
     | '/api/public/cron/import-reaper'
     | '/api/public/cron/import-worker'
@@ -1327,6 +1349,8 @@ export interface FileRouteTypes {
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/media-plan'
     | '/customers/$customerId/pauta'
+    | '/projects/models/$templateId'
+    | '/projects/models/new'
     | '/api/public/approval/$token'
     | '/api/public/cron/import-reaper'
     | '/api/public/cron/import-worker'
@@ -1447,6 +1471,8 @@ export interface FileRouteTypes {
     | '/_authenticated/customers/$customerId/briefing'
     | '/_authenticated/customers/$customerId/media-plan'
     | '/_authenticated/customers/$customerId/pauta'
+    | '/_authenticated/projects/models/$templateId'
+    | '/_authenticated/projects/models/new'
     | '/api/public/approval/$token'
     | '/api/public/cron/import-reaper'
     | '/api/public/cron/import-worker'
@@ -2298,6 +2324,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicApprovalTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/projects/models/new': {
+      id: '/_authenticated/projects/models/new'
+      path: '/new'
+      fullPath: '/projects/models/new'
+      preLoaderRoute: typeof AuthenticatedProjectsModelsNewRouteImport
+      parentRoute: typeof AuthenticatedProjectsModelsRoute
+    }
+    '/_authenticated/projects/models/$templateId': {
+      id: '/_authenticated/projects/models/$templateId'
+      path: '/$templateId'
+      fullPath: '/projects/models/$templateId'
+      preLoaderRoute: typeof AuthenticatedProjectsModelsTemplateIdRouteImport
+      parentRoute: typeof AuthenticatedProjectsModelsRoute
+    }
     '/_authenticated/customers/$customerId/pauta': {
       id: '/_authenticated/customers/$customerId/pauta'
       path: '/pauta'
@@ -2485,15 +2525,33 @@ const AuthenticatedMonthlyPlanRouteWithChildren =
     AuthenticatedMonthlyPlanRouteChildren,
   )
 
+interface AuthenticatedProjectsModelsRouteChildren {
+  AuthenticatedProjectsModelsTemplateIdRoute: typeof AuthenticatedProjectsModelsTemplateIdRoute
+  AuthenticatedProjectsModelsNewRoute: typeof AuthenticatedProjectsModelsNewRoute
+}
+
+const AuthenticatedProjectsModelsRouteChildren: AuthenticatedProjectsModelsRouteChildren =
+  {
+    AuthenticatedProjectsModelsTemplateIdRoute:
+      AuthenticatedProjectsModelsTemplateIdRoute,
+    AuthenticatedProjectsModelsNewRoute: AuthenticatedProjectsModelsNewRoute,
+  }
+
+const AuthenticatedProjectsModelsRouteWithChildren =
+  AuthenticatedProjectsModelsRoute._addFileChildren(
+    AuthenticatedProjectsModelsRouteChildren,
+  )
+
 interface AuthenticatedProjectsRouteChildren {
   AuthenticatedProjectsProjectIdRoute: typeof AuthenticatedProjectsProjectIdRoute
-  AuthenticatedProjectsModelsRoute: typeof AuthenticatedProjectsModelsRoute
+  AuthenticatedProjectsModelsRoute: typeof AuthenticatedProjectsModelsRouteWithChildren
   AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
 }
 
 const AuthenticatedProjectsRouteChildren: AuthenticatedProjectsRouteChildren = {
   AuthenticatedProjectsProjectIdRoute: AuthenticatedProjectsProjectIdRoute,
-  AuthenticatedProjectsModelsRoute: AuthenticatedProjectsModelsRoute,
+  AuthenticatedProjectsModelsRoute:
+    AuthenticatedProjectsModelsRouteWithChildren,
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
 }
 
