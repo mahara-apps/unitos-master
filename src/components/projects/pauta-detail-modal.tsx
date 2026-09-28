@@ -787,6 +787,7 @@ export function PautaDetailModal({
       </div>
       {openedTaskId ? (
         <TaskDrawer
+          nested
           taskId={openedTaskId}
           brandId={brandId}
           currentUserId={currentUserId ?? null}

@@ -629,6 +629,7 @@ export function TaskDrawer({
   onNavigate,
   onClose,
   onChanged,
+  nested = false,
 }: {
   taskId: string;
   brandId: string;
@@ -637,6 +638,7 @@ export function TaskDrawer({
   onNavigate: (id: string) => void;
   onClose: () => void;
   onChanged: () => void;
+  nested?: boolean;
 }) {
   const qc = useQueryClient();
   const listComments = useServerFn(listTaskCommentsFn);
@@ -765,6 +767,7 @@ export function TaskDrawer({
     <>
       <ExpandedModal
         open
+        nested={nested}
         onOpenChange={(v) => {
           if (!v && !pieceOpen) onClose();
         }}
@@ -929,7 +932,7 @@ export function TaskDrawer({
               {/* Metadata grid */}
               <div className="px-6 pb-6">
                 <dl className="grid grid-cols-[120px_1fr] items-center gap-x-4 gap-y-1 text-sm">
-                  <MetaRow label="Responsável">
+                  <MetaRow label="Responsável pela tarefa">
                     <AssigneePicker
                       brandId={brandId}
                       value={task.assignee_id}
@@ -947,7 +950,7 @@ export function TaskDrawer({
                     />
                   </MetaRow>
 
-                  <MetaRow label="Status">
+                  <MetaRow label="Status da tarefa">
                     <Select
                       value={task.status}
                       onValueChange={(v) =>
