@@ -37,6 +37,8 @@ Update falha abre nova operação com pacote publicado e reconcilia ledger; nunc
 
 Minhas tarefas filtra antes do limite e pagina sob RLS; atribuições usam `can_access_client`. Peças movem via `movePostFn`; produção exige confirmação. Em Projetos: Projeto > Task > Sub-task > Checklist. Sidebar: Gestão = Projetos/Tarefas; Produção = Calendário/Pautas/Conteúdo/Mídia paga.
 
+Read-only work projections identify each item by source type plus row ID, derive Task client from its project, and fail closed on missing or inconsistent project reads; never merge editorial items or widen RLS. Why: similarly named records are independent and must remain scoped and distinguishable.
+
 ## Regras canônicas
 
 Inspeção de instalação compara cadastro, deploy e navegador somente em leitura; cadastro não é endereço efetivo antes da sincronização.
