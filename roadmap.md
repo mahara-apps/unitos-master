@@ -4,7 +4,7 @@
 - [x] Reservar OpenAI/Claude/Gemini para principal e Groq para fallback automático.
 - [x] Normalizar as configurações existentes sem alterar briefings ou histórico.
 - [x] Selar pacote MASTER 1.4.59 e executar testes focados e tipos.
-- [ ] Executar guardiões e suíte global sem flexibilizar testes.
+- [x] Executar guardiões e suíte global sem flexibilizar testes; guardiões, tipos e testes focados passam, e a suíte global preserva falhas ambientais preexistentes de credenciais/infraestrutura.
 - [ ] Publicar e propagar somente após autorizações explícitas separadas.
 
 ## Recuperação da validação de segurança nas instalações
