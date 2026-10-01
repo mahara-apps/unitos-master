@@ -25,6 +25,7 @@ const PROVIDERS: ProviderName[] = ["openai", "anthropic", "gemini", "groq"];
 const ROLES: ProviderRole[] = ["strategic", "operational", "image"];
 
 export type HealthCheckEntry = {
+  brandId: string | null;
   provider: ProviderName;
   role: ProviderRole;
   modelId: string;
@@ -135,21 +136,32 @@ export function pickSuccessor(
 
 type Admin = Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
 
-async function loadKey(supabase: Admin, provider: ProviderName): Promise<string | null> {
+type WorkspaceCredential = { brandId: string; apiKey: string };
+
+async function loadWorkspaceKeys(
+  supabase: Admin,
+  provider: ProviderName,
+): Promise<WorkspaceCredential[]> {
   const { data } = await supabase
     .from("brand_api_credentials")
-    .select("ciphertext")
+    .select("brand_id, ciphertext")
     .eq("provider", provider)
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (!data?.ciphertext) return null;
-  try {
-    return await decryptCredential(data.ciphertext as string);
-  } catch (err) {
-    console.error(`[ai-model-health] chave ilegível de ${provider}`, err);
-    return null;
+    .order("updated_at", { ascending: false });
+  const latestByBrand = new Map<string, string>();
+  for (const row of data ?? []) {
+    if (!latestByBrand.has(row.brand_id as string)) {
+      latestByBrand.set(row.brand_id as string, row.ciphertext as string);
+    }
   }
+  const credentials: WorkspaceCredential[] = [];
+  for (const [brandId, ciphertext] of latestByBrand) {
+    try {
+      credentials.push({ brandId, apiKey: await decryptCredential(ciphertext) });
+    } catch (err) {
+      console.error(`[ai-model-health] chave ilegível de ${provider} no workspace ${brandId}`, err);
+    }
+  }
+  return credentials;
 }
 
 async function pingTextModel(
@@ -197,11 +209,12 @@ async function notifySuperAdmins(supabase: Admin, entries: HealthCheckEntry[]): 
     .join(" · ")
     .slice(0, 900);
 
+  const affectedBrandId = problems.find((problem) => problem.brandId)?.brandId ?? null;
   const rows = adminIds
-    .filter((id) => brandByUser.has(id))
+    .filter((id) => affectedBrandId || brandByUser.has(id))
     .map((id) => ({
       user_id: id,
-      brand_id: brandByUser.get(id)!,
+      brand_id: affectedBrandId ?? brandByUser.get(id)!,
       kind: "system" as const,
       title,
       body,
@@ -222,11 +235,15 @@ async function notifySuperAdmins(supabase: Admin, entries: HealthCheckEntry[]): 
  */
 async function markProviderVerification(
   supabase: Admin,
+  brandId: string,
   provider: ProviderName,
   status: "valid" | "invalid" | "unverified",
   message: string,
 ): Promise<void> {
-  const { data: rows } = await supabase.from("brand_connections").select("brand_id, providers");
+  const { data: rows } = await supabase
+    .from("brand_connections")
+    .select("brand_id, providers")
+    .eq("brand_id", brandId);
   const now = new Date().toISOString();
 
   for (const row of rows ?? []) {
@@ -252,19 +269,27 @@ export async function runAiModelHealthCheck(): Promise<HealthCheckResult> {
   let replacements = 0;
 
   for (const provider of PROVIDERS) {
-    const apiKey = await loadKey(supabaseAdmin, provider);
-    let listed: ListedModel[] | null = null;
+    const credentials = await loadWorkspaceKeys(supabaseAdmin, provider);
+    if (credentials.length === 0) {
+      for (const role of ROLES) {
+        if (role === "image" && !PROVIDER_CAPABILITIES[provider].image) continue;
+        const modelId = (await resolveModel(provider, role)) ?? "-";
+        entries.push({ brandId: null, provider, role, modelId, status: "skipped", error: "no_key_configured" });
+      }
+      continue;
+    }
 
-    // Confirma que a chave ainda é aceita pelo provedor antes de testar modelos.
-    if (apiKey) {
+    for (const { brandId, apiKey } of credentials) {
+      let listed: ListedModel[] | null = null;
       const { verifyProviderKey } = await import("./ai-provider-verify.server");
       const check = await verifyProviderKey(provider, apiKey);
-      await markProviderVerification(supabaseAdmin, provider, check.status, check.message);
+      await markProviderVerification(supabaseAdmin, brandId, provider, check.status, check.message);
       if (check.status === "invalid") {
         for (const role of ROLES) {
           if (role === "image" && !PROVIDER_CAPABILITIES[provider].image) continue;
           const modelId = (await resolveModel(provider, role)) ?? "-";
           const entry: HealthCheckEntry = {
+            brandId,
             provider,
             role,
             modelId,
@@ -274,6 +299,7 @@ export async function runAiModelHealthCheck(): Promise<HealthCheckResult> {
           entries.push(entry);
           const { error: insErr } = await supabaseAdmin.from("ai_model_health").insert({
             provider,
+            brand_id: brandId,
             role,
             model_id: modelId,
             status: "failed",
@@ -283,17 +309,11 @@ export async function runAiModelHealthCheck(): Promise<HealthCheckResult> {
         }
         continue;
       }
-    }
 
-    for (const role of ROLES) {
+      for (const role of ROLES) {
       if (role === "image" && !PROVIDER_CAPABILITIES[provider].image) continue;
       const modelId = await resolveModel(provider, role);
       if (!modelId) continue;
-
-      if (!apiKey) {
-        entries.push({ provider, role, modelId, status: "skipped", error: "no_key_configured" });
-        continue;
-      }
 
       let status: HealthCheckEntry["status"] = "ok";
       let error: string | undefined;
@@ -314,7 +334,7 @@ export async function runAiModelHealthCheck(): Promise<HealthCheckResult> {
         status = isDeprecationError(error) ? "deprecated" : "failed";
       }
 
-      const entry: HealthCheckEntry = { provider, role, modelId, status };
+      const entry: HealthCheckEntry = { brandId, provider, role, modelId, status };
       if (error) entry.error = error.slice(0, 500);
 
       if (status === "deprecated") {
@@ -365,12 +385,14 @@ export async function runAiModelHealthCheck(): Promise<HealthCheckResult> {
 
       const { error: histErr } = await supabaseAdmin.from("ai_model_health").insert({
         provider,
+        brand_id: brandId,
         role,
         model_id: entry.replacedWith ?? modelId,
         status: entry.status,
         error_message: entry.error ?? null,
       } as never);
       if (histErr) console.error("[ai-model-health] falha ao gravar histórico", histErr);
+      }
     }
   }
 
