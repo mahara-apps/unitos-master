@@ -196,31 +196,32 @@ async function notifySuperAdmins(supabase: Admin, entries: HealthCheckEntry[]): 
     if (!brandByUser.has(uid)) brandByUser.set(uid, m.brand_id as string);
   }
 
-  const swapped = problems.filter((p) => p.replacedWith);
-  const title = swapped.length
-    ? `Modelo de IA atualizado automaticamente (${swapped.length})`
-    : "Modelo de IA com falha — ação necessária";
-  const body = problems
-    .map((p) =>
-      p.replacedWith
-        ? `${p.provider}/${p.role}: ${p.modelId} → ${p.replacedWith}`
-        : `${p.provider}/${p.role}: ${p.modelId} indisponível (${p.error ?? "erro"})`,
-    )
-    .join(" · ")
-    .slice(0, 900);
-
-  const affectedBrandId = problems.find((problem) => problem.brandId)?.brandId ?? null;
-  const rows = adminIds
-    .filter((id) => affectedBrandId || brandByUser.has(id))
-    .map((id) => ({
+  const byBrand = new Map<string, HealthCheckEntry[]>();
+  for (const problem of problems) {
+    if (!problem.brandId) continue;
+    byBrand.set(problem.brandId, [...(byBrand.get(problem.brandId) ?? []), problem]);
+  }
+  const rows = [...byBrand].flatMap(([brandId, brandProblems]) => {
+    const swapped = brandProblems.filter((problem) => problem.replacedWith);
+    const title = swapped.length
+      ? `Modelo de IA atualizado automaticamente (${swapped.length})`
+      : "Modelo de IA com falha — ação necessária";
+    const body = brandProblems
+      .map((problem) => problem.replacedWith
+        ? `${problem.provider}/${problem.role}: ${problem.modelId} → ${problem.replacedWith}`
+        : `${problem.provider}/${problem.role}: ${problem.modelId} indisponível (${problem.error ?? "erro"})`)
+      .join(" · ")
+      .slice(0, 900);
+    return adminIds.map((id) => ({
       user_id: id,
-      brand_id: affectedBrandId ?? brandByUser.get(id)!,
+      brand_id: brandId,
       kind: "system" as const,
       title,
       body,
       href: "/connections",
-      payload: { source: "ai_model_health", problems } as never,
+      payload: { source: "ai_model_health", brand_id: brandId, problems: brandProblems } as never,
     }));
+  });
   if (!rows.length) return;
   // Preferência do usuário (ai_jobs) é aplicada no servidor, não só na UI.
   const allowed = await filterRowsByPrefs(supabase as never, rows);
@@ -263,13 +264,15 @@ async function markProviderVerification(
   }
 }
 
-export async function runAiModelHealthCheck(): Promise<HealthCheckResult> {
+export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<HealthCheckResult> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const entries: HealthCheckEntry[] = [];
   let replacements = 0;
 
   for (const provider of PROVIDERS) {
-    const credentials = await loadWorkspaceKeys(supabaseAdmin, provider);
+    const credentials = (await loadWorkspaceKeys(supabaseAdmin, provider)).filter(
+      (credential) => !onlyBrandId || credential.brandId === onlyBrandId,
+    );
     if (credentials.length === 0) {
       for (const role of ROLES) {
         if (role === "image" && !PROVIDER_CAPABILITIES[provider].image) continue;
