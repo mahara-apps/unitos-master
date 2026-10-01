@@ -280,7 +280,7 @@ export function AiCenter({
             <SummaryRow label="Modelo de imagem" value={PROVIDER_BY_ID[imageProvider]?.name} />
             <SummaryRow
               label="Fallback"
-              value={fallback === "none" ? "Nenhum" : PROVIDER_BY_ID[fallback]?.name}
+              value={data?.providers?.groq?.connected ? "Groq · automático" : "Não configurado"}
             />
             <SummaryRow label="Limite mensal" value={`US$ ${budget.toFixed(0)}`} />
           </div>

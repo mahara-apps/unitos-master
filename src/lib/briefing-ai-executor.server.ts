@@ -89,10 +89,8 @@ export async function generateBriefingAnalysis(input: {
         });
       }
 
-      const salvaged = salvageStructuredOutput(
-        error,
-        BriefingTransportSchema,
-        normalizeBriefingAnalysis,
+      const salvaged = normalizeBriefingAnalysis(
+        salvageStructuredOutput(error, BriefingTransportSchema),
       );
       if (salvaged) {
         return {
