@@ -7,6 +7,16 @@ export type ProviderName = "openai" | "anthropic" | "gemini" | "groq";
 export type ProviderRole = "strategic" | "operational" | "image";
 export type ProviderKind = "text" | "image";
 
+/** Groq é reservado ao fallback; somente estes podem ser o principal de texto. */
+export const PRIMARY_TEXT_PROVIDERS = ["openai", "anthropic", "gemini"] as const;
+export type PrimaryTextProvider = (typeof PRIMARY_TEXT_PROVIDERS)[number];
+
+export function isPrimaryTextProvider(
+  provider: string | null | undefined,
+): provider is PrimaryTextProvider {
+  return PRIMARY_TEXT_PROVIDERS.some((candidate) => candidate === provider);
+}
+
 export const PROVIDER_CAPABILITIES: Record<ProviderName, { text: boolean; image: boolean }> = {
   openai: { text: true, image: true },
   anthropic: { text: true, image: false },

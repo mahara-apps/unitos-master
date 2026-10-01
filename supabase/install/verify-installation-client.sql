@@ -133,6 +133,38 @@ WITH checks AS (
               THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
 
+  SELECT 139, 'IA: principal válido e Groq como fallback automático',
+         coalesce((
+           SELECT string_agg(brand_id::text, ', ' ORDER BY brand_id)
+           FROM public.brand_connections
+           WHERE text_provider NOT IN ('openai', 'anthropic', 'gemini')
+              OR (text_fallback_provider IS NOT NULL AND text_fallback_provider <> 'groq')
+              OR (
+                coalesce(providers -> 'groq' ->> 'connected', 'false') = 'true'
+                AND EXISTS (
+                  SELECT 1 FROM public.brand_api_credentials credential
+                  WHERE credential.brand_id = brand_connections.brand_id
+                    AND credential.provider = 'groq'
+                )
+                AND text_fallback_provider IS DISTINCT FROM 'groq'
+              )
+         ), 'configuração canônica'),
+         CASE WHEN NOT EXISTS (
+           SELECT 1 FROM public.brand_connections
+           WHERE text_provider NOT IN ('openai', 'anthropic', 'gemini')
+              OR (text_fallback_provider IS NOT NULL AND text_fallback_provider <> 'groq')
+              OR (
+                coalesce(providers -> 'groq' ->> 'connected', 'false') = 'true'
+                AND EXISTS (
+                  SELECT 1 FROM public.brand_api_credentials credential
+                  WHERE credential.brand_id = brand_connections.brand_id
+                    AND credential.provider = 'groq'
+                )
+                AND text_fallback_provider IS DISTINCT FROM 'groq'
+              )
+         ) THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
+
   SELECT 135, 'clientes: cascata pode remover o último pipeline',
          CASE WHEN EXISTS (
            SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace

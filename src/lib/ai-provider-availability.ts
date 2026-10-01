@@ -1,6 +1,6 @@
 import {
+  isPrimaryTextProvider,
   PROVIDER_CAPABILITIES,
-  TEXT_PROVIDERS,
   type ProviderName,
 } from "./ai-capabilities";
 
@@ -18,7 +18,9 @@ export function orderedUsableTextProviders(input: {
 }): ProviderName[] {
   const credentials = new Set(input.credentialProviders);
   const configured = input.providers ?? {};
-  const preferred = [input.primary, input.fallback, ...TEXT_PROVIDERS];
+  // Não promove provedores conectados silenciosamente: a cadeia é sempre
+  // principal válido + Groq configurado como fallback automático.
+  const preferred = [isPrimaryTextProvider(input.primary) ? input.primary : null, "groq"];
 
   return preferred.filter(
     (provider, index, all): provider is ProviderName =>
@@ -26,6 +28,7 @@ export function orderedUsableTextProviders(input: {
       all.indexOf(provider) === index &&
       provider in PROVIDER_CAPABILITIES &&
       PROVIDER_CAPABILITIES[provider as ProviderName].text &&
+      (provider !== "groq" || input.fallback === "groq") &&
       configured[provider]?.connected === true &&
       credentials.has(provider),
   );

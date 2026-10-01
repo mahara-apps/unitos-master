@@ -8,7 +8,7 @@ import {
   type ProviderAttempt,
 } from "./ai-provider.server";
 import {
-  BriefingAnalysisSchema,
+  BriefingTransportSchema,
   normalizeBriefingAnalysis,
   type BriefingAnalysis,
 } from "./briefing-analysis-schema";
@@ -48,7 +48,7 @@ export async function generateBriefingAnalysis(input: {
           tools: {
             extract_client_fields: tool({
               description: "Entrega a análise estruturada do briefing para revisão humana.",
-              inputSchema: BriefingAnalysisSchema,
+              inputSchema: BriefingTransportSchema,
             }),
           },
           toolChoice: { type: "tool", toolName: "extract_client_fields" },
@@ -66,7 +66,7 @@ export async function generateBriefingAnalysis(input: {
           maxOutputTokens: BRIEFING_MAX_OUTPUT_TOKENS,
           ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
           providerOptions: briefingProviderOptions(candidate.provider),
-          output: Output.object({ schema: BriefingAnalysisSchema }),
+          output: Output.object({ schema: BriefingTransportSchema }),
           messages: input.messages,
         });
         rawAnalysis = result.output;
@@ -91,7 +91,7 @@ export async function generateBriefingAnalysis(input: {
 
       const salvaged = salvageStructuredOutput(
         error,
-        BriefingAnalysisSchema,
+        BriefingTransportSchema,
         normalizeBriefingAnalysis,
       );
       if (salvaged) {
@@ -106,10 +106,12 @@ export async function generateBriefingAnalysis(input: {
       const { kind, retryable } = classifyAiError(error);
       const canFallback =
         index + 1 < candidates.length &&
-        retryable &&
+        (retryable || kind === "invalid_request" || kind === "invalid_output") &&
         (kind === "provider_unavailable" ||
           kind === "provider_rate_limit" ||
-          kind === "provider_quota");
+          kind === "provider_quota" ||
+          kind === "invalid_request" ||
+          kind === "invalid_output");
       if (!canFallback) {
         if (NoOutputGeneratedError.isInstance(error) || NoObjectGeneratedError.isInstance(error)) {
           throw new Error(

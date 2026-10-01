@@ -23,9 +23,9 @@ export type ChannelConfig = {
 export type ConnectionsSettings = {
   brandId: string;
   monthlyBudgetUsd: number;
-  textProvider: "openai" | "anthropic" | "gemini" | "groq";
-  /** Provedor secundário usado só em falha transitória do principal. */
-  textFallbackProvider: "openai" | "anthropic" | "gemini" | "groq" | null;
+  textProvider: "openai" | "anthropic" | "gemini";
+  /** Groq é o fallback automático e exclusivo quando sua chave é válida. */
+  textFallbackProvider: "groq" | null;
   imageProvider: "openai" | "gemini";
   providers: Record<string, ProviderConfig>;
   channels: Record<string, ChannelConfig>;
@@ -99,9 +99,12 @@ export const getConnections = createServerFn({ method: "GET" })
     return {
       brandId: data.brandId,
       monthlyBudgetUsd: row ? Number(row.monthly_budget_usd) : 500,
-      textProvider: (row?.text_provider as ConnectionsSettings["textProvider"]) ?? "openai",
-      textFallbackProvider:
-        (row?.text_fallback_provider as ConnectionsSettings["textFallbackProvider"]) ?? null,
+      textProvider: (["openai", "anthropic", "gemini"] as const).includes(
+        row?.text_provider as ConnectionsSettings["textProvider"],
+      )
+        ? (row?.text_provider as ConnectionsSettings["textProvider"])
+        : "openai",
+      textFallbackProvider: row?.text_fallback_provider === "groq" ? "groq" : null,
       imageProvider: row?.image_provider === "openai" ? "openai" : "gemini",
       providers: (row?.providers as Record<string, ProviderConfig>) ?? {},
       channels: (row?.channels as Record<string, ChannelConfig>) ?? {},
@@ -112,9 +115,7 @@ export const getConnections = createServerFn({ method: "GET" })
 const UpsertInput = z.object({
   brandId: z.string().uuid(),
   monthlyBudgetUsd: z.number().min(0).max(1_000_000).optional(),
-  textProvider: z.enum(["openai", "anthropic", "gemini", "groq"]).optional(),
-  /** "none" limpa o fallback. */
-  textFallbackProvider: z.enum(["openai", "anthropic", "gemini", "groq", "none"]).optional(),
+  textProvider: z.enum(["openai", "anthropic", "gemini"]).optional(),
   // Anthropic não gera imagem — não pode ser selecionada como provedor de imagem.
   imageProvider: z.enum(["openai", "gemini"]).optional(),
 });
@@ -127,12 +128,6 @@ export const updateConnectionsSettings = createServerFn({ method: "POST" })
       brand_id: data.brandId,
       ...(data.monthlyBudgetUsd !== undefined ? { monthly_budget_usd: data.monthlyBudgetUsd } : {}),
       ...(data.textProvider ? { text_provider: data.textProvider } : {}),
-      ...(data.textFallbackProvider
-        ? {
-            text_fallback_provider:
-              data.textFallbackProvider === "none" ? null : data.textFallbackProvider,
-          }
-        : {}),
       ...(data.imageProvider ? { image_provider: data.imageProvider } : {}),
     };
 
@@ -196,7 +191,14 @@ export const saveProviderKey = createServerFn({ method: "POST" })
     };
     const { error } = await context.supabase
       .from("brand_connections")
-      .upsert({ brand_id: data.brandId, providers }, { onConflict: "brand_id" });
+      .upsert(
+        {
+          brand_id: data.brandId,
+          providers,
+          ...(data.provider === "groq" ? { text_fallback_provider: "groq" } : {}),
+        },
+        { onConflict: "brand_id" },
+      );
     if (error) throw error;
     return {
       ok: true,
@@ -258,7 +260,14 @@ export const testProviderKey = createServerFn({ method: "POST" })
       };
       await context.supabase
         .from("brand_connections")
-        .upsert({ brand_id: data.brandId, providers: prevProviders }, { onConflict: "brand_id" });
+        .upsert(
+          {
+            brand_id: data.brandId,
+            providers: prevProviders,
+            ...(data.provider === "groq" ? { text_fallback_provider: null } : {}),
+          },
+          { onConflict: "brand_id" },
+        );
       return { status: "invalid" as const, message: unreadable, models: 0 };
     }
     let check: Awaited<ReturnType<typeof verifyProviderKey>>;
@@ -292,7 +301,16 @@ export const testProviderKey = createServerFn({ method: "POST" })
     };
     const { error } = await context.supabase
       .from("brand_connections")
-      .upsert({ brand_id: data.brandId, providers }, { onConflict: "brand_id" });
+      .upsert(
+        {
+          brand_id: data.brandId,
+          providers,
+          ...(data.provider === "groq"
+            ? { text_fallback_provider: check.status === "valid" ? "groq" : null }
+            : {}),
+        },
+        { onConflict: "brand_id" },
+      );
     if (error) throw error;
 
     return { status: check.status, message: check.message, models: check.models.length };
@@ -325,7 +343,14 @@ export const removeProviderKey = createServerFn({ method: "POST" })
     delete providers[data.provider];
     const { error } = await context.supabase
       .from("brand_connections")
-      .upsert({ brand_id: data.brandId, providers }, { onConflict: "brand_id" });
+      .upsert(
+        {
+          brand_id: data.brandId,
+          providers,
+          ...(data.provider === "groq" ? { text_fallback_provider: null } : {}),
+        },
+        { onConflict: "brand_id" },
+      );
     if (error) throw error;
     return { ok: true };
   });
