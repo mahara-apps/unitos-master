@@ -3,7 +3,8 @@
 - [x] Separar o contrato canônico do schema portátil enviado aos provedores.
 - [x] Reservar OpenAI/Claude/Gemini para principal e Groq para fallback automático.
 - [x] Normalizar as configurações existentes sem alterar briefings ou histórico.
-- [ ] Validar o pacote MASTER, executar testes focados, tipos, guardiões e suíte global.
+- [x] Selar pacote MASTER 1.4.59 e executar testes focados e tipos.
+- [ ] Executar guardiões e suíte global sem flexibilizar testes.
 - [ ] Publicar e propagar somente após autorizações explícitas separadas.
 
 ## Recuperação da validação de segurança nas instalações
