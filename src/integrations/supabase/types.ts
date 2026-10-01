@@ -643,6 +643,7 @@ export type Database = {
       }
       ai_model_health: {
         Row: {
+          brand_id: string | null
           checked_at: string
           error_message: string | null
           id: string
@@ -652,6 +653,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          brand_id?: string | null
           checked_at?: string
           error_message?: string | null
           id?: string
@@ -661,6 +663,7 @@ export type Database = {
           status: string
         }
         Update: {
+          brand_id?: string | null
           checked_at?: string
           error_message?: string | null
           id?: string
@@ -669,7 +672,22 @@ export type Database = {
           role?: string
           status?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ai_model_health_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "ai_model_health_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_usage_limits: {
         Row: {
@@ -7537,6 +7555,7 @@ export type Database = {
           ai_phase: string
           ai_phase_at: string | null
           ai_phase_error: string | null
+          ai_run_id: string | null
           approved_at: string | null
           approved_by: string | null
           assignee_id: string | null
@@ -7591,6 +7610,7 @@ export type Database = {
           ai_phase?: string
           ai_phase_at?: string | null
           ai_phase_error?: string | null
+          ai_run_id?: string | null
           approved_at?: string | null
           approved_by?: string | null
           assignee_id?: string | null
@@ -7645,6 +7665,7 @@ export type Database = {
           ai_phase?: string
           ai_phase_at?: string | null
           ai_phase_error?: string | null
+          ai_run_id?: string | null
           approved_at?: string | null
           approved_by?: string | null
           assignee_id?: string | null
@@ -10162,6 +10183,7 @@ export type Database = {
       }
       post_copy_queue_drain_off: { Args: never; Returns: boolean }
       post_copy_queue_drain_on: { Args: never; Returns: boolean }
+      post_copy_queue_has_work: { Args: never; Returns: boolean }
       prepare_installation_bootstrap: {
         Args: { _expires_at: string; _secret_hash: string }
         Returns: undefined
