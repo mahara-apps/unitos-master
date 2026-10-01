@@ -33,7 +33,7 @@ export const listWorkItemsFn = createServerFn({ method: "GET" })
         if (data.archive === "archived") query = query.not("archived_at", "is", null);
         const { data: page, error } = await query.order("id", { ascending: true })
           .range(offset, offset + PAGE_SIZE - 1);
-        if (error) throw error;
+        if (error) throw new Error(`Falha ao ler itens de trabalho: ${error.message}`);
         if (!Array.isArray(page)) throw new Error("Resposta inválida ao ler itens de trabalho.");
         rows.push(...(page as T[]));
         if (page.length < PAGE_SIZE) break;
@@ -53,7 +53,7 @@ export const listWorkItemsFn = createServerFn({ method: "GET" })
       const { data: page, error } = await context.supabase.from("projects")
         .select("id,brand_id,client_id").eq("brand_id", data.brandId)
         .in("id", projectIds.slice(offset, offset + PAGE_SIZE));
-      if (error) throw error;
+      if (error) throw new Error(`Falha ao ler projetos: ${error.message}`);
       if (!Array.isArray(page)) throw new Error("Resposta inválida ao ler projetos.");
       projects.push(...page);
     }
