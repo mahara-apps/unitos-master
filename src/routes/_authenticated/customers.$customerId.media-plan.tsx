@@ -88,7 +88,7 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId/medi
       <Skeleton className="h-96 w-full" />
     </DashboardPageShell>
   ),
-  errorComponent: MediaPlanRouteError,
+  errorComponent: (props) => <MediaPlanRouteError {...props} />,
   notFoundComponent: () => <MediaPlanRouteError />,
 });
 
