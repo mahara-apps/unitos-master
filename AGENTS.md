@@ -43,6 +43,8 @@ Inspeção de instalação compara cadastro, deploy e navegador somente em leitu
 
 IA exige conexão e chave; texto usa OpenAI/Claude/Gemini como principal e Groq como fallback automático exclusivo, com schema portátil normalizado. Pauta mensal roda em segundo plano via `ai_jobs`.
 
+Health checks de IA são isolados por workspace; jobs e peças usam lease/fencing e efeitos idempotentes para impedir replays e escritas tardias.
+
 Duplicação usa RPC transacional idempotente; não copia histórico nem vínculos editoriais.
 
 Modelos: textos selecionados, criação sem histórico; gestão só Owner/Admin/Super Admin via RPC/RLS para evitar escalada.

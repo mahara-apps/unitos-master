@@ -1,6 +1,6 @@
 import { contentFormatLabel } from "@/lib/content-formats";
 import { generateText, NoObjectGeneratedError } from "ai";
-import { withPtBr } from "@/lib/ai-language";
+import { assertPtBrPayload, withPtBr } from "@/lib/ai-language";
 import { z } from "zod";
 import { getBrandAiModelAdmin, describeProviderAttempts } from "@/lib/ai-provider.server";
 import { loadAgentPrompts, fillTemplate } from "@/lib/agent-prompts.server";
@@ -136,6 +136,7 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
     if (!field) return null;
     const parsed = opts.schema.safeParse({ [opts.textFallbackKey]: field.value });
     if (parsed.success) {
+      assertPtBrPayload(parsed.data, opts.textFallbackKey);
       trace.outputDisposition = field.disposition;
       return parsed.data as z.infer<T>;
     }

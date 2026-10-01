@@ -20,6 +20,7 @@ const GENERATION_FILES = [
   "src/lib/monthly-plan-generate.server.ts",
   "src/lib/monthly-plans.functions.ts",
   "src/lib/media-plans-ai.functions.ts",
+  "src/lib/copilot-job.server.ts",
 ];
 
 
