@@ -801,6 +801,16 @@
       "position": 160,
       "file": "20261001192055_07806172-0af1-4fc6-8ccf-39d16572547d.sql",
       "destination": "client"
+    },
+    {
+      "position": 161,
+      "file": "20261001201627_fe2a1cfc-566a-494c-8044-a24c6ac7451b.sql",
+      "destination": "client"
+    },
+    {
+      "position": 162,
+      "file": "20261001202029_8e2af377-d0d7-4d69-8412-a71e7672d139.sql",
+      "destination": "client"
     }
   ]
 }
