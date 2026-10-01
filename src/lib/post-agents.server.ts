@@ -1,6 +1,6 @@
 import { contentFormatLabel } from "@/lib/content-formats";
 import { generateText, NoObjectGeneratedError } from "ai";
-import { withPtBr } from "@/lib/ai-language";
+import { assertPtBrPayload, withPtBr } from "@/lib/ai-language";
 import { z } from "zod";
 import { getBrandAiModelAdmin, describeProviderAttempts } from "@/lib/ai-provider.server";
 import { loadAgentPrompts, fillTemplate } from "@/lib/agent-prompts.server";
@@ -136,6 +136,7 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
     if (!field) return null;
     const parsed = opts.schema.safeParse({ [opts.textFallbackKey]: field.value });
     if (parsed.success) {
+      assertPtBrPayload(parsed.data, opts.textFallbackKey);
       trace.outputDisposition = field.disposition;
       return parsed.data as z.infer<T>;
     }
@@ -321,12 +322,15 @@ export async function generatePostContent(
   // Só assume a geração quem conseguir marcar `copy_running`. Uma execução
   // presa (worker morto/timeout) é reclamada após STALE_LOCK_MS.
   const staleBefore = new Date(Date.now() - STALE_LOCK_MS).toISOString();
+  /** Identificador da execução — também funciona como fencing contra workers antigos. */
+  const jobId = crypto.randomUUID();
   const { data: claimed } = await admin
     .from("posts")
     .update({
       ai_phase: AI_PHASE.running,
       ai_phase_at: new Date().toISOString(),
       ai_phase_error: null,
+      ai_run_id: jobId,
     } as never)
     .eq("id", post.id)
     .or(`ai_phase.neq.${AI_PHASE.running},ai_phase_at.lt.${staleBefore},ai_phase_at.is.null`)
@@ -335,8 +339,6 @@ export async function generatePostContent(
     return { status: "skipped", reason: "already_running" };
   }
 
-  /** Identificador da execução — une todas as etapas na telemetria. */
-  const jobId = crypto.randomUUID();
   /** Contexto opcional que falhou — nunca silenciado. */
   const degraded: string[] = [];
 
@@ -481,8 +483,9 @@ export async function generatePostContent(
     });
     await admin
       .from("posts")
-      .update(failPhasePatch(kind, retryable) as never)
-      .eq("id", post.id);
+      .update({ ...failPhasePatch(kind, retryable), ai_run_id: null } as never)
+      .eq("id", post.id)
+      .eq("ai_run_id", jobId);
     return { status: "failed", agent: "agent_prompts", error: msg, kind, retryable };
   }
 
@@ -564,8 +567,9 @@ export async function generatePostContent(
       const { kind, retryable } = classifyAiError(err);
       await admin
         .from("posts")
-        .update(failPhasePatch(kind, retryable) as never)
-        .eq("id", post.id);
+        .update({ ...failPhasePatch(kind, retryable), ai_run_id: null } as never)
+        .eq("id", post.id)
+        .eq("ai_run_id", jobId);
       return { status: "failed", agent: "roteirista_social", error: msg, kind, retryable };
     }
   }
@@ -631,8 +635,9 @@ export async function generatePostContent(
     });
     await admin
       .from("posts")
-      .update(failPhasePatch("config", false) as never)
-      .eq("id", post.id);
+      .update({ ...failPhasePatch("config", false), ai_run_id: null } as never)
+      .eq("id", post.id)
+      .eq("ai_run_id", jobId);
     return {
       status: "failed",
       agent: "copywriter_senior",
@@ -695,22 +700,26 @@ export async function generatePostContent(
       await admin
         .from("posts")
         .update(patch as never)
-        .eq("id", post.id);
+        .eq("id", post.id)
+        .eq("ai_run_id", jobId);
     }
     await admin
       .from("posts")
-      .update(failPhasePatch(kind, retryable) as never)
-      .eq("id", post.id);
+      .update({ ...failPhasePatch(kind, retryable), ai_run_id: null } as never)
+      .eq("id", post.id)
+      .eq("ai_run_id", jobId);
     return { status: "failed", agent: "copywriter_senior", error: msg, kind, retryable };
   }
 
   patch.ai_phase = AI_PHASE.ready;
   patch.ai_phase_at = new Date().toISOString();
   patch.ai_phase_error = null;
+  patch.ai_run_id = null;
   const { error: updErr } = await admin
     .from("posts")
     .update(patch as never)
-    .eq("id", post.id);
+    .eq("id", post.id)
+    .eq("ai_run_id", jobId);
   if (updErr) {
     await logAttempt(admin, post, {
       agent: "persist",
@@ -833,6 +842,7 @@ export async function resumePendingPostContent(args: {
     .update({
       ai_phase: AI_PHASE.retryable,
       ai_phase_error: "Geração interrompida — retomando automaticamente",
+      ai_run_id: null,
     } as never)
     .eq("ai_phase", AI_PHASE.running)
     .is("deleted_at", null)
@@ -862,11 +872,11 @@ export async function resumePendingPostContent(args: {
 
   const res = await generatePostsContentSequential(ids, { userId: args.userId ?? null });
 
-  // Sobrou trabalho em qualquer lugar? Decide se a rede de segurança continua ligada.
+  // Sobrou trabalho pendente OU em execução? Só então a rede de segurança permanece ligada.
   const { count: remaining } = await admin
     .from("posts")
     .select("id", { count: "exact", head: true })
-    .in("ai_phase", RESUMABLE_AI_PHASES as unknown as string[])
+    .in("ai_phase", [...RESUMABLE_AI_PHASES, AI_PHASE.running] as unknown as string[])
     .is("deleted_at", null)
     .or("copy.is.null,copy.eq.");
 

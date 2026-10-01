@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   IMAGE_PROVIDERS,
@@ -24,7 +25,8 @@ export type AiModelStatus = {
 
 export const getAiModelStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<AiModelStatus> => {
+  .inputValidator((input: unknown) => z.object({ brandId: z.string().uuid() }).parse(input))
+  .handler(async ({ context, data }): Promise<AiModelStatus> => {
     const { MODEL_CATALOG } = await import("@/lib/ai-models-catalog.server");
     // Leitura autenticada (RLS: apenas super admins veem overrides/health).
     // Não usa service role — o painel é read-only para o usuário logado.
@@ -35,6 +37,7 @@ export const getAiModelStatus = createServerFn({ method: "GET" })
     const { data: lastCheck } = await context.supabase
       .from("ai_model_health")
       .select("checked_at")
+      .eq("brand_id", data.brandId)
       .order("checked_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -65,14 +68,15 @@ export const getAiModelStatus = createServerFn({ method: "GET" })
 
 export const runAiModelHealthNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((input: unknown) => z.object({ brandId: z.string().uuid() }).parse(input))
+  .handler(async ({ context, data }) => {
     const { data: isAdmin } = await context.supabase.rpc("is_super_admin", {
       _user_id: context.userId,
     });
     if (!isAdmin) throw new Error("Forbidden");
 
     const { runAiModelHealthCheck } = await import("@/lib/ai-model-health.server");
-    const result = await runAiModelHealthCheck();
+    const result = await runAiModelHealthCheck(data.brandId);
     // "skipped" = fornecedor sem chave cadastrada; nunca conta como problema.
     return {
       checkedAt: result.checkedAt,

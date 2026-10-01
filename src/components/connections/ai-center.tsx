@@ -513,14 +513,14 @@ function HealthPanel({
 
   const { data } = useQuery({
     queryKey: ["ai-model-status", brandId],
-    queryFn: () => statusFn(),
+    queryFn: () => statusFn({ data: { brandId } }),
     staleTime: 5 * 60 * 1000,
   });
 
   const [lastRun, setLastRun] = useState<string | null>(null);
 
   const runMut = useMutation({
-    mutationFn: () => runFn(),
+    mutationFn: () => runFn({ data: { brandId } }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["ai-model-status", brandId] });
       setLastRun(res.checkedAt);

@@ -7597,6 +7597,7 @@ export type Database = {
           schedule_status: string
           scheduled_at: string | null
           script: Json | null
+          source_ai_job_id: string | null
           stage: Database["public"]["Enums"]["post_stage"]
           stage_entered_at: string | null
           stage_id: string | null
@@ -7652,6 +7653,7 @@ export type Database = {
           schedule_status?: string
           scheduled_at?: string | null
           script?: Json | null
+          source_ai_job_id?: string | null
           stage?: Database["public"]["Enums"]["post_stage"]
           stage_entered_at?: string | null
           stage_id?: string | null
@@ -7707,6 +7709,7 @@ export type Database = {
           schedule_status?: string
           scheduled_at?: string | null
           script?: Json | null
+          source_ai_job_id?: string | null
           stage?: Database["public"]["Enums"]["post_stage"]
           stage_entered_at?: string | null
           stage_id?: string | null
@@ -7757,6 +7760,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_source_ai_job_id_fkey"
+            columns: ["source_ai_job_id"]
+            isOneToOne: false
+            referencedRelation: "ai_jobs"
             referencedColumns: ["id"]
           },
           {

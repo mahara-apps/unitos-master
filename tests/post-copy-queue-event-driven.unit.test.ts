@@ -18,6 +18,8 @@ describe("fila de legendas acionada por evento", () => {
     expect(sql).toContain("trg_post_copy_queue_notify");
     expect(sql).toContain("public.post_copy_queue_drain_on()");
     expect(sql).toContain("public.post_copy_queue_drain_off()");
+    expect(sql).toContain("public.post_copy_queue_has_work()");
+    expect(sql).toContain("ai_run_id");
   });
 
   it("o endpoint de retomada liga/desliga a varredura conforme a fila", () => {
@@ -31,5 +33,7 @@ describe("fila de legendas acionada por evento", () => {
     const delta = readFileSync("supabase/baseline-snapshot/007_delta_migrations.sql", "utf8");
     expect(delta).toContain("post_copy_queue_notify");
     expect(delta).toContain("post_copy_queue_state");
+    expect(delta).toContain("post_copy_queue_has_work");
+    expect(delta).toContain("copy_running");
   });
 });

@@ -1,3 +1,14 @@
+## Correção integral das rotinas de IA
+
+- [x] Isolar health check e estado da conexão por workspace.
+- [x] Manter a fila ativa para peças em execução e impedir escrita tardia por fencing.
+- [x] Validar roteiro pelo contrato portátil e pela regra canônica de pt-BR.
+- [x] Extrair Copilot para execução com lease, saída validada e injeção idempotente.
+- [x] Selar o pacote MASTER 1.4.60, sincronizar versão/contratos e concluir guardiões.
+- [ ] Reexecutar a suíte global quando o token de auditoria do Supabase for renovado (bloqueio externo confirmado).
+- [ ] Publicar e propagar somente após autorizações explícitas separadas.
+- [ ] Substituir e validar a chave Groq por ação administrativa separada.
+
 ## Compatibilidade de documentos e fallback Groq
 
 - [x] Separar o contrato canônico do schema portátil enviado aos provedores.

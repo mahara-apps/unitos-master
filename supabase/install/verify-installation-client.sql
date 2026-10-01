@@ -331,11 +331,14 @@ WITH checks AS (
                          WHERE schemaname = 'public' AND tablename = 'critical_action_events') >= 1
               THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
-  SELECT 48, 'Legendas: motivo de falha e retomada por evento (sem polling)',
+  SELECT 48, 'Legendas: motivo de falha, fencing e retomada por evento (sem polling)',
          CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns
                             WHERE table_schema = 'public' AND table_name = 'posts'
                               AND column_name = 'ai_phase_error')
-              THEN 'coluna presente' ELSE 'coluna ausente' END
+                   AND EXISTS (SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = 'posts'
+                              AND column_name = 'ai_run_id')
+              THEN 'colunas presentes' ELSE 'coluna ausente' END
          || ' / disparo=' ||
          CASE WHEN EXISTS (SELECT 1 FROM pg_trigger
                             WHERE tgname = 'trg_post_copy_queue_notify' AND NOT tgisinternal)
@@ -343,14 +346,19 @@ WITH checks AS (
          || ' / retomada=' ||
          CASE WHEN to_regprocedure('public.post_copy_queue_drain_on()') IS NOT NULL
                    AND to_regprocedure('public.post_copy_queue_drain_off()') IS NOT NULL
+                   AND to_regprocedure('public.post_copy_queue_has_work()') IS NOT NULL
               THEN 'sob demanda' ELSE 'ausente' END,
          CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns
                             WHERE table_schema = 'public' AND table_name = 'posts'
                               AND column_name = 'ai_phase_error')
                    AND EXISTS (SELECT 1 FROM pg_trigger
                                 WHERE tgname = 'trg_post_copy_queue_notify' AND NOT tgisinternal)
+                   AND EXISTS (SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = 'posts'
+                                  AND column_name = 'ai_run_id')
                    AND to_regprocedure('public.post_copy_queue_drain_on()') IS NOT NULL
                    AND to_regprocedure('public.post_copy_queue_drain_off()') IS NOT NULL
+                   AND to_regprocedure('public.post_copy_queue_has_work()') IS NOT NULL
                    AND NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'post-content-resume')
               THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
