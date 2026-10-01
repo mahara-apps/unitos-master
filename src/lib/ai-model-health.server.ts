@@ -185,17 +185,6 @@ async function notifySuperAdmins(supabase: Admin, entries: HealthCheckEntry[]): 
   if (!admins?.length) return;
 
   const adminIds = admins.map((a) => a.id as string);
-  const { data: memberships } = await supabase
-    .from("brand_members")
-    .select("user_id, brand_id")
-    .in("user_id", adminIds);
-
-  const brandByUser = new Map<string, string>();
-  for (const m of memberships ?? []) {
-    const uid = m.user_id as string;
-    if (!brandByUser.has(uid)) brandByUser.set(uid, m.brand_id as string);
-  }
-
   const byBrand = new Map<string, HealthCheckEntry[]>();
   for (const problem of problems) {
     if (!problem.brandId) continue;
