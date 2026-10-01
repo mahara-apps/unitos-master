@@ -41,7 +41,7 @@ Minhas tarefas filtra antes do limite e pagina sob RLS; atribuições usam `can_
 
 Inspeção de instalação compara cadastro, deploy e navegador somente em leitura; cadastro não é endereço efetivo antes da sincronização.
 
-IA exige conexão e chave; seleção e execução usam a mesma ordem. Pauta mensal roda em segundo plano via `ai_jobs`.
+IA exige conexão e chave; texto usa OpenAI/Claude/Gemini como principal e Groq como fallback automático exclusivo, com schema portátil normalizado. Pauta mensal roda em segundo plano via `ai_jobs`.
 
 Duplicação usa RPC transacional idempotente; não copia histórico nem vínculos editoriais.
 

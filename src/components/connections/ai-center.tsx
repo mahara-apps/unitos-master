@@ -171,7 +171,6 @@ export type AiSettingsUpdate = {
   monthlyBudgetUsd?: number;
   textProvider?: AiProviderId;
   imageProvider?: AiProviderId;
-  textFallbackProvider?: AiProviderId | "none";
 };
 
 /**
@@ -206,7 +205,6 @@ export function AiCenter({
 
   const textProvider = (data?.textProvider ?? "openai") as AiProviderId;
   const imageProvider = (data?.imageProvider ?? "gemini") as AiProviderId;
-  const fallback = (data?.textFallbackProvider ?? "none") as AiProviderId | "none";
 
   return (
     <Tabs value={tab} onValueChange={setTab} className="space-y-4">
@@ -282,7 +280,7 @@ export function AiCenter({
             <SummaryRow label="Modelo de imagem" value={PROVIDER_BY_ID[imageProvider]?.name} />
             <SummaryRow
               label="Fallback"
-              value={fallback === "none" ? "Nenhum" : PROVIDER_BY_ID[fallback]?.name}
+              value={data?.providers?.groq?.connected ? "Groq · automático" : "Não configurado"}
             />
             <SummaryRow label="Limite mensal" value={`US$ ${budget.toFixed(0)}`} />
           </div>
@@ -361,7 +359,7 @@ export function AiCenter({
         <ConfigForm
           textProvider={textProvider}
           imageProvider={imageProvider}
-          fallback={fallback}
+          groqConnected={data?.providers?.groq?.connected === true}
           budget={budget}
           isSaving={isSaving}
           onSave={onUpdateSettings}
@@ -385,33 +383,32 @@ function SummaryRow({ label, value }: { label: string; value?: ReactNode }) {
 function ConfigForm({
   textProvider,
   imageProvider,
-  fallback,
+  groqConnected,
   budget,
   isSaving,
   onSave,
 }: {
   textProvider: AiProviderId;
   imageProvider: AiProviderId;
-  fallback: AiProviderId | "none";
+  groqConnected: boolean;
   budget: number;
   isSaving: boolean;
   onSave: (input: AiSettingsUpdate) => void;
 }) {
   const [text, setText] = useState<AiProviderId>(textProvider);
   const [image, setImage] = useState<AiProviderId>(imageProvider);
-  const [fb, setFb] = useState<AiProviderId | "none">(fallback);
   const [limit, setLimit] = useState<string>(String(budget));
 
   useEffect(() => {
     setText(textProvider);
     setImage(imageProvider);
-    setFb(fallback);
     setLimit(String(budget));
-  }, [textProvider, imageProvider, fallback, budget]);
+  }, [textProvider, imageProvider, budget]);
 
-  const textOptions = AI_PROVIDERS.filter((p) => supportsKind(p.id as AiProviderName, "text"));
+  const textOptions = AI_PROVIDERS.filter(
+    (p) => supportsKind(p.id as AiProviderName, "text") && p.id !== "groq",
+  );
   const imageOptions = AI_PROVIDERS.filter((p) => supportsKind(p.id as AiProviderName, "image"));
-  const fallbackOptions = textOptions.filter((p) => p.id !== text);
 
   return (
     <DashboardPanelSurface className="p-4">
@@ -453,20 +450,10 @@ function ConfigForm({
           </Select>
         </Field>
 
-        <Field label="Modelo de fallback" hint="Usado apenas quando o provedor principal falha.">
-          <Select value={fb} onValueChange={(v) => setFb(v as AiProviderId | "none")}>
-            <SelectTrigger className="h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Nenhum</SelectItem>
-              {fallbackOptions.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <Field label="Fallback de texto" hint="Ativado automaticamente ao conectar uma chave Groq válida.">
+          <div className="flex h-9 items-center rounded-md border border-border bg-background px-3 text-sm">
+            {groqConnected ? "Groq · automático" : "Groq · não configurado"}
+          </div>
         </Field>
 
         <Field label="Limite mensal (USD)">
@@ -489,7 +476,6 @@ function ConfigForm({
             const payload: AiSettingsUpdate = {
               textProvider: text,
               imageProvider: image,
-              textFallbackProvider: fb,
             };
             if (Number.isFinite(n) && n >= 0) payload.monthlyBudgetUsd = n;
             onSave(payload);

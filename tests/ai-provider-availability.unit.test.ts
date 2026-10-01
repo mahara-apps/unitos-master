@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { orderedUsableTextProviders } from "@/lib/ai-provider-availability";
 
 describe("provedores de IA utilizáveis", () => {
-  it("ordena principal, fallback e demais conexões", () => {
+  it("ordena somente o principal e o fallback Groq", () => {
     expect(
       orderedUsableTextProviders({
         primary: "gemini",
@@ -14,10 +14,10 @@ describe("provedores de IA utilizáveis", () => {
         },
         credentialProviders: ["gemini", "groq", "anthropic"],
       }),
-    ).toEqual(["gemini", "groq", "anthropic"]);
+    ).toEqual(["gemini", "groq"]);
   });
 
-  it("ignora o principal sem chave e promove conexões utilizáveis", () => {
+  it("ignora o principal sem chave e usa somente o Groq configurado", () => {
     expect(
       orderedUsableTextProviders({
         primary: "openai",
@@ -25,7 +25,18 @@ describe("provedores de IA utilizáveis", () => {
         providers: { groq: { connected: true }, gemini: { connected: true } },
         credentialProviders: ["groq", "gemini"],
       }),
-    ).toEqual(["groq", "gemini"]);
+    ).toEqual(["groq"]);
+  });
+
+  it("não aceita Groq como principal nem outro provedor como fallback", () => {
+    expect(
+      orderedUsableTextProviders({
+        primary: "groq",
+        fallback: "anthropic",
+        providers: { groq: { connected: true }, anthropic: { connected: true } },
+        credentialProviders: ["groq", "anthropic"],
+      }),
+    ).toEqual([]);
   });
 
   it("não oferece conexão sem chave, desconectada ou desconhecida", () => {

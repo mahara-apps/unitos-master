@@ -17,6 +17,8 @@ export function briefingProviderOptions(provider: string): SharedV4ProviderOptio
 }
 
 export const BRIEFING_OUTPUT_INSTRUCTIONS = `Regras de tamanho da resposta:
+- preencha todas as propriedades do schema;
+- para informação ausente, use string vazia, lista vazia ou confiança -1;
 - resumo executivo: no máximo 400 caracteres;
 - cada campo textual do briefing: no máximo 700 caracteres;
 - no máximo uma evidência curta por campo proposto, com trecho de até 300 caracteres;

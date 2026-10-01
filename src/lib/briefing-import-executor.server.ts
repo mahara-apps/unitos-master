@@ -227,7 +227,7 @@ export async function executeImportRun(
     await setRunStep(db, scope, "interpret", "running");
 
     const system = withPtBr(
-      `Você é um analista sênior de marca. Interprete o material e devolva um JSON estrito em pt-BR, mapeando cada informação para os campos de briefing. Preencha TODAS as propriedades do schema: use null para texto/confiança ausente e [] para evidence/speakers sem itens. Nunca invente dados. Todos os textos devem ser objetivos e prontos para uso no briefing (sem introduções como "o documento diz").${
+      `Você é um analista sênior de marca. Interprete o material e devolva um JSON estrito em pt-BR, mapeando cada informação para os campos de briefing. Preencha TODAS as propriedades do schema: use string vazia para texto ausente, -1 para confiança ausente e [] para listas sem itens. Nunca invente dados. Todos os textos devem ser objetivos e prontos para uso no briefing (sem introduções como "o documento diz").${
         isTranscript
           ? ` Este material é uma TRANSCRIÇÃO: identifique os participantes e infira o papel de cada um SOMENTE com evidência explícita; sem evidência, use role "indefinido" e needs_review = true.`
           : ""
@@ -238,12 +238,12 @@ export async function executeImportRun(
       `Material: ${docName}`,
       `\nBRIEFING ATUAL (para cruzamento):\n${JSON.stringify(current).slice(0, 12_000)}`,
       `\nTarefas:
-1) ${inlinePayload ? "Extraia somente os trechos essenciais (até 4000 caracteres) para `extracted_text`." : "O texto já foi extraído pelo sistema; devolva `extracted_text` como null e não o repita."}
+1) ${inlinePayload ? "Extraia somente os trechos essenciais (até 4000 caracteres) para `extracted_text`." : "O texto já foi extraído pelo sistema; devolva `extracted_text` como string vazia e não o repita."}
 2) Classifique o tipo do material em \`material_type\`.
 3) Resumo executivo em até 400 caracteres.
-4) Preencha \`briefing\` com o que o material sustenta; deixe null o que não tiver base.
+4) Preencha \`briefing\` com o que o material sustenta; use string vazia no que não tiver base.
 5) Em \`evidence\`, para cada campo proposto, informe o trecho literal (excerpt), se contradiz o briefing atual (conflict) e a confiança do campo.
-6) \`confidence\` global de 0 a 1 ou null. \`evidence\` e \`speakers\` devem ser arrays, mesmo quando vazios.
+6) \`confidence\` global de 0 a 1 ou -1 quando ausente. \`evidence\` e \`speakers\` devem ser arrays, mesmo quando vazios.
 ${BRIEFING_OUTPUT_INSTRUCTIONS}`,
     ].join("\n");
 

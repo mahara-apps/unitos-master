@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { BriefingAnalysisSchema, normalizeBriefingAnalysis } from "@/lib/briefing-analysis-schema";
+import {
+  BriefingAnalysisSchema,
+  BriefingTransportSchema,
+  normalizeBriefingAnalysis,
+} from "@/lib/briefing-analysis-schema";
 import { briefingProviderOptions } from "@/lib/briefing-generation.server";
 
 describe("geração provider-aware de briefing", () => {
@@ -13,6 +17,28 @@ describe("geração provider-aware de briefing", () => {
     });
     expect(JSON.stringify(briefingProviderOptions("groq"))).not.toContain('"none"');
     expect(briefingProviderOptions("gemini")).toEqual({});
+  });
+
+  it("usa contrato portátil e converte sentinelas para o formato canônico", () => {
+    const payload = {
+      executive_summary: "",
+      material_type: "documento",
+      extracted_text: "",
+      briefing: {
+        description: "", mission: "", positioning: "", values: "", audience: "",
+        pain_points: "", demographics: "", offer: "", differentials: "", objections: "",
+        journey: "", desires: "", tone_text: "", hashtags: [], goals: "",
+      },
+      evidence: [],
+      speakers: [],
+      confidence: -1,
+    };
+    expect(BriefingTransportSchema.safeParse(payload).success).toBe(true);
+    const normalized = normalizeBriefingAnalysis(payload);
+    expect(normalized?.executive_summary).toBeNull();
+    expect(normalized?.briefing.description).toBeNull();
+    expect(normalized?.briefing.hashtags).toBeNull();
+    expect(normalized?.confidence).toBeNull();
   });
 
   it("mantém o schema wire sem limites frágeis e aplica limites depois", () => {

@@ -58,9 +58,15 @@ import {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (v: string | null | undefined): v is string => !!v && UUID_RE.test(v);
 
+type CustomerSearch = {
+  onboarding?: "1" | 1 | boolean;
+  planId?: string;
+  tab?: string;
+};
+
 export const Route = createFileRoute("/_authenticated/customers/$customerId")({
-  validateSearch: (s) =>
-    z
+  validateSearch: (s): CustomerSearch => {
+    const parsed = z
       .object({
         onboarding: z
           .union([z.literal("1"), z.literal(1), z.boolean()])
@@ -71,8 +77,9 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
         // ou aba inexistente nunca derruba a página.
         tab: z.string().optional().catch(undefined),
       })
-      .catch({})
-      .parse(s),
+      .safeParse(s);
+    return parsed.success ? parsed.data : {};
+  },
 
   // Guard de rota: valida o customerId e normaliza a aba ANTES de montar
   // qualquer conteúdo protegido. A autorização definitiva continua na RLS

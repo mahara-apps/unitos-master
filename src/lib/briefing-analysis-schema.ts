@@ -33,6 +33,50 @@ export const BriefingSpeakerSchema = z.object({
 });
 
 /**
+ * Schema de transporte comum aos quatro adapters. Evita nullable/optional,
+ * que alguns provedores convertem em unions e recusam quando são numerosos.
+ */
+export const BriefingTransportSchema = z.object({
+  executive_summary: z.string(),
+  material_type: z.string(),
+  extracted_text: z.string(),
+  briefing: z.object({
+    description: z.string(),
+    mission: z.string(),
+    positioning: z.string(),
+    values: z.string(),
+    audience: z.string(),
+    pain_points: z.string(),
+    demographics: z.string(),
+    offer: z.string(),
+    differentials: z.string(),
+    objections: z.string(),
+    journey: z.string(),
+    desires: z.string(),
+    tone_text: z.string(),
+    hashtags: z.array(z.string()),
+    goals: z.string(),
+  }),
+  evidence: z.array(
+    z.object({
+      field: z.string(),
+      excerpt: z.string(),
+      conflict: z.boolean(),
+      confidence: z.number(),
+    }),
+  ),
+  speakers: z.array(
+    z.object({
+      name: z.string(),
+      role: z.string(),
+      evidence: z.string(),
+      needs_review: z.boolean(),
+    }),
+  ),
+  confidence: z.number(),
+});
+
+/**
  * Contrato enviado aos providers. Todos os campos declarados são obrigatórios
  * no JSON Schema; ausência semântica usa null/arrays vazios. Isso mantém o
  * response_format portátil entre Gemini e providers OpenAI-compatible.
@@ -79,7 +123,34 @@ const EMPTY_BRIEFING: z.infer<typeof BriefingFieldsSchema> = {
 
 /** Normaliza apenas metadados historicamente omitidos; campos centrais seguem obrigatórios. */
 export function normalizeBriefingAnalysis(value: unknown): BriefingAnalysis | null {
-  const parsed = RecoverableBriefingAnalysisSchema.safeParse(value);
+  const portable = BriefingTransportSchema.safeParse(value);
+  const candidate = portable.success
+    ? {
+        ...portable.data,
+        executive_summary: portable.data.executive_summary || null,
+        material_type: portable.data.material_type || null,
+        extracted_text: portable.data.extracted_text || null,
+        briefing: Object.fromEntries(
+          Object.entries(portable.data.briefing).map(([key, field]) => [
+            key,
+            Array.isArray(field) ? (field.length > 0 ? field : null) : field || null,
+          ]),
+        ),
+        evidence: portable.data.evidence.map((item) => ({
+          ...item,
+          excerpt: item.excerpt || null,
+          confidence: item.confidence < 0 ? null : item.confidence,
+        })),
+        speakers: portable.data.speakers.map((item) => ({
+          ...item,
+          name: item.name || null,
+          role: item.role || null,
+          evidence: item.evidence || null,
+        })),
+        confidence: portable.data.confidence < 0 ? null : portable.data.confidence,
+      }
+    : value;
+  const parsed = RecoverableBriefingAnalysisSchema.safeParse(candidate);
   if (!parsed.success) return null;
   const clip = (text: string | null | undefined, max: number) =>
     typeof text === "string" ? text.slice(0, max) : null;

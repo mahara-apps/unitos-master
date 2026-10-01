@@ -93,15 +93,16 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId/medi
 });
 
 /** Nunca deixar tela branca: erro com motivo e caminhos de saída. */
-function MediaPlanRouteError({ error, reset }: { error?: Error; reset?: () => void }) {
+function MediaPlanRouteError({ error, reset }: { error?: unknown; reset?: () => void }) {
   const router = useRouter();
+  const errorMessage = error instanceof Error ? error.message : "";
   return (
     <DashboardPageShell>
       <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 bg-card/40 px-6 py-16 text-center">
         <AlertTriangle className="mb-4 h-10 w-10 text-amber-500" />
         <div className="mb-1 text-lg font-medium">Não foi possível abrir o plano de mídia</div>
         <div className="mb-6 max-w-md text-sm text-muted-foreground">
-          {error?.message?.trim() || "Tente novamente em alguns instantes."}
+          {errorMessage.trim() || "Tente novamente em alguns instantes."}
         </div>
         <div className="flex items-center gap-2">
           <Button

@@ -16,11 +16,13 @@ const recovered = new Set<string>();
  * Fallback padrão para erros de rota. Renderizado no lugar do conteúdo da
  * rota, dentro do shell: a barra lateral e o topo continuam visíveis.
  */
-export function RouteError({ error, reset }: { error: Error; reset: () => void }) {
+export function RouteError({ error, reset }: { error: unknown; reset: () => void }) {
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [autoRetrying, setAutoRetrying] = useState(false);
   const handled = useRef(false);
+
+  const errorMessage = error instanceof Error ? error.message : String(error ?? "");
 
   useEffect(() => {
     console.error("[route-error]", error);
@@ -66,7 +68,7 @@ export function RouteError({ error, reset }: { error: Error; reset: () => void }
           Seus dados estão salvos. Tente de novo — se continuar, recarregue a página.
         </p>
         <p className="mt-2 text-xs text-muted-foreground/80">
-          {error?.message?.slice(0, 200) || ""}
+          {errorMessage.slice(0, 200)}
         </p>
         <div className="mt-6 flex justify-center gap-2">
           <Button
