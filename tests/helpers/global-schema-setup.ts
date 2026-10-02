@@ -80,15 +80,19 @@ async function requireQuery(
   return result.rows;
 }
 
-async function verifyClientSchema(management: Management): Promise<void> {
+async function clientSchemaFailures(management: Management): Promise<string[]> {
   const prepared = prepareVerificationSql(verifySql);
   const rows = await requireQuery(management, prepared.sql, "verificação Client");
   if (rows.length === 0) throw new Error("verificação Client não retornou checks");
-  const failures = rows
+  return rows
     .filter((row): row is Record<string, unknown> => !!row && typeof row === "object")
     .filter((row) => String(row["status"] ?? "").toUpperCase() === "FAIL")
     .map((row) => String(row["check_name"] ?? "verificação sem nome"))
     .filter((name) => !EXPECTED_OPERATIONAL_FAILURES.has(name));
+}
+
+async function verifyClientSchema(management: Management): Promise<void> {
+  const failures = await clientSchemaFailures(management);
   if (failures.length > 0) {
     throw new Error(`schema descartável reprovado: ${failures.slice(0, 5).join("; ")}`);
   }
@@ -111,27 +115,6 @@ export async function ensureGlobalTestSchema(options?: {
   const management =
     options?.management ??
     createManagementClient({ token, projectRef: INTEGRATION_TEST_PROJECT_REF });
-  const inspected = await requireQuery(management, INSPECT_SCHEMA_SQL, "inspeção do schema");
-  const publicTables = numberField(inspected[0], "public_tables");
-  const criticalTables = numberField(inspected[0], "critical_tables");
-  if (!Number.isInteger(publicTables) || !Number.isInteger(criticalTables)) {
-    throw new Error("inspeção do schema retornou resultado inválido");
-  }
-
-  if (criticalTables === 5) {
-    const business = await requireQuery(management, INSPECT_BUSINESS_DATA_SQL, "inspeção de dados");
-    if (numberField(business[0], "business_rows") !== 0) {
-      throw new Error("setup recusado: o projeto contém dados operacionais e não será alterado");
-    }
-    await verifyClientSchema(management);
-    return "ready";
-  }
-  if (publicTables !== 0 || criticalTables !== 0) {
-    throw new Error(
-      "setup recusado: schema parcial ou desconhecido; nenhuma correção automática foi feita",
-    );
-  }
-
   const applyFile =
     options?.applyFile ??
     (async (target: Management, name: string, sql: string) => {
@@ -149,6 +132,36 @@ export async function ensureGlobalTestSchema(options?: {
         );
       }
     });
+  const inspected = await requireQuery(management, INSPECT_SCHEMA_SQL, "inspeção do schema");
+  const publicTables = numberField(inspected[0], "public_tables");
+  const criticalTables = numberField(inspected[0], "critical_tables");
+  if (!Number.isInteger(publicTables) || !Number.isInteger(criticalTables)) {
+    throw new Error("inspeção do schema retornou resultado inválido");
+  }
+
+  if (criticalTables === 5) {
+    const business = await requireQuery(management, INSPECT_BUSINESS_DATA_SQL, "inspeção de dados");
+    if (numberField(business[0], "business_rows") !== 0) {
+      throw new Error("setup recusado: o projeto contém dados operacionais e não será alterado");
+    }
+    const failures = await clientSchemaFailures(management);
+    if (failures.length > 0) {
+      // O alvo autorizado é descartável e está sem dados operacionais. Reaplicar
+      // somente o delta canônico reconcilia versões anteriores sem reconstruir
+      // o baseline nem aceitar silenciosamente uma verificação estrutural falha.
+      await applyFile(management, "007_delta_migrations.sql", baseline007);
+      await requireQuery(management, "NOTIFY pgrst, 'reload schema';", "recarga do schema");
+      await verifyClientSchema(management);
+      return "provisioned";
+    }
+    return "ready";
+  }
+  if (publicTables !== 0 || criticalTables !== 0) {
+    throw new Error(
+      "setup recusado: schema parcial ou desconhecido; nenhuma correção automática foi feita",
+    );
+  }
+
   for (const name of BASELINE_ORDER) await applyFile(management, name, BASELINE_SQL[name]);
   await requireQuery(management, "NOTIFY pgrst, 'reload schema';", "recarga do schema");
   await verifyClientSchema(management);

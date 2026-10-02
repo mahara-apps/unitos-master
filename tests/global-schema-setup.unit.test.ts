@@ -44,6 +44,27 @@ describe("setup do schema da suíte global", () => {
     expect(applyFile).not.toHaveBeenCalled();
   });
 
+  it("reconcilia somente o delta quando o descartável vazio está em versão anterior", async () => {
+    const target = management([
+      [{ public_tables: 100, critical_tables: 5 }],
+      [{ business_rows: 0 }],
+      [{ check_name: "Legendas: motivo de falha, fencing e retomada por evento", status: "FAIL" }],
+      [],
+      [{ check_name: "baseline: tabelas em public", status: "PASS" }],
+    ]);
+    const applyFile = vi.fn(async () => undefined);
+
+    await expect(ensureGlobalTestSchema({ management: target, applyFile })).resolves.toBe(
+      "provisioned",
+    );
+    expect(applyFile).toHaveBeenCalledTimes(1);
+    expect(applyFile).toHaveBeenCalledWith(
+      target,
+      "007_delta_migrations.sql",
+      expect.stringContaining("007_delta_migrations.sql"),
+    );
+  });
+
   it("aplica banco vazio na ordem canônica e valida ao final", async () => {
     const target = management([
       [{ public_tables: 0, critical_tables: 0 }],
@@ -99,6 +120,10 @@ describe("setup do schema da suíte global", () => {
         { check_name: "RLS habilitado em todas as tabelas de public", status: "FAIL" },
       ],
     ]);
-    await expect(ensureGlobalTestSchema({ management: target })).rejects.toThrow(/RLS habilitado/);
+    const applyFile = vi.fn(async () => undefined);
+    await expect(ensureGlobalTestSchema({ management: target, applyFile })).rejects.toThrow(
+      /verificação Client não retornou checks/,
+    );
+    expect(applyFile).toHaveBeenCalledTimes(1);
   });
 });
