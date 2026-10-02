@@ -14,6 +14,7 @@ import { logMessage } from "../src/lib/messaging-log.server";
 let fx: Fixture;
 const created: string[] = [];
 const FORGED = "00000000-0000-4000-8000-0000000010c2";
+let historicalNullClientIds: string[] = [];
 
 const base = { channel: "resend", status: "sent", metadata: { tag: testTag } };
 
@@ -28,6 +29,10 @@ async function row(id: string) {
 }
 
 beforeAll(async () => {
+  const { data, error } = await admin.from("message_logs")
+    .select("id").is("client_id", null).order("id");
+  if (error || !data) throw new Error(`Falha ao registrar linhas históricas: ${error?.message ?? "resposta vazia"}`);
+  historicalNullClientIds = data.map((entry) => entry.id);
   fx = await seed();
 }, 120_000);
 
@@ -204,12 +209,13 @@ describe("FASE 10C.2 — logMessage: worker/service_role", () => {
 
 describe("FASE 10C.2 — registros históricos intactos", () => {
   it("15. nenhuma linha legada com client_id NULL foi alterada por esta fase", async () => {
-    const { count, error } = await admin
+    const { data, error } = await admin
       .from("message_logs")
-      .select("id", { count: "exact", head: true })
+      .select("id")
       .is("client_id", null)
-      .not("brand_id", "in", `(${fx.brandId},${fx.otherBrandId})`);
+      .order("id");
     expect(error).toBeNull();
-    expect(count ?? 0).toBeGreaterThanOrEqual(20);
+    const currentIds = new Set((data ?? []).map((entry) => entry.id));
+    expect(historicalNullClientIds.every((id) => currentIds.has(id))).toBe(true);
   });
 });

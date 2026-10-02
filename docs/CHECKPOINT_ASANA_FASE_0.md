@@ -1,6 +1,6 @@
 # Checkpoint de leitura — preparação para migração Asana
 
-Baseline registrada: MASTER 1.4.61, SHA do delta `3b8056917ef432f746b5ad451e9ff1f6560a1eff8a9770e05f3e292ec56b0ddf`.
+Baseline de referência: MASTER 1.4.61. Pacote local em validação: 1.4.62, SHA do delta `3b8056917ef432f746b5ad451e9ff1f6560a1eff8a9770e05f3e292ec56b0ddf` (não publicado).
 
 Leitura somente leitura no banco MASTER em 2026-10-01 (UTC), sem dados pessoais:
 
@@ -17,3 +17,5 @@ Leitura somente leitura no banco MASTER em 2026-10-01 (UTC), sem dados pessoais:
 Contrato: Projeto → Task (`project_jobs`) → Sub-task (`tasks.job_id`) → Checklist (`task_subtasks.task_id`). Sub-tasks também podem existir diretamente no projeto ou apenas no workspace/cliente. Peças e pautas permanecem entidades editoriais separadas. A identidade de leitura usa `task:<id>` ou `sub_task:<id>`; mesmo UUID entre origens não implica duplicação. O cliente de Task vem do projeto; o de Sub-task vem da própria linha e é confrontado com o projeto quando presente. Ausência de projeto esperado é erro, nunca lista vazia.
 
 Checkpoint não é backup nem rollback de banco. Não houve congelamento de jobs ou instalações porque esta etapa não modificou operações duráveis. Reconciliar contagens por workspace e papéis usando fixtures sanitizados antes de liberar a experiência unificada. A validação autenticada com os perfis reais depende de ambiente QA utilizável; nenhuma instalação crítica foi tocada.
+
+Ensaio global no projeto QA descartável: 1876/1880 testes passaram antes da correção do teste histórico; as três falhas restantes medem permissões EXECUTE de `anon` que o banco QA concede indevidamente, enquanto o MASTER as nega. Nenhuma permissão ou dado do MASTER foi alterado para encobrir a divergência. A reconciliação do descartável exige ação separada e validação posterior antes do aceite da Fase 1.
