@@ -8,7 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 
 const url = process.env["SUPABASE_URL"];
-const key = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+const key = process.env["UNITOS_TEST_SERVICE_ROLE_KEY"] ?? process.env["SUPABASE_SERVICE_ROLE_KEY"];
 const enabled = Boolean(url && key);
 
 describe.skipIf(!enabled)("instalação com workspace único", () => {
