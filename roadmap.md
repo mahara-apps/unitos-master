@@ -6,6 +6,13 @@
 - [ ] Fases 7–10: descoberta, paridade, importação e corte — aguardam exportação real do Asana e autorizações por fase.
 
 ## Alertas financeiros de IA
+## Manutenção segura de IA — somente texto
+- [ ] Remover geração de imagens, opções e health checks; preservar arquivos e embeddings.
+- [ ] Corrigir leituras ambíguas, catálogo e validação de provedores com testes dedicados.
+- [ ] Inventariar os fluxos completos e registrar evidências e bloqueios reais por provedor.
+- [ ] Selar MASTER e executar guardiões e suíte global; sem publicação ou retomada implícita.
+
+## Alertas financeiros de IA
 - [x] Fase 1 implementada: crédito insuficiente, bloqueio por workspace/provedor e recuperação explícita por administrador.
 - [x] Fase 2 implementada: faixas ajustáveis 80/95/100% do orçamento mensal e notificações transacionais idempotentes; consumo não é saldo do provedor.
 - [x] MASTER 1.4.64 selado: delta, bootstrap, recovery e contrato sincronizados; master:check PASS; 1485 testes locais/runtime passaram; build OK.
