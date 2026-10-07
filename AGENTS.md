@@ -50,3 +50,6 @@ Health checks de IA são isolados por workspace; jobs e peças usam lease/fencin
 Duplicação usa RPC transacional idempotente; não copia histórico nem vínculos editoriais.
 
 Modelos: textos selecionados, criação sem histórico; gestão só Owner/Admin/Super Admin via RPC/RLS para evitar escalada.
+
+AI financial state is durable per workspace/provider; generation checks it before requests and only an administrator-confirmed generation probe can clear it. Why: model listing does not establish credit availability.
+Budget alerts run transactionally on usage/settings writes and deduplicate by workspace/month/threshold. Why: notifications must work without an open browser and never represent provider balance.

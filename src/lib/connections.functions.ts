@@ -1,3 +1,4 @@
+import { startOfMonthInTz } from "./timezone";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -69,15 +70,14 @@ export const getConnections = createServerFn({ method: "GET" })
       .eq("brand_id", data.brandId)
       .maybeSingle();
 
-    const monthStart = new Date();
-    monthStart.setUTCDate(1);
-    monthStart.setUTCHours(0, 0, 0, 0);
+    const monthStart = startOfMonthInTz();
     const { data: usage } = await supabase
       .from("brand_ai_usage")
       .select("cost_usd, input_tokens, output_tokens, success, model")
       .eq("brand_id", data.brandId)
       .gte("created_at", monthStart.toISOString());
 
+    // Falhas de leitura não podem ser apresentadas como consumo zero.
     const rows = usage ?? [];
     const monthUsd = rows.reduce((a, u) => a + Number(u.cost_usd ?? 0), 0);
     const monthTokens = rows.reduce(

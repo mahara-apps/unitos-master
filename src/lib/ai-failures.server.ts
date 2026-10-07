@@ -7,6 +7,8 @@
  */
 
 export type FailureKind =
+  | "provider_credit"
+  | "provider_financial_limit"
   | "provider_quota"
   | "provider_rate_limit"
   | "provider_unavailable"
@@ -106,6 +108,16 @@ export function classifyAiError(err: unknown): { kind: FailureKind; retryable: b
   const { text, status, hadNoOutput } = unwrapAiError(err);
   const msg = text.toLowerCase();
 
+  // Crédito comprovado precede o 400 genérico (Anthropic retorna 400).
+  if (msg.includes("ai_finance_blocked:") || msg.includes("credit balance is too low") ||
+      msg.includes("insufficient credits") || msg.includes("insufficient_credit") ||
+      msg.includes("insufficient_quota") || msg.includes("balance exhausted") || status === 402) {
+    return { kind: msg.includes("provider_financial_limit") ? "provider_financial_limit" : "provider_credit", retryable: false };
+  }
+  if (msg.includes("billing_hard_limit_reached") || msg.includes("spend limit") || msg.includes("spending limit")) {
+    return { kind: "provider_financial_limit", retryable: false };
+  }
+
   // Configuração/credencial: permanente — checado antes dos transitórios para
   // não confundir "invalid api key" (401) com indisponibilidade.
   if (
@@ -180,6 +192,8 @@ export function classifyAiError(err: unknown): { kind: FailureKind; retryable: b
 
 /** Mensagens em pt-BR exibidas ao usuário para cada classificação. */
 export const FAILURE_MESSAGE_PT: Record<FailureKind, { title: string; body: string }> = {
+  provider_credit: { title: "Créditos de IA insuficientes", body: "Solicite ao administrador a reposição do saldo no provedor de IA para continuar." },
+  provider_financial_limit: { title: "Limite financeiro da IA atingido", body: "Solicite ao administrador a revisão do limite financeiro no provedor para continuar." },
   provider_quota: {
     title: "Limite de IA atingido",
     body: "O provedor de IA atingiu o limite de uso disponível no momento. Sua estratégia está preservada. Tente novamente mais tarde.",
@@ -232,5 +246,7 @@ export function userFacingAiError(err: unknown): {
 } {
   const { kind, retryable } = classifyAiError(err);
   const m = FAILURE_MESSAGE_PT[kind];
-  return { kind, retryable, title: m.title, body: m.body };
+  const provider = unwrapAiError(err).text.match(/ai_finance_blocked:(openai|anthropic|gemini|groq):/)?.[1];
+  const label = provider ? ({openai: "OpenAI", anthropic: "Anthropic", gemini: "Gemini", groq: "Groq"} as Record<string,string>)[provider] : null;
+  return { kind, retryable, title: m.title, body: label ? `${m.title} na ${label}. ${m.body}` : m.body };
 }

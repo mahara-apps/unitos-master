@@ -1,3 +1,4 @@
+import { assertProviderFinance, captureProviderFinance } from "./ai-finance.server";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
@@ -342,7 +343,7 @@ function withModelInstrumentation(
     let streamError: string | null = null;
     let streamKind: string | null = null;
     const meter = new TransformStream<unknown, unknown>({
-      transform(chunk, controller) {
+      async transform(chunk, controller) {
         const part = chunk as { type?: string; usage?: UsageLike; error?: unknown };
         if (part?.type === "finish" && part.usage) {
           const u = readUsage(part.usage);
@@ -355,6 +356,8 @@ function withModelInstrumentation(
           // Falha DEPOIS de geração parcial: preserva tokens já consumidos e a
           // classificação, para o consumo aparecer com causa no histórico.
           streamKind = classifyAiError(part.error).kind;
+          const financial = await captureProviderFinance(ctx.brandId, ctx.provider, part.error);
+          if (financial) { controller.enqueue({ ...part, error: financial }); return; }
         }
         controller.enqueue(chunk);
       },
@@ -401,6 +404,7 @@ function withModelInstrumentation(
     let call = 0;
     for (;;) {
       const modelId = tried[tried.length - 1] ?? base.modelId;
+      await assertProviderFinance(ctx.brandId, provider);
       call += 1;
       // Teto DURO da operação: verificado antes de cada chamada real, cobrindo
       // retry, troca de modelo do catálogo e troca de provedor.
@@ -452,6 +456,8 @@ function withModelInstrumentation(
         }
         return out;
       } catch (err) {
+        const financial = await captureProviderFinance(ctx.brandId, provider, err);
+        if (financial) throw financial;
         const msg = err instanceof Error ? err.message : String(err);
         const { kind, retryable } = classifyAiError(err);
         const detail = redactAiDetail(unwrapAiError(err).text);
@@ -1009,6 +1015,7 @@ export async function generateBrandImage(
 
   let lastError: unknown = null;
   for (const modelId of candidates) {
+    await assertProviderFinance(brandId, creds.provider);
     try {
       const image =
         creds.provider === "openai"
@@ -1025,6 +1032,8 @@ export async function generateBrandImage(
       });
       return image;
     } catch (err) {
+      const financial = await captureProviderFinance(brandId, creds.provider, err);
+      if (financial) throw financial;
       lastError = err;
       const { kind, retryable } = classifyAiError(err);
       logAiFailure({
