@@ -22,14 +22,12 @@ export const MODEL_CATALOG: Record<ProviderName, Record<ProviderRole, string | n
   openai: {
     strategic: "gpt-5",
     operational: "gpt-5-mini",
-    image: "gpt-image-1",
   },
   anthropic: {
     // Mantém o papel estratégico na família Opus. `claude-opus-4-1` foi
     // retirado do catálogo da Anthropic e não pode voltar como default.
     strategic: "claude-opus-5-5",
     operational: "claude-sonnet-4-5",
-    image: null, // Anthropic não gera imagem
   },
   gemini: {
     // `*-latest` acompanha a geração atual do Google. `gemini-2.5-pro` foi
@@ -38,16 +36,12 @@ export const MODEL_CATALOG: Record<ProviderName, Record<ProviderRole, string | n
     // capaz disponível e sempre aponta para a geração atual.
     strategic: "gemini-flash-latest",
     operational: "gemini-flash-latest",
-    // Imagen exige projeto com faturamento; `gemini-*-image` funciona com a
-    // mesma chave da API Gemini e é o padrão de geração de imagem.
-    image: "gemini-2.5-flash-image",
   },
   groq: {
     // Groq expõe a API compatível com OpenAI; ids conforme o catálogo atual.
     // `llama-3.3-70b-versatile` foi descontinuado e sai do topo da cadeia.
     strategic: "openai/gpt-oss-120b",
     operational: "openai/gpt-oss-20b",
-    image: null, // Groq não gera imagem
   },
 };
 
@@ -60,7 +54,6 @@ export const MODEL_FALLBACKS: Record<ProviderName, Record<ProviderRole, string[]
   openai: {
     strategic: ["gpt-5", "gpt-5.1", "gpt-4.1"],
     operational: ["gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini"],
-    image: ["gpt-image-1", "dall-e-3"],
   },
   anthropic: {
     strategic: [
@@ -80,22 +73,14 @@ export const MODEL_FALLBACKS: Record<ProviderName, Record<ProviderRole, string[]
       "claude-haiku-4-5",
       "claude-haiku-4-5-20251001",
     ],
-    image: [],
   },
   gemini: {
     strategic: ["gemini-flash-latest", "gemini-3.6-flash", "gemini-2.5-flash"],
     operational: ["gemini-flash-latest", "gemini-3.6-flash", "gemini-2.5-flash"],
-    image: [
-      "gemini-2.5-flash-image",
-      "gemini-2.0-flash-preview-image-generation",
-      "imagen-4.0-generate-001",
-      "imagen-4.0-fast-generate-001",
-    ],
   },
   groq: {
     strategic: ["openai/gpt-oss-120b", "moonshotai/kimi-k2-instruct-0905", "openai/gpt-oss-20b"],
     operational: ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "llama-3.1-8b-instant"],
-    image: [],
   },
 };
 
@@ -181,7 +166,6 @@ export async function resolveModel(
   role: ProviderRole = "operational",
 ): Promise<string | null> {
   const fallback = MODEL_CATALOG[provider][role];
-  if (role === "image" && !PROVIDER_CAPABILITIES[provider].image) return null;
   const overrides = await loadCatalogOverrides();
   const hit = overrides.find((o) => o.provider === provider && o.role === role);
   return hit?.modelId ?? fallback;
@@ -247,7 +231,7 @@ export function compatibleSuccessorCandidates(
     const normalized = id.toLowerCase();
     const isImage = normalized.includes("image") || normalized.includes("imagen");
     if (excluded.some((token) => normalized.includes(token))) continue;
-    if ((role === "image") !== isImage) continue;
+    if (isImage) continue;
     if (tier && !normalized.includes(tier)) continue;
     add(id);
   }

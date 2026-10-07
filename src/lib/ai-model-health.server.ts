@@ -13,7 +13,6 @@ import { generateText } from "ai";
 import { decryptCredential } from "./credentials-crypto.server";
 import { filterRowsByPrefs } from "@/lib/notification-prefs";
 import {
-  PROVIDER_CAPABILITIES,
   compatibleSuccessorCandidates,
   invalidateCatalogCache,
   isModelUnavailableError,
@@ -23,7 +22,7 @@ import {
 } from "./ai-models-catalog.server";
 
 const PROVIDERS: ProviderName[] = ["openai", "anthropic", "gemini", "groq"];
-const ROLES: ProviderRole[] = ["strategic", "operational", "image"];
+const ROLES: ProviderRole[] = ["strategic", "operational"];
 
 export type HealthCheckEntry = {
   brandId: string | null;
@@ -265,7 +264,6 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
     );
     if (credentials.length === 0) {
       for (const role of ROLES) {
-        if (role === "image" && !PROVIDER_CAPABILITIES[provider].image) continue;
         const modelId = (await resolveModel(provider, role)) ?? "-";
         entries.push({ brandId: null, provider, role, modelId, status: "skipped", error: "no_key_configured" });
       }
@@ -283,7 +281,6 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
       await markProviderVerification(supabaseAdmin, brandId, provider, check.status, check.message);
       if (check.status === "invalid") {
         for (const role of ROLES) {
-          if (role === "image" && !PROVIDER_CAPABILITIES[provider].image) continue;
           const modelId = (await resolveModel(provider, role)) ?? "-";
           const entry: HealthCheckEntry = {
             brandId,
@@ -308,7 +305,6 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
       }
 
       for (const role of ROLES) {
-      if (role === "image" && !PROVIDER_CAPABILITIES[provider].image) continue;
       const modelId = await resolveModel(provider, role);
       if (!modelId) continue;
 
@@ -317,16 +313,7 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
 
       try {
         await assertProviderFinance(brandId, provider);
-        if (role === "image") {
-          listed ??= await listProviderModels(provider, apiKey);
-          const exists = listed.some((m) => m.id.toLowerCase() === modelId.toLowerCase());
-          if (!exists && listed.length) {
-            status = "deprecated";
-            error = "modelo de imagem ausente na listagem do provedor";
-          }
-        } else {
-          await pingTextModel(provider, apiKey, modelId);
-        }
+        await pingTextModel(provider, apiKey, modelId);
       } catch (err) {
         const financial = await captureProviderFinance(brandId, provider, err);
         error = financial?.message ?? (err instanceof Error ? err.message : String(err));
@@ -348,7 +335,7 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
         for (const candidate of candidates) {
           try {
             await assertProviderFinance(brandId, provider);
-            if (role !== "image") await pingTextModel(provider, apiKey, candidate);
+            await pingTextModel(provider, apiKey, candidate);
             successor = candidate;
             break;
           } catch (candidateError) {

@@ -58,21 +58,20 @@ type ProviderDef = {
   tone: string;
   docs: string;
   icon: ComponentType<{ className?: string }>;
-  models: Array<{ id: string; label: string; kind: "text" | "image" }>;
+  models: Array<{ id: string; label: string; kind: "text" }>;
 };
 
 export const AI_PROVIDERS: ProviderDef[] = [
   {
     id: "openai",
     name: "OpenAI",
-    hint: "GPT-5 · GPT-5 mini · GPT-Image",
+    hint: "GPT-5 · GPT-5 mini",
     tone: "text-emerald-500",
     docs: "platform.openai.com",
     icon: Sparkles,
     models: [
       { id: "gpt-5", label: "GPT-5", kind: "text" },
       { id: "gpt-5-mini", label: "GPT-5 mini", kind: "text" },
-      { id: "gpt-image-1", label: "GPT Image 1", kind: "image" },
     ],
   },
   {
@@ -90,14 +89,13 @@ export const AI_PROVIDERS: ProviderDef[] = [
   {
     id: "gemini",
     name: "Google Gemini",
-    hint: "Gemini · Imagen",
+    hint: "Gemini",
     tone: "text-sky-500",
     docs: "aistudio.google.com",
     icon: Cpu,
     models: [
       { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", kind: "text" },
       { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", kind: "text" },
-      { id: "imagen-4", label: "Imagen 4", kind: "image" },
     ],
   },
   {
@@ -156,7 +154,6 @@ function providerLabel(providerId: string) {
 export type AiCenterData = {
   monthlyBudgetUsd?: number;
   textProvider?: AiProviderId;
-  imageProvider?: AiProviderId;
   textFallbackProvider?: AiProviderId | "none";
   providers?: Partial<Record<AiProviderId, ProviderConfig>>;
   usage: {
@@ -171,7 +168,6 @@ export type AiCenterData = {
 export type AiSettingsUpdate = {
   monthlyBudgetUsd?: number;
   textProvider?: AiProviderId;
-  imageProvider?: AiProviderId;
 };
 
 /**
@@ -205,7 +201,6 @@ export function AiCenter({
   const byProvider = data?.usage.byProvider ?? {};
 
   const textProvider = (data?.textProvider ?? "openai") as AiProviderId;
-  const imageProvider = (data?.imageProvider ?? "gemini") as AiProviderId;
 
   return (
     <Tabs value={tab} onValueChange={setTab} className="space-y-4">
@@ -279,7 +274,6 @@ export function AiCenter({
 
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
             <SummaryRow label="Modelo de texto" value={PROVIDER_BY_ID[textProvider]?.name} />
-            <SummaryRow label="Modelo de imagem" value={PROVIDER_BY_ID[imageProvider]?.name} />
             <SummaryRow
               label="Fallback"
               value={data?.providers?.groq?.connected ? "Groq · automático" : "Não configurado"}
@@ -346,7 +340,7 @@ export function AiCenter({
                     <li key={m.id} className="flex items-center justify-between gap-2">
                       <span className="truncate text-xs text-foreground/90">{m.label}</span>
                       <Badge variant="outline" className="shrink-0 text-[9px] uppercase">
-                        {m.kind === "image" ? "Imagem" : "Texto"}
+                        Texto
                       </Badge>
                     </li>
                   ))}
@@ -362,7 +356,6 @@ export function AiCenter({
         <AiFinanceAlerts brandId={brandId} spent={used} budget={budget} configuration />
         <ConfigForm
           textProvider={textProvider}
-          imageProvider={imageProvider}
           groqConnected={data?.providers?.groq?.connected === true}
           budget={budget}
           isSaving={isSaving}
@@ -386,33 +379,28 @@ function SummaryRow({ label, value }: { label: string; value?: ReactNode }) {
 
 function ConfigForm({
   textProvider,
-  imageProvider,
   groqConnected,
   budget,
   isSaving,
   onSave,
 }: {
   textProvider: AiProviderId;
-  imageProvider: AiProviderId;
   groqConnected: boolean;
   budget: number;
   isSaving: boolean;
   onSave: (input: AiSettingsUpdate) => void;
 }) {
   const [text, setText] = useState<AiProviderId>(textProvider);
-  const [image, setImage] = useState<AiProviderId>(imageProvider);
   const [limit, setLimit] = useState<string>(String(budget));
 
   useEffect(() => {
     setText(textProvider);
-    setImage(imageProvider);
     setLimit(String(budget));
-  }, [textProvider, imageProvider, budget]);
+  }, [textProvider, budget]);
 
   const textOptions = AI_PROVIDERS.filter(
     (p) => supportsKind(p.id as AiProviderName, "text") && p.id !== "groq",
   );
-  const imageOptions = AI_PROVIDERS.filter((p) => supportsKind(p.id as AiProviderName, "image"));
 
   return (
     <DashboardPanelSurface className="p-4">
@@ -431,21 +419,6 @@ function ConfigForm({
             </SelectTrigger>
             <SelectContent>
               {textOptions.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-
-        <Field label="Modelo de imagem padrão">
-          <Select value={image} onValueChange={(v) => setImage(v as AiProviderId)}>
-            <SelectTrigger className="h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {imageOptions.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.name}
                 </SelectItem>
@@ -479,7 +452,6 @@ function ConfigForm({
             const n = Number(limit);
             const payload: AiSettingsUpdate = {
               textProvider: text,
-              imageProvider: image,
             };
             if (Number.isFinite(n) && n >= 0) payload.monthlyBudgetUsd = n;
             onSave(payload);

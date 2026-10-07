@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
-  IMAGE_PROVIDERS,
   PROVIDER_CAPABILITIES,
   type ProviderName,
   type ProviderRole,
@@ -20,7 +19,6 @@ export type ActiveModel = {
 export type AiModelStatus = {
   models: ActiveModel[];
   lastCheckedAt: string | null;
-  imageProviders: ProviderName[];
 };
 
 export const getAiModelStatus = createServerFn({ method: "GET" })
@@ -44,7 +42,7 @@ export const getAiModelStatus = createServerFn({ method: "GET" })
 
     const models: ActiveModel[] = [];
     for (const provider of Object.keys(PROVIDER_CAPABILITIES) as ProviderName[]) {
-      for (const role of ["strategic", "operational", "image"] as ProviderRole[]) {
+      for (const role of ["strategic", "operational"] as ProviderRole[]) {
         const fallback = MODEL_CATALOG[provider][role];
         if (!fallback) continue;
         const hit = (overrides ?? []).find((o) => o.provider === provider && o.role === role);
@@ -62,7 +60,6 @@ export const getAiModelStatus = createServerFn({ method: "GET" })
     return {
       models,
       lastCheckedAt: (lastCheck?.checked_at as string | null) ?? null,
-      imageProviders: IMAGE_PROVIDERS,
     };
   });
 

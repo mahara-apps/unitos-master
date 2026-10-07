@@ -16,7 +16,7 @@ import {
   type ProviderRole,
 } from "./ai-models-catalog.server";
 
-import { IMAGE_PROVIDERS, supportsKind } from "./ai-capabilities";
+
 import { orderedUsableTextProviders } from "./ai-provider-availability";
 import { classifyAiError, unwrapAiError } from "./ai-failures.server";
 import { isRecoverableFailure, logAiFailure, logAiRetry, redactAiDetail } from "./ai-observability";
@@ -36,7 +36,7 @@ import {
 export type { AiUsageContext };
 
 export type { ProviderName, ProviderRole };
-export type ProviderKind = "text" | "image";
+export type ProviderKind = "text";
 
 /** Registro de cada tentativa por provedor — consumido pela observabilidade. */
 export type ProviderAttempt = {
@@ -95,12 +95,12 @@ export async function getBrandProviderKey(
 ): Promise<BrandProviderKey> {
   const { data: conn, error: connErr } = await supabase
     .from("brand_connections")
-    .select("text_provider, text_fallback_provider, image_provider, providers")
+    .select("text_provider, text_fallback_provider, providers")
     .eq("brand_id", brandId)
     .maybeSingle();
   if (connErr) throw connErr;
 
-  const selected = (kind === "image" ? conn?.image_provider : conn?.text_provider) as
+  const selected = conn?.text_provider as
     | ProviderName
     | undefined;
 
@@ -113,19 +113,12 @@ export async function getBrandProviderKey(
     .eq("brand_id", brandId);
   if (credentialListError) throw credentialListError;
 
-  const provider: ProviderName | undefined =
-    kind === "text"
-      ? orderedUsableTextProviders({
-          primary: selected,
-          fallback: conn?.text_fallback_provider,
-          providers,
-          credentialProviders: (credentialRows ?? []).map((row) => row.provider),
-        }).find(allowed)
-      : selected && providers[selected]?.connected && allowed(selected)
-        ? selected
-        : (Object.entries(providers).find(([k, v]) => v?.connected && allowed(k))?.[0] as
-            | ProviderName
-            | undefined);
+  const provider = orderedUsableTextProviders({
+    primary: selected,
+    fallback: conn?.text_fallback_provider,
+    providers,
+    credentialProviders: (credentialRows ?? []).map((row) => row.provider),
+  }).find(allowed);
 
   if (!provider) {
     throw new Error(
@@ -902,174 +895,6 @@ export async function embedTextWithBrandKey(
     agent: "embedding",
   });
   return null;
-}
-
-/* ------------------------------------------------------------------ */
-/* Image generation                                                    */
-/* ------------------------------------------------------------------ */
-
-export type BrandGeneratedImage = {
-  provider: ProviderName;
-  base64: string;
-  contentType: string;
-};
-
-const IMAGE_TIMEOUT_MS = 90_000;
-
-async function openaiImage(
-  apiKey: string,
-  modelId: string,
-  prompt: string,
-): Promise<BrandGeneratedImage> {
-  const res = await fetch("https://api.openai.com/v1/images/generations", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model: modelId, prompt, size: "1024x1024", n: 1 }),
-    signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
-  });
-  if (!res.ok) {
-    throw new Error(
-      `ai_image_failed: ${res.status} ${(await res.text().catch(() => "")).slice(0, 200)}`,
-    );
-  }
-  const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
-  const b64 = json.data?.[0]?.b64_json;
-  if (!b64) throw new Error("ai_image_empty: modelo não retornou imagem");
-  return { provider: "openai", base64: b64, contentType: "image/png" };
-}
-
-/**
- * Gemini tem DOIS contratos de imagem:
- * - `gemini-*-image` → `:generateContent` com `responseModalities: [IMAGE]`
- *   (funciona com a chave comum da API Gemini);
- * - `imagen-*` → `:predict` (exige projeto com faturamento habilitado).
- */
-async function geminiImage(
-  apiKey: string,
-  modelId: string,
-  prompt: string,
-): Promise<BrandGeneratedImage> {
-  const isImagen = modelId.startsWith("imagen");
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:${
-    isImagen ? "predict" : "generateContent"
-  }`;
-  const body = isImagen
-    ? { instances: [{ prompt }], parameters: { sampleCount: 1, aspectRatio: "1:1" } }
-    : {
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { responseModalities: ["IMAGE"] },
-      };
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
-  });
-  if (!res.ok) {
-    throw new Error(
-      `ai_image_failed: ${res.status} ${(await res.text().catch(() => "")).slice(0, 200)}`,
-    );
-  }
-  const json = (await res.json()) as {
-    predictions?: Array<{ bytesBase64Encoded?: string; mimeType?: string }>;
-    candidates?: Array<{
-      content?: { parts?: Array<{ inlineData?: { data?: string; mimeType?: string } }> };
-    }>;
-  };
-  const inline = isImagen
-    ? (() => {
-        const p = json.predictions?.[0];
-        return p?.bytesBase64Encoded ? { data: p.bytesBase64Encoded, mimeType: p.mimeType } : null;
-      })()
-    : ((json.candidates?.[0]?.content?.parts ?? [])
-        .map((p) => p.inlineData)
-        .find((d): d is { data: string; mimeType?: string } => typeof d?.data === "string") ??
-      null);
-  if (!inline?.data) throw new Error("ai_image_empty: modelo não retornou imagem");
-  return { provider: "gemini", base64: inline.data, contentType: inline.mimeType ?? "image/png" };
-}
-
-/**
- * Generate an image with the brand's own image provider key.
- * Anthropic has no image model, so only OpenAI/Gemini are eligible.
- *
- * Percorre a cadeia de modelos do catálogo: quando a conta não libera o modelo
- * (404/403 do Imagen, por exemplo), o próximo candidato é tentado antes de
- * devolver erro ao usuário.
- */
-export async function generateBrandImage(
-  supabase: SupabaseClient,
-  brandId: string,
-  prompt: string,
-  usage: AiUsageContext = {},
-): Promise<BrandGeneratedImage> {
-  const creds = await getBrandProviderKey(supabase, brandId, "image", IMAGE_PROVIDERS);
-  if (!supportsKind(creds.provider, "image")) {
-    throw new Error(
-      `ai_image_unsupported:${creds.provider}: este provedor não gera imagens. Selecione OpenAI ou Gemini em Conexões.`,
-    );
-  }
-  const primary = await resolveModel(creds.provider, "image");
-  const { MODEL_FALLBACKS } = await import("./ai-models-catalog.server");
-  const candidates = [
-    ...(primary ? [primary] : []),
-    ...(MODEL_FALLBACKS[creds.provider].image ?? []),
-  ].filter((id, i, arr) => arr.indexOf(id) === i);
-  if (candidates.length === 0) {
-    throw new Error(`ai_image_unsupported:${creds.provider}: sem modelo de imagem disponível.`);
-  }
-
-  let lastError: unknown = null;
-  for (const modelId of candidates) {
-    await assertProviderFinance(brandId, creds.provider);
-    try {
-      const image =
-        creds.provider === "openai"
-          ? await openaiImage(creds.apiKey, modelId, prompt)
-          : await geminiImage(creds.apiKey, modelId, prompt);
-      await recordAiUsage({
-        brandId,
-        model: modelId,
-        inputTokens: 0,
-        outputTokens: 0,
-        success: true,
-        ...usage,
-        agent: usage.agent ?? "image.generate",
-      });
-      return image;
-    } catch (err) {
-      const financial = await captureProviderFinance(brandId, creds.provider, err);
-      if (financial) throw financial;
-      lastError = err;
-      const { kind, retryable } = classifyAiError(err);
-      logAiFailure({
-        op: usage.agent ?? "image.generate",
-        step: "image",
-        provider: creds.provider,
-        model: modelId,
-        kind,
-        retryable,
-        brandId,
-        clientId: usage.clientId ?? null,
-        userId: usage.userId ?? null,
-        detail: unwrapAiError(err).text,
-      });
-      await recordAiUsage({
-        brandId,
-        model: modelId,
-        inputTokens: 0,
-        outputTokens: 0,
-        success: false,
-        errorKind: kind,
-        provider: creds.provider,
-        step: "image",
-        errorMessage: unwrapAiError(err).text,
-        ...usage,
-        agent: usage.agent ?? "image.generate",
-      });
-    }
-  }
-  throw lastError ?? new Error("ai_image_failed: nenhum modelo de imagem respondeu.");
 }
 
 /* ------------------------------------------------------------------ */

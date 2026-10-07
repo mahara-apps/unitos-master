@@ -27,7 +27,6 @@ export type ConnectionsSettings = {
   textProvider: "openai" | "anthropic" | "gemini";
   /** Groq é o fallback automático e exclusivo quando sua chave é válida. */
   textFallbackProvider: "groq" | null;
-  imageProvider: "openai" | "gemini";
   providers: Record<string, ProviderConfig>;
   channels: Record<string, ChannelConfig>;
   usage: {
@@ -108,7 +107,6 @@ export const getConnections = createServerFn({ method: "GET" })
         ? (row?.text_provider as ConnectionsSettings["textProvider"])
         : "openai",
       textFallbackProvider: row?.text_fallback_provider === "groq" ? "groq" : null,
-      imageProvider: row?.image_provider === "openai" ? "openai" : "gemini",
       providers: (row?.providers as Record<string, ProviderConfig>) ?? {},
       channels: (row?.channels as Record<string, ChannelConfig>) ?? {},
       usage: { monthUsd, monthTokens, totalCalls, successCalls, byProvider },
@@ -119,8 +117,6 @@ const UpsertInput = z.object({
   brandId: z.string().uuid(),
   monthlyBudgetUsd: z.number().min(0).max(1_000_000).optional(),
   textProvider: z.enum(["openai", "anthropic", "gemini"]).optional(),
-  // Anthropic não gera imagem — não pode ser selecionada como provedor de imagem.
-  imageProvider: z.enum(["openai", "gemini"]).optional(),
 });
 
 export const updateConnectionsSettings = createServerFn({ method: "POST" })
@@ -131,7 +127,6 @@ export const updateConnectionsSettings = createServerFn({ method: "POST" })
       brand_id: data.brandId,
       ...(data.monthlyBudgetUsd !== undefined ? { monthly_budget_usd: data.monthlyBudgetUsd } : {}),
       ...(data.textProvider ? { text_provider: data.textProvider } : {}),
-      ...(data.imageProvider ? { image_provider: data.imageProvider } : {}),
     };
 
     const { error } = await context.supabase
