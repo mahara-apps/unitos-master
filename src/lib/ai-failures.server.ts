@@ -121,6 +121,7 @@ export function classifyAiError(err: unknown): { kind: FailureKind; retryable: b
   // Configuração/credencial: permanente — checado antes dos transitórios para
   // não confundir "invalid api key" (401) com indisponibilidade.
   if (
+    /ai_(budget_|catalog_|usage_record_failed|job_claim_failed)/.test(msg) ||
     msg.includes("ai_provider_not_configured") ||
     msg.includes("ai_provider_key_missing") ||
     msg.includes("ai_model_unavailable") ||
