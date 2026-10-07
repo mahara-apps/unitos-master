@@ -52,4 +52,6 @@ Duplicação usa RPC transacional idempotente; não copia histórico nem víncul
 Modelos: textos selecionados, criação sem histórico; gestão só Owner/Admin/Super Admin via RPC/RLS para evitar escalada.
 
 AI financial state is durable per workspace/provider; generation checks it before requests and only an administrator-confirmed generation probe can clear it. Why: model listing does not establish credit availability.
+AI catalog and budget reads fail closed on transport errors or invalid responses; only confirmed empty results use defaults. Why: outages must not silently select obsolete models or bypass limits.
+Successful AI generation awaits usage accounting; embeddings share budget checks and use embedding prices. Why: accounting failure must not be reported as metered success or trigger paid fallback.
 Budget alerts run transactionally on usage/settings writes and deduplicate by workspace/month/threshold. Why: notifications must work without an open browser and never represent provider balance.

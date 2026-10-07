@@ -50,6 +50,8 @@ export const verifyAiFinancialAvailability = createServerFn({ method: "POST" })
     const { captureProviderFinance } = await import("./ai-finance.server");
     const { classifyAiError, userFacingAiError } = await import("./ai-failures.server");
     const { streamText } = await import("ai");
+    const { assertAiBudget } = await import("./ai-budget.server");
+    await assertAiBudget(context.supabase, data.brandId, { userId: context.userId });
     const modelId = await resolveModel(data.provider, "operational");
     if (!modelId) throw new Error("Modelo de verificação indisponível.");
     try {
@@ -58,7 +60,7 @@ export const verifyAiFinancialAvailability = createServerFn({ method: "POST" })
       const finish = await result.finishReason;
       if (!text.trim() || finish === "content-filter") throw new Error("A IA não confirmou disponibilidade de geração.");
       const usage = await result.usage;
-      await recordAiUsage({ brandId: data.brandId, model: modelId, provider: data.provider, success: true, inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0, userId: context.userId, agent: "finance.verify" });
+      await recordAiUsage({ brandId: data.brandId, model: modelId, provider: data.provider, success: true, inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0, userId: context.userId, agent: "finance.verify" }, true);
       const cleared = await supabaseAdmin.from("ai_provider_finance").update({ blocked: false, reason: null }).eq("brand_id", data.brandId).eq("provider", data.provider).eq("generation", state.generation).eq("updated_at", state.updated_at).select("provider");
       if (cleared.error || cleared.data?.length !== 1) throw new Error("O estado da IA mudou durante a verificação. Atualize os avisos.");
       return { ok: true };

@@ -16,7 +16,7 @@ import {
   type ProviderRole,
 } from "./ai-models-catalog.server";
 
-import { IMAGE_PROVIDERS, supportsKind } from "./ai-capabilities";
+
 import { orderedUsableTextProviders } from "./ai-provider-availability";
 import { classifyAiError, unwrapAiError } from "./ai-failures.server";
 import { isRecoverableFailure, logAiFailure, logAiRetry, redactAiDetail } from "./ai-observability";
@@ -36,7 +36,7 @@ import {
 export type { AiUsageContext };
 
 export type { ProviderName, ProviderRole };
-export type ProviderKind = "text" | "image";
+export type ProviderKind = "text";
 
 /** Registro de cada tentativa por provedor — consumido pela observabilidade. */
 export type ProviderAttempt = {
@@ -95,12 +95,12 @@ export async function getBrandProviderKey(
 ): Promise<BrandProviderKey> {
   const { data: conn, error: connErr } = await supabase
     .from("brand_connections")
-    .select("text_provider, text_fallback_provider, image_provider, providers")
+    .select("text_provider, text_fallback_provider, providers")
     .eq("brand_id", brandId)
     .maybeSingle();
   if (connErr) throw connErr;
 
-  const selected = (kind === "image" ? conn?.image_provider : conn?.text_provider) as
+  const selected = conn?.text_provider as
     | ProviderName
     | undefined;
 
@@ -113,19 +113,12 @@ export async function getBrandProviderKey(
     .eq("brand_id", brandId);
   if (credentialListError) throw credentialListError;
 
-  const provider: ProviderName | undefined =
-    kind === "text"
-      ? orderedUsableTextProviders({
-          primary: selected,
-          fallback: conn?.text_fallback_provider,
-          providers,
-          credentialProviders: (credentialRows ?? []).map((row) => row.provider),
-        }).find(allowed)
-      : selected && providers[selected]?.connected && allowed(selected)
-        ? selected
-        : (Object.entries(providers).find(([k, v]) => v?.connected && allowed(k))?.[0] as
-            | ProviderName
-            | undefined);
+  const provider = orderedUsableTextProviders({
+    primary: selected,
+    fallback: conn?.text_fallback_provider,
+    providers,
+    credentialProviders: (credentialRows ?? []).map((row) => row.provider),
+  }).find(allowed);
 
   if (!provider) {
     throw new Error(
@@ -198,7 +191,7 @@ export async function getBrandFallbackProviderKey(
       { connected?: boolean } | undefined
     >;
     if (!providers[fallback]?.connected) return null;
-    if (!supportsKind(fallback, "text")) return null;
+    if (fallback !== "groq") return null;
 
     const { data: credRow } = await supabase
       .from("brand_api_credentials")
@@ -307,6 +300,7 @@ function withModelInstrumentation(
     attempts: ProviderAttempt[];
     /** Teto de chamadas reais ao provedor na operação (compartilhado). */
     budget: AiRequestBudget;
+    checkBudget: () => Promise<void>;
   },
 ): ModelV2 {
   const log = (
@@ -317,7 +311,7 @@ function withModelInstrumentation(
     errorMessage?: string | null,
     meta?: { provider?: ProviderName; kind?: string; attempt?: number },
   ) => {
-    void recordAiUsage({
+    return recordAiUsage({
       brandId: ctx.brandId,
       model: modelId,
       inputTokens: inTok,
@@ -331,7 +325,7 @@ function withModelInstrumentation(
       agent: ctx.usage?.agent ?? `${ctx.role}.${ctx.provider}`,
       clientId: ctx.usage?.clientId ?? null,
       userId: ctx.usage?.userId ?? null,
-    });
+    }, success);
   };
 
   /** Conta tokens ao final do stream sem consumir/alterar o conteúdo. */
@@ -363,7 +357,7 @@ function withModelInstrumentation(
         }
         controller.enqueue(chunk);
       },
-      flush() {
+      async flush() {
         if (streamError) {
           logAiFailure({
             op: ctx.usage?.agent ?? `${ctx.role}.stream`,
@@ -378,7 +372,7 @@ function withModelInstrumentation(
             detail: streamError,
           });
         }
-        log(modelId, inTok, outTok, !streamError, streamError, {
+        await log(modelId, inTok, outTok, !streamError, streamError, {
           provider: actualProvider,
           ...(streamKind ? { kind: streamKind } : {}),
         });
@@ -407,6 +401,7 @@ function withModelInstrumentation(
     let call = 0;
     for (;;) {
       const modelId = tried[tried.length - 1] ?? base.modelId;
+      await ctx.checkBudget();
       await assertProviderFinance(ctx.brandId, provider);
       call += 1;
       // Teto DURO da operação: verificado antes de cada chamada real, cobrindo
@@ -443,7 +438,7 @@ function withModelInstrumentation(
               `providerMetadata=${JSON.stringify(raw.providerMetadata ?? null).slice(0, 400)}`,
           );
         }
-        log(modelId, inTok, outTok, true, null, { provider, attempt: call });
+        await log(modelId, inTok, outTok, true, null, { provider, attempt: call });
 
         ctx.attempts.push({ provider, model: modelId, attempt: call, result: "success" });
         if (pendingPromotion) {
@@ -459,8 +454,10 @@ function withModelInstrumentation(
         }
         return out;
       } catch (err) {
+        // Accounting/catalog failures occur after provider success; never pay again.
+        if (err instanceof Error && /^(ai_usage_record_failed|ai_catalog_write_failed)/.test(err.message)) throw err;
         const financial = await captureProviderFinance(ctx.brandId, provider, err);
-        if (financial) { log(modelId, 0, 0, false, financial.message, { provider, kind: classifyAiError(err).kind, attempt: call }); throw financial; }
+        if (financial) { await log(modelId, 0, 0, false, financial.message, { provider, kind: classifyAiError(err).kind, attempt: call }); throw financial; }
         const msg = err instanceof Error ? err.message : String(err);
         const { kind, retryable } = classifyAiError(err);
         const detail = redactAiDetail(unwrapAiError(err).text);
@@ -474,7 +471,7 @@ function withModelInstrumentation(
         // Consumo é registrado MESMO em falha — inclusive nas tentativas
         // intermediárias que serão seguidas de retry/fallback. Sem isso, um
         // 429 seguido de fallback bem-sucedido desaparecia do histórico.
-        log(modelId, 0, 0, false, msg, { provider, kind, attempt: call });
+        await log(modelId, 0, 0, false, msg, { provider, kind, attempt: call });
         const logEntry = {
           op: ctx.usage?.agent ?? `${ctx.role}.${op}`,
           step: ctx.role,
@@ -550,38 +547,8 @@ function withModelInstrumentation(
   } as ModelV2;
 }
 
-/**
- * Teto mensal: bloqueia a chamada quando a marca/cliente estourou o orçamento.
- * Best-effort — falha de RPC não impede a geração.
- */
-async function assertBudget(
-  supabase: SupabaseClient,
-  brandId: string,
-  usage?: AiUsageContext,
-): Promise<void> {
-  try {
-    const { data } = await callRpc(supabase, "check_ai_usage_budget", {
-      _brand_id: brandId,
-      _client_id: usage?.clientId ?? null,
-      _user_id: usage?.userId ?? null,
-    });
-    const b = data as {
-      allowed?: boolean;
-      blocked_by?: string;
-      limit_usd?: number;
-      spent_usd?: number;
-    } | null;
-    if (b && b.allowed === false) {
-      throw new Error(
-        `ai_budget_exceeded:${b.blocked_by ?? "brand"}:${b.spent_usd ?? 0}:${b.limit_usd ?? 0}`,
-      );
-    }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.startsWith("ai_budget_exceeded")) throw err;
-    console.warn("[ai-provider] check_ai_usage_budget falhou", msg);
-  }
-}
+export { assertAiBudget as assertBudget } from "./ai-budget.server";
+import { assertAiBudget as assertBudget } from "./ai-budget.server";
 
 /**
  * Load the brand's configured AI provider + decrypted key and return an
@@ -625,6 +592,7 @@ export async function getBrandAiModel(
     fallback,
     attempts: providerAttempts,
     budget: requestBudget,
+    checkBudget: () => assertBudget(supabase, brandId, usage),
     ...(usage ? { usage } : {}),
   });
 
@@ -727,6 +695,7 @@ export async function getBrandAiCandidates(
         fallback: null,
         attempts: providerAttempts,
         budget: requestBudget,
+        checkBudget: () => assertBudget(supabase, brandId, usage),
         ...(usage ? { usage } : {}),
       }),
     });
@@ -745,10 +714,11 @@ async function callEmbeddingProvider(
   provider: ProviderName,
   apiKey: string,
   text: string,
-): Promise<number[]> {
+): Promise<{ vector: number[]; tokens: number }> {
   const signal = AbortSignal.timeout(EMBED_TIMEOUT_MS);
   let res: Response;
   let vec: unknown;
+  let tokens = 0;
   if (provider === "openai") {
     res = await fetch("https://api.openai.com/v1/embeddings", {
       method: "POST",
@@ -768,7 +738,9 @@ async function callEmbeddingProvider(
         { status: res.status },
       );
     }
-    vec = ((await res.json()) as { data?: Array<{ embedding: number[] }> }).data?.[0]?.embedding;
+    const payload = (await res.json()) as { data?: Array<{ embedding: number[] }>; usage?: { total_tokens?: number } };
+    vec = payload.data?.[0]?.embedding;
+    tokens = tokenValue(payload.usage?.total_tokens);
   } else {
     res = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent",
@@ -790,12 +762,15 @@ async function callEmbeddingProvider(
         { status: res.status },
       );
     }
-    vec = ((await res.json()) as { embedding?: { values?: number[] } }).embedding?.values;
+    const payload = (await res.json()) as { embedding?: { values?: number[] }; usageMetadata?: { totalTokenCount?: number } };
+    vec = payload.embedding?.values;
+    tokens = tokenValue(payload.usageMetadata?.totalTokenCount);
   }
   if (!isValidEmbedding(vec)) {
     throw new Error(`ai_embedding_invalid_output:${provider}: dimensão inesperada`);
   }
-  return vec;
+  // Gemini embedContent can omit usage; preserve an explicitly approximate cost.
+  return { vector: vec, tokens: tokens || Math.ceil(text.length / 4) };
 }
 
 /**
@@ -811,6 +786,7 @@ export async function embedTextWithBrandKey(
   supabase: SupabaseClient,
   brandId: string,
   text: string,
+  usage?: AiUsageContext,
 ): Promise<number[] | null> {
   const trimmed = normalizeEmbeddingInput(text);
   if (!trimmed) return null;
@@ -856,9 +832,13 @@ export async function embedTextWithBrandKey(
   for (const cred of candidates) {
     for (let attempt = 1; attempt <= EMBED_MAX_ATTEMPTS; attempt++) {
       try {
+        await assertBudget(supabase, brandId, usage);
         await assertProviderFinance(brandId, cred.provider);
-        return await callEmbeddingProvider(cred.provider, cred.apiKey, trimmed);
+        const result = await callEmbeddingProvider(cred.provider, cred.apiKey, trimmed);
+        await recordAiUsage({ brandId, model: cred.provider === "openai" ? "text-embedding-3-small" : "gemini-embedding-001", provider: cred.provider, inputTokens: result.tokens, outputTokens: 0, success: true, agent: "embedding", ...usage }, true);
+        return result.vector;
       } catch (err) {
+        if (err instanceof Error && /^(ai_budget_|ai_usage_record_failed)/.test(err.message)) throw err;
         const financial = await captureProviderFinance(brandId, cred.provider, err);
         if (financial) { lastKind = classifyAiError(err).kind; lastDetail = financial.message; break; }
         const status = (err as { status?: number }).status;
@@ -902,174 +882,6 @@ export async function embedTextWithBrandKey(
     agent: "embedding",
   });
   return null;
-}
-
-/* ------------------------------------------------------------------ */
-/* Image generation                                                    */
-/* ------------------------------------------------------------------ */
-
-export type BrandGeneratedImage = {
-  provider: ProviderName;
-  base64: string;
-  contentType: string;
-};
-
-const IMAGE_TIMEOUT_MS = 90_000;
-
-async function openaiImage(
-  apiKey: string,
-  modelId: string,
-  prompt: string,
-): Promise<BrandGeneratedImage> {
-  const res = await fetch("https://api.openai.com/v1/images/generations", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model: modelId, prompt, size: "1024x1024", n: 1 }),
-    signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
-  });
-  if (!res.ok) {
-    throw new Error(
-      `ai_image_failed: ${res.status} ${(await res.text().catch(() => "")).slice(0, 200)}`,
-    );
-  }
-  const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
-  const b64 = json.data?.[0]?.b64_json;
-  if (!b64) throw new Error("ai_image_empty: modelo não retornou imagem");
-  return { provider: "openai", base64: b64, contentType: "image/png" };
-}
-
-/**
- * Gemini tem DOIS contratos de imagem:
- * - `gemini-*-image` → `:generateContent` com `responseModalities: [IMAGE]`
- *   (funciona com a chave comum da API Gemini);
- * - `imagen-*` → `:predict` (exige projeto com faturamento habilitado).
- */
-async function geminiImage(
-  apiKey: string,
-  modelId: string,
-  prompt: string,
-): Promise<BrandGeneratedImage> {
-  const isImagen = modelId.startsWith("imagen");
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:${
-    isImagen ? "predict" : "generateContent"
-  }`;
-  const body = isImagen
-    ? { instances: [{ prompt }], parameters: { sampleCount: 1, aspectRatio: "1:1" } }
-    : {
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { responseModalities: ["IMAGE"] },
-      };
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
-  });
-  if (!res.ok) {
-    throw new Error(
-      `ai_image_failed: ${res.status} ${(await res.text().catch(() => "")).slice(0, 200)}`,
-    );
-  }
-  const json = (await res.json()) as {
-    predictions?: Array<{ bytesBase64Encoded?: string; mimeType?: string }>;
-    candidates?: Array<{
-      content?: { parts?: Array<{ inlineData?: { data?: string; mimeType?: string } }> };
-    }>;
-  };
-  const inline = isImagen
-    ? (() => {
-        const p = json.predictions?.[0];
-        return p?.bytesBase64Encoded ? { data: p.bytesBase64Encoded, mimeType: p.mimeType } : null;
-      })()
-    : ((json.candidates?.[0]?.content?.parts ?? [])
-        .map((p) => p.inlineData)
-        .find((d): d is { data: string; mimeType?: string } => typeof d?.data === "string") ??
-      null);
-  if (!inline?.data) throw new Error("ai_image_empty: modelo não retornou imagem");
-  return { provider: "gemini", base64: inline.data, contentType: inline.mimeType ?? "image/png" };
-}
-
-/**
- * Generate an image with the brand's own image provider key.
- * Anthropic has no image model, so only OpenAI/Gemini are eligible.
- *
- * Percorre a cadeia de modelos do catálogo: quando a conta não libera o modelo
- * (404/403 do Imagen, por exemplo), o próximo candidato é tentado antes de
- * devolver erro ao usuário.
- */
-export async function generateBrandImage(
-  supabase: SupabaseClient,
-  brandId: string,
-  prompt: string,
-  usage: AiUsageContext = {},
-): Promise<BrandGeneratedImage> {
-  const creds = await getBrandProviderKey(supabase, brandId, "image", IMAGE_PROVIDERS);
-  if (!supportsKind(creds.provider, "image")) {
-    throw new Error(
-      `ai_image_unsupported:${creds.provider}: este provedor não gera imagens. Selecione OpenAI ou Gemini em Conexões.`,
-    );
-  }
-  const primary = await resolveModel(creds.provider, "image");
-  const { MODEL_FALLBACKS } = await import("./ai-models-catalog.server");
-  const candidates = [
-    ...(primary ? [primary] : []),
-    ...(MODEL_FALLBACKS[creds.provider].image ?? []),
-  ].filter((id, i, arr) => arr.indexOf(id) === i);
-  if (candidates.length === 0) {
-    throw new Error(`ai_image_unsupported:${creds.provider}: sem modelo de imagem disponível.`);
-  }
-
-  let lastError: unknown = null;
-  for (const modelId of candidates) {
-    await assertProviderFinance(brandId, creds.provider);
-    try {
-      const image =
-        creds.provider === "openai"
-          ? await openaiImage(creds.apiKey, modelId, prompt)
-          : await geminiImage(creds.apiKey, modelId, prompt);
-      await recordAiUsage({
-        brandId,
-        model: modelId,
-        inputTokens: 0,
-        outputTokens: 0,
-        success: true,
-        ...usage,
-        agent: usage.agent ?? "image.generate",
-      });
-      return image;
-    } catch (err) {
-      const financial = await captureProviderFinance(brandId, creds.provider, err);
-      if (financial) throw financial;
-      lastError = err;
-      const { kind, retryable } = classifyAiError(err);
-      logAiFailure({
-        op: usage.agent ?? "image.generate",
-        step: "image",
-        provider: creds.provider,
-        model: modelId,
-        kind,
-        retryable,
-        brandId,
-        clientId: usage.clientId ?? null,
-        userId: usage.userId ?? null,
-        detail: unwrapAiError(err).text,
-      });
-      await recordAiUsage({
-        brandId,
-        model: modelId,
-        inputTokens: 0,
-        outputTokens: 0,
-        success: false,
-        errorKind: kind,
-        provider: creds.provider,
-        step: "image",
-        errorMessage: unwrapAiError(err).text,
-        ...usage,
-        agent: usage.agent ?? "image.generate",
-      });
-    }
-  }
-  throw lastError ?? new Error("ai_image_failed: nenhum modelo de imagem respondeu.");
 }
 
 /* ------------------------------------------------------------------ */

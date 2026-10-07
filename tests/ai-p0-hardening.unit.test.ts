@@ -52,9 +52,11 @@ describe("P0 execução assíncrona — falhas de material são terminais", () =
   });
 });
 
-describe("P0 imagem — modelo padrão do Gemini é o que existe hoje", () => {
-  it("gemini-2.5-flash-image é o primeiro candidato (imagen-3 retorna 404)", () => {
-    expect(MODEL_FALLBACKS.gemini.image[0]).toBe("gemini-2.5-flash-image");
-    expect(MODEL_FALLBACKS.gemini.image).not.toContain("imagen-3.0-generate-002");
+describe("IA somente texto", () => {
+  it("não oferece modelos de geração de imagens", () => {
+    for (const roles of Object.values(MODEL_FALLBACKS)) {
+      expect(Object.keys(roles).sort()).toEqual(["operational", "strategic"]);
+      expect(Object.values(roles).flat().some((id) => /image|imagen|dall-e/i.test(id))).toBe(false);
+    }
   });
 });

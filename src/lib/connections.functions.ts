@@ -27,7 +27,6 @@ export type ConnectionsSettings = {
   textProvider: "openai" | "anthropic" | "gemini";
   /** Groq é o fallback automático e exclusivo quando sua chave é válida. */
   textFallbackProvider: "groq" | null;
-  imageProvider: "openai" | "gemini";
   providers: Record<string, ProviderConfig>;
   channels: Record<string, ChannelConfig>;
   usage: {
@@ -64,11 +63,12 @@ export const getConnections = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) => BrandIdInput.parse(input))
   .handler(async ({ data, context }): Promise<ConnectionsSettings> => {
     const { supabase } = context;
-    const { data: row } = await supabase
+    const { data: row, error: settingsError } = await supabase
       .from("brand_connections")
       .select("*")
       .eq("brand_id", data.brandId)
       .maybeSingle();
+    if (settingsError) throw new Error("Não foi possível consultar a configuração de IA.");
 
     const monthStart = startOfMonthInTz();
     const usage = [];
@@ -77,7 +77,7 @@ export const getConnections = createServerFn({ method: "GET" })
         .select("cost_usd,input_tokens,output_tokens,success,model,provider")
         .eq("brand_id", data.brandId).gte("created_at", monthStart.toISOString())
         .order("created_at").order("id").range(offset, offset + 999);
-      if (page.error) throw new Error("Não foi possível consultar o consumo mensal de IA.");
+      if (page.error || !Array.isArray(page.data)) throw new Error("Não foi possível consultar o consumo mensal de IA.");
       usage.push(...(page.data ?? []));
       if ((page.data?.length ?? 0) < 1000) break;
     }
@@ -108,7 +108,6 @@ export const getConnections = createServerFn({ method: "GET" })
         ? (row?.text_provider as ConnectionsSettings["textProvider"])
         : "openai",
       textFallbackProvider: row?.text_fallback_provider === "groq" ? "groq" : null,
-      imageProvider: row?.image_provider === "openai" ? "openai" : "gemini",
       providers: (row?.providers as Record<string, ProviderConfig>) ?? {},
       channels: (row?.channels as Record<string, ChannelConfig>) ?? {},
       usage: { monthUsd, monthTokens, totalCalls, successCalls, byProvider },
@@ -119,8 +118,6 @@ const UpsertInput = z.object({
   brandId: z.string().uuid(),
   monthlyBudgetUsd: z.number().min(0).max(1_000_000).optional(),
   textProvider: z.enum(["openai", "anthropic", "gemini"]).optional(),
-  // Anthropic não gera imagem — não pode ser selecionada como provedor de imagem.
-  imageProvider: z.enum(["openai", "gemini"]).optional(),
 });
 
 export const updateConnectionsSettings = createServerFn({ method: "POST" })
@@ -131,7 +128,6 @@ export const updateConnectionsSettings = createServerFn({ method: "POST" })
       brand_id: data.brandId,
       ...(data.monthlyBudgetUsd !== undefined ? { monthly_budget_usd: data.monthlyBudgetUsd } : {}),
       ...(data.textProvider ? { text_provider: data.textProvider } : {}),
-      ...(data.imageProvider ? { image_provider: data.imageProvider } : {}),
     };
 
     const { error } = await context.supabase

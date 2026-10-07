@@ -1,8 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { callRpc } from "@/lib/supabase-rpc";
 import {
-  IMAGE_PROVIDERS,
   PROVIDER_CAPABILITIES,
   type ProviderName,
   type ProviderRole,
@@ -20,7 +20,6 @@ export type ActiveModel = {
 export type AiModelStatus = {
   models: ActiveModel[];
   lastCheckedAt: string | null;
-  imageProviders: ProviderName[];
 };
 
 export const getAiModelStatus = createServerFn({ method: "GET" })
@@ -30,21 +29,22 @@ export const getAiModelStatus = createServerFn({ method: "GET" })
     const { MODEL_CATALOG } = await import("@/lib/ai-models-catalog.server");
     // Leitura autenticada (RLS: apenas super admins veem overrides/health).
     // Não usa service role — o painel é read-only para o usuário logado.
-    const { data: overrides } = await context.supabase
+    const { data: overrides, error: overridesError } = await context.supabase
       .from("ai_model_catalog_overrides")
       .select("provider, role, model_id, replaced_model_id, reason, updated_at");
 
-    const { data: lastCheck } = await context.supabase
+    const { data: lastCheck, error: healthError } = await context.supabase
       .from("ai_model_health")
       .select("checked_at")
       .eq("brand_id", data.brandId)
       .order("checked_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (overridesError || healthError || !Array.isArray(overrides)) throw new Error("Não foi possível consultar os modelos de IA.");
 
     const models: ActiveModel[] = [];
     for (const provider of Object.keys(PROVIDER_CAPABILITIES) as ProviderName[]) {
-      for (const role of ["strategic", "operational", "image"] as ProviderRole[]) {
+      for (const role of ["strategic", "operational"] as ProviderRole[]) {
         const fallback = MODEL_CATALOG[provider][role];
         if (!fallback) continue;
         const hit = (overrides ?? []).find((o) => o.provider === provider && o.role === role);
@@ -62,7 +62,6 @@ export const getAiModelStatus = createServerFn({ method: "GET" })
     return {
       models,
       lastCheckedAt: (lastCheck?.checked_at as string | null) ?? null,
-      imageProviders: IMAGE_PROVIDERS,
     };
   });
 
@@ -70,10 +69,10 @@ export const runAiModelHealthNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ brandId: z.string().uuid() }).parse(input))
   .handler(async ({ context, data }) => {
-    const { data: isAdmin } = await context.supabase.rpc("is_super_admin", {
+    const { data: isAdmin, error } = await callRpc<boolean>(context.supabase, "is_super_admin", {
       _user_id: context.userId,
     });
-    if (!isAdmin) throw new Error("Forbidden");
+    if (error || isAdmin !== true) throw new Error("Forbidden");
 
     const { runAiModelHealthCheck } = await import("@/lib/ai-model-health.server");
     const result = await runAiModelHealthCheck(data.brandId);

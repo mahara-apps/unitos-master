@@ -3,7 +3,7 @@ import { assertProviderFinance, captureProviderFinance } from "./ai-finance.serv
  * AI model health check + auto-healing catalog.
  *
  * For every provider with an active brand key, pings the model of each role
- * (strategic / operational / image). When a model is gone (deprecated /
+ * (strategic / operational). When a model is gone (deprecated /
  * not_found), discovers the newest sibling from the provider's own model
  * listing, promotes it in `ai_model_catalog_overrides` and notifies the super
  * admins in-app.
@@ -13,7 +13,6 @@ import { generateText } from "ai";
 import { decryptCredential } from "./credentials-crypto.server";
 import { filterRowsByPrefs } from "@/lib/notification-prefs";
 import {
-  PROVIDER_CAPABILITIES,
   compatibleSuccessorCandidates,
   invalidateCatalogCache,
   isModelUnavailableError,
@@ -23,7 +22,7 @@ import {
 } from "./ai-models-catalog.server";
 
 const PROVIDERS: ProviderName[] = ["openai", "anthropic", "gemini", "groq"];
-const ROLES: ProviderRole[] = ["strategic", "operational", "image"];
+const ROLES: ProviderRole[] = ["strategic", "operational"];
 
 export type HealthCheckEntry = {
   brandId: string | null;
@@ -51,23 +50,27 @@ function isDeprecationError(message: string): boolean {
 
 type ListedModel = { id: string; created?: number };
 
-async function listProviderModels(provider: ProviderName, apiKey: string): Promise<ListedModel[]> {
+export async function listProviderModels(provider: ProviderName, apiKey: string): Promise<ListedModel[]> {
   try {
     if (provider === "openai") {
       const res = await fetch("https://api.openai.com/v1/models", {
         headers: { Authorization: `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(15_000),
       });
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error(`ai_model_listing_failed:${res.status}`);
       const json = (await res.json()) as { data?: Array<{ id: string; created?: number }> };
-      return (json.data ?? []).map((m) => ({ id: m.id, created: m.created }));
+      if (!Array.isArray(json.data) || json.data.some((m) => typeof m?.id !== "string" || !m.id.trim())) throw new Error("ai_model_listing_invalid");
+      return json.data.map((m) => ({ id: m.id, created: m.created }));
     }
     if (provider === "anthropic") {
       const res = await fetch("https://api.anthropic.com/v1/models?limit=100", {
         headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+        signal: AbortSignal.timeout(15_000),
       });
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error(`ai_model_listing_failed:${res.status}`);
       const json = (await res.json()) as { data?: Array<{ id: string; created_at?: string }> };
-      return (json.data ?? []).map((m) => ({
+      if (!Array.isArray(json.data) || json.data.some((m) => typeof m?.id !== "string" || !m.id.trim())) throw new Error("ai_model_listing_invalid");
+      return json.data.map((m) => ({
         id: m.id,
         created: m.created_at ? Date.parse(m.created_at) / 1000 : undefined,
       }));
@@ -75,21 +78,24 @@ async function listProviderModels(provider: ProviderName, apiKey: string): Promi
     if (provider === "groq") {
       const res = await fetch("https://api.groq.com/openai/v1/models", {
         headers: { Authorization: `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(15_000),
       });
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error(`ai_model_listing_failed:${res.status}`);
       const json = (await res.json()) as { data?: Array<{ id: string; created?: number }> };
-      return (json.data ?? []).map((m) => ({ id: m.id, created: m.created }));
+      if (!Array.isArray(json.data) || json.data.some((m) => typeof m?.id !== "string" || !m.id.trim())) throw new Error("ai_model_listing_invalid");
+      return json.data.map((m) => ({ id: m.id, created: m.created }));
     }
     const res = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",
-      { headers: { "x-goog-api-key": apiKey } },
+      { headers: { "x-goog-api-key": apiKey }, signal: AbortSignal.timeout(15_000) },
     );
-    if (!res.ok) return [];
+    if (!res.ok) throw new Error(`ai_model_listing_failed:${res.status}`);
     const json = (await res.json()) as { models?: Array<{ name: string }> };
-    return (json.models ?? []).map((m) => ({ id: m.name.replace(/^models\//, "") }));
+    if (!Array.isArray(json.models) || json.models.some((m) => typeof m?.name !== "string" || !m.name.trim())) throw new Error("ai_model_listing_invalid");
+    return json.models.map((m) => ({ id: m.name.replace(/^models\//, "") }));
   } catch (err) {
     console.error(`[ai-model-health] listagem ${provider} falhou`, err);
-    return [];
+    throw new Error(`ai_model_listing_failed:${provider}: não foi possível consultar os modelos.`);
   }
 }
 
@@ -143,11 +149,12 @@ async function loadWorkspaceKeys(
   supabase: Admin,
   provider: ProviderName,
 ): Promise<WorkspaceCredential[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("brand_api_credentials")
     .select("brand_id, ciphertext")
     .eq("provider", provider)
     .order("updated_at", { ascending: false });
+  if (error || !Array.isArray(data)) throw new Error("ai_credentials_read_failed");
   const latestByBrand = new Map<string, string>();
   for (const row of data ?? []) {
     if (!latestByBrand.has(row.brand_id as string)) {
@@ -169,10 +176,17 @@ async function pingTextModel(
   provider: ProviderName,
   apiKey: string,
   modelId: string,
+  brandId: string,
 ): Promise<void> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { assertAiBudget } = await import("./ai-budget.server");
+  const { recordAiUsage } = await import("./ai-usage.server");
+  await assertAiBudget(supabaseAdmin, brandId);
   const { instantiateProviderModel } = await import("./ai-provider.server");
   const model = instantiateProviderModel(provider, apiKey, modelId);
-  await generateText({ model, prompt: "ping" });
+  const result = await generateText({ model, prompt: "Responda apenas: OK", maxRetries: 0, maxOutputTokens: 32, abortSignal: AbortSignal.timeout(20_000) });
+  if (!result.text.trim() || result.finishReason === "content-filter") throw new Error("ai_invalid_output: verificação sem resposta válida.");
+  await recordAiUsage({ brandId, provider, model: modelId, inputTokens: result.usage.inputTokens ?? 0, outputTokens: result.usage.outputTokens ?? 0, success: true, agent: "model.health" }, true);
 }
 
 async function notifySuperAdmins(supabase: Admin, entries: HealthCheckEntry[]): Promise<void> {
@@ -231,10 +245,11 @@ async function markProviderVerification(
   status: "valid" | "invalid" | "unverified",
   message: string,
 ): Promise<void> {
-  const { data: rows } = await supabase
+  const { data: rows, error: readError } = await supabase
     .from("brand_connections")
     .select("brand_id, providers")
     .eq("brand_id", brandId);
+  if (readError || !Array.isArray(rows)) throw new Error("ai_health_read_failed");
   const now = new Date().toISOString();
 
   for (const row of rows ?? []) {
@@ -247,10 +262,11 @@ async function markProviderVerification(
       verifiedAt: now,
       verifyMessage: message,
     };
-    await supabase
+    const { error: writeError } = await supabase
       .from("brand_connections")
       .update({ providers } as never)
       .eq("brand_id", row.brand_id as string);
+    if (writeError) throw new Error("ai_health_write_failed");
   }
 }
 
@@ -265,7 +281,6 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
     );
     if (credentials.length === 0) {
       for (const role of ROLES) {
-        if (role === "image" && !PROVIDER_CAPABILITIES[provider].image) continue;
         const modelId = (await resolveModel(provider, role)) ?? "-";
         entries.push({ brandId: null, provider, role, modelId, status: "skipped", error: "no_key_configured" });
       }
@@ -281,9 +296,8 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
       }
       const check = await verifyProviderKey(provider, apiKey);
       await markProviderVerification(supabaseAdmin, brandId, provider, check.status, check.message);
-      if (check.status === "invalid") {
+       if (check.status !== "valid") {
         for (const role of ROLES) {
-          if (role === "image" && !PROVIDER_CAPABILITIES[provider].image) continue;
           const modelId = (await resolveModel(provider, role)) ?? "-";
           const entry: HealthCheckEntry = {
             brandId,
@@ -302,13 +316,12 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
             status: "failed",
             error_message: entry.error ?? null,
           } as never);
-          if (insErr) console.error("[ai-model-health] falha ao gravar histórico", insErr);
+          if (insErr) throw new Error("ai_health_write_failed: histórico de verificação não confirmado.");
         }
         continue;
       }
 
       for (const role of ROLES) {
-      if (role === "image" && !PROVIDER_CAPABILITIES[provider].image) continue;
       const modelId = await resolveModel(provider, role);
       if (!modelId) continue;
 
@@ -317,16 +330,7 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
 
       try {
         await assertProviderFinance(brandId, provider);
-        if (role === "image") {
-          listed ??= await listProviderModels(provider, apiKey);
-          const exists = listed.some((m) => m.id.toLowerCase() === modelId.toLowerCase());
-          if (!exists && listed.length) {
-            status = "deprecated";
-            error = "modelo de imagem ausente na listagem do provedor";
-          }
-        } else {
-          await pingTextModel(provider, apiKey, modelId);
-        }
+        await pingTextModel(provider, apiKey, modelId, brandId);
       } catch (err) {
         const financial = await captureProviderFinance(brandId, provider, err);
         error = financial?.message ?? (err instanceof Error ? err.message : String(err));
@@ -337,7 +341,13 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
       if (error) entry.error = error.slice(0, 500);
 
       if (status === "deprecated") {
-        listed ??= await listProviderModels(provider, apiKey);
+        try {
+          listed ??= await listProviderModels(provider, apiKey);
+        } catch (listingError) {
+          entry.status = "failed";
+          entry.error = listingError instanceof Error ? listingError.message : "ai_model_listing_failed";
+          listed = [];
+        }
         const candidates = compatibleSuccessorCandidates(
           provider,
           role,
@@ -348,10 +358,12 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
         for (const candidate of candidates) {
           try {
             await assertProviderFinance(brandId, provider);
-            if (role !== "image") await pingTextModel(provider, apiKey, candidate);
+            await pingTextModel(provider, apiKey, candidate, brandId);
             successor = candidate;
             break;
           } catch (candidateError) {
+            const financial = await captureProviderFinance(brandId, provider, candidateError);
+            if (financial) { entry.status = "failed"; entry.error = financial.message; break; }
             console.warn(
               `[ai-model-health] sucessor rejeitado ${provider}/${role}/${candidate}`,
               candidateError instanceof Error ? candidateError.message : String(candidateError),
@@ -373,6 +385,8 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
           );
           if (upErr) {
             console.error("[ai-model-health] falha ao gravar override", upErr);
+            entry.status = "failed";
+            entry.error = "ai_catalog_write_failed: substituição não confirmada.";
           } else {
             entry.replacedWith = successor;
             replacements += 1;
@@ -391,7 +405,7 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
         status: entry.status,
         error_message: entry.error ?? null,
       } as never);
-      if (histErr) console.error("[ai-model-health] falha ao gravar histórico", histErr);
+      if (histErr) throw new Error("ai_health_write_failed: histórico de verificação não confirmado.");
       }
     }
   }
