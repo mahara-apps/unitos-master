@@ -69,13 +69,14 @@ export async function processImportQueue(opts: { limit?: number } = {}): Promise
 
   for (const run of runs) {
     const beat = async () => {
-      await callRpc(supabaseAdmin, "briefing_import_heartbeat", {
+      const { data, error } = await callRpc(supabaseAdmin, "briefing_import_heartbeat", {
         _run_id: run.id,
         _owner: owner,
         _lease_seconds: LEASE_SECONDS,
       });
+      if (error || data === false) throw new Error("briefing_heartbeat_failed");
     };
-    const timer = setInterval(() => void beat().catch(() => undefined), HEARTBEAT_MS);
+    const timer = setInterval(() => void beat().catch(() => console.error("[briefing-import-worker] heartbeat falhou", run.id)), HEARTBEAT_MS);
     try {
       const result = await executeImportRun(supabaseAdmin as never, run, { heartbeat: beat });
       report.processed += 1;

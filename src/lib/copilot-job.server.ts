@@ -7,6 +7,7 @@ import { assertPtBrPayload, withPtBr } from "@/lib/ai-language";
 import { classifyAiError, FAILURE_MESSAGE_PT } from "@/lib/ai-failures.server";
 import { newLeaseOwner } from "@/lib/ai-job-lease";
 import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
+import { callRpc } from "@/lib/supabase-rpc";
 
 const LEASE_SECONDS = 180;
 const HEARTBEAT_MS = 45_000;
@@ -78,22 +79,24 @@ export async function runCopilotJob(params: {
 }) {
   const { jobId, userId, input, supabase } = params;
   const owner = newLeaseOwner("copilot");
-  const { data: claimed, error: claimError } = await supabase.rpc("ai_job_claim_lease", {
+  const { data: claimed, error: claimError } = await callRpc(supabase, "ai_job_claim_lease", {
     _job_id: jobId,
     _owner: owner,
     _lease_seconds: LEASE_SECONDS,
   });
-  if (claimError || claimed !== true) return;
+  // A failed claim may have committed remotely: never update a job we do not own.
+  if (claimError) throw new Error("ai_job_claim_failed: não foi possível confirmar a execução do Copilot.");
+  if (claimed !== true) return;
 
   const patch = (fields: Partial<Database["public"]["Tables"]["ai_jobs"]["Update"]>) =>
     supabase.from("ai_jobs").update(fields).eq("id", jobId).eq("lease_owner", owner);
 
   const heartbeat = setInterval(() => {
-    void supabase.rpc("ai_job_heartbeat", {
+    void callRpc(supabase, "ai_job_heartbeat", {
       _job_id: jobId,
       _owner: owner,
       _lease_seconds: LEASE_SECONDS,
-    });
+    }).then(({ error }) => { if (error) console.error("[copilot] heartbeat falhou", jobId); }).catch(() => console.error("[copilot] heartbeat falhou", jobId));
   }, HEARTBEAT_MS);
 
   try {
