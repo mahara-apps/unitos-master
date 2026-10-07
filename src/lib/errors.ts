@@ -1,3 +1,4 @@
+import { financialErrorMessage } from "./ai-finance";
 import { ZodError } from "zod";
 import { errorToMessage } from "./error-message";
 
@@ -43,6 +44,8 @@ export function describeError(err: unknown): string {
 
   if (!raw) return "Ocorreu um erro inesperado.";
 
+  const financial = financialErrorMessage(raw);
+  if (financial) return financial;
   const lower = raw.toLowerCase();
 
   // Provedor de IA (BYOK) não configurado / chave ausente / modelo indisponível

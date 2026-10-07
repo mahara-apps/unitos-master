@@ -4,3 +4,8 @@
 - [x] Fase 1: projeção pessoal somente leitura validada com RLS e chamada HTTP real autenticada; Task/Sub-task, paginação e bloqueios de acesso conferidos. Sem alteração de telas.
 - [ ] Fases 2–6: experiência diária, atribuição, calendário, colaboração e capacidade — aguardam aceite do primeiro ciclo.
 - [ ] Fases 7–10: descoberta, paridade, importação e corte — aguardam exportação real do Asana e autorizações por fase.
+
+## Alertas financeiros de IA
+- [ ] Fase 1: crédito insuficiente, bloqueio por workspace/provedor e recuperação explícita.
+- [ ] Fase 2: faixas ajustáveis do orçamento mensal e notificações idempotentes.
+- [ ] Testes, pacote MASTER e suíte global; publicação não autorizada.

@@ -42,6 +42,7 @@ import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import { supportsKind, type ProviderName as AiProviderName } from "@/lib/ai-capabilities";
 import { aiErrorMessage } from "@/lib/ai-error-display";
+import { AiFinanceAlerts } from "./ai-finance-alerts";
 
 import { getAiModelStatus, runAiModelHealthNow } from "@/lib/ai-models.functions";
 import { saveProviderKey, testProviderKey, removeProviderKey } from "@/lib/connections.functions";
@@ -196,7 +197,7 @@ export function AiCenter({
 
   const budget = data?.monthlyBudgetUsd ?? 500;
   const used = data?.usage.monthUsd ?? 0;
-  const pct = Math.min(100, Math.round((used / (budget || 1)) * 100));
+  const pct = budget > 0 ? Math.round((used / budget) * 100) : 0;
   const totalCalls = data?.usage.totalCalls ?? 0;
   const successCalls = data?.usage.successCalls ?? 0;
   const successRate = totalCalls > 0 ? Math.round((successCalls / totalCalls) * 100) : 0;
@@ -217,15 +218,16 @@ export function AiCenter({
 
       {/* ------------------------------- Visão geral ------------------------ */}
       <TabsContent value="overview" className="space-y-4">
+        <AiFinanceAlerts brandId={brandId} spent={used} budget={budget} />
         <PageKpiGrid columns={4}>
           <PageKpi
             icon={<DollarSign />}
             label="Consumo no mês"
             value={isLoading ? "—" : `$${used.toFixed(2)}`}
             description={
-              noUsage
+              budget <= 0 ? "Sem orçamento definido" : noUsage
                 ? "Sem chamadas registradas neste mês"
-                : `de $${budget.toFixed(0)} · ${pct}% do limite`
+                : `de $${budget.toFixed(0)} · ${pct}% do orçamento`
             }
             status={noUsage ? "neutral" : pct >= 80 ? "warning" : "success"}
             trailing="USD"
@@ -282,7 +284,7 @@ export function AiCenter({
               label="Fallback"
               value={data?.providers?.groq?.connected ? "Groq · automático" : "Não configurado"}
             />
-            <SummaryRow label="Limite mensal" value={`US$ ${budget.toFixed(0)}`} />
+            <SummaryRow label="Orçamento mensal" value={budget > 0 ? `US$ ${budget.toFixed(0)}` : "Sem orçamento definido"} />
           </div>
         </DashboardPanelSurface>
 
@@ -291,6 +293,7 @@ export function AiCenter({
 
       {/* -------------------------------- Provedores ------------------------ */}
       <TabsContent value="providers" className="space-y-3">
+        <AiFinanceAlerts brandId={brandId} spent={used} budget={budget} />
         <div>
           <div className="text-sm font-semibold">Provedores de IA</div>
           <p className="text-xs text-muted-foreground">
@@ -356,6 +359,7 @@ export function AiCenter({
 
       {/* ----------------------------- Configuração ------------------------- */}
       <TabsContent value="config" className="space-y-3">
+        <AiFinanceAlerts brandId={brandId} spent={used} budget={budget} configuration />
         <ConfigForm
           textProvider={textProvider}
           imageProvider={imageProvider}

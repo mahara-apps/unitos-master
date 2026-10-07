@@ -1,3 +1,5 @@
+import { callRpc } from "./supabase-rpc";
+import { assertProviderFinance, captureProviderFinance } from "./ai-finance.server";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
@@ -336,13 +338,14 @@ function withModelInstrumentation(
   const instrumentStream = (
     result: Awaited<ReturnType<ModelV2["doStream"]>>,
     modelId: string,
+    actualProvider: ProviderName,
   ): Awaited<ReturnType<ModelV2["doStream"]>> => {
     let inTok = 0;
     let outTok = 0;
     let streamError: string | null = null;
     let streamKind: string | null = null;
     const meter = new TransformStream<unknown, unknown>({
-      transform(chunk, controller) {
+      async transform(chunk, controller) {
         const part = chunk as { type?: string; usage?: UsageLike; error?: unknown };
         if (part?.type === "finish" && part.usage) {
           const u = readUsage(part.usage);
@@ -355,6 +358,8 @@ function withModelInstrumentation(
           // Falha DEPOIS de geração parcial: preserva tokens já consumidos e a
           // classificação, para o consumo aparecer com causa no histórico.
           streamKind = classifyAiError(part.error).kind;
+          const financial = await captureProviderFinance(ctx.brandId, actualProvider, part.error);
+          if (financial) { controller.enqueue({ ...part, error: financial }); return; }
         }
         controller.enqueue(chunk);
       },
@@ -363,7 +368,7 @@ function withModelInstrumentation(
           logAiFailure({
             op: ctx.usage?.agent ?? `${ctx.role}.stream`,
             step: "stream",
-            provider: ctx.provider,
+            provider: actualProvider,
             model: modelId,
             kind: streamKind,
             retryable: streamKind ? isRecoverableFailure(streamKind) : null,
@@ -374,6 +379,7 @@ function withModelInstrumentation(
           });
         }
         log(modelId, inTok, outTok, !streamError, streamError, {
+          provider: actualProvider,
           ...(streamKind ? { kind: streamKind } : {}),
         });
       },
@@ -401,6 +407,7 @@ function withModelInstrumentation(
     let call = 0;
     for (;;) {
       const modelId = tried[tried.length - 1] ?? base.modelId;
+      await assertProviderFinance(ctx.brandId, provider);
       call += 1;
       // Teto DURO da operação: verificado antes de cada chamada real, cobrindo
       // retry, troca de modelo do catálogo e troca de provedor.
@@ -412,7 +419,7 @@ function withModelInstrumentation(
       try {
         const out = (await (current[op] as (o: unknown) => Promise<unknown>)(options)) as T;
         if (op === "doStream") {
-          return instrumentStream(out as Awaited<ReturnType<ModelV2["doStream"]>>, modelId) as T;
+          return instrumentStream(out as Awaited<ReturnType<ModelV2["doStream"]>>, modelId, provider) as T;
         }
         const raw = out as {
           usage?: UsageLike;
@@ -452,6 +459,8 @@ function withModelInstrumentation(
         }
         return out;
       } catch (err) {
+        const financial = await captureProviderFinance(ctx.brandId, provider, err);
+        if (financial) { log(modelId, 0, 0, false, financial.message, { provider, kind: classifyAiError(err).kind, attempt: call }); throw financial; }
         const msg = err instanceof Error ? err.message : String(err);
         const { kind, retryable } = classifyAiError(err);
         const detail = redactAiDetail(unwrapAiError(err).text);
@@ -551,7 +560,7 @@ async function assertBudget(
   usage?: AiUsageContext,
 ): Promise<void> {
   try {
-    const { data } = await supabase.rpc("check_ai_usage_budget", {
+    const { data } = await callRpc(supabase, "check_ai_usage_budget", {
       _brand_id: brandId,
       _client_id: usage?.clientId ?? null,
       _user_id: usage?.userId ?? null,
@@ -847,8 +856,11 @@ export async function embedTextWithBrandKey(
   for (const cred of candidates) {
     for (let attempt = 1; attempt <= EMBED_MAX_ATTEMPTS; attempt++) {
       try {
+        await assertProviderFinance(brandId, cred.provider);
         return await callEmbeddingProvider(cred.provider, cred.apiKey, trimmed);
       } catch (err) {
+        const financial = await captureProviderFinance(brandId, cred.provider, err);
+        if (financial) { lastKind = classifyAiError(err).kind; lastDetail = financial.message; break; }
         const status = (err as { status?: number }).status;
         const retryable =
           typeof status === "number"
@@ -1009,6 +1021,7 @@ export async function generateBrandImage(
 
   let lastError: unknown = null;
   for (const modelId of candidates) {
+    await assertProviderFinance(brandId, creds.provider);
     try {
       const image =
         creds.provider === "openai"
@@ -1025,6 +1038,8 @@ export async function generateBrandImage(
       });
       return image;
     } catch (err) {
+      const financial = await captureProviderFinance(brandId, creds.provider, err);
+      if (financial) throw financial;
       lastError = err;
       const { kind, retryable } = classifyAiError(err);
       logAiFailure({

@@ -79,6 +79,13 @@ import { ptBR } from "date-fns/locale";
 type ConnectionsSearch = { tab?: "channels" | "ai" | "messaging"; section?: string };
 
 export const Route = createFileRoute("/_authenticated/connections")({
+  head: () => ({ meta: [
+    { title: "Conexões e orçamento de IA — Unitos" },
+    { name: "description", content: "Provedores, disponibilidade financeira e orçamento mensal de IA do workspace no Unitos." },
+    { property: "og:title", content: "Conexões e orçamento de IA — Unitos" },
+    { property: "og:description", content: "Provedores e avisos financeiros de IA do workspace." },
+    { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" },
+  ] }),
   beforeLoad: () => ensureFeatureEnabled("connections"),
   validateSearch: (search: Record<string, unknown>): ConnectionsSearch => ({
     tab:

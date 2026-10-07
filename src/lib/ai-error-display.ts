@@ -1,3 +1,4 @@
+import { financialErrorMessage } from "./ai-finance";
 /**
  * Traduz erros de IA/credenciais para uma mensagem curta e acionável em pt-BR.
  * Usado nas telas para nunca mostrar texto técnico cru (ex.: o
@@ -18,6 +19,8 @@ export function aiErrorMessage(err: unknown, fallback: string): string {
           : "";
   const text = raw.trim();
   if (!text) return fallback;
+  const financial = financialErrorMessage(text);
+  if (financial) return financial;
 
   if (/operation-specific reason|OperationError/i.test(text)) {
     return "A chave de IA salva não pôde ser lida nesta instalação. Salve a chave do provedor novamente em Configurações > Conexões.";
