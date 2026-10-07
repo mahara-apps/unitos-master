@@ -28,17 +28,18 @@ export const getAiModelStatus = createServerFn({ method: "GET" })
     const { MODEL_CATALOG } = await import("@/lib/ai-models-catalog.server");
     // Leitura autenticada (RLS: apenas super admins veem overrides/health).
     // Não usa service role — o painel é read-only para o usuário logado.
-    const { data: overrides } = await context.supabase
+    const { data: overrides, error: overridesError } = await context.supabase
       .from("ai_model_catalog_overrides")
       .select("provider, role, model_id, replaced_model_id, reason, updated_at");
 
-    const { data: lastCheck } = await context.supabase
+    const { data: lastCheck, error: healthError } = await context.supabase
       .from("ai_model_health")
       .select("checked_at")
       .eq("brand_id", data.brandId)
       .order("checked_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (overridesError || healthError || !Array.isArray(overrides)) throw new Error("Não foi possível consultar os modelos de IA.");
 
     const models: ActiveModel[] = [];
     for (const provider of Object.keys(PROVIDER_CAPABILITIES) as ProviderName[]) {

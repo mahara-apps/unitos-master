@@ -63,11 +63,12 @@ export const getConnections = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) => BrandIdInput.parse(input))
   .handler(async ({ data, context }): Promise<ConnectionsSettings> => {
     const { supabase } = context;
-    const { data: row } = await supabase
+    const { data: row, error: settingsError } = await supabase
       .from("brand_connections")
       .select("*")
       .eq("brand_id", data.brandId)
       .maybeSingle();
+    if (settingsError) throw new Error("Não foi possível consultar a configuração de IA.");
 
     const monthStart = startOfMonthInTz();
     const usage = [];
@@ -76,7 +77,7 @@ export const getConnections = createServerFn({ method: "GET" })
         .select("cost_usd,input_tokens,output_tokens,success,model,provider")
         .eq("brand_id", data.brandId).gte("created_at", monthStart.toISOString())
         .order("created_at").order("id").range(offset, offset + 999);
-      if (page.error) throw new Error("Não foi possível consultar o consumo mensal de IA.");
+      if (page.error || !Array.isArray(page.data)) throw new Error("Não foi possível consultar o consumo mensal de IA.");
       usage.push(...(page.data ?? []));
       if ((page.data?.length ?? 0) < 1000) break;
     }

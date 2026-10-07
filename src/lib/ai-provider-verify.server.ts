@@ -46,12 +46,17 @@ function endpointFor(provider: ProviderName, apiKey: string): Endpoint {
 }
 
 function parseModels(provider: ProviderName, json: unknown): string[] {
-  if (provider === "gemini") {
-    const models = (json as { models?: Array<{ name?: string }> }).models ?? [];
-    return models.map((m) => (m.name ?? "").replace(/^models\//, "")).filter(Boolean);
-  }
-  const data = (json as { data?: Array<{ id?: string }> }).data ?? [];
-  return data.map((m) => m.id ?? "").filter(Boolean);
+  if (!json || typeof json !== "object") throw new Error("invalid_model_listing");
+  const field = provider === "gemini" ? "models" : "data";
+  const key = provider === "gemini" ? "name" : "id";
+  const rows = (json as Record<string, unknown>)[field];
+  if (!Array.isArray(rows)) throw new Error("invalid_model_listing");
+  return rows.map((row: unknown) => {
+    if (!row || typeof row !== "object") throw new Error("invalid_model_listing");
+    const id = (row as Record<string, unknown>)[key];
+    if (typeof id !== "string" || !id.trim()) throw new Error("invalid_model_listing");
+    return id.replace(/^models\//, "");
+  });
 }
 
 const PROVIDER_LABEL: Record<ProviderName, string> = {
@@ -126,7 +131,7 @@ export async function verifyProviderKey(
   try {
     models = parseModels(provider, await res.json());
   } catch {
-    models = [];
+    return { status: "unverified", message: `A ${label} devolveu uma resposta inválida na verificação. Tente novamente.`, models: [] };
   }
 
   return {

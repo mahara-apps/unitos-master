@@ -137,10 +137,11 @@ export async function loadCatalogOverrides(): Promise<CatalogOverride[]> {
   if (cache && Date.now() - cache.at < CACHE_TTL_MS) return cache.rows;
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("ai_model_catalog_overrides")
       .select("provider, role, model_id, replaced_model_id, reason, updated_at");
-    const rows: CatalogOverride[] = (data ?? []).map((r) => ({
+    if (error || !Array.isArray(data)) throw new Error("ai_catalog_read_failed");
+    const rows: CatalogOverride[] = data.filter((r) => r.role === "strategic" || r.role === "operational").map((r) => ({
       provider: r.provider as ProviderName,
       role: r.role as ProviderRole,
       modelId: r.model_id as string,
@@ -152,7 +153,7 @@ export async function loadCatalogOverrides(): Promise<CatalogOverride[]> {
     return rows;
   } catch (err) {
     console.error("[ai-models-catalog] falha ao carregar overrides", err);
-    return cache?.rows ?? [];
+    throw new Error("ai_catalog_read_failed: não foi possível confirmar o catálogo de IA. Tente novamente.");
   }
 }
 
@@ -250,7 +251,7 @@ export async function saveCatalogOverride(args: {
 }): Promise<void> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.from("ai_model_catalog_overrides").upsert(
+    const { error } = await supabaseAdmin.from("ai_model_catalog_overrides").upsert(
       {
         provider: args.provider,
         role: args.role,
@@ -262,9 +263,11 @@ export async function saveCatalogOverride(args: {
       },
       { onConflict: "provider,role" },
     );
+    if (error) throw new Error("ai_catalog_write_failed");
     invalidateCatalogCache();
   } catch (err) {
     console.error("[ai-models-catalog] falha ao gravar override", err);
+    throw new Error("ai_catalog_write_failed: atualização do modelo não confirmada.");
   }
 }
 
