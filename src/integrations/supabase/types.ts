@@ -511,6 +511,78 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_budget_alert_settings: {
+        Row: {
+          brand_id: string
+          created_at: string
+          thresholds: number[]
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          thresholds?: number[]
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          thresholds?: number[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_budget_alert_settings_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "ai_budget_alert_settings_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_finance_alert_events: {
+        Row: {
+          brand_id: string
+          created_at: string
+          event_key: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          event_key: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          event_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_finance_alert_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "ai_finance_alert_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_jobs: {
         Row: {
           brand_id: string
@@ -682,6 +754,51 @@ export type Database = {
           },
           {
             foreignKeyName: "ai_model_health_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_provider_finance: {
+        Row: {
+          blocked: boolean
+          brand_id: string
+          created_at: string
+          generation: number
+          provider: string
+          reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          blocked?: boolean
+          brand_id: string
+          created_at?: string
+          generation?: number
+          provider: string
+          reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          blocked?: boolean
+          brand_id?: string
+          created_at?: string
+          generation?: number
+          provider?: string
+          reason?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_provider_finance_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "ai_provider_finance_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
@@ -9506,6 +9623,15 @@ export type Database = {
       }
       accept_brand_invite: { Args: { _token: string }; Returns: string }
       access_profiles_system_defaults: { Args: never; Returns: Json }
+      ai_budget_evaluate: { Args: { _brand: string }; Returns: undefined }
+      ai_finance_block: {
+        Args: { _brand: string; _provider: string; _reason: string }
+        Returns: undefined
+      }
+      ai_finance_notify: {
+        Args: { _body: string; _brand: string; _key: string; _title: string }
+        Returns: undefined
+      }
       ai_job_claim_lease: {
         Args: { _job_id: string; _lease_seconds?: number; _owner: string }
         Returns: boolean
