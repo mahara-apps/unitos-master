@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { callRpc } from "@/lib/supabase-rpc";
 import {
   PROVIDER_CAPABILITIES,
   type ProviderName,
@@ -68,10 +69,10 @@ export const runAiModelHealthNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ brandId: z.string().uuid() }).parse(input))
   .handler(async ({ context, data }) => {
-    const { data: isAdmin } = await context.supabase.rpc("is_super_admin", {
+    const { data: isAdmin, error } = await callRpc<boolean>(context.supabase, "is_super_admin", {
       _user_id: context.userId,
     });
-    if (!isAdmin) throw new Error("Forbidden");
+    if (error || isAdmin !== true) throw new Error("Forbidden");
 
     const { runAiModelHealthCheck } = await import("@/lib/ai-model-health.server");
     const result = await runAiModelHealthCheck(data.brandId);

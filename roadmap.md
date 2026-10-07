@@ -5,12 +5,12 @@
 - [ ] Fases 2–6: experiência diária, atribuição, calendário, colaboração e capacidade — aguardam aceite do primeiro ciclo.
 - [ ] Fases 7–10: descoberta, paridade, importação e corte — aguardam exportação real do Asana e autorizações por fase.
 
-## Alertas financeiros de IA
 ## Manutenção segura de IA — somente texto
-- [ ] Remover geração de imagens, opções e health checks; preservar arquivos e embeddings.
-- [ ] Corrigir leituras ambíguas, catálogo e validação de provedores com testes dedicados.
-- [ ] Inventariar os fluxos completos e registrar evidências e bloqueios reais por provedor.
-- [ ] Selar MASTER e executar guardiões e suíte global; sem publicação ou retomada implícita.
+- [x] Remover geração de imagens, opções e health checks; preservar arquivos, leitura de imagens e embeddings.
+- [x] Corrigir leituras ambíguas, catálogo, orçamento fail-closed e consumo confirmado; 55 testes dedicados passaram.
+- [x] Registrar matriz de evidências e bloqueios reais em docs/AI_TEXT_MAINTENANCE.md.
+- [ ] Selar MASTER 1.4.65 e executar guardiões; suíte global bloqueada por timeout de inspeção do QA (sem aumentar timeout ou ignorar testes).
+- [ ] Validar geração real dos quatro provedores e fluxos completos — depende de QA disponível, chaves válidas e crédito nas contas; sem afirmar 100% antes disso.
 
 ## Alertas financeiros de IA
 - [x] Fase 1 implementada: crédito insuficiente, bloqueio por workspace/provedor e recuperação explícita por administrador.
