@@ -16,6 +16,8 @@ export type AiUsageContext = {
  * de vendor, minúsculas). Aliases `*-latest` apontam para a geração atual.
  */
 const PRICE_PER_MTOK: Record<string, { input: number; output: number }> = {
+  "text-embedding-3-small": { input: 0.02, output: 0 },
+  "gemini-embedding-001": { input: 0.15, output: 0 },
   // ---- Google Gemini ----
   "gemini-pro-latest": { input: 1.25, output: 10 },
   "gemini-3.1-pro-preview": { input: 1.25, output: 10 },
@@ -116,16 +118,17 @@ export function buildAiUsageRow(args: RecordAiUsageArgs) {
 /**
  * Grava uma linha de consumo — inclusive quando a chamada FALHOU: o token/custo
  * pode ser zero, mas a tentativa precisa aparecer no histórico.
- * Best-effort: nunca lança, para não derrubar a geração por causa do log.
+ * strict=true requires confirmed accounting before reporting generation success.
  */
-export async function recordAiUsage(args: RecordAiUsageArgs): Promise<void> {
+export async function recordAiUsage(args: RecordAiUsageArgs, strict = false): Promise<void> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
       .from("brand_ai_usage")
       .insert(buildAiUsageRow(args) as never);
-    if (error) console.warn("[ai-usage] insert failed", error.message);
+    if (error) throw new Error("ai_usage_record_failed");
   } catch (err) {
     console.warn("[ai-usage] insert threw", err);
+    if (strict) throw new Error("ai_usage_record_failed: não foi possível registrar o consumo da IA.");
   }
 }

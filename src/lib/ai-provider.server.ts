@@ -191,7 +191,7 @@ export async function getBrandFallbackProviderKey(
       { connected?: boolean } | undefined
     >;
     if (!providers[fallback]?.connected) return null;
-    if (!supportsKind(fallback, "text")) return null;
+    if (fallback !== "groq") return null;
 
     const { data: credRow } = await supabase
       .from("brand_api_credentials")
@@ -300,6 +300,7 @@ function withModelInstrumentation(
     attempts: ProviderAttempt[];
     /** Teto de chamadas reais ao provedor na operação (compartilhado). */
     budget: AiRequestBudget;
+    checkBudget: () => Promise<void>;
   },
 ): ModelV2 {
   const log = (
@@ -310,7 +311,7 @@ function withModelInstrumentation(
     errorMessage?: string | null,
     meta?: { provider?: ProviderName; kind?: string; attempt?: number },
   ) => {
-    void recordAiUsage({
+    return recordAiUsage({
       brandId: ctx.brandId,
       model: modelId,
       inputTokens: inTok,
@@ -324,7 +325,7 @@ function withModelInstrumentation(
       agent: ctx.usage?.agent ?? `${ctx.role}.${ctx.provider}`,
       clientId: ctx.usage?.clientId ?? null,
       userId: ctx.usage?.userId ?? null,
-    });
+    }, success);
   };
 
   /** Conta tokens ao final do stream sem consumir/alterar o conteúdo. */
@@ -356,7 +357,7 @@ function withModelInstrumentation(
         }
         controller.enqueue(chunk);
       },
-      flush() {
+      async flush() {
         if (streamError) {
           logAiFailure({
             op: ctx.usage?.agent ?? `${ctx.role}.stream`,
@@ -371,7 +372,7 @@ function withModelInstrumentation(
             detail: streamError,
           });
         }
-        log(modelId, inTok, outTok, !streamError, streamError, {
+        await log(modelId, inTok, outTok, !streamError, streamError, {
           provider: actualProvider,
           ...(streamKind ? { kind: streamKind } : {}),
         });
@@ -400,6 +401,7 @@ function withModelInstrumentation(
     let call = 0;
     for (;;) {
       const modelId = tried[tried.length - 1] ?? base.modelId;
+      await ctx.checkBudget();
       await assertProviderFinance(ctx.brandId, provider);
       call += 1;
       // Teto DURO da operação: verificado antes de cada chamada real, cobrindo
@@ -436,7 +438,7 @@ function withModelInstrumentation(
               `providerMetadata=${JSON.stringify(raw.providerMetadata ?? null).slice(0, 400)}`,
           );
         }
-        log(modelId, inTok, outTok, true, null, { provider, attempt: call });
+        await log(modelId, inTok, outTok, true, null, { provider, attempt: call });
 
         ctx.attempts.push({ provider, model: modelId, attempt: call, result: "success" });
         if (pendingPromotion) {
@@ -452,8 +454,10 @@ function withModelInstrumentation(
         }
         return out;
       } catch (err) {
+        // Accounting/catalog failures occur after provider success; never pay again.
+        if (err instanceof Error && /^(ai_usage_record_failed|ai_catalog_write_failed)/.test(err.message)) throw err;
         const financial = await captureProviderFinance(ctx.brandId, provider, err);
-        if (financial) { log(modelId, 0, 0, false, financial.message, { provider, kind: classifyAiError(err).kind, attempt: call }); throw financial; }
+        if (financial) { await log(modelId, 0, 0, false, financial.message, { provider, kind: classifyAiError(err).kind, attempt: call }); throw financial; }
         const msg = err instanceof Error ? err.message : String(err);
         const { kind, retryable } = classifyAiError(err);
         const detail = redactAiDetail(unwrapAiError(err).text);
@@ -467,7 +471,7 @@ function withModelInstrumentation(
         // Consumo é registrado MESMO em falha — inclusive nas tentativas
         // intermediárias que serão seguidas de retry/fallback. Sem isso, um
         // 429 seguido de fallback bem-sucedido desaparecia do histórico.
-        log(modelId, 0, 0, false, msg, { provider, kind, attempt: call });
+        await log(modelId, 0, 0, false, msg, { provider, kind, attempt: call });
         const logEntry = {
           op: ctx.usage?.agent ?? `${ctx.role}.${op}`,
           step: ctx.role,
@@ -543,38 +547,8 @@ function withModelInstrumentation(
   } as ModelV2;
 }
 
-/**
- * Teto mensal: bloqueia a chamada quando a marca/cliente estourou o orçamento.
- * Best-effort — falha de RPC não impede a geração.
- */
-async function assertBudget(
-  supabase: SupabaseClient,
-  brandId: string,
-  usage?: AiUsageContext,
-): Promise<void> {
-  try {
-    const { data } = await callRpc(supabase, "check_ai_usage_budget", {
-      _brand_id: brandId,
-      _client_id: usage?.clientId ?? null,
-      _user_id: usage?.userId ?? null,
-    });
-    const b = data as {
-      allowed?: boolean;
-      blocked_by?: string;
-      limit_usd?: number;
-      spent_usd?: number;
-    } | null;
-    if (b && b.allowed === false) {
-      throw new Error(
-        `ai_budget_exceeded:${b.blocked_by ?? "brand"}:${b.spent_usd ?? 0}:${b.limit_usd ?? 0}`,
-      );
-    }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.startsWith("ai_budget_exceeded")) throw err;
-    console.warn("[ai-provider] check_ai_usage_budget falhou", msg);
-  }
-}
+export { assertAiBudget as assertBudget } from "./ai-budget.server";
+import { assertAiBudget as assertBudget } from "./ai-budget.server";
 
 /**
  * Load the brand's configured AI provider + decrypted key and return an
@@ -618,6 +592,7 @@ export async function getBrandAiModel(
     fallback,
     attempts: providerAttempts,
     budget: requestBudget,
+    checkBudget: () => assertBudget(supabase, brandId, usage),
     ...(usage ? { usage } : {}),
   });
 
@@ -720,6 +695,7 @@ export async function getBrandAiCandidates(
         fallback: null,
         attempts: providerAttempts,
         budget: requestBudget,
+        checkBudget: () => assertBudget(supabase, brandId, usage),
         ...(usage ? { usage } : {}),
       }),
     });
@@ -738,10 +714,11 @@ async function callEmbeddingProvider(
   provider: ProviderName,
   apiKey: string,
   text: string,
-): Promise<number[]> {
+): Promise<{ vector: number[]; tokens: number }> {
   const signal = AbortSignal.timeout(EMBED_TIMEOUT_MS);
   let res: Response;
   let vec: unknown;
+  let tokens = 0;
   if (provider === "openai") {
     res = await fetch("https://api.openai.com/v1/embeddings", {
       method: "POST",
@@ -761,7 +738,9 @@ async function callEmbeddingProvider(
         { status: res.status },
       );
     }
-    vec = ((await res.json()) as { data?: Array<{ embedding: number[] }> }).data?.[0]?.embedding;
+    const payload = (await res.json()) as { data?: Array<{ embedding: number[] }>; usage?: { total_tokens?: number } };
+    vec = payload.data?.[0]?.embedding;
+    tokens = tokenValue(payload.usage?.total_tokens);
   } else {
     res = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent",
@@ -783,12 +762,15 @@ async function callEmbeddingProvider(
         { status: res.status },
       );
     }
-    vec = ((await res.json()) as { embedding?: { values?: number[] } }).embedding?.values;
+    const payload = (await res.json()) as { embedding?: { values?: number[] }; usageMetadata?: { totalTokenCount?: number } };
+    vec = payload.embedding?.values;
+    tokens = tokenValue(payload.usageMetadata?.totalTokenCount);
   }
   if (!isValidEmbedding(vec)) {
     throw new Error(`ai_embedding_invalid_output:${provider}: dimensão inesperada`);
   }
-  return vec;
+  // Gemini embedContent can omit usage; preserve an explicitly approximate cost.
+  return { vector: vec, tokens: tokens || Math.ceil(text.length / 4) };
 }
 
 /**
@@ -804,6 +786,7 @@ export async function embedTextWithBrandKey(
   supabase: SupabaseClient,
   brandId: string,
   text: string,
+  usage?: AiUsageContext,
 ): Promise<number[] | null> {
   const trimmed = normalizeEmbeddingInput(text);
   if (!trimmed) return null;
@@ -849,9 +832,13 @@ export async function embedTextWithBrandKey(
   for (const cred of candidates) {
     for (let attempt = 1; attempt <= EMBED_MAX_ATTEMPTS; attempt++) {
       try {
+        await assertBudget(supabase, brandId, usage);
         await assertProviderFinance(brandId, cred.provider);
-        return await callEmbeddingProvider(cred.provider, cred.apiKey, trimmed);
+        const result = await callEmbeddingProvider(cred.provider, cred.apiKey, trimmed);
+        await recordAiUsage({ brandId, model: cred.provider === "openai" ? "text-embedding-3-small" : "gemini-embedding-001", provider: cred.provider, inputTokens: result.tokens, outputTokens: 0, success: true, agent: "embedding", ...usage }, true);
+        return result.vector;
       } catch (err) {
+        if (err instanceof Error && /^(ai_budget_|ai_usage_record_failed)/.test(err.message)) throw err;
         const financial = await captureProviderFinance(brandId, cred.provider, err);
         if (financial) { lastKind = classifyAiError(err).kind; lastDetail = financial.message; break; }
         const status = (err as { status?: number }).status;
