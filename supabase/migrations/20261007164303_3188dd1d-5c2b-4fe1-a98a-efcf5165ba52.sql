@@ -1,0 +1,1 @@
+CREATE POLICY finance_events_service_only ON public.ai_finance_alert_events FOR ALL TO service_role USING(true) WITH CHECK(true);
