@@ -53,7 +53,7 @@ export const verifyAiFinancialAvailability = createServerFn({ method: "POST" })
     const modelId = await resolveModel(data.provider, "operational");
     if (!modelId) throw new Error("Modelo de verificação indisponível.");
     try {
-      const result = streamText({ model: instantiateProviderModel(data.provider, await decryptCredential(credential.ciphertext), modelId), prompt: "Responda apenas: OK", maxRetries: 0 });
+      const result = streamText({ model: instantiateProviderModel(data.provider, await decryptCredential(credential.ciphertext), modelId), prompt: "Responda apenas: OK", maxRetries: 0, maxOutputTokens: 32, abortSignal: AbortSignal.timeout(20_000) });
       const text = await result.text;
       const finish = await result.finishReason;
       if (!text.trim() || finish === "content-filter") throw new Error("A IA não confirmou disponibilidade de geração.");
@@ -64,7 +64,7 @@ export const verifyAiFinancialAvailability = createServerFn({ method: "POST" })
       return { ok: true };
     } catch (error) {
       const financial = await captureProviderFinance(data.brandId, data.provider, error);
-      if (financial) throw financial;
+      if (financial) { await recordAiUsage({ brandId: data.brandId, model: modelId, provider: data.provider, success: false, inputTokens: 0, outputTokens: 0, errorKind: classifyAiError(error).kind, userId: context.userId, agent: "finance.verify" }); throw financial; }
       const { kind } = classifyAiError(error);
       await recordAiUsage({ brandId: data.brandId, model: modelId, provider: data.provider, success: false, inputTokens: 0, outputTokens: 0, errorKind: kind, userId: context.userId, agent: "finance.verify" });
       throw new Error(userFacingAiError(error).body);

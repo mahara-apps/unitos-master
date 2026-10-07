@@ -1,3 +1,4 @@
+import { assertProviderFinance, captureProviderFinance } from "./ai-finance.server";
 /**
  * AI model health check + auto-healing catalog.
  *
@@ -274,6 +275,10 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
     for (const { brandId, apiKey } of credentials) {
       let listed: ListedModel[] | null = null;
       const { verifyProviderKey } = await import("./ai-provider-verify.server");
+      try { await assertProviderFinance(brandId, provider); } catch (error) {
+        entries.push({brandId, provider, role: "operational", modelId: "-", status: "skipped", error: error instanceof Error ? error.message : "IA indisponível"});
+        continue;
+      }
       const check = await verifyProviderKey(provider, apiKey);
       await markProviderVerification(supabaseAdmin, brandId, provider, check.status, check.message);
       if (check.status === "invalid") {
@@ -311,6 +316,7 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
       let error: string | undefined;
 
       try {
+        await assertProviderFinance(brandId, provider);
         if (role === "image") {
           listed ??= await listProviderModels(provider, apiKey);
           const exists = listed.some((m) => m.id.toLowerCase() === modelId.toLowerCase());
@@ -322,7 +328,8 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
           await pingTextModel(provider, apiKey, modelId);
         }
       } catch (err) {
-        error = err instanceof Error ? err.message : String(err);
+        const financial = await captureProviderFinance(brandId, provider, err);
+        error = financial?.message ?? (err instanceof Error ? err.message : String(err));
         status = isDeprecationError(error) ? "deprecated" : "failed";
       }
 
@@ -340,6 +347,7 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
         let successor: string | null = null;
         for (const candidate of candidates) {
           try {
+            await assertProviderFinance(brandId, provider);
             if (role !== "image") await pingTextModel(provider, apiKey, candidate);
             successor = candidate;
             break;

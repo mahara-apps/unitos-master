@@ -71,13 +71,16 @@ export const getConnections = createServerFn({ method: "GET" })
       .maybeSingle();
 
     const monthStart = startOfMonthInTz();
-    const { data: usage } = await supabase
-      .from("brand_ai_usage")
-      .select("cost_usd, input_tokens, output_tokens, success, model")
-      .eq("brand_id", data.brandId)
-      .gte("created_at", monthStart.toISOString());
-
-    // Falhas de leitura não podem ser apresentadas como consumo zero.
+    const usage = [];
+    for (let offset = 0; ; offset += 1000) {
+      const page = await supabase.from("brand_ai_usage")
+        .select("cost_usd,input_tokens,output_tokens,success,model,provider")
+        .eq("brand_id", data.brandId).gte("created_at", monthStart.toISOString())
+        .order("created_at").order("id").range(offset, offset + 999);
+      if (page.error) throw new Error("Não foi possível consultar o consumo mensal de IA.");
+      usage.push(...(page.data ?? []));
+      if ((page.data?.length ?? 0) < 1000) break;
+    }
     const rows = usage ?? [];
     const monthUsd = rows.reduce((a, u) => a + Number(u.cost_usd ?? 0), 0);
     const monthTokens = rows.reduce(
@@ -88,7 +91,7 @@ export const getConnections = createServerFn({ method: "GET" })
     const successCalls = rows.filter((u) => u.success).length;
     const byProvider: Record<string, { usd: number; tokens: number; calls: number }> = {};
     for (const u of rows) {
-      const key = providerFromModel(u.model as string | null);
+      const key = u.provider ?? providerFromModel(u.model as string | null);
       const acc = byProvider[key] ?? { usd: 0, tokens: 0, calls: 0 };
       acc.usd += Number(u.cost_usd ?? 0);
       acc.tokens += Number(u.input_tokens ?? 0) + Number(u.output_tokens ?? 0);

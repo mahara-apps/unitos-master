@@ -559,7 +559,7 @@ WITH checks AS (
                'client_ad_accounts','project_participants','user_login_events','work_comments',
                 'work_links','work_statuses','client_automation_attempts',
                  'client_automation_dates','client_automation_dispatches','client_automation_rules',
-                  'project_job_counters','system_events','project_duplication_requests','project_template_requests'
+                  'project_job_counters','system_events','project_duplication_requests','project_template_requests','ai_provider_finance','ai_budget_alert_settings','ai_finance_alert_events'
              ]) AS t
              WHERE to_regclass('public.' || t) IS NULL
            ) faltando
@@ -575,7 +575,7 @@ WITH checks AS (
              'client_ad_accounts','project_participants','user_login_events','work_comments',
               'work_links','work_statuses','client_automation_attempts',
                'client_automation_dates','client_automation_dispatches','client_automation_rules',
-                'project_job_counters','system_events','project_duplication_requests','project_template_requests'
+                'project_job_counters','system_events','project_duplication_requests','project_template_requests','ai_provider_finance','ai_budget_alert_settings','ai_finance_alert_events'
            ]) AS t
            WHERE to_regclass('public.' || t) IS NULL
          ) THEN 'PASS' ELSE 'FAIL' END
@@ -725,5 +725,15 @@ WITH checks AS (
                         AND grantee IN ('anon','authenticated'))
               THEN 'PASS' ELSE 'FAIL' END
 
+  UNION ALL
+  SELECT 90, 'IA: alertas financeiros protegidos e avaliação automática',
+    'crédito por provedor; faixas mensais; notificações somente serviço',
+    CASE WHEN to_regprocedure('public.ai_finance_block(uuid,text,text)') IS NOT NULL
+      AND to_regprocedure('public.ai_budget_evaluate(uuid)') IS NOT NULL
+      AND NOT has_function_privilege('anon','public.ai_finance_block(uuid,text,text)','EXECUTE')
+      AND NOT has_function_privilege('authenticated','public.ai_finance_block(uuid,text,text)','EXECUTE')
+      AND NOT has_table_privilege('authenticated','public.ai_finance_alert_events','SELECT,INSERT,UPDATE,DELETE')
+      AND (SELECT count(*) FROM pg_trigger WHERE tgname IN ('ai_usage_budget_alert','ai_connection_budget_alert','ai_threshold_budget_alert') AND NOT tgisinternal)=3
+      THEN 'PASS' ELSE 'FAIL' END
 )
 SELECT ord, check_name, observed, status FROM checks ORDER BY ord;
