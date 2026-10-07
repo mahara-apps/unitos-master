@@ -245,10 +245,11 @@ async function markProviderVerification(
   status: "valid" | "invalid" | "unverified",
   message: string,
 ): Promise<void> {
-  const { data: rows } = await supabase
+  const { data: rows, error: readError } = await supabase
     .from("brand_connections")
     .select("brand_id, providers")
     .eq("brand_id", brandId);
+  if (readError || !Array.isArray(rows)) throw new Error("ai_health_read_failed");
   const now = new Date().toISOString();
 
   for (const row of rows ?? []) {
@@ -261,10 +262,11 @@ async function markProviderVerification(
       verifiedAt: now,
       verifyMessage: message,
     };
-    await supabase
+    const { error: writeError } = await supabase
       .from("brand_connections")
       .update({ providers } as never)
       .eq("brand_id", row.brand_id as string);
+    if (writeError) throw new Error("ai_health_write_failed");
   }
 }
 
@@ -314,7 +316,7 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
             status: "failed",
             error_message: entry.error ?? null,
           } as never);
-          if (insErr) console.error("[ai-model-health] falha ao gravar histórico", insErr);
+          if (insErr) throw new Error("ai_health_write_failed: histórico de verificação não confirmado.");
         }
         continue;
       }
@@ -383,6 +385,8 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
           );
           if (upErr) {
             console.error("[ai-model-health] falha ao gravar override", upErr);
+            entry.status = "failed";
+            entry.error = "ai_catalog_write_failed: substituição não confirmada.";
           } else {
             entry.replacedWith = successor;
             replacements += 1;
@@ -401,7 +405,7 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
         status: entry.status,
         error_message: entry.error ?? null,
       } as never);
-      if (histErr) console.error("[ai-model-health] falha ao gravar histórico", histErr);
+      if (histErr) throw new Error("ai_health_write_failed: histórico de verificação não confirmado.");
       }
     }
   }

@@ -22,7 +22,7 @@ Somente geração de texto. Removidos geração de imagem, ação de referência
 | Gemini | Passaram | Não executada | Sucessos históricos não comprovam este ciclo |
 | Groq (fallback) | Passaram | Não executada | Verificações históricas rejeitaram credencial; não reconfirmado |
 
-Testes locais/runtime: 1485 passaram antes da inclusão dos 55 testes de resiliência; execução completa atualizada registrada ao fechar o ciclo. Os 55 novos passaram.
+Testes locais/runtime: 1540/1540 passaram (167 arquivos), incluindo os 55 novos testes de resiliência. MASTER 1.4.65: master:check PASS, versão sincronizada; delta sem mudança de SHA d8b5bb1f53b9b4fa8d9638acf3889353cb1899e9fd335ac2f5d52718ca1714ec. Preview compilou sem erros.
 
 Suíte global reexecutada: falhou antes de executar testes, na inspeção do schema do QA pela Management API (timeout original 12s). Nenhum timeout alterado e nenhuma falha ignorada. QA havia sido confirmado INACTIVE/PAUSED; reativação exige capacidade/planos externos. Testes de integração financeira e ponta a ponta de briefing, documentos, estratégia, pauta, peças, Copilot e Brain permanecem pendentes desse bloqueio e de credenciais/crédito válidos. Não há aceite de 100% funcional.
 

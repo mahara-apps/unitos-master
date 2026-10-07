@@ -9,7 +9,8 @@
 - [x] Remover geração de imagens, opções e health checks; preservar arquivos, leitura de imagens e embeddings.
 - [x] Corrigir leituras ambíguas, catálogo, orçamento fail-closed e consumo confirmado; 55 testes dedicados passaram.
 - [x] Registrar matriz de evidências e bloqueios reais em docs/AI_TEXT_MAINTENANCE.md.
-- [ ] Selar MASTER 1.4.65 e executar guardiões; suíte global bloqueada por timeout de inspeção do QA (sem aumentar timeout ou ignorar testes).
+- [x] MASTER 1.4.65 selado: master:check PASS; 1540/1540 testes locais/runtime passaram; compilação OK; nenhuma mudança de schema.
+- [ ] Suíte global e integração financeira: bloqueadas por timeout de inspeção do QA (sem aumentar timeout ou ignorar testes); dependem da reativação do QA.
 - [ ] Validar geração real dos quatro provedores e fluxos completos — depende de QA disponível, chaves válidas e crédito nas contas; sem afirmar 100% antes disso.
 
 ## Alertas financeiros de IA
