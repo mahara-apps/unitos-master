@@ -45,15 +45,15 @@ export function WorkspaceStages({ brandId, statusGroup = false }: { brandId: str
       qc.invalidateQueries({ queryKey: ["production-pipeline-status"] })]);
   };
   const saveM = useMutation({ mutationFn: () => save({ data: { brandId, stages: productionStagesSchema.parse(stages) } }),
-    onSuccess: () => { toast.success("Padrão salvo. Quadros existentes não foram alterados."); void invalidate(); },
+    onSuccess: () => { toast.success("Padrão salvo só para novos clientes.", { description: "Para mudar os quadros atuais, use \"Salvar e aplicar aos clientes\"." }); void invalidate(); },
     onError: (e) => toast.error(describeError(e)) });
-  const previewM = useMutation({ mutationFn: () => previewFn({ data: { brandId, stages: productionStagesSchema.parse(stages), keepExceptions, mapping: {} } }),
+  const previewM = useMutation({ mutationFn: async () => { await save({ data: { brandId, stages: productionStagesSchema.parse(stages) } }); return previewFn({ data: { brandId, stages: productionStagesSchema.parse(stages), keepExceptions, mapping: {} } }); },
     onSuccess: (value) => { setMapping({}); setOperationId(crypto.randomUUID()); setPreview(value); },
     onError: (e) => toast.error(describeError(e)) });
   const applyM = useMutation({ mutationFn: async () => {
     if (!preview) throw new Error("Confira a prévia antes de aplicar.");
     return apply({ data: { brandId, stages, keepExceptions, mapping, fingerprint: preview.fingerprint, operationId } });
-  }, onSuccess: (result) => { toast.success(`Padrão aplicado a ${result.clients} cliente(s).`, { description: `${result.movedPosts} peça(s) transferida(s).` }); setPreview(null); void invalidate(); },
+  }, onSuccess: (result) => { toast.success(`Padrão aplicado a ${result.clients} cliente(s).`, { description: `${result.movedPosts} peça(s) transferida(s).` }); setPreview(null); void invalidate(); void qc.invalidateQueries(); },
   onError: (e) => toast.error(describeError(e)) });
   const busy = !canEdit || saveM.isPending || previewM.isPending || applyM.isPending;
   function patch(index: number, values: Partial<ProductionStage>) {
@@ -98,14 +98,14 @@ export function WorkspaceStages({ brandId, statusGroup = false }: { brandId: str
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4">
         <Label className="flex items-center gap-3"><Switch aria-label="Manter clientes com exceção" checked={keepExceptions} disabled={busy} onCheckedChange={setKeepExceptions} />Manter clientes com exceção</Label>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" disabled={busy} onClick={() => saveM.mutate()}>Salvar padrão para novos clientes</Button>
-          <Button disabled={busy} onClick={() => previewM.mutate()}>{previewM.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Eye className="mr-2 size-4" />}Prévia de aplicação</Button>
+          <Button variant="outline" disabled={busy} onClick={() => saveM.mutate()}>Salvar só para novos clientes</Button>
+          <Button disabled={busy} onClick={() => previewM.mutate()}>{previewM.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Eye className="mr-2 size-4" />}Salvar e aplicar aos clientes</Button>
         </div>
       </div>
     </>}
     <Dialog open={!!preview} onOpenChange={(open) => { if (!open && !applyM.isPending) setPreview(null); }}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
-        <DialogHeader><DialogTitle>Aplicar etapas aos clientes</DialogTitle><DialogDescription>Somente o quadro principal será alterado. Quadros adicionais e regras de aprovação permanecem intactos.</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>Aplicar etapas aos clientes</DialogTitle><DialogDescription>Nomes, cores e ordem mudam nos quadros atuais; as peças continuam na mesma etapa. Somente o quadro principal será alterado. Quadros adicionais e regras de aprovação permanecem intactos.</DialogDescription></DialogHeader>
         {preview && <>
           <PageKpiGrid columns={2}><PageKpi label="Clientes afetados" value={preview.clients.filter((c) => !c.skipped).length} /><PageKpi label="Exceções preservadas" value={preview.clients.filter((c) => c.skipped).length} /></PageKpiGrid>
           <div className="divide-y divide-border">
