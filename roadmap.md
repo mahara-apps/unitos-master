@@ -26,3 +26,5 @@
 - [ ] Fase B — Validação integrada e interação autenticada: QA sem resposta (timeout original de 12s); sessão autenticada indisponível no Supabase externo. Evidências em docs/PRODUCTION_STAGES_PHASE_B.md.
 - [x] Fase C — Grupo Produção de conteúdo em Status de trabalho, mesmas etapas canônicas e conclusão por is_terminal; MASTER 1.4.68 selado, 1557/1557 testes locais/runtime, master:check PASS e build OK; nada publicado/atualizado.
 - [ ] Fase C — Validação integrada e interação autenticada: bloqueadas por timeout original de 12s do QA e ausência de sessão no Supabase externo; detalhes em docs/PRODUCTION_STATUSES_PHASE_C.md.
+- [x] Etapas de conteúdo e status de trabalho: padrão único do workspace, sem exceção por cliente (MASTER 1.4.71, não publicado)
+- [ ] Publicar 1.4.71 e atualizar Casa 8 (aguarda autorização); depois aplicar o padrão revisando a prévia dos 5 clientes que eram exceção
