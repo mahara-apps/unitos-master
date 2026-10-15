@@ -18,6 +18,17 @@ BEGIN
  preview:=production_stages_preview('00000000-0000-4000-8000-000000000010',stages,true,'{}');
  PERFORM production_stages_apply('00000000-0000-4000-8000-000000000010',stages,true,'{}',preview->>'fingerprint',gen_random_uuid());
  IF NOT EXISTS(SELECT 1 FROM content_pipeline_stages WHERE id=first_stage AND label='Renomeada') OR NOT EXISTS(SELECT 1 FROM posts WHERE stage_id=first_stage AND copy='Preservar texto' AND review_status='pending') THEN RAISE EXCEPTION 'rename moved/changed piece'; END IF;
+ -- Fase C: conclusão usa a mesma etapa, sem alterar peças ou aprovações.
+ stages:=jsonb_set(stages,'{0,is_terminal}','true');
+ PERFORM production_stages_save('00000000-0000-4000-8000-000000000010',stages);
+ IF NOT (SELECT (stages->0->>'is_terminal')::boolean FROM production_stage_defaults WHERE brand_id='00000000-0000-4000-8000-000000000010') OR (SELECT is_terminal FROM content_pipeline_stages WHERE id=first_stage) THEN RAISE EXCEPTION 'completion save changed existing pipeline'; END IF;
+ preview:=production_stages_preview('00000000-0000-4000-8000-000000000010',stages,true,'{}');
+ PERFORM production_stages_apply('00000000-0000-4000-8000-000000000010',stages,true,'{}',preview->>'fingerprint',gen_random_uuid());
+ IF NOT (SELECT is_terminal FROM content_pipeline_stages WHERE id=first_stage) OR NOT EXISTS(SELECT 1 FROM posts WHERE stage_id=first_stage AND copy='Preservar texto' AND review_status='pending') THEN RAISE EXCEPTION 'completion application lost stage or approval'; END IF;
+ stages:=jsonb_set(stages,'{0,is_terminal}','false');
+ preview:=production_stages_preview('00000000-0000-4000-8000-000000000010',stages,true,'{}');
+ PERFORM production_stages_apply('00000000-0000-4000-8000-000000000010',stages,true,'{}',preview->>'fingerprint',gen_random_uuid());
+ IF (SELECT is_terminal FROM content_pipeline_stages WHERE id=first_stage) THEN RAISE EXCEPTION 'completion cannot be unset'; END IF;
  INSERT INTO content_pipeline_stages(pipeline_id,key,label,color,position) VALUES(pipe,'extra','Especial','muted',2048) RETURNING id INTO extra;
  INSERT INTO posts(pipeline_id,stage_id,copy,review_status) VALUES(pipe,extra,'Peça ativa','pending'),(pipe,extra,'Peça na lixeira','approved');
  UPDATE posts SET deleted_at=now() WHERE copy='Peça na lixeira';
