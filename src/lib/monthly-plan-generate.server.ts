@@ -14,6 +14,8 @@ import {
   parseSuggestedTime,
 } from "@/lib/monthly-plan-schedule.server";
 import { runPlanAgent } from "@/lib/monthly-plan-agent.server";
+import { salvageStructuredOutput } from "@/lib/ai-output-salvage";
+import { isSchemaRejection, normalizePlanBatch } from "@/lib/monthly-plan-salvage";
 import { PLAN_CHANNELS, type PlanChannel } from "@/lib/monthly-plan-fields";
 import {
   CONTENT_FORMATS,
@@ -460,7 +462,7 @@ export async function runPlanGeneration(args: {
   type AiPlan = z.infer<typeof AiPlanSchema>;
 
   /** Chamada única ao agente, com observabilidade por tentativa. */
-  const callAgent = async (prompt: string) =>
+  const callAgentOnce = async (prompt: string) =>
     runPlanAgent({
       agent: "pauta.suggest",
       supabase: supabase,
@@ -485,6 +487,45 @@ export async function runPlanGeneration(args: {
           },
         ),
     });
+
+  let lastModelId = input.selectedModel?.modelId ?? "";
+  /**
+   * Lote recusado pelo provedor por formato (ex.: Groq estrito quando uma ideia
+   * omite dia/hora): aproveita a resposta descartada; sem nada aproveitável,
+   * repete o lote uma vez; persistindo, falha como `invalid_output`.
+   */
+  const callAgent = async (
+    prompt: string,
+  ): Promise<{ output: unknown; modelId: string }> => {
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        const res = await callAgentOnce(prompt);
+        lastModelId = res.modelId;
+        return res;
+      } catch (error) {
+        if (!isSchemaRejection(error)) throw error;
+        const salvaged = salvageStructuredOutput(error, AiPlanSchema, normalizePlanBatch);
+        if (salvaged && salvaged.topics.length > 0) {
+          await logPlanEvent(supabase, scope, {
+            step: "ia",
+            ok: true,
+            attempt,
+            message: `salvaged: ${salvaged.topics.length} ideias recuperadas da resposta recusada`,
+            detail: { salvaged: true, topics: salvaged.topics.length },
+          });
+          return { output: salvaged, modelId: lastModelId };
+        }
+        if (attempt === 2) {
+          const err = new Error(
+            "ai_invalid_output: a IA devolveu ideias incompletas duas vezes seguidas",
+          ) as Error & { failureKind: FailureKind };
+          err.failureKind = "invalid_output";
+          throw err;
+        }
+      }
+    }
+    throw new Error("unreachable");
+  };
 
   // Lotes: pautas grandes em uma única resposta estouravam o teto de saída do
   // provedor (resposta cortada). Cada lote pede no máximo PLAN_BATCH_SIZE ideias.
