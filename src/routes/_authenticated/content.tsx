@@ -231,6 +231,15 @@ function ContentReady({
   const navigate = useNavigate();
   const pipelines = pipelinesQuery.data;
   const effectivePipelineId = activePipelineId ?? pipelines[0]?.id ?? null;
+  const openColumns = () => {
+    if (pipelines.find((pipeline) => pipeline.id === effectivePipelineId)?.is_default) {
+      toast.info("As colunas do quadro principal são definidas pelo workspace.", {
+        description: "Altere em Configurações › Status de trabalho › Produção de conteúdo.",
+      });
+      return;
+    }
+    setOpenColumnConfig(true);
+  };
 
   usePageHeader(
     {
@@ -274,7 +283,7 @@ function ContentReady({
               >
                 <Pencil className="mr-2 h-4 w-4" /> Renomear pipeline
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setOpenColumnConfig(true)}>
+              <DropdownMenuItem onClick={openColumns}>
                 <Settings className="mr-2 h-4 w-4" /> Colunas
               </DropdownMenuItem>
               {canDelete ? (
@@ -388,7 +397,7 @@ function ContentReady({
             clientId={clientId}
             pipelineId={effectivePipelineId}
             onOpenPost={setOpenPostId}
-            onConfigureColumns={() => setOpenColumnConfig(true)}
+            onConfigureColumns={openColumns}
             onNewTask={(stageId) => {
               setNewTaskStageId(stageId ?? null);
               setOpenNewTask(true);
