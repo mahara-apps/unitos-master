@@ -68,6 +68,7 @@ import { Route as AuthenticatedSettingsLogsRouteImport } from './routes/_authent
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings.notifications'
 import { Route as AuthenticatedSettingsOveragesRouteImport } from './routes/_authenticated/settings.overages'
 import { Route as AuthenticatedSettingsPermissionsRouteImport } from './routes/_authenticated/settings.permissions'
+import { Route as AuthenticatedSettingsProductionRulesRouteImport } from './routes/_authenticated/settings.production-rules'
 import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_authenticated/settings.profile'
 import { Route as AuthenticatedSettingsSlaRouteImport } from './routes/_authenticated/settings.sla'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
@@ -450,6 +451,12 @@ const AuthenticatedSettingsPermissionsRoute =
   AuthenticatedSettingsPermissionsRouteImport.update({
     id: '/permissions',
     path: '/permissions',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsProductionRulesRoute =
+  AuthenticatedSettingsProductionRulesRouteImport.update({
+    id: '/production-rules',
+    path: '/production-rules',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
 const AuthenticatedSettingsProfileRoute =
@@ -848,6 +855,7 @@ export interface FileRoutesByFullPath {
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/overages': typeof AuthenticatedSettingsOveragesRoute
   '/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
+  '/settings/production-rules': typeof AuthenticatedSettingsProductionRulesRoute
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/sla': typeof AuthenticatedSettingsSlaRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
@@ -959,6 +967,7 @@ export interface FileRoutesByTo {
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/overages': typeof AuthenticatedSettingsOveragesRoute
   '/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
+  '/settings/production-rules': typeof AuthenticatedSettingsProductionRulesRoute
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/sla': typeof AuthenticatedSettingsSlaRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
@@ -1083,6 +1092,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/_authenticated/settings/overages': typeof AuthenticatedSettingsOveragesRoute
   '/_authenticated/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
+  '/_authenticated/settings/production-rules': typeof AuthenticatedSettingsProductionRulesRoute
   '/_authenticated/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/_authenticated/settings/sla': typeof AuthenticatedSettingsSlaRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
@@ -1206,6 +1216,7 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/settings/overages'
     | '/settings/permissions'
+    | '/settings/production-rules'
     | '/settings/profile'
     | '/settings/sla'
     | '/settings/team'
@@ -1317,6 +1328,7 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/settings/overages'
     | '/settings/permissions'
+    | '/settings/production-rules'
     | '/settings/profile'
     | '/settings/sla'
     | '/settings/team'
@@ -1440,6 +1452,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/notifications'
     | '/_authenticated/settings/overages'
     | '/_authenticated/settings/permissions'
+    | '/_authenticated/settings/production-rules'
     | '/_authenticated/settings/profile'
     | '/_authenticated/settings/sla'
     | '/_authenticated/settings/team'
@@ -1969,6 +1982,13 @@ declare module '@tanstack/react-router' {
       path: '/permissions'
       fullPath: '/settings/permissions'
       preLoaderRoute: typeof AuthenticatedSettingsPermissionsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/production-rules': {
+      id: '/_authenticated/settings/production-rules'
+      path: '/production-rules'
+      fullPath: '/settings/production-rules'
+      preLoaderRoute: typeof AuthenticatedSettingsProductionRulesRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/settings/profile': {
@@ -2590,6 +2610,7 @@ interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
   AuthenticatedSettingsOveragesRoute: typeof AuthenticatedSettingsOveragesRoute
   AuthenticatedSettingsPermissionsRoute: typeof AuthenticatedSettingsPermissionsRoute
+  AuthenticatedSettingsProductionRulesRoute: typeof AuthenticatedSettingsProductionRulesRoute
   AuthenticatedSettingsProfileRoute: typeof AuthenticatedSettingsProfileRoute
   AuthenticatedSettingsSlaRoute: typeof AuthenticatedSettingsSlaRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
@@ -2607,6 +2628,8 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
     AuthenticatedSettingsNotificationsRoute,
   AuthenticatedSettingsOveragesRoute: AuthenticatedSettingsOveragesRoute,
   AuthenticatedSettingsPermissionsRoute: AuthenticatedSettingsPermissionsRoute,
+  AuthenticatedSettingsProductionRulesRoute:
+    AuthenticatedSettingsProductionRulesRoute,
   AuthenticatedSettingsProfileRoute: AuthenticatedSettingsProfileRoute,
   AuthenticatedSettingsSlaRoute: AuthenticatedSettingsSlaRoute,
   AuthenticatedSettingsTeamRoute: AuthenticatedSettingsTeamRoute,
