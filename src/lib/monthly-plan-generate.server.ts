@@ -484,13 +484,10 @@ export async function runPlanGeneration(args: {
         ),
     });
 
-  await setPlanJobStep(supabase, jobId, "ia");
-  let agentResult: Awaited<ReturnType<typeof callAgent>>;
-  try {
-    agentResult = await callAgent(
-      buildPrompt(formatQuota, remainingTarget, resume?.existingTitles ?? []),
-    );
-  } catch (error) {
+  // Lotes: pautas grandes em uma única resposta estouravam o teto de saída do
+  // provedor (resposta cortada). Cada lote pede no máximo PLAN_BATCH_SIZE ideias.
+  const batches = splitQuotaIntoBatches(formatQuota, PLAN_BATCH_SIZE);
+  const failureResult = (error: unknown): GenerateMonthlyPlanCompletedResult => {
     const message = error instanceof Error ? error.message.toLowerCase() : "";
     if (message.includes("ai_provider_not_configured")) {
       return { ok: false, code: "ai_provider_not_configured" };
@@ -510,9 +507,24 @@ export async function runPlanGeneration(args: {
       };
     }
     throw error;
+  };
+
+  await setPlanJobStep(
+    supabase,
+    jobId,
+    "ia",
+    batches.length > 1 ? `lote 1 de ${batches.length}` : undefined,
+  );
+  let agentResult: Awaited<ReturnType<typeof callAgent>>;
+  try {
+    agentResult = await callAgent(
+      buildPrompt(batches[0] ?? formatQuota, totalSlots(batches[0] ?? formatQuota), resume?.existingTitles ?? []),
+    );
+  } catch (error) {
+    return failureResult(error);
   }
-  const { output, modelId } = agentResult;
-  const parsed = output as AiPlan;
+  let modelId = agentResult.modelId;
+  const parsed = agentResult.output as AiPlan;
 
   await setPlanJobStep(supabase, jobId, "normalizacao");
   // Aloca canal + formato por vaga real da volumetria (determinístico).
