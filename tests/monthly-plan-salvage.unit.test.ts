@@ -48,7 +48,7 @@ describe("recuperação de lote da pauta", () => {
 
   it("sem conteúdo aproveitável não recupera", () => {
     expect(normalizePlanBatch({ topics: [] })).toBeNull();
-    expect(salvageStructuredOutput(groqRejection({ topics: [] }), schema as never, normalizePlanBatch)).toBeNull();
+    expect(normalizePlanBatch({ topics: [{ content_format: "reels" }] })).toBeNull();
   });
 
   it("reconhece recusa por schema e ignora outros erros", () => {

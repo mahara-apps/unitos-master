@@ -505,7 +505,7 @@ export async function runPlanGeneration(args: {
       } catch (error) {
         if (!isSchemaRejection(error)) throw error;
         const salvaged = salvageStructuredOutput(error, AiPlanSchema, normalizePlanBatch);
-        if (salvaged) {
+        if (salvaged && salvaged.topics.length > 0) {
           await logPlanEvent(supabase, scope, {
             step: "ia",
             ok: true,
