@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { TEXT_MAX_OUTPUT_TOKENS, assertNotTruncated } from "@/lib/ai/output-budget";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -419,6 +420,7 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
         // O backoff é controlado aqui para respeitar a quota do provedor.
         maxRetries: 0,
       });
+      assertNotTruncated(res.finishReason);
       return res.output as z.infer<T>;
     } catch (error) {
       // Saída malformada: tenta recuperar o JSON bruto antes de considerar falha.
