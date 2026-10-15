@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { usePageHeader } from "@/hooks/use-page-header";
 import { LogViewer } from "@/components/system-logs/log-viewer";
+import { AiCredentialAuditPanel } from "@/components/system-logs/ai-credential-audit-panel";
+import { useAccessRole } from "@/hooks/use-access-role";
 
 export const Route = createFileRoute("/_authenticated/settings/logs")({
   head: () => ({
@@ -29,8 +31,12 @@ function LogsPage() {
     subtitle: "Saúde operacional, falhas e ações do workspace",
   });
 
+  // Owner/Admin/Super Admin (MANAGER fica de fora); a RLS repete a regra.
+  const { canManageIntegrations: canSeeKeys } = useAccessRole();
+
   return (
     <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">
+      {canSeeKeys && <AiCredentialAuditPanel />}
       <LogViewer
         queryKey="settings-system-audit"
         sources={["system", "critical_action", "activity", "message", "ai_job"]}

@@ -559,7 +559,7 @@ WITH checks AS (
                'client_ad_accounts','project_participants','user_login_events','work_comments',
                 'work_links','work_statuses','client_automation_attempts',
                  'client_automation_dates','client_automation_dispatches','client_automation_rules',
-                  'project_job_counters','system_events','project_duplication_requests','project_template_requests','ai_provider_finance','ai_budget_alert_settings','ai_finance_alert_events','production_stage_defaults','production_stage_applications','production_stage_post_snapshots'
+                  'project_job_counters','system_events','project_duplication_requests','project_template_requests','ai_provider_finance','ai_budget_alert_settings','ai_finance_alert_events','production_stage_defaults','production_stage_applications','production_stage_post_snapshots','ai_credential_audit'
              ]) AS t
              WHERE to_regclass('public.' || t) IS NULL
            ) faltando
@@ -575,7 +575,7 @@ WITH checks AS (
              'client_ad_accounts','project_participants','user_login_events','work_comments',
               'work_links','work_statuses','client_automation_attempts',
                'client_automation_dates','client_automation_dispatches','client_automation_rules',
-                'project_job_counters','system_events','project_duplication_requests','project_template_requests','ai_provider_finance','ai_budget_alert_settings','ai_finance_alert_events','production_stage_defaults','production_stage_applications','production_stage_post_snapshots'
+                'project_job_counters','system_events','project_duplication_requests','project_template_requests','ai_provider_finance','ai_budget_alert_settings','ai_finance_alert_events','production_stage_defaults','production_stage_applications','production_stage_post_snapshots','ai_credential_audit'
            ]) AS t
            WHERE to_regclass('public.' || t) IS NULL
          ) THEN 'PASS' ELSE 'FAIL' END
@@ -734,6 +734,17 @@ WITH checks AS (
       AND NOT has_function_privilege('authenticated','public.ai_finance_block(uuid,text,text)','EXECUTE')
       AND NOT has_table_privilege('authenticated','public.ai_finance_alert_events','SELECT,INSERT,UPDATE,DELETE')
       AND (SELECT count(*) FROM pg_trigger WHERE tgname IN ('ai_usage_budget_alert','ai_connection_budget_alert','ai_threshold_budget_alert') AND NOT tgisinternal)=3
+      THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
+  SELECT 92, 'IA: histórico de chaves e escrita atômica do painel',
+    'chave entra/sai sempre registrada; somente leitura para admins',
+    CASE WHEN to_regclass('public.ai_credential_audit') IS NOT NULL
+      AND to_regprocedure('public.set_provider_connection(uuid,text,jsonb,text,text,boolean)') IS NOT NULL
+      AND to_regprocedure('public.remove_provider_connection(uuid,text,text)') IS NOT NULL
+      AND NOT has_function_privilege('anon','public.set_provider_connection(uuid,text,jsonb,text,text,boolean)','EXECUTE')
+      AND NOT has_table_privilege('authenticated','public.ai_credential_audit','INSERT,UPDATE,DELETE')
+      AND NOT has_table_privilege('anon','public.ai_credential_audit','SELECT,INSERT,UPDATE,DELETE')
+      AND (SELECT count(*) FROM pg_trigger WHERE tgname IN ('ai_credential_audit_keys','ai_credential_audit_panel') AND NOT tgisinternal)=2
       THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
   SELECT 91, 'produção: padrão, prévia e aplicação protegidos',

@@ -37,3 +37,11 @@
 - [x] Publicação da 1.4.74 solicitada com autorização em 15/10/2026; URL do MASTER respondeu HTTP 200 (não comprova a versão publicada).
 - [x] Atualizar Casa 8 para 1.4.74 — operação ed5f67b9-df76-4fbe-9c71-5c8239533877 concluída em 15/10/2026 17:39:23 UTC; publicação Git confirmada e updateValidationPassed=true; cadastro 1.4.74/up_to_date conferido às 17:40 UTC.
 - [ ] Repetir a geração das 62 peças e conferir o resultado na Casa 8 — autorizado; atualização confirmada, mas acesso direto à pauta redireciona a /login?next=%2Fmonthly-plan. Supabase externo sem sessão autenticada disponível; nenhuma geração disparada.
+
+## Casa 8 — pauta lote 2 + chaves de IA (MASTER 1.4.75)
+- [x] Pauta: recuperar lote recusado por formato (dia/hora ausentes) e repetir 1x
+- [x] Histórico de chaves de IA (entrada/troca/saída + painel) em Auditoria
+- [x] Painel de conexões com escrita por provedor (sem apagar outro)
+- [x] Confirmação ao remover chave
+- [ ] Publicar 1.4.75 e atualizar Casa 8 — aguarda autorização
+- [ ] Casa 8 recadastrar chaves Gemini/Anthropic — depende do cliente

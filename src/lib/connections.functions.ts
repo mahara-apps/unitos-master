@@ -170,38 +170,27 @@ export const saveProviderKey = createServerFn({ method: "POST" })
     );
     if (credErr) throw credErr;
 
-    const { data: existing } = await context.supabase
-      .from("brand_connections")
-      .select("providers")
-      .eq("brand_id", data.brandId)
-      .maybeSingle();
-    const providers = ((existing?.providers as Record<string, ProviderConfig>) ?? {}) as Record<
-      string,
-      ProviderConfig
-    >;
     const now = new Date().toISOString();
-    providers[data.provider] = {
-      connected: true,
-      masked,
-      updatedAt: now,
-      verified: check.status,
-      verifiedAt: now,
-      verifyMessage: check.message,
-    };
-    const { error } = await context.supabase
-      .from("brand_connections")
-      .upsert(
-        {
-          brand_id: data.brandId,
-          providers,
-          ...(data.provider === "groq" ? { text_fallback_provider: "groq" } : {}),
-        },
-        { onConflict: "brand_id" },
-      );
+    const { callRpc } = await import("@/lib/supabase-rpc");
+    const { error } = await callRpc(context.supabase as never, "set_provider_connection", {
+      _brand_id: data.brandId,
+      _provider: data.provider,
+      _patch: {
+        connected: true,
+        masked,
+        updatedAt: now,
+        verified: check.status,
+        verifiedAt: now,
+        verifyMessage: check.message,
+      },
+      _source: "connections.save",
+      _fallback: data.provider === "groq" ? "groq" : null,
+      _set_fallback: data.provider === "groq",
+    });
     if (error) throw error;
     return {
       ok: true,
-      masked: providers[data.provider]!.masked,
+      masked,
       verified: check.status,
       message: check.message,
       models: check.models.length,
@@ -241,32 +230,20 @@ export const testProviderKey = createServerFn({ method: "POST" })
       // que é preciso salvar a chave novamente, em vez de parecer conectada.
       const unreadable =
         "A chave salva não pôde ser lida nesta instalação. Salve a chave do provedor novamente.";
-      const { data: prev } = await context.supabase
-        .from("brand_connections")
-        .select("providers")
-        .eq("brand_id", data.brandId)
-        .maybeSingle();
-      const prevProviders = ((prev?.providers as Record<string, ProviderConfig>) ?? {}) as Record<
-        string,
-        ProviderConfig
-      >;
-      prevProviders[data.provider] = {
-        ...(prevProviders[data.provider] ?? { connected: false }),
-        connected: false,
-        verified: "invalid",
-        verifiedAt: new Date().toISOString(),
-        verifyMessage: unreadable,
-      };
-      await context.supabase
-        .from("brand_connections")
-        .upsert(
-          {
-            brand_id: data.brandId,
-            providers: prevProviders,
-            ...(data.provider === "groq" ? { text_fallback_provider: null } : {}),
-          },
-          { onConflict: "brand_id" },
-        );
+      const { callRpc } = await import("@/lib/supabase-rpc");
+      await callRpc(context.supabase as never, "set_provider_connection", {
+        _brand_id: data.brandId,
+        _provider: data.provider,
+        _patch: {
+          connected: false,
+          verified: "invalid",
+          verifiedAt: new Date().toISOString(),
+          verifyMessage: unreadable,
+        },
+        _source: "connections.test",
+        _fallback: null,
+        _set_fallback: data.provider === "groq",
+      });
       return { status: "invalid" as const, message: unreadable, models: 0 };
     }
     let check: Awaited<ReturnType<typeof verifyProviderKey>>;
@@ -281,35 +258,20 @@ export const testProviderKey = createServerFn({ method: "POST" })
       return { status: "invalid" as const, message: friendly, models: 0 };
     }
 
-    const { data: existing } = await context.supabase
-      .from("brand_connections")
-      .select("providers")
-      .eq("brand_id", data.brandId)
-      .maybeSingle();
-    const providers = ((existing?.providers as Record<string, ProviderConfig>) ?? {}) as Record<
-      string,
-      ProviderConfig
-    >;
-    const now = new Date().toISOString();
-    providers[data.provider] = {
-      ...(providers[data.provider] ?? { connected: true }),
-      connected: check.status !== "invalid",
-      verified: check.status,
-      verifiedAt: now,
-      verifyMessage: check.message,
-    };
-    const { error } = await context.supabase
-      .from("brand_connections")
-      .upsert(
-        {
-          brand_id: data.brandId,
-          providers,
-          ...(data.provider === "groq"
-            ? { text_fallback_provider: check.status === "valid" ? "groq" : null }
-            : {}),
-        },
-        { onConflict: "brand_id" },
-      );
+    const { callRpc } = await import("@/lib/supabase-rpc");
+    const { error } = await callRpc(context.supabase as never, "set_provider_connection", {
+      _brand_id: data.brandId,
+      _provider: data.provider,
+      _patch: {
+        connected: check.status !== "invalid",
+        verified: check.status,
+        verifiedAt: new Date().toISOString(),
+        verifyMessage: check.message,
+      },
+      _source: "connections.test",
+      _fallback: check.status === "valid" ? "groq" : null,
+      _set_fallback: data.provider === "groq",
+    });
     if (error) throw error;
 
     return { status: check.status, message: check.message, models: check.models.length };
@@ -324,32 +286,12 @@ export const removeProviderKey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => RemoveProviderInput.parse(input))
   .handler(async ({ data, context }) => {
-    await context.supabase
-      .from("brand_api_credentials")
-      .delete()
-      .eq("brand_id", data.brandId)
-      .eq("provider", data.provider);
-
-    const { data: existing } = await context.supabase
-      .from("brand_connections")
-      .select("providers")
-      .eq("brand_id", data.brandId)
-      .maybeSingle();
-    const providers = ((existing?.providers as Record<string, ProviderConfig>) ?? {}) as Record<
-      string,
-      ProviderConfig
-    >;
-    delete providers[data.provider];
-    const { error } = await context.supabase
-      .from("brand_connections")
-      .upsert(
-        {
-          brand_id: data.brandId,
-          providers,
-          ...(data.provider === "groq" ? { text_fallback_provider: null } : {}),
-        },
-        { onConflict: "brand_id" },
-      );
+    const { callRpc } = await import("@/lib/supabase-rpc");
+    const { error } = await callRpc(context.supabase as never, "remove_provider_connection", {
+      _brand_id: data.brandId,
+      _provider: data.provider,
+      _source: "connections.remove",
+    });
     if (error) throw error;
     return { ok: true };
   });
