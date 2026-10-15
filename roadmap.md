@@ -34,4 +34,6 @@
 - [x] Limite de tamanho + detecção de resposta cortada: legendas, estratégia, plano de mídia, agentes, painel.
 - [ ] Retomar só o lote que faltou em nova tentativa (hoje a nova tentativa refaz todos os lotes).
 - [ ] Estratégia: refazer só a etapa cortada pedindo menos itens.
-- [ ] Publicar 1.4.74 e atualizar instalações (aguarda autorização).
+- [x] Publicação da 1.4.74 solicitada com autorização em 15/10/2026; URL do MASTER respondeu HTTP 200 (não comprova a versão publicada).
+- [ ] Atualizar Casa 8 para 1.4.74 — autorizado; bloqueado por ausência de sessão administrativa autenticada. Cadastro lido: versão 1.4.72, update_available.
+- [ ] Repetir a geração das 62 peças e conferir o resultado na Casa 8 — autorizado; depende da atualização e de acesso autenticado na instalação. Nenhuma geração disparada.
