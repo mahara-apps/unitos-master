@@ -154,6 +154,7 @@ const DEFAULT_STAGES: Array<{
 
 // ---------- Types ----------
 export type Pipeline = {
+  follows_brand_default?: boolean;
   id: string;
   brand_id: string;
   client_id: string;
@@ -439,7 +440,7 @@ export const listPipelinesFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<Pipeline[]> => {
     const { data: pipes, error } = await context.supabase
       .from("content_pipelines")
-      .select("id,brand_id,client_id,name,slug,is_default,position")
+      .select("id,brand_id,client_id,name,slug,is_default,position,follows_brand_default")
       .eq("brand_id", data.brandId)
       .eq("client_id", data.clientId)
       .is("deleted_at", null)
@@ -469,7 +470,7 @@ export const ensureDefaultPipelineFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => clientScope.parse(i))
   .handler(async ({ data, context }): Promise<Pipeline> => {
-    const { data: existing } = await context.supabase
+    const { data: existing, error: existingError } = await context.supabase
       .from("content_pipelines")
       .select("id,brand_id,client_id,name,slug,is_default,position")
       .eq("brand_id", data.brandId)
@@ -478,6 +479,7 @@ export const ensureDefaultPipelineFn = createServerFn({ method: "POST" })
       .order("position", { ascending: true })
       .order("created_at", { ascending: true })
       .limit(1);
+    if (existingError) throw existingError;
     if (existing && existing.length > 0) return { ...existing[0], post_count: 0 };
 
     const { data: pipe, error } = await context.supabase
@@ -495,8 +497,13 @@ export const ensureDefaultPipelineFn = createServerFn({ method: "POST" })
       .single();
     if (error) throw error;
 
-    await context.supabase.from("content_pipeline_stages").insert(
-      DEFAULT_STAGES.map((s, i) => ({
+    const { data: configured, error: configError } = await context.supabase.from("production_stage_defaults").select("stages").eq("brand_id", data.brandId).maybeSingle();
+    if (configError) throw configError;
+    const { productionStagesSchema } = await import("@/lib/production-stages");
+    const seedStages = configured ? productionStagesSchema.parse(configured.stages) : DEFAULT_STAGES;
+    const { error: stageError } = await context.supabase.from("content_pipeline_stages").insert(
+      seedStages.map((s, i) => ({
+        ...s,
         pipeline_id: pipe.id,
         key: s.key,
         label: s.label,
@@ -505,6 +512,7 @@ export const ensureDefaultPipelineFn = createServerFn({ method: "POST" })
         is_terminal: s.is_terminal ?? false,
       })),
     );
+    if (stageError) throw stageError;
 
     return { ...pipe, post_count: 0 };
   });
