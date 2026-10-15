@@ -19,3 +19,8 @@
 - [x] MASTER 1.4.64 selado: delta, bootstrap, recovery e contrato sincronizados; master:check PASS; 1485 testes locais/runtime passaram; build OK.
 - [ ] Aceite integrado e suíte global: QA pzkcchtmcqkuhhlsbwxf está INACTIVE; reativação recusada pelo Supabase (limite de projetos gratuitos ativos). Reativar o QA após liberar capacidade ou mudar seu plano, sem pausar/excluir outros projetos automaticamente.
 - [ ] Publicação e atualização da Casa 8: aguardam validação integrada e autorização explícita; nenhuma instalação publicada/atualizada.
+
+## Padrão do workspace para produção de conteúdo
+- [x] Fase A — Regras de produção padrão (Configurações › Regras de produção) com exceção por cliente (MASTER 1.4.66)
+- [ ] Fase B — Etapas do quadro de produção padrão + aplicar a todos os clientes
+- [ ] Fase C — Status de trabalho de produção de conteúdo

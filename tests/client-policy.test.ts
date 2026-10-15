@@ -58,3 +58,13 @@ describe("limite de produção", () => {
     expect(scopeBlocks(p, "manual")).toBe(false);
   });
 });
+
+describe("padrão do workspace com exceção por cliente", () => {
+  it("cliente sem regra própria segue o padrão do workspace", () => {
+    expect(normalizeApprovalPolicy({}, { plan: "internal", content: "internal", schedule: "client" }))
+      .toEqual({ plan: "internal", content: "internal", schedule: "client" });
+  });
+  it("exceção do cliente vence o padrão do workspace", () => {
+    expect(normalizeApprovalPolicy({ plan: "client" }, { plan: "internal" }).plan).toBe("client");
+  });
+});
