@@ -26,7 +26,7 @@ export function defaultProductionStages(): ProductionStage[] {
 export const productionPreviewSchema = z.object({
   fingerprint: z.string().min(1), blocked: z.boolean(),
   clients: z.array(z.object({
-    clientId: z.string().uuid(), name: z.string(), pipelineId: z.string().uuid().nullable(),
+    clientId: z.string().uuid(), name: z.string().nullable().transform((v) => v?.trim() || "Cliente sem nome"), pipelineId: z.string().uuid().nullable(),
     skipped: z.boolean(), exception: z.boolean(),
     changes: z.array(z.object({
       kind: z.enum(["add", "update", "remove"]), label: z.string(),
