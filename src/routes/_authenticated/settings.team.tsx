@@ -68,6 +68,7 @@ import { MemberEditModal } from "@/components/settings/member-edit-modal";
 import { PortalAccessManager } from "@/components/settings/portal-access-manager";
 import { HourlyCostsCard } from "@/components/settings/hourly-costs-card";
 import { SettingsPageState } from "@/components/settings/settings-page-state";
+import { MemberAccessMenuItems, ResendAccessDialog, TempPasswordDialog } from "@/components/settings/member-access-actions";
 
 import {
   ROLE_ACCESS,
@@ -320,6 +321,13 @@ function MemberRow({
   const remove = useServerFn(removeTeamMemberFn);
   const [editOpen, setEditOpen] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [resendOpen, setResendOpen] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
+  const isSuper = authorityRole === "super_admin";
+  const canAccess =
+    (isSuper || authorityRole === "admin") &&
+    (isSuper || (member.role !== "owner" && !member.isSuperAdmin));
+  const memberName = displayName({ full_name: member.fullName, email: member.email });
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["team-members", brandId] });
@@ -401,6 +409,9 @@ function MemberRow({
             <DropdownMenuItem onClick={() => setEditOpen(true)}>
               <Pencil className="mr-2 h-3.5 w-3.5" /> Editar dados e papel
             </DropdownMenuItem>
+            {canAccess && (
+              <MemberAccessMenuItems onResend={() => setResendOpen(true)} onPassword={() => setPwOpen(true)} />
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem disabled={toggleMut.isPending} onClick={() => toggleMut.mutate()}>
               {toggleMut.isPending ? (
@@ -425,6 +436,13 @@ function MemberRow({
           member={member}
           authorityRole={authorityRole}
         />
+
+        {canAccess && (
+          <>
+            <ResendAccessDialog open={resendOpen} onOpenChange={setResendOpen} brandId={brandId} userId={member.userId} email={member.email} name={memberName} />
+            <TempPasswordDialog open={pwOpen} onOpenChange={setPwOpen} brandId={brandId} userId={member.userId} email={member.email} name={memberName} />
+          </>
+        )}
 
         <AlertDialog open={confirmRemove} onOpenChange={setConfirmRemove}>
           <AlertDialogContent>
