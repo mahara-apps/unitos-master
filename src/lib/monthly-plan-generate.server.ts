@@ -14,6 +14,8 @@ import {
   parseSuggestedTime,
 } from "@/lib/monthly-plan-schedule.server";
 import { runPlanAgent } from "@/lib/monthly-plan-agent.server";
+import { salvageStructuredOutput } from "@/lib/ai-output-salvage";
+import { isSchemaRejection, normalizePlanBatch } from "@/lib/monthly-plan-salvage";
 import { PLAN_CHANNELS, type PlanChannel } from "@/lib/monthly-plan-fields";
 import {
   CONTENT_FORMATS,
