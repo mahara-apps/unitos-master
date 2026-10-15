@@ -520,7 +520,11 @@ export async function runPlanGeneration(args: {
   let agentResult: Awaited<ReturnType<typeof callAgent>>;
   try {
     agentResult = await callAgent(
-      buildPrompt(batches[0] ?? formatQuota, totalSlots(batches[0] ?? formatQuota), resume?.existingTitles ?? []),
+      buildPrompt(
+        batches[0] ?? formatQuota,
+        totalSlots(batches[0] ?? formatQuota),
+        resume?.existingTitles ?? [],
+      ),
     );
   } catch (error) {
     return failureResult(error);

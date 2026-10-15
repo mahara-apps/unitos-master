@@ -1296,6 +1296,7 @@ A headline deve ter no máximo 12 palavras. hrefs válidos: "/content", "/custom
 RESUMO:
 ${JSON.stringify(brief, null, 2)}`,
       });
+      assertNotTruncated(finishReason);
       return {
         headline: output.headline.slice(0, 140),
         actions: output.actions.slice(0, 3).map((a) => ({

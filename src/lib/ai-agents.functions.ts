@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { TEXT_MAX_OUTPUT_TOKENS, assertNotTruncated } from "@/lib/ai/output-budget";
+import { assertNotTruncated } from "@/lib/ai/output-budget";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
