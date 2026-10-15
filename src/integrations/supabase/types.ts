@@ -5027,6 +5027,7 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           description: string | null
+          follows_brand_default: boolean
           icon: string | null
           id: string
           is_default: boolean
@@ -5044,6 +5045,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           description?: string | null
+          follows_brand_default?: boolean
           icon?: string | null
           id?: string
           is_default?: boolean
@@ -5061,6 +5063,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           description?: string | null
+          follows_brand_default?: boolean
           icon?: string | null
           id?: string
           is_default?: boolean
@@ -7895,6 +7898,87 @@ export type Database = {
           },
         ]
       }
+      production_stage_applications: {
+        Row: {
+          actor_id: string
+          brand_id: string
+          created_at: string
+          id: string
+          request: Json
+          result: Json
+          updated_at: string
+        }
+        Insert: {
+          actor_id: string
+          brand_id: string
+          created_at?: string
+          id: string
+          request: Json
+          result: Json
+          updated_at?: string
+        }
+        Update: {
+          actor_id?: string
+          brand_id?: string
+          created_at?: string
+          id?: string
+          request?: Json
+          result?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_stage_applications_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "production_stage_applications_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      production_stage_defaults: {
+        Row: {
+          brand_id: string
+          created_at: string
+          stages: Json
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          stages: Json
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          stages?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_stage_defaults_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "production_stage_defaults_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_duplication_requests: {
         Row: {
           brand_id: string
@@ -10325,6 +10409,39 @@ export type Database = {
         Returns: undefined
       }
       process_brain_learning_queue: { Args: { _limit?: number }; Returns: Json }
+      production_pipeline_exception: {
+        Args: { _exception: boolean; _pipeline: string }
+        Returns: undefined
+      }
+      production_stages_apply: {
+        Args: {
+          _brand: string
+          _fingerprint: string
+          _keep_exceptions: boolean
+          _mapping: Json
+          _operation: string
+          _stages: Json
+        }
+        Returns: Json
+      }
+      production_stages_preview: {
+        Args: {
+          _brand: string
+          _keep_exceptions?: boolean
+          _mapping?: Json
+          _stages: Json
+        }
+        Returns: Json
+      }
+      production_stages_save: {
+        Args: { _brand: string; _stages: Json }
+        Returns: undefined
+      }
+      production_stages_snapshot: { Args: { _brand: string }; Returns: Json }
+      production_stages_validate: {
+        Args: { _stages: Json }
+        Returns: undefined
+      }
       promote_control_plane_release: {
         Args: {
           _contract_sha256: string
