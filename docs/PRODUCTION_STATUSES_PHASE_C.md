@@ -14,7 +14,11 @@
 - 15/15 testes focados passaram, incluindo oito novos testes de conclusão/permissões e ensaio real em Postgres isolado.
 - Ensaio SQL: salvar conclusão sem mudar quadro existente, aplicar após prévia mantendo ID da etapa e aprovação da peça, desmarcar conclusão; regressões de exceção, destino, concorrência e RBAC cobertas.
 - Teste de integração Supabase adicionado para salvar/prévia/aplicar/ler conclusão na mesma etapa; execução depende do QA disponível.
-- Suíte local/runtime, suíte global, guardiões MASTER e verificação da prévia: resultados registrados após execução.
+- Suíte local/runtime: 1.557/1.557 testes passaram em 170 arquivos.
+- `bun run master:check`: PASS; versão 1.4.68, delta, bootstrap, recovery e contrato sincronizados.
+- Compilação da prévia: OK; navegador sem erros de execução.
+- Suíte global tentada: bloqueada antes dos testes por timeout original de 12 segundos na inspeção do QA; nenhum timeout alterado nem falha ignorada.
+- Navegador redirecionou para `/login?next=%2Fsettings%2Fwork-statuses`. Sessão indisponível no Supabase externo; a interação autenticada e a renderização do grupo não foram validadas ponta a ponta.
 - Nada publicado, nenhuma instalação atualizada e nenhum padrão aplicado a clientes reais.
 
 SHA do delta (sem mudança de schema): `c518784f3835e217f93d69b083706a1eb39a938e73a06d7ccfdcc9b1f8864566`.
