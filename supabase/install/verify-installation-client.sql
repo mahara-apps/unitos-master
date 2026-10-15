@@ -745,7 +745,8 @@ WITH checks AS (
       AND NOT has_table_privilege('anon','public.production_stage_defaults','SELECT,INSERT,UPDATE,DELETE')
       AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='content_pipelines' AND column_name='follows_brand_default')
       AND (SELECT count(*) FROM pg_class WHERE oid IN ('public.production_stage_defaults'::regclass,'public.production_stage_applications'::regclass,'public.production_stage_post_snapshots'::regclass) AND relrowsecurity)=3
-      AND (SELECT count(*) FROM pg_trigger WHERE tgname IN ('production_new_client_pipeline','production_stage_local_exception','production_pipeline_flag_guard') AND NOT tgisinternal)=3
+      AND (SELECT count(*) FROM pg_trigger WHERE tgname IN ('production_new_client_pipeline','production_stage_workspace_guard','production_pipeline_flag_guard') AND NOT tgisinternal)=3
+      AND NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='production_stage_local_exception' AND NOT tgisinternal)
       THEN 'PASS' ELSE 'FAIL' END
 )
 SELECT ord, check_name, observed, status FROM checks ORDER BY ord;
