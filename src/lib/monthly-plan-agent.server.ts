@@ -9,6 +9,7 @@ import {
 import type { ProviderName } from "@/lib/ai-capabilities";
 import { buildBrandContextBlueprint } from "@/lib/ai-agents.functions";
 import { salvageStructuredOutput } from "@/lib/ai-output-salvage";
+import { assertNotTruncated, isTruncatedFinish, truncatedError } from "@/lib/ai/output-budget";
 import { PLAN_MAX_OUTPUT_TOKENS, planProviderOptions } from "@/lib/monthly-plan-ai-options";
 import {
   BACKOFF_MS,
@@ -197,7 +198,13 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
                 );
                 return safe.success ? safe.data : null;
               })();
-            if (salvaged == null) throw error;
+            if (salvaged == null) {
+              // Resposta cortada por tamanho: falha própria, com mensagem clara.
+              if (isTruncatedFinish((error as { finishReason?: unknown }).finishReason)) {
+                throw truncatedError();
+              }
+              throw error;
+            }
             output = salvaged;
           } else {
             throw error;
