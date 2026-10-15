@@ -35,5 +35,5 @@
 - [ ] Retomar só o lote que faltou em nova tentativa (hoje a nova tentativa refaz todos os lotes).
 - [ ] Estratégia: refazer só a etapa cortada pedindo menos itens.
 - [x] Publicação da 1.4.74 solicitada com autorização em 15/10/2026; URL do MASTER respondeu HTTP 200 (não comprova a versão publicada).
-- [ ] Atualizar Casa 8 para 1.4.74 — autorizado; bloqueado por ausência de sessão administrativa autenticada. Cadastro lido: versão 1.4.72, update_available.
-- [ ] Repetir a geração das 62 peças e conferir o resultado na Casa 8 — autorizado; depende da atualização e de acesso autenticado na instalação. Nenhuma geração disparada.
+- [x] Atualizar Casa 8 para 1.4.74 — operação ed5f67b9-df76-4fbe-9c71-5c8239533877 concluída em 15/10/2026 17:39:23 UTC; publicação Git confirmada e updateValidationPassed=true; cadastro 1.4.74/up_to_date conferido às 17:40 UTC.
+- [ ] Repetir a geração das 62 peças e conferir o resultado na Casa 8 — autorizado; atualização confirmada, mas acesso direto à pauta redireciona a /login?next=%2Fmonthly-plan. Supabase externo sem sessão autenticada disponível; nenhuma geração disparada.
