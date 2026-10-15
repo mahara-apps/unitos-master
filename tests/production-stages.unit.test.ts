@@ -30,3 +30,10 @@ describe("padrão de etapas de produção", () => {
     expect(needsProductionDestination(skipped, defaultProductionStages(), {})).toBe(false);
   });
 });
+import { productionPreviewSchema as previewSchemaNullName } from "@/lib/production-stages";
+describe("prévia com cliente sem nome", () => {
+  it("usa 'Cliente sem nome' quando o nome vem nulo", () => {
+    const r = previewSchemaNullName.parse({ fingerprint: "x", blocked: false, clients: [{ clientId: "1b3a01e0-d7f4-4a5c-8dde-fe00c521bdd1", name: null, pipelineId: null, skipped: false, exception: false, changes: [] }] });
+    expect(r.clients[0].name).toBe("Cliente sem nome");
+  });
+});
