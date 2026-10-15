@@ -32,7 +32,9 @@ export const previewProductionStagesFn = createServerFn({ method: "POST" })
     await assertBrandAdmin(context.supabase, context.userId, data.brandId, { allowManager: false });
     const result = await callRpc(context.supabase, "production_stages_preview", { _brand: data.brandId, _stages: data.stages, _keep_exceptions: data.keepExceptions, _mapping: data.mapping });
     if (result.error) throw new Error(result.error.message);
-    return productionPreviewSchema.parse(result.data);
+    const parsed = productionPreviewSchema.safeParse(result.data);
+    if (!parsed.success) throw new Error("Não foi possível montar a prévia do quadro. Tente novamente ou fale com o suporte.");
+    return parsed.data;
   });
 
 export const applyProductionStagesFn = createServerFn({ method: "POST" })
