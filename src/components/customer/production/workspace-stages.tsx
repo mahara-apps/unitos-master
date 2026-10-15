@@ -19,7 +19,7 @@ import { getProductionStagesFn, saveProductionStagesFn, previewProductionStagesF
 
 const swatches: Record<ProductionStage["color"], string> = {
   muted: "bg-muted-foreground", indigo: "bg-content-production", violet: "bg-content-design",
-  amber: "bg-content-review", emerald: "bg-content-approved", sky: "bg-info", rose: "bg-destructive", cyan: "bg-primary",
+  amber: "bg-content-review", emerald: "bg-content-approved", sky: "bg-primary", rose: "bg-destructive", cyan: "bg-content-scheduled",
 };
 
 export function WorkspaceStages({ brandId }: { brandId: string }) {
@@ -40,7 +40,8 @@ export function WorkspaceStages({ brandId }: { brandId: string }) {
 
   const invalidate = async () => {
     await Promise.all([qc.invalidateQueries({ queryKey: ["production-stage-defaults", brandId] }),
-      qc.invalidateQueries({ queryKey: ["pipelines"] }), qc.invalidateQueries({ queryKey: ["board"] })]);
+      qc.invalidateQueries({ queryKey: ["content-pipelines"] }), qc.invalidateQueries({ queryKey: ["content-board"] }),
+      qc.invalidateQueries({ queryKey: ["production-pipeline-status"] })]);
   };
   const saveM = useMutation({ mutationFn: () => save({ data: { brandId, stages: productionStagesSchema.parse(stages) } }),
     onSuccess: () => { toast.success("Padrão salvo. Quadros existentes não foram alterados."); void invalidate(); },
