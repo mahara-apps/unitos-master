@@ -43,3 +43,8 @@ Concordo. Com exceções, o Kanban geral, o calendário e os relatórios mostram
 - Kanban geral (`agency-content.functions.ts`): trocar o agrupamento por `normalizeLabel` + `CANONICAL_ORDER` fixo por chave e posição do padrão em `production_stage_defaults`.
 - Na UI, remover `markProductionExceptionFn` e a opção "Manter clientes com exceção"; trocar `keepExceptions` por false fixo no servidor.
 - Verify: nova tabela no check 80; atualizar `docs/PRODUCTION_STAGES_PHASE_B.md` e `AGENTS.md` (regra única: etapas de conteúdo sem exceção por cliente).
+
+## Projetos, Tasks e Sub-tasks
+- Esses status já seguem um padrão só por workspace. Não existe versão por cliente, então hoje não há esse conflito.
+- Para não acontecer no futuro, a regra fica registrada: **status de trabalho e etapas de conteúdo são sempre do workspace, sem exceção por cliente.**
+- Um teste garante que nenhum cliente consiga ter status próprio. Renomear ou reordenar continua mantendo cada item no mesmo status, porque o item guarda o status, não o nome.
