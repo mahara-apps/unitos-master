@@ -547,6 +547,48 @@ export type Database = {
           },
         ]
       }
+      ai_credential_audit: {
+        Row: {
+          actor_id: string | null
+          brand_id: string
+          connected_after: boolean | null
+          connected_before: boolean | null
+          created_at: string
+          id: string
+          masked_last4: string | null
+          op: string
+          provider: string
+          source: string
+          target: string
+        }
+        Insert: {
+          actor_id?: string | null
+          brand_id: string
+          connected_after?: boolean | null
+          connected_before?: boolean | null
+          created_at?: string
+          id?: string
+          masked_last4?: string | null
+          op: string
+          provider: string
+          source?: string
+          target: string
+        }
+        Update: {
+          actor_id?: string | null
+          brand_id?: string
+          connected_after?: boolean | null
+          connected_before?: boolean | null
+          created_at?: string
+          id?: string
+          masked_last4?: string | null
+          op?: string
+          provider?: string
+          source?: string
+          target?: string
+        }
+        Relationships: []
+      }
       ai_finance_alert_events: {
         Row: {
           brand_id: string
@@ -9762,6 +9804,7 @@ export type Database = {
       accept_brand_invite: { Args: { _token: string }; Returns: string }
       access_profiles_system_defaults: { Args: never; Returns: Json }
       ai_budget_evaluate: { Args: { _brand: string }; Returns: undefined }
+      ai_credential_source: { Args: never; Returns: string }
       ai_finance_block: {
         Args: { _brand: string; _provider: string; _reason: string }
         Returns: undefined
@@ -10585,6 +10628,10 @@ export type Database = {
         Args: never
         Returns: undefined
       }
+      remove_provider_connection: {
+        Args: { _brand_id: string; _provider: string; _source?: string }
+        Returns: undefined
+      }
       restore_project_template: {
         Args: { _brand_id: string; _template_id: string }
         Returns: string
@@ -10658,6 +10705,17 @@ export type Database = {
           _user_id: string
         }
         Returns: number
+      }
+      set_provider_connection: {
+        Args: {
+          _brand_id: string
+          _fallback?: string
+          _patch: Json
+          _provider: string
+          _set_fallback?: boolean
+          _source?: string
+        }
+        Returns: Json
       }
       start_durable_installation_operation: {
         Args: {

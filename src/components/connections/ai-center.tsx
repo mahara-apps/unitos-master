@@ -789,7 +789,14 @@ function ProviderCard({
               size="sm"
               variant="ghost"
               className="text-destructive hover:text-destructive"
-              onClick={() => removeMut.mutate()}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `Remover a chave do ${provider.name}? A IA deixa de usar este provedor.`,
+                  )
+                )
+                  removeMut.mutate();
+              }}
               disabled={removeMut.isPending}
               aria-label={`Remover ${provider.name}`}
             >

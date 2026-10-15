@@ -245,29 +245,27 @@ async function markProviderVerification(
   status: "valid" | "invalid" | "unverified",
   message: string,
 ): Promise<void> {
-  const { data: rows, error: readError } = await supabase
+  const { data: current, error: readError } = await supabase
     .from("brand_connections")
-    .select("brand_id, providers")
-    .eq("brand_id", brandId);
-  if (readError || !Array.isArray(rows)) throw new Error("ai_health_read_failed");
-  const now = new Date().toISOString();
-
-  for (const row of rows ?? []) {
-    const providers = (row.providers ?? {}) as Record<string, Record<string, unknown>>;
-    if (!providers[provider]) continue;
-    providers[provider] = {
-      ...providers[provider],
+    .select("providers")
+    .eq("brand_id", brandId)
+    .maybeSingle();
+  if (readError) throw new Error("ai_health_read_failed");
+  // Só atualiza provedores que já aparecem no painel; nunca recria um removido.
+  if (!(current?.providers as Record<string, unknown> | null)?.[provider]) return;
+  const { callRpc } = await import("@/lib/supabase-rpc");
+  const { error: writeError } = await callRpc(supabase as never, "set_provider_connection", {
+    _brand_id: brandId,
+    _provider: provider,
+    _patch: {
       connected: status !== "invalid",
       verified: status,
-      verifiedAt: now,
+      verifiedAt: new Date().toISOString(),
       verifyMessage: message,
-    };
-    const { error: writeError } = await supabase
-      .from("brand_connections")
-      .update({ providers } as never)
-      .eq("brand_id", row.brand_id as string);
-    if (writeError) throw new Error("ai_health_write_failed");
-  }
+    },
+    _source: "health_check",
+  });
+  if (writeError) throw new Error("ai_health_write_failed");
 }
 
 export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<HealthCheckResult> {
