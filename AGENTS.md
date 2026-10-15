@@ -55,3 +55,5 @@ AI financial state is durable per workspace/provider; generation checks it befor
 AI catalog and budget reads fail closed on transport errors or invalid responses; only confirmed empty results use defaults. Why: outages must not silently select obsolete models or bypass limits.
 Successful AI generation awaits usage accounting; embeddings share budget checks and use embedding prices. Why: accounting failure must not be reported as metered success or trigger paid fallback.
 Budget alerts run transactionally on usage/settings writes and deduplicate by workspace/month/threshold. Why: notifications must work without an open browser and never represent provider balance.
+
+Workspace production stages apply only to primary client pipelines through an authenticated admin-scoped transactional RPC with snapshot validation and actor-scoped idempotency; removed occupied stages require explicit destinations and local edits mark exceptions. Why: template propagation must preserve pieces, approvals, tenant scope and deliberate client customization.

@@ -37,6 +37,7 @@ import {
   type ScopePolicy,
 } from "@/lib/client-policy";
 import { getWorkspacePoliciesFn, setWorkspacePoliciesFn } from "@/lib/client-policy.functions";
+import { WorkspaceStages } from "@/components/customer/production/workspace-stages";
 
 export const Route = createFileRoute("/_authenticated/settings/production-rules")({
   component: ProductionRulesPage,
@@ -45,12 +46,12 @@ export const Route = createFileRoute("/_authenticated/settings/production-rules"
       { title: "Regras de produção · Unitos" },
       {
         name: "description",
-        content: "Defina a aprovação do cliente e o limite de produção padrão para todos os clientes.",
+        content: "Defina etapas, aprovação e limite de produção do workspace, com prévia por cliente.",
       },
       { property: "og:title", content: "Regras de produção · Unitos" },
       {
         property: "og:description",
-        content: "Padrão de aprovação e limite de produção do workspace, com exceção por cliente.",
+        content: "Etapas compartilhadas e regras de produção, com prévia e exceções por cliente.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -194,7 +195,7 @@ function ProductionRulesPage() {
   return (
     <DashboardPageShell>
       {brandId ? (
-        <Editor brandId={brandId} />
+        <div className="space-y-6" key={brandId}><Editor brandId={brandId} /><WorkspaceStages brandId={brandId} /></div>
       ) : (
         <SettingsPageState
           title="Nenhum workspace selecionado"
