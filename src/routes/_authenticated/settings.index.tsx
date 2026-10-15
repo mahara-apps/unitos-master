@@ -8,6 +8,7 @@ import {
   Lock,
   Palette,
   ShieldCheck,
+  Workflow,
   User,
   Users,
   type LucideIcon,
@@ -46,6 +47,7 @@ type SettingsDestination = {
     | "/settings/team"
     | "/settings/permissions"
     | "/settings/work-statuses"
+    | "/settings/production-rules"
     | "/settings/access-log"
     | "/settings/logs";
   title: string;
@@ -92,6 +94,12 @@ const WORKSPACE_SETTINGS: SettingsDestination[] = [
     title: "Status de trabalho",
     description: "Personalize as etapas usadas para acompanhar o trabalho.",
     icon: ListChecks,
+  },
+  {
+    to: "/settings/production-rules",
+    title: "Regras de produção",
+    description: "Aprovação do cliente e limite de produção padrão para todos os clientes.",
+    icon: Workflow,
   },
   {
     to: "/settings/access-log",
