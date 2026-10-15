@@ -1,10 +1,12 @@
 # Etapas de conteúdo: um único padrão para todos os clientes
 
-## Por que a alteração não apareceu na Casa 8 (diagnóstico a confirmar)
-Pelos prints, o padrão foi salvo ("Padrão configurado"), mas o Kanban de Conteúdo ainda mostra as colunas antigas (Ideia, Design, Revisão) misturadas com uma coluna de outro cliente (Copy). Causas prováveis, a confirmar só com leitura na Casa 8 antes de qualquer correção:
-1. O botão "Salvar e aplicar aos clientes" ainda não chegou à Casa 8 (está só no MASTER, sem publicação). Lá o salvar grava só o padrão para clientes novos.
-2. Clientes marcados como exceção não recebem a mudança.
-3. O Kanban geral junta colunas pelo nome de cada quadro, então quadros diferentes geram colunas duplicadas ou misturadas (o "Copy" à parte).
+## Por que a alteração não apareceu na Casa 8 (confirmado pelos prints e pelo código)
+1. **A tela da Casa 8 ainda é a versão antiga.** Ela mostra "Salvar padrão para novos clientes" e "Prévia de aplicação", sem o "Salvar e aplicar aos clientes". Ou seja, o salvar gravou só o modelo.
+2. **18 clientes já estão iguais ao padrão. 5 são exceção e não mudam:** Cemice, Alline, Dra. Ana Carla, Marajoara e Prosa.
+3. **O Kanban do print mostra justamente cards de exceções** (Dra. Ana Carla e Marajoara). Por isso aparecem Ideia, Design, Revisão e Copy, que são os nomes antigos desses clientes.
+4. **O Kanban geral junta as colunas pelo nome** e usa uma ordem fixa de nomes antigos, escrita no código. Mesmo com todos padronizados, a ordem nova não seria respeitada. Nomes diferentes entre clientes viram colunas separadas.
+
+Antes de aplicar, vou conferir direto no banco da Casa 8, só lendo: quantas peças há em cada etapa desses 5 clientes.
 
 ## Sua proposta: um padrão só, sempre para todos
 Concordo. Com exceções, o Kanban geral, o calendário e os relatórios mostram nomes e ordens diferentes, e o conflito visual é inevitável. A regra nova fica:
@@ -38,6 +40,6 @@ Concordo. Com exceções, o Kanban geral, o calendário e os relatórios mostram
 ## Detalhes técnicos
 - Migration aditiva: tabela `production_stage_migration_snapshots` (post_id, stage anterior, operação) com GRANT explícito, RLS e anon/PUBLIC revogados; `production_stages_apply` passa a ignorar `follows_brand_default` (sempre todos) e limpa a marca de exceção; o trigger `production_stage_local_exception` vira bloqueio de edição local de etapas fora do RPC.
 - O mapeamento por chave e depois por label vai na prévia; o fingerprint continua protegendo contra prévia desatualizada.
-- Kanban geral: agrupar por chave do padrão, não pelo label de cada pipeline.
+- Kanban geral (`agency-content.functions.ts`): trocar o agrupamento por `normalizeLabel` + `CANONICAL_ORDER` fixo por chave e posição do padrão em `production_stage_defaults`.
 - Na UI, remover `markProductionExceptionFn` e a opção "Manter clientes com exceção"; trocar `keepExceptions` por false fixo no servidor.
 - Verify: nova tabela no check 80; atualizar `docs/PRODUCTION_STAGES_PHASE_B.md` e `AGENTS.md` (regra única: etapas de conteúdo sem exceção por cliente).
