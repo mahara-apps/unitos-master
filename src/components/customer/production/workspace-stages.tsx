@@ -14,6 +14,7 @@ import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import { SettingsLoadingState, SettingsPageState } from "@/components/settings/settings-page-state";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { describeError } from "@/lib/errors";
+import { workspaceAdminActions } from "@/lib/workspace-admin";
 import { PRODUCTION_COLORS, defaultProductionStages, needsProductionDestination, productionStagesSchema, type ProductionStage, type ProductionPreview } from "@/lib/production-stages";
 import { getProductionStagesFn, saveProductionStagesFn, previewProductionStagesFn, applyProductionStagesFn } from "@/lib/production-stages.functions";
 
@@ -22,10 +23,10 @@ const swatches: Record<ProductionStage["color"], string> = {
   amber: "bg-content-review", emerald: "bg-content-approved", sky: "bg-primary", rose: "bg-destructive", cyan: "bg-content-scheduled",
 };
 
-export function WorkspaceStages({ brandId }: { brandId: string }) {
+export function WorkspaceStages({ brandId, statusGroup = false }: { brandId: string; statusGroup?: boolean }) {
   const qc = useQueryClient();
-  const { role } = useAccessRole();
-  const canEdit = role === "admin";
+  const { authorityRole, brandRole, isReady } = useAccessRole();
+  const canEdit = isReady && workspaceAdminActions(authorityRole, brandRole).canConfigure;
   const get = useServerFn(getProductionStagesFn);
   const save = useServerFn(saveProductionStagesFn);
   const previewFn = useServerFn(previewProductionStagesFn);
@@ -66,7 +67,7 @@ export function WorkspaceStages({ brandId }: { brandId: string }) {
   if (q.isError || !q.data) return <SettingsPageState kind="error" title="Não foi possível carregar as etapas" description={describeError(q.error)} actionLabel="Tentar novamente" onAction={() => void q.refetch()} />;
   return <section className="space-y-4 border-t border-border pt-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <h2 className="text-base font-semibold">Etapas de produção</h2>
+      <h2 className="text-base font-semibold">{statusGroup ? "Produção de conteúdo" : "Etapas de produção"}</h2>
       <Badge variant="outline">{q.data.configured ? "Padrão configurado" : "Padrão ainda não salvo"}</Badge>
     </div>
     <div className="divide-y divide-border">
@@ -86,7 +87,7 @@ export function WorkspaceStages({ brandId }: { brandId: string }) {
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Label className="flex items-center gap-2 text-xs">SLA (horas)<Input type="number" className="w-24" aria-label={`SLA de ${stage.label}`} min={0} max={8760} value={stage.sla_hours ?? ""} disabled={busy} onChange={(e) => patch(index, { sla_hours: e.target.value === "" ? null : Number(e.target.value) })} /></Label>
-          <Label className="flex items-center justify-between gap-2 text-xs">Etapa final<Switch aria-label={`Etapa final ${stage.label}`} checked={stage.is_terminal} disabled={busy} onCheckedChange={(v) => patch(index, { is_terminal: v })} /></Label>
+          <Label className="flex items-center justify-between gap-2 text-xs">{statusGroup ? "Conta como concluído" : "Etapa final"}<Switch aria-label={`${statusGroup ? "Conta como concluído" : "Etapa final"} ${stage.label}`} checked={stage.is_terminal} disabled={busy} onCheckedChange={(v) => patch(index, { is_terminal: v })} /></Label>
           <Label className="flex items-center justify-between gap-2 text-xs">Visível no portal<Switch aria-label={`Visível no portal ${stage.label}`} checked={!stage.hide_in_portal} disabled={busy} onCheckedChange={(v) => patch(index, { hide_in_portal: !v })} /></Label>
           <Label className="flex items-center justify-between gap-2 text-xs">Link de aprovação<Switch aria-label={`Link de aprovação ${stage.label}`} checked={stage.enables_approval_link} disabled={busy} onCheckedChange={(v) => patch(index, { enables_approval_link: v })} /></Label>
         </div>

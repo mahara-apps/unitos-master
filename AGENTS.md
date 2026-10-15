@@ -57,3 +57,5 @@ Successful AI generation awaits usage accounting; embeddings share budget checks
 Budget alerts run transactionally on usage/settings writes and deduplicate by workspace/month/threshold. Why: notifications must work without an open browser and never represent provider balance.
 
 Workspace production stages apply only to primary client pipelines through an authenticated admin-scoped transactional RPC with snapshot validation and actor-scoped idempotency; removed occupied stages require explicit destinations and local edits mark exceptions. Why: template propagation must preserve pieces, approvals, tenant scope and deliberate client customization.
+
+The content production group in Work statuses reuses the canonical workspace stage editor and maps completion directly to is_terminal; never duplicate these stages in work_statuses or merge them into task projections. Why: both settings surfaces must share one source of truth and the same preview, exception and authorization safeguards.

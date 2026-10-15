@@ -25,6 +25,7 @@ import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { SettingsPageState, SettingsLoadingState } from "@/components/settings/settings-page-state";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { useActiveContext } from "@/hooks/use-active-context";
+import { WorkspaceStages } from "@/components/customer/production/workspace-stages";
 import {
   WORK_STATUS_SCOPES,
   createWorkStatusFn,
@@ -43,12 +44,12 @@ export const Route = createFileRoute("/_authenticated/settings/work-statuses")({
       {
         name: "description",
         content:
-          "Cadastre os status usados em projetos, tasks e sub-tasks da sua workspace no Unitos.",
+          "Configure status de projetos, tasks, sub-tasks e etapas de produção de conteúdo no Unitos.",
       },
       { property: "og:title", content: "Status de trabalho · Unitos" },
       {
         property: "og:description",
-        content: "Configure status próprios para projetos, tasks e sub-tasks.",
+        content: "Status de projetos, tasks, sub-tasks e produção de conteúdo, com prévia de aplicação.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -308,7 +309,7 @@ function WorkStatusesPage() {
   usePageHeader(
     {
       title: "Status de trabalho",
-      subtitle: "Projetos, tasks e sub-tasks",
+      subtitle: "Projetos, tasks, sub-tasks e produção de conteúdo",
     },
     [],
   );
@@ -333,6 +334,7 @@ function WorkStatusesPage() {
       {WORK_STATUS_SCOPES.map((scope) => (
         <ScopeSection key={scope} brandId={brandId} scope={scope} />
       ))}
+      <WorkspaceStages key={`content-${brandId}`} brandId={brandId} statusGroup />
     </DashboardPageShell>
   );
 }
