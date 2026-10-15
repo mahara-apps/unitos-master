@@ -22,5 +22,6 @@
 
 ## Padrão do workspace para produção de conteúdo
 - [x] Fase A — Regras de produção padrão (Configurações › Regras de produção) com exceção por cliente (MASTER 1.4.66)
-- [ ] Fase B — Implementar etapas compartilhadas, prévia por cliente, exceções e aplicação transacional; validar testes e pacote sem publicar nem atualizar instalações.
+- [x] Fase B — Etapas compartilhadas, prévia por cliente, exceções e aplicação transacional no MASTER 1.4.67; 1549/1549 testes locais/runtime e master:check PASS; nada publicado/atualizado.
+- [ ] Fase B — Validação integrada e interação autenticada: QA sem resposta (timeout original de 12s); sessão autenticada indisponível no Supabase externo. Evidências em docs/PRODUCTION_STAGES_PHASE_B.md.
 - [ ] Fase C — Status de trabalho de produção de conteúdo

@@ -10433,6 +10433,15 @@ export type Database = {
         }
         Returns: Json
       }
+      production_stages_preview_state: {
+        Args: {
+          _brand: string
+          _keep_exceptions?: boolean
+          _mapping?: Json
+          _stages: Json
+        }
+        Returns: Json
+      }
       production_stages_save: {
         Args: { _brand: string; _stages: Json }
         Returns: undefined

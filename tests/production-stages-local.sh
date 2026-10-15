@@ -32,5 +32,6 @@ SQL
 "${PSQL[@]}" -f "$ROOT/supabase/migrations/20261015013546_e1d5b4e2-a352-464b-b42a-e11740773fd2.sql" >/dev/null
 "${PSQL[@]}" -f "$ROOT/supabase/migrations/20261015013807_e63d8e36-33bc-4c92-a852-ade3ef2114fa.sql" >/dev/null
 "${PSQL[@]}" -f "$ROOT/supabase/migrations/20261015014432_a1aa295c-00d9-4409-b34f-93456b9dfcfc.sql" >/dev/null
+"${PSQL[@]}" -f "$ROOT/supabase/migrations/20261015014549_6685e587-0de9-4c4a-a1bc-12e35af14b29.sql" >/dev/null
 "${PSQL[@]}" -f "$ROOT/tests/production-stages.contract.sql"
 echo "PASS: production stages SQL contracts"
