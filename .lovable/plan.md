@@ -23,7 +23,14 @@ A Importação de Briefing já recupera a resposta que o provedor recusou. Isso 
 ## 2. Chaves de IA que "somem" — o que o banco mostra
 
 - Hoje a Casa 8 tem **só a chave do Groq** guardada. Não existe chave salva de OpenAI, Anthropic nem Gemini.
-- A Anthropic foi usada até **07/10, 16:33**, então essa chave existia e depois foi apagada. O Gemini nunca foi usado nesse workspace.
+- **Anthropic — linha do tempo comprovada:**
+  - 25/09 a 06/10: a verificação automática diária (00:20) testou a chave todos os dias, sem erro.
+  - 07/10, 00:20: a verificação falhou com a mensagem da própria Anthropic: "Your credit balance is too low" (sem crédito na conta da API).
+  - 07/10, 16:33: última tentativa de uso. A Anthropic recusou e o Groq assumiu como reserva, no mesmo segundo.
+  - 08/10, 00:20: a verificação já não encontrou chave da Anthropic. **A chave foi apagada entre 07/10 16:33 e 08/10 00:20.**
+- **Foi o sistema?** Não há sinal disso. A verificação automática e a falta de crédito só marcam a chave como inválida; nenhuma das duas apaga a chave. No código, o único caminho que apaga é o botão de lixeira em Conexões, usado por uma pessoa logada.
+- **Foi um usuário?** É o único caminho que existe, mas não dá para dizer quem. A exclusão não grava autor, e nessa janela não houve nenhum outro registro de atividade nem de login. Foi no mesmo dia em que a falta de crédito apareceu, o que combina com alguém ter removido a chave sem crédito, mas isso não está registrado.
+- **Gemini:** a verificação diária nunca testou uma chave do Gemini desde 25/09, então nenhuma ficou salva até a meia-noite seguinte. Se alguém cadastrou, ela saiu no mesmo dia, e também não ficou registro.
 - **Não existe nenhum registro de quem apagou nem quando.** O sistema só apaga uma chave pelo botão da lixeira em Conexões, e esse botão não grava histórico. Por isso não dá para provar a causa das exclusões passadas, e eu não vou supor uma.
 
 Encontrei também uma falha real no código que faz uma conexão sumir **do painel**:
