@@ -9,6 +9,9 @@ import type { SharedV4ProviderOptions } from "@ai-sdk/provider";
  */
 export const PLAN_MAX_OUTPUT_TOKENS = 8_192;
 
+/** Máximo de ideias pedidas por chamada — mantém a resposta longe do teto. */
+export const PLAN_BATCH_SIZE = 15;
+
 export function planProviderOptions(provider: string): SharedV4ProviderOptions {
   if (provider === "groq") {
     return {

@@ -28,3 +28,10 @@
 - [ ] Fase C — Validação integrada e interação autenticada: bloqueadas por timeout original de 12s do QA e ausência de sessão no Supabase externo; detalhes em docs/PRODUCTION_STATUSES_PHASE_C.md.
 - [x] Etapas de conteúdo e status de trabalho: padrão único do workspace, sem exceção por cliente (MASTER 1.4.71, não publicado)
 - [ ] Publicar 1.4.71 e atualizar Casa 8 (aguarda autorização); depois aplicar o padrão revisando a prévia dos 5 clientes que eram exceção
+
+## 1.4.74 (não publicado) — pauta em lotes e respostas cortadas
+- [x] Pauta mensal gerada em lotes de até 15 peças; nada salvo se um lote falhar.
+- [x] Limite de tamanho + detecção de resposta cortada: legendas, estratégia, plano de mídia, agentes, painel.
+- [ ] Retomar só o lote que faltou em nova tentativa (hoje a nova tentativa refaz todos os lotes).
+- [ ] Estratégia: refazer só a etapa cortada pedindo menos itens.
+- [ ] Publicar 1.4.74 e atualizar instalações (aguarda autorização).

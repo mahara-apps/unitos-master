@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { TEXT_MAX_OUTPUT_TOKENS, assertNotTruncated } from "@/lib/ai/output-budget";
 import { z } from "zod";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -133,11 +134,13 @@ export const generateMediaPlanWithAi = createServerFn({ method: "POST" })
     });
 
     try {
-      const { output } = await generateText({
+      const { output, finishReason } = await generateText({
         model,
         output: Output.object({ schema: ItemsSchema }),
         prompt,
+        maxOutputTokens: TEXT_MAX_OUTPUT_TOKENS.mediaPlan,
       });
+      assertNotTruncated(finishReason);
       return { items: clampItems((output as { items: AiMediaPlanItem[] }).items ?? []) };
     } catch (error) {
       if (NoObjectGeneratedError.isInstance(error)) {

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { TEXT_MAX_OUTPUT_TOKENS, assertNotTruncated } from "@/lib/ai/output-budget";
 import { guardClientScope } from "@/lib/http-scope.server";
 import { waitUntil } from "@/lib/wait-until.server";
 import { createClient } from "@supabase/supabase-js";
@@ -416,10 +417,12 @@ async function runJson(opts: {
           prompt: opts.prompt,
           // Retry é controlado aqui (backoff próprio) para respeitar a quota.
           maxRetries: 0,
+          maxOutputTokens: TEXT_MAX_OUTPUT_TOKENS.strategy,
         }),
         LLM_TIMEOUT_MS,
         `${role} (tentativa ${attempt})`,
       );
+      assertNotTruncated(res.finishReason);
       const text = (res.text ?? "").trim();
       if (!text) throw new Error("ai_invalid_output: o provedor não retornou conteúdo.");
       const value = parseJsonLoose(text);

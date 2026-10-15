@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { TEXT_MAX_OUTPUT_TOKENS, assertNotTruncated } from "@/lib/ai/output-budget";
 import { z } from "zod";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -1272,8 +1273,9 @@ export const getDashboardInsights = createServerFn({ method: "POST" })
         { agent: "dashboard.insights", userId: context.userId },
       );
 
-      const { output } = await generateText({
+      const { output, finishReason } = await generateText({
         model,
+        maxOutputTokens: TEXT_MAX_OUTPUT_TOKENS.summary,
         output: Output.object({
           schema: z.object({
             headline: z.string(),
@@ -1294,6 +1296,7 @@ A headline deve ter no máximo 12 palavras. hrefs válidos: "/content", "/custom
 RESUMO:
 ${JSON.stringify(brief, null, 2)}`,
       });
+      assertNotTruncated(finishReason);
       return {
         headline: output.headline.slice(0, 140),
         actions: output.actions.slice(0, 3).map((a) => ({

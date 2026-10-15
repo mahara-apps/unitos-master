@@ -1,4 +1,5 @@
 import { contentFormatLabel } from "@/lib/content-formats";
+import { TEXT_MAX_OUTPUT_TOKENS, assertNotTruncated } from "@/lib/ai/output-budget";
 import { generateText, NoObjectGeneratedError } from "ai";
 import { assertPtBrPayload, withPtBr } from "@/lib/ai-language";
 import { z } from "zod";
@@ -164,8 +165,10 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
         prompt: opts.prompt,
         // Retry é controlado aqui (backoff próprio) para respeitar a quota do provedor.
         maxRetries: 0,
+        maxOutputTokens: TEXT_MAX_OUTPUT_TOKENS.post,
       });
       trace.providerTrace = describeProviderAttempts(handle.providerAttempts) || null;
+      assertNotTruncated(res.finishReason);
 
       const output = parseAny(res.text ?? "");
       if (output === null) throw new Error("ai_invalid_output");

@@ -9,6 +9,7 @@ import {
 import type { ProviderName } from "@/lib/ai-capabilities";
 import { buildBrandContextBlueprint } from "@/lib/ai-agents.functions";
 import { salvageStructuredOutput } from "@/lib/ai-output-salvage";
+import { assertNotTruncated, isTruncatedFinish, truncatedError } from "@/lib/ai/output-budget";
 import { PLAN_MAX_OUTPUT_TOKENS, planProviderOptions } from "@/lib/monthly-plan-ai-options";
 import {
   BACKOFF_MS,
@@ -162,6 +163,7 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
               toolChoice: { type: "tool", toolName: "emit_plan" },
               prompt: opts.prompt,
             });
+            assertNotTruncated(res.finishReason);
             output = res.toolCalls.find((call) => call.toolName === "emit_plan")?.input ?? null;
             if (output == null) {
               throw new Error("ai_no_structured_output: Gemini não chamou a ferramenta");
@@ -175,6 +177,7 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
               prompt: opts.prompt,
               output: Output.object({ schema: opts.schema }),
             });
+            assertNotTruncated(res.finishReason);
             output = res.output;
           }
         } catch (error) {
@@ -195,7 +198,13 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
                 );
                 return safe.success ? safe.data : null;
               })();
-            if (salvaged == null) throw error;
+            if (salvaged == null) {
+              // Resposta cortada por tamanho: falha própria, com mensagem clara.
+              if (isTruncatedFinish((error as { finishReason?: unknown }).finishReason)) {
+                throw truncatedError();
+              }
+              throw error;
+            }
             output = salvaged;
           } else {
             throw error;

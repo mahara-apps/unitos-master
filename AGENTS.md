@@ -60,3 +60,4 @@ Content production stages and work statuses are workspace-owned with no per-clie
 
 The content production group in Work statuses reuses the canonical workspace stage editor and maps completion directly to is_terminal; never duplicate these stages in work_statuses or merge them into task projections. Why: both settings surfaces must share one source of truth and the same preview, exception and authorization safeguards.
 - Every install/update writes the installation domain as Supabase Auth site_url and merges it into uri_allow_list (src/lib/installation/auth-urls.ts). Why: otherwise password-reset/invite links fall back to localhost.
+- Structured AI text calls set an explicit output cap and treat finishReason "length" as output_truncated (src/lib/ai/output-budget.ts); large lists are generated in batches. Why: provider defaults truncate JSON silently.
