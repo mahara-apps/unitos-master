@@ -43,6 +43,7 @@ import { STAGE_BG } from "./stage-colors";
 import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { describeError } from "@/lib/errors";
+import { PipelineStandardStatus } from "@/components/customer/production/pipeline-standard-status";
 
 type Props = {
   open: boolean;
@@ -96,6 +97,7 @@ export function ColumnConfigDialog({
 
   async function patchStage(stageId: string, patch: Partial<PipelineStage>) {
     await update({ data: { stageId, patch: patch as never } });
+    void qc.invalidateQueries({ queryKey: ["production-pipeline-status", pipelineId] });
     qc.invalidateQueries({ queryKey: invalidateKey });
   }
 
@@ -137,6 +139,7 @@ export function ColumnConfigDialog({
         </DialogHeader>
 
         <div className="space-y-4 px-6 py-5">
+          <PipelineStandardStatus pipelineId={pipelineId} />
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
             <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
               <div className="space-y-2">

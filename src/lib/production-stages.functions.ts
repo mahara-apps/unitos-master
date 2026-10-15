@@ -54,3 +54,20 @@ export const markProductionExceptionFn = createServerFn({ method: "POST" })
     if (result.error) throw new Error(result.error.message);
     return { ok: true };
   });
+
+export const getProductionPipelineStatusFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth]).inputValidator((i: unknown) => z.object({ pipelineId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const pipe = await context.supabase.from("content_pipelines").select("brand_id,follows_brand_default,is_default").eq("id", data.pipelineId).is("deleted_at", null).single();
+    if (pipe.error) throw pipe.error;
+    await assertBrandMember(context.supabase, context.userId, pipe.data.brand_id);
+    const [template, stages] = await Promise.all([
+      context.supabase.from("production_stage_defaults").select("stages").eq("brand_id", pipe.data.brand_id).maybeSingle(),
+      context.supabase.from("content_pipeline_stages").select("key,label,color,is_terminal,hide_in_portal,enables_approval_link,sla_hours,sla_days").eq("pipeline_id", data.pipelineId).order("position"),
+    ]);
+    if (template.error) throw template.error;
+    if (stages.error) throw stages.error;
+    const actual = productionStagesSchema.parse(stages.data.map(({ sla_days, ...stage }) => ({ ...stage, sla_hours: stage.sla_hours ?? (sla_days === null ? null : sla_days * 24) })));
+    const standard = template.data ? productionStagesSchema.parse(template.data.stages) : null;
+    return { follows: pipe.data.follows_brand_default, primary: pipe.data.is_default, equal: !!standard && JSON.stringify(actual) === JSON.stringify(standard) };
+  });
