@@ -27,8 +27,10 @@ import {
   createSlotAllocator,
   channelTotals,
   totalSlots,
+  splitQuotaIntoBatches,
   type ChannelFormatQuota,
 } from "@/lib/monthly-plan-distribution";
+import { PLAN_BATCH_SIZE } from "@/lib/monthly-plan-ai-options";
 import { loadApprovedOverage, tryAutoAuthorizeOverage } from "@/lib/plan-overage.server";
 import { countGeneratedThisMonth } from "@/lib/monthly-plan-generated-count.server";
 import {
