@@ -575,29 +575,48 @@ export async function runPlanGeneration(args: {
       });
     }
   };
-  consume(parsed.topics);
+  consume(parsed.topics.slice(0, PLAN_BATCH_SIZE));
 
-  // Insuficiência: a IA devolveu menos ideias que as vagas contratadas.
-  // Faz UMA rodada de complemento apenas para as vagas que sobraram.
-  if (allocator.left() > 0) {
-    const missing = allocator.left();
-    await logPlanEvent(supabase, scope, {
-      step: "ia",
-      ok: false,
-      kind: "invalid_output",
-      retryable: true,
-      message: `insuficiencia: faltaram ${missing} de ${remainingTarget} vagas`,
-    });
+  // Lotes seguintes: sempre a partir das vagas que ainda faltam, no máximo
+  // PLAN_BATCH_SIZE por chamada. Teto de chamadas = lotes previstos + 1
+  // complemento (insuficiência), igual ao comportamento anterior.
+  const maxCalls = batches.length + 1;
+  for (let call = 2; call <= maxCalls && allocator.left() > 0; call += 1) {
+    const isComplement = call > batches.length;
+    const next = splitQuotaIntoBatches({ ...allocator.remaining }, PLAN_BATCH_SIZE)[0];
+    if (!next) break;
+    const count = totalSlots(next);
+    if (isComplement) {
+      await logPlanEvent(supabase, scope, {
+        step: "ia",
+        ok: false,
+        kind: "invalid_output",
+        retryable: true,
+        message: `insuficiencia: faltaram ${allocator.left()} de ${remainingTarget} vagas`,
+      });
+    }
+    await setPlanJobStep(
+      supabase,
+      jobId,
+      "ia",
+      isComplement ? "complemento" : `lote ${call} de ${batches.length}`,
+    );
     try {
-      const fill = await callAgent(
-        buildPrompt({ ...allocator.remaining }, missing, [
+      const res = await callAgent(
+        buildPrompt(next, count, [
           ...(resume?.existingTitles ?? []),
           ...allocated.map((a) => a.topic_title),
         ]),
       );
-      consume((fill.output as AiPlan).topics);
+      modelId = res.modelId;
+      consume((res.output as AiPlan).topics.slice(0, count));
     } catch (err) {
-      console.warn("[monthly-plan] complemento falhou", err);
+      if (isComplement) {
+        console.warn("[monthly-plan] complemento falhou", err);
+        break;
+      }
+      // Lote falhou: nada é salvo (a pauta só existe completa).
+      return failureResult(err);
     }
   }
 
