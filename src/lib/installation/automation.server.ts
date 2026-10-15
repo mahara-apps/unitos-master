@@ -6292,8 +6292,8 @@ export async function runAutomatedUpdate(input: {
       client,
       operation,
       "database",
-      authUrls.urls.applied ? "done" : "warning",
-      authUrls.urls.detail,
+      "done",
+      authUrls.urls.applied ? authUrls.urls.detail : `atenção: ${authUrls.urls.detail}`,
     ).catch(() => undefined);
   }
 
