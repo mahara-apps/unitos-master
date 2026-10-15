@@ -98,3 +98,44 @@ export function createSlotAllocator(quota: ChannelFormatQuota) {
     },
   };
 }
+
+/**
+ * Divide a volumetria em lotes de no máximo `maxPerBatch` vagas, intercalando
+ * canal + formato para que cada lote mantenha a proporção do contratado.
+ * A soma dos lotes é sempre igual à cota original.
+ */
+export function splitQuotaIntoBatches(
+  quota: ChannelFormatQuota,
+  maxPerBatch: number,
+): ChannelFormatQuota[] {
+  const size = Math.max(1, Math.floor(maxPerBatch));
+  const buckets: Array<{ channel: string; format: ContentFormat; left: number }> = [];
+  for (const [channel, bucket] of Object.entries(quota)) {
+    for (const f of CONTENT_FORMATS) {
+      const n = Math.max(0, Math.floor(Number(bucket?.[f] ?? 0) || 0));
+      if (n > 0) buckets.push({ channel, format: f, left: n });
+    }
+  }
+  const order: Array<{ channel: string; format: ContentFormat }> = [];
+  let any = true;
+  while (any) {
+    any = false;
+    for (const b of buckets) {
+      if (b.left > 0) {
+        order.push({ channel: b.channel, format: b.format });
+        b.left -= 1;
+        any = true;
+      }
+    }
+  }
+  const batches: ChannelFormatQuota[] = [];
+  for (let i = 0; i < order.length; i += size) {
+    const batch: ChannelFormatQuota = {};
+    for (const s of order.slice(i, i + size)) {
+      const bucket = (batch[s.channel] ??= {});
+      bucket[s.format] = (bucket[s.format] ?? 0) + 1;
+    }
+    batches.push(batch);
+  }
+  return batches;
+}
