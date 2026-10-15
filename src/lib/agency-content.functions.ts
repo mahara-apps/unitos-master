@@ -87,9 +87,12 @@ function normalizeLabel(label: string): string {
   return label.trim().toLowerCase();
 }
 
-function orderOf(label: string): number {
+/** Ordem da coluna: segue o padrão do workspace; nomes fora dele vão para o fim. */
+export function stageBucketOrder(label: string, templateLabels: string[]): number {
+  const t = templateLabels.findIndex((l) => normalizeLabel(l) === normalizeLabel(label));
+  if (t !== -1) return t;
   const i = CANONICAL_ORDER.indexOf(normalizeLabel(label));
-  return i === -1 ? 900 : i;
+  return 1000 + (i === -1 ? 900 : i);
 }
 
 export const listAgencyContentFn = createServerFn({ method: "POST" })
@@ -125,13 +128,17 @@ export const listAgencyContentFn = createServerFn({ method: "POST" })
     }
 
     // 2. Stages + Clients em paralelo
-    const [stagesRes, clientsRes] = await Promise.all([
+    const [stagesRes, clientsRes, templateRes] = await Promise.all([
       supabase
         .from("content_pipeline_stages")
         .select("id, pipeline_id, key, label, color, position, is_terminal, sla_hours, sla_days")
         .in("pipeline_id", pipeIds),
       supabase.from("clients").select("id, name").eq("brand_id", data.brandId),
+      supabase.from("production_stage_defaults").select("stages").eq("brand_id", data.brandId).maybeSingle(),
     ]);
+    const templateLabels = Array.isArray(templateRes.data?.stages)
+      ? (templateRes.data.stages as Array<{ label?: unknown }>).map((st) => String(st.label ?? ""))
+      : [];
     const stages = (stagesRes.data ?? []) as Array<{
       id: string;
       pipeline_id: string;
@@ -272,7 +279,7 @@ export const listAgencyContentFn = createServerFn({ method: "POST" })
         count: 0,
         overdue_count: 0,
         at_risk_count: 0,
-        order: orderOf(r.stage_label),
+        order: stageBucketOrder(r.stage_label, templateLabels),
       };
       b.count += 1;
       if (r.sla_status === "overdue") b.overdue_count += 1;

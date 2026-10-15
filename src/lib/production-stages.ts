@@ -41,4 +41,14 @@ export function needsProductionDestination(preview: ProductionPreview, stages: P
     change.kind === "remove" && (change.posts ?? 0) > 0 &&
     !stages.some((stage) => stage.key === mapping[change.stageId ?? ""]),
   ));
+}/** Pré-liga etapas removidas à etapa do padrão com o mesmo nome (sem diferenciar maiúsculas/espaços). */
+export function autoProductionMapping(preview: ProductionPreview, stages: ProductionStage[]): Record<string, string> {
+  const norm = (v: string) => v.trim().toLowerCase();
+  const out: Record<string, string> = {};
+  for (const client of preview.clients) for (const change of client.changes) {
+    if (change.kind !== "remove" || !change.stageId) continue;
+    const match = stages.find((s) => norm(s.label) === norm(change.label));
+    if (match) out[change.stageId] = match.key;
+  }
+  return out;
 }

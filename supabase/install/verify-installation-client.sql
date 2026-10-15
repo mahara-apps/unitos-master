@@ -559,7 +559,7 @@ WITH checks AS (
                'client_ad_accounts','project_participants','user_login_events','work_comments',
                 'work_links','work_statuses','client_automation_attempts',
                  'client_automation_dates','client_automation_dispatches','client_automation_rules',
-                  'project_job_counters','system_events','project_duplication_requests','project_template_requests','ai_provider_finance','ai_budget_alert_settings','ai_finance_alert_events','production_stage_defaults','production_stage_applications'
+                  'project_job_counters','system_events','project_duplication_requests','project_template_requests','ai_provider_finance','ai_budget_alert_settings','ai_finance_alert_events','production_stage_defaults','production_stage_applications','production_stage_post_snapshots'
              ]) AS t
              WHERE to_regclass('public.' || t) IS NULL
            ) faltando
@@ -575,7 +575,7 @@ WITH checks AS (
              'client_ad_accounts','project_participants','user_login_events','work_comments',
               'work_links','work_statuses','client_automation_attempts',
                'client_automation_dates','client_automation_dispatches','client_automation_rules',
-                'project_job_counters','system_events','project_duplication_requests','project_template_requests','ai_provider_finance','ai_budget_alert_settings','ai_finance_alert_events','production_stage_defaults','production_stage_applications'
+                'project_job_counters','system_events','project_duplication_requests','project_template_requests','ai_provider_finance','ai_budget_alert_settings','ai_finance_alert_events','production_stage_defaults','production_stage_applications','production_stage_post_snapshots'
            ]) AS t
            WHERE to_regclass('public.' || t) IS NULL
          ) THEN 'PASS' ELSE 'FAIL' END
@@ -744,7 +744,7 @@ WITH checks AS (
       AND NOT has_table_privilege('authenticated','public.production_stage_defaults','INSERT,UPDATE,DELETE')
       AND NOT has_table_privilege('anon','public.production_stage_defaults','SELECT,INSERT,UPDATE,DELETE')
       AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='content_pipelines' AND column_name='follows_brand_default')
-      AND (SELECT count(*) FROM pg_class WHERE oid IN ('public.production_stage_defaults'::regclass,'public.production_stage_applications'::regclass) AND relrowsecurity)=2
+      AND (SELECT count(*) FROM pg_class WHERE oid IN ('public.production_stage_defaults'::regclass,'public.production_stage_applications'::regclass,'public.production_stage_post_snapshots'::regclass) AND relrowsecurity)=3
       AND (SELECT count(*) FROM pg_trigger WHERE tgname IN ('production_new_client_pipeline','production_stage_local_exception','production_pipeline_flag_guard') AND NOT tgisinternal)=3
       THEN 'PASS' ELSE 'FAIL' END
 )

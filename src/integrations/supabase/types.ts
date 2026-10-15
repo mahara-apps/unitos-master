@@ -7979,6 +7979,60 @@ export type Database = {
           },
         ]
       }
+      production_stage_post_snapshots: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          new_stage_key: string
+          operation_id: string
+          pipeline_id: string
+          post_id: string
+          previous_stage_key: string
+          previous_stage_label: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          new_stage_key: string
+          operation_id: string
+          pipeline_id: string
+          post_id: string
+          previous_stage_key: string
+          previous_stage_label: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          new_stage_key?: string
+          operation_id?: string
+          pipeline_id?: string
+          post_id?: string
+          previous_stage_key?: string
+          previous_stage_label?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_stage_post_snapshots_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "production_stage_post_snapshots_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_duplication_requests: {
         Row: {
           brand_id: string

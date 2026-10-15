@@ -15,7 +15,7 @@ import { SettingsLoadingState, SettingsPageState } from "@/components/settings/s
 import { useAccessRole } from "@/hooks/use-access-role";
 import { describeError } from "@/lib/errors";
 import { workspaceAdminActions } from "@/lib/workspace-admin";
-import { PRODUCTION_COLORS, defaultProductionStages, needsProductionDestination, productionStagesSchema, type ProductionStage, type ProductionPreview } from "@/lib/production-stages";
+import { PRODUCTION_COLORS, autoProductionMapping, defaultProductionStages, needsProductionDestination, productionStagesSchema, type ProductionStage, type ProductionPreview } from "@/lib/production-stages";
 import { getProductionStagesFn, saveProductionStagesFn, previewProductionStagesFn, applyProductionStagesFn } from "@/lib/production-stages.functions";
 
 const swatches: Record<ProductionStage["color"], string> = {
@@ -33,7 +33,6 @@ export function WorkspaceStages({ brandId, statusGroup = false }: { brandId: str
   const apply = useServerFn(applyProductionStagesFn);
   const q = useQuery({ queryKey: ["production-stage-defaults", brandId], queryFn: () => get({ data: { brandId } }) });
   const [stages, setStages] = useState<ProductionStage[]>(defaultProductionStages);
-  const [keepExceptions, setKeepExceptions] = useState(true);
   const [preview, setPreview] = useState<ProductionPreview | null>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [operationId, setOperationId] = useState("");
@@ -45,14 +44,14 @@ export function WorkspaceStages({ brandId, statusGroup = false }: { brandId: str
       qc.invalidateQueries({ queryKey: ["production-pipeline-status"] })]);
   };
   const saveM = useMutation({ mutationFn: () => save({ data: { brandId, stages: productionStagesSchema.parse(stages) } }),
-    onSuccess: () => { toast.success("Padrão salvo só para novos clientes.", { description: "Para mudar os quadros atuais, use \"Salvar e aplicar aos clientes\"." }); void invalidate(); },
+    onSuccess: () => { toast.success("Padrão salvo só para novos clientes.", { description: "Os quadros atuais só mudam ao usar \"Salvar e aplicar a todos\"." }); void invalidate(); },
     onError: (e) => toast.error(describeError(e)) });
-  const previewM = useMutation({ mutationFn: async () => { await save({ data: { brandId, stages: productionStagesSchema.parse(stages) } }); return previewFn({ data: { brandId, stages: productionStagesSchema.parse(stages), keepExceptions, mapping: {} } }); },
-    onSuccess: (value) => { setMapping({}); setOperationId(crypto.randomUUID()); setPreview(value); },
+  const previewM = useMutation({ mutationFn: async () => { await save({ data: { brandId, stages: productionStagesSchema.parse(stages) } }); return previewFn({ data: { brandId, stages: productionStagesSchema.parse(stages), mapping: {} } }); },
+    onSuccess: (value) => { setMapping(autoProductionMapping(value, productionStagesSchema.parse(stages))); setOperationId(crypto.randomUUID()); setPreview(value); },
     onError: (e) => toast.error(describeError(e)) });
   const applyM = useMutation({ mutationFn: async () => {
     if (!preview) throw new Error("Confira a prévia antes de aplicar.");
-    return apply({ data: { brandId, stages, keepExceptions, mapping, fingerprint: preview.fingerprint, operationId } });
+    return apply({ data: { brandId, stages, mapping, fingerprint: preview.fingerprint, operationId } });
   }, onSuccess: (result) => { toast.success(`Padrão aplicado a ${result.clients} cliente(s).`, { description: `${result.movedPosts} peça(s) transferida(s).` }); setPreview(null); void invalidate(); void qc.invalidateQueries(); },
   onError: (e) => toast.error(describeError(e)) });
   const busy = !canEdit || saveM.isPending || previewM.isPending || applyM.isPending;
@@ -96,21 +95,21 @@ export function WorkspaceStages({ brandId, statusGroup = false }: { brandId: str
     {canEdit && <>
       <Button variant="outline" size="sm" disabled={busy || stages.length >= 40} onClick={() => setStages((current) => [...current, { key: `stage-${crypto.randomUUID()}`, label: "Nova etapa", color: "muted", is_terminal: false, hide_in_portal: false, enables_approval_link: false, sla_hours: null }])}><Plus className="mr-2 size-4" />Adicionar etapa</Button>
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4">
-        <Label className="flex items-center gap-3"><Switch aria-label="Manter clientes com exceção" checked={keepExceptions} disabled={busy} onCheckedChange={setKeepExceptions} />Manter clientes com exceção</Label>
+        <p className="text-xs text-muted-foreground">As etapas valem para todos os clientes. Ao aplicar, quem era exceção volta ao padrão.</p>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" disabled={busy} onClick={() => saveM.mutate()}>Salvar só para novos clientes</Button>
-          <Button disabled={busy} onClick={() => previewM.mutate()}>{previewM.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Eye className="mr-2 size-4" />}Salvar e aplicar aos clientes</Button>
+          <Button variant="outline" disabled={busy} onClick={() => saveM.mutate()}>Salvar sem aplicar agora</Button>
+          <Button disabled={busy} onClick={() => previewM.mutate()}>{previewM.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Eye className="mr-2 size-4" />}Salvar e aplicar a todos</Button>
         </div>
       </div>
     </>}
     <Dialog open={!!preview} onOpenChange={(open) => { if (!open && !applyM.isPending) setPreview(null); }}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
-        <DialogHeader><DialogTitle>Aplicar etapas aos clientes</DialogTitle><DialogDescription>Nomes, cores e ordem mudam nos quadros atuais; as peças continuam na mesma etapa. Somente o quadro principal será alterado. Quadros adicionais e regras de aprovação permanecem intactos.</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>Aplicar etapas aos clientes</DialogTitle><DialogDescription>Nomes, cores e ordem mudam nos quadros atuais; as peças continuam na mesma etapa. Vale para todos os clientes, inclusive os que eram exceção. Peças de etapas removidas vão para o destino escolhido. Somente o quadro principal será alterado. Quadros adicionais e regras de aprovação permanecem intactos.</DialogDescription></DialogHeader>
         {preview && <>
-          <PageKpiGrid columns={2}><PageKpi label="Clientes afetados" value={preview.clients.filter((c) => !c.skipped).length} /><PageKpi label="Exceções preservadas" value={preview.clients.filter((c) => c.skipped).length} /></PageKpiGrid>
+          <PageKpiGrid columns={2}><PageKpi label="Clientes afetados" value={preview.clients.filter((c) => !c.skipped).length} /><PageKpi label="Exceções que voltam ao padrão" value={preview.clients.filter((c) => c.exception).length} /></PageKpiGrid>
           <div className="divide-y divide-border">
             {preview.clients.map((client) => <div key={client.pipelineId ?? client.clientId} className="space-y-2 py-3">
-              <div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-semibold">{client.name}</h3><Badge variant="outline">{client.skipped ? "Exceção preservada" : client.changes.length ? "Será atualizado" : "Igual ao padrão"}</Badge></div>
+              <div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-semibold">{client.name}</h3><Badge variant="outline">{client.exception ? "Era exceção · volta ao padrão" : client.changes.length ? "Será atualizado" : "Igual ao padrão"}</Badge></div>
               {!client.skipped && client.changes.map((change, i) => <div key={`${change.stageId ?? change.key}-${i}`} className="space-y-2 text-sm text-muted-foreground">
                 <p>{change.kind === "add" ? "Adicionar" : change.kind === "remove" ? "Remover" : "Atualizar"}: {change.previous && change.previous !== change.label ? `${change.previous} → ` : ""}{change.label}{change.kind === "remove" ? ` · ${change.posts ?? 0} peça(s)` : ""}</p>
                 {change.kind === "remove" && (change.posts ?? 0) > 0 && change.stageId && <Select value={mapping[change.stageId] ?? ""} disabled={applyM.isPending} onValueChange={(value) => { const id = change.stageId; if (id) setMapping((current) => ({ ...current, [id]: value })); }}>
