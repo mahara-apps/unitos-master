@@ -7454,3 +7454,11 @@ GRANT EXECUTE ON FUNCTION public.set_provider_connection(uuid,text,jsonb,text,te
 GRANT EXECUTE ON FUNCTION public.remove_provider_connection(uuid,text,text) TO authenticated, service_role;
 REVOKE ALL ON FUNCTION public.ai_credential_source() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.ai_credential_source() TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- 20261015233754_bc5d084d-5080-4909-a36d-a3b497729769.sql
+-- ---------------------------------------------------------------------------
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.ai_credential_audit FROM authenticated;
+REVOKE ALL ON public.ai_credential_audit FROM anon;
+GRANT SELECT ON public.ai_credential_audit TO authenticated;
+GRANT ALL ON public.ai_credential_audit TO service_role;
