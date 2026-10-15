@@ -92,8 +92,6 @@ export const setTemporaryPasswordFn = createServerFn({ method: "POST" })
     const { error: pErr } = await t.supabaseAdmin.from("user_profiles")
       .update({ requires_password_change: true }).eq("id", data.userId);
     if (pErr) throw new Error("Senha definida, mas não foi possível exigir a troca no próximo login.");
-    // Encerra sessões abertas para a nova senha valer imediatamente.
-    await t.supabaseAdmin.auth.admin.signOut?.(data.userId as never, "global" as never).catch?.(() => undefined);
     let emailed = false;
     if (data.sendEmail) {
       const { tryInstallationAbsoluteUrl } = await import("@/lib/installation-url.server");
