@@ -21,7 +21,7 @@ BEGIN
  -- Fase C: conclusão usa a mesma etapa, sem alterar peças ou aprovações.
  stages:=jsonb_set(stages,'{0,is_terminal}','true');
  PERFORM production_stages_save('00000000-0000-4000-8000-000000000010',stages);
- IF NOT (SELECT (stages->0->>'is_terminal')::boolean FROM production_stage_defaults WHERE brand_id='00000000-0000-4000-8000-000000000010') OR (SELECT is_terminal FROM content_pipeline_stages WHERE id=first_stage) THEN RAISE EXCEPTION 'completion save changed existing pipeline'; END IF;
+ IF NOT (SELECT (d.stages->0->>'is_terminal')::boolean FROM production_stage_defaults d WHERE d.brand_id='00000000-0000-4000-8000-000000000010') OR (SELECT is_terminal FROM content_pipeline_stages WHERE id=first_stage) THEN RAISE EXCEPTION 'completion save changed existing pipeline'; END IF;
  preview:=production_stages_preview('00000000-0000-4000-8000-000000000010',stages,true,'{}');
  PERFORM production_stages_apply('00000000-0000-4000-8000-000000000010',stages,true,'{}',preview->>'fingerprint',gen_random_uuid());
  IF NOT (SELECT is_terminal FROM content_pipeline_stages WHERE id=first_stage) OR NOT EXISTS(SELECT 1 FROM posts WHERE stage_id=first_stage AND copy='Preservar texto' AND review_status='pending') THEN RAISE EXCEPTION 'completion application lost stage or approval'; END IF;
