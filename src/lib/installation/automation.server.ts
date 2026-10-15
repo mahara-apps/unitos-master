@@ -18,6 +18,7 @@
  *   - todo texto persistido passa por `sanitize()` (redaction de segredos).
  */
 
+import { buildAuthUrlPatch } from "./auth-urls";
 import baseline000 from "../../../supabase/baseline-snapshot/000_extensions.sql?raw";
 import baseline001 from "../../../supabase/baseline-snapshot/001_initial_schema.sql?raw";
 import baseline005 from "../../../supabase/baseline-snapshot/005_auth_trigger.sql?raw";
@@ -602,6 +603,8 @@ export type ManagementClient = {
    * simples — quem chama trata a ausência como "não aplicado".
    */
   configureAuth?: (patch: Record<string, unknown>) => Promise<{ ok: boolean; error?: string }>;
+  /** GET em `/config/auth` (opcional, mesmo motivo). */
+  readAuth?: () => Promise<{ ok: boolean; config?: Record<string, unknown>; error?: string }>;
 };
 
 /**
@@ -615,14 +618,39 @@ export const INSTALLATION_AUTH_DEFAULTS = { mailer_autoconfirm: true } as const;
 /** Aplica os padrões de auth no destino. Nunca bloqueia a operação. */
 export async function applyInstallationAuthDefaults(
   management: ManagementClient,
-): Promise<{ applied: boolean; detail: string }> {
+  domain?: string | null,
+): Promise<{ applied: boolean; detail: string; urls?: { applied: boolean; detail: string } }> {
   if (!management.configureAuth) {
     return { applied: false, detail: "cliente de gestão sem suporte a config/auth" };
   }
+  const urls = await applyInstallationAuthUrls(management, domain ?? null);
   const res = await management.configureAuth({ ...INSTALLATION_AUTH_DEFAULTS });
   return res.ok
-    ? { applied: true, detail: "confirmação de e-mail desligada no destino" }
-    : { applied: false, detail: res.error ?? "não foi possível ajustar a autenticação" };
+    ? { applied: true, detail: "confirmação de e-mail desligada no destino", urls }
+    : { applied: false, detail: res.error ?? "não foi possível ajustar a autenticação", urls };
+}
+
+/**
+ * Grava Site URL + redirecionamentos autorizados com o domínio DA PRÓPRIA
+ * instalação. Sem isso o Supabase manda links de senha para localhost:3000.
+ */
+export async function applyInstallationAuthUrls(
+  management: ManagementClient,
+  domain: string | null,
+): Promise<{ applied: boolean; detail: string }> {
+  if (!management.configureAuth) return { applied: false, detail: "sem suporte a config/auth" };
+  let existing: string | null = null;
+  if (management.readAuth) {
+    const cur = await management.readAuth();
+    if (!cur.ok) return { applied: false, detail: cur.error ?? "não foi possível ler a configuração de login" };
+    existing = (cur.config?.["uri_allow_list"] as string | undefined) ?? null;
+  }
+  const built = buildAuthUrlPatch(domain, existing);
+  if (!built.ok) return { applied: false, detail: built.reason };
+  const res = await management.configureAuth(built.patch);
+  return res.ok
+    ? { applied: true, detail: `links de login apontam para ${built.patch.site_url}` }
+    : { applied: false, detail: res.error ?? "não foi possível gravar os endereços de login" };
 }
 
 function managementApiError(status: number, body: string, operation: "database" | "keys"): string {
@@ -805,6 +833,18 @@ export function createManagementClient(input: {
         }
       }
       return last;
+    },
+    async readAuth() {
+      try {
+        const res = await doFetch(`${base}/config/auth`, { method: "GET", headers });
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          return { ok: false, error: managementApiError(res.status, text, "database") };
+        }
+        return { ok: true, config: (await res.json()) as Record<string, unknown> };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message };
+      }
     },
     async configureAuth(patch) {
       let last = { ok: false, error: "sem resposta da Management API" };
@@ -3942,7 +3982,10 @@ export async function runAutomatedProvision(input: {
   checks.supabase = "ok";
   // Confirmação de e-mail desligada por padrão: o remetente padrão do Supabase
   // não tem DNS apontado, então o link de confirmação do /setup não chegaria.
-  const authDefaults = await applyInstallationAuthDefaults(management);
+  const authDefaults = await applyInstallationAuthDefaults(management, installation.domain);
+  if (authDefaults.urls && !authDefaults.urls.applied) {
+    pendingNotes.push(`Endereços de login não gravados: ${authDefaults.urls.detail}`);
+  }
   if (!authDefaults.applied) {
     pendingNotes.push(`Confirmação de e-mail não pôde ser desligada: ${authDefaults.detail}`);
   }
@@ -6241,7 +6284,18 @@ export async function runAutomatedUpdate(input: {
     fetchImpl: input.fetchImpl,
   });
   // Instalações antigas também passam a nascer/ficar sem confirmação de e-mail.
-  await applyInstallationAuthDefaults(management).catch(() => undefined);
+  const authUrls = await applyInstallationAuthDefaults(management, installation.domain).catch(
+    () => undefined,
+  );
+  if (authUrls?.urls) {
+    await report(
+      client,
+      operation,
+      "database",
+      "done",
+      authUrls.urls.applied ? authUrls.urls.detail : `atenção: ${authUrls.urls.detail}`,
+    ).catch(() => undefined);
+  }
 
   const masterRepo = (env["UNITOS_MASTER_REPO"] ?? "").trim() || null;
   const repo = resolveInstallationRepo({
