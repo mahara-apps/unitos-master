@@ -22,5 +22,5 @@
 
 ## Padrão do workspace para produção de conteúdo
 - [x] Fase A — Regras de produção padrão (Configurações › Regras de produção) com exceção por cliente (MASTER 1.4.66)
-- [ ] Fase B — Etapas do quadro de produção padrão + aplicar a todos os clientes
+- [ ] Fase B — Implementar etapas compartilhadas, prévia por cliente, exceções e aplicação transacional; validar testes e pacote sem publicar nem atualizar instalações.
 - [ ] Fase C — Status de trabalho de produção de conteúdo
