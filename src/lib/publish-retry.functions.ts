@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { mergeHashtags } from "@/lib/caption-hygiene";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { describeQueueInsertError } from "@/lib/social/queue-conflict";
@@ -598,15 +599,7 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
       caption =
         dbPlacement === "story"
           ? null
-          : [
-              base,
-              hashtags.length
-                ? hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")
-                : null,
-            ]
-              .filter(Boolean)
-              .join("\n\n")
-              .trim() || null;
+          : mergeHashtags(base, hashtags) || null;
     }
 
     // 7) Reenfileira UMA linha (o worker existente publica com claim/lock)

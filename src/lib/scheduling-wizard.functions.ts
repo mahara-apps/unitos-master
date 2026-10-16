@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { mergeHashtags } from "@/lib/caption-hygiene";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
@@ -730,15 +731,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         // Stories NUNCA carrega caption (Meta API ignora / retorna erro).
         const caption = isStory
           ? null
-          : [
-              d.copyOverride ?? data.copy,
-              ...(data.hashtags.length
-                ? [data.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")]
-                : []),
-            ]
-              .filter(Boolean)
-              .join("\n\n")
-              .trim() || null;
+          : mergeHashtags(d.copyOverride ?? data.copy, data.hashtags) || null;
 
         // Stories multi-frame: 1 social_posts por mídia, +1 minuto por frame.
         // Carrossel: 1 linha com todas as mídias. Feed/Reels: 1 linha.
@@ -1001,17 +994,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             }
           }
 
-          const caption = isStory
-            ? undefined
-            : [
-                data.copy,
-                ...(data.hashtags.length
-                  ? [data.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")]
-                  : []),
-              ]
-                .filter(Boolean)
-                .join("\n\n")
-                .trim() || undefined;
+          const caption = isStory ? undefined : mergeHashtags(data.copy, data.hashtags) || undefined;
 
           let lastPermalink: string | null = null;
           for (const path of frames) {
