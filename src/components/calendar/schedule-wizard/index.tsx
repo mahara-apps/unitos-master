@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { findCaptionLeaks } from "@/lib/caption-hygiene";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -1245,6 +1246,12 @@ export function ScheduleWizard({
                   overLimit && "border-destructive focus-visible:ring-destructive",
                 )}
               />
+              {findCaptionLeaks(copy).length > 0 ? (
+                <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-2 text-[11px] text-destructive">
+                  Esta legenda parece conter texto interno ({findCaptionLeaks(copy).join(", ")}).
+                  Tudo o que está aqui será publicado — revise antes de agendar.
+                </p>
+              ) : null}
             </div>
 
             <div className="space-y-1.5">
