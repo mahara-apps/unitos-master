@@ -747,6 +747,14 @@ WITH checks AS (
       AND (SELECT count(*) FROM pg_trigger WHERE tgname IN ('ai_credential_audit_keys','ai_credential_audit_panel') AND NOT tgisinternal)=2
       THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
+  SELECT 93, 'IA: verificação de limite sem usuário/cliente',
+    'geração em segundo plano não quebra sem limite cadastrado',
+    CASE WHEN to_regprocedure('public.check_ai_usage_budget(uuid,uuid,uuid)') IS NOT NULL
+      AND NOT has_function_privilege('anon','public.check_ai_usage_budget(uuid,uuid,uuid)','EXECUTE')
+      AND pg_get_functiondef('public.check_ai_usage_budget(uuid,uuid,uuid)'::regprocedure) LIKE '%brand_limit numeric%'
+      AND pg_get_functiondef('public.check_ai_usage_budget(uuid,uuid,uuid)'::regprocedure) NOT LIKE '%_lim.limit_usd%'
+      THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
   SELECT 91, 'produção: padrão, prévia e aplicação protegidos',
     'etapas compartilhadas, exceções e destinos explícitos',
     CASE WHEN to_regprocedure('public.production_stages_apply(uuid,jsonb,boolean,jsonb,text,uuid)') IS NOT NULL
