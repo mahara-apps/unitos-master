@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertBrandAdmin } from "@/lib/access-guard";
+import { activityLevel, nextLogCursor } from "@/lib/log-levels";
 
 export type LogLevel = "error" | "warn" | "info" | "success";
 export type LogSource = "system" | "critical_action" | "message" | "ai_job" | "activity";
@@ -189,9 +190,18 @@ export const listSystemLogs = createServerFn({ method: "POST" })
     );
     const health = resolved.map(([source, result]) => sourceHealth(source, result));
     const entries: SystemLogEntry[] = [];
+    const fullSources = new Map<LogSource, string>();
 
     for (const [source, result] of resolved) {
       if (result.error) continue;
+      const rows = (result.data ?? []) as Record<string, unknown>[];
+      if (rows.length >= limit) {
+        const last = rows[rows.length - 1];
+        const column =
+          source === "system" ? "occurred_at" : source === "ai_job" ? "updated_at" : "created_at";
+        const ts = last?.[column];
+        if (ts) fullSources.set(source, String(ts));
+      }
       for (const raw of result.data ?? []) {
         const row = raw as Record<string, unknown>;
         if (source === "system")
@@ -275,7 +285,7 @@ export const listSystemLogs = createServerFn({ method: "POST" })
             id: `act_${row.id}`,
             source,
             view: "actions",
-            level: "info",
+            level: activityLevel(row.verb, row.payload),
             title: `${row.entity_type} · ${row.verb}`,
             subtitle: null,
             timestamp: String(row.created_at),
@@ -302,10 +312,15 @@ export const listSystemLogs = createServerFn({ method: "POST" })
     }
     filtered.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
     const page = filtered.slice(0, limit);
+    const fullSourceOldest = Array.from(fullSources.values());
     return {
       state: "ready",
       entries: page,
       health,
-      nextCursor: page.length === limit ? (page[page.length - 1]?.timestamp ?? null) : null,
+      nextCursor: nextLogCursor(
+        page.map((entry) => entry.timestamp),
+        limit,
+        fullSourceOldest,
+      ),
     };
   });
