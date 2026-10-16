@@ -1229,6 +1229,10 @@ function TaskLayout({
 
         {mediaSlot ? <div>{mediaSlot}</div> : null}
 
+        {state.format === "carrossel" ? (
+          <CarouselSlidesEditor value={state.script} onChange={(v) => set("script", v)} />
+        ) : null}
+
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-2">
             <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
