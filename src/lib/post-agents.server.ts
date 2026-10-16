@@ -84,6 +84,7 @@ function isVideoFormat(format: string | null, channels: string[] | null): boolea
  * (fonte única compartilhada com o pipeline de Estratégia). Reexportados aqui
  * para preservar os pontos de importação existentes desta Copy.
  */
+import { findCaptionLeaks } from "./caption-hygiene";
 import {
   classifyAiError,
   sleep,
@@ -579,12 +580,17 @@ export async function generatePostContent(
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const { kind, retryable } = classifyAiError(err);
-      await admin
-        .from("posts")
-        .update({ ...failPhasePatch(kind, retryable), ai_run_id: null } as never)
-        .eq("id", post.id)
-        .eq("ai_run_id", jobId);
-      return { status: "failed", agent: "roteirista_social", error: msg, kind, retryable };
+      if (kind !== "config") {
+        // Roteiro pendente não deixa a peça sem legenda; configuração continua bloqueando.
+        degraded.push(`roteirista_social:${msg}`);
+      } else {
+        await admin
+          .from("posts")
+          .update({ ...failPhasePatch(kind, retryable), ai_run_id: null } as never)
+          .eq("id", post.id)
+          .eq("ai_run_id", jobId);
+        return { status: "failed", agent: "roteirista_social", error: msg, kind, retryable };
+      }
     }
   }
 
@@ -716,12 +722,13 @@ export async function generatePostContent(
   let copyTrace: RunTrace | null = null;
   try {
     if (used.length > 0) await sleep(SPACING_MS);
-    const { output, attempts, trace } = await runStructured({
+    const runCaption = (correction: string) => runStructured({
       brandId: post.brand_id,
       clientId: post.client_id,
       userId: opts.userId ?? null,
       system: fillTemplate(copyPrompt, vars()),
       prompt:
+        correction +
         `${contextBlock}\n\n` +
         (scriptText ? `Roteiro aprovado desta peça:\n${scriptText}\n\n` : "") +
         (slidesText
@@ -741,6 +748,20 @@ export async function generatePostContent(
 
       onAttempt: onAttempt("copywriter_senior", "caption"),
     });
+    let { output, attempts, trace } = await runCaption("");
+    let leaks = findCaptionLeaks(output.caption);
+    if (leaks.length) {
+      // A legenda é o único texto publicado: nunca salvar briefing/artes/roteiro nela.
+      ({ output, attempts, trace } = await runCaption(
+        `ATENÇÃO: a resposta anterior colou texto interno na legenda (${leaks.join(", ")}). ` +
+          `Escreva somente a legenda que será publicada, sem briefing, roteiro, textos das artes ou notas de design.\n\n`,
+      ));
+      leaks = findCaptionLeaks(output.caption);
+      if (leaks.length)
+        throw new Error(
+          `ai_invalid_output: a legenda veio com texto interno (${leaks.join(", ")}) e precisa de revisão. Clique em Refazer.`,
+        );
+    }
     const caption = (output.caption ?? "").trim();
     if (!caption) throw new Error("empty_caption");
     patch.copy = caption;
