@@ -197,7 +197,9 @@ export const listSystemLogs = createServerFn({ method: "POST" })
       const rows = (result.data ?? []) as Record<string, unknown>[];
       if (rows.length >= limit) {
         const last = rows[rows.length - 1];
-        const ts = last?.occurred_at ?? last?.created_at ?? last?.updated_at;
+        const column =
+          source === "system" ? "occurred_at" : source === "ai_job" ? "updated_at" : "created_at";
+        const ts = last?.[column];
         if (ts) fullSources.set(source, String(ts));
       }
       for (const raw of result.data ?? []) {
