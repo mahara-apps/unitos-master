@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -36,7 +36,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toggle } from "@/components/ui/toggle";
 import { SettingsPageState } from "@/components/settings/settings-page-state";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 export const SOURCE_META: Record<LogSource, { label: string; icon: typeof Bot; color: string }> = {
   system: { label: "Sistema", icon: ServerCog, color: "text-rose-500" },
@@ -76,6 +75,8 @@ const LEVEL_META: Record<
   },
 };
 
+const PAGE_SIZE = 100;
+
 export function LogViewer({
   sources: allowedSources,
   title,
@@ -96,7 +97,7 @@ export function LogViewer({
   const [search, setSearch] = useState("");
   const [scopeToClient, setScopeToClient] = useState(false);
   const sources = tab === "all" || !allowedSources.includes(tab) ? allowedSources : [tab];
-  const q = useQuery({
+  const q = useInfiniteQuery({
     queryKey: [
       queryKey,
       brandId,
@@ -105,7 +106,7 @@ export function LogViewer({
       Array.from(levels).sort().join(","),
       search,
     ],
-    queryFn: () =>
+    queryFn: ({ pageParam }) =>
       load({
         data: {
           brandId,
@@ -113,13 +114,27 @@ export function LogViewer({
           sources,
           levels: Array.from(levels),
           search: search.trim() || undefined,
-          limit: 300,
+          cursor: pageParam ?? undefined,
+          limit: PAGE_SIZE,
         },
       }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.nextCursor,
     refetchOnWindowFocus: false,
   });
-  const entries = useMemo(() => q.data?.entries ?? [], [q.data]);
-  const unavailable = q.data?.health.filter((item) => item.status !== "available") ?? [];
+  const entries = useMemo(() => {
+    const seen = new Set<string>();
+    const all: SystemLogEntry[] = [];
+    for (const page of q.data?.pages ?? [])
+      for (const entry of page.entries)
+        if (!seen.has(entry.id)) {
+          seen.add(entry.id);
+          all.push(entry);
+        }
+    return all;
+  }, [q.data]);
+  const unavailable =
+    q.data?.pages[0]?.health.filter((item) => item.status !== "available") ?? [];
   const counts = useMemo(() => {
     const result = { total: entries.length, error: 0, warn: 0 };
     for (const entry of entries)
@@ -263,13 +278,34 @@ export function LogViewer({
               </p>
             </div>
           ) : (
-            <ScrollArea className="max-h-[65vh] rounded-lg border">
-              <ul className="divide-y">
-                {entries.map((entry) => (
-                  <LogRow key={entry.id} entry={entry} />
-                ))}
-              </ul>
-            </ScrollArea>
+            <div className="space-y-2">
+              <div className="max-h-[70vh] overflow-y-auto overscroll-contain rounded-lg border">
+                <ul className="divide-y">
+                  {entries.map((entry) => (
+                    <LogRow key={entry.id} entry={entry} />
+                  ))}
+                </ul>
+                {q.hasNextPage ? (
+                  <div className="flex justify-center border-t p-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void q.fetchNextPage()}
+                      disabled={q.isFetchingNextPage}
+                    >
+                      {q.isFetchingNextPage ? (
+                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      ) : null}
+                      Carregar mais
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Exibindo {entries.length} eventos
+                {q.hasNextPage ? " · há mais registros antigos" : ""}
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>
