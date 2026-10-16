@@ -1,4 +1,11 @@
-import { contentFormatLabel } from "@/lib/content-formats";
+import { contentFormatLabel, normalizeContentFormat } from "@/lib/content-formats";
+import {
+  CAROUSEL_MAX_SLIDES,
+  CAROUSEL_MIN_SLIDES,
+  formatSlides,
+  needsCarouselSlides,
+  parseSlides,
+} from "@/lib/carousel-slides";
 import { TEXT_MAX_OUTPUT_TOKENS, assertNotTruncated } from "@/lib/ai/output-budget";
 import { generateText, NoObjectGeneratedError } from "ai";
 import { assertPtBrPayload, withPtBr } from "@/lib/ai-language";
@@ -38,6 +45,7 @@ const CopySchema = z.object({
   reasoning_summary: z.string().nullable().optional(),
 });
 const ScriptSchema = z.object({ script: z.string() });
+const SlidesSchema = z.object({ slides: z.string() });
 const VisualSchema = z.object({ visual_direction: z.string() });
 
 type TopicRow = {
@@ -455,7 +463,10 @@ export async function generatePostContent(
     pieceBriefing ? "piece_briefing" : "",
   ].filter(Boolean);
 
-  const needsScript = isVideoFormat(format, post.channels);
+  const needsSlides = needsCarouselSlides(
+    normalizeContentFormat(post.format ?? topic?.content_format ?? null),
+  );
+  const needsScript = !needsSlides && isVideoFormat(format, post.channels);
   const storedDesignBrief = post.design_brief
     ? normalizeStoredSingleField(post.design_brief, "visual_direction").trim()
     : "";
@@ -463,7 +474,7 @@ export async function generatePostContent(
 
   const agentIds = [
     "copywriter_senior",
-    ...(needsScript ? ["roteirista_social"] : []),
+    ...(needsScript || needsSlides ? ["roteirista_social"] : []),
     ...(needsVisual ? ["art_director_social"] : []),
   ] as const;
 
@@ -618,6 +629,57 @@ export async function generatePostContent(
     }
   }
 
+  // 2b) Carrossel — texto de cada arte (roteirista), antes da legenda.
+  let slidesText = "";
+  if (needsSlides && prompts.get("roteirista_social")) {
+    try {
+      await sleep(SPACING_MS);
+      const { output, attempts, trace } = await runStructured({
+        brandId: post.brand_id,
+        clientId: post.client_id,
+        userId: opts.userId ?? null,
+        system: fillTemplate(prompts.get("roteirista_social")!, vars()),
+        prompt:
+          `${contextBlock}\n\nEscreva os textos de cada arte deste CARROSSEL (${channel}).\n` +
+          `Escolha entre ${CAROUSEL_MIN_SLIDES} e ${CAROUSEL_MAX_SLIDES} artes conforme o tema (normalmente 5 a 7). ` +
+          `A Arte 1 é sempre o gancho e a última é sempre a chamada para ação. Títulos curtos (texto grande da arte). ` +
+          `Use exatamente este formato, uma arte por bloco:\n` +
+          `Arte 1 — título\nApoio: texto de apoio curto\nDesign: nota rápida para o designer\n\n` +
+          `Responda EXCLUSIVAMENTE em JSON: {"slides":"todas as artes no formato acima, em um único texto"}`,
+        schema: SlidesSchema,
+        textFallbackKey: "slides",
+        onAttempt: onAttempt("roteirista_social", "carousel_slides"),
+      });
+      const slides = parseSlides(output.slides);
+      if (slides.length >= 2) {
+        slidesText = formatSlides(slides);
+        patch.script = [{ cena: 1, fala: slidesText }];
+        used.push("roteirista_social");
+        await logAttempt(admin, post, {
+          agent: "roteirista_social",
+          step: "carousel_slides",
+          channel: String(channel),
+          format: String(format),
+          attempt: attempts,
+          ok: true,
+          jobId,
+          trace,
+          completedSteps: [...used],
+          contextParts,
+          degraded,
+        });
+      } else {
+        degraded.push("carousel_slides:resposta sem artes aproveitáveis");
+      }
+    } catch (err) {
+      // Textos das artes são complementares: a legenda segue sendo gerada.
+      const msg = err instanceof Error ? err.message : String(err);
+      degraded.push(`carousel_slides:${msg.slice(0, 200)}`);
+    }
+  }
+
+
+
   // 3) Copywriter — LEGENDA final, campo único e pronto para publicação.
   const copyPrompt = prompts.get("copywriter_senior");
   if (!copyPrompt) {
@@ -662,6 +724,9 @@ export async function generatePostContent(
       prompt:
         `${contextBlock}\n\n` +
         (scriptText ? `Roteiro aprovado desta peça:\n${scriptText}\n\n` : "") +
+        (slidesText
+          ? `Textos das artes deste carrossel (a legenda deve complementar, sem repetir arte por arte):\n${slidesText}\n\n`
+          : "") +
         (patch.design_brief || storedDesignBrief
           ? `Direção visual:\n${String(patch.design_brief ?? storedDesignBrief)}\n\n`
           : "") +

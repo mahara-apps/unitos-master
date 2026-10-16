@@ -23,6 +23,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { formatSlides, parseSlides, type CarouselSlide } from "@/lib/carousel-slides";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -1229,6 +1230,10 @@ function TaskLayout({
 
         {mediaSlot ? <div>{mediaSlot}</div> : null}
 
+        {state.format === "carrossel" ? (
+          <CarouselSlidesEditor value={state.script} onChange={(v) => set("script", v)} />
+        ) : null}
+
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-2">
             <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
@@ -2146,6 +2151,101 @@ function ScheduleAgendaBlock({
         <p className="text-[11px] text-amber-600 dark:text-amber-400">
           Cliente pediu alteração: {post.schedule_client_comment}
         </p>
+      ) : null}
+    </div>
+  );
+}
+
+// ----------------- Carrossel: textos de cada arte -----------------
+function CarouselSlidesEditor({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const slides = parseSlides(value);
+  const legacy = !slides.length && value.trim().length > 0;
+  const update = (i: number, key: keyof CarouselSlide, v: string) => {
+    const next = slides.map((s, idx) => (idx === i ? { ...s, [key]: key === "title" && !v.trim() ? "(sem título)" : v } : s));
+    onChange(formatSlides(next));
+  };
+  const add = () =>
+    onChange(formatSlides([...slides, { title: `Nova arte ${slides.length + 1}`, body: "", design_note: "" }]));
+  const remove = (i: number) => onChange(formatSlides(slides.filter((_, idx) => idx !== i)));
+  const copyText = (t: string) => {
+    void navigator.clipboard?.writeText(t);
+    toast.success("Texto copiado");
+  };
+  return (
+    <div className="space-y-2">
+      <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+        Textos das artes {slides.length ? `(${slides.length} artes)` : ""}
+      </Label>
+      {legacy ? (
+        <Textarea value={value} onChange={(e) => onChange(e.target.value)} rows={6} />
+      ) : slides.length === 0 ? (
+        <p className="rounded-md border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
+          Nenhum texto de arte ainda. Use "Refazer" para os agentes escreverem o carrossel arte por
+          arte, ou adicione manualmente.
+        </p>
+      ) : (
+        <ol className="space-y-2">
+          {slides.map((s, i) => (
+            <li key={i} className="space-y-1.5 rounded-md border border-border/60 bg-background/60 p-3">
+              <div className="flex items-center justify-between gap-2 text-[11px] font-medium text-muted-foreground">
+                <span>
+                  Arte {i + 1} de {slides.length}
+                  {i === 0 ? " · gancho" : i === slides.length - 1 ? " · chamada para ação" : ""}
+                </span>
+                <span className="flex gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-[11px]"
+                    onClick={() => copyText([s.title, s.body].filter(Boolean).join("\n"))}
+                  >
+                    Copiar
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-[11px] text-destructive"
+                    onClick={() => remove(i)}
+                  >
+                    Remover
+                  </Button>
+                </span>
+              </div>
+              <Input
+                value={s.title}
+                onChange={(e) => update(i, "title", e.target.value)}
+                placeholder="Título da arte"
+                className="h-8 text-sm font-medium"
+              />
+              <Textarea
+                value={s.body}
+                onChange={(e) => update(i, "body", e.target.value)}
+                rows={2}
+                placeholder="Texto de apoio (opcional)"
+                className="text-sm"
+              />
+              <Input
+                value={s.design_note}
+                onChange={(e) => update(i, "design_note", e.target.value)}
+                placeholder="Nota para o designer (opcional)"
+                className="h-8 text-xs"
+              />
+            </li>
+          ))}
+        </ol>
+      )}
+      {!legacy ? (
+        <Button type="button" size="sm" variant="outline" onClick={add}>
+          Adicionar arte
+        </Button>
       ) : null}
     </div>
   );
