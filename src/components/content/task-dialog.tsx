@@ -23,6 +23,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { formatSlides, parseSlides, type CarouselSlide } from "@/lib/carousel-slides";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -2166,7 +2167,7 @@ function CarouselSlidesEditor({
   const slides = parseSlides(value);
   const legacy = !slides.length && value.trim().length > 0;
   const update = (i: number, key: keyof CarouselSlide, v: string) => {
-    const next = slides.map((s, idx) => (idx === i ? { ...s, [key]: v } : s));
+    const next = slides.map((s, idx) => (idx === i ? { ...s, [key]: key === "title" && !v.trim() ? "(sem título)" : v } : s));
     onChange(formatSlides(next));
   };
   const add = () =>
