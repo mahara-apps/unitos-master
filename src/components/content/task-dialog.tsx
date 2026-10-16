@@ -1282,12 +1282,28 @@ function TaskLayout({
             />
           </TabsContent>
           <TabsContent value="script" className="space-y-2">
-            <Textarea
-              value={state.script}
-              onChange={(e) => set("script", e.target.value)}
-              rows={5}
-              placeholder="Roteiro / script do vídeo..."
-            />
+            {state.format === "carrossel" ? (
+              <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                No carrossel, o texto de cada arte fica no bloco "Textos das artes", acima da
+                legenda. Nada daqui é publicado.
+              </p>
+            ) : (
+              <>
+                <Textarea
+                  value={state.script}
+                  onChange={(e) => set("script", e.target.value)}
+                  rows={5}
+                  placeholder={
+                    state.format === "reels"
+                      ? "O roteiro é escrito pelos agentes. Clique em Refazer para gerar."
+                      : "Roteiro / script do vídeo..."
+                  }
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Uso interno: o roteiro não é publicado — só a legenda vai para o agendamento.
+                </p>
+              </>
+            )}
           </TabsContent>
         </Tabs>
       </section>
