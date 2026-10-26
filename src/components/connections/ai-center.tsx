@@ -18,6 +18,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AiHealthBanner } from "./ai-health-banner";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -213,6 +214,9 @@ export function AiCenter({
 
       {/* ------------------------------- Visão geral ------------------------ */}
       <TabsContent value="overview" className="space-y-4">
+        {!isLoading && data && (
+          <AiHealthBanner primary={data.textProvider} providers={data.providers} />
+        )}
         <AiFinanceAlerts brandId={brandId} spent={used} budget={budget} />
         <PageKpiGrid columns={4}>
           <PageKpi
