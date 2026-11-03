@@ -42,6 +42,8 @@ import { CommentThread } from "./comment-thread";
 import { WorkLinks } from "@/components/ui/work-links";
 import { WorkItemRow, formatShortDate, isOverdue } from "./work-item-row";
 import { TaskDrawer } from "@/components/tasks/shared";
+import { TaskDialog } from "@/components/content/task-dialog";
+import { getPostEditorContextFn } from "@/lib/content.functions";
 
 export type PautaDetailItem = {
   /** Chave estável do item (topic_id ou post id quando fora da pauta). */
@@ -335,6 +337,16 @@ export function PautaDetailModal({
   const [confirming, setConfirming] = useState(false);
   const [chosenAssignee, setChosenAssignee] = useState<string | null>(null);
   const [openedTaskId, setOpenedTaskId] = useState<string | null>(null);
+  // Editar a peça aqui mesmo, por cima da pauta, sem trocar de página.
+  const getPostContext = useServerFn(getPostEditorContextFn);
+  const [pieceOpen, setPieceOpen] = useState(false);
+  const pieceCtxQ = useQuery({
+    queryKey: ["post-editor-context", item?.postId ?? null],
+    queryFn: () => getPostContext({ data: { postId: item?.postId ?? "" } }),
+    enabled: !!item?.postId && pieceOpen,
+    retry: false,
+  });
+  useEffect(() => setPieceOpen(false), [item?.postId]);
 
   useEffect(() => {
     setConfirming(false);
@@ -463,12 +475,17 @@ export function PautaDetailModal({
             </Button>
           ) : null}
           {item.postId ? (
-            <Button asChild variant="outline" size="sm" className="h-9">
-              <Link to="/content" search={{ post: item.postId }}>
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Abrir peça em Conteúdo
-              </Link>
-            </Button>
+            <>
+              <Button asChild variant="ghost" size="sm" className="h-9">
+                <Link to="/content" search={{ post: item.postId }}>
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Abrir em Conteúdo
+                </Link>
+              </Button>
+              <Button size="sm" className="h-9" onClick={() => setPieceOpen(true)}>
+                Editar peça aqui
+              </Button>
+            </>
           ) : null}
         </>
       }
