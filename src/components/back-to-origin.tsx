@@ -52,11 +52,7 @@ export function BackToOrigin({ title }: { title: string }) {
       size="sm"
       className="h-8 shrink-0 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
       title={`Voltar para ${label}`}
-      onClick={() => {
-        const idx = window.history.state?.__TSR_index ?? window.history.state?.idx;
-        if (typeof idx === "number" && idx > 0) router.history.back();
-        else void router.navigate({ href: prev.href });
-      }}
+      onClick={() => void router.navigate({ href: prev.href })}
     >
       <ArrowLeft className="h-3.5 w-3.5" />
       <span className="max-w-[180px] truncate">Voltar para {label}</span>
