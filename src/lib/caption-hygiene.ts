@@ -11,6 +11,7 @@ const LEAK_PATTERNS: Array<{ label: string; re: RegExp }> = [
   { label: "briefing", re: /briefing\s+(interno|do\s+cliente|cliente)\s*:/i },
   { label: "público-alvo do briefing", re: /(^|\n)\s*p[úu]blico[-\s]alvo\s*:/i },
   { label: "direção visual", re: /(^|\n)\s*dire[çc][ãa]o\s+visual\s*:/i },
+  { label: "capa do Reels", re: /(^|\n)\s*(frase\s+da\s+capa|tem\s+capa)\s*:/i },
   { label: "roteiro", re: /(^|\n)\s*(roteiro\s*:|cena\s+\d+\s*[:—–-])/i },
 ];
 

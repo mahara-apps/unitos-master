@@ -1,4 +1,5 @@
 import { contentFormatLabel, normalizeContentFormat } from "@/lib/content-formats";
+import { normalizeReelsCover, withReelsCover } from "@/lib/reels-cover";
 import {
   CAROUSEL_MAX_SLIDES,
   CAROUSEL_MIN_SLIDES,
@@ -44,7 +45,7 @@ const CopySchema = z.object({
   caption: z.string(),
   reasoning_summary: z.string().nullable().optional(),
 });
-const ScriptSchema = z.object({ script: z.string() });
+const ScriptSchema = z.object({ script: z.string(), cover: z.unknown().optional() });
 const SlidesSchema = z.object({ slides: z.string() });
 const VisualSchema = z.object({ visual_direction: z.string() });
 
@@ -554,14 +555,15 @@ export async function generatePostContent(
         system: fillTemplate(prompts.get("roteirista_social")!, vars()),
         prompt:
           `${contextBlock}\n\nEscreva o roteiro completo desta peça de vídeo (${format} / ${channel}).\n` +
-          `Responda EXCLUSIVAMENTE em JSON: {"script":"roteiro completo em texto, com cenas e falas"}`,
+          `Defina também a capa do vídeo: se terá capa, a frase da capa (até 8 palavras) e uma nota curta para o designer.\n` +
+          `Responda EXCLUSIVAMENTE em JSON: {"script":"roteiro completo em texto, com cenas e falas","cover":{"has_cover":true,"text":"frase da capa","designer_note":"nota para o designer"}}`,
         schema: ScriptSchema,
         textFallbackKey: "script",
         onAttempt: onAttempt("roteirista_social", "script"),
       });
       scriptText = (output.script ?? "").trim();
       if (scriptText) {
-        patch.script = [{ cena: 1, fala: scriptText }];
+        patch.script = [{ cena: 1, fala: withReelsCover(scriptText, normalizeReelsCover(output.cover)) }];
         used.push("roteirista_social");
         await logAttempt(admin, post, {
           agent: "roteirista_social",
