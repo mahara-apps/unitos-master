@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -13,6 +13,9 @@ import {
   Archive,
   ArrowUpDown,
   CheckSquare2,
+  ChevronDown,
+  ChevronRight,
+  ListTree,
   Clock3,
   Kanban,
   List,
@@ -70,6 +73,8 @@ type Props = {
   onStatusChange: (job: ProjectJob, statusId: string | null) => void;
   onAssigneeChange: (job: ProjectJob, assigneeId: string | null) => void;
   onDueChange: (job: ProjectJob, dueAt: string | null) => void;
+  /** Sub-tasks da task, exibidas ao expandir a linha (sem abrir a task). */
+  renderSubtasks?: (job: ProjectJob) => ReactNode;
 };
 
 function avatarIds(job: ProjectJob, stats: JobListStats) {
@@ -92,7 +97,8 @@ function ProgressCell({ stats, color }: { stats: JobListStats; color?: string | 
   );
 }
 
-function JobRow({ brandId, job, stats, rollup, status, team, onOpen, onStatusChange, onAssigneeChange, onDueChange, menu }: {
+function JobRow({ brandId, job, stats, rollup, status, team, onOpen, onStatusChange, onAssigneeChange, onDueChange, menu, expanded, onToggleExpand, subtasks }: {
+  expanded?: boolean; onToggleExpand?: () => void; subtasks?: ReactNode;
   brandId: string; job: ProjectJob; stats: JobListStats; rollup?: JobTimeRollup; status?: WorkStatus; team: TeamOption[]; onOpen: () => void; onStatusChange: (id: string | null) => void; onAssigneeChange: (id: string | null) => void; onDueChange: (value: string | null) => void; menu: ReactNode;
 }) {
   const minutes = rollup?.minutes ?? stats.minutes;
@@ -103,8 +109,9 @@ function JobRow({ brandId, job, stats, rollup, status, team, onOpen, onStatusCha
     statusIsDone: status?.is_done,
   });
   return (
-    <div className={cn("grid min-h-[58px] grid-cols-[auto_minmax(150px,1fr)_auto] items-center gap-x-3 gap-y-2 border-b border-l-2 border-border/50 border-l-transparent px-4 py-2.5 transition-colors last:border-b-0 hover:bg-muted/20 lg:grid-cols-[auto_minmax(170px,1fr)_120px_66px_64px_70px_150px_24px]", workItemSurfaceClass(visualState))}>
-      <Badge variant="secondary" className="h-6 rounded-md border-0 bg-primary/10 px-2 font-mono text-[10px] font-bold tabular-nums text-primary">#{job.job_number}.1</Badge>
+    <div className="border-b border-border/50 last:border-b-0">
+    <div className={cn("grid min-h-[58px] grid-cols-[auto_minmax(150px,1fr)_auto] items-center gap-x-3 gap-y-2 border-l-2 border-l-transparent px-4 py-2.5 transition-colors hover:bg-muted/20 lg:grid-cols-[auto_minmax(170px,1fr)_120px_66px_64px_70px_150px_24px]", workItemSurfaceClass(visualState))}>
+      <div className="flex items-center gap-1">{onToggleExpand ? <Button size="icon" variant="ghost" className="h-6 w-6" aria-expanded={!!expanded} aria-label={expanded ? "Esconder sub-tasks" : `Mostrar sub-tasks (${stats.total})`} title={expanded ? "Esconder sub-tasks" : `Mostrar sub-tasks (${stats.total})`} onClick={onToggleExpand}>{expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}</Button> : null}<Badge variant="secondary" className="h-6 rounded-md border-0 bg-primary/10 px-2 font-mono text-[10px] font-bold tabular-nums text-primary">#{job.job_number}.1</Badge></div>
       <Button variant="ghost" className="h-auto min-w-0 justify-start p-0 text-left hover:bg-transparent" onClick={onOpen}><span className="flex min-w-0 flex-col items-start gap-0.5"><span className="truncate text-sm font-semibold">{job.name}</span><WorkItemStateBadge state={visualState} /></span></Button>
       <div className="hidden lg:block"><ProgressCell stats={stats} color={status?.color} /></div>
       <div className={cn("hidden items-center gap-1.5 text-xs tabular-nums lg:flex", rollup?.running ? "font-medium text-work-done" : "text-muted-foreground")}><Clock3 className={cn("h-3.5 w-3.5", rollup?.running && "animate-pulse")} />{formatMinutes(minutes)}</div>
@@ -113,6 +120,8 @@ function JobRow({ brandId, job, stats, rollup, status, team, onOpen, onStatusCha
       <div className="hidden lg:block"><StatusPicker brandId={brandId} scope="job" value={job.status_id} compactPill selectionOnly className="h-8 w-[150px] rounded-full text-[11px] font-semibold" onChange={onStatusChange} /></div>
       <div className="flex items-center justify-end">{menu}</div>
       <div className="col-span-3 grid grid-cols-[1fr_auto_auto] items-center gap-3 lg:hidden"><ProgressCell stats={stats} color={status?.color} /><div className={cn("flex items-center gap-1 text-xs tabular-nums", rollup?.running ? "font-medium text-work-done" : "text-muted-foreground")}><Clock3 className={cn("h-3.5 w-3.5", rollup?.running && "animate-pulse")} />{formatMinutes(minutes)}</div><JobAvatars job={job} stats={stats} team={team} /><div className="col-span-2"><StatusPicker brandId={brandId} scope="job" value={job.status_id} compactPill selectionOnly className="h-8 w-full max-w-[180px] rounded-full text-[11px] font-semibold" onChange={onStatusChange} /></div><DueDateChip value={job.due_at} overdue={isOverdue(job.due_at, !!job.done_at)} onChange={onDueChange} /></div>
+    </div>
+    {expanded && subtasks ? <div className="border-t border-border/40 bg-muted/10 pl-10">{subtasks}</div> : null}
     </div>
   );
 }
@@ -164,6 +173,13 @@ export function JobListView(props: Props) {
   const [newName, setNewName] = useState("");
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  // "Mostrar sub-tasks": abre todas de uma vez; a escolha fica salva para a pessoa.
+  const [expandAll, setExpandAll] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  useEffect(() => { try { setExpandAll(window.localStorage.getItem("unitos:jobs-expand-all") === "1"); } catch { /* ignore */ } }, []);
+  const toggleExpandAll = () => { const next = !expandAll; setExpandAll(next); setExpanded(new Set()); try { window.localStorage.setItem("unitos:jobs-expand-all", next ? "1" : "0"); } catch { /* ignore */ } };
+  const isExpanded = (id: string) => expandAll !== expanded.has(id);
+  const toggleOne = (id: string) => setExpanded((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const statusMap = useMemo(() => new Map(props.statuses.map((status) => [status.id, status])), [props.statuses]);
   const completedJobs = props.jobs.filter((job) => !!job.done_at || statusMap.get(job.status_id ?? "")?.is_done).length;
@@ -207,6 +223,7 @@ export function JobListView(props: Props) {
            <div className="mr-auto flex min-w-0 items-baseline gap-2"><h2 className="text-base font-bold">Tasks</h2><p className="truncate text-[11px] font-medium text-muted-foreground">{completedJobs}/{props.jobs.length} concluídos · {props.taskTotals.done}/{props.taskTotals.total} sub-tasks</p></div>
             <Select value={groupBy} onValueChange={(value) => setGroupBy(value as GroupBy)}><SelectTrigger className="h-9 w-[174px] rounded-md bg-background text-xs font-semibold" aria-label="Agrupar tasks"><ArrowUpDown className="mr-1 h-3.5 w-3.5" /><span className="mr-1 text-muted-foreground">Agrupar:</span><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Nenhum</SelectItem><SelectItem value="status">Status</SelectItem><SelectItem value="assignee">Responsável</SelectItem><SelectItem value="due">Prazo</SelectItem></SelectContent></Select>
             <div className="flex h-9 rounded-md bg-muted p-0.5"><Button size="sm" variant={view === "list" ? "secondary" : "ghost"} className="h-8 gap-1.5 px-2.5 text-xs" onClick={() => setView("list")} aria-label="Lista"><List className="h-3.5 w-3.5" />Lista</Button><Button size="sm" variant={view === "board" ? "secondary" : "ghost"} className="h-8 gap-1.5 px-2.5 text-xs" onClick={() => setView("board")} aria-label="Quadro"><Kanban className="h-3.5 w-3.5" />Quadro</Button></div>
+            {props.renderSubtasks && view === "list" ? <Button size="sm" variant={expandAll ? "secondary" : "outline"} className="h-9 gap-1.5 text-xs" aria-pressed={expandAll} onClick={toggleExpandAll}><ListTree className="h-3.5 w-3.5" />{expandAll ? "Esconder sub-tasks" : "Mostrar sub-tasks"}</Button> : null}
             {searchOpen || props.search ? <div className="relative w-[210px]"><Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" /><Input autoFocus value={props.search} onChange={(event) => props.onSearchChange(event.target.value)} onBlur={() => { if (!props.search) setSearchOpen(false); }} placeholder="Buscar nome ou número" className="h-9 pl-8 text-xs" /></div> : <Button size="icon" variant="outline" className="h-9 w-9" aria-label="Buscar tasks" title="Buscar tasks" onClick={() => setSearchOpen(true)}><Search className="h-3.5 w-3.5" /></Button>}
            <DropdownMenu><DropdownMenuTrigger asChild><Button size="icon" variant={props.visibility === "active" ? "outline" : "secondary"} className="h-9 w-9" aria-label={`Filtrar tasks: ${VISIBILITY_LABELS[props.visibility]}`} title={`Exibir: ${VISIBILITY_LABELS[props.visibility]}`}><Archive className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><VisibilityMenuBlock value={props.visibility} onChange={props.onVisibilityChange} label="Exibir tasks" withSeparator={false} /></DropdownMenuContent></DropdownMenu>
           <Button size="sm" className="h-9 gap-1.5" onClick={() => setAddingTo(null)}><Plus className="h-3.5 w-3.5" />Nova task</Button>
@@ -216,7 +233,7 @@ export function JobListView(props: Props) {
       {addingTo !== undefined ? <div className="flex flex-wrap gap-2 border-b border-border/60 bg-muted/20 p-3"><Input autoFocus value={newName} onChange={(event) => setNewName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void create(); if (event.key === "Escape") setAddingTo(undefined); }} placeholder="Nome da nova task" className="h-9 min-w-[220px] flex-1" /><Button size="sm" className="h-9" disabled={!newName.trim()} onClick={() => void create()}>Criar</Button><Button size="sm" variant="ghost" className="h-9" onClick={() => setAddingTo(undefined)}>Cancelar</Button></div> : null}
       {props.loading ? <div className="space-y-2 p-4"><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /></div> : props.jobs.length === 0 ? <div className="p-12 text-center text-sm text-muted-foreground">Nenhuma task encontrada.</div> : view === "board" ? (
         <DndContext sensors={sensors} onDragStart={(event) => setDraggedId(String(event.active.id))} onDragEnd={onDragEnd} onDragCancel={() => setDraggedId(null)}><div className="flex gap-3 overflow-x-auto p-4">{[...props.statuses.map((status) => ({ status, jobs: props.jobs.filter((job) => job.status_id === status.id) })), { status: null, jobs: props.jobs.filter((job) => !job.status_id) }].map(({ status, jobs }) => <BoardColumn key={status?.id ?? "none"} status={status} jobs={jobs} renderCard={renderCard} />)}</div><DragOverlay>{draggedId ? renderCard(props.jobs.find((job) => job.id === draggedId) ?? props.jobs[0]) : null}</DragOverlay></DndContext>
-        ) : <div className={cn("px-4 pb-4", groupBy !== "none" && "space-y-3")}>{groups.map((group) => <section key={group.key}>{groupBy !== "none" ? <header className="flex items-center gap-2 px-1 py-2"><StatusDot color={group.color} round /><h3 className="text-[11px] font-bold uppercase text-muted-foreground">{group.label}</h3><Badge variant="secondary" className="h-5 min-w-5 justify-center rounded-full px-1.5 text-[10px]">{group.jobs.length}</Badge>{groupBy === "status" ? <Button size="icon" variant="ghost" className="ml-auto h-6 w-6" title={`Adicionar task em ${group.label}`} aria-label={`Adicionar task em ${group.label}`} onClick={() => setAddingTo(group.statusId)}><Plus className="h-3.5 w-3.5" /></Button> : null}</header> : null}<div className="overflow-hidden rounded-md border border-border/60 bg-background shadow-sm">{group.jobs.map((job) => <JobRow key={job.id} brandId={props.brandId} job={job} stats={props.stats.get(job.id) ?? { total: 0, done: 0, minutes: 0, assignees: [] }} rollup={props.rollups.get(job.id)} status={statusMap.get(job.status_id ?? "")} team={props.team} onOpen={() => props.onOpen(job.id)} onStatusChange={(id) => props.onStatusChange(job, id)} onAssigneeChange={(id) => props.onAssigneeChange(job, id)} onDueChange={(value) => props.onDueChange(job, value)} menu={props.menuFor(job)} />)}{groupBy === "none" ? <Button variant="ghost" className="h-11 w-full justify-start rounded-none border-t border-dashed border-border/70 px-4 text-xs font-semibold text-primary" onClick={() => setAddingTo(null)}><Plus className="mr-2 h-3.5 w-3.5" />Adicionar uma task</Button> : null}</div></section>)}{groupBy !== "none" ? <Button variant="outline" className="h-11 w-full justify-start border-dashed bg-background px-4 text-xs text-muted-foreground" onClick={() => setAddingTo(null)}><Plus className="mr-2 h-3.5 w-3.5" />Adicionar uma task</Button> : null}</div>}
+        ) : <div className={cn("px-4 pb-4", groupBy !== "none" && "space-y-3")}>{groups.map((group) => <section key={group.key}>{groupBy !== "none" ? <header className="flex items-center gap-2 px-1 py-2"><StatusDot color={group.color} round /><h3 className="text-[11px] font-bold uppercase text-muted-foreground">{group.label}</h3><Badge variant="secondary" className="h-5 min-w-5 justify-center rounded-full px-1.5 text-[10px]">{group.jobs.length}</Badge>{groupBy === "status" ? <Button size="icon" variant="ghost" className="ml-auto h-6 w-6" title={`Adicionar task em ${group.label}`} aria-label={`Adicionar task em ${group.label}`} onClick={() => setAddingTo(group.statusId)}><Plus className="h-3.5 w-3.5" /></Button> : null}</header> : null}<div className="overflow-hidden rounded-md border border-border/60 bg-background shadow-sm">{group.jobs.map((job) => <JobRow key={job.id} brandId={props.brandId} job={job} stats={props.stats.get(job.id) ?? { total: 0, done: 0, minutes: 0, assignees: [] }} rollup={props.rollups.get(job.id)} status={statusMap.get(job.status_id ?? "")} team={props.team} onOpen={() => props.onOpen(job.id)} onStatusChange={(id) => props.onStatusChange(job, id)} onAssigneeChange={(id) => props.onAssigneeChange(job, id)} onDueChange={(value) => props.onDueChange(job, value)} menu={props.menuFor(job)} expanded={isExpanded(job.id)} onToggleExpand={props.renderSubtasks ? () => toggleOne(job.id) : undefined} subtasks={props.renderSubtasks && isExpanded(job.id) ? props.renderSubtasks(job) : null} />)}{groupBy === "none" ? <Button variant="ghost" className="h-11 w-full justify-start rounded-none border-t border-dashed border-border/70 px-4 text-xs font-semibold text-primary" onClick={() => setAddingTo(null)}><Plus className="mr-2 h-3.5 w-3.5" />Adicionar uma task</Button> : null}</div></section>)}{groupBy !== "none" ? <Button variant="outline" className="h-11 w-full justify-start border-dashed bg-background px-4 text-xs text-muted-foreground" onClick={() => setAddingTo(null)}><Plus className="mr-2 h-3.5 w-3.5" />Adicionar uma task</Button> : null}</div>}
     </div>
   );
 }
