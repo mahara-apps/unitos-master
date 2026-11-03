@@ -9,6 +9,7 @@ import { ActiveContextProvider, useActiveContext } from "@/hooks/use-active-cont
 import { PageHeaderProvider, usePageHeaderState } from "@/hooks/use-page-header";
 import { CommandMenu } from "@/components/command-menu";
 import { BackToOrigin } from "@/components/back-to-origin";
+import { ActiveTimerChip } from "@/components/active-timer-chip";
 import { Command } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationsBell } from "@/components/notifications/notifications-drawer";
@@ -164,6 +165,7 @@ function ShellHeader() {
           </kbd>
         </Button>
         {actions}
+        <ActiveTimerChip />
         <AiJobsIndicator />
         <NotificationsBell />
         <ThemeToggle />
