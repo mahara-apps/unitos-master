@@ -2,7 +2,7 @@
  * Trilha de navegação da sessão: lembra de onde a pessoa veio (endereço completo,
  * com filtros e abas) para o botão "Voltar para …" levar exatamente para lá.
  */
-export type TrailEntry = { href: string; path: string; title: string };
+export type TrailEntry = { href: string; path: string; title: string; scrollY?: number };
 
 export const TRAIL_MAX = 30;
 
@@ -31,4 +31,11 @@ export function retitleTrail(trail: TrailEntry[], href: string, title: string): 
 /** Página anterior para o botão Voltar, ou null quando a pessoa entrou direto. */
 export function previousEntry(trail: TrailEntry[]): TrailEntry | null {
   return trail.length >= 2 ? trail[trail.length - 2] : null;
+}
+
+/** Guarda a rolagem da página atual para o Voltar devolver a pessoa ao mesmo ponto. */
+export function setTrailScroll(trail: TrailEntry[], href: string, scrollY: number): TrailEntry[] {
+  const last = trail[trail.length - 1];
+  if (!last || last.href !== href || last.scrollY === scrollY) return trail;
+  return [...trail.slice(0, -1), { ...last, scrollY: Math.max(0, Math.round(scrollY)) }];
 }
