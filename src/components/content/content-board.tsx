@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -359,6 +359,7 @@ export function ContentBoard({
         ) : null}
       </DragOverlay>
     </DndContext>
+    </QuickMoveContext.Provider>
   );
 }
 
