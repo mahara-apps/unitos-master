@@ -446,7 +446,7 @@ export function PautaDetailModal({
       variant={variant}
       open={open}
       onOpenChange={(next) => {
-        if (!openedTaskId) onOpenChange(next);
+        if (!openedTaskId && !pieceOpen) onOpenChange(next);
       }}
       title={item.title}
       description={
