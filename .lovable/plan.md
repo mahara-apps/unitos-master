@@ -35,8 +35,19 @@ Cada item vira uma versão do MASTER, validada antes do próximo, seguindo o flu
 - O bloco "Capa" pode ser editado e é só texto, sem gerar imagem. Ele nunca vai para a legenda publicada.
 - Peças que já existem ganham o bloco ao clicar em "Refazer".
 
+## 7. Menos cliques e "Voltar" para onde a pessoa estava
+- Problema relatado: a pessoa abre o projeto, depois a tarefa e dá play. Para editar a peça, vai para Pauta e depois para Conteúdo. Lá não tem botão de voltar, então ela fecha tudo e refaz o caminho para mover a tarefa.
+- **Voltar inteligente:** toda tela aberta a partir de outra mostra "← Voltar para [nome da origem]". Por exemplo, "Voltar para Projeto X" ou "Voltar para Pauta de Outubro". O botão leva exatamente para onde a pessoa estava, com os mesmos filtros, aba e rolagem. Se a pessoa entrou direto pelo link, ele volta para a lista daquele tipo.
+- **Atalhos entre tarefa, pauta e peça:**
+  - Na tarefa ligada a uma peça: botão "Abrir peça", que abre por cima, sem sair da tela.
+  - Na peça: "Ir para a tarefa" e "Ir para a pauta".
+  - Na pauta: cada item edita a peça ali mesmo, numa janela lateral, em vez de mandar para Conteúdo.
+- **Ações rápidas sem abrir nada:** na própria linha ou no cartão dá para dar play/pausar, mudar o status ou a etapa e marcar como feita. Isso vale em Tarefas, no Kanban de Projetos e no Kanban de Conteúdo.
+- **Janela por cima em vez de troca de página:** a tarefa e a peça abrem como painel lateral, e o endereço da página muda, para dar para compartilhar o link. Ao fechar, a pessoa continua na lista onde estava.
+- **Timer sempre visível:** a tarefa com play ativo aparece fixa no topo, com pausar e "abrir". Assim não é preciso voltar à tarefa só para parar o tempo.
+
 ## Ordem sugerida
-3 → 1 → 4 → 5 → 2 → 6. Começamos pelos mais simples e mais pedidos.
+3 → 7 (voltar + atalhos) → 1 → 4 → 5 → 2 → 6.
 
 ## Detalhes técnicos
 - 1: projeção read-only existente (`work-items`), carregando as sub-tasks quando a task é expandida. A conclusão e o tempo usam as mesmas funções da tela de detalhe. A preferência é guardada por usuário.
@@ -44,4 +55,5 @@ Cada item vira uma versão do MASTER, validada antes do próximo, seguindo o flu
 - 3: edição do título dentro da própria linha, pela mesma mutation de update. A RLS não muda.
 - 4/5: seletor de cliente filtrado por `can_access_client`. `content.tsx` passa a usar o mesmo layout nas duas visões.
 - 6: schema do roteirista ganha `cover: { has_cover, text, designer_note }` normalizado, salvo na peça junto do roteiro. A higiene de legenda também bloqueia o texto da capa.
+- 7: a origem vai na URL (`from` em search params validados, com rótulo e caminho da tela anterior). Isso preserva filtros e aba, e o painel lateral é controlado por search param (`?task=`, `?post=`). Sem `from`, usa o pai lógico. O timer ativo é lido da sessão de tempo já existente.
 - Cada etapa: testes das regras novas, `build_delta.py`, versão sincronizada, `verify-installation` e `master:check`. Publicar só com autorização.
