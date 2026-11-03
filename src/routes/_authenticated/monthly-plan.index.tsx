@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { useActiveContext } from "@/hooks/use-active-context";
 import { MonthlyPlanView } from "@/components/monthly-plan/monthly-plan-view";
+import { ClientChooserPanel } from "@/components/client-chooser";
 
 const SearchSchema = z.object({ planId: z.string().uuid().optional() });
 
@@ -45,6 +46,14 @@ function MonthlyPlanIndexPage() {
   }, [planId, navigate]);
 
   if (planId) return null;
+  if (!clientId) {
+    return (
+      <ClientChooserPanel
+        title="Para qual cliente é a pauta?"
+        description="Você está vendo todos os clientes. Escolha um para criar ou acompanhar a pauta mensal."
+      />
+    );
+  }
 
   return (
     <MonthlyPlanView

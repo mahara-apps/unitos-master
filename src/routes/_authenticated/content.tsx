@@ -35,6 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { usePageHeader } from "@/hooks/use-page-header";
+import { ClientChooserDialog, ClientChooserPanel } from "@/components/client-chooser";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
   createPipelineFn,
@@ -141,13 +142,16 @@ function ContentPage() {
     <DashboardPageShell className="flex min-h-0 flex-col space-y-4">
       {!clientId ? (
         access.role === "admin" ? (
-          <Suspense fallback={<AgencyContentFallback />}>
-            <AgencyContentView brandId={brandId} />
-          </Suspense>
+          <>
+            <AllClientsContentActions />
+            <Suspense fallback={<AgencyContentFallback />}>
+              <AgencyContentView brandId={brandId} />
+            </Suspense>
+          </>
         ) : (
-          <BoardEmpty
-            title="Selecione uma conta"
-            description="O pipeline é organizado por cliente. Selecione uma conta ativa."
+          <ClientChooserPanel
+            title="Escolha o cliente"
+            description="O quadro de conteúdo é organizado por cliente. Escolha um para ver e criar conteúdos."
           />
         )
       ) : (
@@ -161,6 +165,31 @@ function ContentPage() {
         />
       )}
     </DashboardPageShell>
+  );
+}
+
+/** Em "Todos os clientes": criar conteúdo ou gerar pauta escolhendo o cliente antes. */
+function AllClientsContentActions() {
+  const navigate = useNavigate();
+  const [target, setTarget] = useState<"new" | "plan" | null>(null);
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setTarget("plan")}>
+        <Sparkles className="h-4 w-4" /> Gerar pauta
+      </Button>
+      <Button size="sm" className="h-9 gap-1.5" onClick={() => setTarget("new")}>
+        <Plus className="h-4 w-4" /> Novo conteúdo
+      </Button>
+      <ClientChooserDialog
+        open={target !== null}
+        onOpenChange={(open) => { if (!open) setTarget(null); }}
+        description={target === "plan" ? "A pauta mensal é gerada para um cliente." : "O conteúdo será criado no quadro deste cliente."}
+        onPicked={() => {
+          if (target === "plan") void navigate({ to: "/monthly-plan" });
+          else void navigate({ to: "/content", search: { new: true } });
+        }}
+      />
+    </div>
   );
 }
 
