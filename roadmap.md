@@ -47,10 +47,11 @@
 - [ ] Casa 8 recadastrar chaves Gemini/Anthropic — depende do cliente
 
 ## Ajustes da equipe (menos cliques) — plano aprovado
-- [ ] 3. Renomear tarefas e sub-tarefas
-- [ ] 7. Voltar para a origem + atalhos tarefa/pauta/peça
-- [ ] 1. Sub-tasks expansíveis na lista de Tarefas
-- [ ] 4. Pauta em "Todos os clientes" com seletor de cliente
-- [ ] 5. Conteúdo em "Todos os clientes" igual à visão por cliente + Novo conteúdo
-- [ ] 2. Projetos em Kanban
-- [ ] 6. Bloco "Capa" no roteiro do Reels
+- [x] 3. Renomear tarefas e sub-tarefas
+- [x] 7. Voltar para a origem + atalhos tarefa/pauta/peça
+- [x] 1. Sub-tasks expansíveis na lista de Tarefas
+- [x] 4. Pauta em "Todos os clientes" com seletor de cliente
+- [x] 5. Conteúdo em "Todos os clientes" igual à visão por cliente + Novo conteúdo
+- [x] 2. Projetos em Kanban
+- [x] 6. Bloco "Capa" no roteiro do Reels
+- [ ] Conferir as telas logado e publicar o MASTER 1.4.82 — aguarda autorização; a prévia não tem sessão automática (Supabase externo).
