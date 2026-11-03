@@ -35,3 +35,12 @@ describe("trilha de navegação", () => {
     expect(t[0].title).toBe("Projeto X");
   });
 });
+
+import { setTrailScroll } from "@/lib/nav-trail";
+describe("rolagem do Voltar", () => {
+  it("guarda a rolagem só da página atual", () => {
+    const trail = [{ href: "/a", path: "/a", title: "A" }, { href: "/b?x=1", path: "/b", title: "B" }];
+    expect(setTrailScroll(trail, "/b?x=1", 640).at(-1)?.scrollY).toBe(640);
+    expect(setTrailScroll(trail, "/a", 640)).toBe(trail);
+  });
+});

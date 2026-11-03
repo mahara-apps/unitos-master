@@ -26,7 +26,7 @@ export type KanbanProject = {
   due_at: string | null;
 };
 
-function Card({ project, clientName, dueLabel, onOpen, overlay }: { project: KanbanProject; clientName: string | null; dueLabel: string | null; onOpen: () => void; overlay?: boolean }) {
+function Card({ project, clientName, dueLabel, onOpen, overlay, statuses, onMove }: { project: KanbanProject; clientName: string | null; dueLabel: string | null; onOpen: () => void; overlay?: boolean; statuses?: Array<{ id: string; name: string }>; onMove?: (statusId: string | null) => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: project.id, disabled: overlay });
   return (
     <article
@@ -41,6 +41,22 @@ function Card({ project, clientName, dueLabel, onOpen, overlay }: { project: Kan
         <span className="truncate">{clientName ?? "Sem cliente"}</span>
         {dueLabel ? <span className="shrink-0 tabular-nums">{dueLabel}</span> : null}
       </div>
+      {statuses && onMove && !overlay ? (
+        <select
+          aria-label={`Mudar status de ${project.name}`}
+          value={project.status_id ?? ""}
+          onPointerDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => onMove(e.target.value || null)}
+          className="mt-2 h-7 w-full rounded-md border border-border/60 bg-background px-2 text-[11px] text-muted-foreground hover:text-foreground"
+        >
+          <option value="">Status: Sem status</option>
+          {statuses.map((st) => (
+            <option key={st.id} value={st.id}>Status: {st.name}</option>
+          ))}
+        </select>
+      ) : null}
     </article>
   );
 }
@@ -103,7 +119,7 @@ export function ProjectsKanban({
         {columns.map((col) => (
           <Column key={col.key} id={col.key} name={col.name} color={col.color} count={col.projects.length}>
             {col.projects.map((p) => (
-              <Card key={p.id} project={p} clientName={clientName(p.client_id)} dueLabel={dueLabel(p)} onOpen={() => onOpen(p.id)} />
+              <Card key={p.id} project={p} clientName={clientName(p.client_id)} dueLabel={dueLabel(p)} onOpen={() => onOpen(p.id)} statuses={statuses} onMove={(statusId) => { if (statusId !== p.status_id) move.mutate({ projectId: p.id, statusId }); }} />
             ))}
           </Column>
         ))}

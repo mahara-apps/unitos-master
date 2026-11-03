@@ -1,3 +1,4 @@
+import { PostNavShortcuts } from "@/components/content/post-nav-shortcuts";
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -733,6 +734,9 @@ function EditBody({
               placeholder="Nome do post"
               className="h-9 border-0 bg-transparent px-0 text-base font-semibold tracking-tight shadow-none focus-visible:ring-0"
             />
+            <div className="mb-1">
+              <PostNavShortcuts postId={postId} onNavigate={() => onOpenChange(false)} />
+            </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
               {reviewStatus === "pending" && aiPhase === "idea" ? (
                 <Badge

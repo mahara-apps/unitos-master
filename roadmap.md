@@ -55,3 +55,8 @@
 - [x] 2. Projetos em Kanban
 - [x] 6. Bloco "Capa" no roteiro do Reels
 - [ ] Conferir as telas logado e publicar o MASTER 1.4.82 — aguarda autorização; a prévia não tem sessão automática (Supabase externo).
+- [x] P2. Peça: "Ir para a tarefa" e "Ir para a pauta"
+- [x] P3. Ações rápidas nos cartões (Kanban de Conteúdo e de Projetos)
+- [x] P4. Task/peça por cima com link compartilhável (?task=/?post=)
+- [x] P5. Voltar restaura rolagem
+- [ ] P6. Conferência logado e publicação (aguarda autorização)

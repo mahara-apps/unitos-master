@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useRouterState } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { previousEntry, retitleTrail, visitTrail, type TrailEntry } from "@/lib/nav-trail";
+import { previousEntry, retitleTrail, setTrailScroll, visitTrail, type TrailEntry } from "@/lib/nav-trail";
 
 const KEY = "unitos:nav-trail";
 
@@ -44,6 +44,34 @@ export function BackToOrigin({ title }: { title: string }) {
     write(next);
   }, [href, title]);
 
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const onScroll = () => {
+      if (t) clearTimeout(t);
+      t = setTimeout(() => write(setTrailScroll(read(), href, window.scrollY)), 150);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      if (t) clearTimeout(t);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, [href]);
+
+  const goBack = async (entry: TrailEntry) => {
+    await router.navigate({ href: entry.href });
+    const y = entry.scrollY ?? 0;
+    if (y > 0) {
+      // A lista pode ainda estar carregando: tenta por até ~2s até a página ter altura.
+      let tries = 0;
+      const tick = () => {
+        if (document.documentElement.scrollHeight - window.innerHeight >= y || tries++ > 20) {
+          window.scrollTo({ top: y });
+        } else setTimeout(tick, 100);
+      };
+      tick();
+    }
+  };
+
   if (!prev) return null;
   const label = prev.title?.trim() || "a tela anterior";
   return (
@@ -52,7 +80,7 @@ export function BackToOrigin({ title }: { title: string }) {
       size="sm"
       className="h-8 shrink-0 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
       title={`Voltar para ${label}`}
-      onClick={() => void router.navigate({ href: prev.href })}
+      onClick={() => void goBack(prev)}
     >
       <ArrowLeft className="h-3.5 w-3.5" />
       <span className="max-w-[180px] truncate">Voltar para {label}</span>
