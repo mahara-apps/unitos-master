@@ -865,6 +865,27 @@ export function PautaDetailModal({
           onChanged={invalidate}
         />
       ) : null}
+      {item.postId && pieceCtxQ.data ? (
+        <TaskDialog
+          mode="edit"
+          nested
+          open={pieceOpen}
+          onOpenChange={(next) => { setPieceOpen(next); if (!next) invalidate(); }}
+          brandId={pieceCtxQ.data.brandId}
+          clientId={pieceCtxQ.data.clientId}
+          pipelineId={pieceCtxQ.data.pipelineId}
+          stages={pieceCtxQ.data.stages}
+          postId={item.postId}
+          invalidateKey={["project", brandId] as const}
+        />
+      ) : null}
+      {pieceOpen && pieceCtxQ.isError ? (
+        <div className="fixed bottom-4 right-4 z-[70] max-w-sm rounded-md border border-destructive/30 bg-background p-3 text-sm shadow-lg">
+          <p className="font-medium">Não foi possível abrir a peça.</p>
+          <p className="mt-1 text-xs text-muted-foreground">{pieceCtxQ.error.message}</p>
+          <Button className="mt-2" size="sm" variant="outline" onClick={() => setPieceOpen(false)}>Fechar</Button>
+        </div>
+      ) : null}
     </PautaShell>
   );
 }
