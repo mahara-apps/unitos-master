@@ -256,6 +256,19 @@ export function ContentBoard({
     moveMutation.mutate({ postId, toStageId: targetStageId, toPosition: newPos });
   }
 
+  function moveTo(postId: string, targetStageId: string) {
+    const currentPost = board.posts.find((p) => p.id === postId);
+    if (!currentPost || currentPost.stage_id === targetStageId) return;
+    const list = postsByStage.get(targetStageId) ?? [];
+    const newPos = (list.length > 0 ? list[list.length - 1].position : -1024) + 1024;
+    qc.setQueryData<Board>(boardQueryKey, (prev) =>
+      prev
+        ? { ...prev, posts: prev.posts.map((p) => (p.id === postId ? { ...p, stage_id: targetStageId, position: newPos } : p)) }
+        : prev,
+    );
+    moveMutation.mutate({ postId, toStageId: targetStageId, toPosition: newPos });
+  }
+
   const addStage = useMutation({
     mutationFn: () =>
       createStage({
@@ -286,6 +299,7 @@ export function ContentBoard({
   });
 
   return (
+    <QuickMoveContext.Provider value={{ stages: board.stages.map((st) => ({ id: st.id, label: st.label })), moveTo }}>
     <DndContext
       sensors={sensors}
       onDragStart={handleDragStart}
@@ -691,7 +705,36 @@ function DraggablePostCardInner({
       className={`touch-none ${isDragging ? "opacity-40" : ""}`}
     >
       <PostCard post={post} onOpen={onOpen} />
+      <QuickStageSelect post={post} />
     </div>
+  );
+}
+
+/** Ação rápida no cartão: mudar a etapa sem abrir a peça nem arrastar. */
+const QuickMoveContext = createContext<{
+  stages: Array<{ id: string; label: string }>;
+  moveTo: (postId: string, stageId: string) => void;
+} | null>(null);
+
+function QuickStageSelect({ post }: { post: BoardPost }) {
+  const ctx = useContext(QuickMoveContext);
+  if (!ctx || ctx.stages.length < 2) return null;
+  return (
+    <select
+      aria-label={`Mudar etapa de ${post.title ?? "peça"}`}
+      value={post.stage_id ?? ""}
+      onPointerDown={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => ctx.moveTo(post.id, e.target.value)}
+      className="mt-1 h-7 w-full rounded-md border border-border/60 bg-background px-2 text-[11px] text-muted-foreground hover:text-foreground"
+    >
+      {ctx.stages.map((s) => (
+        <option key={s.id} value={s.id}>
+          Etapa: {s.label}
+        </option>
+      ))}
+    </select>
   );
 }
 
