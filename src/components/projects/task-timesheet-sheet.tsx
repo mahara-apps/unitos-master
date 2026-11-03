@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, Trash2, Clock, RotateCcw, CheckCircle2, Paperclip } from "lucide-react";
 import { ExpandedModal } from "@/components/ui/expanded-modal";
+import { InlineEditableText } from "@/components/ui/inline-editable-text";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -158,7 +159,7 @@ export function TaskTimesheetSheet({
       open={open}
       onOpenChange={onOpenChange}
       size="lg"
-      title={task?.title ?? "Sub-task"}
+      title={task ? <InlineEditableText value={task.title} onSave={(title) => metaMut.mutate({ title })} ariaLabel="Renomear sub-task" /> : "Sub-task"}
       description={breadcrumb}
       headerExtra={
         task && onToggleDone ? (

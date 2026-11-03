@@ -83,12 +83,14 @@ import {
   List as ListIcon,
   Palette,
   SlidersHorizontal,
+  Kanban as KanbanIcon,
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProjectCard } from "@/components/projects/project-card";
+import { ProjectsKanban } from "@/components/projects/projects-kanban";
 
-const VIEWS = ["cards", "list"] as const;
+const VIEWS = ["cards", "list", "kanban"] as const;
 type ViewMode = (typeof VIEWS)[number];
 const COLOR_BYS = ["project", "status", "client"] as const;
 type ColorBy = (typeof COLOR_BYS)[number];
@@ -817,6 +819,17 @@ function ProjectsIndexPage() {
                 <ListIcon className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Lista</span>
               </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={view === "kanban" ? "secondary" : "ghost"}
+                aria-pressed={view === "kanban"}
+                onClick={() => setView("kanban")}
+                className="h-8 gap-1.5 px-2.5 text-xs"
+              >
+                <KanbanIcon className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Kanban</span>
+              </Button>
             </div>
           </div>
         </div>
@@ -940,6 +953,14 @@ function ProjectsIndexPage() {
             }
           />
         </DashboardPanelSurface>
+      ) : view === "kanban" ? (
+        <ProjectsKanban
+          brandId={brandId!}
+          projects={rows.map((p) => ({ id: p.id, name: p.name, status_id: p.status_id ?? null, client_id: p.client_id ?? null, due_at: p.due_at ?? null }))}
+          clientName={(id) => clients.find((c) => c.id === id)?.name ?? null}
+          dueLabel={(p) => (p.due_at ? `Entrega ${fmtDate(p.due_at)}` : null)}
+          onOpen={(projectId) => navigate({ to: "/projects/$projectId", params: { projectId } })}
+        />
       ) : view === "cards" ? (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {rows.map((p) => {

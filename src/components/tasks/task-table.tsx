@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -23,6 +23,7 @@ import {
   Timer,
 } from "lucide-react";
 import { toast } from "sonner";
+import { InlineEditableText } from "@/components/ui/inline-editable-text";
 import { cn } from "@/lib/utils";
 import { addDaysInTz, endOfDayInTz, formatDateBr, startOfDayInTz } from "@/lib/timezone";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +42,7 @@ import {
 import {
   deleteTaskFn,
   listSubtasksFn,
+  updateSubtaskFn,
   setTaskArchivedFn,
   updateTaskFn,
   TASK_PRIORITIES,
@@ -593,9 +595,20 @@ function StatusCell({ task, onChange }: { task: TaskRow; onChange: (s: TaskStatu
 
 function SubtaskRows({ taskId, colCount }: { taskId: string; colCount: number }) {
   const list = useServerFn(listSubtasksFn);
+  const update = useServerFn(updateSubtaskFn);
+  const qc = useQueryClient();
   const q = useQuery({
     queryKey: ["task-subtasks", taskId],
     queryFn: () => list({ data: { taskId } }),
+  });
+  const patch = useMutation({
+    mutationFn: (v: { id: string; done?: boolean; title?: string }) =>
+      update({ data: { subtaskId: v.id, patch: v.title !== undefined ? { title: v.title } : { done: v.done } } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["task-subtasks", taskId] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
   return (
     <tr className="border-b border-border/40 bg-muted/20">
@@ -611,14 +624,28 @@ function SubtaskRows({ taskId, colCount }: { taskId: string; colCount: number })
           <ul className="space-y-1">
             {(q.data ?? []).map((s) => (
               <li key={s.id} className="flex items-center gap-2 text-xs">
-                {s.done ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                ) : (
-                  <Circle className="h-3.5 w-3.5 text-muted-foreground/60" />
-                )}
-                <span className={cn("truncate", s.done && "text-muted-foreground line-through")}>
-                  {s.title}
-                </span>
+                <button
+                  type="button"
+                  aria-label={s.done ? "Reabrir item" : "Marcar item como feito"}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    patch.mutate({ id: s.id, done: !s.done });
+                  }}
+                  className="shrink-0"
+                >
+                  {s.done ? (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                  ) : (
+                    <Circle className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-foreground" />
+                  )}
+                </button>
+                <InlineEditableText
+                  value={s.title}
+                  maxLength={300}
+                  ariaLabel="Renomear item"
+                  onSave={(title) => patch.mutate({ id: s.id, title })}
+                  className={cn("truncate", s.done && "text-muted-foreground line-through")}
+                />
               </li>
             ))}
           </ul>

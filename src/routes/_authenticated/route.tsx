@@ -8,6 +8,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { ActiveContextProvider, useActiveContext } from "@/hooks/use-active-context";
 import { PageHeaderProvider, usePageHeaderState } from "@/hooks/use-page-header";
 import { CommandMenu } from "@/components/command-menu";
+import { BackToOrigin } from "@/components/back-to-origin";
+import { ActiveTimerChip } from "@/components/active-timer-chip";
 import { Command } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationsBell } from "@/components/notifications/notifications-drawer";
@@ -139,6 +141,7 @@ function ShellHeader() {
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-border/60 bg-background/80 px-4 backdrop-blur">
       <div className="flex min-w-0 items-center gap-3">
+        <BackToOrigin title={resolvedTitle} />
         <div className="flex min-w-0 flex-col leading-tight">
           <span className="truncate text-sm font-semibold">{resolvedTitle}</span>
           {subtitle ? (
@@ -162,6 +165,7 @@ function ShellHeader() {
           </kbd>
         </Button>
         {actions}
+        <ActiveTimerChip />
         <AiJobsIndicator />
         <NotificationsBell />
         <ThemeToggle />

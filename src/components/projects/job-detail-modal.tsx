@@ -9,6 +9,7 @@ import type { ReactNode } from "react";
 import { CheckCircle2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { InlineEditableText } from "@/components/ui/inline-editable-text";
 
 export function JobDetailModal({
   open,
@@ -25,6 +26,7 @@ export function JobDetailModal({
   code,
   collaborators,
   share,
+  onRename,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -41,6 +43,8 @@ export function JobDetailModal({
   code?: string;
   collaborators?: ReactNode;
   share?: ReactNode;
+  /** Renomear a task direto no título. */
+  onRename?: (name: string) => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -54,7 +58,7 @@ export function JobDetailModal({
                 <span className="shrink-0 font-mono">{code}</span>
                 {breadcrumb ? <><span aria-hidden="true">·</span><div className="flex min-w-0 items-center gap-1.5">{breadcrumb}</div></> : null}
               </div>
-              <h2 className="truncate text-xl font-semibold leading-tight sm:text-2xl">{title}</h2>
+              <h2 className="min-w-0 text-xl font-semibold leading-tight sm:text-2xl"><InlineEditableText value={title} onSave={onRename} maxLength={120} ariaLabel="Renomear task" className="truncate" /></h2>
             </div>
             <div className="flex shrink-0 items-center gap-1">{collaborators}{share}{menu}</div>
           </div>
