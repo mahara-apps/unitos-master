@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
+import { InlineEditableText } from "@/components/ui/inline-editable-text";
 import { cn } from "@/lib/utils";
 import {
   WorkItemStateBadge,
@@ -20,6 +20,7 @@ type Props = {
   timer: ReactNode;
   subtasks: ReactNode;
   menu: ReactNode;
+  onRename?: (title: string) => void;
 };
 
 export function JobTaskRow({
@@ -35,6 +36,7 @@ export function JobTaskRow({
   timer,
   subtasks,
   menu,
+  onRename,
 }: Props) {
   return (
     <div className={cn(
@@ -43,24 +45,27 @@ export function JobTaskRow({
     )}>
       <div className="shrink-0">{completion}</div>
 
-      <Button
-        variant="ghost"
-        className="h-auto min-h-7 min-w-0 justify-start whitespace-normal p-0 text-left hover:bg-transparent"
+      <div
+        role="button"
+        tabIndex={0}
+        className="flex min-h-7 min-w-0 cursor-pointer justify-start text-left"
         onClick={onOpen}
+        onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) onOpen(); }}
         title={title}
       >
         <span className="flex min-w-0 flex-col items-start gap-0.5">
-          <span
+          <InlineEditableText
+            value={title}
+            onSave={onRename}
+            ariaLabel="Renomear sub-task"
             className={cn(
               "line-clamp-2 min-w-0 text-sm font-medium leading-5",
               done && "text-muted-foreground line-through",
             )}
-          >
-            {title}
-          </span>
+          />
           <WorkItemStateBadge state={visualState} />
         </span>
-      </Button>
+      </div>
 
       <div className="row-start-1 flex h-8 shrink-0 items-center justify-end @[900px]:col-start-9">
         {menu}
