@@ -1,31 +1,32 @@
-# Caso Vinicius (Casa 8): Dashboard trava com "Página sem resposta"
+# Acesso travado em "Preparando seu espaço..." (ZAHA e Casa 8)
 
-## O que já foi confirmado
-- Áudio e vídeo: depois do login, o Chrome do Mac mostra "Página sem resposta" com a tela branca atrás. Isso quer dizer que o navegador ficou ocupado sem parar; a página não chegou a mostrar um erro.
-- No seu print (janela anônima), a tela fica em "Preparando seu espaço..." logo depois de "Bem-vindo de volta".
-- Conta na Casa 8: ativa desde 06/10, e-mail confirmado, papel Manager, sem clientes atribuídos. Duas colegas com o mesmo perfil entraram normalmente ontem e hoje.
-- Teste que fiz com o acesso enviado, num navegador automático, só olhando, sem salvar nada:
-  - o login funcionou e o Dashboard abriu completo em poucos segundos;
-  - apareceu o aviso "Complete seu primeiro acesso", com nome e nova senha, por causa da senha provisória;
-  - digitar no aviso, recarregar o Dashboard, abrir Equipe e manter 4 abas abertas juntas: em nenhum caso travou (a página respondeu sempre em menos de 10 ms).
-- Você confirmou que, no seu computador, a sua própria conta também trava.
-- Conclusão: o problema **não é da conta do Vinicius**. Ele aparece no Chrome de verdade, em mais de um computador e com contas diferentes. No navegador automático que eu uso, não acontece. A causa ainda não está confirmada; a suspeita mais forte é algo no carregamento inicial do sistema que só trava num Chrome real.
+## O que já está confirmado
+- A tela que trava é a de entrada da área logada. Ela só sai dali quando o sistema termina de ler quem é a pessoa logada.
+- Essa leitura tem um limite de 6 segundos para consultar o servidor. Se o limite estoura, o sistema recorre à sessão salva no navegador, **mas essa segunda leitura não tem limite nenhum**.
+- As duas leituras disputam a mesma "trava" interna do navegador. Se a primeira ficar presa (rede lenta, renovação de login emperrada, várias abas do Unitos abertas ao mesmo tempo), a segunda espera para sempre. Resultado: o carregamento gira sem fim.
+- Isso explica por que o problema é inconsistente: depende do navegador, das abas abertas e do momento em que o login está sendo renovado. Também explica por que aparece em todas as instalações e com contas diferentes, já que é o mesmo código do MASTER.
+- A causa exata ainda não foi reproduzida aqui. No navegador automático que uso, o problema não aparece. O ponto acima é a falha concreta encontrada no código, e se encaixa nos relatos.
 
-## O que difere no ambiente dele
-- Chrome no Mac com dezenas de abas abertas e extensões.
-- A janela anônima compartilha a sessão entre todas as abas anônimas abertas. Se houver mais de uma aba do Unitos, elas podem disputar a mesma sessão.
-- O aviso "Preparando seu espaço" infinito é o mesmo que já apareceu antes no preview. Lá, a suspeita era uma espera sem limite de tempo na leitura da sessão.
+## O que vou corrigir no MASTER
+1. **Limite de tempo total:** a entrada não espera mais de cerca de 8 segundos no total, nem na leitura de reserva.
+2. **Saída clara em vez de girar para sempre:** se o limite estourar, aparece a mensagem "Não conseguimos confirmar seu acesso", com os botões "Tentar novamente" e "Entrar novamente". O segundo limpa a sessão travada daquele navegador e leva ao login.
+3. **Destravar a renovação presa:** quando a leitura estourar, o sistema força uma nova leitura e evita que as várias abas do Unitos fiquem esperando umas pelas outras.
+4. **Registro do motivo:** cada travamento grava no console um aviso com o tempo de espera e o ponto em que parou. Assim, o próximo relato chega com prova.
+5. **Testes:** um teste automático simula a leitura que nunca responde e confirma que a tela sai do carregamento dentro do limite.
 
-## Passo 1: capturar o travamento no seu computador (sem mexer no sistema)
-1. Testar no Safari, para saber se o problema é só do Chrome.
-2. No Chrome, antes de entrar, abrir as Ferramentas do desenvolvedor (Cmd+Option+I) na aba Console e mandar print dos erros em vermelho.
-3. Ainda nas Ferramentas, abrir a aba Performance, clicar em gravar e entrar no sistema. Quando travar, parar a gravação e exportar o arquivo. Esse arquivo mostra exatamente qual parte do sistema fica rodando sem parar.
-4. Vou repetir o teste num Chrome com aparência de Mac (tela grande e tema escuro) para tentar reproduzir aqui também.
+## Segurança
+- Login, papéis e permissões continuam como estão. O servidor segue conferindo o acesso em toda ação.
+- Sem a sessão confirmada, ninguém entra. A mudança só troca o carregamento infinito por uma saída clara.
 
-## Passo 2: blindagem no MASTER (vale para todos)
-- Pôr um limite de tempo rígido na leitura da sessão ao abrir o sistema. Se estourar, mostrar a opção "Entrar novamente" em vez de girar para sempre.
-- Impedir que várias abas abertas fiquem esperando umas pelas outras.
-- Seguir o fluxo MASTER-first completo: testes, pacote, versão e verificação. Publicar só com sua autorização.
+## Entrega
+- Sigo o fluxo MASTER-first: testes, pacote, versão sincronizada e `master:check`.
+- Publico só com a sua autorização. Depois, cada instalação (ZAHA e Casa 8) precisa clicar em "Atualizar".
 
-## Atenção
-- A senha provisória foi compartilhada no chat. Depois do teste, peça para ele trocá-la no aviso de primeiro acesso.
+## Enquanto isso (paliativo para os usuários)
+- Fechar todas as abas do Unitos e abrir apenas uma.
+- Se continuar travando, sair e entrar de novo ou limpar os dados do site no navegador.
+
+## Detalhes técnicos
+- `src/lib/auth-cache.ts` `resolveUser`: colocar `local` (`getSession`) também em `Promise.race` com timeout. Timeout global → retorna estado `"timeout"` distinto de `null` (sem sessão), para não confundir erro com ausência.
+- `src/routes/_authenticated/route.tsx`: no `beforeLoad`, o estado `"timeout"` renderiza `errorComponent`/tela de recuperação, em vez de redirecionar ou ficar pendente. "Entrar novamente" chama `supabase.auth.signOut({ scope: "local" })` e `clearCachedUser()`.
+- Teste em `tests/auth-cache.unit.test.ts` com mocks que nunca resolvem, usando fake timers.
