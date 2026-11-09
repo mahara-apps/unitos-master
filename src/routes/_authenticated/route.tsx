@@ -17,7 +17,7 @@ import { MandatoryPasswordReset } from "@/components/auth/mandatory-password-res
 import { AiJobsProvider } from "@/components/ai-jobs/ai-jobs-provider";
 import { AiJobsIndicator } from "@/components/ai-jobs/ai-jobs-indicator";
 import { BrandFavicon } from "@/components/brand/brand-favicon";
-import { getCachedUser } from "@/lib/auth-cache";
+import { AuthCheckTimeoutError, getCachedUser, resetLocalSession } from "@/lib/auth-cache";
 import { getCachedPortalAccess } from "@/lib/access-cache";
 import { isWorkspaceScopedQueryKey, queryKeyCarriesScopeId } from "@/lib/session-reset";
 import { WorkspaceResolver } from "@/components/workspace-resolver";
@@ -71,8 +71,40 @@ export const Route = createFileRoute("/_authenticated")({
     return { user };
   },
 
+  errorComponent: AuthGateError,
   component: AppShell,
 });
+
+function AuthGateError({ error, reset }: { error: unknown; reset: () => void }) {
+  const isTimeout = error instanceof AuthCheckTimeoutError;
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background p-6">
+      <div className="max-w-sm space-y-4 text-center">
+        <h1 className="text-lg font-semibold text-foreground">
+          {isTimeout ? "Não conseguimos confirmar seu acesso" : "Não foi possível carregar esta tela"}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {isTimeout
+            ? "A confirmação do login demorou demais. Tente de novo; se continuar, entre novamente."
+            : "Tente novamente. Se continuar, entre novamente."}
+        </p>
+        <div className="flex justify-center gap-2">
+          <Button variant="outline" onClick={() => { reset(); window.location.reload(); }}>
+            Tentar novamente
+          </Button>
+          <Button
+            onClick={async () => {
+              await resetLocalSession();
+              window.location.assign("/login");
+            }}
+          >
+            Entrar novamente
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Troca de workspace: as chaves de query já carregam `brandId`/`clientId`, então
