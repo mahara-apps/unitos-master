@@ -93,9 +93,11 @@ export async function guardStream<T>(
         new Promise<never>((_, reject) => {
           timer = setTimeout(() => {
             const e = new ProviderTimeoutError(provider, phase, ms);
+            // Rejeita ANTES de cancelar: o cancel resolve a leitura pendente
+            // como "fim" e venceria a corrida, mascarando o timeout.
+            reject(e);
             controller.abort(e);
             reader.cancel(e).catch(() => {});
-            reject(e);
           }, ms);
         }),
       ]);
