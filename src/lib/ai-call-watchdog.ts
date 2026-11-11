@@ -56,8 +56,8 @@ export async function withFirstResponseDeadline<T>(
   const deadline = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
       const e = new ProviderTimeoutError(provider, "first_response", ms);
-      controller.abort(e);
       reject(e);
+      controller.abort(e);
     }, ms);
   });
   try {
