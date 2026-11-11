@@ -10632,6 +10632,10 @@ export type Database = {
         Args: { _brand_id: string; _provider: string; _source?: string }
         Returns: undefined
       }
+      reorder_job_tasks: {
+        Args: { p_job_id: string; p_ordered_ids: string[] }
+        Returns: number
+      }
       restore_project_template: {
         Args: { _brand_id: string; _template_id: string }
         Returns: string
