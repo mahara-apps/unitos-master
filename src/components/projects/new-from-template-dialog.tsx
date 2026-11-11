@@ -91,7 +91,7 @@ export function NewFromTemplateDialog({ open, onOpenChange, brandId }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-4 w-4" /> Novo projeto a partir de modelo
@@ -106,7 +106,7 @@ export function NewFromTemplateDialog({ open, onOpenChange, brandId }: Props) {
             <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
               Modelo
             </Label>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <div className="mt-2 grid max-h-[40vh] gap-2 overflow-y-auto p-0.5 sm:grid-cols-2">
               {templates.length === 0 && (
                 <div className="col-span-full rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
                   Nenhum modelo disponível ainda.
@@ -121,34 +121,34 @@ export function NewFromTemplateDialog({ open, onOpenChange, brandId }: Props) {
                     setTemplateId(t.id);
                     if (!name) setName(t.name);
                   }}
-                  className={`h-auto w-full justify-start rounded-md p-3 text-left transition ${
+                  className={`flex h-auto w-full min-w-0 flex-col items-stretch justify-start whitespace-normal rounded-md p-3 text-left transition ${
                     templateId === t.id
                       ? "border-primary bg-primary/5"
                       : "border-border/60 hover:border-border"
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <Layers className="h-4 w-4 text-muted-foreground" />
-                      <div className="text-sm font-medium">{t.name}</div>
+                  <div className="flex min-w-0 items-start justify-between gap-2">
+                    <div className="flex min-w-0 items-start gap-2">
+                      <Layers className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div className="line-clamp-2 min-w-0 break-words text-sm font-medium">{t.name}</div>
                     </div>
-           {selected && <div className="space-y-2 border-y border-border py-4 text-sm"><p className="font-medium">Revisão · {selected.name}</p><p>{selected.jobs_count ?? 0} tasks · {selected.tasks_count ?? 0} sub-tasks · {review.data?.texts ?? 0} textos padrão</p><p>Cliente: {clients.find(c => c.id === clientId)?.name ?? "Sem cliente"}</p>{review.isLoading && <p className="text-muted-foreground">Conferindo pessoas...</p>}{review.isError && <p role="alert" className="text-destructive">Não foi possível revisar o modelo. Tente novamente.</p>}{review.data && <p className={review.data.ineligible > 0 ? "text-destructive" : "text-muted-foreground"}>{review.data.ineligible > 0 ? `${review.data.ineligible} pessoas sem acesso ao cliente; ficarão sem atribuição. ` : "Pessoas aptas verificadas. "}Sem datas, horas ou histórico.</p>}</div>}
                     {t.is_system && (
-                      <Badge variant="secondary" className="text-[10px]">
+                      <Badge variant="secondary" className="shrink-0 text-[10px]">
                         Sistema
                       </Badge>
                     )}
                   </div>
                   {t.description && (
-                    <div className="mt-1 text-xs text-muted-foreground">{t.description}</div>
+                    <div className="mt-1 line-clamp-2 break-words text-xs font-normal text-muted-foreground">{t.description}</div>
                   )}
-                  <div className="mt-2 text-[10px] text-muted-foreground">
+                  <div className="mt-2 text-[10px] font-normal text-muted-foreground">
                     {t.jobs_count ?? 0} tasks · {t.tasks_count ?? 0} sub-tasks
                   </div>
                 </Button>
               ))}
             </div>
           </div>
+           {selected && <div className="min-w-0 space-y-2 break-words border-y border-border py-4 text-sm"><p className="font-medium">Revisão · {selected.name}</p><p>{selected.jobs_count ?? 0} tasks · {selected.tasks_count ?? 0} sub-tasks · {review.data?.texts ?? 0} textos padrão</p><p>Cliente: {clients.find(c => c.id === clientId)?.name ?? "Sem cliente"}</p>{review.isLoading && <p className="text-muted-foreground">Conferindo pessoas...</p>}{review.isError && <p role="alert" className="text-destructive">Não foi possível revisar o modelo. Tente novamente.</p>}{review.data && <p className={review.data.ineligible > 0 ? "text-destructive" : "text-muted-foreground"}>{review.data.ineligible > 0 ? `${review.data.ineligible} pessoas sem acesso ao cliente; ficarão sem atribuição. ` : "Pessoas aptas verificadas. "}Sem datas, horas ou histórico.</p>}</div>}
 
           <div className="grid gap-1.5">
             <Label>Nome do projeto</Label>
