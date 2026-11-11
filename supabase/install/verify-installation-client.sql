@@ -747,6 +747,13 @@ WITH checks AS (
       AND (SELECT count(*) FROM pg_trigger WHERE tgname IN ('ai_credential_audit_keys','ai_credential_audit_panel') AND NOT tgisinternal)=2
       THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
+  SELECT 95, 'projetos: reordenar sub-tasks',
+    'ordem por posição sob as permissões do usuário',
+    CASE WHEN to_regprocedure('public.reorder_job_tasks(uuid,uuid[])') IS NOT NULL
+      AND NOT has_function_privilege('anon','public.reorder_job_tasks(uuid,uuid[])','EXECUTE')
+      AND NOT (SELECT prosecdef FROM pg_proc WHERE oid='public.reorder_job_tasks(uuid,uuid[])'::regprocedure)
+      THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
   SELECT 94, 'IA: provedor principal automático',
     'chave aceita de Gemini/OpenAI/Anthropic vira principal; Groq só reserva',
     CASE WHEN pg_get_functiondef('public.set_provider_connection(uuid,text,jsonb,text,text,boolean)'::regprocedure) LIKE '%primary_changed%'
