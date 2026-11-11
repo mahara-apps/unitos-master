@@ -37,10 +37,10 @@ describe("ciclo de vida dos modelos de IA", () => {
   it("cruza a cadeia aprovada com os modelos liberados para a conta", () => {
     expect(
       compatibleSuccessorCandidates("anthropic", "strategic", "claude-opus-4-1", [
-        "claude-sonnet-4-5",
+        "claude-sonnet-5-5",
         "claude-opus-4-8",
       ]),
-    ).toEqual(["claude-opus-4-8", "claude-sonnet-4-5"]);
+    ).toEqual(["claude-opus-4-8", "claude-sonnet-5-5"]);
   });
 
   it("nunca devolve um modelo aposentado mesmo que ainda apareça na cadeia tentada", () => {
@@ -51,5 +51,22 @@ describe("ciclo de vida dos modelos de IA", () => {
     expect(isModelUnavailableError("HTTP 404 model not found")).toBe(true);
     expect(isModelUnavailableError("HTTP 401 invalid api key")).toBe(false);
     expect(isModelUnavailableError("HTTP 429 rate limit quota exceeded")).toBe(false);
+  });
+});
+
+describe("catálogo de modelos — nov/2026", () => {
+  it("nenhum padrão ou reserva aponta para modelo desligado", async () => {
+    const { MODEL_CATALOG, MODEL_FALLBACKS, isRetiredModel } = await import("@/lib/ai-models-catalog.server");
+    for (const [provider, roles] of Object.entries(MODEL_FALLBACKS)) {
+      for (const [role, chain] of Object.entries(roles)) {
+        const def = (MODEL_CATALOG as any)[provider][role];
+        for (const id of [def, ...chain]) expect(isRetiredModel(provider as any, id)).toBe(false);
+      }
+    }
+  });
+  it("Sonnet 4.5 (desligado em 30/11/2026) não é mais o padrão operacional", async () => {
+    const { MODEL_CATALOG } = await import("@/lib/ai-models-catalog.server");
+    expect(MODEL_CATALOG.anthropic.operational).toBe("claude-sonnet-5-5");
+    expect(MODEL_CATALOG.openai.strategic).toBe("gpt-6-astra");
   });
 });
