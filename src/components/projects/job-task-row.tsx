@@ -21,6 +21,8 @@ type Props = {
   subtasks: ReactNode;
   menu: ReactNode;
   onRename?: (title: string) => void;
+  /** Controle de posição (#N + alça de arrastar), renderizado antes da conclusão. */
+  handle?: ReactNode;
 };
 
 export function JobTaskRow({
@@ -37,13 +39,14 @@ export function JobTaskRow({
   subtasks,
   menu,
   onRename,
+  handle,
 }: Props) {
   return (
     <div className={cn(
-      "grid grid-cols-[28px_minmax(0,1fr)_32px] items-start gap-x-2 gap-y-2.5 border-l-2 border-l-transparent px-4 py-3.5 transition-colors @[900px]:grid-cols-[28px_minmax(220px,1fr)_112px_88px_32px_76px_32px_32px_32px] @[900px]:items-center @[900px]:gap-x-2",
+      "grid grid-cols-[auto_minmax(0,1fr)_32px] items-start gap-x-2 gap-y-2.5 border-l-2 border-l-transparent px-4 py-3.5 transition-colors @[900px]:grid-cols-[auto_minmax(220px,1fr)_112px_88px_32px_76px_32px_32px_32px] @[900px]:items-center @[900px]:gap-x-2",
       workItemSurfaceClass(visualState),
     )}>
-      <div className="shrink-0">{completion}</div>
+      <div className="flex shrink-0 items-center gap-0.5">{handle}{completion}</div>
 
       <div
         role="button"
