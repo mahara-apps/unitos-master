@@ -37,6 +37,8 @@ export type ConnectionsSettings = {
     /** Consumo do mês por provedor (openai | anthropic | gemini). */
     byProvider: Record<string, { usd: number; tokens: number; calls: number }>;
   };
+  /** Falhas por indisponibilidade/sem resposta nas últimas 6 h, por provedor. */
+  recentUnavailable: Record<string, number>;
 };
 
 /** Deriva o provedor a partir do id do modelo registrado. */
@@ -74,7 +76,7 @@ export const getConnections = createServerFn({ method: "GET" })
     const usage = [];
     for (let offset = 0; ; offset += 1000) {
       const page = await supabase.from("brand_ai_usage")
-        .select("cost_usd,input_tokens,output_tokens,success,model,provider")
+        .select("cost_usd,input_tokens,output_tokens,success,model,provider,error_kind,created_at")
         .eq("brand_id", data.brandId).gte("created_at", monthStart.toISOString())
         .order("created_at").order("id").range(offset, offset + 999);
       if (page.error || !Array.isArray(page.data)) throw new Error("Não foi possível consultar o consumo mensal de IA.");
@@ -99,8 +101,18 @@ export const getConnections = createServerFn({ method: "GET" })
       byProvider[key] = acc;
     }
 
+    const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
+    const recentUnavailable: Record<string, number> = {};
+    for (const u of rows) {
+      if (u.success || u.error_kind !== "provider_unavailable") continue;
+      if (new Date(u.created_at as string).getTime() < sixHoursAgo) continue;
+      const key = u.provider ?? providerFromModel(u.model as string | null);
+      recentUnavailable[key] = (recentUnavailable[key] ?? 0) + 1;
+    }
+
     return {
       brandId: data.brandId,
+      recentUnavailable,
       monthlyBudgetUsd: row ? Number(row.monthly_budget_usd) : 500,
       textProvider: (["openai", "anthropic", "gemini"] as const).includes(
         row?.text_provider as ConnectionsSettings["textProvider"],

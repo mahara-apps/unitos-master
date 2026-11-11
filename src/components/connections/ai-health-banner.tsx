@@ -5,11 +5,13 @@ import { deriveAiHealthWarnings, type ProviderPanelEntry } from "@/lib/ai-provid
 export function AiHealthBanner({
   primary,
   providers,
+  recentUnavailable,
 }: {
   primary?: string | null;
   providers?: Record<string, ProviderPanelEntry> | null;
+  recentUnavailable?: Record<string, number> | null;
 }) {
-  const warnings = deriveAiHealthWarnings({ primary, providers });
+  const warnings = deriveAiHealthWarnings({ primary, providers, recentUnavailable });
   if (!warnings.length) return null;
   return (
     <div className="space-y-2" role="alert">
