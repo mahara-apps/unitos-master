@@ -20,14 +20,16 @@ export { PROVIDER_CAPABILITIES };
 
 export const MODEL_CATALOG: Record<ProviderName, Record<ProviderRole, string | null>> = {
   openai: {
-    strategic: "gpt-5",
-    operational: "gpt-5-mini",
+    // Geração GPT-6 (nov/2026): Astra para estratégia, 6.1 Sol para o dia a dia.
+    strategic: "gpt-6-astra",
+    operational: "gpt-6.1-sol",
   },
   anthropic: {
     // Mantém o papel estratégico na família Opus. `claude-opus-4-1` foi
     // retirado do catálogo da Anthropic e não pode voltar como default.
     strategic: "claude-opus-5-5",
-    operational: "claude-sonnet-4-5",
+    // `claude-sonnet-4-5` é desligado em 30/11/2026; sucessor oficial: Sonnet 5.5.
+    operational: "claude-sonnet-5-5",
   },
   gemini: {
     // `*-latest` acompanha a geração atual do Google. `gemini-2.5-pro` foi
@@ -52,8 +54,8 @@ export const MODEL_CATALOG: Record<ProviderName, Record<ProviderRole, string | n
  */
 export const MODEL_FALLBACKS: Record<ProviderName, Record<ProviderRole, string[]>> = {
   openai: {
-    strategic: ["gpt-5", "gpt-5.1", "gpt-4.1"],
-    operational: ["gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini"],
+    strategic: ["gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra"],
+    operational: ["gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna"],
   },
   anthropic: {
     strategic: [
@@ -62,33 +64,31 @@ export const MODEL_FALLBACKS: Record<ProviderName, Record<ProviderRole, string[]
       "claude-opus-4-8",
       "claude-opus-4-7",
       "claude-opus-4-6",
+      "claude-sonnet-5-5",
       "claude-sonnet-5",
-      "claude-sonnet-4-6",
-      "claude-sonnet-4-5",
     ],
-    operational: [
-      "claude-sonnet-5",
-      "claude-sonnet-4-6",
-      "claude-sonnet-4-5",
-      "claude-haiku-4-5",
-      "claude-haiku-4-5-20251001",
-    ],
+    operational: ["claude-sonnet-5-5", "claude-sonnet-5", "claude-haiku-5-5"],
   },
   gemini: {
-    strategic: ["gemini-flash-latest", "gemini-3.6-flash", "gemini-2.5-flash"],
-    operational: ["gemini-flash-latest", "gemini-3.6-flash", "gemini-2.5-flash"],
+    strategic: ["gemini-flash-latest", "gemini-3.8-flash", "gemini-4-argon"],
+    operational: ["gemini-flash-latest", "gemini-3.8-flash", "gemini-3.5-flash"],
   },
   groq: {
-    strategic: ["openai/gpt-oss-120b", "moonshotai/kimi-k2-instruct-0905", "openai/gpt-oss-20b"],
-    operational: ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "llama-3.1-8b-instant"],
+    strategic: ["openai/gpt-oss-120b", "openai/gpt-oss-20b"],
+    operational: ["openai/gpt-oss-20b", "openai/gpt-oss-120b"],
   },
 };
 
 /** IDs confirmados como removidos e proibidos nos defaults/fallbacks. */
 export const RETIRED_MODELS: Readonly<Partial<Record<ProviderName, readonly string[]>>> = {
-  anthropic: ["claude-opus-4-1"],
-  gemini: ["gemini-2.5-pro", "imagen-3.0-generate-002"],
-  groq: ["llama-3.3-70b-versatile"],
+  anthropic: ["claude-opus-4-1", "claude-sonnet-4-5", "claude-sonnet-4-5-20250929"],
+  gemini: ["gemini-2.5-pro", "gemini-2.5-flash", "imagen-3.0-generate-002"],
+  groq: [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "moonshotai/kimi-k2-instruct",
+    "moonshotai/kimi-k2-instruct-0905",
+  ],
 };
 
 export function isRetiredModel(provider: ProviderName, modelId: string): boolean {

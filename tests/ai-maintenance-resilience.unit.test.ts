@@ -64,7 +64,7 @@ describe("catálogo e consumo confirmado", () => {
   });
   it("ignora overrides legados de imagem sem excluir dados", async () => {
     db.data = [{ provider: "openai", role: "image", model_id: "dall-e-3" }];
-    expect(await resolveModel("openai")).toBe("gpt-5-mini");
+    expect(await resolveModel("openai")).toBe("gpt-6.1-sol");
   });
   it("não confirma promoção se gravação falhar", async () => {
     db.error = { message: "offline" };
