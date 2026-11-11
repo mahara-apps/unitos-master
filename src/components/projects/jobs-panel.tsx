@@ -272,7 +272,7 @@ export function JobsPanel({ brandId, projectId, projectName = "Projeto", clientN
   const createTaskMut = useMutation({ mutationFn: () => createTask({ data: { brandId, projectId, jobId: openJobId, title: newTaskTitle.trim(), ...(newTaskDue ? { due_at: newTaskDue } : {}) } }), onSuccess: () => { setNewTaskTitle(""); setNewTaskDue(""); invalidateTasks(); }, onError: (error: Error) => toast.error(error.message) });
   const patchTaskMut = useMutation({ mutationFn: (value: { taskId: string; patch: Record<string, unknown> }) => updateTask({ data: { brandId, taskId: value.taskId, patch: value.patch as never } }), onSuccess: invalidateTasks, onError: (error: Error) => toast.error(error.message) });
 
-  const canReorder = taskSort === "position" && !taskSearch.trim() && taskVisibility === "all" && dueFilter === "all";
+  const canReorder = taskSort === "position" && !taskSearch.trim() && dueFilter === "all";
   const reorderMut = useMutation({
     mutationFn: async (orderedIds: string[]) => {
       const { error } = await callRpc(supabase, "reorder_job_tasks", { p_job_id: openJobId, p_ordered_ids: orderedIds });
@@ -290,8 +290,14 @@ export function JobsPanel({ brandId, projectId, projectName = "Projeto", clientN
     onSettled: invalidateTasks,
   });
   const jobAllTaskIds = () => allTasks.filter((t) => t.job_id === openJobId).sort((a, b) => a.position - b.position).map((t) => t.id);
-  const moveTask = (taskId: string, target: number) => { const ids = jobAllTaskIds(); const next = moveToPosition(ids, taskId, target); if (next.join() !== ids.join()) reorderMut.mutate(next); };
-  const onListDragEnd = (event: DragEndEvent) => { if (!event.over || event.active.id === event.over.id) return; const ids = jobAllTaskIds(); moveTask(String(event.active.id), ids.indexOf(String(event.over.id)) + 1); };
+  const moveTask = (taskId: string, target: number) => {
+    // Reordena entre os itens visíveis; itens ocultos (ex.: arquivados) mantêm seus lugares.
+    const ids = jobAllTaskIds(); const visible = currentJobTasks.map((t) => t.id); const set = new Set(visible);
+    const moved = moveToPosition(visible, taskId, target); let i = 0;
+    const next = ids.map((id) => set.has(id) ? moved[i++] : id);
+    if (next.join() !== ids.join()) reorderMut.mutate(next);
+  };
+  const onListDragEnd = (event: DragEndEvent) => { if (!event.over || event.active.id === event.over.id) return; moveTask(String(event.active.id), currentJobTasks.findIndex((t) => t.id === String(event.over!.id)) + 1); };
 
   const jobMenu = (job: ProjectJob) => (
     <DropdownMenu>
