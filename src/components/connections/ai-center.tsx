@@ -156,6 +156,7 @@ export type AiCenterData = {
   textProvider?: AiProviderId;
   textFallbackProvider?: AiProviderId | "none";
   providers?: Partial<Record<AiProviderId, ProviderConfig>>;
+  recentUnavailable?: Record<string, number>;
   usage: {
     monthUsd: number;
     monthTokens: number;
