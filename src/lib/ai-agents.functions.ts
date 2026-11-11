@@ -54,8 +54,8 @@ function salvageJson(raw: string): unknown | null {
 
 // ---------- Model routing ----------
 
-const STRATEGIC_MODEL = "google/gemini-2.5-pro";
-const OPERATIONAL_MODEL = "google/gemini-2.5-flash";
+const STRATEGIC_MODEL = "google/gemini-4-argon";
+const OPERATIONAL_MODEL = "google/gemini-3.8-flash";
 
 type AgentName =
   | "briefing.parse"

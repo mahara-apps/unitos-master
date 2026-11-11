@@ -66,13 +66,13 @@ export const AI_PROVIDERS: ProviderDef[] = [
   {
     id: "openai",
     name: "OpenAI",
-    hint: "GPT-5 · GPT-5 mini",
+    hint: "GPT-6 Astra · GPT-6.1 Sol",
     tone: "text-emerald-500",
     docs: "platform.openai.com",
     icon: Sparkles,
     models: [
-      { id: "gpt-5", label: "GPT-5", kind: "text" },
-      { id: "gpt-5-mini", label: "GPT-5 mini", kind: "text" },
+      { id: "gpt-6-astra", label: "GPT-6 Astra", kind: "text" },
+      { id: "gpt-6.1-sol", label: "GPT-6.1 Sol", kind: "text" },
     ],
   },
   {
@@ -83,8 +83,8 @@ export const AI_PROVIDERS: ProviderDef[] = [
     docs: "console.anthropic.com",
     icon: Brain,
     models: [
-      { id: "claude-sonnet-4.5", label: "Claude Sonnet 4.5", kind: "text" },
-      { id: "claude-opus-4.1", label: "Claude Opus 4.1", kind: "text" },
+      { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5", kind: "text" },
+      { id: "claude-opus-5-5", label: "Claude Opus 5.5", kind: "text" },
     ],
   },
   {
@@ -95,21 +95,20 @@ export const AI_PROVIDERS: ProviderDef[] = [
     docs: "aistudio.google.com",
     icon: Cpu,
     models: [
-      { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", kind: "text" },
-      { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", kind: "text" },
+      { id: "gemini-flash-latest", label: "Gemini Flash (atual)", kind: "text" },
+      { id: "gemini-3.8-flash", label: "Gemini 3.8 Flash", kind: "text" },
     ],
   },
   {
     id: "groq",
     name: "Groq",
-    hint: "GPT-OSS · Llama",
+    hint: "GPT-OSS (reserva)",
     tone: "text-orange-500",
     docs: "console.groq.com",
     icon: Zap,
     models: [
       { id: "openai/gpt-oss-120b", label: "GPT-OSS 120B", kind: "text" },
       { id: "openai/gpt-oss-20b", label: "GPT-OSS 20B", kind: "text" },
-      { id: "llama-3.1-8b-instant", label: "Llama 3.1 8B Instant", kind: "text" },
     ],
   },
 ];

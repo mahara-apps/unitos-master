@@ -62,10 +62,10 @@ import {
 import { resolveAgentVariablesFn } from "@/lib/agent-variables.functions";
 
 const MODELS = [
-  "google/gemini-2.5-flash",
-  "google/gemini-2.5-pro",
-  "openai/gpt-5.4-mini",
-  "openai/gpt-5.4",
+  "google/gemini-3.8-flash",
+  "google/gemini-4-argon",
+  "openai/gpt-6.1-sol",
+  "openai/gpt-6-astra",
 ];
 
 type Props = {
@@ -77,7 +77,7 @@ type Props = {
 };
 
 export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Props) {
-  const [model, setModel] = useState<string>("google/gemini-2.5-flash");
+  const [model, setModel] = useState<string>("google/gemini-3.8-flash");
   const [active, setActive] = useState(true);
   const [testInput, setTestInput] = useState("");
   const [testOutput, setTestOutput] = useState<string | null>(null);

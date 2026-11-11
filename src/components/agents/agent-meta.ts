@@ -79,7 +79,7 @@ export function getAgentMeta(id: string, name: string): AgentMeta {
     icon: base.icon,
     iconClass: base.iconClass,
     badgeClass: base.badgeClass,
-    model: "gemini-2.5-flash",
+    model: "gemini-3.8-flash",
   };
 }
 
