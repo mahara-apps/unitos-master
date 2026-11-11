@@ -7,6 +7,7 @@ import { createGroq } from "@ai-sdk/groq";
 import type { LanguageModel } from "ai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptCredential, isCredentialDecryptError } from "./credentials-crypto.server";
+import { guardStream, withFirstResponseDeadline } from "./ai-call-watchdog";
 import {
   resolveModel,
   nextFallbackModel,
@@ -412,10 +413,26 @@ function withModelInstrumentation(
         model: modelId,
       });
       try {
-        const out = (await (current[op] as (o: unknown) => Promise<unknown>)(options)) as T;
+        const callerSignal = (options as { abortSignal?: AbortSignal }).abortSignal;
+        const model = current;
+        const guarded = await withFirstResponseDeadline(provider, callerSignal, (signal) =>
+          (model[op] as (o: unknown) => Promise<unknown>)({ ...options, abortSignal: signal }),
+        );
+        const out = guarded.value as T;
         if (op === "doStream") {
-          return instrumentStream(out as Awaited<ReturnType<ModelV2["doStream"]>>, modelId, provider) as T;
+          const res = out as Awaited<ReturnType<ModelV2["doStream"]>>;
+          let stream: ReadableStream<unknown>;
+          try {
+            stream = await guardStream(provider, res.stream as ReadableStream<unknown>, guarded.controller, {
+              onDone: guarded.unlink,
+            });
+          } catch (e) {
+            guarded.unlink();
+            throw e;
+          }
+          return instrumentStream({ ...res, stream } as Awaited<ReturnType<ModelV2["doStream"]>>, modelId, provider) as T;
         }
+        guarded.unlink();
         const raw = out as {
           usage?: UsageLike;
           providerMetadata?: Record<string, { usage?: UsageLike } | undefined>;

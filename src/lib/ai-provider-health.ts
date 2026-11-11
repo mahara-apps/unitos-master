@@ -7,7 +7,7 @@ export type ProviderPanelEntry = {
 } | null | undefined;
 
 export type AiHealthWarning = {
-  kind: "no_primary" | "key_rejected" | "no_credit" | "rate_limited" | "fallback_unavailable";
+  kind: "no_primary" | "key_rejected" | "no_credit" | "rate_limited" | "unstable" | "fallback_unavailable";
   severity: "error" | "warning";
   provider?: string;
   message: string;
@@ -21,6 +21,9 @@ const NAMES: Record<string, string> = {
 };
 
 const CREDIT = /cr[eé]dito|credit|balance|saldo|billing|insufficient|quota/i;
+/** A partir de quantas falhas recentes o provedor é marcado como instável. */
+export const UNSTABLE_THRESHOLD = 3;
+
 const RATE = /rate.?limit|429|muitas requisi|too many/i;
 
 function usable(e: ProviderPanelEntry) {
@@ -31,6 +34,8 @@ function usable(e: ProviderPanelEntry) {
 export function deriveAiHealthWarnings(input: {
   primary?: string | null;
   providers?: Record<string, ProviderPanelEntry> | null;
+  /** Falhas recentes de indisponibilidade/sem resposta, por provedor. */
+  recentUnavailable?: Record<string, number> | null;
 }): AiHealthWarning[] {
   const providers = input.providers ?? {};
   const out: AiHealthWarning[] = [];
@@ -64,6 +69,17 @@ export function deriveAiHealthWarnings(input: {
     } else if (entry.connected && entry.verified === "unverified" && RATE.test(msg)) {
       out.push({ kind: "rate_limited", severity: "warning", provider: id, message: `${name} está limitando as requisições no momento.` });
     }
+  }
+
+  for (const [id, count] of Object.entries(input.recentUnavailable ?? {})) {
+    if (!(id in NAMES) || count < UNSTABLE_THRESHOLD) continue;
+    if (out.some((w) => w.provider === id)) continue;
+    out.push({
+      kind: "unstable",
+      severity: "warning",
+      provider: id,
+      message: `${NAMES[id]} está instável: ${count} chamadas sem resposta ou com alta demanda nas últimas 6 horas. A reserva assume quando ele falha.`,
+    });
   }
 
   if (!usable(providers["groq"]) && !out.some((w) => w.provider === "groq")) {

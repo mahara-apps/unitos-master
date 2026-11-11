@@ -156,6 +156,7 @@ export type AiCenterData = {
   textProvider?: AiProviderId;
   textFallbackProvider?: AiProviderId | "none";
   providers?: Partial<Record<AiProviderId, ProviderConfig>>;
+  recentUnavailable?: Record<string, number>;
   usage: {
     monthUsd: number;
     monthTokens: number;
@@ -214,7 +215,7 @@ export function AiCenter({
       {/* ------------------------------- Visão geral ------------------------ */}
       <TabsContent value="overview" className="space-y-4">
         {!isLoading && data && (
-          <AiHealthBanner primary={data.textProvider} providers={data.providers} />
+          <AiHealthBanner primary={data.textProvider} providers={data.providers} recentUnavailable={data.recentUnavailable} />
         )}
         <AiFinanceAlerts brandId={brandId} spent={used} budget={budget} />
         <PageKpiGrid columns={4}>
