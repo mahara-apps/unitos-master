@@ -768,6 +768,12 @@ WITH checks AS (
       AND pg_get_functiondef('public.check_ai_usage_budget(uuid,uuid,uuid)'::regprocedure) NOT LIKE '%_lim.limit_usd%'
       THEN 'PASS' ELSE 'FAIL' END
   UNION ALL
+  SELECT 96, 'regras de produção: workspace salva sem erro de campo',
+    'guarda de autoridade lê brand_id de forma segura em brands',
+    CASE WHEN pg_get_functiondef('public.guard_client_policy_authority()'::regprocedure) LIKE '%to_jsonb(NEW)%'
+      AND pg_get_functiondef('public.guard_client_policy_authority()'::regprocedure) NOT LIKE '%ELSE NEW.brand_id END%'
+      THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
   SELECT 91, 'produção: padrão, prévia e aplicação protegidos',
     'etapas compartilhadas, exceções e destinos explícitos',
     CASE WHEN to_regprocedure('public.production_stages_apply(uuid,jsonb,boolean,jsonb,text,uuid)') IS NOT NULL
