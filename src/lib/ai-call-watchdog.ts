@@ -11,14 +11,37 @@
 export const FIRST_RESPONSE_TIMEOUT_MS = 45_000;
 /** Espera máxima sem nenhum pedaço novo no meio de uma resposta em stream. */
 export const STREAM_IDLE_TIMEOUT_MS = 60_000;
+/**
+ * Teto de uma chamada SEM stream (generateText → doGenerate). Ali a promessa só
+ * resolve com a resposta inteira, então o prazo cobre a geração toda — não o
+ * início. Pautas/estratégias de 8k tokens e modelos de raciocínio levam minutos;
+ * o teto só existe para um provedor mudo não prender o job para sempre.
+ * Fica abaixo do lease dos jobs longos (12–15 min) para a reserva ainda agir.
+ */
+export const GENERATE_TOTAL_TIMEOUT_MS = 300_000;
+
+type TimeoutPhase = "first_response" | "stream_idle" | "generate_total";
+
+/** Prazo da chamada inicial conforme a operação do modelo. */
+export function callDeadlineFor(op: "doGenerate" | "doStream"): { ms: number; phase: TimeoutPhase } {
+  return op === "doGenerate"
+    ? { ms: GENERATE_TOTAL_TIMEOUT_MS, phase: "generate_total" }
+    : { ms: FIRST_RESPONSE_TIMEOUT_MS, phase: "first_response" };
+}
+
+const PHASE_LABEL: Record<TimeoutPhase, string> = {
+  first_response: "sem início de resposta",
+  stream_idle: "resposta parada",
+  generate_total: "resposta não concluída",
+};
 
 export class ProviderTimeoutError extends Error {
   readonly waitedMs: number;
-  readonly phase: "first_response" | "stream_idle";
-  constructor(provider: string, phase: "first_response" | "stream_idle", waitedMs: number) {
+  readonly phase: TimeoutPhase;
+  constructor(provider: string, phase: TimeoutPhase, waitedMs: number) {
     super(
       `ai_provider_timeout: ${provider} não respondeu a tempo ` +
-        `(${phase === "first_response" ? "sem início de resposta" : "resposta parada"} por ${Math.round(waitedMs / 1000)}s) — timeout`,
+        `(${PHASE_LABEL[phase]} por ${Math.round(waitedMs / 1000)}s) — timeout`,
     );
     this.name = "ProviderTimeoutError";
     this.waitedMs = waitedMs;
@@ -49,13 +72,14 @@ export async function withFirstResponseDeadline<T>(
   parent: AbortSignal | undefined,
   run: (signal: AbortSignal) => Promise<T>,
   ms = FIRST_RESPONSE_TIMEOUT_MS,
+  phase: TimeoutPhase = "first_response",
 ): Promise<{ value: T; controller: AbortController; unlink: () => void }> {
   const controller = new AbortController();
   const unlink = linkAbort(parent, controller);
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
-      const e = new ProviderTimeoutError(provider, "first_response", ms);
+      const e = new ProviderTimeoutError(provider, phase, ms);
       reject(e);
       controller.abort(e);
     }, ms);

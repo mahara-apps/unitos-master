@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { guardStream, withFirstResponseDeadline, isProviderTimeoutError } from "@/lib/ai-call-watchdog";
+import { readFileSync } from "node:fs";
+import {
+  callDeadlineFor,
+  FIRST_RESPONSE_TIMEOUT_MS,
+  GENERATE_TOTAL_TIMEOUT_MS,
+  guardStream,
+  withFirstResponseDeadline,
+  isProviderTimeoutError,
+} from "@/lib/ai-call-watchdog";
 import { classifyAiError } from "@/lib/ai-failures.server";
 import { deriveAiHealthWarnings } from "@/lib/ai-provider-health";
 
@@ -32,6 +40,33 @@ describe("vigia de chamadas de IA", () => {
   it("resposta lenta, mas dentro do prazo, é aceita", async () => {
     const r = await withFirstResponseDeadline("gemini", undefined, () => new Promise((ok) => setTimeout(() => ok("ok"), 10)), 200);
     expect(r.value).toBe("ok");
+  });
+
+  it("chamada sem stream (generateText) tem teto de 5 minutos para a resposta inteira, não 45 s", () => {
+    expect(callDeadlineFor("doGenerate")).toEqual({ ms: 300_000, phase: "generate_total" });
+    expect(GENERATE_TOTAL_TIMEOUT_MS).toBeGreaterThan(FIRST_RESPONSE_TIMEOUT_MS);
+  });
+
+  it("chamada em stream mantém o prazo de 45 s só até começar a responder", () => {
+    expect(callDeadlineFor("doStream")).toEqual({ ms: 45_000, phase: "first_response" });
+  });
+
+  it("geração completa mais longa que o prazo de início, mas dentro do teto, não é cortada", async () => {
+    const r = await withFirstResponseDeadline("anthropic", undefined, () => new Promise((ok) => setTimeout(() => ok("pauta"), 80)), 200, "generate_total");
+    expect(r.value).toBe("pauta");
+  });
+
+  it("teto da geração completa estourado vira falha classificável com a fase certa", async () => {
+    const err = await withFirstResponseDeadline("gemini", undefined, () => never(), 30, "generate_total").catch((e) => e);
+    expect(isProviderTimeoutError(err)).toBe(true);
+    expect(err.phase).toBe("generate_total");
+    expect(classifyAiError(err).kind).toBe("provider_unavailable");
+  });
+
+  it("o provedor aplica o prazo conforme a operação (sem cortar generateText em 45 s)", () => {
+    const src = readFileSync("src/lib/ai-provider.server.ts", "utf8");
+    expect(src).toMatch(/callDeadlineFor\(op\)/);
+    expect(src).toMatch(/deadline\.ms,\s*deadline\.phase/);
   });
 
   it("stream aberto que só manda metadados e fica mudo falha antes de entregar (permite reserva)", async () => {

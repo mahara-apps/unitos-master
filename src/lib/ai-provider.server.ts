@@ -7,7 +7,7 @@ import { createGroq } from "@ai-sdk/groq";
 import type { LanguageModel } from "ai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptCredential, isCredentialDecryptError } from "./credentials-crypto.server";
-import { guardStream, withFirstResponseDeadline } from "./ai-call-watchdog";
+import { callDeadlineFor, guardStream, withFirstResponseDeadline } from "./ai-call-watchdog";
 import {
   resolveModel,
   nextFallbackModel,
@@ -420,8 +420,15 @@ function withModelInstrumentation(
       try {
         const callerSignal = (options as { abortSignal?: AbortSignal }).abortSignal;
         const model = current;
-        const guarded = await withFirstResponseDeadline(provider, callerSignal, (signal) =>
-          (model[op] as (o: unknown) => Promise<unknown>)({ ...options, abortSignal: signal }),
+        // Stream: prazo até abrir (o guardStream vigia o 1º pedaço e a inatividade).
+        // Sem stream: a promessa só resolve com a resposta inteira → teto em minutos.
+        const deadline = callDeadlineFor(op);
+        const guarded = await withFirstResponseDeadline(
+          provider,
+          callerSignal,
+          (signal) => (model[op] as (o: unknown) => Promise<unknown>)({ ...options, abortSignal: signal }),
+          deadline.ms,
+          deadline.phase,
         );
         const out = guarded.value as T;
         if (op === "doStream") {
