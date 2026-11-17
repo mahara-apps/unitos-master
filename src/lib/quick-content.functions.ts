@@ -5,9 +5,10 @@
  *  - limite de produção contratado aplicado pelo MESMO guard da criação manual
  *    (`checkManualScope`, que respeita a regra de escopo do cliente);
  *  - projeto obrigatório (a peça é execução de um projeto), como na pauta;
- *  - a legenda é escrita pelos MESMOS agentes de conteúdo (`post-agents`), com
- *    a peça nascendo no primeiro estágio de Produção — nunca agendada nem
- *    publicada, então a aprovação do cliente continua valendo adiante;
+ *  - a legenda é escrita pelos MESMOS agentes de conteúdo (`post-agents`), em
+ *    segundo plano, com a peça nascendo no primeiro estágio de Produção —
+ *    nunca agendada nem publicada, então a aprovação do cliente continua
+ *    valendo adiante;
  *  - tarefa de produção criada depois de confirmação explícita no projeto.
  *
  * Nada é privilegiado: todas as escritas usam o client do usuário (RLS).
@@ -19,6 +20,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { PLAN_CHANNELS } from "@/lib/monthly-plan-fields";
 import { CONTENT_FORMATS, type ContentFormat } from "@/lib/content-formats";
+import { quickPostStatusFrom } from "@/lib/post-copy-status";
 
 const QuickPostInput = z.object({
   brandId: z.string().uuid(),
@@ -38,9 +40,16 @@ const QuickPostInput = z.object({
 export type QuickPostResult = {
   postId: string;
   title: string;
+  /** A legenda é escrita em segundo plano; acompanhe com `quickPostStatusFn`. */
+  copyQueued: true;
+};
+
+export type QuickPostStatus = {
+  title: string;
   copy: string | null;
-  /** Mensagem quando a redação falhou — a peça continua criada e retomável. */
-  copyError: string | null;
+  state: "writing" | "ready" | "failed";
+  /** Mensagem em pt-BR quando a redação falhou (a peça continua retomável). */
+  error: string | null;
 };
 
 function titleFromIdea(idea: string): string {
@@ -131,36 +140,29 @@ export const quickPostFn = createServerFn({ method: "POST" })
     if (insErr) throw insErr;
     const postId = (inserted as unknown as { id: string }).id;
 
-    // Redação pelos agentes — aguardada, para a prévia já voltar pronta.
-    let copyError: string | null = null;
+    // Redação pelos agentes em segundo plano: a resposta volta na hora e a
+    // tela acompanha a peça. Se o processo cair, a retomada automática de
+    // legendas pendentes (ai_phase) termina o trabalho.
+    const { waitUntil } = await import("@/lib/wait-until.server");
     const { generatePostContent } = await import("@/lib/post-agents.server");
-    try {
-      const res = await generatePostContent(postId, { force: true, userId: context.userId });
-      if (res.status === "failed") {
-        copyError =
-          res.kind === "provider_quota"
-            ? "A cota da API de IA da marca foi atingida. A peça ficou pendente e pode ser retomada."
-            : res.kind === "provider_rate_limit" || res.kind === "provider_unavailable"
-              ? "O provedor de IA está indisponível agora. A peça ficou pendente e pode ser retomada."
-              : `A geração falhou no agente ${res.agent}: ${res.error}`;
-      }
-    } catch (err) {
-      copyError = err instanceof Error ? err.message : String(err);
-    }
+    waitUntil(generatePostContent(postId, { force: true, userId: context.userId }));
 
-    const { data: finalRow } = await sb
+    return { postId, title, copyQueued: true };
+  });
+
+/** Estado da redação da peça expressa (lido com as permissões do usuário). */
+export const quickPostStatusFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ postId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }): Promise<QuickPostStatus> => {
+    const { data: row, error } = await context.supabase
       .from("posts")
-      .select("copy, title")
-      .eq("id", postId)
+      .select("title, copy, ai_phase, ai_phase_error")
+      .eq("id", data.postId)
       .maybeSingle();
-    const final = (finalRow ?? {}) as { copy: string | null; title: string | null };
-
-    return {
-      postId,
-      title: final.title ?? title,
-      copy: final.copy ?? null,
-      copyError,
-    };
+    if (error) throw error;
+    if (!row) throw new Error("Peça não encontrada.");
+    return quickPostStatusFrom(row as never);
   });
 
 /** Progresso da redação das peças de uma pauta (rota rápida e retomadas). */

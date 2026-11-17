@@ -33,6 +33,29 @@ describe("pauta expressa", () => {
   });
 });
 
+describe("rotas rápidas em segundo plano", () => {
+  it("pauta expressa responde na hora e gera em segundo plano", () => {
+    const fn = plans.slice(plans.indexOf("export const quickPlanFn"));
+    expect(fn).toContain("waitUntil(");
+    expect(fn).toContain("startPlanLockHeartbeat");
+    expect(fn).toContain("return { ok: true, queued: true, jobId: lock.jobId }");
+  });
+
+  it("peça expressa cria a peça e escreve a legenda em segundo plano", () => {
+    expect(quick).toContain("waitUntil(generatePostContent(postId");
+    expect(quick).toContain("copyQueued: true");
+    expect(quick).toContain("export const quickPostStatusFn");
+  });
+
+  it("refazer tema não espera backoff longo com a pessoa na tela", () => {
+    const fn = plans.slice(
+      plans.indexOf("export const regenerateTopicFn"),
+      plans.indexOf("export const undoTopicRegenerationFn"),
+    );
+    expect(fn).toContain("maxAttemptsPerProvider: 1");
+  });
+});
+
 describe("ponto único de encaminhamento", () => {
   it("consulta a política do cliente e exige projeto", () => {
     expect(submit).toContain("requiresClientApproval");

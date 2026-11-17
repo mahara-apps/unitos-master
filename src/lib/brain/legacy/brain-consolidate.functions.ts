@@ -8,6 +8,8 @@ import { assertBrandAdmin } from "../../access-guard";
 import { assertSuperAdmin } from "../../super-admin";
 import { generateText } from "ai";
 import { getBrandAiModel } from "../../ai-provider.server";
+import { runWithPtBrRetry, withPtBr, withRetryNote } from "../../ai-language";
+import { TEXT_MAX_OUTPUT_TOKENS, isTruncatedFinish } from "../../ai/output-budget";
 
 const Input = z.object({ brandId: z.string().uuid().nullable().optional() });
 
@@ -74,16 +76,28 @@ export const brainConsolidateFn = createServerFn({ method: "POST" })
       }
 
       try {
-        const { text } = await generateText({
-          model,
-          system:
-            "Você é analista de dados de agência de marketing. Analise eventos recentes de uma marca e devolva insights curtos e acionáveis em JSON. Nunca invente dados fora do que foi fornecido.",
-          prompt:
-            `Eventos recentes:\n${digest}\n\n` +
-            `Devolva um array JSON com 3 a 6 itens no formato:\n` +
-            `[{"insight_type":"padrao_conteudo|benchmark_canal|preferencia_cliente","description":"...","confidence":0.0-1.0}]\n` +
-            `Só o JSON, sem texto ao redor.`,
-        });
+        const consolidatePrompt =
+          `Eventos recentes:\n${digest}\n\n` +
+          `Devolva um array JSON com 3 a 6 itens no formato:\n` +
+          `[{"insight_type":"padrao_conteudo|benchmark_canal|preferencia_cliente","description":"...","confidence":0.0-1.0}]\n` +
+          `Só o JSON, sem texto ao redor.`;
+        // Tamanho limitado; resposta cortada ou em inglês (após 1 retentativa)
+        // não substitui os insights atuais da marca.
+        const res = await runWithPtBrRetry(
+          (retryNote) =>
+            generateText({
+              model,
+              system: withPtBr(
+                "Você é analista de dados de agência de marketing. Analise eventos recentes de uma marca e devolva insights curtos e acionáveis em JSON. Nunca invente dados fora do que foi fornecido.",
+              ),
+              prompt: withRetryNote(consolidatePrompt, retryNote),
+              maxOutputTokens: TEXT_MAX_OUTPUT_TOKENS.brainInsight,
+            }),
+          (r) => r.text,
+          "Insights do Brain",
+        );
+        if (isTruncatedFinish(res.finishReason)) continue;
+        const text = res.text ?? "";
 
         const cleaned = text
           .replace(/^```json\s*/i, "")

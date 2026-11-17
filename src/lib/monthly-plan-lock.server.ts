@@ -39,6 +39,8 @@ export async function acquirePlanGenerationLock(
     period: string;
     input?: Record<string, unknown>;
     subtitle?: string;
+    /** Título exibido no indicador de gerações (padrão: pauta mensal). */
+    title?: string;
   },
 ): Promise<PlanLock> {
   const nowMs = Date.now();
@@ -51,7 +53,7 @@ export async function acquirePlanGenerationLock(
       client_id: args.clientId,
       user_id: args.userId,
       kind: LOCK_KIND,
-      title: "Gerando pauta mensal",
+      title: args.title ?? "Gerando pauta mensal",
       subtitle: args.subtitle ?? null,
       status: "running",
       started_at: nowIso,
@@ -141,7 +143,14 @@ export function startPlanLockHeartbeat(
 export async function releasePlanGenerationLock(
   supabase: SupabaseClient,
   jobId: string,
-  outcome: { ok: boolean; error?: string; planId?: string; targetRoute?: string },
+  outcome: {
+    ok: boolean;
+    error?: string;
+    planId?: string;
+    targetRoute?: string;
+    /** Detalhes extras do resultado (ex.: pauta expressa). */
+    result?: Record<string, unknown>;
+  },
 ): Promise<void> {
   const ok = await writeJobTerminal(
     () =>
@@ -156,7 +165,14 @@ export async function releasePlanGenerationLock(
           lease_owner: null,
           lease_expires_at: null,
           target_route: outcome.targetRoute ?? null,
-          ...(outcome.planId ? { result: { monthly_plan_id: outcome.planId } } : {}),
+          ...(outcome.planId || outcome.result
+            ? {
+                result: {
+                  ...(outcome.result ?? {}),
+                  ...(outcome.planId ? { monthly_plan_id: outcome.planId } : {}),
+                } as never,
+              }
+            : {}),
         })
         .eq("id", jobId),
     "monthly-plan",

@@ -67,3 +67,36 @@ export function summarizeCopyQueue(
   }
   return { running, pending, failed, total: running + pending + failed };
 }
+
+/**
+ * Estado da peça expressa para a janela que acompanha a redação em segundo
+ * plano. Peça sem fase ainda (o trabalho acabou de ser disparado) conta como
+ * "escrevendo"; falha temporária mostra o motivo — a retomada automática
+ * continua valendo.
+ */
+export function quickPostStatusFrom(post: {
+  title?: string | null;
+  copy?: string | null;
+  ai_phase?: string | null;
+  ai_phase_error?: string | null;
+}): {
+  title: string;
+  copy: string | null;
+  state: "writing" | "ready" | "failed";
+  error: string | null;
+} {
+  const status = copyStatusOf(post);
+  const base = { title: post.title ?? "", copy: post.copy ?? null };
+  if (status.kind === "ready") return { ...base, state: "ready", error: null };
+  if (status.kind === "running") return { ...base, state: "writing", error: null };
+  const phase = post.ai_phase ?? null;
+  const failedPhase =
+    phase === "copy_failed" ||
+    phase === "copy_failed_retryable" ||
+    phase === "copy_failed_permanent";
+  if (failedPhase) return { ...base, state: "failed", error: status.hint };
+  if (phase === "copy_ready") {
+    return { ...base, state: "failed", error: "A IA terminou sem escrever a legenda desta peça." };
+  }
+  return { ...base, state: "writing", error: null };
+}

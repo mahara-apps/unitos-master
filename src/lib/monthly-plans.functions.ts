@@ -760,6 +760,9 @@ export const regenerateTopicFn = createServerFn({ method: "POST" })
       prompt,
       extraContext,
       schema: RegenSchema,
+      // A pessoa espera na tela: sem backoff longo; falha passa direto para a
+      // reserva (o watchdog já limita provedor que não responde).
+      maxAttemptsPerProvider: 1,
     });
 
     const { data: updated, error: uErr } = await context.supabase
@@ -1571,7 +1574,13 @@ const QuickPlanInput = z.object({
   ]),
 });
 
+/** Resposta imediata da pauta expressa: a geração segue em segundo plano. */
 export type QuickPlanResult =
+  | { ok: true; queued: true; jobId: string }
+  | Exclude<QuickPlanCompletedResult, { ok: true }>;
+
+/** Resultado final da pauta expressa (gravado no acompanhamento da geração). */
+export type QuickPlanCompletedResult =
   | {
       ok: true;
       planId: string;
@@ -1600,90 +1609,131 @@ export const quickPlanFn = createServerFn({ method: "POST" })
       clientId: data.clientId,
       userId: context.userId,
       period,
+      title: "Gerando pauta expressa",
+      subtitle: `${data.quantity} peças`,
     });
     if ("conflict" in lock) return { ok: false, code: "generation_in_progress" };
-    const stopHeartbeat = startPlanLockHeartbeat(context.supabase, lock);
 
-    try {
-      const result = await runPlanGeneration({
-        supabase: context.supabase,
-        userId: context.userId,
-        input: {
-          brandId: data.brandId,
-          clientId: data.clientId,
-          theme: data.theme ?? "",
-          briefingId: data.briefingId ?? null,
-          selection: [
-            {
-              channel: data.channel,
-              quantity: data.quantity,
-              formats: [],
-              ...(data.formatQuotas ? { formatQuotas: data.formatQuotas } : {}),
-            },
-          ],
-        },
-        period,
-        jobId: lock.jobId,
-      });
-      await releasePlanGenerationLock(context.supabase, lock.jobId, {
-        ok: result.ok,
-        ...(result.ok ? { planId: result.data.plan.id } : { error: result.code }),
-      });
-      if (!result.ok) return result;
-
-      const planId = result.data.plan.id;
-      await linkPlanToProject(context.supabase as PlanSupabaseClient, {
-        planId,
-        brandId: data.brandId,
-        clientId: data.clientId,
-        userId: context.userId,
-        organization: data.organization,
-      });
-
-      // Aprovação interna em lote — só itens completos (plataforma + formato).
-      const complete = result.data.topics.filter((t) => isTopicComplete(t));
-      if (complete.length === 0) return { ok: false, code: "incomplete_generation" };
-      const { error: apprErr } = await context.supabase
-        .from("monthly_plan_topics" as never)
-        .update({ status: "approved" } as never)
-        .in(
-          "id",
-          complete.map((t) => t.id),
-        );
-      if (apprErr) throw apprErr;
-      // Itens incompletos não bloqueiam o envio: ficam recusados e revisáveis.
-      const incomplete = result.data.topics.filter((t) => !isTopicComplete(t));
-      if (incomplete.length > 0) {
-        await context.supabase
-          .from("monthly_plan_topics" as never)
-          .update({ status: "rejected" } as never)
-          .in(
-            "id",
-            incomplete.map((t) => t.id),
+    // Mesmo caminho da pauta completa: a geração roda em segundo plano (com
+    // lease/heartbeat) e a tela acompanha pelo indicador de gerações. Assim
+    // pautas com muitas peças não dependem da conexão aberta do navegador.
+    waitUntil(
+      (async () => {
+        const stopHeartbeat = startPlanLockHeartbeat(context.supabase, lock);
+        try {
+          const result = await runQuickPlan(context.supabase as PlanSupabaseClient, {
+            data,
+            userId: context.userId,
+            period,
+            jobId: lock.jobId,
+          });
+          await releasePlanGenerationLock(
+            context.supabase,
+            lock.jobId,
+            result.ok
+              ? {
+                  ok: true,
+                  planId: result.planId,
+                  targetRoute: `/monthly-plan/${result.planId}`,
+                  result: {
+                    topics: result.topics,
+                    in_production: result.inProduction,
+                    cards_created: result.cardsCreated,
+                    client_url: result.clientUrl,
+                  },
+                }
+              : { ok: false, error: result.code },
           );
-      }
-
-      const { submitPlanForApproval } = await import("@/lib/monthly-plan-submit.server");
-      const submitted = await submitPlanForApproval(context.supabase as unknown as SupabaseClient, {
-        planId,
-        userId: context.userId,
-      });
-
-      return {
-        ok: true,
-        planId,
-        topics: complete.length,
-        inProduction: submitted.waived === true,
-        cardsCreated: submitted.cardsCreated ?? 0,
-        clientUrl: submitted.url,
-      };
-    } catch (err) {
-      await releasePlanGenerationLock(context.supabase, lock.jobId, {
-        ok: false,
-        error: errorToMessage(err) || "unknown_error",
-      });
-      throw err;
-    } finally {
-      stopHeartbeat();
-    }
+        } catch (err) {
+          await releasePlanGenerationLock(context.supabase, lock.jobId, {
+            ok: false,
+            error: errorToMessage(err) || "unknown_error",
+          });
+        } finally {
+          stopHeartbeat();
+        }
+      })(),
+    );
+    return { ok: true, queued: true, jobId: lock.jobId };
   });
+
+/** Corpo da pauta expressa: gera, aprova internamente e encaminha pela regra do cliente. */
+async function runQuickPlan(
+  supabase: PlanSupabaseClient,
+  args: {
+    data: z.infer<typeof QuickPlanInput>;
+    userId: string;
+    period: string;
+    jobId: string;
+  },
+): Promise<QuickPlanCompletedResult> {
+  const { data, userId, period, jobId } = args;
+  const result = await runPlanGeneration({
+    supabase: supabase as never,
+    userId,
+    input: {
+      brandId: data.brandId,
+      clientId: data.clientId,
+      theme: data.theme ?? "",
+      briefingId: data.briefingId ?? null,
+      selection: [
+        {
+          channel: data.channel,
+          quantity: data.quantity,
+          formats: [],
+          ...(data.formatQuotas ? { formatQuotas: data.formatQuotas } : {}),
+        },
+      ],
+    },
+    period,
+    jobId,
+  });
+  if (!result.ok) return result;
+
+  const planId = result.data.plan.id;
+  await linkPlanToProject(supabase, {
+    planId,
+    brandId: data.brandId,
+    clientId: data.clientId,
+    userId,
+    organization: data.organization,
+  });
+
+  // Aprovação interna em lote — só itens completos (plataforma + formato).
+  const complete = result.data.topics.filter((t) => isTopicComplete(t));
+  if (complete.length === 0) return { ok: false, code: "incomplete_generation" };
+  const { error: apprErr } = await supabase
+    .from("monthly_plan_topics" as never)
+    .update({ status: "approved" } as never)
+    .in(
+      "id",
+      complete.map((t) => t.id),
+    );
+  if (apprErr) throw apprErr;
+  // Itens incompletos não bloqueiam o envio: ficam recusados e revisáveis.
+  const incomplete = result.data.topics.filter((t) => !isTopicComplete(t));
+  if (incomplete.length > 0) {
+    await supabase
+      .from("monthly_plan_topics" as never)
+      .update({ status: "rejected" } as never)
+      .in(
+        "id",
+        incomplete.map((t) => t.id),
+      );
+  }
+
+  const { submitPlanForApproval } = await import("@/lib/monthly-plan-submit.server");
+  const submitted = await submitPlanForApproval(supabase as unknown as SupabaseClient, {
+    planId,
+    userId,
+  });
+
+  return {
+    ok: true,
+    planId,
+    topics: complete.length,
+    inProduction: submitted.waived === true,
+    cardsCreated: submitted.cardsCreated ?? 0,
+    clientUrl: submitted.url,
+  };
+}

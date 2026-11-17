@@ -172,6 +172,12 @@ async function loadWorkspaceKeys(
   return credentials;
 }
 
+/**
+ * Chamada mínima de verificação ("Responda apenas: OK"). Toda tentativa entra
+ * na conta de consumo do workspace (agente `model.health`): sucesso com os
+ * tokens reais; falha com zero tokens e a classificação do erro, para o
+ * histórico mostrar o que o teste automático gastou e quando falhou.
+ */
 async function pingTextModel(
   provider: ProviderName,
   apiKey: string,
@@ -184,9 +190,44 @@ async function pingTextModel(
   await assertAiBudget(supabaseAdmin, brandId);
   const { instantiateProviderModel } = await import("./ai-provider.server");
   const model = instantiateProviderModel(provider, apiKey, modelId);
-  const result = await generateText({ model, prompt: "Responda apenas: OK", maxRetries: 0, maxOutputTokens: 32, abortSignal: AbortSignal.timeout(20_000) });
-  if (!result.text.trim() || result.finishReason === "content-filter") throw new Error("ai_invalid_output: verificação sem resposta válida.");
-  await recordAiUsage({ brandId, provider, model: modelId, inputTokens: result.usage.inputTokens ?? 0, outputTokens: result.usage.outputTokens ?? 0, success: true, agent: "model.health" }, true);
+  let result: Awaited<ReturnType<typeof generateText>>;
+  try {
+    result = await generateText({ model, prompt: "Responda apenas: OK", maxRetries: 0, maxOutputTokens: HEALTH_PING_MAX_OUTPUT_TOKENS, abortSignal: AbortSignal.timeout(20_000) });
+  } catch (err) {
+    const { classifyAiError } = await import("./ai-failures.server");
+    await recordAiUsage({ brandId, provider, model: modelId, inputTokens: 0, outputTokens: 0, success: false, errorKind: classifyAiError(err).kind, errorMessage: err instanceof Error ? err.message : String(err), agent: "model.health" });
+    throw err;
+  }
+  const usage = { inputTokens: result.usage.inputTokens ?? 0, outputTokens: result.usage.outputTokens ?? 0 };
+  if (!result.text.trim() || result.finishReason === "content-filter") {
+    // A chamada foi paga mesmo sem resposta útil: registra os tokens.
+    await recordAiUsage({ brandId, provider, model: modelId, ...usage, success: false, errorKind: "invalid_output", agent: "model.health" });
+    throw new Error("ai_invalid_output: verificação sem resposta válida.");
+  }
+  await recordAiUsage({ brandId, provider, model: modelId, ...usage, success: true, agent: "model.health" }, true);
+}
+
+/** Teto de saída da verificação: a resposta esperada é só "OK". */
+export const HEALTH_PING_MAX_OUTPUT_TOKENS = 32;
+
+/**
+ * Uma verificação por workspace + provedor + modelo em cada rodada: quando os
+ * papéis (estratégico/operacional) usam o mesmo modelo, o resultado é
+ * reaproveitado em vez de pagar duas chamadas iguais.
+ */
+export function createHealthPingCache(
+  ping: (provider: ProviderName, apiKey: string, modelId: string, brandId: string) => Promise<void>,
+) {
+  const results = new Map<string, Promise<void>>();
+  return (provider: ProviderName, apiKey: string, modelId: string, brandId: string) => {
+    const key = `${brandId}:${provider}:${modelId}`;
+    let pending = results.get(key);
+    if (!pending) {
+      pending = ping(provider, apiKey, modelId, brandId);
+      results.set(key, pending);
+    }
+    return pending;
+  };
 }
 
 async function notifySuperAdmins(supabase: Admin, entries: HealthCheckEntry[]): Promise<void> {
@@ -272,6 +313,7 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const entries: HealthCheckEntry[] = [];
   let replacements = 0;
+  const pingOnce = createHealthPingCache(pingTextModel);
 
   for (const provider of PROVIDERS) {
     const credentials = (await loadWorkspaceKeys(supabaseAdmin, provider)).filter(
@@ -328,7 +370,7 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
 
       try {
         await assertProviderFinance(brandId, provider);
-        await pingTextModel(provider, apiKey, modelId, brandId);
+        await pingOnce(provider, apiKey, modelId, brandId);
       } catch (err) {
         const financial = await captureProviderFinance(brandId, provider, err);
         error = financial?.message ?? (err instanceof Error ? err.message : String(err));
@@ -356,7 +398,7 @@ export async function runAiModelHealthCheck(onlyBrandId?: string): Promise<Healt
         for (const candidate of candidates) {
           try {
             await assertProviderFinance(brandId, provider);
-            await pingTextModel(provider, apiKey, candidate, brandId);
+            await pingOnce(provider, apiKey, candidate, brandId);
             successor = candidate;
             break;
           } catch (candidateError) {

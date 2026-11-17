@@ -60,3 +60,11 @@
 - [x] P4. Task/peça por cima com link compartilhável (?task=/?post=)
 - [x] P5. Voltar restaura rolagem
 - [ ] P6. Conferência logado e publicação (aguarda autorização)
+
+## IA — pendências da auditoria 1.4.91 (MASTER 1.4.92, não publicado)
+- [x] Pauta expressa e legenda da peça expressa em segundo plano; "Refazer tema" sem espera longa (1 tentativa por provedor).
+- [x] Limite de tamanho no chat do Brain, Copiloto, insights do Brain e teste de agentes; aviso quando a resposta é cortada.
+- [x] Resposta em inglês refeita uma vez: Copiloto, Brain, agentes, legendas, pauta, plano de mídia, resumo do painel e teste de agentes.
+- [x] Teste automático de chaves: falhas também entram no consumo e o mesmo modelo não é testado duas vezes na rodada.
+- [ ] Publicar 1.4.92 e atualizar instalações — aguarda autorização explícita.
+- [ ] Geração real nas instalações (pauta/peça expressa) — não testada; depende de sessão e chaves reais.

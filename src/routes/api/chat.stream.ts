@@ -398,6 +398,16 @@ export const Route = createFileRoute("/api/chat/stream")({
                 acc += chunk;
                 controller.enqueue(encoder.encode(chunk));
               }
+              // Resposta cortada pelo limite de tamanho: avisa em vez de
+              // terminar no meio da frase sem explicação.
+              const { isTruncatedFinish, TRUNCATED_NOTE_PT } = await import(
+                "@/lib/ai/output-budget"
+              );
+              if (isTruncatedFinish(await stream.result.finishReason)) {
+                const notice = `\n\n${TRUNCATED_NOTE_PT}`;
+                acc += notice;
+                controller.enqueue(encoder.encode(notice));
+              }
             } catch (err) {
               console.error("[chat.stream] falha durante o streaming", err);
               const { classifyAiError, FAILURE_MESSAGE_PT } =

@@ -1,10 +1,11 @@
 /**
- * Peça expressa: a ideia em uma linha vira uma peça em Produção com a legenda
- * já escrita pelos agentes. A legenda volta para revisão antes de seguir — a
- * peça nasce no primeiro estágio, nunca agendada nem publicada.
+ * Peça expressa: a ideia em uma linha vira uma peça em Produção e os agentes
+ * escrevem a legenda em segundo plano. A janela acompanha a redação e mostra a
+ * legenda para revisão; fechar não interrompe nada — a peça nasce no primeiro
+ * estágio, nunca agendada nem publicada.
  */
 import * as React from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, PenLine, RefreshCw, Wand2 } from "lucide-react";
 import { toast } from "sonner";
@@ -33,7 +34,14 @@ import { PLAN_CHANNELS, PLAN_CHANNEL_LABEL } from "@/lib/monthly-plan-fields";
 import type { PlanChannel } from "@/lib/monthly-plan-fields";
 import { CONTENT_FORMAT_LABEL, formatsForChannel, type ContentFormat } from "@/lib/content-formats";
 import { updatePostFn } from "@/lib/content.functions";
-import { quickPostFn, type QuickPostResult } from "@/lib/quick-content.functions";
+import {
+  quickPostFn,
+  quickPostStatusFn,
+  type QuickPostResult,
+} from "@/lib/quick-content.functions";
+
+/** Releitura do andamento da legenda enquanto a IA escreve. */
+const QUICK_POST_POLL_MS = 3_000;
 
 export function QuickPostDialog({
   open,
@@ -48,6 +56,7 @@ export function QuickPostDialog({
 }) {
   const qc = useQueryClient();
   const quickPost = useServerFn(quickPostFn);
+  const quickPostStatus = useServerFn(quickPostStatusFn);
   const updatePost = useServerFn(updatePostFn);
 
   const [organization, setOrganization] = React.useState<OrganizationDraft>(requiredOrganization);
@@ -86,10 +95,9 @@ export function QuickPostDialog({
     onSuccess: (res: QuickPostResult) => {
       setResult(res);
       setDraftTitle(res.title);
-      setDraftCopy(res.copy ?? "");
+      setDraftCopy("");
       qc.invalidateQueries({ queryKey: ["content-board"] });
-      if (res.copyError) toast.warning(res.copyError);
-      else toast.success("Peça criada com a legenda escrita. Revise antes de seguir.");
+      toast.success("Peça criada em Produção. A IA está escrevendo a legenda.");
     },
     onError: (err) => {
       const msg = describeError(err);
@@ -97,6 +105,33 @@ export function QuickPostDialog({
       toast.error(msg);
     },
   });
+
+  // A legenda chega em segundo plano: relê a peça até ficar pronta ou falhar.
+  const statusQ = useQuery({
+    queryKey: ["quick-post-status", result?.postId],
+    queryFn: () => quickPostStatus({ data: { postId: result!.postId } }),
+    enabled: !!result,
+    refetchInterval: (q) =>
+      !q.state.data || q.state.data.state === "writing" ? QUICK_POST_POLL_MS : false,
+    refetchIntervalInBackground: false,
+  });
+  const copyState = statusQ.data?.state ?? "writing";
+  const copyError = statusQ.data?.error ?? null;
+  const filledRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    const status = statusQ.data;
+    if (!result || !status || status.state === "writing") return;
+    if (filledRef.current === result.postId) return;
+    filledRef.current = result.postId;
+    qc.invalidateQueries({ queryKey: ["content-board"] });
+    if (status.state === "ready") {
+      setDraftCopy(status.copy ?? "");
+      if (status.title) setDraftTitle(status.title);
+      toast.success("Legenda escrita. Revise antes de seguir.");
+    } else if (status.error) {
+      toast.warning(status.error);
+    }
+  }, [statusQ.data, result, qc]);
 
   const save = useMutation({
     mutationFn: () => {
@@ -219,7 +254,7 @@ export function QuickPostDialog({
             {run.isPending && (
               <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/[0.05] px-3 py-2.5 text-sm">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                <span>Escrevendo a legenda…</span>
+                <span>Criando a peça…</span>
               </div>
             )}
             {error && !run.isPending && (
@@ -230,10 +265,19 @@ export function QuickPostDialog({
           </div>
         ) : (
           <div className="space-y-3">
-            {result.copyError && (
+            {copyState === "writing" && (
+              <div className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/[0.05] px-3 py-2.5 text-sm">
+                <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-primary" />
+                <span>
+                  A IA está escrevendo a legenda. Pode fechar esta janela — a peça já está em
+                  Produção e a legenda aparece lá quando ficar pronta.
+                </span>
+              </div>
+            )}
+            {copyState === "failed" && (
               <p className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs">
-                {result.copyError} A peça já está em Produção e a legenda pode ser gerada de novo
-                por lá.
+                {copyError ?? "A IA não conseguiu escrever a legenda."} A peça já está em Produção e
+                a legenda pode ser gerada de novo por lá.
               </p>
             )}
             <div className="space-y-1.5">
@@ -255,9 +299,13 @@ export function QuickPostDialog({
                 id="quick-copy"
                 rows={10}
                 value={draftCopy}
-                disabled={busy}
+                disabled={busy || copyState === "writing"}
                 onChange={(e) => setDraftCopy(e.target.value)}
-                placeholder="A legenda ainda não foi escrita."
+                placeholder={
+                  copyState === "writing"
+                    ? "A legenda está sendo escrita…"
+                    : "A legenda ainda não foi escrita."
+                }
               />
             </div>
           </div>
@@ -284,7 +332,11 @@ export function QuickPostDialog({
               {run.isPending ? "Criando…" : error ? "Tentar de novo" : "Criar peça agora"}
             </Button>
           ) : (
-            <Button className="gap-2" disabled={busy} onClick={() => save.mutate()}>
+            <Button
+              className="gap-2"
+              disabled={busy || copyState === "writing"}
+              onClick={() => save.mutate()}
+            >
               {save.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (

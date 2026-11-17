@@ -133,13 +133,20 @@ export const generateMediaPlanWithAi = createServerFn({ method: "POST" })
       userId: context.userId,
     });
 
+    const { runWithPtBrRetry, withPtBr, withRetryNote } = await import("@/lib/ai-language");
     try {
-      const { output, finishReason } = await generateText({
-        model,
-        output: Output.object({ schema: ItemsSchema }),
-        prompt,
-        maxOutputTokens: TEXT_MAX_OUTPUT_TOKENS.mediaPlan,
-      });
+      // Resposta em inglês é refeita UMA vez antes de falhar.
+      const { output, finishReason } = await runWithPtBrRetry(
+        (retryNote) =>
+          generateText({
+            model,
+            output: Output.object({ schema: ItemsSchema }),
+            prompt: withRetryNote(withPtBr(prompt), retryNote),
+            maxOutputTokens: TEXT_MAX_OUTPUT_TOKENS.mediaPlan,
+          }),
+        (res) => res.output,
+        "Plano de mídia",
+      );
       assertNotTruncated(finishReason);
       return { items: clampItems((output as { items: AiMediaPlanItem[] }).items ?? []) };
     } catch (error) {

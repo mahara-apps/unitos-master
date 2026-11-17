@@ -1,4 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  assertPtBrPayload,
+  isEnglishOutputError,
+  PT_BR_RETRY_NOTE,
+  withPtBr,
+  withRetryNote,
+} from "@/lib/ai-language";
 import { generateText, NoObjectGeneratedError, NoOutputGeneratedError, Output, tool } from "ai";
 import type { z } from "zod";
 import {
@@ -81,7 +88,14 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
   selectedModel?: { provider: ProviderName; modelId: string } | null;
   /** Observabilidade por tentativa — mesmo contrato do pipeline de Copy. */
   onAttempt?: (info: PlanAgentAttemptInfo) => Promise<void> | void;
+  /**
+   * Tentativas por provedor antes de passar ao próximo. Ações interativas
+   * (ex.: "Refazer tema", com a pessoa esperando na tela) usam 1: sem espera
+   * de backoff, a falha passa direto para o provedor de reserva.
+   */
+  maxAttemptsPerProvider?: number;
 }): Promise<PlanAgentResult<z.infer<T>>> {
+  const maxAttempts = Math.max(1, Math.min(MAX_ATTEMPTS, opts.maxAttemptsPerProvider ?? MAX_ATTEMPTS));
   // Autorização — membro da marca.
   const { data: member, error: memberErr } = await opts.supabase
     .from("brand_members")
@@ -114,9 +128,13 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
     console.warn("[runPlanAgent] blueprint failed", err);
   }
 
-  const system = [brandBlueprint, opts.extraContext, opts.system]
-    .filter((s): s is string => !!s && s.trim().length > 0)
-    .join("\n\n---\n\n");
+  const system = withPtBr(
+    [brandBlueprint, opts.extraContext, opts.system]
+      .filter((s): s is string => !!s && s.trim().length > 0)
+      .join("\n\n---\n\n"),
+  );
+  // Resposta em inglês ganha UMA retentativa com reforço de idioma.
+  let retryNote: string | null = null;
 
   // Candidatos BYOK isolados por provedor: assim cada tentativa usa o contrato
   // nativo do provedor (Gemini via tool calling, Groq/OpenAI via structured
@@ -142,7 +160,7 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
     const candidate = candidates[index];
     if (!candidate) continue;
 
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       attemptCounter += 1;
       // Espaçamento único entre chamadas — evita rajadas no provedor.
       await sleep(SPACING_MS);
@@ -161,7 +179,7 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
                 }),
               },
               toolChoice: { type: "tool", toolName: "emit_plan" },
-              prompt: opts.prompt,
+              prompt: withRetryNote(opts.prompt, retryNote),
             });
             assertNotTruncated(res.finishReason);
             output = res.toolCalls.find((call) => call.toolName === "emit_plan")?.input ?? null;
@@ -174,7 +192,7 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
               ...(system ? { system } : {}),
               maxOutputTokens: PLAN_MAX_OUTPUT_TOKENS,
               providerOptions: planProviderOptions(candidate.provider),
-              prompt: opts.prompt,
+              prompt: withRetryNote(opts.prompt, retryNote),
               output: Output.object({ schema: opts.schema }),
             });
             assertNotTruncated(res.finishReason);
@@ -214,6 +232,7 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
         if (!safeOutput.success) {
           throw new Error("ai_invalid_output: a pauta gerada não corresponde ao schema");
         }
+        assertPtBrPayload(safeOutput.data, "Pauta");
         providerAttempts.push(...candidate.providerAttempts);
         const trace = describeProviderAttempts(providerAttempts);
         await opts.onAttempt?.({
@@ -247,10 +266,16 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
           retryable,
           message: `${candidate.provider}/${candidate.modelId} | ${detail}`.slice(0, 500),
         });
+        // Inglês: refaz UMA vez no mesmo provedor com reforço de idioma.
+        if (retryNote === null && isEnglishOutputError(error)) {
+          retryNote = PT_BR_RETRY_NOTE;
+          attempt -= 1;
+          continue;
+        }
         // Falha permanente (schema/config/truncamento): não repete a mesma
         // chamada no mesmo provedor — apenas multiplicaria custo.
         if (!retryable) break;
-        if (attempt === MAX_ATTEMPTS) break;
+        if (attempt === maxAttempts) break;
         await sleep(BACKOFF_MS[attempt - 1] ?? BACKOFF_MS[BACKOFF_MS.length - 1]!);
       }
     }

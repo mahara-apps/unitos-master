@@ -1,5 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { assertNotTruncated } from "@/lib/ai/output-budget";
+import {
+  assertPtBrPayload,
+  isEnglishOutputError,
+  PT_BR_RETRY_NOTE,
+  withPtBr,
+  withRetryNote,
+} from "@/lib/ai-language";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -400,6 +407,12 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
   void AGENT_MODEL[opts.agent];
 
   let lastError: unknown = null;
+  // Resposta em inglês ganha UMA retentativa com reforço de idioma.
+  let retryNote: string | null = null;
+  const acceptPtBr = (value: z.infer<T>): z.infer<T> => {
+    assertPtBrPayload(value, opts.agent);
+    return value;
+  };
 
   for (let attempt = 1; attempt <= AGENT_MAX_ATTEMPTS; attempt++) {
     try {
@@ -412,8 +425,8 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
       });
       const res = await generateText({
         model,
-        system: finalSystem,
-        prompt: finalPrompt,
+        system: withPtBr(finalSystem),
+        prompt: withRetryNote(finalPrompt, retryNote),
         output: Output.object({ schema: opts.schema }),
         maxOutputTokens: AGENT_MAX_OUTPUT_TOKENS,
         abortSignal: AbortSignal.timeout(AGENT_TIMEOUT_MS),
@@ -421,24 +434,36 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
         maxRetries: 0,
       });
       assertNotTruncated(res.finishReason);
-      return res.output as z.infer<T>;
+      return acceptPtBr(res.output as z.infer<T>);
     } catch (error) {
+      lastError = error;
       // Saída malformada: tenta recuperar o JSON bruto antes de considerar falha.
       if (NoObjectGeneratedError.isInstance(error)) {
         const salvaged = salvageJson(error.text ?? "");
         if (salvaged !== null) {
           const parsed = opts.schema.safeParse(salvaged);
-          if (parsed.success) return parsed.data as z.infer<T>;
+          if (parsed.success) {
+            try {
+              return acceptPtBr(parsed.data as z.infer<T>);
+            } catch (languageError) {
+              lastError = languageError;
+            }
+          }
         }
       }
-      lastError = error;
-      const { kind, retryable } = classifyAiError(error);
+      if (retryNote === null && isEnglishOutputError(lastError)) {
+        retryNote = PT_BR_RETRY_NOTE;
+        console.warn(`[ai-agents] ${opts.agent} respondeu em inglês — refazendo uma vez em pt-BR`);
+        attempt -= 1; // a retentativa de idioma não consome tentativa
+        continue;
+      }
+      const { kind, retryable } = classifyAiError(lastError);
       console.error(
         `[ai-agents] ${opts.agent} attempt ${attempt}/${AGENT_MAX_ATTEMPTS} kind=${kind}`,
-        error instanceof Error ? error.message : String(error),
+        lastError instanceof Error ? lastError.message : String(lastError),
       );
       if (!retryable || attempt === AGENT_MAX_ATTEMPTS) {
-        throw new Error(`${FAILURE_MESSAGE_PT[kind].body} (${kind})`, { cause: error });
+        throw new Error(`${FAILURE_MESSAGE_PT[kind].body} (${kind})`, { cause: lastError });
       }
       await sleep(BACKOFF_MS[attempt - 1] ?? 15_000);
     }

@@ -16,7 +16,19 @@ export const TEXT_MAX_OUTPUT_TOKENS = {
   mediaPlan: 4_096,
   /** Resumos curtos do painel. */
   summary: 2_048,
+  /** Resposta do chat do Brain (por etapa, no modo com ferramentas). */
+  chat: 4_096,
+  /** Playground/teste de agentes. */
+  agentTest: 4_096,
+  /** Copiloto (uma peça pronta: título, conteúdo e hashtags). */
+  copilot: 4_096,
+  /** Insights curtos do Brain (síntese e consolidação). */
+  brainInsight: 2_048,
 } as const;
+
+/** Aviso anexado a respostas livres (chat/playground) cortadas por tamanho. */
+export const TRUNCATED_NOTE_PT =
+  "_(resposta interrompida por tamanho — peça para continuar ou refaça a pergunta de forma mais específica)_";
 
 /** Marcador reconhecido por `classifyAiError` como `output_truncated`. */
 export const TRUNCATED_MARKER = 'finish_reason":"length';

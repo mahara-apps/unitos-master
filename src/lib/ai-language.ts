@@ -107,11 +107,47 @@ export function looksEnglish(values: string[]): boolean {
   return en >= 3 && en > pt * 2;
 }
 
+/** Trecho fixo da mensagem de erro de idioma (permite reconhecer a falha). */
+export const EN_OUTPUT_MARKER = "retornado em inglês";
+
+/** A falha é "resposta em inglês" (e não outro problema de formato)? */
+export function isEnglishOutputError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  return msg.includes(EN_OUTPUT_MARKER);
+}
+
 /** Lança erro de output inválido quando a etapa voltou em inglês. */
 export function assertPtBrPayload(payload: unknown, label: string): void {
   if (looksEnglish(collectTextValues(payload))) {
     throw new Error(
-      `ai_invalid_output: ${label} retornado em inglês — o conteúdo precisa estar em português do Brasil.`,
+      `ai_invalid_output: ${label} ${EN_OUTPUT_MARKER} — o conteúdo precisa estar em português do Brasil.`,
     );
   }
+}
+
+/** Reforço enviado na ÚNICA retentativa quando a resposta voltou em inglês. */
+export const PT_BR_RETRY_NOTE =
+  "ATENÇÃO: a resposta anterior saiu em inglês, o que é inválido. " +
+  "Reescreva TODO o conteúdo em português do Brasil (pt-BR), mantendo o mesmo formato.";
+
+/**
+ * Executa a geração e, se o conteúdo vier predominantemente em inglês, refaz
+ * UMA vez com o reforço `PT_BR_RETRY_NOTE`. Se a segunda resposta ainda estiver
+ * em inglês, lança `ai_invalid_output` — nada em inglês é entregue ou salvo.
+ */
+export async function runWithPtBrRetry<T>(
+  run: (retryNote: string | null) => Promise<T>,
+  payloadOf: (result: T) => unknown,
+  label: string,
+): Promise<T> {
+  const first = await run(null);
+  if (!looksEnglish(collectTextValues(payloadOf(first)))) return first;
+  const second = await run(PT_BR_RETRY_NOTE);
+  assertPtBrPayload(payloadOf(second), label);
+  return second;
+}
+
+/** Acrescenta o reforço de idioma ao prompt quando houver retentativa. */
+export function withRetryNote(prompt: string, retryNote: string | null): string {
+  return retryNote ? `${prompt}\n\n${retryNote}` : prompt;
 }

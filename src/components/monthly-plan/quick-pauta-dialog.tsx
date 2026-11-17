@@ -35,27 +35,16 @@ import { PLAN_CHANNELS, PLAN_CHANNEL_LABEL } from "@/lib/monthly-plan-fields";
 import type { PlanChannel } from "@/lib/monthly-plan-fields";
 import { quickPlanFn, type QuickPlanResult } from "@/lib/monthly-plans.functions";
 
-const STEPS = [
-  "Lendo o briefing do cliente…",
-  "Escolhendo os melhores ganchos…",
-  "Escrevendo os títulos…",
-  "Aprovando e organizando…",
-  "Escrevendo as legendas…",
-];
-
 export function QuickPautaDialog({
   open,
   onOpenChange,
   brandId,
   clientId,
-  onDone,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   brandId: string;
   clientId: string;
-  /** Abre a pauta criada. */
-  onDone: (planId: string) => void;
 }) {
   const qc = useQueryClient();
   const quickPlan = useServerFn(quickPlanFn);
@@ -65,20 +54,10 @@ export function QuickPautaDialog({
   const [quantity, setQuantity] = React.useState(4);
   const [theme, setTheme] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
-  const [step, setStep] = React.useState(0);
-  const timer = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
   React.useEffect(() => {
-    if (!open) {
-      setError(null);
-      setStep(0);
-    }
+    if (!open) setError(null);
   }, [open]);
-  React.useEffect(() => {
-    return () => {
-      if (timer.current) clearInterval(timer.current);
-    };
-  }, []);
 
   const orgInput = toOrganizationInput(organization, false);
 
@@ -96,15 +75,7 @@ export function QuickPautaDialog({
         },
       });
     },
-    onMutate: () => {
-      setError(null);
-      setStep(0);
-      timer.current = setInterval(() => setStep((s) => (s + 1) % STEPS.length), 2200);
-    },
-    onSettled: () => {
-      if (timer.current) clearInterval(timer.current);
-      timer.current = null;
-    },
+    onMutate: () => setError(null),
     onSuccess: (result: QuickPlanResult) => {
       if (!result.ok) {
         const msg = describeError(result.code);
@@ -112,16 +83,14 @@ export function QuickPautaDialog({
         toast.error(`Não foi possível criar a pauta: ${msg}`);
         return;
       }
-      qc.invalidateQueries({ queryKey: ["monthly-plans", "list", brandId, clientId] });
-      qc.invalidateQueries({ queryKey: ["monthly-plan", "volumetry", brandId, clientId] });
-      qc.invalidateQueries({ queryKey: ["content-board"] });
-      toast.success(
-        result.inProduction
-          ? `Pauta criada com ${result.topics} itens — ${result.cardsCreated} peça(s) já em Produção, com a legenda sendo escrita.`
-          : `Pauta criada com ${result.topics} itens e enviada ao cliente para aprovação.`,
-      );
+      // A geração segue em segundo plano: o indicador no topo acompanha e
+      // avisa quando a pauta estiver pronta (com o atalho para abri-la).
+      void qc.invalidateQueries({ queryKey: ["ai_jobs"] });
+      toast.success("Pauta expressa iniciada em segundo plano", {
+        description:
+          "Você pode continuar usando o sistema. Avisamos no topo quando ela estiver pronta.",
+      });
       onOpenChange(false);
-      onDone(result.planId);
     },
     onError: (err) => {
       const msg = describeError(err);
@@ -136,7 +105,7 @@ export function QuickPautaDialog({
     <Dialog
       open={open}
       onOpenChange={(v) => {
-        // Durante a geração o fechamento é bloqueado: fechar perderia o progresso.
+        // Só bloqueia enquanto a geração está sendo iniciada.
         if (busy) return;
         onOpenChange(v);
       }}
@@ -149,7 +118,8 @@ export function QuickPautaDialog({
           </DialogTitle>
           <DialogDescription>
             Caminho curto: a IA cria os temas, aprova internamente e já segue para a próxima etapa
-            conforme a regra deste cliente. O limite mensal contratado continua valendo.
+            conforme a regra deste cliente. Roda em segundo plano — avisamos no topo quando
+            terminar. O limite mensal contratado continua valendo.
           </DialogDescription>
         </DialogHeader>
 
@@ -221,7 +191,7 @@ export function QuickPautaDialog({
           {busy && (
             <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/[0.05] px-3 py-2.5 text-sm">
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              <span>{STEPS[step]}</span>
+              <span>Iniciando a geração…</span>
             </div>
           )}
           {error && !busy && (
@@ -248,7 +218,7 @@ export function QuickPautaDialog({
             ) : (
               <Rocket className="h-4 w-4" />
             )}
-            {busy ? "Criando…" : error ? "Tentar de novo" : "Criar pauta agora"}
+            {busy ? "Iniciando…" : error ? "Tentar de novo" : "Criar pauta agora"}
           </Button>
         </DialogFooter>
       </DialogContent>

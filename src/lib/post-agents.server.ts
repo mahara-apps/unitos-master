@@ -9,7 +9,13 @@ import {
 } from "@/lib/carousel-slides";
 import { TEXT_MAX_OUTPUT_TOKENS, assertNotTruncated } from "@/lib/ai/output-budget";
 import { generateText, NoObjectGeneratedError } from "ai";
-import { assertPtBrPayload, withPtBr } from "@/lib/ai-language";
+import {
+  assertPtBrPayload,
+  isEnglishOutputError,
+  PT_BR_RETRY_NOTE,
+  withPtBr,
+  withRetryNote,
+} from "@/lib/ai-language";
 import { z } from "zod";
 import { getBrandAiModelAdmin, describeProviderAttempts } from "@/lib/ai-provider.server";
 import { loadAgentPrompts, fillTemplate } from "@/lib/agent-prompts.server";
@@ -154,6 +160,10 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
     return null;
   };
 
+  // Resposta em inglês ganha UMA retentativa com reforço de idioma, fora da
+  // contagem de tentativas por indisponibilidade.
+  let retryNote: string | null = null;
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     let handle: Awaited<ReturnType<typeof getBrandAiModelAdmin>> | null = null;
     try {
@@ -172,7 +182,7 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
       const res = await generateText({
         model: handle.model,
         system: withPtBr(opts.system),
-        prompt: opts.prompt,
+        prompt: withRetryNote(opts.prompt, retryNote),
         // Retry é controlado aqui (backoff próprio) para respeitar a quota do provedor.
         maxRetries: 0,
         maxOutputTokens: TEXT_MAX_OUTPUT_TOKENS.post,
@@ -187,13 +197,26 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
       if (handle) trace.providerTrace = describeProviderAttempts(handle.providerAttempts) || null;
       // Saída malformada emitida como erro do SDK: tenta recuperar o JSON bruto.
       if (NoObjectGeneratedError.isInstance(err)) {
-        const recovered = parseAny(err.text ?? "");
+        let recovered: z.infer<T> | null = null;
+        try {
+          recovered = parseAny(err.text ?? "");
+        } catch (parseErr) {
+          lastErr = parseErr;
+        }
         if (recovered !== null) {
           return { output: recovered, attempts: attempt, trace };
         }
-        lastErr = new Error("ai_invalid_output");
+        if (!isEnglishOutputError(lastErr)) lastErr = new Error("ai_invalid_output");
       } else {
         lastErr = err;
+      }
+
+      if (retryNote === null && isEnglishOutputError(lastErr)) {
+        retryNote = PT_BR_RETRY_NOTE;
+        const message = lastErr instanceof Error ? lastErr.message : String(lastErr);
+        await opts.onAttempt?.(attempt, "invalid_output", message, trace);
+        attempt -= 1; // a retentativa de idioma não consome tentativa
+        continue;
       }
 
       const { retryable, kind } = classifyAiError(lastErr);

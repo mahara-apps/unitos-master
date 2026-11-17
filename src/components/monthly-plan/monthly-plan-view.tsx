@@ -321,7 +321,6 @@ export function MonthlyPlanView({
           onOpenChange={setQuickPautaOpen}
           brandId={brandId}
           clientId={clientId}
-          onDone={(id) => setPlanId(id)}
         />
 
         <QuickPostDialog

@@ -4,7 +4,8 @@ import { generateText } from "ai";
 import { z } from "zod";
 
 import type { Database } from "@/integrations/supabase/types";
-import { assertPtBrPayload, withPtBr } from "@/lib/ai-language";
+import { assertPtBrPayload, runWithPtBrRetry, withPtBr, withRetryNote } from "@/lib/ai-language";
+import { TEXT_MAX_OUTPUT_TOKENS, assertNotTruncated } from "@/lib/ai/output-budget";
 import { classifyAiError, FAILURE_MESSAGE_PT } from "@/lib/ai-failures.server";
 import { newLeaseOwner } from "@/lib/ai-job-lease";
 import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
@@ -39,7 +40,8 @@ const TYPE_LABEL: Record<CopilotInput["contentType"], string> = {
   short_copy: "Legenda curta (gancho, desenvolvimento e CTA)",
 };
 
-export function parseCopilotOutput(raw: string) {
+/** Valida o envelope JSON do Copilot sem decidir idioma (a retentativa decide). */
+export function parseCopilotEnvelope(raw: string) {
   const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
   const candidates = [cleaned];
   const start = cleaned.indexOf("{");
@@ -54,13 +56,18 @@ export function parseCopilotOutput(raw: string) {
         ...parsed.data,
         hashtags: parsed.data.hashtags.map((tag) => tag.replace(/^#+/, "").trim()),
       };
-      assertPtBrPayload(output, "Copilot");
       return output;
     } catch {
       // Outro envelope determinístico pode ser tentado; texto bruto nunca vira sucesso.
     }
   }
   throw new Error("ai_invalid_output: Copilot retornou uma resposta fora do contrato.");
+}
+
+export function parseCopilotOutput(raw: string) {
+  const output = parseCopilotEnvelope(raw);
+  assertPtBrPayload(output, "Copilot");
+  return output;
 }
 
 async function stillOwnsLease(supabase: SupabaseClient, jobId: string, owner: string) {
@@ -146,24 +153,36 @@ export async function runCopilotJob(params: {
       clientId: input.clientId,
       userId,
     });
-    const { text } = await generateText({
-      model,
-      maxRetries: 0,
-      system: withPtBr([
-        "Você é especialista em conteúdo para redes sociais e estratégia de marca.",
-        "Produza uma única versão pronta para uso, sem comentários sobre o processo.",
-        "Responda apenas com JSON válido no formato:",
-        '{"title":"texto","content":"texto em markdown","hashtags":["tag"]}',
-      ].join(" ")),
-      prompt: [
-        `Tipo de entrega: ${TYPE_LABEL[input.contentType]}`,
-        `Canais: ${input.channels.join(", ")}`,
-        brandContext ? `Contexto da marca:\n${brandContext}` : "",
-        `Briefing:\n${input.briefing}`,
-        "O título deve ter até 80 caracteres. Forneça de 4 a 8 hashtags sem #.",
-      ].filter(Boolean).join("\n\n"),
-    });
-    const output = parseCopilotOutput(text ?? "");
+    const system = withPtBr([
+      "Você é especialista em conteúdo para redes sociais e estratégia de marca.",
+      "Produza uma única versão pronta para uso, sem comentários sobre o processo.",
+      "Responda apenas com JSON válido no formato:",
+      '{"title":"texto","content":"texto em markdown","hashtags":["tag"]}',
+    ].join(" "));
+    const prompt = [
+      `Tipo de entrega: ${TYPE_LABEL[input.contentType]}`,
+      `Canais: ${input.channels.join(", ")}`,
+      brandContext ? `Contexto da marca:\n${brandContext}` : "",
+      `Briefing:\n${input.briefing}`,
+      "O título deve ter até 80 caracteres. Forneça de 4 a 8 hashtags sem #.",
+    ].filter(Boolean).join("\n\n");
+    // Limite de saída explícito + resposta cortada vira output_truncated;
+    // resposta em inglês é refeita UMA vez antes de falhar.
+    const output = await runWithPtBrRetry(
+      async (retryNote) => {
+        const res = await generateText({
+          model,
+          maxRetries: 0,
+          maxOutputTokens: TEXT_MAX_OUTPUT_TOKENS.copilot,
+          system,
+          prompt: withRetryNote(prompt, retryNote),
+        });
+        assertNotTruncated(res.finishReason);
+        return parseCopilotEnvelope(res.text ?? "");
+      },
+      (out) => out,
+      "Copilot",
+    );
     if (!(await stillOwnsLease(supabase, jobId, owner))) return;
 
     let postId: string | null = null;

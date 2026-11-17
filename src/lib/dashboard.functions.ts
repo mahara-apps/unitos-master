@@ -1273,29 +1273,39 @@ export const getDashboardInsights = createServerFn({ method: "POST" })
         { agent: "dashboard.insights", userId: context.userId },
       );
 
-      const { output, finishReason } = await generateText({
-        model,
-        maxOutputTokens: TEXT_MAX_OUTPUT_TOKENS.summary,
-        output: Output.object({
-          schema: z.object({
-            headline: z.string(),
-            actions: z.array(
-              z.object({
-                title: z.string(),
-                why: z.string(),
-                href: z.string().nullable(),
+      const { runWithPtBrRetry, withRetryNote } = await import("./ai-language");
+      // Resposta em inglês é refeita UMA vez antes de falhar.
+      const { output, finishReason } = await runWithPtBrRetry(
+        (retryNote) =>
+          generateText({
+            model,
+            maxOutputTokens: TEXT_MAX_OUTPUT_TOKENS.summary,
+            output: Output.object({
+              schema: z.object({
+                headline: z.string(),
+                actions: z.array(
+                  z.object({
+                    title: z.string(),
+                    why: z.string(),
+                    href: z.string().nullable(),
+                  }),
+                ),
+                risks: z.array(z.string()),
               }),
-            ),
-            risks: z.array(z.string()),
-          }),
-        }),
-        prompt: `Você é o chefe de operações de uma agência de conteúdo. Analise este resumo do dashboard e responda em português (BR).
+            }),
+            prompt: withRetryNote(
+              `Você é o chefe de operações de uma agência de conteúdo. Analise este resumo do dashboard e responda em português (BR).
 Gere no máximo 3 ações prioritárias, cada uma com um "why" curto (menos de 20 palavras), e no máximo 3 riscos curtos (menos de 12 palavras).
 A headline deve ter no máximo 12 palavras. hrefs válidos: "/content", "/customers", "/content" ou null.
 
 RESUMO:
 ${JSON.stringify(brief, null, 2)}`,
-      });
+              retryNote,
+            ),
+          }),
+        (res) => res.output,
+        "Resumo do painel",
+      );
       assertNotTruncated(finishReason);
       return {
         headline: output.headline.slice(0, 140),

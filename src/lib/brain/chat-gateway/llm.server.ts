@@ -3,6 +3,12 @@
 import { generateText, streamText, stepCountIs, type ModelMessage } from "ai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getBrandAiModel } from "../../ai-provider.server";
+import { runWithPtBrRetry, withPtBr } from "@/lib/ai-language";
+import {
+  TEXT_MAX_OUTPUT_TOKENS,
+  TRUNCATED_NOTE_PT,
+  isTruncatedFinish,
+} from "@/lib/ai/output-budget";
 import type { BrainConsolidated } from "./consolidate";
 import { buildMultimodalContent, type ChatAttachmentInput } from "./multimodal.server";
 import { buildChatTools, type ToolCallLog } from "./tools.server";
@@ -104,7 +110,7 @@ export async function callLlm(args: {
     { agent: "brain.chat.simple", userId: args.user?.id ?? null },
   );
 
-  const instructions = buildInstructions(args.brain, args.user);
+  const instructions = withPtBr(buildInstructions(args.brain, args.user));
   const messages: ModelMessage[] = args.history
     .filter((m) => m.role === "user" || m.role === "assistant")
     .filter((m) => m.content.trim().length > 0)
@@ -122,8 +128,26 @@ export async function callLlm(args: {
   }
 
   try {
-    const result = await generateText({ model, instructions, messages, temperature: 0.4 });
-    return { text: result.text.trim() || "_(sem resposta)_", model: modelId };
+    // Resposta em inglês é refeita UMA vez com reforço de idioma; tamanho de
+    // resposta é sempre limitado e, se cortado, o usuário é avisado.
+    const result = await runWithPtBrRetry(
+      (retryNote) =>
+        generateText({
+          model,
+          instructions: retryNote ? `${instructions}\n\n${retryNote}` : instructions,
+          messages,
+          temperature: 0.4,
+          maxOutputTokens: TEXT_MAX_OUTPUT_TOKENS.chat,
+        }),
+      (res) => res.text,
+      "Resposta do Brain",
+    );
+    const text = result.text.trim();
+    if (!text) return { text: "_(sem resposta)_", model: modelId };
+    return {
+      text: isTruncatedFinish(result.finishReason) ? `${text}\n\n${TRUNCATED_NOTE_PT}` : text,
+      model: modelId,
+    };
   } catch (err) {
     // Erro de provider NUNCA vira resposta do assistente: sobe classificado
     // para o chamador decidir o estado da conversa.
@@ -180,11 +204,13 @@ export async function streamAnswer(args: StreamAnswerArgs): Promise<{
 
   const result = streamText({
     model,
-    instructions: buildInstructions(args.brain, args.user),
+    instructions: withPtBr(buildInstructions(args.brain, args.user)),
     messages,
     tools,
     stopWhen: stepCountIs(50),
     temperature: 0.4,
+    // Limite por etapa: sem ele cada provedor usa um padrão próprio.
+    maxOutputTokens: TEXT_MAX_OUTPUT_TOKENS.chat,
   });
 
   return { result, model: modelId };

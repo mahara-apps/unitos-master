@@ -220,12 +220,23 @@ export const runAgentPlaygroundFn = createServerFn({ method: "POST" })
       { agent: "agent.run", userId: context.userId },
     );
 
+    const { runWithPtBrRetry, withPtBr, withRetryNote } = await import("@/lib/ai-language");
+    const { TEXT_MAX_OUTPUT_TOKENS, isTruncatedFinish } = await import("@/lib/ai/output-budget");
     const started = Date.now();
-    const result = await generateText({
-      model: llm,
-      system: rendered,
-      prompt: data.userInput?.trim() || "Execute o agente com o contexto acima.",
-    });
+    const userPrompt = data.userInput?.trim() || "Execute o agente com o contexto acima.";
+    // Mesmo contrato da produção: tamanho limitado, pt-BR obrigatório e uma
+    // única retentativa quando a resposta volta em inglês.
+    const result = await runWithPtBrRetry(
+      (retryNote) =>
+        generateText({
+          model: llm,
+          system: withPtBr(rendered),
+          prompt: withRetryNote(userPrompt, retryNote),
+          maxOutputTokens: TEXT_MAX_OUTPUT_TOKENS.agentTest,
+        }),
+      (res) => res.text,
+      "Resposta do agente",
+    );
     const ms = Date.now() - started;
 
     return {
@@ -233,5 +244,7 @@ export const runAgentPlaygroundFn = createServerFn({ method: "POST" })
       usage: result.usage,
       model,
       ms,
+      /** true = a resposta foi cortada pelo limite de tamanho. */
+      truncated: isTruncatedFinish(result.finishReason),
     };
   });

@@ -14,6 +14,8 @@
 import { generateText } from "ai";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getBrandAiModel } from "@/lib/ai-provider.server";
+import { runWithPtBrRetry, withPtBr, withRetryNote } from "@/lib/ai-language";
+import { TEXT_MAX_OUTPUT_TOKENS, isTruncatedFinish } from "@/lib/ai/output-budget";
 
 const LOOKBACK_DAYS = 30;
 const MIN_EVENTS_TO_SYNTHESIZE = 3;
@@ -119,8 +121,23 @@ export async function runBrainSynthesis(): Promise<SynthesisReport> {
         bulletList,
       ].join("\n");
 
-      const { text } = await generateText({ model, prompt });
-      const clean = (text ?? "").trim().slice(0, 320);
+      // Tamanho limitado; insight cortado ou em inglês (após 1 retentativa)
+      // nunca é salvo como diretriz da marca.
+      const res = await runWithPtBrRetry(
+        (retryNote) =>
+          generateText({
+            model,
+            prompt: withRetryNote(withPtBr(prompt), retryNote),
+            maxOutputTokens: TEXT_MAX_OUTPUT_TOKENS.brainInsight,
+          }),
+        (r) => r.text,
+        "Insight do Brain",
+      );
+      if (isTruncatedFinish(res.finishReason)) {
+        report.errors += 1;
+        continue;
+      }
+      const clean = (res.text ?? "").trim().slice(0, 320);
       if (!clean) continue;
 
       await supabaseAdmin.from("brain_insights").insert({

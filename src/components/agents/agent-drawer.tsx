@@ -162,7 +162,11 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
     },
     onSuccess: (res) => {
       if (!res) return;
-      setTestOutput(`// ${res.model} · ${res.ms}ms\n\n${res.output || "(sem resposta)"}`);
+      setTestOutput(
+        `// ${res.model} · ${res.ms}ms\n\n${res.output || "(sem resposta)"}${
+          res.truncated ? "\n\n// Resposta interrompida pelo limite de tamanho." : ""
+        }`,
+      );
     },
     onError: (e: Error) => {
       setTestOutput(`// erro\n${e.message}`);
