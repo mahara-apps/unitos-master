@@ -30,3 +30,38 @@ describe("acompanhamento das gerações de IA", () => {
     expect(readdirSync("supabase/migrations").length).toBeGreaterThan(0);
   });
 });
+
+import { copyQueuePollInterval } from "@/lib/ai-jobs-poll";
+import { writeJobTerminal } from "@/lib/ai-job-terminal";
+
+describe("outras gerações em segundo plano", () => {
+  it("ao terminar a estratégia, recarrega a estratégia do cliente", () => {
+    const keys = queryKeysToRefreshOnJobEnd({ status: "succeeded", kind: "customer_strategy" });
+    expect(keys).toContainEqual(["strategy-gate"]);
+    expect(keys).toContainEqual(["brand-hub"]);
+  });
+
+  it("fila de legendas relê o quadro só enquanto há legenda em produção", () => {
+    expect(copyQueuePollInterval(2)).toBe(8_000);
+    expect(copyQueuePollInterval(0)).toBe(false);
+  });
+
+  it("fim da geração é regravado quando a primeira escrita falha", async () => {
+    let calls = 0;
+    const ok = await writeJobTerminal(async () => {
+      calls += 1;
+      return { error: calls === 1 ? new Error("rede") : null };
+    }, "teste");
+    expect(ok).toBe(true);
+    expect(calls).toBe(2);
+  });
+
+  it("telas que iniciam gerações pedem a lista certa de gerações", () => {
+    for (const f of [
+      "src/components/brand-hub/briefing-workspace.tsx",
+      "src/components/brand-hub/quick-onboarding-wizard.tsx",
+    ]) {
+      expect(readFileSync(f, "utf8")).not.toContain('["ai-jobs", "active"]');
+    }
+  });
+});

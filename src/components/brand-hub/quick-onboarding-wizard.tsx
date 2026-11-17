@@ -175,7 +175,7 @@ export function QuickOnboardingWizard({
       });
       if (!res.ok) throw new Error(await readApiError(res, "Falha ao iniciar a estratégia."));
       toast.success("Inteligência rodando em segundo plano — acompanhe pelo indicador de IA.");
-      qc.invalidateQueries({ queryKey: ["ai-jobs", "active"] });
+      qc.invalidateQueries({ queryKey: ["ai_jobs"] });
       onOpenChange(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao iniciar a estratégia");

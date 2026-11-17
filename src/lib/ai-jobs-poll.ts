@@ -8,6 +8,12 @@
  */
 
 export const AI_JOBS_ACTIVE_POLL_MS = 4_000;
+/** Releitura do quadro enquanto alguma legenda está sendo escrita. */
+export const COPY_QUEUE_RUNNING_POLL_MS = 8_000;
+
+export function copyQueuePollInterval(running: number): number | false {
+  return running > 0 ? COPY_QUEUE_RUNNING_POLL_MS : false;
+}
 
 type JobLike = { status: string; kind?: string | null };
 
@@ -27,6 +33,12 @@ export function aiJobsPollInterval(jobs: readonly JobLike[] | undefined): number
 export function queryKeysToRefreshOnJobEnd(job: JobLike): ReadonlyArray<readonly string[]> {
   if (job.kind === "monthly_plan") {
     return [["plan-board"], ["monthly-plans"], ["monthly-plan"], ["content-board"]];
+  }
+  if (job.kind === "customer_strategy") {
+    return [["strategy-gate"], ["strategy-runs"], ["strategy-run"], ["brand-hub"]];
+  }
+  if (job.kind === "copilot_draft") {
+    return [["content-board"], ["board"], ["posts"]];
   }
   return [];
 }

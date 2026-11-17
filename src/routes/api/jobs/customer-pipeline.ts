@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { writeJobTerminal } from "@/lib/ai-job-terminal";
 import { TEXT_MAX_OUTPUT_TOKENS, assertNotTruncated } from "@/lib/ai/output-budget";
 import { guardClientScope } from "@/lib/http-scope.server";
 import { waitUntil } from "@/lib/wait-until.server";
@@ -974,7 +975,7 @@ async function runStep(params: {
       .maybeSingle();
     const st = (current?.input ?? {}) as unknown as JobState;
 
-    await patch({
+    await writeJobTerminal(() => patch({
       status: "failed",
       error: message,
       finished_at: new Date().toISOString(),
@@ -988,7 +989,7 @@ async function runStep(params: {
         completed_steps: st.done ?? [],
         detail: detail.slice(0, 500),
       } as never,
-    });
+    }), "customer-pipeline");
   } finally {
     clearInterval(beat);
   }
@@ -997,7 +998,9 @@ async function runStep(params: {
 /** Conclui o job: notifica e marca sucesso. */
 async function finishJob(
   supabase: ReturnType<typeof buildUserClient>,
-  patch: (fields: Partial<Database["public"]["Tables"]["ai_jobs"]["Update"]>) => unknown,
+  patch: (
+    fields: Partial<Database["public"]["Tables"]["ai_jobs"]["Update"]>,
+  ) => PromiseLike<{ error: unknown }>,
   state: JobState,
   userId: string,
 ) {
@@ -1019,7 +1022,7 @@ async function finishJob(
     if (notifErr) console.warn("[notifications] insert failed", notifErr);
   }
 
-  await patch({
+  await writeJobTerminal(() => patch({
     status: "succeeded",
     progress: 100,
     step_label: null,
@@ -1033,7 +1036,7 @@ async function finishJob(
       sources: state.sources ?? null,
       models: state.models ?? null,
     } as never,
-  });
+  }), "customer-pipeline");
 }
 
 /**
@@ -1083,16 +1086,20 @@ async function scheduleStep(opts: {
     const m = FAILURE_MESSAGE_PT[kind];
     console.error(`[customer-pipeline] etapa inline ${opts.step} falhou motivo=${kind}: ${detail}`);
     const supabase = buildUserClient(opts.token);
-    await supabase
-      .from("ai_jobs")
-      .update({
-        status: "failed",
-        error: `${m.title} — etapa "${STEP_META[opts.step].label}". ${m.body}`,
-        finished_at: new Date().toISOString(),
-        step_label: null,
-        result: { failure_kind: kind, retryable, failed_step: opts.step, detail } as never,
-      })
-      .eq("id", opts.jobId);
+    await writeJobTerminal(
+      () =>
+        supabase
+          .from("ai_jobs")
+          .update({
+            status: "failed",
+            error: `${m.title} — etapa "${STEP_META[opts.step].label}". ${m.body}`,
+            finished_at: new Date().toISOString(),
+            step_label: null,
+            result: { failure_kind: kind, retryable, failed_step: opts.step, detail } as never,
+          })
+          .eq("id", opts.jobId),
+      "customer-pipeline",
+    );
   }
 }
 

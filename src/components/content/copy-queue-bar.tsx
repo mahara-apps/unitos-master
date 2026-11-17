@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { resumePendingPostsFn } from "@/lib/content.functions";
 import { summarizeCopyQueue } from "@/lib/post-copy-status";
+import { copyQueuePollInterval } from "@/lib/ai-jobs-poll";
 
 export function CopyQueueBar({
   brandId,
@@ -31,7 +32,7 @@ export function CopyQueueBar({
   const { running, pending, failed, total } = summarizeCopyQueue(posts);
 
   // A legenda chega por evento: o quadro acompanha as peças deste cliente em
-  // tempo real, sem ficar consultando o banco de tempos em tempos.
+  // tempo real.
   useEffect(() => {
     if (!clientId) return;
     const channel = supabase
@@ -46,6 +47,18 @@ export function CopyQueueBar({
       supabase.removeChannel(channel);
     };
   }, [clientId, qc, invalidateKey]);
+
+  // O tempo real é o caminho rápido; enquanto houver legenda em produção, o
+  // quadro também é relido para nunca ficar preso em "em produção".
+  const pollMs = copyQueuePollInterval(running);
+  useEffect(() => {
+    if (!pollMs) return;
+    const id = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      void qc.invalidateQueries({ queryKey: invalidateKey });
+    }, pollMs);
+    return () => clearInterval(id);
+  }, [pollMs, qc, invalidateKey]);
 
   const retry = useMutation({
     mutationFn: () => resume({ data: { brandId, clientId, limit: 5 } }),

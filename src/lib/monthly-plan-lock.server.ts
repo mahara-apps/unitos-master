@@ -6,6 +6,7 @@ import {
   newLeaseOwner,
   type LeaseJob,
 } from "@/lib/ai-job-lease";
+import { writeJobTerminal } from "@/lib/ai-job-terminal";
 
 /**
  * Trava server-side contra geração duplicada de pauta.
@@ -142,22 +143,23 @@ export async function releasePlanGenerationLock(
   jobId: string,
   outcome: { ok: boolean; error?: string; planId?: string; targetRoute?: string },
 ): Promise<void> {
-  try {
-    await supabase
-      .from("ai_jobs")
-      .update({
-        status: outcome.ok ? "succeeded" : "failed",
-        progress: outcome.ok ? 100 : 0,
-        finished_at: new Date().toISOString(),
-        error: outcome.error ? outcome.error.slice(0, 2000) : null,
-        // Libera a lease: o job terminou e não deve mais ser considerado ativo.
-        lease_owner: null,
-        lease_expires_at: null,
-        target_route: outcome.targetRoute ?? null,
-        ...(outcome.planId ? { result: { monthly_plan_id: outcome.planId } } : {}),
-      })
-      .eq("id", jobId);
-  } catch (err) {
-    console.warn("[monthly-plan] release lock failed", err);
-  }
+  const ok = await writeJobTerminal(
+    () =>
+      supabase
+        .from("ai_jobs")
+        .update({
+          status: outcome.ok ? "succeeded" : "failed",
+          progress: outcome.ok ? 100 : 0,
+          finished_at: new Date().toISOString(),
+          error: outcome.error ? outcome.error.slice(0, 2000) : null,
+          // Libera a lease: o job terminou e não deve mais ser considerado ativo.
+          lease_owner: null,
+          lease_expires_at: null,
+          target_route: outcome.targetRoute ?? null,
+          ...(outcome.planId ? { result: { monthly_plan_id: outcome.planId } } : {}),
+        })
+        .eq("id", jobId),
+    "monthly-plan",
+  );
+  if (!ok) console.warn("[monthly-plan] release lock failed", jobId);
 }

@@ -443,7 +443,7 @@ export function BriefingWorkspace({
       toast.success(
         "Estratégia rodando em segundo plano — acompanhe pelo indicador de IA no topo.",
       );
-      qc.invalidateQueries({ queryKey: ["ai-jobs", "active"] });
+      qc.invalidateQueries({ queryKey: ["ai_jobs"] });
       qc.invalidateQueries({ queryKey: ["brand-hub", brandId, clientId] });
       setRegenOpen(false);
       onStrategyGenerated?.();
