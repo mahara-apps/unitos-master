@@ -90,6 +90,16 @@ export async function runCopilotJob(params: {
 
   const patch = (fields: Partial<Database["public"]["Tables"]["ai_jobs"]["Update"]>) =>
     supabase.from("ai_jobs").update(fields).eq("id", jobId).eq("lease_owner", owner);
+  // O fim da geração não pode se perder: sem isso a tela fica em "Gerando"
+  // até a limpeza automática, mesmo com o rascunho já criado.
+  const finish = async (fields: Partial<Database["public"]["Tables"]["ai_jobs"]["Update"]>) => {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const { error } = await patch(fields);
+      if (!error) return;
+      console.error("[copilot] falha ao gravar o fim da geração", jobId, attempt);
+      if (attempt < 3) await new Promise((r) => setTimeout(r, 500 * attempt));
+    }
+  };
 
   const heartbeat = setInterval(() => {
     void callRpc(supabase, "ai_job_heartbeat", {
@@ -212,7 +222,7 @@ export async function runCopilotJob(params: {
       }
     }
 
-    await patch({
+    await finish({
       status: "succeeded",
       progress: 100,
       step_label: null,
@@ -224,7 +234,7 @@ export async function runCopilotJob(params: {
     });
   } catch (error) {
     const { kind } = classifyAiError(error);
-    await patch({
+    await finish({
       status: "failed",
       error: FAILURE_MESSAGE_PT[kind]?.title ?? FAILURE_MESSAGE_PT.unknown.title,
       finished_at: new Date().toISOString(),

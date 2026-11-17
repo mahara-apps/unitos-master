@@ -20,6 +20,7 @@ import {
   clearFinishedAiJobs,
   type AiJobRow,
 } from "@/lib/ai-jobs.functions";
+import { aiJobsPollInterval, isActiveAiJob, queryKeysToRefreshOnJobEnd } from "@/lib/ai-jobs-poll";
 
 type Ctx = {
   jobs: AiJobRow[];
@@ -45,6 +46,10 @@ export function AiJobsProvider({ children }: { children: ReactNode }) {
     queryKey: AI_JOBS_KEY,
     queryFn: () => listFn(),
     staleTime: 15_000,
+    // Não depende só do tempo real: enquanto houver geração em andamento,
+    // relê a lista para a tela nunca ficar presa em "Gerando".
+    refetchInterval: (q) => aiJobsPollInterval(q.state.data),
+    refetchIntervalInBackground: false,
   });
 
   // Track which finished-job IDs we've already notified about (per session).
@@ -97,6 +102,9 @@ export function AiJobsProvider({ children }: { children: ReactNode }) {
           prev
         ) {
           notifiedRef.current.add(j.id);
+          for (const key of queryKeysToRefreshOnJobEnd(j)) {
+            void qc.invalidateQueries({ queryKey: [...key] });
+          }
           if (j.status === "succeeded") {
             toast.success(`Concluído: ${j.title}`, {
               description: j.result?.injected ? "Adicionado ao seu pipeline." : "Geração pronta.",
@@ -141,7 +149,7 @@ export function AiJobsProvider({ children }: { children: ReactNode }) {
     const jobs = query.data ?? [];
     return {
       jobs,
-      active: jobs.filter((j) => j.status === "queued" || j.status === "running"),
+      active: jobs.filter(isActiveAiJob),
       finished: jobs.filter(
         (j) => j.status === "succeeded" || j.status === "failed" || j.status === "cancelled",
       ),

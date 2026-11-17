@@ -786,5 +786,12 @@ WITH checks AS (
       AND (SELECT count(*) FROM pg_trigger WHERE tgname IN ('production_new_client_pipeline','production_stage_workspace_guard','production_pipeline_flag_guard') AND NOT tgisinternal)=3
       AND NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='production_stage_local_exception' AND NOT tgisinternal)
       THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
+  SELECT 97, 'tempo real: gerações de IA e avisos',
+    'tela recebe fim da geração, notificações e tarefas sem recarregar',
+    CASE WHEN (SELECT count(*) FROM pg_publication_tables
+                WHERE pubname='supabase_realtime' AND schemaname='public'
+                  AND tablename IN ('ai_jobs','notifications','tasks','post_approvals','posts'))=5
+      THEN 'PASS' ELSE 'FAIL' END
 )
 SELECT ord, check_name, observed, status FROM checks ORDER BY ord;
