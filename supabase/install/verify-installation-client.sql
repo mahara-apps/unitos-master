@@ -793,5 +793,17 @@ WITH checks AS (
                 WHERE pubname='supabase_realtime' AND schemaname='public'
                   AND tablename IN ('ai_jobs','notifications','tasks','post_approvals','posts'))=5
       THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
+  SELECT 98, 'segurança: leitura restrita de instalação, retenção e fotos',
+    'installation e brain_retention_config só Super Admin; avatars só a própria pasta',
+    CASE WHEN NOT EXISTS(SELECT 1 FROM pg_policies WHERE schemaname='public'
+                  AND tablename IN ('installation','brain_retention_config') AND cmd='SELECT' AND qual='true')
+      AND NOT EXISTS(SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects'
+                  AND policyname='avatars_auth_read')
+      AND EXISTS(SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects'
+                  AND policyname='avatars_owner_read' AND qual LIKE '%auth.uid()%')
+      AND EXISTS(SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='installation'
+                  AND policyname='installation_select_super_admin')
+      THEN 'PASS' ELSE 'FAIL' END
 )
 SELECT ord, check_name, observed, status FROM checks ORDER BY ord;

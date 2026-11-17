@@ -24,11 +24,13 @@
 
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 
--- avatars: leitura por qualquer autenticado, escrita apenas na pasta do proprio uid
+-- avatars: leitura e escrita apenas na pasta do proprio uid (quem exibe a foto
+-- usa a URL assinada gravada em user_profiles.avatar_url)
 DROP POLICY IF EXISTS avatars_auth_read ON storage.objects;
-CREATE POLICY avatars_auth_read ON storage.objects
+DROP POLICY IF EXISTS avatars_owner_read ON storage.objects;
+CREATE POLICY avatars_owner_read ON storage.objects
   FOR SELECT TO authenticated
-  USING (bucket_id = 'avatars');
+  USING (bucket_id = 'avatars' AND (auth.uid())::text = (storage.foldername(name))[1]);
 
 DROP POLICY IF EXISTS avatars_owner_insert ON storage.objects;
 CREATE POLICY avatars_owner_insert ON storage.objects
