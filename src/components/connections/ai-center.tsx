@@ -48,6 +48,7 @@ import { AiFinanceAlerts } from "./ai-finance-alerts";
 import { getAiModelStatus, runAiModelHealthNow } from "@/lib/ai-models.functions";
 import { saveProviderKey, testProviderKey, removeProviderKey } from "@/lib/connections.functions";
 import { cn } from "@/lib/utils";
+import { orderedUsableEmbeddingProviders } from "@/lib/ai-provider-availability";
 import { formatDateTimeBr } from "@/lib/timezone";
 
 export type AiProviderId = "openai" | "anthropic" | "gemini" | "groq";
@@ -95,7 +96,7 @@ export const AI_PROVIDERS: ProviderDef[] = [
     docs: "aistudio.google.com",
     icon: Cpu,
     models: [
-      { id: "gemini-flash-latest", label: "Gemini Flash (atual)", kind: "text" },
+      { id: "gemini-flash-latest", label: "Gemini Flash (mais recente)", kind: "text" },
       { id: "gemini-3.8-flash", label: "Gemini 3.8 Flash", kind: "text" },
     ],
   },
@@ -151,6 +152,42 @@ function providerLabel(providerId: string) {
   return PROVIDER_BY_ID[providerId as AiProviderId]?.name ?? providerId;
 }
 
+type ProviderUse = "primary" | "fallback" | "standby" | "none";
+type ActiveModels = Partial<Record<"strategic" | "operational", string>>;
+
+const ROLE_LABEL: Record<"strategic" | "operational", string> = {
+  strategic: "Estratégia",
+  operational: "Dia a dia",
+};
+
+/** Papel real de cada provedor, pela mesma regra usada na geração. */
+function providerUse(
+  id: AiProviderId,
+  data: AiCenterData | undefined,
+): ProviderUse {
+  const connected = data?.providers?.[id]?.connected === true;
+  if (!connected) return "none";
+  if (id === data?.textProvider) return "primary";
+  if (id === "groq" && data?.textFallbackProvider === "groq") return "fallback";
+  return "standby";
+}
+
+/** Provedor que gera a memória da IA (embeddings), pela regra do servidor. */
+function embeddingProvider(data: AiCenterData | undefined): AiProviderId | null {
+  const providers = data?.providers ?? {};
+  const connected = Object.entries(providers)
+    .filter(([, v]) => v?.connected)
+    .map(([k]) => k);
+  return (
+    orderedUsableEmbeddingProviders({
+      primary: data?.textProvider,
+      providers,
+      credentialProviders: connected,
+      allowed: ["openai", "gemini"],
+    })[0] ?? null
+  );
+}
+
 export type AiCenterData = {
   monthlyBudgetUsd?: number;
   textProvider?: AiProviderId;
@@ -202,6 +239,22 @@ export function AiCenter({
   const byProvider = data?.usage.byProvider ?? {};
 
   const textProvider = (data?.textProvider ?? "openai") as AiProviderId;
+  const primaryName = data?.textProvider ? PROVIDER_BY_ID[data.textProvider]?.name : undefined;
+  const primaryReady = !!data?.textProvider && data?.providers?.[data.textProvider]?.connected === true;
+  const fallbackReady = data?.textFallbackProvider === "groq" && data?.providers?.groq?.connected === true;
+  const embedId = embeddingProvider(data);
+
+  const statusFn = useServerFn(getAiModelStatus);
+  const { data: modelStatus } = useQuery({
+    queryKey: ["ai-model-status", brandId],
+    queryFn: () => statusFn({ data: { brandId } }),
+    staleTime: 5 * 60 * 1000,
+  });
+  const activeModels = (id: AiProviderId): ActiveModels => {
+    const out: ActiveModels = {};
+    for (const m of modelStatus?.models ?? []) if (m.provider === id) out[m.role] = m.modelId;
+    return out;
+  };
 
   return (
     <Tabs value={tab} onValueChange={setTab} className="space-y-4">
@@ -267,7 +320,7 @@ export function AiCenter({
             <div>
               <div className="text-sm font-semibold">Configuração atual</div>
               <p className="text-xs text-muted-foreground">
-                Modelos e limite usados por todo o workspace.
+                Quem escreve os textos, quem assume se ela falhar e o limite de gasto.
               </p>
             </div>
             <Button size="sm" variant="outline" onClick={() => setTab("config")}>
@@ -277,10 +330,17 @@ export function AiCenter({
           </div>
 
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            <SummaryRow label="Modelo de texto" value={PROVIDER_BY_ID[textProvider]?.name} />
             <SummaryRow
-              label="Fallback"
-              value={data?.providers?.groq?.connected ? "Groq · automático" : "Não configurado"}
+              label="IA principal (textos)"
+              value={primaryName ? (primaryReady ? primaryName : `${primaryName} · sem chave`) : "Nenhuma selecionada"}
+            />
+            <SummaryRow
+              label="Reserva automática"
+              value={fallbackReady ? "Groq · só se a principal falhar" : "Não configurada"}
+            />
+            <SummaryRow
+              label="Memória da IA"
+              value={embedId ? PROVIDER_BY_ID[embedId].name : "Sem OpenAI/Gemini conectado"}
             />
             <SummaryRow label="Orçamento mensal" value={budget > 0 ? `US$ ${budget.toFixed(0)}` : "Sem orçamento definido"} />
           </div>
@@ -292,11 +352,23 @@ export function AiCenter({
       {/* -------------------------------- Provedores ------------------------ */}
       <TabsContent value="providers" className="space-y-3">
         <AiFinanceAlerts brandId={brandId} spent={used} budget={budget} />
+        {!isLoading && data && (
+          <AiHealthBanner primary={data.textProvider} providers={data.providers} recentUnavailable={data.recentUnavailable} />
+        )}
         <div>
           <div className="text-sm font-semibold">Provedores de IA</div>
           <p className="text-xs text-muted-foreground">
-            Conecte os provedores que o Unitos poderá utilizar.
+            Todos os textos são escritos pela IA principal. A reserva só entra se a principal
+            falhar. Provedores em espera ficam conectados, mas não escrevem textos.
           </p>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <SummaryRow
+            label="IA principal"
+            value={primaryName ? (primaryReady ? primaryName : `${primaryName} · sem chave`) : "Nenhuma selecionada"}
+          />
+          <SummaryRow label="Reserva automática" value={fallbackReady ? "Groq" : "Não configurada"} />
+          <SummaryRow label="Memória da IA" value={embedId ? PROVIDER_BY_ID[embedId].name : "—"} />
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {AI_PROVIDERS.map((p) => (
@@ -307,6 +379,15 @@ export function AiCenter({
               brandId={brandId}
               onChanged={onChanged}
               usage={byProvider[p.id] ?? { usd: 0, tokens: 0, calls: 0 }}
+              use={providerUse(p.id, data)}
+              usedForMemory={embedId === p.id}
+              activeModels={activeModels(p.id)}
+              onMakePrimary={
+                p.id !== "groq" && providerUse(p.id, data) === "standby"
+                  ? () => onUpdateSettings({ textProvider: p.id })
+                  : undefined
+              }
+              isSaving={isSaving}
             />
           ))}
         </div>
@@ -317,7 +398,8 @@ export function AiCenter({
         <div>
           <div className="text-sm font-semibold">Modelos disponíveis</div>
           <p className="text-xs text-muted-foreground">
-            Organizados por provedor, com a função de cada modelo.
+            Cada provedor usa um modelo para estratégia e outro para o dia a dia. Os modelos de
+            reserva só entram se o modelo em uso sair do ar.
           </p>
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -340,14 +422,25 @@ export function AiCenter({
                   </span>
                 </div>
                 <ul className="mt-2 space-y-1.5">
-                  {p.models.map((m) => (
-                    <li key={m.id} className="flex items-center justify-between gap-2">
-                      <span className="truncate text-xs text-foreground/90">{m.label}</span>
-                      <Badge variant="outline" className="shrink-0 text-[9px] uppercase">
-                        Texto
-                      </Badge>
-                    </li>
-                  ))}
+                  {p.models.map((m) => {
+                    const roles = (Object.entries(activeModels(p.id)) as Array<["strategic" | "operational", string]>)
+                      .filter(([, id]) => id === m.id)
+                      .map(([r]) => ROLE_LABEL[r]);
+                    return (
+                      <li key={m.id} className="flex items-center justify-between gap-2">
+                        <span className="truncate text-xs text-foreground/90">{m.label}</span>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "shrink-0 text-[9px] uppercase",
+                            roles.length > 0 && "border-health-good/30 text-health-good",
+                          )}
+                        >
+                          {roles.length > 0 ? `Em uso · ${roles.join(" e ")}` : "Reserva do provedor"}
+                        </Badge>
+                      </li>
+                    );
+                  })}
                 </ul>
               </DashboardPanelSurface>
             );
@@ -416,7 +509,10 @@ function ConfigForm({
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Field label="Modelo de texto padrão">
+        <Field
+          label="IA principal (textos)"
+          hint="Escreve todos os textos. Ao conectar uma chave válida de OpenAI, Anthropic ou Gemini, ela vira a principal automaticamente."
+        >
           <Select value={text} onValueChange={(v) => setText(v as AiProviderId)}>
             <SelectTrigger className="h-9">
               <SelectValue />
@@ -431,9 +527,9 @@ function ConfigForm({
           </Select>
         </Field>
 
-        <Field label="Fallback de texto" hint="Ativado automaticamente ao conectar uma chave Groq válida.">
+        <Field label="Reserva automática" hint="Só entra se a IA principal falhar. Ativada ao conectar uma chave Groq válida.">
           <div className="flex h-9 items-center rounded-md border border-border bg-background px-3 text-sm">
-            {groqConnected ? "Groq · automático" : "Groq · não configurado"}
+            {groqConnected ? "Groq · só se a principal falhar" : "Groq · não configurado"}
           </div>
         </Field>
 
@@ -633,16 +729,25 @@ function ProviderCard({
   brandId,
   onChanged,
   usage,
+  use,
+  usedForMemory,
+  activeModels,
+  onMakePrimary,
+  isSaving,
 }: {
   provider: ProviderDef;
   config?: ProviderConfig;
   brandId: string;
   onChanged: () => void;
   usage: { usd: number; tokens: number; calls: number };
+  use: ProviderUse;
+  usedForMemory: boolean;
+  activeModels: ActiveModels;
+  onMakePrimary?: () => void;
+  isSaving: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [apiKey, setApiKey] = useState("");
-  const [model, setModel] = useState<string>(provider.models[0]?.id ?? "");
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const saveFn = useServerFn(saveProviderKey);
@@ -691,7 +796,9 @@ function ProviderCard({
   const Icon = provider.icon;
 
   return (
-    <DashboardPanelSurface className="flex flex-col p-3.5">
+    <DashboardPanelSurface
+      className={cn("flex flex-col p-3.5", use === "primary" && "ring-1 ring-primary/40")}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <span
@@ -707,25 +814,31 @@ function ProviderCard({
             <div className="truncate text-[11px] text-muted-foreground">{provider.hint}</div>
           </div>
         </div>
-        <ProviderStatus connected={connected} verified={config?.verified} />
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <ProviderStatus connected={connected} verified={config?.verified} />
+          <ProviderUseBadge use={use} />
+        </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2">
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        {PROVIDER_USE_TEXT[use]}
+        {usedForMemory ? " Também gera a memória da IA (busca no histórico)." : ""}
+      </p>
+
+      <div className="mt-3 space-y-1">
         <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-          Modelo padrão
+          Modelos em uso
         </span>
-        <Select value={model} onValueChange={setModel} disabled={!connected}>
-          <SelectTrigger className="h-8 w-[170px] text-xs">
-            <SelectValue placeholder="Selecionar" />
-          </SelectTrigger>
-          <SelectContent>
-            {provider.models.map((m) => (
-              <SelectItem key={m.id} value={m.id}>
-                {m.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {(["strategic", "operational"] as const).map((role) => {
+          const id = activeModels[role];
+          if (!id) return null;
+          return (
+            <div key={role} className="flex items-center justify-between gap-2 text-xs">
+              <span className="text-muted-foreground">{ROLE_LABEL[role]}</span>
+              <span className="truncate font-medium">{modelLabel(provider.id, id)}</span>
+            </div>
+          );
+        })}
       </div>
 
       <div className="mt-3 rounded-lg border border-border/60 bg-background/60 px-3 py-2">
@@ -789,6 +902,11 @@ function ProviderCard({
             <Button size="sm" variant="outline" className="flex-1" onClick={() => setOpen(true)}>
               Rotacionar chave
             </Button>
+            {onMakePrimary && (
+              <Button size="sm" variant="outline" className="flex-1" onClick={onMakePrimary} disabled={isSaving}>
+                Tornar principal
+              </Button>
+            )}
             <Button
               size="sm"
               variant="ghost"
@@ -861,6 +979,26 @@ function ProviderCard({
         </DialogContent>
       </Dialog>
     </DashboardPanelSurface>
+  );
+}
+
+const PROVIDER_USE_TEXT: Record<ProviderUse, string> = {
+  primary: "Escreve todos os textos do workspace.",
+  fallback: "Só escreve se a IA principal falhar.",
+  standby: "Conectada, mas não escreve textos enquanto não for a principal.",
+  none: "Sem chave. Não é usada.",
+};
+
+function ProviderUseBadge({ use }: { use: ProviderUse }) {
+  if (use === "none") return null;
+  const label = use === "primary" ? "Principal" : use === "fallback" ? "Reserva" : "Em espera";
+  return (
+    <Badge
+      variant={use === "primary" ? "default" : "outline"}
+      className={cn("shrink-0 text-[10px]", use !== "primary" && "text-muted-foreground")}
+    >
+      {label}
+    </Badge>
   );
 }
 

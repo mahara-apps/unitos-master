@@ -18,7 +18,7 @@ import {
 } from "./ai-models-catalog.server";
 
 
-import { orderedUsableTextProviders } from "./ai-provider-availability";
+import { orderedUsableEmbeddingProviders, orderedUsableTextProviders } from "./ai-provider-availability";
 import { classifyAiError, unwrapAiError } from "./ai-failures.server";
 import { isRecoverableFailure, logAiFailure, logAiRetry, redactAiDetail } from "./ai-observability";
 import { recordAiUsage, type AiUsageContext } from "./ai-usage.server";
@@ -114,12 +114,17 @@ export async function getBrandProviderKey(
     .eq("brand_id", brandId);
   if (credentialListError) throw credentialListError;
 
-  const provider = orderedUsableTextProviders({
-    primary: selected,
-    fallback: conn?.text_fallback_provider,
-    providers,
-    credentialProviders: (credentialRows ?? []).map((row) => row.provider),
-  }).find(allowed);
+  const credentialProviders = (credentialRows ?? []).map((row) => row.provider);
+  // `only` restringe a provedores com capacidade específica (embeddings):
+  // eles não dependem da principal de texto ser OpenAI/Gemini.
+  const provider = only
+    ? orderedUsableEmbeddingProviders({ primary: selected, providers, credentialProviders, allowed: only })[0]
+    : orderedUsableTextProviders({
+        primary: selected,
+        fallback: conn?.text_fallback_provider,
+        providers,
+        credentialProviders,
+      }).find(allowed);
 
   if (!provider) {
     throw new Error(

@@ -33,3 +33,29 @@ export function orderedUsableTextProviders(input: {
       credentials.has(provider),
   );
 }
+/**
+ * Ordem das conexões utilizáveis para embeddings (memória/busca da IA).
+ * Só OpenAI/Gemini geram embeddings; quando a principal de texto é outra
+ * (ex.: Anthropic), usa as conexões válidas desses provedores, principal antes.
+ */
+export function orderedUsableEmbeddingProviders(input: {
+  primary?: string | null;
+  providers?: ProviderConnectionState | null;
+  credentialProviders: Iterable<string>;
+  allowed: readonly ProviderName[];
+}): ProviderName[] {
+  const credentials = new Set(input.credentialProviders);
+  const configured = input.providers ?? {};
+  const order = [
+    ...(input.primary && (input.allowed as readonly string[]).includes(input.primary)
+      ? [input.primary as ProviderName]
+      : []),
+    ...input.allowed,
+  ];
+  return order.filter(
+    (provider, index, all) =>
+      all.indexOf(provider) === index &&
+      configured[provider]?.connected === true &&
+      credentials.has(provider),
+  );
+}
