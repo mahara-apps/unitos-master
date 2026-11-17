@@ -22,8 +22,9 @@ import { brain } from "@/lib/brain/api";
 const AGENT_MAX_SYSTEM_CHARS = 40_000;
 const AGENT_MAX_PROMPT_CHARS = 24_000;
 const AGENT_MAX_OUTPUT_TOKENS = 8_000;
-/** Nenhuma chamada de agente pode pendurar a request do usuário. */
-const AGENT_TIMEOUT_MS = 90_000;
+// Sem cronômetro próprio: o vigia do provedor (ai-call-watchdog) já encerra um
+// provedor mudo e aciona a reserva; um teto em segundos cortava respostas longas
+// saudáveis e, por ser compartilhado, abortava também a tentativa da reserva.
 const AGENT_MAX_ATTEMPTS = 3;
 
 function clampText(text: string, max: number): string {
@@ -429,7 +430,6 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
         prompt: withRetryNote(finalPrompt, retryNote),
         output: Output.object({ schema: opts.schema }),
         maxOutputTokens: AGENT_MAX_OUTPUT_TOKENS,
-        abortSignal: AbortSignal.timeout(AGENT_TIMEOUT_MS),
         // O backoff é controlado aqui para respeitar a quota do provedor.
         maxRetries: 0,
       });

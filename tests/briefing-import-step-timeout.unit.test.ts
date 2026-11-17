@@ -9,9 +9,9 @@ import { STEP_TIMEOUT_MS } from "@/lib/briefing-import-executor.server";
 import { friendlyAnalysisError, canRetryRun, uiStepFromRun } from "@/lib/briefing-import-ui";
 
 describe("timeout por etapa da importação", () => {
-  it("define orçamento de 60s para extract e 120s para interpret", () => {
+  it("define orçamento de 60s para extract e 10 min para interpret (principal + reserva)", () => {
     expect(STEP_TIMEOUT_MS.extract).toBe(60_000);
-    expect(STEP_TIMEOUT_MS.interpret).toBe(120_000);
+    expect(STEP_TIMEOUT_MS.interpret).toBe(600_000);
   });
 
   it("classifica timeout de interpret como falha retentável (não pausa)", () => {

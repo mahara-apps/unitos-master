@@ -16,10 +16,15 @@ import {
   type ImportStep,
 } from "@/lib/briefing-import.server";
 
-/** Orçamento de tempo por etapa (ms). Estouro vira falha retentável. */
+/**
+ * Orçamento de tempo por etapa (ms). Estouro vira falha retentável.
+ * `interpret` é uma geração de IA sem stream: cobre o teto do principal e de uma
+ * reserva (GENERATE_TOTAL_TIMEOUT_MS cada) e fica abaixo do reaper de 20 min; a
+ * lease é renovada por heartbeat periódico durante a etapa.
+ */
 export const STEP_TIMEOUT_MS: Partial<Record<ImportStep, number>> = {
   extract: 60_000,
-  interpret: 120_000,
+  interpret: 600_000,
 };
 
 /**

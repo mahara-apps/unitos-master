@@ -69,6 +69,24 @@ describe("vigia de chamadas de IA", () => {
     expect(src).toMatch(/deadline\.ms,\s*deadline\.phase/);
   });
 
+  it("agentes de estratégia não têm cronômetro próprio que corte a resposta ou a reserva", () => {
+    const src = readFileSync("src/lib/ai-agents.functions.ts", "utf8");
+    expect(src).not.toMatch(/AbortSignal\.timeout/);
+  });
+
+  it("etapas da estratégia do cliente não envolvem a IA num prazo de 90 s", () => {
+    const src = readFileSync("src/routes/api/jobs/customer-pipeline.ts", "utf8");
+    expect(src).not.toMatch(/withTimeout\(\s*generateText/);
+    expect(src).not.toMatch(/LLM_TIMEOUT_MS/);
+  });
+
+  it("importação de briefing dá à interpretação tempo para o principal e uma reserva (10 min)", () => {
+    const src = readFileSync("src/lib/briefing-import-executor.server.ts", "utf8");
+    const ms = Number(/interpret:\s*([\d_]+)/.exec(src)?.[1]?.replace(/_/g, ""));
+    expect(ms).toBe(600_000);
+    expect(ms).toBeGreaterThanOrEqual(2 * GENERATE_TOTAL_TIMEOUT_MS);
+  });
+
   it("stream aberto que só manda metadados e fica mudo falha antes de entregar (permite reserva)", async () => {
     const c = new AbortController();
     await expect(guardStream("gemini", streamOf([{ type: "stream-start" }], true), c, { firstMs: 30 })).rejects.toThrow("ai_provider_timeout");

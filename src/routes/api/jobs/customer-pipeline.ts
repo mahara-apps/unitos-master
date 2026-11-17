@@ -247,25 +247,10 @@ function composeBriefingFromRecord(
   return { text, sources };
 }
 
-// Trava por etapa. Cada etapa roda sozinha na requisição, então 90s é
-// suficiente e ainda falha antes do reaper de 5 min.
-const LLM_TIMEOUT_MS = 90_000;
-
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`Timeout de ${ms}ms em ${label}`)), ms);
-    promise.then(
-      (v) => {
-        clearTimeout(t);
-        resolve(v);
-      },
-      (e) => {
-        clearTimeout(t);
-        reject(e);
-      },
-    );
-  });
-}
+// Sem cronômetro próprio por etapa: o vigia do provedor (ai-call-watchdog)
+// aborta um provedor mudo e aciona a reserva; a lease é renovada pelo heartbeat
+// periódico. O teto antigo de 90s não abortava a requisição (seguia cobrando) e
+// cortava etapas longas saudáveis.
 
 const BriefingSchema = z.object({
   publico_alvo: z.string().nullable(),
@@ -411,18 +396,14 @@ async function runJson(opts: {
           userId: opts.userId ?? null,
         },
       );
-      const res = await withTimeout(
-        generateText({
-          model,
-          system: opts.system,
-          prompt: opts.prompt,
-          // Retry é controlado aqui (backoff próprio) para respeitar a quota.
-          maxRetries: 0,
-          maxOutputTokens: TEXT_MAX_OUTPUT_TOKENS.strategy,
-        }),
-        LLM_TIMEOUT_MS,
-        `${role} (tentativa ${attempt})`,
-      );
+      const res = await generateText({
+        model,
+        system: opts.system,
+        prompt: opts.prompt,
+        // Retry é controlado aqui (backoff próprio) para respeitar a quota.
+        maxRetries: 0,
+        maxOutputTokens: TEXT_MAX_OUTPUT_TOKENS.strategy,
+      });
       assertNotTruncated(res.finishReason);
       const text = (res.text ?? "").trim();
       if (!text) throw new Error("ai_invalid_output: o provedor não retornou conteúdo.");
