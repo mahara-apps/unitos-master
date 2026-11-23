@@ -817,5 +817,17 @@ WITH checks AS (
       AND NOT has_table_privilege('anon','public.client_access_requests','SELECT')
       AND (SELECT relrowsecurity FROM pg_class WHERE oid='public.client_access_requests'::regclass)
       THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
+  SELECT 100, 'acesso a cliente: clientes que atende pela Equipe',
+    'set_member_clients respeita hierarquia; "Todos os clientes" só pela RPC; convite guarda clientes',
+    CASE WHEN to_regprocedure('public.set_member_clients(uuid,uuid,boolean,uuid[])') IS NOT NULL
+      AND to_regprocedure('public._apply_member_clients(uuid,uuid,uuid,boolean,uuid[])') IS NOT NULL
+      AND NOT has_function_privilege('anon','public.set_member_clients(uuid,uuid,boolean,uuid[])','EXECUTE')
+      AND NOT has_function_privilege('authenticated','public._apply_member_clients(uuid,uuid,uuid,boolean,uuid[])','EXECUTE')
+      AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='brand_members' AND column_name='all_clients')
+      AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='brand_invites' AND column_name='client_ids')
+      AND EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='trg_guard_brand_member_all_clients' AND tgrelid='public.brand_members'::regclass)
+      AND pg_get_functiondef('public.can_access_client_row(uuid,uuid,uuid,uuid)'::regprocedure) LIKE '%v_all%'
+      THEN 'PASS' ELSE 'FAIL' END
 )
 SELECT ord, check_name, observed, status FROM checks ORDER BY ord;

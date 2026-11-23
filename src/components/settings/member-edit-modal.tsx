@@ -24,6 +24,12 @@ import {
   toAssignableRole,
   memberInitials,
 } from "@/components/settings/team-shared";
+import { MemberClientsPicker } from "@/components/settings/member-clients-picker";
+import {
+  roleNeedsClientScope,
+  summarizeClientChange,
+  type ClientAccess,
+} from "@/lib/member-clients";
 
 /**
  * Edição completa de um membro da marca ativa: perfil (nome, telefone, cargo),
@@ -52,9 +58,13 @@ export function MemberEditModal({
   const [jobTitle, setJobTitle] = useState(member.jobTitle ?? "");
   const [role, setRole] = useState<BrandRole>(toAssignableRole(member.role));
   const [isActive, setIsActive] = useState(member.isActive);
+  const [clientAccess, setClientAccess] = useState<ClientAccess | null>(null);
+  const [initialAccess, setInitialAccess] = useState<ClientAccess | null>(null);
 
   useEffect(() => {
     if (!open) return;
+    setClientAccess(null);
+    setInitialAccess(null);
     setFullName(member.fullName ?? "");
     setPhone(member.phone ?? "");
     setJobTitle(member.jobTitle ?? "");
@@ -73,15 +83,23 @@ export function MemberEditModal({
           jobTitle: jobTitle.trim() || null,
           role,
           isActive,
+          ...(roleNeedsClientScope(role) && clientAccess ? { clientAccess } : {}),
         },
       }),
     onSuccess: () => {
-      toast.success("Membro atualizado.");
+      toast.success("Membro atualizado.", change ? { description: change } : undefined);
       qc.invalidateQueries({ queryKey: ["team-members", brandId] });
+      qc.invalidateQueries({ queryKey: ["member-clients", brandId] });
+      qc.invalidateQueries({ queryKey: ["brand-team", brandId] });
       onOpenChange(false);
     },
     onError: (e: Error) => toast.error("Não foi possível salvar", { description: e.message }),
   });
+
+  const change =
+    roleNeedsClientScope(role) && clientAccess && initialAccess
+      ? summarizeClientChange(initialAccess, clientAccess)
+      : null;
 
   // Matriz canônica: só oferecemos papéis que o ator pode conceder.
   const grantable = invitableRoles(authorityRole);
@@ -172,6 +190,21 @@ export function MemberEditModal({
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             <p className="text-xs text-muted-foreground">{ROLE_ACCESS[role]}</p>
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <MemberClientsPicker
+            key={open ? member.userId : "closed"}
+            brandId={brandId}
+            userId={member.userId}
+            role={role}
+            value={clientAccess}
+            onChange={setClientAccess}
+            onInitial={setInitialAccess}
+          />
+          {change ? (
+            <p className="text-[11px] text-muted-foreground">Ao salvar: {change}</p>
+          ) : null}
         </div>
 
         <div className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-3">

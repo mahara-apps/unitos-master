@@ -6,6 +6,7 @@ import {
   assertCanManageBrandMember,
   resolveAuthorityRole,
 } from "@/lib/access-guard";
+import { ClientAccessSchema, roleNeedsClientScope } from "@/lib/member-clients";
 
 /**
  * Gestão de Equipe & Acessos (Configurações) — CRUD real sobre o modelo
@@ -42,6 +43,10 @@ export type TeamMember = {
   pendingFirstAccess: boolean;
   isSuperAdmin: boolean;
   status: "active" | "pending" | "inactive";
+  /** "Todos os clientes" ligado (Manager/User). */
+  allClients: boolean;
+  /** Clientes liberados (vínculo interno ou responsável). */
+  clientCount: number;
 };
 
 type MemberRow = {
@@ -50,6 +55,7 @@ type MemberRow = {
   created_at: string;
   is_active: boolean | null;
   deactivated_at: string | null;
+  all_clients: boolean | null;
 };
 
 type ProfileRow = {
@@ -74,7 +80,7 @@ export const listTeamMembersFn = createServerFn({ method: "POST" })
 
     const { data: rows, error } = await supabase
       .from("brand_members")
-      .select("user_id, role, created_at, is_active, deactivated_at")
+      .select("user_id, role, created_at, is_active, deactivated_at, all_clients")
       .eq("brand_id", data.brandId)
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
@@ -94,6 +100,32 @@ export const listTeamMembersFn = createServerFn({ method: "POST" })
       const profile = profiles.find((candidate) => candidate.id === member.user_id);
       return profile && profile.is_super_admin !== true;
     });
+
+    // Contagem de clientes liberados por pessoa (vínculo interno + responsável).
+    const [cmRes, ownRes] = await Promise.all([
+      supabaseAdmin
+        .from("client_members")
+        .select("user_id, client_id, role")
+        .eq("brand_id", data.brandId)
+        .neq("role", "portal_client")
+        .in("user_id", ids),
+      supabaseAdmin
+        .from("clients")
+        .select("id, owner_user_id")
+        .eq("brand_id", data.brandId)
+        .in("owner_user_id", ids),
+    ]);
+    if (cmRes.error) throw new Error(cmRes.error.message);
+    if (ownRes.error) throw new Error(ownRes.error.message);
+    const clientSets = new Map<string, Set<string>>();
+    const addClient = (uid: string | null, cid: string) => {
+      if (!uid) return;
+      const set = clientSets.get(uid) ?? new Set<string>();
+      set.add(cid);
+      clientSets.set(uid, set);
+    };
+    for (const r of cmRes.data ?? []) addClient(r.user_id as string, r.client_id as string);
+    for (const r of ownRes.data ?? []) addClient(r.owner_user_id as string | null, r.id as string);
 
     // E-mail e último acesso só existem em auth.users — leitura pontual por id.
     const auth = await Promise.all(
@@ -133,6 +165,8 @@ export const listTeamMembersFn = createServerFn({ method: "POST" })
           pendingFirstAccess,
           isSuperAdmin: false,
           status: !isActive ? "inactive" : pendingFirstAccess ? "pending" : "active",
+          allClients: m.all_clients === true,
+          clientCount: clientSets.get(m.user_id)?.size ?? 0,
         } satisfies TeamMember;
       }),
     };
@@ -200,6 +234,8 @@ const SaveMemberInput = z.object({
   jobTitle: z.string().trim().max(120).nullable().optional(),
   role: z.enum(INTERNAL_ROLES).optional(),
   isActive: z.boolean().optional(),
+  /** Clientes que atende (Manager/User); ausente = não mexe. */
+  clientAccess: ClientAccessSchema.optional(),
 });
 
 export const saveTeamMemberFn = createServerFn({ method: "POST" })
@@ -249,7 +285,28 @@ export const saveTeamMemberFn = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
     }
 
-    return { ok: true };
+    // Clientes depois do papel: o banco confere a hierarquia com o papel já salvo.
+    let clients: { added: number; removed: number; allClients: boolean } | null = null;
+    if (data.clientAccess) {
+      const { data: current, error: rErr } = await supabaseAdmin
+        .from("brand_members")
+        .select("role")
+        .eq("brand_id", data.brandId)
+        .eq("user_id", data.userId)
+        .maybeSingle();
+      if (rErr) throw new Error(rErr.message);
+      if (roleNeedsClientScope((current?.role as string | undefined) ?? null)) {
+        const { applyMemberClientsAccess } = await import("@/lib/member-clients.functions");
+        clients = await applyMemberClientsAccess(
+          supabase,
+          data.brandId,
+          data.userId,
+          data.clientAccess,
+        );
+      }
+    }
+
+    return { ok: true, clients };
   });
 
 const RemoveInput = z.object({ brandId: z.string().uuid(), userId: z.string().uuid() });

@@ -70,7 +70,8 @@
 - [ ] Geração real nas instalações (pauta/peça expressa) — não testada; depende de sessão e chaves reais.
 
 ## Acesso a clientes na Equipe (MASTER 1.4.95)
-- [ ] Textos do papel Manager alinhados à regra real (só clientes liberados)
-- [ ] Bloco "Clientes que atende" (Todos — inclui futuros / Selecionar) em convidar, vincular, adicionar usuário e editar membro
-- [ ] RPC set_member_clients + brand_members.all_clients + aplicação no aceite do convite
-- [ ] Contagem de clientes na lista da Equipe; testes; MASTER-first; publicação aguarda autorização
+- [x] Textos do papel Manager alinhados à regra real (só clientes liberados)
+- [x] Bloco "Clientes que atende" (Todos — inclui futuros / Selecionar) em convidar, vincular, adicionar usuário e editar membro
+- [x] RPC set_member_clients + brand_members.all_clients + aplicação no aceite do convite; ensaio local PASS
+- [x] Contagem de clientes na lista da Equipe; 1575 testes unitários e master:check PASS (1.4.95)
+- [ ] Conferir as telas logado e publicar 1.4.95 + "Atualizar" na Casa 8 — aguarda autorização; prévia sem sessão automática (Supabase externo)

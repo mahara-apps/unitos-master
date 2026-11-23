@@ -45,6 +45,7 @@ export const CRITICAL_ACTION_KEYS = [
   "user.revoke_master",
   "member.remove",
   "member.reset_password",
+  "member.clients",
   "invite.resend",
   "invite.email_update",
   "invite.revoke",
@@ -289,6 +290,13 @@ export const CRITICAL_ACTIONS: Record<CriticalActionKey, CriticalActionDefinitio
     title: "Redefinir senha",
     impact: "Invalida a senha atual desta pessoa e exige a criação de uma nova no próximo acesso.",
     irreversible: true,
+    targetType: "member",
+  },
+  "member.clients": {
+    key: "member.clients",
+    title: "Alterar clientes que atende",
+    impact: "Libera ou retira clientes de um Manager/User; papel e perfil de módulos não mudam.",
+    irreversible: false,
     targetType: "member",
   },
   "invite.revoke": {

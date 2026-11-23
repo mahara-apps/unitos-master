@@ -35,7 +35,7 @@ export function invitableRoles(authorityRole: string | null | undefined): BrandR
 export const ROLE_LABEL: Record<BrandRole, string> = {
   owner: "Owner (proprietário) — dono da conta, concedido só por super admin",
   admin: "Admin — administra tudo na marca",
-  manager: "Manager — administra a marca e todos os clientes",
+  manager: "Manager — gerencia a operação nos clientes liberados",
   user: "User — opera apenas os clientes vinculados",
   client: "Cliente — somente portal",
 };
@@ -54,8 +54,8 @@ export const ROLE_ACCESS: Record<BrandRole, string> = {
   admin:
     "Administra tudo na marca: equipe (exceto o Owner), identidade, clientes, SLA, conexões e portais.",
   manager:
-    "Mesmo alcance operacional e administrativo da marca, em todos os clientes. Gerencia apenas membros User.",
-  user: "Opera conteúdo, projetos e tarefas apenas nos clientes de que é responsável ou aos quais está vinculado.",
+    "Gerencia a operação e membros User, apenas nos clientes liberados para ele.",
+  user: "Opera conteúdo, projetos e tarefas apenas nos clientes liberados para ele.",
   client: "Acesso restrito ao portal do próprio cliente.",
 };
 
@@ -63,8 +63,8 @@ export const ROLE_ACCESS: Record<BrandRole, string> = {
 export const ROLE_SCOPE: Record<BrandRole, string> = {
   owner: "Todos os clientes da marca",
   admin: "Todos os clientes da marca",
-  manager: "Todos os clientes da marca",
-  user: "Somente clientes vinculados",
+  manager: "Somente clientes liberados (ou todos, se marcado)",
+  user: "Somente clientes liberados (ou todos, se marcado)",
   client: "Somente o próprio cliente (portal)",
 };
 

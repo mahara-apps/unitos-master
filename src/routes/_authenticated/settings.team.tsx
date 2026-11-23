@@ -46,7 +46,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
+import { clientScopeLabel } from "@/lib/member-clients";
 import {
+  Building2,
   MoreHorizontal,
   UserPlus,
   Copy,
@@ -307,6 +309,22 @@ function TeamSettingsPage() {
   );
 }
 
+function ClientScopeTag({ member }: { member: TeamMember }) {
+  const scope = clientScopeLabel(member);
+  return (
+    <span
+      className={
+        scope.empty
+          ? "inline-flex items-center gap-1 rounded-full border border-severity-warning/40 bg-severity-warning/10 px-2 py-0.5 text-[11px] font-medium text-foreground"
+          : "inline-flex items-center gap-1 text-[11px] font-medium text-foreground"
+      }
+    >
+      <Building2 className="h-3 w-3" />
+      {scope.label}
+    </span>
+  );
+}
+
 function MemberRow({
   brandId,
   member,
@@ -382,9 +400,10 @@ function MemberRow({
           <div className="mt-0.5 text-[11px] text-muted-foreground">
             Desde {fmtDate(member.createdAt)} · último acesso {fmtDateTime(member.lastSignInAt)}
           </div>
-          <div className="mt-1.5 flex items-center gap-2 lg:hidden">
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 lg:hidden">
             <Badge variant="secondary">{ROLE_SHORT[member.role]}</Badge>
             <StatusBadge status={member.status} />
+            <ClientScopeTag member={member} />
           </div>
         </div>
       </div>
@@ -395,7 +414,8 @@ function MemberRow({
         <StatusBadge status={member.status} />
       </div>
       <div className="hidden text-xs text-muted-foreground lg:block">
-        {ROLE_ACCESS[member.role]}
+        <ClientScopeTag member={member} />
+        <div className="mt-0.5">{ROLE_ACCESS[member.role]}</div>
       </div>
 
       <div className="flex justify-end">

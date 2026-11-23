@@ -2628,7 +2628,9 @@ export type Database = {
           accepted_at: string | null
           accepted_by: string | null
           access_profile_key: string | null
+          all_clients: boolean
           brand_id: string
+          client_ids: string[]
           created_at: string
           email: string
           expires_at: string
@@ -2647,7 +2649,9 @@ export type Database = {
           accepted_at?: string | null
           accepted_by?: string | null
           access_profile_key?: string | null
+          all_clients?: boolean
           brand_id: string
+          client_ids?: string[]
           created_at?: string
           email: string
           expires_at?: string
@@ -2666,7 +2670,9 @@ export type Database = {
           accepted_at?: string | null
           accepted_by?: string | null
           access_profile_key?: string | null
+          all_clients?: boolean
           brand_id?: string
+          client_ids?: string[]
           created_at?: string
           email?: string
           expires_at?: string
@@ -2826,6 +2832,7 @@ export type Database = {
       brand_members: {
         Row: {
           access_profile_id: string | null
+          all_clients: boolean
           brand_id: string
           created_at: string
           deactivated_at: string | null
@@ -2840,6 +2847,7 @@ export type Database = {
         }
         Insert: {
           access_profile_id?: string | null
+          all_clients?: boolean
           brand_id: string
           created_at?: string
           deactivated_at?: string | null
@@ -2854,6 +2862,7 @@ export type Database = {
         }
         Update: {
           access_profile_id?: string | null
+          all_clients?: boolean
           brand_id?: string
           created_at?: string
           deactivated_at?: string | null
@@ -9837,6 +9846,16 @@ export type Database = {
       }
     }
     Functions: {
+      _apply_member_clients: {
+        Args: {
+          _actor: string
+          _all: boolean
+          _brand_id: string
+          _client_ids: string[]
+          _user_id: string
+        }
+        Returns: Json
+      }
       _brain_cfg_days: {
         Args: { _default: number; _key: string }
         Returns: number
@@ -10779,6 +10798,15 @@ export type Database = {
           _expected_generation: number
           _frozen: boolean
           _reason: string
+        }
+        Returns: Json
+      }
+      set_member_clients: {
+        Args: {
+          _all: boolean
+          _brand_id: string
+          _client_ids: string[]
+          _user_id: string
         }
         Returns: Json
       }

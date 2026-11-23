@@ -91,18 +91,19 @@ const ROLE_CARDS: RoleCard[] = [
   {
     key: "manager",
     label: "Manager",
-    badge: "Administra a marca",
+    badge: "Gestão nos clientes liberados",
     icon: ShieldCheck,
     brandRoles: ["manager"],
-    scope: "Toda a marca e todos os clientes da marca.",
+    scope:
+      "Somente os clientes liberados para ele (ou todos, quando \"Todos os clientes\" estiver marcado em Equipe).",
     can: [
-      "Gerenciar equipe (exceto owners/administradores)",
+      "Gerenciar membros User e liberar para eles os clientes que ele mesmo acessa",
       "Editar identidade e dados cadastrais da agência",
       "Configurar SLA da marca e SLA das etapas do pipeline",
-      "Gerenciar acessos do portal dos clientes da marca",
-      "Ler e escrever em todos os clientes, projetos e tarefas da marca",
+      "Ler e escrever em clientes, projetos e tarefas dos clientes liberados",
     ],
     cannot: [
+      "Ver clientes que não foram liberados para ele",
       "Promover alguém a proprietário ou alterar owners/administradores",
       "Acessar outras marcas",
     ],
@@ -114,7 +115,7 @@ const ROLE_CARDS: RoleCard[] = [
     icon: Layers,
     brandRoles: ["user"],
     scope:
-      "Somente os clientes de que é responsável (owner_user_id) ou aos quais está vinculado em client_members.",
+      "Somente os clientes liberados para ele ou de que é responsável (ou todos, quando \"Todos os clientes\" estiver marcado em Equipe).",
     can: [
       "Operar conteúdo, pautas, projetos, tarefas e subtarefas dos clientes vinculados",
       "Comentar, apontar horas e mover cards do pipeline",

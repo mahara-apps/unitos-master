@@ -24,6 +24,8 @@ import { addPerson, inviteBrandMembers } from "@/lib/team.functions";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { ROLE_LABEL, invitableRoles } from "@/components/settings/team-shared";
 import type { BrandRole } from "@/lib/team-admin.functions";
+import { MemberClientsPicker } from "@/components/settings/member-clients-picker";
+import { roleNeedsClientScope, type ClientAccess } from "@/lib/member-clients";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -64,6 +66,7 @@ export function AddUserDialog({
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<BrandRole>("user");
   const [profileId, setProfileId] = useState<string | null>(null);
+  const [clientAccess, setClientAccess] = useState<ClientAccess | null>(null);
   const [busy, setBusy] = useState(false);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
 
@@ -74,6 +77,7 @@ export function AddUserDialog({
     setFullName("");
     setRole("user");
     setProfileId(null);
+    setClientAccess(null);
     setTempPassword(null);
     setTab("invite");
   }, [open]);
@@ -102,6 +106,7 @@ export function AddUserDialog({
           emails: inviteEmails,
           role,
           accessProfileId: profileId,
+          ...(roleNeedsClientScope(role) && clientAccess ? { clientAccess } : {}),
         },
       });
       toast.success(inviteEmails.length > 1 ? "Convites enviados." : "Convite enviado.");
@@ -127,6 +132,9 @@ export function AddUserDialog({
           role,
           sendEmail: true,
           accessProfileId: profileId,
+          ...(roleNeedsClientScope(role) && clientAccess
+            ? { allClients: clientAccess.all, clientIds: clientAccess.all ? [] : clientAccess.clientIds }
+            : {}),
         },
       })) as { tempPassword?: string | null } | null;
       const pwd = res?.tempPassword ?? null;
@@ -186,8 +194,14 @@ export function AddUserDialog({
       <p className="text-xs text-muted-foreground">
         O perfil define o que a pessoa pode fazer em cada módulo. Depois é possível ajustar módulo
         por módulo em Permissões. Papéis <strong>Admin</strong> e <strong>Manager</strong> já têm
-        acesso total, independentemente do perfil.
+        acesso total aos módulos; Manager e User só nos clientes liberados abaixo.
       </p>
+      <MemberClientsPicker
+        brandId={brandId}
+        role={role}
+        value={clientAccess}
+        onChange={setClientAccess}
+      />
     </>
   );
 

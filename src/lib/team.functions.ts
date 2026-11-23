@@ -12,6 +12,8 @@ import {
   assertCanManageBrandMember,
   resolveAuthorityRole,
 } from "@/lib/access-guard";
+import { ClientAccessSchema, roleNeedsClientScope } from "@/lib/member-clients";
+import { applyMemberClientsAccess } from "@/lib/member-clients.functions";
 
 const ROLES = ["owner", "admin", "manager", "user", "client"] as const;
 /**
@@ -140,6 +142,8 @@ const InviteInput = z.object({
   expiresAt: z.string().datetime().optional(),
   /** Perfil de acesso aplicado quando o convite for aceito. */
   accessProfileId: z.string().uuid().nullable().optional(),
+  /** Clientes que a pessoa vai atender (Manager/User). */
+  clientAccess: ClientAccessSchema.optional(),
 });
 
 function randomToken(bytes = 24): string {
@@ -268,10 +272,14 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
       error?: string;
       emailSent?: boolean;
       provisioned?: boolean;
+      clientsError?: string;
     }> = [];
+
+    const scopedAccess = roleNeedsClientScope(data.role) ? data.clientAccess ?? null : null;
 
     for (const email of data.emails) {
       const token = randomToken();
+      let clientsError: string | undefined;
 
       // Autoridade canônica do papel concedido (espelha can_invite_brand_role).
       // Falha aqui é erro de autoridade, não silencioso rebaixamento para USER.
@@ -342,6 +350,10 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
         invited_by: userId,
         temp_password_sent: provisioned,
         ...(data.expiresAt ? { expires_at: data.expiresAt } : {}),
+        // Clientes escolhidos: aplicados no aceite com a autoridade de quem convidou.
+        ...(scopedAccess
+          ? { all_clients: scopedAccess.all, client_ids: scopedAccess.clientIds }
+          : {}),
       };
       const { error: inviteErr } = await supabase.from("brand_invites").insert(insertPayload);
       if (inviteErr) {
@@ -365,6 +377,14 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
           { onConflict: "brand_id,user_id" },
         );
         if (bmErr) console.error("[invite] falha ao aplicar papel na membership", bmErr);
+        if (!bmErr && scopedAccess) {
+          try {
+            await applyMemberClientsAccess(supabase, data.brandId, createdUserId, scopedAccess);
+          } catch (e) {
+            // A pessoa entra sem clientes (menor acesso) e o motivo volta para a tela.
+            clientsError = e instanceof Error ? e.message : "clientes_nao_liberados";
+          }
+        }
       }
 
       // URL canônica da instalação ATUAL (host da requisição) — nunca link relativo
@@ -398,6 +418,7 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
         emailSent: emailRes.sent,
         error: emailRes.error,
         provisioned,
+        ...(clientsError ? { clientsError } : {}),
       });
     }
 
@@ -720,6 +741,8 @@ const AddExistingInput = z.object({
   email: z.string().trim().toLowerCase().email(),
   role: z.enum(ASSIGNABLE).default("user"),
   permissions: z.array(z.enum(ALL_PERMISSION_IDS as [PermissionId, ...PermissionId[]])).default([]),
+  /** Clientes que a pessoa vai atender (Manager/User). */
+  clientAccess: ClientAccessSchema.optional(),
 });
 
 // ============================================================================
@@ -1068,7 +1091,18 @@ export const addExistingUserToBrand = createServerFn({ method: "POST" })
       return { status: "not_found" as const, email: data.email };
     }
 
+    let clients: { added: number; removed: number; allClients: boolean } | null = null;
+    if (linked.user_id && data.clientAccess && roleNeedsClientScope(data.role)) {
+      clients = await applyMemberClientsAccess(
+        supabase,
+        data.brandId,
+        linked.user_id,
+        data.clientAccess,
+      );
+    }
+
     return {
+      clients,
       status: linked.status,
       email: linked.email,
       userId: linked.user_id,
@@ -1110,6 +1144,8 @@ const AddPersonInput = z.object({
   role: z.enum(ASSIGNABLE).default("user"),
   permissions: z.array(z.enum(ALL_PERMISSION_IDS as [PermissionId, ...PermissionId[]])).default([]),
   clientIds: z.array(z.string().uuid()).default([]),
+  /** "Todos os clientes" (inclui futuros) — só vale para Manager/User. */
+  allClients: z.boolean().default(false),
   sendEmail: z.boolean().default(true),
   /** Perfil de acesso (permissões por módulo) aplicado ao membro. */
   accessProfileId: z.string().uuid().nullable().optional(),
@@ -1225,21 +1261,12 @@ export const addPerson = createServerFn({ method: "POST" })
     );
     if (upErr) throw upErr;
 
-    // Restrições por projeto (opcional)
-    if (data.clientIds.length > 0) {
-      const rows = data.clientIds.map((cid) => ({
-        brand_id: data.brandId,
-        client_id: cid,
-        user_id: targetId,
-        role: data.role,
-        created_by: userId,
-      }));
-      const { error: cmErr } = await (
-        supabaseAdmin.from as never as (t: string) => {
-          upsert: (v: unknown, o: { onConflict: string }) => Promise<{ error: unknown }>;
-        }
-      )("client_members").upsert(rows, { onConflict: "client_id,user_id" });
-      if (cmErr) throw cmErr as Error;
+    // Clientes que atende (Manager/User): mesma regra de hierarquia do banco.
+    if (roleNeedsClientScope(data.role) && (data.allClients || data.clientIds.length > 0)) {
+      await applyMemberClientsAccess(supabase, data.brandId, targetId, {
+        all: data.allClients,
+        clientIds: data.clientIds,
+      });
     }
 
     // Status para o toast

@@ -31,6 +31,8 @@ import {
 } from "@/components/settings/team-shared";
 import { useAccessRole } from "@/hooks/use-access-role";
 import type { BrandRole } from "@/lib/team-admin.functions";
+import { MemberClientsPicker } from "@/components/settings/member-clients-picker";
+import { roleNeedsClientScope, type ClientAccess } from "@/lib/member-clients";
 
 /**
  * Papéis internos oficiais vêm de `ASSIGNABLE_ROLES` (owner | admin | manager |
@@ -144,6 +146,7 @@ function InvitePanel({
   const roleOptions = invitableRoles(authorityRole);
   const [emails, setEmails] = useState<string[]>([]);
   const [role, setRole] = useState<Role>(() => firstGrantable(roleOptions));
+  const [clientAccess, setClientAccess] = useState<ClientAccess | null>(null);
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
@@ -158,8 +161,18 @@ function InvitePanel({
     setBusy(true);
     try {
       const res = await invite({
-        data: { brandId, emails: list, role },
+        data: {
+          brandId,
+          emails: list,
+          role,
+          ...(roleNeedsClientScope(role) && clientAccess ? { clientAccess } : {}),
+        },
       });
+      const clientFails = (res.results ?? []).filter((r) => r.clientsError);
+      if (clientFails.length > 0)
+        toast.error("Convite enviado, mas os clientes não foram liberados", {
+          description: clientFails[0]?.clientsError,
+        });
       const okCount = (res.results ?? []).filter((r) => r.status !== "error").length;
       const failCount = (res.results ?? []).filter((r) => r.status === "error").length;
       if (okCount > 0)
@@ -196,6 +209,13 @@ function InvitePanel({
 
       <RoleSelect value={role} onChange={setRole} options={roleOptions} />
 
+      <MemberClientsPicker
+        brandId={brandId}
+        role={role}
+        value={clientAccess}
+        onChange={setClientAccess}
+      />
+
       <div className="flex items-center justify-end gap-2 pt-1">
         <Button variant="outline" size="sm" onClick={onClose} disabled={busy}>
           Cancelar
@@ -228,6 +248,7 @@ function LinkPanel({
   const roleOptions = invitableRoles(authorityRole);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>(() => firstGrantable(roleOptions));
+  const [clientAccess, setClientAccess] = useState<ClientAccess | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -241,7 +262,12 @@ function LinkPanel({
     setError(null);
     try {
       const res = await link({
-        data: { brandId, email: clean, role },
+        data: {
+          brandId,
+          email: clean,
+          role,
+          ...(roleNeedsClientScope(role) && clientAccess ? { clientAccess } : {}),
+        },
       });
       if (res.status === "not_found") {
         setError("Nenhum usuário com esse e-mail. Use a aba Convidar para criar a conta.");
@@ -284,6 +310,13 @@ function LinkPanel({
       </div>
 
       <RoleSelect value={role} onChange={setRole} options={roleOptions} />
+
+      <MemberClientsPicker
+        brandId={brandId}
+        role={role}
+        value={clientAccess}
+        onChange={setClientAccess}
+      />
 
       {error ? (
         <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
