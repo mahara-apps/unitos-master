@@ -5,6 +5,7 @@ import {
   useLocation,
   useNavigate,
 } from "@tanstack/react-router";
+import { ClientPeopleAccess } from "@/components/customers/client-people-access";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useEffect, useState } from "react";
@@ -452,6 +453,7 @@ function CustomerDetailReady({
               </TabsContent>
 
               <TabsContent value="trabalho" className="mt-0">
+                <ClientPeopleAccess brandId={brandId} clientId={customerId} />
                 <WorkTab brandId={brandId} clientId={customerId} />
               </TabsContent>
 

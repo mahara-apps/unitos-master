@@ -14,6 +14,7 @@ import { Command } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationsBell } from "@/components/notifications/notifications-drawer";
 import { MandatoryPasswordReset } from "@/components/auth/mandatory-password-reset";
+import { ClientAccessPrompt } from "@/components/tasks/client-access-prompt";
 import { AiJobsProvider } from "@/components/ai-jobs/ai-jobs-provider";
 import { AiJobsIndicator } from "@/components/ai-jobs/ai-jobs-indicator";
 import { BrandFavicon } from "@/components/brand/brand-favicon";
@@ -158,6 +159,7 @@ function AppShellContent() {
             </div>
             <CommandMenu />
             <MandatoryPasswordReset />
+            <ClientAccessPrompt />
             <BrandFavicon />
           </SidebarProvider>
         </AiJobsProvider>

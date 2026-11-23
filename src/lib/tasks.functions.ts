@@ -464,7 +464,12 @@ export async function assertAssigneeCanAccessTaskClient(
     };
     rpc: (fn: never, args?: never) => unknown;
   },
-  args: { brandId: string; clientId: string | null; assigneeId: string | null | undefined },
+  args: {
+    brandId: string;
+    clientId: string | null;
+    assigneeId: string | null | undefined;
+    taskId?: string | null;
+  },
 ): Promise<void> {
   if (!args.assigneeId) return;
   const { data: membership, error } = await supabase
@@ -482,7 +487,10 @@ export async function assertAssigneeCanAccessTaskClient(
     { _client_id: args.clientId, _user_id: args.assigneeId },
   );
   if (accessError) throw accessError;
-  if (allowed !== true) throw new Error("Este responsável não tem acesso ao cliente da tarefa.");
+  if (allowed !== true) {
+    const { noClientAccessMessage } = await import("@/lib/client-access-error");
+    throw new Error(noClientAccessMessage(args.clientId, args.assigneeId, args.taskId ?? null));
+  }
 }
 
 const CreateTaskInput = z.object({
@@ -645,6 +653,7 @@ export const updateTaskFn = createServerFn({ method: "POST" })
       await assertAssigneeCanAccessTaskClient(context.supabase as never, {
         brandId,
         clientId: nextClientId,
+        taskId: data.taskId,
         assigneeId:
           patch.assignee_id !== undefined
             ? patch.assignee_id

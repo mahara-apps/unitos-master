@@ -559,7 +559,7 @@ WITH checks AS (
                'client_ad_accounts','project_participants','user_login_events','work_comments',
                 'work_links','work_statuses','client_automation_attempts',
                  'client_automation_dates','client_automation_dispatches','client_automation_rules',
-                  'project_job_counters','system_events','project_duplication_requests','project_template_requests','ai_provider_finance','ai_budget_alert_settings','ai_finance_alert_events','production_stage_defaults','production_stage_applications','production_stage_post_snapshots','ai_credential_audit'
+                  'project_job_counters','system_events','project_duplication_requests','project_template_requests','ai_provider_finance','ai_budget_alert_settings','ai_finance_alert_events','production_stage_defaults','production_stage_applications','production_stage_post_snapshots','ai_credential_audit','client_access_requests'
              ]) AS t
              WHERE to_regclass('public.' || t) IS NULL
            ) faltando
@@ -575,7 +575,7 @@ WITH checks AS (
              'client_ad_accounts','project_participants','user_login_events','work_comments',
               'work_links','work_statuses','client_automation_attempts',
                'client_automation_dates','client_automation_dispatches','client_automation_rules',
-                'project_job_counters','system_events','project_duplication_requests','project_template_requests','ai_provider_finance','ai_budget_alert_settings','ai_finance_alert_events','production_stage_defaults','production_stage_applications','production_stage_post_snapshots','ai_credential_audit'
+                'project_job_counters','system_events','project_duplication_requests','project_template_requests','ai_provider_finance','ai_budget_alert_settings','ai_finance_alert_events','production_stage_defaults','production_stage_applications','production_stage_post_snapshots','ai_credential_audit','client_access_requests'
            ]) AS t
            WHERE to_regclass('public.' || t) IS NULL
          ) THEN 'PASS' ELSE 'FAIL' END
@@ -804,6 +804,18 @@ WITH checks AS (
                   AND policyname='avatars_owner_read' AND qual LIKE '%auth.uid()%')
       AND EXISTS(SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='installation'
                   AND policyname='installation_select_super_admin')
+      THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL
+  SELECT 99, 'acesso a cliente: liberar e pedir pela tarefa',
+    'RPCs de liberação respeitam hierarquia; pedidos só leitura para usuários',
+    CASE WHEN to_regprocedure('public.grant_client_access(uuid,uuid,uuid)') IS NOT NULL
+      AND to_regprocedure('public.request_client_access(uuid,uuid,uuid)') IS NOT NULL
+      AND to_regprocedure('public.resolve_client_access_request(uuid,boolean)') IS NOT NULL
+      AND to_regprocedure('public.can_grant_client_access(uuid,uuid)') IS NOT NULL
+      AND NOT has_function_privilege('anon','public.grant_client_access(uuid,uuid,uuid)','EXECUTE')
+      AND NOT has_table_privilege('authenticated','public.client_access_requests','INSERT,UPDATE,DELETE')
+      AND NOT has_table_privilege('anon','public.client_access_requests','SELECT')
+      AND (SELECT relrowsecurity FROM pg_class WHERE oid='public.client_access_requests'::regclass)
       THEN 'PASS' ELSE 'FAIL' END
 )
 SELECT ord, check_name, observed, status FROM checks ORDER BY ord;

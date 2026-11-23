@@ -3873,6 +3873,70 @@ export type Database = {
           },
         ]
       }
+      client_access_requests: {
+        Row: {
+          brand_id: string
+          client_id: string
+          created_at: string
+          id: string
+          requested_by: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          task_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brand_id: string
+          client_id: string
+          created_at?: string
+          id?: string
+          requested_by: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          task_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brand_id?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          requested_by?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          task_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_access_requests_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "client_access_requests_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_access_requests_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_ad_accounts: {
         Row: {
           ad_account_id: string
@@ -9938,6 +10002,10 @@ export type Database = {
         Args: { _brand_id: string; _user_id: string }
         Returns: boolean
       }
+      can_grant_client_access: {
+        Args: { _client_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_invite_brand_role: {
         Args: {
           _actor_id: string
@@ -10288,6 +10356,10 @@ export type Database = {
         }
         Returns: Json
       }
+      grant_client_access: {
+        Args: { _client_id: string; _task_id?: string; _user_id: string }
+        Returns: boolean
+      }
       has_brand_role: {
         Args: {
           _brand_id: string
@@ -10635,6 +10707,14 @@ export type Database = {
       reorder_job_tasks: {
         Args: { p_job_id: string; p_ordered_ids: string[] }
         Returns: number
+      }
+      request_client_access: {
+        Args: { _client_id: string; _task_id?: string; _user_id: string }
+        Returns: string
+      }
+      resolve_client_access_request: {
+        Args: { _approve: boolean; _request_id: string }
+        Returns: boolean
       }
       restore_project_template: {
         Args: { _brand_id: string; _template_id: string }
