@@ -68,3 +68,9 @@
 - [x] Teste automático de chaves: falhas também entram no consumo e o mesmo modelo não é testado duas vezes na rodada.
 - [ ] Publicar 1.4.92 e atualizar instalações — aguarda autorização explícita.
 - [ ] Geração real nas instalações (pauta/peça expressa) — não testada; depende de sessão e chaves reais.
+
+## Acesso a clientes na Equipe (MASTER 1.4.95)
+- [ ] Textos do papel Manager alinhados à regra real (só clientes liberados)
+- [ ] Bloco "Clientes que atende" (Todos — inclui futuros / Selecionar) em convidar, vincular, adicionar usuário e editar membro
+- [ ] RPC set_member_clients + brand_members.all_clients + aplicação no aceite do convite
+- [ ] Contagem de clientes na lista da Equipe; testes; MASTER-first; publicação aguarda autorização
